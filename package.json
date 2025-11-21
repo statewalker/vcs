@@ -1,0 +1,34 @@
+{
+  "name": "@webrun-vcs/monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "lint:root": "biome lint .",
+    "format": "biome check --write .",
+    "format:unsafe": "biome check --write --unsafe .",
+    "dev:notes": "pnpm --filter @webrun-vcs/notes dev",
+    "dev:demo": "pnpm --filter demo dev",
+    "deps:check": "./scripts/update-deps.sh --check-only",
+    "deps:update": "./scripts/update-deps.sh",
+    "deps:update:safe": "./scripts/update-deps.sh --test --build",
+    "deps:update:interactive": "./scripts/update-deps.sh --interactive"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "pnpm": "catalog:",
+    "rolldown": "catalog:",
+    "tsx": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "eslintConfig": {
+    "extends": []
+  }
+}
