@@ -38,8 +38,8 @@ export default {
   // pager: true, // whether to show previous & next links in the footer
   // output: "dist", // path to the output root for build
   // search: true, // activate search
-  // linkify: true, // convert URLs in Markdown to links
-  // typographer: false, // smart quotes and other typographic improvements
-  // preserveExtension: false, // drop .html from URLs
-  // preserveIndex: false, // drop /index from URLs
+  linkify: true, // convert URLs in Markdown to links
+  typographer: true, // smart quotes and other typographic improvements
+  preserveExtension: true, // drop .html from URLs
+  preserveIndex: true, // drop /index from URLs
 };
