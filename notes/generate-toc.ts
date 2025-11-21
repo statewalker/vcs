@@ -108,7 +108,7 @@ function getTopLevelDir(filePath: string, rootDir: string): string | null {
  * @param rootDir - The root directory containing markdown files (default: "./src")
  * @returns Array of pages in ObservableHQ format
  */
-export function buildTOC(rootDir: string = "./src"): Page[] {
+export function buildTOC(rootDir = "./src"): Page[] {
   const markdownFiles = findMarkdownFiles(rootDir);
 
   // Extract file info
@@ -168,9 +168,11 @@ export function buildTOC(rootDir: string = "./src"): Page[] {
 
       // If no index.md, use the first file alphabetically as the section header
       if (!indexFile) {
-        console.warn(`No index.md found for directory ${topDir}, using first file as section header`);
+        console.warn(
+          `No index.md found for directory ${topDir}, using first file as section header`,
+        );
         const sortedInfos = [...infos].sort((a, b) =>
-          basename(a.filePath).localeCompare(basename(b.filePath))
+          basename(a.filePath).localeCompare(basename(b.filePath)),
         );
         indexFile = sortedInfos[0];
 
@@ -236,12 +238,12 @@ function formatPages(pages: Page[], indent = 2): string {
 
 // Main execution (when run directly)
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const toc = buildTOC(DEFAULT_SRC_DIR);
+  const toc = buildTOC(process.argv[2] || DEFAULT_SRC_DIR);
   const formatted = formatPages(toc);
 
   console.log("Generated TOC:");
-  console.log("");
-  console.log("  pages:", formatted.substring(1)); // Remove leading '['
-  console.log("");
+  console.log("--------------------------------");
+  console.log(formatted); // Remove leading '['
+  console.log("--------------------------------");
   console.log("Copy this to your observablehq.config.js file");
 }
