@@ -31,7 +31,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -50,7 +50,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -69,7 +69,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -88,7 +88,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -107,7 +107,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -126,7 +126,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -154,7 +154,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -173,7 +173,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -192,7 +192,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -211,7 +211,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);

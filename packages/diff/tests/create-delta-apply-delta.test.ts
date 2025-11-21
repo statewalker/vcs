@@ -9,7 +9,7 @@ import {
 import { checksum } from "./checksum.js";
 
 /**
- * Helper function to collect all deltas from the generator (excluding checksum)
+ * Helper function to collect all deltas from the generator (excluding start and finish)
  */
 function collectDeltas(
   source: Uint8Array,
@@ -18,36 +18,42 @@ function collectDeltas(
   minMatch?: number,
 ): Delta[] {
   return Array.from(createDelta(source, target, blockSize, minMatch)).filter(
-    (d) => !("checksum" in d),
+    (d) => d.type !== "start" && d.type !== "finish",
   );
 }
 
 /**
- * Helper function to add checksum to deltas based on expected output
+ * Helper function to add start, finish (checksum) to deltas based on expected output
  */
 function addChecksum(source: Uint8Array, deltas: Delta[]): Delta[] {
-  // If already has checksum, return as-is
-  if (deltas.length > 0 && "checksum" in deltas[deltas.length - 1]) {
+  // If already has finish, return as-is
+  if (deltas.length > 0 && deltas[deltas.length - 1].type === "finish") {
     return deltas;
   }
 
   // Calculate what the output would be
   const chunks: Uint8Array[] = [];
+  let targetLen = 0;
   for (const d of deltas) {
-    if ("data" in d) {
+    if (d.type === "insert") {
       if (d.data.length > 0) {
         chunks.push(d.data);
+        targetLen += d.data.length;
       }
-    } else if ("checksum" in d) {
-    } else {
+    } else if (d.type === "copy") {
       chunks.push(source.subarray(d.start, d.start + d.len));
+      targetLen += d.len;
     }
   }
 
   const output = mergeChunks(chunks);
   const checksumValue = checksum(output);
 
-  return [...deltas, { checksum: checksumValue }];
+  return [
+    { type: "start", targetLen },
+    ...deltas,
+    { type: "finish", checksum: checksumValue },
+  ];
 }
 
 /**
@@ -61,15 +67,15 @@ function reconstructTarget(source: Uint8Array, deltas: Delta[]): Uint8Array {
 /**
  * Helper to check if a delta is a COPY delta
  */
-function isCopyDelta(delta: Delta): delta is { start: number; len: number } {
-  return "start" in delta && "len" in delta;
+function isCopyDelta(delta: Delta): delta is { type: "copy"; start: number; len: number } {
+  return delta.type === "copy";
 }
 
 /**
  * Helper to check if a delta is a LITERAL delta
  */
-function isLiteralDelta(delta: Delta): delta is { data: Uint8Array } {
-  return "data" in delta;
+function isLiteralDelta(delta: Delta): delta is { type: "insert"; data: Uint8Array } {
+  return delta.type === "insert";
 }
 
 describe("createDelta", () => {
@@ -661,21 +667,21 @@ describe("applyDelta", () => {
 
     it("should handle empty source with LITERAL deltas only", () => {
       const source = new Uint8Array([]);
-      const deltas: Delta[] = [{ data: new Uint8Array([1, 2, 3, 4, 5]) }];
+      const deltas: Delta[] = [{ type: "insert", data: new Uint8Array([1, 2, 3, 4, 5]) }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([1, 2, 3, 4, 5]));
     });
 
     it("should handle single COPY delta", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5]);
-      const deltas: Delta[] = [{ start: 0, len: 5 }];
+      const deltas: Delta[] = [{ type: "copy", start: 0, len: 5 }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(source);
     });
 
     it("should handle single LITERAL delta", () => {
       const source = new Uint8Array([1, 2, 3, 4]);
-      const deltas: Delta[] = [{ data: new Uint8Array([10, 20, 30]) }];
+      const deltas: Delta[] = [{ type: "insert", data: new Uint8Array([10, 20, 30]) }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([10, 20, 30]));
     });
@@ -684,14 +690,14 @@ describe("applyDelta", () => {
   describe("Basic Functionality", () => {
     it("should apply COPY delta correctly", () => {
       const source = new Uint8Array([10, 20, 30, 40, 50, 60, 70, 80]);
-      const deltas: Delta[] = [{ start: 2, len: 4 }];
+      const deltas: Delta[] = [{ type: "copy", start: 2, len: 4 }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([30, 40, 50, 60]));
     });
 
     it("should apply LITERAL delta correctly", () => {
       const source = new Uint8Array([1, 2, 3, 4]);
-      const deltas: Delta[] = [{ data: new Uint8Array([99, 100, 101]) }];
+      const deltas: Delta[] = [{ type: "insert", data: new Uint8Array([99, 100, 101]) }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([99, 100, 101]));
     });
@@ -699,8 +705,8 @@ describe("applyDelta", () => {
     it("should apply multiple COPY deltas", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
       const deltas: Delta[] = [
-        { start: 0, len: 3 },
-        { start: 7, len: 3 },
+        { type: "copy", start: 0, len: 3 },
+        { type: "copy", start: 7, len: 3 },
       ];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([1, 2, 3, 8, 9, 10]));
@@ -709,8 +715,8 @@ describe("applyDelta", () => {
     it("should apply multiple LITERAL deltas", () => {
       const source = new Uint8Array([1, 2, 3, 4]);
       const deltas: Delta[] = [
-        { data: new Uint8Array([10, 20]) },
-        { data: new Uint8Array([30, 40, 50]) },
+        { type: "insert", data: new Uint8Array([10, 20]) },
+        { type: "insert", data: new Uint8Array([30, 40, 50]) },
       ];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([10, 20, 30, 40, 50]));
@@ -719,10 +725,10 @@ describe("applyDelta", () => {
     it("should apply mixed COPY and LITERAL deltas", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
       const deltas: Delta[] = [
-        { start: 0, len: 2 },
-        { data: new Uint8Array([99, 100]) },
-        { start: 4, len: 2 },
-        { data: new Uint8Array([101]) },
+        { type: "copy", start: 0, len: 2 },
+        { type: "insert", data: new Uint8Array([99, 100]) },
+        { type: "copy", start: 4, len: 2 },
+        { type: "insert", data: new Uint8Array([101]) },
       ];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([1, 2, 99, 100, 5, 6, 101]));
@@ -734,10 +740,11 @@ describe("applyDelta", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5]);
       const target = new Uint8Array([1, 2, 99, 3, 4, 5]);
       const deltas: Delta[] = [
-        { start: 0, len: 2 },
-        { data: new Uint8Array([99]) },
-        { start: 2, len: 3 },
-        { checksum: checksum(target) },
+        { type: "start", targetLen: target.length },
+        { type: "copy", start: 0, len: 2 },
+        { type: "insert", data: new Uint8Array([99]) },
+        { type: "copy", start: 2, len: 3 },
+        { type: "finish", checksum: checksum(target) },
       ];
 
       const chunks: Uint8Array[] = [];
@@ -753,9 +760,10 @@ describe("applyDelta", () => {
       const source = new Uint8Array([10, 20, 30, 40]);
       const target = new Uint8Array([10, 20, 99]);
       const deltas: Delta[] = [
-        { start: 0, len: 2 },
-        { data: new Uint8Array([99]) },
-        { checksum: checksum(target) },
+        { type: "start", targetLen: target.length },
+        { type: "copy", start: 0, len: 2 },
+        { type: "insert", data: new Uint8Array([99]) },
+        { type: "finish", checksum: checksum(target) },
       ];
 
       const gen = applyDelta(source, deltas);
@@ -775,9 +783,9 @@ describe("applyDelta", () => {
     it("should support early termination", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
       const deltas: Delta[] = [
-        { start: 0, len: 4 },
-        { data: new Uint8Array([99, 100]) },
-        { start: 4, len: 4 },
+        { type: "copy", start: 0, len: 4 },
+        { type: "insert", data: new Uint8Array([99, 100]) },
+        { type: "copy", start: 4, len: 4 },
       ];
 
       const gen = applyDelta(source, deltas);
@@ -789,9 +797,9 @@ describe("applyDelta", () => {
     it("should yield chunks lazily", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
       const deltas: Delta[] = [
-        { start: 0, len: 4 },
-        { data: new Uint8Array([99]) },
-        { start: 4, len: 4 },
+        { type: "copy", start: 0, len: 4 },
+        { type: "insert", data: new Uint8Array([99]) },
+        { type: "copy", start: 4, len: 4 },
       ];
 
       // Creating generator should not process anything
@@ -807,42 +815,42 @@ describe("applyDelta", () => {
   describe("Boundary Conditions", () => {
     it("should handle COPY from start of source", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
-      const deltas: Delta[] = [{ start: 0, len: 4 }];
+      const deltas: Delta[] = [{ type: "copy", start: 0, len: 4 }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([1, 2, 3, 4]));
     });
 
     it("should handle COPY from end of source", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
-      const deltas: Delta[] = [{ start: 4, len: 4 }];
+      const deltas: Delta[] = [{ type: "copy", start: 4, len: 4 }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([5, 6, 7, 8]));
     });
 
     it("should handle COPY of entire source", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
-      const deltas: Delta[] = [{ start: 0, len: 8 }];
+      const deltas: Delta[] = [{ type: "copy", start: 0, len: 8 }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(source);
     });
 
     it("should handle COPY with len=1", () => {
       const source = new Uint8Array([10, 20, 30, 40]);
-      const deltas: Delta[] = [{ start: 2, len: 1 }];
+      const deltas: Delta[] = [{ type: "copy", start: 2, len: 1 }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([30]));
     });
 
     it("should handle LITERAL with single byte", () => {
       const source = new Uint8Array([1, 2, 3]);
-      const deltas: Delta[] = [{ data: new Uint8Array([99]) }];
+      const deltas: Delta[] = [{ type: "insert", data: new Uint8Array([99]) }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([99]));
     });
 
     it("should handle LITERAL with zero bytes", () => {
       const source = new Uint8Array([1, 2, 3]);
-      const deltas: Delta[] = [{ start: 0, len: 3 }, { data: new Uint8Array([]) }];
+      const deltas: Delta[] = [{ type: "copy", start: 0, len: 3 }, { type: "insert", data: new Uint8Array([]) }];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([1, 2, 3]));
     });
@@ -852,11 +860,11 @@ describe("applyDelta", () => {
     it("should handle many small deltas", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
       const deltas: Delta[] = [
-        { start: 0, len: 1 },
-        { data: new Uint8Array([99]) },
-        { start: 1, len: 1 },
-        { data: new Uint8Array([100]) },
-        { start: 2, len: 1 },
+        { type: "copy", start: 0, len: 1 },
+        { type: "insert", data: new Uint8Array([99]) },
+        { type: "copy", start: 1, len: 1 },
+        { type: "insert", data: new Uint8Array([100]) },
+        { type: "copy", start: 2, len: 1 },
       ];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([1, 99, 2, 100, 3]));
@@ -865,9 +873,9 @@ describe("applyDelta", () => {
     it("should handle overlapping COPY regions (duplicating data)", () => {
       const source = new Uint8Array([10, 20, 30, 40]);
       const deltas: Delta[] = [
-        { start: 0, len: 2 },
-        { start: 0, len: 2 },
-        { start: 2, len: 2 },
+        { type: "copy", start: 0, len: 2 },
+        { type: "copy", start: 0, len: 2 },
+        { type: "copy", start: 2, len: 2 },
       ];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([10, 20, 10, 20, 30, 40]));
@@ -876,8 +884,8 @@ describe("applyDelta", () => {
     it("should handle COPY in reverse order", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5]);
       const deltas: Delta[] = [
-        { start: 3, len: 2 },
-        { start: 0, len: 3 },
+        { type: "copy", start: 3, len: 2 },
+        { type: "copy", start: 0, len: 3 },
       ];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([4, 5, 1, 2, 3]));
@@ -886,9 +894,9 @@ describe("applyDelta", () => {
     it("should handle binary data with null bytes", () => {
       const source = new Uint8Array([0, 0, 1, 2, 0, 0]);
       const deltas: Delta[] = [
-        { start: 0, len: 2 },
-        { data: new Uint8Array([99]) },
-        { start: 2, len: 2 },
+        { type: "copy", start: 0, len: 2 },
+        { type: "insert", data: new Uint8Array([99]) },
+        { type: "copy", start: 2, len: 2 },
       ];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([0, 0, 99, 1, 2]));
@@ -902,7 +910,7 @@ describe("applyDelta", () => {
 
       const deltas: Delta[] = [];
       for (let i = 0; i < 100; i++) {
-        deltas.push({ start: i * 10, len: 5 });
+        deltas.push({ type: "copy", start: i * 10, len: 5 });
       }
 
       const reconstructed = reconstructTarget(source, deltas);

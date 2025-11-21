@@ -46,7 +46,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
 
       // Create delta from source and target
       const deltas = createDelta(source, target);
-      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Our delta blob should match Fossil's delta blob
       expect(ourDeltaBlob).toEqual(fossilDelta);
@@ -56,7 +56,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
       const { source, target, fossilDelta } = loadTestCase(2);
 
       const deltas = createDelta(source, target);
-      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Note: Our diff algorithm may produce different (but equally valid) deltas
       // than Fossil's algorithm, so we verify the delta works rather than exact match
@@ -73,7 +73,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
       const { source, target, fossilDelta } = loadTestCase(3);
 
       const deltas = createDelta(source, target);
-      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       expect(ourDeltaBlob).toEqual(fossilDelta);
     });
@@ -82,7 +82,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
       const { source, target, fossilDelta } = loadTestCase(4);
 
       const deltas = createDelta(source, target);
-      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       expect(ourDeltaBlob).toEqual(fossilDelta);
     });
@@ -91,7 +91,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
       const { source, target, fossilDelta } = loadTestCase(5);
 
       const deltas = createDelta(source, target);
-      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const ourDeltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       expect(ourDeltaBlob).toEqual(fossilDelta);
     });
@@ -152,7 +152,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
 
       // Create our own delta
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Decode and apply our delta
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
@@ -166,7 +166,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
       const { source, target } = loadTestCase(2);
 
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
       const result = mergeChunks(applyDelta(source, decodedDeltas));
@@ -178,7 +178,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
       const { source, target } = loadTestCase(3);
 
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
       const result = mergeChunks(applyDelta(source, decodedDeltas));
@@ -190,7 +190,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
       const { source, target } = loadTestCase(4);
 
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
       const result = mergeChunks(applyDelta(source, decodedDeltas));
@@ -202,7 +202,7 @@ describe("Fossil Delta Format - Real Fossil Data", () => {
       const { source, target } = loadTestCase(5);
 
       const deltas = createDelta(source, target);
-      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas, target.length));
+      const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       const decodedDeltas = decodeDeltaBlocks(deltaBlob);
       const result = mergeChunks(applyDelta(source, decodedDeltas));

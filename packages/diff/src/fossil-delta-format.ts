@@ -152,25 +152,29 @@ const NEWLINE = 10; // '\n'
  * @param targetSize Size of the target data
  * @yields Uint8Array chunks of serialized delta
  */
-export function* encodeDeltaBlocks(
-  deltas: Iterable<Delta>,
-  targetSize: number,
-): Generator<Uint8Array> {
+export function* encodeDeltaBlocks(deltas: Iterable<Delta>): Generator<Uint8Array> {
   // First, emit the target size header
-  yield encodeIntWithSuffix(targetSize, NEWLINE); // '\n'
 
   for (const delta of deltas) {
-    if ("data" in delta) {
-      // Literal/insert operation
-      const len = delta.data.length;
-      yield encodeIntWithSuffix(len, COLON); // ':'
-      yield delta.data;
-    } else if ("checksum" in delta) {
-      // Checksum operation
-      yield encodeIntWithSuffix(delta.checksum, SEMICOLON); // ';'
-    } else {
-      yield encodeIntWithSuffix(delta.len, AT); // '@'
-      yield encodeIntWithSuffix(delta.start, COMMA); // ','
+    switch (delta.type) {
+      case "start":
+        // Target size header
+        yield encodeIntWithSuffix(delta.targetLen, NEWLINE); // '\n'
+        continue;
+      case "finish":
+        // Checksum operation in the end
+        yield encodeIntWithSuffix(delta.checksum, SEMICOLON); // ';'
+        break;
+      case "insert":
+        // Literal/insert operation
+        yield encodeIntWithSuffix(delta.data.length, COLON); // ':'
+        yield delta.data;
+        continue;
+      case "copy":
+        // Copy operation
+        yield encodeIntWithSuffix(delta.len, AT); // '@'
+        yield encodeIntWithSuffix(delta.start, COMMA); // ','
+        continue;
     }
   }
 
@@ -195,13 +199,18 @@ export function* decodeDeltaBlocks(deltas: Uint8Array): Generator<Delta> {
   let foundChecksum = false;
 
   // Skip the target size header (format: <size>\n)
-  const { pos: afterHeaderPos, end: headerEnd } = decodeIntWithSuffix(
-    deltas,
-    pos,
-  );
+  const {
+    pos: afterHeaderPos,
+    value: expectedTargetLen,
+    end: headerEnd,
+  } = decodeIntWithSuffix(deltas, pos);
   if (headerEnd !== NEWLINE) {
     throw new Error("delta must start with target size followed by newline");
   }
+  yield {
+    type: "start",
+    targetLen: expectedTargetLen,
+  };
   pos = afterHeaderPos;
 
   while (pos < end) {
@@ -211,7 +220,7 @@ export function* decodeDeltaBlocks(deltas: Uint8Array): Generator<Delta> {
       // Insert operation
       const len = value;
       const data = deltas.subarray(newPos, newPos + len);
-      yield { data };
+      yield { type: "insert", data };
       pos = newPos + len;
     } else if (endChar === AT) {
       // '@'
@@ -226,13 +235,13 @@ export function* decodeDeltaBlocks(deltas: Uint8Array): Generator<Delta> {
         // ','
         throw new Error("copy command not terminated by ','");
       }
-      yield { start: offset, len };
+      yield { type: "copy", start: offset, len };
       pos = afterOffsetPos;
     } else if (endChar === SEMICOLON) {
       // ';'
       // Checksum (ensure unsigned 32-bit integer)
       const checksum = value >>> 0;
-      yield { checksum };
+      yield { type: "finish", checksum };
       foundChecksum = true;
       break;
     } else {
@@ -255,13 +264,7 @@ export function* decodeDeltaBlocks(deltas: Uint8Array): Generator<Delta> {
     let endChar = -1;
     for (i = pos; i < buffer.length; i++) {
       const c = buffer[i];
-      if (
-        c === COLON ||
-        c === AT ||
-        c === SEMICOLON ||
-        c === COMMA ||
-        c === NEWLINE
-      ) {
+      if (c === COLON || c === AT || c === SEMICOLON || c === COMMA || c === NEWLINE) {
         endChar = c;
         i++;
         break;

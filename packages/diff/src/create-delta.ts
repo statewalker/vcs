@@ -9,11 +9,16 @@ export function* createDelta(
   minMatch = 16,
 ): Generator<Delta> {
   const checksumObj = new Checksum();
+  yield {
+    type: "start",
+    targetLen: target.length,
+  };
   for (const r of createDeltaRanges(source, target, blockSize, minMatch)) {
     if (r.from === "source") {
       // COPY from source
       checksumObj.update(source.subarray(r.start, r.start + r.len), 0, r.len);
       yield {
+        type: "copy",
         start: r.start,
         len: r.len,
       };
@@ -22,6 +27,7 @@ export function* createDelta(
       const chunk = target.subarray(r.start, r.start + r.len);
       checksumObj.update(chunk, 0, chunk.length);
       yield {
+        type: "insert",
         data: chunk,
       };
     }
@@ -29,6 +35,7 @@ export function* createDelta(
 
   // Yield checksum as the last message
   yield {
+    type: "finish",
     checksum: checksumObj.finalize(),
   };
 }
