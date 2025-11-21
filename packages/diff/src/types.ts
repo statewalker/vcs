@@ -9,4 +9,7 @@ export type Delta =
     }
   | {
       data: Uint8Array;
+    }
+  | {
+      checksum: number;
     };

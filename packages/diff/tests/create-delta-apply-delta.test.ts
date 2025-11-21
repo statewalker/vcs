@@ -6,9 +6,10 @@ import {
   createDeltaRanges,
   mergeChunks,
 } from "../src/index.js";
+import { checksum } from "./checksum.js";
 
 /**
- * Helper function to collect all deltas from the generator
+ * Helper function to collect all deltas from the generator (excluding checksum)
  */
 function collectDeltas(
   source: Uint8Array,
@@ -16,14 +17,45 @@ function collectDeltas(
   blockSize?: number,
   minMatch?: number,
 ): Delta[] {
-  return Array.from(createDelta(source, target, blockSize, minMatch));
+  return Array.from(createDelta(source, target, blockSize, minMatch)).filter(
+    (d) => !("checksum" in d),
+  );
+}
+
+/**
+ * Helper function to add checksum to deltas based on expected output
+ */
+function addChecksum(source: Uint8Array, deltas: Delta[]): Delta[] {
+  // If already has checksum, return as-is
+  if (deltas.length > 0 && "checksum" in deltas[deltas.length - 1]) {
+    return deltas;
+  }
+
+  // Calculate what the output would be
+  const chunks: Uint8Array[] = [];
+  for (const d of deltas) {
+    if ("data" in d) {
+      if (d.data.length > 0) {
+        chunks.push(d.data);
+      }
+    } else if ("checksum" in d) {
+    } else {
+      chunks.push(source.subarray(d.start, d.start + d.len));
+    }
+  }
+
+  const output = mergeChunks(chunks);
+  const checksumValue = checksum(output);
+
+  return [...deltas, { checksum: checksumValue }];
 }
 
 /**
  * Helper function to apply deltas and reconstruct target
  */
 function reconstructTarget(source: Uint8Array, deltas: Delta[]): Uint8Array {
-  return mergeChunks(applyDelta(source, deltas));
+  const deltasWithChecksum = addChecksum(source, deltas);
+  return mergeChunks(applyDelta(source, deltasWithChecksum));
 }
 
 /**
@@ -700,10 +732,12 @@ describe("applyDelta", () => {
   describe("Generator Behavior", () => {
     it("should work as an iterator", () => {
       const source = new Uint8Array([1, 2, 3, 4, 5]);
+      const target = new Uint8Array([1, 2, 99, 3, 4, 5]);
       const deltas: Delta[] = [
         { start: 0, len: 2 },
         { data: new Uint8Array([99]) },
         { start: 2, len: 3 },
+        { checksum: checksum(target) },
       ];
 
       const chunks: Uint8Array[] = [];
@@ -717,7 +751,12 @@ describe("applyDelta", () => {
 
     it("should allow manual iteration with next()", () => {
       const source = new Uint8Array([10, 20, 30, 40]);
-      const deltas: Delta[] = [{ start: 0, len: 2 }, { data: new Uint8Array([99]) }];
+      const target = new Uint8Array([10, 20, 99]);
+      const deltas: Delta[] = [
+        { start: 0, len: 2 },
+        { data: new Uint8Array([99]) },
+        { checksum: checksum(target) },
+      ];
 
       const gen = applyDelta(source, deltas);
 

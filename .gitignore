@@ -65,6 +65,7 @@ Desktop.ini
 *.sublime-workspace
 
 # Temporary files
+tmp
 *.tmp
 *.temp
 .cache/

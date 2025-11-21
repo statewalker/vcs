@@ -1,0 +1,1 @@
+This is a test fixture for the fossil-delta-js library.
