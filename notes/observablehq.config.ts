@@ -1,6 +1,8 @@
 // See https://observablehq.com/framework/config for documentation.
+import { buildTOC } from "./generate-toc.ts";
+
 export default {
-  // The app’s title; used in the sidebar and webpage titles.
+  // The app's title; used in the sidebar and webpage titles.
   title: "Notes",
 
   // The pages and sections in the sidebar. If you don’t specify this option,
@@ -15,6 +17,11 @@ export default {
   //     ]
   //   }
   // ],
+  // The pages and sections in the sidebar are automatically generated from
+  // markdown files in the src directory. Each top-level folder becomes a section,
+  // with all nested files flattened. Titles are extracted from the first # header.
+  // To manually regenerate the TOC, run: pnpm run generate-toc
+  pages: buildTOC("./src"),
 
   // Content to add to the head of the page, e.g. for a favicon:
   head: '<link rel="icon" href="observable.png" type="image/png" sizes="32x32">',
