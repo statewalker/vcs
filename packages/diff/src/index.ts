@@ -1,10 +1,29 @@
-export type { DeltaRange, Delta } from "./types.js";
-export { createDeltaRanges } from "./create-delta-ranges.js";
-export { createDelta } from "./create-delta.js";
-export { applyDelta } from "./apply-delta.js";
-export { mergeChunks } from "./merge-chunks.js";
+// Re-export everything from the delta module
 export {
-  encodeDeltaBlocks,
+  // Delta range generation algorithms
+  createDeltaRanges,
+  createFossilLikeRanges,
+  buildSourceIndex,
+  rollingInit,
+  rollingSlide,
+  rollingValue,
+  weakChecksum,
+  strongChecksum,
+  emitRange,
+  DEFAULT_BLOCK_SIZE,
+  // Delta creation and application
+  createDelta,
+  applyDelta,
+  // Encoding/decoding
   decodeDeltaBlocks,
-} from "./fossil-delta-format.js";
-export { Checksum } from "./checksum-obj.js";
+  encodeDeltaBlocks,
+  // Utilities
+  Checksum,
+  mergeChunks,
+  // Types
+  type Delta,
+  type DeltaRange,
+  type RollingChecksum,
+  type SourceBlock,
+  type SourceIndex,
+} from "./delta/index.js";

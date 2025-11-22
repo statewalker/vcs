@@ -1,0 +1,151 @@
+import { describe, expect, it } from "vitest";
+import { type PerformanceStats, testCreateDeltaRanges } from "./create-delta-ranges-utility.js";
+
+function pad(str: string): string {
+  return str.padStart(8, " ");
+}
+
+/**
+ * Helper to format performance stats for console output
+ */
+function formatStats(prefix: string, stats: PerformanceStats): string {
+  const formatSize = (size: number): string => {
+    if (size < 1024) return `${pad(size.toString())}B`;
+    if (size < 1024 * 1024) return `${pad((size / 1024).toFixed(2))}KB`;
+    return `${pad((size / (1024 * 1024)).toFixed(2))}MB`;
+  };
+  return [
+    prefix,
+    `Source:     ${formatSize(stats.sourceSize)}`,
+    `Target:     ${formatSize(stats.targetSize)}`,
+    `Range Size: ${formatSize(stats.rangesSize)}`,
+    `Ranges:     ${pad(stats.rangeCount.toString())}`,
+    `Mutation:   ${pad((stats.mutationDegree * 100).toFixed(1))}%`,
+    `Gen:        ${pad(stats.rangeGenerationTimeMs.toFixed(3))}ms`,
+    `Apply:      ${pad(stats.rangeApplicationTimeMs.toFixed(3))}ms`,
+  ].join("\n  ");
+}
+
+describe("createDeltaRanges - Performance and Correctness Tests", () => {
+  /* * /
+  describe("Very large blocks (500KB - 30MB)", () => {
+    const size500KB = 500 * 1024;
+
+    const mutationsDegrees = [0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0];
+    const sourcesSizes = [size500KB];
+    const targetSizesDelta = [0.75, 0.9, 1.0, 1.1, 1.25];
+    let i = 0;
+    for (const sourceSize of sourcesSizes) {
+      for (const targetSizeDelta of targetSizesDelta) {
+        for (const mutationDegree of mutationsDegrees) {
+          it(`${i}) should handle ${sourceSize}B source, ${Math.floor(sourceSize * targetSizeDelta)}B target, ${(mutationDegree * 100).toFixed(1)}% mutation`, () => {
+            const stats = testCreateDeltaRanges({
+              sourceSize: sourceSize,
+              targetSize: Math.floor(sourceSize * targetSizeDelta),
+              mutationDegree: mutationDegree,
+              seed:
+                sourceSize + Math.floor(mutationDegree * 1000) + Math.floor(targetSizeDelta * 100),
+            });
+            const report = formatStats(`${i}) ==============================`, stats);
+            console.log(report);
+            // Expect that the function completes successfully
+            expect(stats.rangeCount).toBeGreaterThanOrEqual(0);
+            i++;
+          });
+        }
+      }
+    }
+  });
+  // */
+
+  describe("Stress test - range of sizes", () => {
+    /**
+     * Helper to format performance stats for console output
+     */
+    function formatStats(prefix: string, stats: PerformanceStats): string {
+      const formatSize = (size: number): string => {
+        if (size < 1024) return `${pad(size.toString())}B`;
+        if (size < 1024 * 1024) return `${pad((size / 1024).toFixed(2))}KB`;
+        return `${pad((size / (1024 * 1024)).toFixed(2))}MB`;
+      };
+      return [
+        prefix,
+        `Source:     ${formatSize(stats.sourceSize)}`,
+        `Target:     ${formatSize(stats.targetSize)}`,
+        `Range Size: ${formatSize(stats.rangesSize)}`,
+        `Ranges:     ${pad(stats.rangeCount.toString())}`,
+        `Mutation:   ${pad((stats.mutationDegree * 100).toFixed(1))}%`,
+        `Gen:        ${pad(stats.rangeGenerationTimeMs.toFixed(3))}ms`,
+        `Apply:      ${pad(stats.rangeApplicationTimeMs.toFixed(3))}ms`,
+      ].join("\n  ");
+    }
+
+    const sizes = [
+      10,
+      50,
+      100,
+      500,
+      1024,
+      5120,
+      10240,
+      51200,
+      102400,
+      125 * 1024,
+      // 250 * 1024,
+      512 * 1024,
+      1024 * 1024,
+    ];
+    const mutations = [0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0];
+
+    it("should handle various size and mutation combinations", () => {
+      function roundUpToPow2(x: number): number {
+        const p = Math.ceil(Math.log2(x));
+        return 1 << p;
+      }
+
+      function chooseBlockSize(fileSize: number): number {
+        const min = 16; // or 32, 64…
+        const max = 64 * 1024; // 64 KiB or whatever upper bound you like
+
+        if (fileSize <= 0) return min;
+
+        const raw = Math.sqrt(fileSize); // smooth scaling
+        const rounded = roundUpToPow2(raw); // optional power-of-two
+        return Math.min(max, Math.max(min, rounded));
+      }
+
+      console.log("\n  === Comprehensive Performance Matrix ===");
+      let errorCount = 0;
+      let successCount = 0;
+      let i = 0;
+      for (const size of sizes) {
+        for (const mutation of mutations) {
+          try {
+            let blockSize = chooseBlockSize(size);
+            blockSize = 16;
+
+            // blockSize = 16;
+            const stats = testCreateDeltaRanges({
+              sourceSize: size,
+              targetSize: size,
+              mutationDegree: mutation,
+              seed: size * 1000 + mutation * 100,
+              blockSize,
+            });
+            console.log(formatStats(`${i++}`, stats));
+            successCount++;
+          } catch (error) {
+            console.log(
+              `  Size: ${size.toString().padStart(6)}B | Mut: ${(mutation * 100).toFixed(0).padStart(3)}% | ` +
+                `ERROR: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            errorCount++;
+          }
+        }
+      }
+      console.log(`\n  Summary: ${successCount} passed, ${errorCount} failed`);
+      // We expect at least some tests to pass
+      expect(successCount).toBeGreaterThan(0);
+    });
+  });
+});

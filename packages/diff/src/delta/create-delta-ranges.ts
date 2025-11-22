@@ -1,10 +1,10 @@
-import type { DeltaRange } from "./types.js";
+import type { DeltaRange } from "../types.js";
 
 export function* createDeltaRanges(
   source: Uint8Array,
   target: Uint8Array,
   blockSize = 16,
-  minMatch = 16,
+  minMatch = blockSize,
 ): Generator<DeltaRange> {
   if (blockSize < 1) {
     throw new Error("blockSize must be >= 1");
@@ -37,23 +37,28 @@ export function* createDeltaRanges(
     return h >>> 0;
   };
 
+  const updateHash = (oldHash: number, outByte: number, inByte: number): number => {
+    let h = (oldHash - ((outByte * basePow) >>> 0)) >>> 0;
+    h = (h * BASE) >>> 0;
+    h = (h + inByte) >>> 0;
+    return h >>> 0;
+  };
+
   // ---- Build the rolling-hash index of source ----
-  const index = new Map<number, number[]>();
+  const index = {} as { [key: number]: number[] };
   if (sourceLen >= blockSize) {
     let h = computeHash(source, 0, blockSize);
-    index.set(h, [0]);
+    index[h] = [0];
 
     for (let i = 1; i <= sourceLen - blockSize; i++) {
       const outByte = source[i - 1];
       const inByte = source[i + blockSize - 1];
 
-      h = (h - ((outByte * basePow) >>> 0)) >>> 0;
-      h = (h * BASE) >>> 0;
-      h = (h + inByte) >>> 0;
+      h = updateHash(h, outByte, inByte);
 
-      const arr = index.get(h);
+      const arr = index[h];
       if (arr) arr.push(i);
-      else index.set(h, [i]);
+      else index[h] = [i];
     }
   }
 
@@ -80,12 +85,36 @@ export function* createDeltaRanges(
   let lastLiteralStart = 0;
   let t = 0;
 
+  // Track rolling hash for target blocks
+  let targetHash = 0 >>> 0;
+  let targetHashPos = -1; // Position where targetHash is valid
+
+  // Initialize hash at position 0 if possible
+  if (targetLen >= blockSize) {
+    targetHash = computeHash(target, 0, blockSize);
+    targetHashPos = 0;
+  }
+
   while (t < targetLen) {
     const remaining = targetLen - t;
 
     if (remaining >= blockSize && sourceLen >= blockSize) {
-      const h = computeHash(target, t, blockSize);
-      const candidates = index.get(h);
+      // Update hash efficiently based on movement
+      if (targetHashPos === t - 1 && t > 0) {
+        // Moving forward by 1 byte - use rolling hash update
+        const outByte = target[targetHashPos];
+        const inByte = target[t + blockSize - 1];
+        targetHash = updateHash(targetHash, outByte, inByte);
+        targetHashPos = t;
+      } else if (targetHashPos !== t) {
+        // Position jumped (after a match) - recompute hash
+        targetHash = computeHash(target, t, blockSize);
+        targetHashPos = t;
+      }
+      // else: targetHashPos === t, hash already valid
+
+      const h = targetHash;
+      const candidates = index[h];
 
       let bestLen = 0;
       let bestSourcePos = -1;
@@ -96,8 +125,8 @@ export function* createDeltaRanges(
           let s = s0;
           let tt = t;
 
-          // extend backward
-          while (s > 0 && tt > 0 && source[s - 1] === target[tt - 1]) {
+          // extend backward (but not before lastLiteralStart to avoid overlap)
+          while (s > 0 && tt > lastLiteralStart && source[s - 1] === target[tt - 1]) {
             s--;
             tt--;
           }

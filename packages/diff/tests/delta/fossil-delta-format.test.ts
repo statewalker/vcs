@@ -2,10 +2,11 @@ import { describe, expect, test } from "vitest";
 import {
   applyDelta,
   createDelta,
+  createDeltaRanges,
   decodeDeltaBlocks,
   encodeDeltaBlocks,
   mergeChunks,
-} from "../src/index.js";
+} from "../../src/index.js";
 
 // Helper to collect generator into array
 function collectChunks(gen: Iterable<Uint8Array>): Uint8Array {
@@ -30,7 +31,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       const target = new Uint8Array([1, 2, 3, 4, 5]);
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
@@ -49,7 +50,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       const target = new Uint8Array([3, 4, 5, 6]); // Copy middle portion
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
@@ -68,7 +69,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       const target = new Uint8Array([1, 2, 3, 4, 5]);
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
@@ -87,7 +88,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       const target = new Uint8Array([1, 2, 3, 20, 30, 40, 99, 100]);
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
@@ -106,7 +107,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       const target = new Uint8Array([10, 20, 30, 40, 50]);
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
@@ -125,7 +126,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       const target = new Uint8Array([]);
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
@@ -153,7 +154,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       }
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
@@ -172,7 +173,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       const target = new Uint8Array([1, 2, 3, 1, 2, 3]); // Remove last repeat
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
@@ -191,7 +192,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       const target = new Uint8Array([1, 2, 3, 10, 20, 30]);
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result
@@ -210,7 +211,7 @@ describe("Fossil Delta Format - Full Pipeline", () => {
       const target = new Uint8Array([10, 20, 30, 40, 50]);
 
       // Step 1: source -> createDelta -> encodeDeltaBlocks -> deltaBlob
-      const deltas = createDelta(source, target);
+      const deltas = createDelta(source, target, createDeltaRanges(source, target));
       const deltaBlob = collectChunks(encodeDeltaBlocks(deltas));
 
       // Step 2: deltaBlob -> decodeDeltaBlocks -> applyDelta -> result

@@ -1,19 +1,26 @@
 import { Checksum } from "./checksum-obj.js";
-import { createDeltaRanges } from "./create-delta-ranges.js";
-import type { Delta } from "./types.js";
+import type { Delta, DeltaRange } from "./types.js";
 
+/**
+ * Creates a delta from a source and target using the provided delta ranges.
+ * This function converts DeltaRange instances into Delta instances with checksums.
+ *
+ * @param source - The source byte array
+ * @param target - The target byte array
+ * @param ranges - An iterable of DeltaRange instances
+ * @returns A generator that yields Delta instances
+ */
 export function* createDelta(
   source: Uint8Array,
   target: Uint8Array,
-  blockSize = 16,
-  minMatch = 16,
+  ranges: Iterable<DeltaRange>,
 ): Generator<Delta> {
   const checksumObj = new Checksum();
   yield {
     type: "start",
     targetLen: target.length,
   };
-  for (const r of createDeltaRanges(source, target, blockSize, minMatch)) {
+  for (const r of ranges) {
     if (r.from === "source") {
       // COPY from source
       checksumObj.update(source.subarray(r.start, r.start + r.len), 0, r.len);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeChunks } from "../src/index.js";
+import { mergeChunks } from "../../src/index.js";
 
 describe("mergeChunks", () => {
   describe("Edge Cases", () => {

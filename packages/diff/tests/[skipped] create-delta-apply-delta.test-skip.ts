@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  type Delta,
   applyDelta,
   createDelta,
   createDeltaRanges,
+  type Delta,
   mergeChunks,
 } from "../src/index.js";
 import { checksum } from "./checksum.js";
@@ -49,11 +49,7 @@ function addChecksum(source: Uint8Array, deltas: Delta[]): Delta[] {
   const output = mergeChunks(chunks);
   const checksumValue = checksum(output);
 
-  return [
-    { type: "start", targetLen },
-    ...deltas,
-    { type: "finish", checksum: checksumValue },
-  ];
+  return [{ type: "start", targetLen }, ...deltas, { type: "finish", checksum: checksumValue }];
 }
 
 /**
@@ -850,7 +846,10 @@ describe("applyDelta", () => {
 
     it("should handle LITERAL with zero bytes", () => {
       const source = new Uint8Array([1, 2, 3]);
-      const deltas: Delta[] = [{ type: "copy", start: 0, len: 3 }, { type: "insert", data: new Uint8Array([]) }];
+      const deltas: Delta[] = [
+        { type: "copy", start: 0, len: 3 },
+        { type: "insert", data: new Uint8Array([]) },
+      ];
       const reconstructed = reconstructTarget(source, deltas);
       expect(reconstructed).toEqual(new Uint8Array([1, 2, 3]));
     });
@@ -970,6 +969,234 @@ describe("applyDelta", () => {
       const reconstructed = reconstructTarget(source, deltas);
 
       expect(reconstructed).toEqual(target);
+    });
+  });
+
+  describe("Large Block Tests (~3MB)", () => {
+    const MB = 1024 * 1024;
+    const SIZE_3MB = 3 * MB;
+
+    it("should handle identical 3MB blocks", { timeout: 120000 }, () => {
+      // Create identical 3MB blocks
+      const source = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        source[i] = i % 256;
+      }
+      const target = new Uint8Array(source);
+
+      const deltas = Array.from(createDelta(source, target));
+      const reconstructed = reconstructTarget(source, deltas);
+
+      expect(reconstructed).toEqual(target);
+      expect(reconstructed.length).toBe(SIZE_3MB);
+
+      // Should be mostly copy operations (very efficient)
+      const copyDeltas = deltas.filter((d) => isCopyDelta(d));
+      expect(copyDeltas.length).toBeGreaterThan(0);
+    });
+
+    it("should handle 3MB with small changes (0.1% modified)", { timeout: 120000 }, () => {
+      // Create 3MB source
+      const source = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        source[i] = i % 256;
+      }
+
+      // Create target with 0.1% changes (~3KB modified)
+      const target = new Uint8Array(source);
+      const numChanges = Math.floor(SIZE_3MB * 0.001);
+      for (let i = 0; i < numChanges; i++) {
+        const pos = Math.floor((i * SIZE_3MB) / numChanges);
+        target[pos] = (target[pos] + 1) % 256;
+      }
+
+      const deltas = Array.from(createDelta(source, target));
+      const reconstructed = reconstructTarget(source, deltas);
+
+      expect(reconstructed).toEqual(target);
+      expect(reconstructed.length).toBe(SIZE_3MB);
+
+      // Delta should be much smaller than full target
+      const deltaDeltas = deltas.filter((d) => d.type === "copy" || d.type === "insert");
+      expect(deltaDeltas.length).toBeGreaterThan(0);
+    });
+
+    it("should handle 3MB with medium changes (10% modified)", { timeout: 120000 }, () => {
+      // Create 3MB source
+      const source = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        source[i] = i % 256;
+      }
+
+      // Create target with 10% changes (~300KB modified)
+      const target = new Uint8Array(source);
+      const chunkSize = 1024;
+      const numChunks = Math.floor(SIZE_3MB / chunkSize);
+      const chunksToModify = Math.floor(numChunks * 0.1);
+
+      for (let i = 0; i < chunksToModify; i++) {
+        const chunkIdx = Math.floor((i * numChunks) / chunksToModify);
+        const start = chunkIdx * chunkSize;
+        for (let j = 0; j < chunkSize && start + j < SIZE_3MB; j++) {
+          target[start + j] = (target[start + j] + 100) % 256;
+        }
+      }
+
+      const deltas = Array.from(createDelta(source, target));
+      const reconstructed = reconstructTarget(source, deltas);
+
+      expect(reconstructed).toEqual(target);
+      expect(reconstructed.length).toBe(SIZE_3MB);
+
+      // Should have both copy and insert operations
+      const copyDeltas = deltas.filter((d) => isCopyDelta(d));
+      const insertDeltas = deltas.filter((d) => isLiteralDelta(d));
+      expect(copyDeltas.length).toBeGreaterThan(0);
+      expect(insertDeltas.length).toBeGreaterThan(0);
+    });
+
+    it("should handle completely different 3MB blocks", { timeout: 120000 }, () => {
+      // Create source with one pattern
+      const source = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        source[i] = i % 256;
+      }
+
+      // Create target with completely different pattern
+      const target = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        target[i] = (255 - (i % 256)) % 256;
+      }
+
+      const deltas = Array.from(createDelta(source, target));
+      const reconstructed = reconstructTarget(source, deltas);
+
+      expect(reconstructed).toEqual(target);
+      expect(reconstructed.length).toBe(SIZE_3MB);
+
+      // Should be mostly insert operations (no common data)
+      const insertDeltas = deltas.filter((d) => isLiteralDelta(d));
+      expect(insertDeltas.length).toBeGreaterThan(0);
+    });
+
+    it("should handle 3MB with repeated pattern insertions", { timeout: 120000 }, () => {
+      // Create source with sequential pattern
+      const source = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        source[i] = i % 256;
+      }
+
+      // Create target with same data but with 1KB repeated pattern inserted every 100KB
+      const pattern = new Uint8Array(1024);
+      for (let i = 0; i < pattern.length; i++) {
+        pattern[i] = 0xaa;
+      }
+
+      const chunks: Uint8Array[] = [];
+      const chunkSize = 100 * 1024;
+      for (let i = 0; i < SIZE_3MB; i += chunkSize) {
+        const end = Math.min(i + chunkSize, SIZE_3MB);
+        chunks.push(source.subarray(i, end));
+        if (end < SIZE_3MB) {
+          chunks.push(pattern);
+        }
+      }
+
+      const target = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.length, 0));
+      let offset = 0;
+      for (const chunk of chunks) {
+        target.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const deltas = Array.from(createDelta(source, target));
+      const reconstructed = reconstructTarget(source, deltas);
+
+      expect(reconstructed).toEqual(target);
+
+      // Should have mix of copy and insert operations
+      const copyDeltas = deltas.filter((d) => isCopyDelta(d));
+      const insertDeltas = deltas.filter((d) => isLiteralDelta(d));
+      expect(copyDeltas.length).toBeGreaterThan(0);
+      expect(insertDeltas.length).toBeGreaterThan(0);
+    });
+
+    it("should handle 3MB with changes at boundaries", { timeout: 120000 }, () => {
+      // Create 3MB source
+      const source = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        source[i] = i % 256;
+      }
+
+      // Create target with changes at start, middle, and end
+      const target = new Uint8Array(source);
+
+      // Change first 10KB
+      for (let i = 0; i < 10 * 1024; i++) {
+        target[i] = (target[i] + 50) % 256;
+      }
+
+      // Change middle 10KB
+      const middleStart = Math.floor(SIZE_3MB / 2) - 5 * 1024;
+      for (let i = 0; i < 10 * 1024; i++) {
+        target[middleStart + i] = (target[middleStart + i] + 50) % 256;
+      }
+
+      // Change last 10KB
+      for (let i = SIZE_3MB - 10 * 1024; i < SIZE_3MB; i++) {
+        target[i] = (target[i] + 50) % 256;
+      }
+
+      const deltas = Array.from(createDelta(source, target));
+      const reconstructed = reconstructTarget(source, deltas);
+
+      expect(reconstructed).toEqual(target);
+      expect(reconstructed.length).toBe(SIZE_3MB);
+    });
+
+    it("should handle 3MB with binary patterns (null bytes)", { timeout: 120000 }, () => {
+      // Create source with null bytes and data
+      const source = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        source[i] = i % 10 === 0 ? 0 : i % 256;
+      }
+
+      // Create target with similar but slightly different null byte patterns
+      const target = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        target[i] = i % 11 === 0 ? 0 : i % 256;
+      }
+
+      const deltas = Array.from(createDelta(source, target));
+      const reconstructed = reconstructTarget(source, deltas);
+
+      expect(reconstructed).toEqual(target);
+      expect(reconstructed.length).toBe(SIZE_3MB);
+    });
+
+    it("should handle 3MB blocks with different block sizes", { timeout: 240000 }, () => {
+      // Create 3MB source and target with 5% difference
+      const source = new Uint8Array(SIZE_3MB);
+      for (let i = 0; i < SIZE_3MB; i++) {
+        source[i] = i % 256;
+      }
+
+      const target = new Uint8Array(source);
+      const changeInterval = 20;
+      for (let i = 0; i < SIZE_3MB; i += changeInterval) {
+        target[i] = (target[i] + 1) % 256;
+      }
+
+      // Test with different block sizes
+      const blockSizes = [16, 64, 256, 1024];
+
+      for (const blockSize of blockSizes) {
+        const deltas = Array.from(createDelta(source, target, blockSize, blockSize));
+        const reconstructed = reconstructTarget(source, deltas);
+
+        expect(reconstructed).toEqual(target);
+        expect(reconstructed.length).toBe(SIZE_3MB);
+      }
     });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { Checksum } from "../src/checksum-obj.js";
+import { Checksum } from "../../src/index.js";
 import { checksum } from "./checksum.js";
 
 describe("Checksum - Incremental checksum calculation", () => {
