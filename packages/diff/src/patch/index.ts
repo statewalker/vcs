@@ -1,6 +1,5 @@
 // Patch parsing
 
-export * from "../common/crypto/index.js";
 export * from "./base85.js";
 export * from "./binary-delta.js";
 export * from "./binary-hunk.js";

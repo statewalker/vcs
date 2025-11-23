@@ -328,18 +328,16 @@ abstract class EditPaths<S extends Sequence> {
   }
 
   protected makeEdit(snake1: bigint, snake2: bigint): boolean {
-    let x1 = this.snake2x(snake1);
+    const x1 = this.snake2x(snake1);
     const x2 = this.snake2x(snake2);
-    let y1 = this.snake2y(snake1);
+    const y1 = this.snake2y(snake1);
     const y2 = this.snake2y(snake2);
 
     // Check for incompatible partial edit paths
-    if (x1 > x2 || y1 > y2) {
-      x1 = x2;
-      y1 = y2;
-    }
+    const finalX1 = x1 > x2 || y1 > y2 ? x2 : x1;
+    const finalY1 = x1 > x2 || y1 > y2 ? y2 : y1;
 
-    this.middle.edit = new Edit(x1, x2, y1, y2);
+    this.middle.edit = new Edit(finalX1, x2, finalY1, y2);
     return true;
   }
 
@@ -417,14 +415,15 @@ abstract class EditPaths<S extends Sequence> {
  */
 class ForwardEditPaths<S extends Sequence> extends EditPaths<S> {
   override followSnake(k: number, x: number): number {
+    let pos = x;
     while (
-      x < this.middle.endA &&
-      k + x < this.middle.endB &&
-      this.cmp.equals(this.a, x, this.b, k + x)
+      pos < this.middle.endA &&
+      k + pos < this.middle.endB &&
+      this.cmp.equals(this.a, pos, this.b, k + pos)
     ) {
-      x++;
+      pos++;
     }
-    return x;
+    return pos;
   }
 
   override getLeft(x: number): number {
@@ -468,14 +467,15 @@ class ForwardEditPaths<S extends Sequence> extends EditPaths<S> {
  */
 class BackwardEditPaths<S extends Sequence> extends EditPaths<S> {
   override followSnake(k: number, x: number): number {
+    let pos = x;
     while (
-      x > this.middle.beginA &&
-      k + x > this.middle.beginB &&
-      this.cmp.equals(this.a, x - 1, this.b, k + x - 1)
+      pos > this.middle.beginA &&
+      k + pos > this.middle.beginB &&
+      this.cmp.equals(this.a, pos - 1, this.b, k + pos - 1)
     ) {
-      x--;
+      pos--;
     }
-    return x;
+    return pos;
   }
 
   override getLeft(x: number): number {

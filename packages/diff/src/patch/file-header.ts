@@ -158,16 +158,16 @@ export class FileHeader {
     }
 
     // Skip "diff --git " prefix (11 bytes)
-    ptr += 11;
+    const offset = ptr + 11;
 
     // Find the paths: "a/path b/path"
     // Look for space separator between the two paths
-    let aStart = ptr;
+    let aStart = offset;
 
     // Skip "a/" prefix
-    if (ptr + 2 < eol && this.buffer[ptr] === 0x61 && this.buffer[ptr + 1] === 0x2f) {
+    if (offset + 2 < eol && this.buffer[offset] === 0x61 && this.buffer[offset + 1] === 0x2f) {
       // 'a', '/'
-      aStart = ptr + 2;
+      aStart = offset + 2;
     }
 
     // Find the space between the two paths
@@ -206,57 +206,58 @@ export class FileHeader {
    * @returns Next offset after headers
    */
   private parseGitHeaders(ptr: number, end: number): number {
-    while (ptr < end) {
-      const eol = nextLF(this.buffer, ptr);
+    let offset = ptr;
+    while (offset < end) {
+      const eol = nextLF(this.buffer, offset);
       if (eol >= end) {
         return end;
       }
 
       // Check for various header types
-      if (match(this.buffer, ptr, OLD_MODE) >= 0) {
-        this.oldMode = this.parseFileMode(ptr + OLD_MODE.length, eol);
-      } else if (match(this.buffer, ptr, NEW_MODE) >= 0) {
-        this.newMode = this.parseFileMode(ptr + NEW_MODE.length, eol);
-      } else if (match(this.buffer, ptr, DELETED_FILE_MODE) >= 0) {
-        this.oldMode = this.parseFileMode(ptr + DELETED_FILE_MODE.length, eol);
+      if (match(this.buffer, offset, OLD_MODE) >= 0) {
+        this.oldMode = this.parseFileMode(offset + OLD_MODE.length, eol);
+      } else if (match(this.buffer, offset, NEW_MODE) >= 0) {
+        this.newMode = this.parseFileMode(offset + NEW_MODE.length, eol);
+      } else if (match(this.buffer, offset, DELETED_FILE_MODE) >= 0) {
+        this.oldMode = this.parseFileMode(offset + DELETED_FILE_MODE.length, eol);
         this.newMode = 0;
         this.changeType = ChangeType.DELETE;
-      } else if (match(this.buffer, ptr, NEW_FILE_MODE) >= 0) {
+      } else if (match(this.buffer, offset, NEW_FILE_MODE) >= 0) {
         this.oldMode = 0;
-        this.newMode = this.parseFileMode(ptr + NEW_FILE_MODE.length, eol);
+        this.newMode = this.parseFileMode(offset + NEW_FILE_MODE.length, eol);
         this.changeType = ChangeType.ADD;
-      } else if (match(this.buffer, ptr, INDEX) >= 0) {
-        this.parseIndexLine(ptr + INDEX.length, eol);
-      } else if (match(this.buffer, ptr, SIMILARITY_INDEX) >= 0) {
-        this.score = this.parsePercentage(ptr + SIMILARITY_INDEX.length, eol);
-      } else if (match(this.buffer, ptr, RENAME_FROM) >= 0) {
-        this.oldPath = decode(this.buffer, ptr + RENAME_FROM.length, eol - 1);
+      } else if (match(this.buffer, offset, INDEX) >= 0) {
+        this.parseIndexLine(offset + INDEX.length, eol);
+      } else if (match(this.buffer, offset, SIMILARITY_INDEX) >= 0) {
+        this.score = this.parsePercentage(offset + SIMILARITY_INDEX.length, eol);
+      } else if (match(this.buffer, offset, RENAME_FROM) >= 0) {
+        this.oldPath = decode(this.buffer, offset + RENAME_FROM.length, eol - 1);
         this.changeType = ChangeType.RENAME;
-      } else if (match(this.buffer, ptr, RENAME_TO) >= 0) {
-        this.newPath = decode(this.buffer, ptr + RENAME_TO.length, eol - 1);
+      } else if (match(this.buffer, offset, RENAME_TO) >= 0) {
+        this.newPath = decode(this.buffer, offset + RENAME_TO.length, eol - 1);
         this.changeType = ChangeType.RENAME;
-      } else if (match(this.buffer, ptr, COPY_FROM) >= 0) {
-        this.oldPath = decode(this.buffer, ptr + COPY_FROM.length, eol - 1);
+      } else if (match(this.buffer, offset, COPY_FROM) >= 0) {
+        this.oldPath = decode(this.buffer, offset + COPY_FROM.length, eol - 1);
         this.changeType = ChangeType.COPY;
-      } else if (match(this.buffer, ptr, COPY_TO) >= 0) {
-        this.newPath = decode(this.buffer, ptr + COPY_TO.length, eol - 1);
+      } else if (match(this.buffer, offset, COPY_TO) >= 0) {
+        this.newPath = decode(this.buffer, offset + COPY_TO.length, eol - 1);
         this.changeType = ChangeType.COPY;
-      } else if (match(this.buffer, ptr, OLD_NAME) >= 0) {
+      } else if (match(this.buffer, offset, OLD_NAME) >= 0) {
         // Start of actual diff content
-        return ptr;
-      } else if (match(this.buffer, ptr, GIT_BINARY) >= 0) {
+        return offset;
+      } else if (match(this.buffer, offset, GIT_BINARY) >= 0) {
         // Binary patch - skip the "GIT binary patch\n" line
         this.patchType = PatchType.GIT_BINARY;
         return eol; // Return pointer after this line
-      } else if (this.buffer[ptr] === 0x40 && this.buffer[ptr + 1] === 0x40) {
+      } else if (this.buffer[offset] === 0x40 && this.buffer[offset + 1] === 0x40) {
         // '@' - hunk header without --- +++ (malformed but handle it)
-        return ptr;
+        return offset;
       }
 
-      ptr = eol;
+      offset = eol;
     }
 
-    return ptr;
+    return offset;
   }
 
   /**
@@ -268,14 +269,15 @@ export class FileHeader {
    */
   private parseFileMode(ptr: number, end: number): number {
     let mode = 0;
-    while (ptr < end) {
-      const c = this.buffer[ptr];
+    let offset = ptr;
+    while (offset < end) {
+      const c = this.buffer[offset];
       if (c < 0x30 || c > 0x37) {
         // '0' to '7'
         break;
       }
       mode = (mode << 3) | (c - 0x30);
-      ptr++;
+      offset++;
     }
     return mode;
   }
@@ -344,24 +346,26 @@ export class FileHeader {
       return this.parseBinaryHunks(ptr, end);
     }
 
+    let offset = ptr;
+
     // Skip "--- " line if present (for text patches)
-    if (match(this.buffer, ptr, OLD_NAME) >= 0) {
-      ptr = nextLF(this.buffer, ptr);
+    if (match(this.buffer, offset, OLD_NAME) >= 0) {
+      offset = nextLF(this.buffer, offset);
     }
 
     // Skip "+++ " line if present
-    if (ptr < end && match(this.buffer, ptr, NEW_NAME) >= 0) {
-      ptr = nextLF(this.buffer, ptr);
+    if (offset < end && match(this.buffer, offset, NEW_NAME) >= 0) {
+      offset = nextLF(this.buffer, offset);
     }
 
     // Parse all text hunks in this file
-    while (ptr < end && isHunkHdr(this.buffer, ptr, end) === 1) {
-      const hunk = new HunkHeader(this.buffer, ptr);
-      ptr = hunk.parse(end);
+    while (offset < end && isHunkHdr(this.buffer, offset, end) === 1) {
+      const hunk = new HunkHeader(this.buffer, offset);
+      offset = hunk.parse(end);
       this.hunks.push(hunk);
     }
 
-    return ptr;
+    return offset;
   }
 
   /**
@@ -372,27 +376,29 @@ export class FileHeader {
    * @returns Next offset
    */
   private parseBinaryHunks(ptr: number, end: number): number {
+    let offset = ptr;
+
     // Parse forward binary hunk (literal or delta)
     if (
-      ptr < end &&
-      (match(this.buffer, ptr, LITERAL) >= 0 || match(this.buffer, ptr, DELTA) >= 0)
+      offset < end &&
+      (match(this.buffer, offset, LITERAL) >= 0 || match(this.buffer, offset, DELTA) >= 0)
     ) {
-      const hunk = new BinaryHunk(this.buffer, ptr);
-      ptr = hunk.parse(end);
+      const hunk = new BinaryHunk(this.buffer, offset);
+      offset = hunk.parse(end);
       this.forwardBinaryHunk = hunk;
     }
 
     // Parse reverse binary hunk (for reversible patches)
     if (
-      ptr < end &&
-      (match(this.buffer, ptr, LITERAL) >= 0 || match(this.buffer, ptr, DELTA) >= 0)
+      offset < end &&
+      (match(this.buffer, offset, LITERAL) >= 0 || match(this.buffer, offset, DELTA) >= 0)
     ) {
-      const hunk = new BinaryHunk(this.buffer, ptr);
-      ptr = hunk.parse(end);
+      const hunk = new BinaryHunk(this.buffer, offset);
+      offset = hunk.parse(end);
       this.reverseBinaryHunk = hunk;
     }
 
-    return ptr;
+    return offset;
   }
 
   /**

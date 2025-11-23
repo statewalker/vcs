@@ -14,7 +14,7 @@
  *     - Offset and size encoded in the x bits
  */
 
-import type { Edit, EditList } from "../text-diff/edit.js";
+import type { EditList } from "../text-diff/edit.js";
 
 /**
  * Read a variable-length integer from the delta stream
@@ -29,9 +29,10 @@ import type { Edit, EditList } from "../text-diff/edit.js";
 function readVariableInt(data: Uint8Array, pos: number): [number, number] {
   let value = 0;
   let shift = 0;
+  let offset = pos;
 
-  while (pos < data.length) {
-    const byte = data[pos++];
+  while (offset < data.length) {
+    const byte = data[offset++];
     value |= (byte & 0x7f) << shift;
     shift += 7;
 
@@ -40,7 +41,7 @@ function readVariableInt(data: Uint8Array, pos: number): [number, number] {
     }
   }
 
-  return [value, pos];
+  return [value, offset];
 }
 
 /**
@@ -69,22 +70,19 @@ function writeVariableInt(output: number[], value: number): void {
  * @throws Error if delta is invalid or base size doesn't match
  */
 export function decodeGitBinaryDelta(base: Uint8Array, delta: Uint8Array): Uint8Array {
-  let pos = 0;
-
   // Read base size
-  const [baseSize, pos1] = readVariableInt(delta, pos);
+  const [baseSize, pos1] = readVariableInt(delta, 0);
   if (baseSize !== base.length) {
     throw new Error(`Base size mismatch: expected ${baseSize}, got ${base.length}`);
   }
-  pos = pos1;
 
   // Read result size
-  const [resultSize, pos2] = readVariableInt(delta, pos);
-  pos = pos2;
+  const [resultSize, pos2] = readVariableInt(delta, pos1);
 
   // Decode instructions
   const result = new Uint8Array(resultSize);
   let resultPos = 0;
+  let pos = pos2;
 
   while (pos < delta.length) {
     const cmd = delta[pos++];
