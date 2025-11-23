@@ -24,6 +24,37 @@ All files and folders in this project **MUST** use **kebab-case** naming convent
 
 This convention ensures consistency across the codebase and aligns with modern web development best practices.
 
+## Module Structure and Imports
+
+All modules follow a consistent structure with **folder-based exports** and **wildcard re-exports**.
+
+### Key Rules:
+- **Each folder has index.ts** - Every source folder must contain an `index.ts` file
+- **Wildcard exports only** - Use `export *` in all index files, not named exports
+- **Import from folder index** - Cross-folder imports must reference `index.js`, not specific files
+- **Use .js extensions** - All imports use `.js` extension (not `.ts`), following ES module conventions
+
+### Quick Examples:
+
+**Index file (wildcard exports):**
+```typescript
+// src/delta/index.ts
+export * from "./apply-delta.js";
+export * from "./create-delta.js";
+export * from "./types.js";
+```
+
+**Cross-folder import:**
+```typescript
+// ✅ GOOD
+import { weakChecksum } from "../delta/index.js";
+
+// ❌ BAD
+import { weakChecksum } from "../delta/create-fossil-ranges.js";
+```
+
+**[Full Module Structure Guide](.claude/code/module-structure.md)**
+
 ## Documentation Writing Style
 
 **Write for humans, not AI readers.** Use narrative prose instead of bullet points and numbered lists.
