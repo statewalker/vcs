@@ -31,19 +31,19 @@ export class BinaryHunk {
   readonly startOffset: number;
 
   /** End offset of this binary hunk in the buffer */
-  endOffset: number = 0;
+  endOffset = 0;
 
   /** Type of binary hunk (LITERAL_DEFLATED or DELTA_DEFLATED) */
   type: BinaryHunkType = BinaryHunkType.LITERAL_DEFLATED;
 
   /** Size of the inflated/decoded data */
-  size: number = 0;
+  size = 0;
 
   /** Start offset of base85-encoded data */
-  dataStart: number = 0;
+  dataStart = 0;
 
   /** End offset of base85-encoded data */
-  dataEnd: number = 0;
+  dataEnd = 0;
 
   /**
    * Create a new binary hunk

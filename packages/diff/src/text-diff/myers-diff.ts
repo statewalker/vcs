@@ -253,7 +253,10 @@ class MiddleEdit<S extends Sequence> {
 
     for (let d = 1; ; d++) {
       if (this.forward.calculate(d) || this.backward.calculate(d)) {
-        return this.edit!;
+        if (!this.edit) {
+          throw new Error("Edit should be set when calculate returns true");
+        }
+        return this.edit;
       }
     }
   }

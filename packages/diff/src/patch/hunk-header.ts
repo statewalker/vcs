@@ -24,28 +24,28 @@ export class HunkHeader {
   readonly startOffset: number;
 
   /** End offset of this hunk (1 past the last line) */
-  endOffset: number = 0;
+  endOffset = 0;
 
   /** Old file start line number (1-based) */
-  oldStartLine: number = 0;
+  oldStartLine = 0;
 
   /** Old file line count */
-  oldLineCount: number = 0;
+  oldLineCount = 0;
 
   /** New file start line number (1-based) */
-  newStartLine: number = 0;
+  newStartLine = 0;
 
   /** New file line count */
-  newLineCount: number = 0;
+  newLineCount = 0;
 
   /** Number of context lines (unchanged) */
-  contextLineCount: number = 0;
+  contextLineCount = 0;
 
   /** Number of lines deleted from old file */
-  deletedLineCount: number = 0;
+  deletedLineCount = 0;
 
   /** Number of lines added to new file */
-  addedLineCount: number = 0;
+  addedLineCount = 0;
 
   /** Optional context text after "@@" */
   context: string | null = null;

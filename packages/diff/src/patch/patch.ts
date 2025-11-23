@@ -83,7 +83,7 @@ export class Patch {
    * @param offset Starting offset in buffer
    * @param end Ending offset in buffer
    */
-  parse(buffer: Uint8Array, offset: number = 0, end?: number): void {
+  parse(buffer: Uint8Array, offset = 0, end?: number): void {
     const finalEnd = end ?? buffer.length;
     let ptr = offset;
 

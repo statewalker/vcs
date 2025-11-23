@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { testLog } from "../test-logger.js";
 import { type PerformanceStats, testCreateDeltaRanges } from "./create-delta-ranges-utility.js";
 
 function pad(str: string): string {
@@ -83,7 +84,7 @@ describe("createDeltaRanges - Performance and Correctness Tests", () => {
         return Math.min(max, Math.max(min, rounded));
       }
 
-      console.log("\n  === Comprehensive Performance Matrix ===");
+      testLog("\n  === Comprehensive Performance Matrix ===");
       let errorCount = 0;
       let successCount = 0;
       let i = 0;
@@ -101,10 +102,10 @@ describe("createDeltaRanges - Performance and Correctness Tests", () => {
               seed: size * 1000 + mutation * 100,
               blockSize,
             });
-            console.log(formatStats(`${i++}`, stats));
+            testLog(formatStats(`${i++}`, stats));
             successCount++;
           } catch (error) {
-            console.log(
+            testLog(
               `  Size: ${size.toString().padStart(6)}B | Mut: ${(mutation * 100).toFixed(0).padStart(3)}% | ` +
                 `ERROR: ${error instanceof Error ? error.message : String(error)}`,
             );
@@ -112,7 +113,7 @@ describe("createDeltaRanges - Performance and Correctness Tests", () => {
           }
         }
       }
-      console.log(`\n  Summary: ${successCount} passed, ${errorCount} failed`);
+      testLog(`\n  Summary: ${successCount} passed, ${errorCount} failed`);
       // We expect at least some tests to pass
       expect(successCount).toBeGreaterThan(0);
     });

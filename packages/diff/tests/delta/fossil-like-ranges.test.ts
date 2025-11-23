@@ -1,4 +1,5 @@
 import { describe, it } from "vitest";
+import { testLog } from "../test-logger.js";
 import { type PerformanceStats, testFossilLikeRanges } from "./test-utility.js";
 
 function roundUpToPow2(x: number): number {
@@ -70,7 +71,7 @@ describe("createFossilLikeRanges - Performance and Correctness Tests", () => {
               blockSize,
             });
             const report = formatStats(`${i}) ==============================`, stats);
-            console.log(report);
+            testLog(report);
             // expect(stats.actualMutationDegree).toBeGreaterThan(0);
             i++;
           });

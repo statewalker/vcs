@@ -97,7 +97,7 @@ export class FileHeader {
   patchType: PatchType = PatchType.UNIFIED;
 
   /** Similarity index for renames/copies (0-100) */
-  score: number = 0;
+  score = 0;
 
   /** List of text hunks */
   hunks: HunkHeader[] = [];
