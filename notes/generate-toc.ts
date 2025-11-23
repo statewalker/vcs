@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 
 interface Page {
@@ -139,7 +139,7 @@ export function buildTOC(rootDir = "./src"): Page[] {
     if (!grouped.has(topDir)) {
       grouped.set(topDir, []);
     }
-    grouped.get(topDir)!.push(info);
+    grouped.get(topDir)?.push(info);
   }
 
   const pages: Page[] = [];
