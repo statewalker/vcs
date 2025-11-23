@@ -3,7 +3,6 @@ import {
   BinaryComparator,
   BinarySequence,
   ChangeType,
-  editListToDeltaRanges,
   encodeGitBase85,
   encodeGitBinaryDelta,
   MyersDiff,
@@ -485,10 +484,9 @@ ${base85String}
       const comparator = new BinaryComparator();
 
       const editList = MyersDiff.diff(comparator, baseSeq, targetSeq);
-      const deltaRanges = editListToDeltaRanges(editList, baseContent.length, targetContent.length);
 
-      // Encode as Git binary delta
-      const delta = encodeGitBinaryDelta(baseContent, targetContent, deltaRanges);
+      // Encode as Git binary delta directly from EditList (JGit-style)
+      const delta = encodeGitBinaryDelta(baseContent, targetContent, editList);
 
       // Compress the delta
       const provider = new NodeCompressionProvider();

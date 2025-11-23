@@ -1,8 +1,9 @@
 /**
  * Git binary delta format decoder/encoder
  *
- * Based on JGit's BinaryDelta.java
+ * Based on JGit's BinaryDelta.java and DeltaEncoder.java
  * @see https://github.com/eclipse-jgit/jgit/blob/master/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
+ * @see https://github.com/eclipse-jgit/jgit/blob/master/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/DeltaEncoder.java
  *
  * Git binary delta format:
  * - Base size (variable-length encoding)
@@ -13,7 +14,7 @@
  *     - Offset and size encoded in the x bits
  */
 
-import type { DeltaRange } from "../text-diff/edit.js";
+import type { Edit, EditList } from "../text-diff/edit.js";
 
 /**
  * Read a variable-length integer from the delta stream
@@ -207,42 +208,31 @@ function encodeCopyInstruction(output: number[], offset: number, len: number): v
 }
 
 /**
- * Encode an insert instruction
- *
- * @param output Output array
- * @param data Data to insert
+ * Maximum number of bytes to be copied in pack v2 format (64KB).
+ * Historical limitations from JGit, even though current decoders recognize larger instructions.
  */
-function encodeInsertInstruction(output: number[], data: Uint8Array): void {
-  let offset = 0;
-
-  while (offset < data.length) {
-    const remaining = data.length - offset;
-    const len = Math.min(remaining, 0x7f); // Max 127 bytes per instruction
-
-    // Write insert command (0xxxxxxx where x is length-1)
-    output.push(len);
-
-    // Write data
-    for (let i = 0; i < len; i++) {
-      output.push(data[offset + i]);
-    }
-
-    offset += len;
-  }
-}
+const MAX_V2_COPY = 0x10000;
 
 /**
- * Encode a Git binary delta from delta ranges
+ * Maximum length that an insert command can encode at once (127 bytes).
+ */
+const MAX_INSERT_DATA_SIZE = 0x7f;
+
+/**
+ * Encode a Git binary delta directly from an EditList (JGit-style direct encoding)
+ *
+ * This function follows JGit's approach of directly encoding delta instructions
+ * from Edit objects without an intermediate representation.
  *
  * @param base Base (old) data
  * @param target Target (new) data
- * @param ranges Delta ranges (copy from source or insert from target)
+ * @param edits EditList from Myers diff algorithm
  * @returns Encoded delta
  */
 export function encodeGitBinaryDelta(
   base: Uint8Array,
   target: Uint8Array,
-  ranges: DeltaRange[],
+  edits: EditList,
 ): Uint8Array {
   const output: number[] = [];
 
@@ -252,53 +242,93 @@ export function encodeGitBinaryDelta(
   // Write result size
   writeVariableInt(output, target.length);
 
-  // Encode instructions
-  for (const range of ranges) {
-    if (range.from === "source") {
-      // Copy from base
-      encodeCopyInstruction(output, range.start, range.len);
-    } else {
-      // Insert from target
-      const data = target.slice(range.start, range.start + range.len);
-      encodeInsertInstruction(output, data);
+  // Process edits directly
+  let posA = 0; // Position in base (sequence A)
+
+  for (const edit of edits) {
+    // Copy unchanged prefix from base
+    if (edit.beginA > posA) {
+      const copyLen = edit.beginA - posA;
+      encodeCopyInstructionChunked(output, posA, copyLen);
     }
+
+    // Handle the edit based on type
+    const type = edit.getType();
+
+    switch (type) {
+      case "INSERT":
+        // Insert from target
+        encodeInsertInstructionChunked(output, target.slice(edit.beginB, edit.endB));
+        break;
+
+      case "DELETE":
+        // Delete: no instruction needed (content removed)
+        break;
+
+      case "REPLACE":
+        // Replace: insert new content from target
+        encodeInsertInstructionChunked(output, target.slice(edit.beginB, edit.endB));
+        break;
+
+      case "EMPTY":
+        // No operation
+        break;
+    }
+
+    posA = edit.endA;
+  }
+
+  // Copy unchanged suffix from base
+  if (posA < base.length) {
+    const copyLen = base.length - posA;
+    encodeCopyInstructionChunked(output, posA, copyLen);
   }
 
   return new Uint8Array(output);
 }
 
 /**
- * Calculate the size of the encoded delta (without actually encoding)
+ * Encode a copy instruction, splitting into chunks if necessary (MAX_V2_COPY limit)
  *
- * Useful for deciding whether to use delta or literal format
- *
- * @param base Base data
- * @param target Target data
- * @param ranges Delta ranges
- * @returns Estimated encoded size in bytes
+ * @param output Output array
+ * @param offset Offset in base
+ * @param len Total length to copy
  */
-export function estimateGitBinaryDeltaSize(
-  _base: Uint8Array,
-  _target: Uint8Array,
-  ranges: DeltaRange[],
-): number {
-  let size = 0;
+function encodeCopyInstructionChunked(output: number[], offset: number, len: number): void {
+  let remaining = len;
+  let currentOffset = offset;
 
-  // Size headers (approximate, variable length)
-  size += 5; // base size (max 5 bytes)
-  size += 5; // result size (max 5 bytes)
-
-  // Instructions
-  for (const range of ranges) {
-    if (range.from === "source") {
-      // Copy: 1 byte cmd + up to 7 bytes for offset/length
-      size += 8;
-    } else {
-      // Insert: 1 byte cmd per 127 bytes + data
-      const chunks = Math.ceil(range.len / 0x7f);
-      size += chunks + range.len;
-    }
+  // Split into MAX_V2_COPY chunks if necessary
+  while (remaining > 0) {
+    const chunkLen = Math.min(remaining, MAX_V2_COPY);
+    encodeCopyInstruction(output, currentOffset, chunkLen);
+    currentOffset += chunkLen;
+    remaining -= chunkLen;
   }
+}
 
-  return size;
+/**
+ * Encode an insert instruction, splitting into chunks if necessary (MAX_INSERT_DATA_SIZE limit)
+ *
+ * @param output Output array
+ * @param data Data to insert
+ */
+function encodeInsertInstructionChunked(output: number[], data: Uint8Array): void {
+  let offset = 0;
+
+  // Split into MAX_INSERT_DATA_SIZE chunks if necessary
+  while (offset < data.length) {
+    const remaining = data.length - offset;
+    const chunkLen = Math.min(remaining, MAX_INSERT_DATA_SIZE);
+
+    // Write insert command (0xxxxxxx where x is length)
+    output.push(chunkLen);
+
+    // Write data
+    for (let i = 0; i < chunkLen; i++) {
+      output.push(data[offset + i]);
+    }
+
+    offset += chunkLen;
+  }
 }
