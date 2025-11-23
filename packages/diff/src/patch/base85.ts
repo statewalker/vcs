@@ -18,7 +18,7 @@
  * Ordered from 0-84
  */
 const BASE85_CHARS =
-	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~";
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~";
 
 /**
  * Reverse lookup table for base85 decoding
@@ -26,7 +26,7 @@ const BASE85_CHARS =
  */
 const BASE85_DECODE: number[] = new Array(256).fill(-1);
 for (let i = 0; i < BASE85_CHARS.length; i++) {
-	BASE85_DECODE[BASE85_CHARS.charCodeAt(i)] = i;
+  BASE85_DECODE[BASE85_CHARS.charCodeAt(i)] = i;
 }
 
 /**
@@ -37,44 +37,44 @@ for (let i = 0; i < BASE85_CHARS.length; i++) {
  * @throws Error if invalid base85 character or format
  */
 export function decodeGitBase85(encoded: Uint8Array): Uint8Array {
-	const result: number[] = [];
-	let offset = 0;
+  const result: number[] = [];
+  let offset = 0;
 
-	while (offset < encoded.length) {
-		// Find line boundaries
-		const lineStart = offset;
-		let lineEnd = offset;
-		while (lineEnd < encoded.length && encoded[lineEnd] !== 0x0a) {
-			lineEnd++;
-		}
+  while (offset < encoded.length) {
+    // Find line boundaries
+    const lineStart = offset;
+    let lineEnd = offset;
+    while (lineEnd < encoded.length && encoded[lineEnd] !== 0x0a) {
+      lineEnd++;
+    }
 
-		// Skip empty lines
-		if (lineEnd === lineStart) {
-			offset = lineEnd + 1;
-			continue;
-		}
+    // Skip empty lines
+    if (lineEnd === lineStart) {
+      offset = lineEnd + 1;
+      continue;
+    }
 
-		// First character encodes the output byte count for this line
-		const lengthChar = encoded[lineStart];
-		const outputLength = lengthChar - 0x41 + 1; // 'A' = 1 byte, 'B' = 2, etc.
+    // First character encodes the output byte count for this line
+    const lengthChar = encoded[lineStart];
+    const outputLength = lengthChar - 0x41 + 1; // 'A' = 1 byte, 'B' = 2, etc.
 
-		// Git allows up to 'z' (122) which gives 58 bytes per line
-		// This is more than the typical 52 bytes but is used in practice
-		if (outputLength < 1 || outputLength > 58) {
-			throw new Error(
-				`Invalid base85 length character: ${String.fromCharCode(lengthChar)} (expected A-z, got ${outputLength})`,
-			);
-		}
+    // Git allows up to 'z' (122) which gives 58 bytes per line
+    // This is more than the typical 52 bytes but is used in practice
+    if (outputLength < 1 || outputLength > 58) {
+      throw new Error(
+        `Invalid base85 length character: ${String.fromCharCode(lengthChar)} (expected A-z, got ${outputLength})`,
+      );
+    }
 
-		// Decode the rest of the line
-		const lineData = encoded.slice(lineStart + 1, lineEnd);
-		const decoded = decodeLine(lineData, outputLength);
-		result.push(...decoded);
+    // Decode the rest of the line
+    const lineData = encoded.slice(lineStart + 1, lineEnd);
+    const decoded = decodeLine(lineData, outputLength);
+    result.push(...decoded);
 
-		offset = lineEnd + 1;
-	}
+    offset = lineEnd + 1;
+  }
 
-	return new Uint8Array(result);
+  return new Uint8Array(result);
 }
 
 /**
@@ -85,50 +85,43 @@ export function decodeGitBase85(encoded: Uint8Array): Uint8Array {
  * @returns Decoded bytes
  */
 function decodeLine(line: Uint8Array, outputLength: number): number[] {
-	const result: number[] = [];
-	let offset = 0;
+  const result: number[] = [];
+  let offset = 0;
 
-	while (offset < line.length && result.length < outputLength) {
-		// Read 5 base85 characters → 4 bytes
-		let acc = 0;
-		let charCount = 0;
+  while (offset < line.length && result.length < outputLength) {
+    // Read 5 base85 characters → 4 bytes
+    let acc = 0;
+    let charCount = 0;
 
-		for (let i = 0; i < 5 && offset < line.length; i++) {
-			const ch = line[offset++];
-			const value = BASE85_DECODE[ch];
+    for (let i = 0; i < 5 && offset < line.length; i++) {
+      const ch = line[offset++];
+      const value = BASE85_DECODE[ch];
 
-			if (value === -1) {
-				throw new Error(
-					`Invalid base85 character: ${String.fromCharCode(ch)} (code ${ch})`,
-				);
-			}
+      if (value === -1) {
+        throw new Error(`Invalid base85 character: ${String.fromCharCode(ch)} (code ${ch})`);
+      }
 
-			acc = acc * 85 + value;
-			charCount++;
-		}
+      acc = acc * 85 + value;
+      charCount++;
+    }
 
-		// Special case: if we have fewer than 5 characters,
-		// we need to pad with zeros for decoding
-		if (charCount < 5) {
-			acc *= Math.pow(85, 5 - charCount);
-		}
+    // Special case: if we have fewer than 5 characters,
+    // we need to pad with zeros for decoding
+    if (charCount < 5) {
+      acc *= 85 ** (5 - charCount);
+    }
 
-		// Extract 4 bytes (big-endian)
-		const bytes = [
-			(acc >>> 24) & 0xff,
-			(acc >>> 16) & 0xff,
-			(acc >>> 8) & 0xff,
-			acc & 0xff,
-		];
+    // Extract 4 bytes (big-endian)
+    const bytes = [(acc >>> 24) & 0xff, (acc >>> 16) & 0xff, (acc >>> 8) & 0xff, acc & 0xff];
 
-		// Only add the bytes we need
-		const bytesToAdd = Math.min(4, outputLength - result.length);
-		for (let i = 0; i < bytesToAdd; i++) {
-			result.push(bytes[i]);
-		}
-	}
+    // Only add the bytes we need
+    const bytesToAdd = Math.min(4, outputLength - result.length);
+    for (let i = 0; i < bytesToAdd; i++) {
+      result.push(bytes[i]);
+    }
+  }
 
-	return result;
+  return result;
 }
 
 /**
@@ -138,28 +131,28 @@ function decodeLine(line: Uint8Array, outputLength: number): number[] {
  * @returns Base85 encoded data with length prefixes and newlines
  */
 export function encodeGitBase85(data: Uint8Array): Uint8Array {
-	const result: number[] = [];
-	let offset = 0;
+  const result: number[] = [];
+  let offset = 0;
 
-	while (offset < data.length) {
-		// Encode up to 52 bytes per line (13 groups of 4 bytes)
-		const lineBytes = Math.min(52, data.length - offset);
-		const lineData = data.slice(offset, offset + lineBytes);
+  while (offset < data.length) {
+    // Encode up to 52 bytes per line (13 groups of 4 bytes)
+    const lineBytes = Math.min(52, data.length - offset);
+    const lineData = data.slice(offset, offset + lineBytes);
 
-		// Add length prefix
-		result.push(0x41 + lineBytes - 1); // 'A' + length - 1
+    // Add length prefix
+    result.push(0x41 + lineBytes - 1); // 'A' + length - 1
 
-		// Encode the line data
-		const encoded = encodeLine(lineData);
-		result.push(...encoded);
+    // Encode the line data
+    const encoded = encodeLine(lineData);
+    result.push(...encoded);
 
-		// Add newline
-		result.push(0x0a);
+    // Add newline
+    result.push(0x0a);
 
-		offset += lineBytes;
-	}
+    offset += lineBytes;
+  }
 
-	return new Uint8Array(result);
+  return new Uint8Array(result);
 }
 
 /**
@@ -169,39 +162,39 @@ export function encodeGitBase85(data: Uint8Array): Uint8Array {
  * @returns Base85 encoded characters
  */
 function encodeLine(data: Uint8Array): number[] {
-	const result: number[] = [];
-	let offset = 0;
+  const result: number[] = [];
+  let offset = 0;
 
-	while (offset < data.length) {
-		// Read 4 bytes → 5 base85 characters
-		let acc = 0;
-		let byteCount = 0;
+  while (offset < data.length) {
+    // Read 4 bytes → 5 base85 characters
+    let acc = 0;
+    let byteCount = 0;
 
-		for (let i = 0; i < 4 && offset < data.length; i++) {
-			// Use >>> 0 to ensure unsigned 32-bit arithmetic
-			acc = ((acc << 8) | data[offset++]) >>> 0;
-			byteCount++;
-		}
+    for (let i = 0; i < 4 && offset < data.length; i++) {
+      // Use >>> 0 to ensure unsigned 32-bit arithmetic
+      acc = ((acc << 8) | data[offset++]) >>> 0;
+      byteCount++;
+    }
 
-		// Pad with zeros if we have fewer than 4 bytes
-		if (byteCount < 4) {
-			acc = (acc << ((4 - byteCount) * 8)) >>> 0;
-		}
+    // Pad with zeros if we have fewer than 4 bytes
+    if (byteCount < 4) {
+      acc = (acc << ((4 - byteCount) * 8)) >>> 0;
+    }
 
-		// Extract 5 base85 digits (matching JGit's algorithm)
-		// JGit writes digits in reverse order (indices 4 to 0)
-		// Use unsigned division
-		const digits: number[] = new Array(5);
-		for (let i = 4; i >= 0; i--) {
-			digits[i] = (acc >>> 0) % 85;
-			acc = Math.floor((acc >>> 0) / 85);
-		}
+    // Extract 5 base85 digits (matching JGit's algorithm)
+    // JGit writes digits in reverse order (indices 4 to 0)
+    // Use unsigned division
+    const digits: number[] = new Array(5);
+    for (let i = 4; i >= 0; i--) {
+      digits[i] = (acc >>> 0) % 85;
+      acc = Math.floor((acc >>> 0) / 85);
+    }
 
-		// Convert to characters - always output exactly 5 characters
-		for (let i = 0; i < 5; i++) {
-			result.push(BASE85_CHARS.charCodeAt(digits[i]));
-		}
-	}
+    // Convert to characters - always output exactly 5 characters
+    for (let i = 0; i < 5; i++) {
+      result.push(BASE85_CHARS.charCodeAt(digits[i]));
+    }
+  }
 
-	return result;
+  return result;
 }

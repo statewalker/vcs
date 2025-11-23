@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type DeltaRange, createDeltaRanges } from "../../src/index.js";
+import { createDeltaRanges, type DeltaRange } from "../../src/index.js";
 
 /**
  * Helper function to collect all delta ranges from the generator

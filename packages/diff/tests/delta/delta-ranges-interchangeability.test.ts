@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  type DeltaRange,
   applyDelta,
   createDelta,
   createDeltaRanges,
   createFossilLikeRanges,
+  type DeltaRange,
   mergeChunks,
 } from "../../src/index.js";
 

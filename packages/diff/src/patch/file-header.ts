@@ -9,17 +9,10 @@
  *   +++ b/file.txt
  */
 
-import { PatchType, ChangeType } from "./types.js";
-import {
-	match,
-	nextLF,
-	decode,
-	encodeASCII,
-	parseBase10,
-	isHunkHdr,
-} from "./buffer-utils.js";
-import { HunkHeader } from "./hunk-header.js";
 import { BinaryHunk } from "./binary-hunk.js";
+import { decode, encodeASCII, isHunkHdr, match, nextLF, parseBase10 } from "./buffer-utils.js";
+import { HunkHeader } from "./hunk-header.js";
+import { ChangeType, PatchType } from "./types.js";
 
 /** Pattern: "old mode " */
 const OLD_MODE = encodeASCII("old mode ");
@@ -70,346 +63,342 @@ const DELTA = encodeASCII("delta ");
  * Represents a file's patch header with metadata and hunks
  */
 export class FileHeader {
-	/** Buffer containing the patch data */
-	readonly buffer: Uint8Array;
+  /** Buffer containing the patch data */
+  readonly buffer: Uint8Array;
 
-	/** Start offset of this file header in the buffer */
-	readonly startOffset: number;
+  /** Start offset of this file header in the buffer */
+  readonly startOffset: number;
 
-	/** End offset of this file header in the buffer */
-	endOffset: number;
+  /** End offset of this file header in the buffer */
+  endOffset: number;
 
-	/** Old (source) file path */
-	oldPath: string | null = null;
+  /** Old (source) file path */
+  oldPath: string | null = null;
 
-	/** New (destination) file path */
-	newPath: string | null = null;
+  /** New (destination) file path */
+  newPath: string | null = null;
 
-	/** Old file mode (Unix permissions) */
-	oldMode: number | null = null;
+  /** Old file mode (Unix permissions) */
+  oldMode: number | null = null;
 
-	/** New file mode (Unix permissions) */
-	newMode: number | null = null;
+  /** New file mode (Unix permissions) */
+  newMode: number | null = null;
 
-	/** Old object ID (SHA-1 hash) */
-	oldId: string | null = null;
+  /** Old object ID (SHA-1 hash) */
+  oldId: string | null = null;
 
-	/** New object ID (SHA-1 hash) */
-	newId: string | null = null;
+  /** New object ID (SHA-1 hash) */
+  newId: string | null = null;
 
-	/** Type of change (ADD, DELETE, MODIFY, RENAME, COPY) */
-	changeType: ChangeType = ChangeType.MODIFY;
+  /** Type of change (ADD, DELETE, MODIFY, RENAME, COPY) */
+  changeType: ChangeType = ChangeType.MODIFY;
 
-	/** Type of patch (UNIFIED, BINARY, GIT_BINARY) */
-	patchType: PatchType = PatchType.UNIFIED;
+  /** Type of patch (UNIFIED, BINARY, GIT_BINARY) */
+  patchType: PatchType = PatchType.UNIFIED;
 
-	/** Similarity index for renames/copies (0-100) */
-	score: number = 0;
+  /** Similarity index for renames/copies (0-100) */
+  score: number = 0;
 
-	/** List of text hunks */
-	hunks: HunkHeader[] = [];
+  /** List of text hunks */
+  hunks: HunkHeader[] = [];
 
-	/** Forward and reverse binary hunks (for GIT_BINARY patches) */
-	forwardBinaryHunk: BinaryHunk | null = null;
-	reverseBinaryHunk: BinaryHunk | null = null;
+  /** Forward and reverse binary hunks (for GIT_BINARY patches) */
+  forwardBinaryHunk: BinaryHunk | null = null;
+  reverseBinaryHunk: BinaryHunk | null = null;
 
-	/**
-	 * Create a new file header
-	 *
-	 * @param buffer Buffer containing patch data
-	 * @param offset Starting offset in buffer
-	 */
-	constructor(buffer: Uint8Array, offset: number) {
-		this.buffer = buffer;
-		this.startOffset = offset;
-		this.endOffset = offset;
-	}
+  /**
+   * Create a new file header
+   *
+   * @param buffer Buffer containing patch data
+   * @param offset Starting offset in buffer
+   */
+  constructor(buffer: Uint8Array, offset: number) {
+    this.buffer = buffer;
+    this.startOffset = offset;
+    this.endOffset = offset;
+  }
 
-	/**
-	 * Parse a Git-style file header starting with "diff --git"
-	 *
-	 * @param end End of buffer
-	 * @returns Next offset to continue parsing, or end if complete
-	 */
-	parseGitFileHeader(end: number): number {
-		let ptr = this.startOffset;
+  /**
+   * Parse a Git-style file header starting with "diff --git"
+   *
+   * @param end End of buffer
+   * @returns Next offset to continue parsing, or end if complete
+   */
+  parseGitFileHeader(end: number): number {
+    let ptr = this.startOffset;
 
-		// Parse the "diff --git a/... b/..." line
-		ptr = this.parseGitFileName(ptr, end);
-		if (ptr < 0) {
-			this.endOffset = end;
-			return end;
-		}
+    // Parse the "diff --git a/... b/..." line
+    ptr = this.parseGitFileName(ptr, end);
+    if (ptr < 0) {
+      this.endOffset = end;
+      return end;
+    }
 
-		// Parse git extended headers (index, mode, rename, etc.)
-		ptr = this.parseGitHeaders(ptr, end);
+    // Parse git extended headers (index, mode, rename, etc.)
+    ptr = this.parseGitHeaders(ptr, end);
 
-		// Parse hunks or binary data
-		ptr = this.parseHunks(ptr, end);
+    // Parse hunks or binary data
+    ptr = this.parseHunks(ptr, end);
 
-		this.endOffset = ptr;
-		return ptr;
-	}
+    this.endOffset = ptr;
+    return ptr;
+  }
 
-	/**
-	 * Parse the "diff --git a/path b/path" line
-	 *
-	 * @param ptr Current offset
-	 * @param end End of buffer
-	 * @returns Next offset after the line
-	 */
-	private parseGitFileName(ptr: number, end: number): number {
-		const eol = nextLF(this.buffer, ptr);
-		if (eol >= end) {
-			return -1;
-		}
+  /**
+   * Parse the "diff --git a/path b/path" line
+   *
+   * @param ptr Current offset
+   * @param end End of buffer
+   * @returns Next offset after the line
+   */
+  private parseGitFileName(ptr: number, end: number): number {
+    const eol = nextLF(this.buffer, ptr);
+    if (eol >= end) {
+      return -1;
+    }
 
-		// Skip "diff --git " prefix (11 bytes)
-		ptr += 11;
+    // Skip "diff --git " prefix (11 bytes)
+    ptr += 11;
 
-		// Find the paths: "a/path b/path"
-		// Look for space separator between the two paths
-		let aStart = ptr;
+    // Find the paths: "a/path b/path"
+    // Look for space separator between the two paths
+    let aStart = ptr;
 
-		// Skip "a/" prefix
-		if (ptr + 2 < eol && this.buffer[ptr] === 0x61 && this.buffer[ptr + 1] === 0x2f) {
-			// 'a', '/'
-			aStart = ptr + 2;
-		}
+    // Skip "a/" prefix
+    if (ptr + 2 < eol && this.buffer[ptr] === 0x61 && this.buffer[ptr + 1] === 0x2f) {
+      // 'a', '/'
+      aStart = ptr + 2;
+    }
 
-		// Find the space between the two paths
-		let sp = aStart;
-		while (sp < eol && this.buffer[sp] !== 0x20) {
-			// ' '
-			sp++;
-		}
+    // Find the space between the two paths
+    let sp = aStart;
+    while (sp < eol && this.buffer[sp] !== 0x20) {
+      // ' '
+      sp++;
+    }
 
-		if (sp >= eol) {
-			// No space found - malformed
-			return eol;
-		}
+    if (sp >= eol) {
+      // No space found - malformed
+      return eol;
+    }
 
-		// Extract old path
-		this.oldPath = decode(this.buffer, aStart, sp);
+    // Extract old path
+    this.oldPath = decode(this.buffer, aStart, sp);
 
-		// Skip space and "b/" prefix
-		let bStart = sp + 1;
-		if (
-			bStart + 2 < eol &&
-			this.buffer[bStart] === 0x62 &&
-			this.buffer[bStart + 1] === 0x2f
-		) {
-			// 'b', '/'
-			bStart += 2;
-		}
+    // Skip space and "b/" prefix
+    let bStart = sp + 1;
+    if (bStart + 2 < eol && this.buffer[bStart] === 0x62 && this.buffer[bStart + 1] === 0x2f) {
+      // 'b', '/'
+      bStart += 2;
+    }
 
-		// Extract new path
-		this.newPath = decode(this.buffer, bStart, eol - 1); // -1 to skip newline
+    // Extract new path
+    this.newPath = decode(this.buffer, bStart, eol - 1); // -1 to skip newline
 
-		return eol;
-	}
+    return eol;
+  }
 
-	/**
-	 * Parse Git extended headers (mode, index, rename, etc.)
-	 *
-	 * @param ptr Current offset
-	 * @param end End of buffer
-	 * @returns Next offset after headers
-	 */
-	private parseGitHeaders(ptr: number, end: number): number {
-		while (ptr < end) {
-			const eol = nextLF(this.buffer, ptr);
-			if (eol >= end) {
-				return end;
-			}
+  /**
+   * Parse Git extended headers (mode, index, rename, etc.)
+   *
+   * @param ptr Current offset
+   * @param end End of buffer
+   * @returns Next offset after headers
+   */
+  private parseGitHeaders(ptr: number, end: number): number {
+    while (ptr < end) {
+      const eol = nextLF(this.buffer, ptr);
+      if (eol >= end) {
+        return end;
+      }
 
-			// Check for various header types
-			if (match(this.buffer, ptr, OLD_MODE) >= 0) {
-				this.oldMode = this.parseFileMode(ptr + OLD_MODE.length, eol);
-			} else if (match(this.buffer, ptr, NEW_MODE) >= 0) {
-				this.newMode = this.parseFileMode(ptr + NEW_MODE.length, eol);
-			} else if (match(this.buffer, ptr, DELETED_FILE_MODE) >= 0) {
-				this.oldMode = this.parseFileMode(ptr + DELETED_FILE_MODE.length, eol);
-				this.newMode = 0;
-				this.changeType = ChangeType.DELETE;
-			} else if (match(this.buffer, ptr, NEW_FILE_MODE) >= 0) {
-				this.oldMode = 0;
-				this.newMode = this.parseFileMode(ptr + NEW_FILE_MODE.length, eol);
-				this.changeType = ChangeType.ADD;
-			} else if (match(this.buffer, ptr, INDEX) >= 0) {
-				this.parseIndexLine(ptr + INDEX.length, eol);
-			} else if (match(this.buffer, ptr, SIMILARITY_INDEX) >= 0) {
-				this.score = this.parsePercentage(ptr + SIMILARITY_INDEX.length, eol);
-			} else if (match(this.buffer, ptr, RENAME_FROM) >= 0) {
-				this.oldPath = decode(this.buffer, ptr + RENAME_FROM.length, eol - 1);
-				this.changeType = ChangeType.RENAME;
-			} else if (match(this.buffer, ptr, RENAME_TO) >= 0) {
-				this.newPath = decode(this.buffer, ptr + RENAME_TO.length, eol - 1);
-				this.changeType = ChangeType.RENAME;
-			} else if (match(this.buffer, ptr, COPY_FROM) >= 0) {
-				this.oldPath = decode(this.buffer, ptr + COPY_FROM.length, eol - 1);
-				this.changeType = ChangeType.COPY;
-			} else if (match(this.buffer, ptr, COPY_TO) >= 0) {
-				this.newPath = decode(this.buffer, ptr + COPY_TO.length, eol - 1);
-				this.changeType = ChangeType.COPY;
-			} else if (match(this.buffer, ptr, OLD_NAME) >= 0) {
-				// Start of actual diff content
-				return ptr;
-			} else if (match(this.buffer, ptr, GIT_BINARY) >= 0) {
-				// Binary patch - skip the "GIT binary patch\n" line
-				this.patchType = PatchType.GIT_BINARY;
-				return eol; // Return pointer after this line
-			} else if (this.buffer[ptr] === 0x40 && this.buffer[ptr + 1] === 0x40) {
-				// '@' - hunk header without --- +++ (malformed but handle it)
-				return ptr;
-			}
+      // Check for various header types
+      if (match(this.buffer, ptr, OLD_MODE) >= 0) {
+        this.oldMode = this.parseFileMode(ptr + OLD_MODE.length, eol);
+      } else if (match(this.buffer, ptr, NEW_MODE) >= 0) {
+        this.newMode = this.parseFileMode(ptr + NEW_MODE.length, eol);
+      } else if (match(this.buffer, ptr, DELETED_FILE_MODE) >= 0) {
+        this.oldMode = this.parseFileMode(ptr + DELETED_FILE_MODE.length, eol);
+        this.newMode = 0;
+        this.changeType = ChangeType.DELETE;
+      } else if (match(this.buffer, ptr, NEW_FILE_MODE) >= 0) {
+        this.oldMode = 0;
+        this.newMode = this.parseFileMode(ptr + NEW_FILE_MODE.length, eol);
+        this.changeType = ChangeType.ADD;
+      } else if (match(this.buffer, ptr, INDEX) >= 0) {
+        this.parseIndexLine(ptr + INDEX.length, eol);
+      } else if (match(this.buffer, ptr, SIMILARITY_INDEX) >= 0) {
+        this.score = this.parsePercentage(ptr + SIMILARITY_INDEX.length, eol);
+      } else if (match(this.buffer, ptr, RENAME_FROM) >= 0) {
+        this.oldPath = decode(this.buffer, ptr + RENAME_FROM.length, eol - 1);
+        this.changeType = ChangeType.RENAME;
+      } else if (match(this.buffer, ptr, RENAME_TO) >= 0) {
+        this.newPath = decode(this.buffer, ptr + RENAME_TO.length, eol - 1);
+        this.changeType = ChangeType.RENAME;
+      } else if (match(this.buffer, ptr, COPY_FROM) >= 0) {
+        this.oldPath = decode(this.buffer, ptr + COPY_FROM.length, eol - 1);
+        this.changeType = ChangeType.COPY;
+      } else if (match(this.buffer, ptr, COPY_TO) >= 0) {
+        this.newPath = decode(this.buffer, ptr + COPY_TO.length, eol - 1);
+        this.changeType = ChangeType.COPY;
+      } else if (match(this.buffer, ptr, OLD_NAME) >= 0) {
+        // Start of actual diff content
+        return ptr;
+      } else if (match(this.buffer, ptr, GIT_BINARY) >= 0) {
+        // Binary patch - skip the "GIT binary patch\n" line
+        this.patchType = PatchType.GIT_BINARY;
+        return eol; // Return pointer after this line
+      } else if (this.buffer[ptr] === 0x40 && this.buffer[ptr + 1] === 0x40) {
+        // '@' - hunk header without --- +++ (malformed but handle it)
+        return ptr;
+      }
 
-			ptr = eol;
-		}
+      ptr = eol;
+    }
 
-		return ptr;
-	}
+    return ptr;
+  }
 
-	/**
-	 * Parse file mode from octal string
-	 *
-	 * @param ptr Start of mode string
-	 * @param end End of line
-	 * @returns File mode as number
-	 */
-	private parseFileMode(ptr: number, end: number): number {
-		let mode = 0;
-		while (ptr < end) {
-			const c = this.buffer[ptr];
-			if (c < 0x30 || c > 0x37) {
-				// '0' to '7'
-				break;
-			}
-			mode = (mode << 3) | (c - 0x30);
-			ptr++;
-		}
-		return mode;
-	}
+  /**
+   * Parse file mode from octal string
+   *
+   * @param ptr Start of mode string
+   * @param end End of line
+   * @returns File mode as number
+   */
+  private parseFileMode(ptr: number, end: number): number {
+    let mode = 0;
+    while (ptr < end) {
+      const c = this.buffer[ptr];
+      if (c < 0x30 || c > 0x37) {
+        // '0' to '7'
+        break;
+      }
+      mode = (mode << 3) | (c - 0x30);
+      ptr++;
+    }
+    return mode;
+  }
 
-	/**
-	 * Parse index line: "abc123..def456 mode"
-	 *
-	 * @param ptr Start of index data
-	 * @param end End of line
-	 */
-	private parseIndexLine(ptr: number, end: number): void {
-		// Find ".."
-		let dotdot = ptr;
-		while (dotdot < end && this.buffer[dotdot] !== 0x2e) {
-			// '.'
-			dotdot++;
-		}
+  /**
+   * Parse index line: "abc123..def456 mode"
+   *
+   * @param ptr Start of index data
+   * @param end End of line
+   */
+  private parseIndexLine(ptr: number, end: number): void {
+    // Find ".."
+    let dotdot = ptr;
+    while (dotdot < end && this.buffer[dotdot] !== 0x2e) {
+      // '.'
+      dotdot++;
+    }
 
-		if (dotdot + 1 < end && this.buffer[dotdot + 1] === 0x2e) {
-			// Found ".."
-			this.oldId = decode(this.buffer, ptr, dotdot);
+    if (dotdot + 1 < end && this.buffer[dotdot + 1] === 0x2e) {
+      // Found ".."
+      this.oldId = decode(this.buffer, ptr, dotdot);
 
-			// Find end of new ID (space or newline)
-			let idEnd = dotdot + 2;
-			while (idEnd < end && this.buffer[idEnd] !== 0x20 && this.buffer[idEnd] !== 0x0a) {
-				idEnd++;
-			}
+      // Find end of new ID (space or newline)
+      let idEnd = dotdot + 2;
+      while (idEnd < end && this.buffer[idEnd] !== 0x20 && this.buffer[idEnd] !== 0x0a) {
+        idEnd++;
+      }
 
-			this.newId = decode(this.buffer, dotdot + 2, idEnd);
+      this.newId = decode(this.buffer, dotdot + 2, idEnd);
 
-			// Parse mode if present
-			if (idEnd < end && this.buffer[idEnd] === 0x20) {
-				const mode = this.parseFileMode(idEnd + 1, end);
-				if (this.newMode === null) {
-					this.newMode = mode;
-				}
-				if (this.oldMode === null) {
-					this.oldMode = mode;
-				}
-			}
-		}
-	}
+      // Parse mode if present
+      if (idEnd < end && this.buffer[idEnd] === 0x20) {
+        const mode = this.parseFileMode(idEnd + 1, end);
+        if (this.newMode === null) {
+          this.newMode = mode;
+        }
+        if (this.oldMode === null) {
+          this.oldMode = mode;
+        }
+      }
+    }
+  }
 
-	/**
-	 * Parse percentage value (e.g., "95%")
-	 *
-	 * @param ptr Start of percentage
-	 * @param end End of line
-	 * @returns Percentage value (0-100)
-	 */
-	private parsePercentage(ptr: number, end: number): number {
-		const [value] = parseBase10(this.buffer, ptr);
-		return value;
-	}
+  /**
+   * Parse percentage value (e.g., "95%")
+   *
+   * @param ptr Start of percentage
+   * @param end End of line
+   * @returns Percentage value (0-100)
+   */
+  private parsePercentage(ptr: number, _end: number): number {
+    const [value] = parseBase10(this.buffer, ptr);
+    return value;
+  }
 
-	/**
-	 * Parse hunks (either text hunks or binary hunks)
-	 *
-	 * @param ptr Current offset
-	 * @param end End of buffer
-	 * @returns Next offset
-	 */
-	private parseHunks(ptr: number, end: number): number {
-		// Handle binary patches
-		if (this.patchType === PatchType.GIT_BINARY) {
-			return this.parseBinaryHunks(ptr, end);
-		}
+  /**
+   * Parse hunks (either text hunks or binary hunks)
+   *
+   * @param ptr Current offset
+   * @param end End of buffer
+   * @returns Next offset
+   */
+  private parseHunks(ptr: number, end: number): number {
+    // Handle binary patches
+    if (this.patchType === PatchType.GIT_BINARY) {
+      return this.parseBinaryHunks(ptr, end);
+    }
 
-		// Skip "--- " line if present (for text patches)
-		if (match(this.buffer, ptr, OLD_NAME) >= 0) {
-			ptr = nextLF(this.buffer, ptr);
-		}
+    // Skip "--- " line if present (for text patches)
+    if (match(this.buffer, ptr, OLD_NAME) >= 0) {
+      ptr = nextLF(this.buffer, ptr);
+    }
 
-		// Skip "+++ " line if present
-		if (ptr < end && match(this.buffer, ptr, NEW_NAME) >= 0) {
-			ptr = nextLF(this.buffer, ptr);
-		}
+    // Skip "+++ " line if present
+    if (ptr < end && match(this.buffer, ptr, NEW_NAME) >= 0) {
+      ptr = nextLF(this.buffer, ptr);
+    }
 
-		// Parse all text hunks in this file
-		while (ptr < end && isHunkHdr(this.buffer, ptr, end) === 1) {
-			const hunk = new HunkHeader(this.buffer, ptr);
-			ptr = hunk.parse(end);
-			this.hunks.push(hunk);
-		}
+    // Parse all text hunks in this file
+    while (ptr < end && isHunkHdr(this.buffer, ptr, end) === 1) {
+      const hunk = new HunkHeader(this.buffer, ptr);
+      ptr = hunk.parse(end);
+      this.hunks.push(hunk);
+    }
 
-		return ptr;
-	}
+    return ptr;
+  }
 
-	/**
-	 * Parse binary hunks (forward and reverse)
-	 *
-	 * @param ptr Current offset
-	 * @param end End of buffer
-	 * @returns Next offset
-	 */
-	private parseBinaryHunks(ptr: number, end: number): number {
-		// Parse forward binary hunk (literal or delta)
-		if (
-			ptr < end &&
-			(match(this.buffer, ptr, LITERAL) >= 0 || match(this.buffer, ptr, DELTA) >= 0)
-		) {
-			const hunk = new BinaryHunk(this.buffer, ptr);
-			ptr = hunk.parse(end);
-			this.forwardBinaryHunk = hunk;
-		}
+  /**
+   * Parse binary hunks (forward and reverse)
+   *
+   * @param ptr Current offset
+   * @param end End of buffer
+   * @returns Next offset
+   */
+  private parseBinaryHunks(ptr: number, end: number): number {
+    // Parse forward binary hunk (literal or delta)
+    if (
+      ptr < end &&
+      (match(this.buffer, ptr, LITERAL) >= 0 || match(this.buffer, ptr, DELTA) >= 0)
+    ) {
+      const hunk = new BinaryHunk(this.buffer, ptr);
+      ptr = hunk.parse(end);
+      this.forwardBinaryHunk = hunk;
+    }
 
-		// Parse reverse binary hunk (for reversible patches)
-		if (
-			ptr < end &&
-			(match(this.buffer, ptr, LITERAL) >= 0 || match(this.buffer, ptr, DELTA) >= 0)
-		) {
-			const hunk = new BinaryHunk(this.buffer, ptr);
-			ptr = hunk.parse(end);
-			this.reverseBinaryHunk = hunk;
-		}
+    // Parse reverse binary hunk (for reversible patches)
+    if (
+      ptr < end &&
+      (match(this.buffer, ptr, LITERAL) >= 0 || match(this.buffer, ptr, DELTA) >= 0)
+    ) {
+      const hunk = new BinaryHunk(this.buffer, ptr);
+      ptr = hunk.parse(end);
+      this.reverseBinaryHunk = hunk;
+    }
 
-		return ptr;
-	}
+    return ptr;
+  }
 
-	/**
-	 * Get a string representation of this file header
-	 */
-	toString(): string {
-		return `FileHeader(${this.changeType}: ${this.oldPath} -> ${this.newPath})`;
-	}
+  /**
+   * Get a string representation of this file header
+   */
+  toString(): string {
+    return `FileHeader(${this.changeType}: ${this.oldPath} -> ${this.newPath})`;
+  }
 }

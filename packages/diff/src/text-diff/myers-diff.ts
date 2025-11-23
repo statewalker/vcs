@@ -81,20 +81,12 @@ export class MyersDiff<S extends Sequence> {
 
       if (curType === "INSERT") {
         // Shift INSERT edits forward as much as possible
-        while (
-          cur.endA < maxA &&
-          cur.endB < maxB &&
-          cmp.equals(b, cur.beginB, b, cur.endB)
-        ) {
+        while (cur.endA < maxA && cur.endB < maxB && cmp.equals(b, cur.beginB, b, cur.endB)) {
           cur.shift(1);
         }
       } else if (curType === "DELETE") {
         // Shift DELETE edits forward as much as possible
-        while (
-          cur.endA < maxA &&
-          cur.endB < maxB &&
-          cmp.equals(a, cur.beginA, a, cur.endA)
-        ) {
+        while (cur.endA < maxA && cur.endB < maxB && cmp.equals(a, cur.beginA, a, cur.endA)) {
           cur.shift(1);
         }
       }
@@ -213,11 +205,7 @@ class MiddleEdit<S extends Sequence> {
   forward: ForwardEditPaths<S>;
   backward: BackwardEditPaths<S>;
 
-  constructor(
-    private cmp: HashedSequenceComparator<S>,
-    private a: HashedSequence<S>,
-    private b: HashedSequence<S>,
-  ) {
+  constructor(cmp: HashedSequenceComparator<S>, a: HashedSequence<S>, b: HashedSequence<S>) {
     this.forward = new ForwardEditPaths(this, cmp, a, b);
     this.backward = new BackwardEditPaths(this, cmp, a, b);
   }
@@ -338,9 +326,9 @@ abstract class EditPaths<S extends Sequence> {
 
   protected makeEdit(snake1: bigint, snake2: bigint): boolean {
     let x1 = this.snake2x(snake1);
-    let x2 = this.snake2x(snake2);
+    const x2 = this.snake2x(snake2);
     let y1 = this.snake2y(snake1);
-    let y2 = this.snake2y(snake2);
+    const y2 = this.snake2y(snake2);
 
     // Check for incompatible partial edit paths
     if (x1 > x2 || y1 > y2) {
@@ -462,7 +450,7 @@ class ForwardEditPaths<S extends Sequence> extends EditPaths<S> {
     if (k < this.middle.backward.beginK || k > this.middle.backward.endK) {
       return false;
     }
-    if (((d - 1 + k - this.middle.backward.middleK) % 2) !== 0) {
+    if ((d - 1 + k - this.middle.backward.middleK) % 2 !== 0) {
       return false;
     }
     if (x < this.middle.backward.getX(d - 1, k)) {
@@ -513,7 +501,7 @@ class BackwardEditPaths<S extends Sequence> extends EditPaths<S> {
     if (k < this.middle.forward.beginK || k > this.middle.forward.endK) {
       return false;
     }
-    if (((d + k - this.middle.forward.middleK) % 2) !== 0) {
+    if ((d + k - this.middle.forward.middleK) % 2 !== 0) {
       return false;
     }
     if (x > this.middle.forward.getX(d, k)) {

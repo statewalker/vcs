@@ -21,24 +21,24 @@ export type HashAlgorithm = "SHA-1" | "SHA-256";
  * where WebCrypto is not available or when alternative implementations are needed.
  */
 export interface CryptoProvider {
-	/**
-	 * Compute hash of data
-	 *
-	 * @param algorithm Hash algorithm to use
-	 * @param data Data to hash
-	 * @returns Promise resolving to hex-encoded hash
-	 */
-	hash(algorithm: HashAlgorithm, data: Uint8Array): Promise<string>;
+  /**
+   * Compute hash of data
+   *
+   * @param algorithm Hash algorithm to use
+   * @param data Data to hash
+   * @returns Promise resolving to hex-encoded hash
+   */
+  hash(algorithm: HashAlgorithm, data: Uint8Array): Promise<string>;
 
-	/**
-	 * Compute hash of data (synchronous version if available)
-	 *
-	 * @param algorithm Hash algorithm to use
-	 * @param data Data to hash
-	 * @returns Hex-encoded hash
-	 * @throws Error if synchronous hashing not supported
-	 */
-	hashSync(algorithm: HashAlgorithm, data: Uint8Array): string;
+  /**
+   * Compute hash of data (synchronous version if available)
+   *
+   * @param algorithm Hash algorithm to use
+   * @param data Data to hash
+   * @returns Hex-encoded hash
+   * @throws Error if synchronous hashing not supported
+   */
+  hashSync(algorithm: HashAlgorithm, data: Uint8Array): string;
 }
 
 /**
@@ -51,36 +51,33 @@ export interface CryptoProvider {
  * - Cloudflare Workers
  */
 export class WebCryptoProvider implements CryptoProvider {
-	private crypto: Crypto;
+  private crypto: Crypto;
 
-	constructor(crypto?: Crypto) {
-		this.crypto = crypto ?? globalThis.crypto;
-		if (!this.crypto) {
-			throw new Error(
-				"WebCrypto API not available. Please provide a CryptoProvider implementation.",
-			);
-		}
-	}
+  constructor(crypto?: Crypto) {
+    this.crypto = crypto ?? globalThis.crypto;
+    if (!this.crypto) {
+      throw new Error(
+        "WebCrypto API not available. Please provide a CryptoProvider implementation.",
+      );
+    }
+  }
 
-	async hash(algorithm: HashAlgorithm, data: Uint8Array): Promise<string> {
-		const hashBuffer = await this.crypto.subtle.digest(
-			algorithm,
-			data as BufferSource,
-		);
-		return this.bufferToHex(new Uint8Array(hashBuffer));
-	}
+  async hash(algorithm: HashAlgorithm, data: Uint8Array): Promise<string> {
+    const hashBuffer = await this.crypto.subtle.digest(algorithm, data as BufferSource);
+    return this.bufferToHex(new Uint8Array(hashBuffer));
+  }
 
-	hashSync(algorithm: HashAlgorithm, data: Uint8Array): string {
-		throw new Error(
-			"WebCrypto does not support synchronous hashing. Use hash() instead or provide a synchronous CryptoProvider.",
-		);
-	}
+  hashSync(_algorithm: HashAlgorithm, _data: Uint8Array): string {
+    throw new Error(
+      "WebCrypto does not support synchronous hashing. Use hash() instead or provide a synchronous CryptoProvider.",
+    );
+  }
 
-	private bufferToHex(buffer: Uint8Array): string {
-		return Array.from(buffer)
-			.map((b) => b.toString(16).padStart(2, "0"))
-			.join("");
-	}
+  private bufferToHex(buffer: Uint8Array): string {
+    return Array.from(buffer)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
 }
 
 /**
@@ -93,18 +90,18 @@ export class WebCryptoProvider implements CryptoProvider {
  * ```
  */
 export class NodeCryptoProvider implements CryptoProvider {
-	constructor(private nodeCrypto: typeof import("node:crypto")) {}
+  constructor(private nodeCrypto: typeof import("node:crypto")) {}
 
-	async hash(algorithm: HashAlgorithm, data: Uint8Array): Promise<string> {
-		return this.hashSync(algorithm, data);
-	}
+  async hash(algorithm: HashAlgorithm, data: Uint8Array): Promise<string> {
+    return this.hashSync(algorithm, data);
+  }
 
-	hashSync(algorithm: HashAlgorithm, data: Uint8Array): string {
-		const algoName = algorithm === "SHA-1" ? "sha1" : "sha256";
-		const hash = this.nodeCrypto.createHash(algoName);
-		hash.update(data);
-		return hash.digest("hex");
-	}
+  hashSync(algorithm: HashAlgorithm, data: Uint8Array): string {
+    const algoName = algorithm === "SHA-1" ? "sha1" : "sha256";
+    const hash = this.nodeCrypto.createHash(algoName);
+    hash.update(data);
+    return hash.digest("hex");
+  }
 }
 
 /**
@@ -119,18 +116,18 @@ let defaultProvider: CryptoProvider | null = null;
  * @throws Error if no crypto provider available
  */
 export function getDefaultCryptoProvider(): CryptoProvider {
-	if (defaultProvider) {
-		return defaultProvider;
-	}
+  if (defaultProvider) {
+    return defaultProvider;
+  }
 
-	try {
-		defaultProvider = new WebCryptoProvider();
-		return defaultProvider;
-	} catch {
-		throw new Error(
-			"No default crypto provider available. Please set one using setDefaultCryptoProvider().",
-		);
-	}
+  try {
+    defaultProvider = new WebCryptoProvider();
+    return defaultProvider;
+  } catch {
+    throw new Error(
+      "No default crypto provider available. Please set one using setDefaultCryptoProvider().",
+    );
+  }
 }
 
 /**
@@ -139,7 +136,7 @@ export function getDefaultCryptoProvider(): CryptoProvider {
  * @param provider Crypto provider to use as default
  */
 export function setDefaultCryptoProvider(provider: CryptoProvider): void {
-	defaultProvider = provider;
+  defaultProvider = provider;
 }
 
 /**
@@ -149,12 +146,9 @@ export function setDefaultCryptoProvider(provider: CryptoProvider): void {
  * @param provider Optional crypto provider (uses default if not specified)
  * @returns Promise resolving to hex-encoded SHA-1 hash
  */
-export async function sha1(
-	data: Uint8Array,
-	provider?: CryptoProvider,
-): Promise<string> {
-	const p = provider ?? getDefaultCryptoProvider();
-	return p.hash("SHA-1", data);
+export async function sha1(data: Uint8Array, provider?: CryptoProvider): Promise<string> {
+  const p = provider ?? getDefaultCryptoProvider();
+  return p.hash("SHA-1", data);
 }
 
 /**
@@ -164,12 +158,9 @@ export async function sha1(
  * @param provider Optional crypto provider (uses default if not specified)
  * @returns Promise resolving to hex-encoded SHA-256 hash
  */
-export async function sha256(
-	data: Uint8Array,
-	provider?: CryptoProvider,
-): Promise<string> {
-	const p = provider ?? getDefaultCryptoProvider();
-	return p.hash("SHA-256", data);
+export async function sha256(data: Uint8Array, provider?: CryptoProvider): Promise<string> {
+  const p = provider ?? getDefaultCryptoProvider();
+  return p.hash("SHA-256", data);
 }
 
 /**
@@ -183,17 +174,17 @@ export async function sha256(
  * @returns Promise resolving to Git object ID (hex SHA-1)
  */
 export async function gitObjectHash(
-	type: "blob" | "tree" | "commit" | "tag",
-	data: Uint8Array,
-	provider?: CryptoProvider,
+  type: "blob" | "tree" | "commit" | "tag",
+  data: Uint8Array,
+  provider?: CryptoProvider,
 ): Promise<string> {
-	// Create Git object header: "type size\0"
-	const header = new TextEncoder().encode(`${type} ${data.length}\0`);
+  // Create Git object header: "type size\0"
+  const header = new TextEncoder().encode(`${type} ${data.length}\0`);
 
-	// Concatenate header + data
-	const full = new Uint8Array(header.length + data.length);
-	full.set(header, 0);
-	full.set(data, header.length);
+  // Concatenate header + data
+  const full = new Uint8Array(header.length + data.length);
+  full.set(header, 0);
+  full.set(data, header.length);
 
-	return sha1(full, provider);
+  return sha1(full, provider);
 }

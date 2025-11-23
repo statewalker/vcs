@@ -76,7 +76,10 @@ export interface SourceIndex {
 
 export const DEFAULT_BLOCK_SIZE = 16;
 
-export function buildSourceIndex(source: Uint8Array, blockSize: number = DEFAULT_BLOCK_SIZE): SourceIndex {
+export function buildSourceIndex(
+  source: Uint8Array,
+  blockSize: number = DEFAULT_BLOCK_SIZE,
+): SourceIndex {
   const map = new Map<number, SourceBlock[]>();
 
   for (let pos = 0; pos + blockSize <= source.length; pos += blockSize) {
@@ -108,7 +111,10 @@ interface RangeAccumulator {
  * Merge-adjacent range emitter.
  * Keeps state in `acc.last` and yields only when necessary.
  */
-export function* emitRange(acc: RangeAccumulator, next: DeltaRange | undefined): Generator<DeltaRange> {
+export function* emitRange(
+  acc: RangeAccumulator,
+  next: DeltaRange | undefined,
+): Generator<DeltaRange> {
   if (!next) {
     return;
   }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "vitest";
 import { type PerformanceStats, testFossilLikeRanges } from "./test-utility.js";
 
 function roundUpToPow2(x: number): number {

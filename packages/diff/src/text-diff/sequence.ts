@@ -13,11 +13,11 @@
  * SequenceComparator must also be supplied.
  */
 export abstract class Sequence {
-	/**
-	 * Get the total number of items in the sequence.
-	 * @returns Total number of items in the sequence
-	 */
-	abstract size(): number;
+  /**
+   * Get the total number of items in the sequence.
+   * @returns Total number of items in the sequence
+   */
+  abstract size(): number;
 }
 
 /**
@@ -26,23 +26,23 @@ export abstract class Sequence {
  * @template S The type of sequence being compared
  */
 export interface SequenceComparator<S extends Sequence> {
-	/**
-	 * Compare two items to determine if they are equal.
-	 *
-	 * @param a First sequence
-	 * @param ai Index of item in first sequence
-	 * @param b Second sequence
-	 * @param bi Index of item in second sequence
-	 * @returns true if the elements are equal
-	 */
-	equals(a: S, ai: number, b: S, bi: number): boolean;
+  /**
+   * Compare two items to determine if they are equal.
+   *
+   * @param a First sequence
+   * @param ai Index of item in first sequence
+   * @param b Second sequence
+   * @param bi Index of item in second sequence
+   * @returns true if the elements are equal
+   */
+  equals(a: S, ai: number, b: S, bi: number): boolean;
 
-	/**
-	 * Get the hash code for an item in a sequence.
-	 *
-	 * @param seq Sequence
-	 * @param index Index of item
-	 * @returns Hash code for the item
-	 */
-	hash(seq: S, index: number): number;
+  /**
+   * Get the hash code for an item in a sequence.
+   *
+   * @param seq Sequence
+   * @param index Index of item
+   * @returns Hash code for the item
+   */
+  hash(seq: S, index: number): number;
 }

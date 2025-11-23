@@ -8,7 +8,7 @@ function pad(str: string): string {
 /**
  * Helper to format performance stats for console output
  */
-function formatStats(prefix: string, stats: PerformanceStats): string {
+function _formatStats(prefix: string, stats: PerformanceStats): string {
   const formatSize = (size: number): string => {
     if (size < 1024) return `${pad(size.toString())}B`;
     if (size < 1024 * 1024) return `${pad((size / 1024).toFixed(2))}KB`;

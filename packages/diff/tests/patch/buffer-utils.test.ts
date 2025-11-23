@@ -1,12 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  match,
-  nextLF,
-  prevLF,
-  isHunkHdr,
   decode,
   encodeASCII,
+  isHunkHdr,
+  match,
+  nextLF,
   parseBase10,
+  prevLF,
 } from "../../src/patch/buffer-utils.js";
 
 describe("buffer-utils", () => {

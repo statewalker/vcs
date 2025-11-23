@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { decodeGitBase85, encodeGitBase85 } from "../../src/patch/base85.js";
 
 describe("base85", () => {
