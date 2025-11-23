@@ -4,12 +4,16 @@ export default defineConfig({
   input: "src/index.ts",
   output: [
     {
-      file: "dist/index.js",
+      dir: "dist/esm",
       format: "esm",
+      entryFileNames: "[name].js",
+      chunkFileNames: "[name]-[hash].js",
     },
     {
-      file: "dist/index.cjs",
+      dir: "dist/cjs",
       format: "cjs",
+      entryFileNames: "[name].cjs",
+      chunkFileNames: "[name]-[hash].cjs",
     },
   ],
   treeshake: true,

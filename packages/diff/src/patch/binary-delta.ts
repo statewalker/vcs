@@ -1,0 +1,304 @@
+/**
+ * Git binary delta format decoder/encoder
+ *
+ * Based on JGit's BinaryDelta.java
+ * @see https://github.com/eclipse-jgit/jgit/blob/master/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
+ *
+ * Git binary delta format:
+ * - Base size (variable-length encoding)
+ * - Result size (variable-length encoding)
+ * - Delta instructions:
+ *   - 0xxxxxxx: insert next (x+1) bytes (or 0x80 if x=0)
+ *   - 1xxxxxxx: copy from base
+ *     - Offset and size encoded in the x bits
+ */
+
+import type { DeltaRange } from "../text-diff/edit.js";
+
+/**
+ * Read a variable-length integer from the delta stream
+ *
+ * Git uses a variable-length encoding where each byte contributes 7 bits,
+ * and the MSB indicates if more bytes follow.
+ *
+ * @param data Delta data
+ * @param pos Current position
+ * @returns [value, new position]
+ */
+function readVariableInt(data: Uint8Array, pos: number): [number, number] {
+  let value = 0;
+  let shift = 0;
+
+  while (pos < data.length) {
+    const byte = data[pos++];
+    value |= (byte & 0x7f) << shift;
+    shift += 7;
+
+    if ((byte & 0x80) === 0) {
+      break;
+    }
+  }
+
+  return [value, pos];
+}
+
+/**
+ * Write a variable-length integer to the output
+ *
+ * @param output Output array
+ * @param value Value to write
+ */
+function writeVariableInt(output: number[], value: number): void {
+  let remaining = value;
+
+  while (remaining >= 0x80) {
+    output.push((remaining & 0x7f) | 0x80);
+    remaining >>>= 7;
+  }
+
+  output.push(remaining & 0x7f);
+}
+
+/**
+ * Decode a Git binary delta
+ *
+ * @param base Base (old) data
+ * @param delta Delta instructions
+ * @returns Reconstructed result data
+ * @throws Error if delta is invalid or base size doesn't match
+ */
+export function decodeGitBinaryDelta(base: Uint8Array, delta: Uint8Array): Uint8Array {
+  let pos = 0;
+
+  // Read base size
+  const [baseSize, pos1] = readVariableInt(delta, pos);
+  if (baseSize !== base.length) {
+    throw new Error(`Base size mismatch: expected ${baseSize}, got ${base.length}`);
+  }
+  pos = pos1;
+
+  // Read result size
+  const [resultSize, pos2] = readVariableInt(delta, pos);
+  pos = pos2;
+
+  // Decode instructions
+  const result = new Uint8Array(resultSize);
+  let resultPos = 0;
+
+  while (pos < delta.length) {
+    const cmd = delta[pos++];
+
+    if ((cmd & 0x80) === 0) {
+      // Insert command: 0xxxxxxx
+      // Insert the next (cmd) bytes, or 0x80 bytes if cmd is 0
+      const len = cmd === 0 ? 0x80 : cmd;
+
+      if (pos + len > delta.length) {
+        throw new Error(`Insert command exceeds delta bounds: need ${len} bytes at ${pos}`);
+      }
+
+      result.set(delta.slice(pos, pos + len), resultPos);
+      pos += len;
+      resultPos += len;
+    } else {
+      // Copy command: 1xxxxxxx
+      let offset = 0;
+      let len = 0;
+
+      // Decode offset (up to 4 bytes)
+      if (cmd & 0x01) offset = delta[pos++];
+      if (cmd & 0x02) offset |= delta[pos++] << 8;
+      if (cmd & 0x04) offset |= delta[pos++] << 16;
+      if (cmd & 0x08) offset |= delta[pos++] << 24;
+
+      // Decode length (up to 3 bytes)
+      if (cmd & 0x10) len = delta[pos++];
+      if (cmd & 0x20) len |= delta[pos++] << 8;
+      if (cmd & 0x40) len |= delta[pos++] << 16;
+
+      // Default length is 0x10000 (64KB) if not specified
+      if (len === 0) len = 0x10000;
+
+      // Validate copy operation
+      if (offset + len > base.length) {
+        throw new Error(
+          `Copy command exceeds base bounds: offset=${offset}, len=${len}, base=${base.length}`,
+        );
+      }
+
+      if (resultPos + len > resultSize) {
+        throw new Error(
+          `Copy command exceeds result bounds: resultPos=${resultPos}, len=${len}, resultSize=${resultSize}`,
+        );
+      }
+
+      // Copy from base
+      result.set(base.slice(offset, offset + len), resultPos);
+      resultPos += len;
+    }
+  }
+
+  if (resultPos !== resultSize) {
+    throw new Error(`Result size mismatch: expected ${resultSize}, got ${resultPos}`);
+  }
+
+  return result;
+}
+
+/**
+ * Encode a copy instruction
+ *
+ * @param output Output array
+ * @param offset Offset in base
+ * @param len Length to copy
+ */
+function encodeCopyInstruction(output: number[], offset: number, len: number): void {
+  let cmd = 0x80; // Copy command marker
+
+  // Encode offset
+  const offsetBytes: number[] = [];
+  if (offset & 0x000000ff) {
+    offsetBytes.push(offset & 0xff);
+    cmd |= 0x01;
+  }
+  if (offset & 0x0000ff00) {
+    offsetBytes.push((offset >> 8) & 0xff);
+    cmd |= 0x02;
+  }
+  if (offset & 0x00ff0000) {
+    offsetBytes.push((offset >> 16) & 0xff);
+    cmd |= 0x04;
+  }
+  if (offset & 0xff000000) {
+    offsetBytes.push((offset >> 24) & 0xff);
+    cmd |= 0x08;
+  }
+
+  // Encode length
+  const lenBytes: number[] = [];
+  if (len !== 0x10000) {
+    // Default length
+    if (len & 0x0000ff) {
+      lenBytes.push(len & 0xff);
+      cmd |= 0x10;
+    }
+    if (len & 0x00ff00) {
+      lenBytes.push((len >> 8) & 0xff);
+      cmd |= 0x20;
+    }
+    if (len & 0xff0000) {
+      lenBytes.push((len >> 16) & 0xff);
+      cmd |= 0x40;
+    }
+  }
+
+  // Write command byte
+  output.push(cmd);
+
+  // Write offset bytes
+  for (const byte of offsetBytes) {
+    output.push(byte);
+  }
+
+  // Write length bytes
+  for (const byte of lenBytes) {
+    output.push(byte);
+  }
+}
+
+/**
+ * Encode an insert instruction
+ *
+ * @param output Output array
+ * @param data Data to insert
+ */
+function encodeInsertInstruction(output: number[], data: Uint8Array): void {
+  let offset = 0;
+
+  while (offset < data.length) {
+    const remaining = data.length - offset;
+    const len = Math.min(remaining, 0x7f); // Max 127 bytes per instruction
+
+    // Write insert command (0xxxxxxx where x is length-1)
+    output.push(len);
+
+    // Write data
+    for (let i = 0; i < len; i++) {
+      output.push(data[offset + i]);
+    }
+
+    offset += len;
+  }
+}
+
+/**
+ * Encode a Git binary delta from delta ranges
+ *
+ * @param base Base (old) data
+ * @param target Target (new) data
+ * @param ranges Delta ranges (copy from source or insert from target)
+ * @returns Encoded delta
+ */
+export function encodeGitBinaryDelta(
+  base: Uint8Array,
+  target: Uint8Array,
+  ranges: DeltaRange[],
+): Uint8Array {
+  const output: number[] = [];
+
+  // Write base size
+  writeVariableInt(output, base.length);
+
+  // Write result size
+  writeVariableInt(output, target.length);
+
+  // Encode instructions
+  for (const range of ranges) {
+    if (range.from === "source") {
+      // Copy from base
+      encodeCopyInstruction(output, range.start, range.len);
+    } else {
+      // Insert from target
+      const data = target.slice(range.start, range.start + range.len);
+      encodeInsertInstruction(output, data);
+    }
+  }
+
+  return new Uint8Array(output);
+}
+
+/**
+ * Calculate the size of the encoded delta (without actually encoding)
+ *
+ * Useful for deciding whether to use delta or literal format
+ *
+ * @param base Base data
+ * @param target Target data
+ * @param ranges Delta ranges
+ * @returns Estimated encoded size in bytes
+ */
+export function estimateGitBinaryDeltaSize(
+  _base: Uint8Array,
+  _target: Uint8Array,
+  ranges: DeltaRange[],
+): number {
+  let size = 0;
+
+  // Size headers (approximate, variable length)
+  size += 5; // base size (max 5 bytes)
+  size += 5; // result size (max 5 bytes)
+
+  // Instructions
+  for (const range of ranges) {
+    if (range.from === "source") {
+      // Copy: 1 byte cmd + up to 7 bytes for offset/length
+      size += 8;
+    } else {
+      // Insert: 1 byte cmd per 127 bytes + data
+      const chunks = Math.ceil(range.len / 0x7f);
+      size += chunks + range.len;
+    }
+  }
+
+  return size;
+}

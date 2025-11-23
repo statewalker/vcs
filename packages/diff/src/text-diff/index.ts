@@ -1,16 +1,10 @@
 // Core abstractions
 
-// Edit data structures
-export { Edit, type EditList, EditType } from "./edit.js";
-// Hashed sequences for performance
-export {
-  HashedSequence,
-  HashedSequenceComparator,
-  HashedSequencePair,
-} from "./hashed-sequence.js";
-// Diff algorithm
-export { MyersDiff } from "./myers-diff.js";
-// Text sequence implementation
-export { RawText } from "./raw-text.js";
-export { RawTextComparator } from "./raw-text-comparator.js";
-export { Sequence, type SequenceComparator } from "./sequence.js";
+export * from "./binary-comparator.js";
+export * from "./binary-sequence.js";
+export * from "./edit.js";
+export * from "./hashed-sequence.js";
+export * from "./myers-diff.js";
+export * from "./raw-text.js";
+export * from "./raw-text-comparator.js";
+export * from "./sequence.js";

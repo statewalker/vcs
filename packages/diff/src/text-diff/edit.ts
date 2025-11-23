@@ -232,3 +232,116 @@ export class Edit {
  * A list of edits.
  */
 export type EditList = Edit[];
+
+/**
+ * DeltaRange type (imported from delta module for conversion utilities)
+ */
+export type DeltaRange =
+  | { from: "source"; start: number; len: number }
+  | { from: "target"; start: number; len: number };
+
+/**
+ * Convert an EditList to DeltaRanges
+ *
+ * This function converts a list of edits (from Myers diff) into delta ranges
+ * suitable for binary delta encoding. It includes copy ranges for unchanged
+ * regions and insert ranges for modified regions.
+ *
+ * @param edits List of edits
+ * @param sourceSize Total size of source sequence
+ * @param targetSize Total size of target sequence
+ * @returns Array of delta ranges
+ */
+export function editListToDeltaRanges(
+  edits: EditList,
+  sourceSize: number,
+  _targetSize: number,
+): DeltaRange[] {
+  const ranges: DeltaRange[] = [];
+  let posA = 0;
+
+  for (const edit of edits) {
+    // Add copy range for unchanged prefix
+    if (edit.beginA > posA) {
+      ranges.push({
+        from: "source",
+        start: posA,
+        len: edit.beginA - posA,
+      });
+    }
+
+    // Handle the edit based on type
+    const type = edit.getType();
+
+    switch (type) {
+      case EditType.INSERT:
+        // Insert from target
+        ranges.push({
+          from: "target",
+          start: edit.beginB,
+          len: edit.getLengthB(),
+        });
+        break;
+
+      case EditType.DELETE:
+        // Delete: no range needed (content removed)
+        break;
+
+      case EditType.REPLACE:
+        // Replace: insert new content from target
+        ranges.push({
+          from: "target",
+          start: edit.beginB,
+          len: edit.getLengthB(),
+        });
+        break;
+
+      case EditType.EMPTY:
+        // No operation
+        break;
+    }
+
+    posA = edit.endA;
+  }
+
+  // Add copy range for unchanged suffix
+  if (posA < sourceSize) {
+    ranges.push({
+      from: "source",
+      start: posA,
+      len: sourceSize - posA,
+    });
+  }
+
+  return ranges;
+}
+
+/**
+ * Convert DeltaRanges to an EditList
+ *
+ * This is the inverse operation of editListToDeltaRanges.
+ * It reconstructs Edit objects from delta ranges.
+ *
+ * @param ranges Array of delta ranges
+ * @returns List of edits
+ */
+export function deltaRangesToEditList(ranges: DeltaRange[]): EditList {
+  const edits: EditList = [];
+  let posA = 0;
+  let posB = 0;
+
+  for (const range of ranges) {
+    if (range.from === "source") {
+      // Copy from source: advance both positions (no edit)
+      posA += range.len;
+      posB += range.len;
+    } else {
+      // Insert from target: create an INSERT edit
+      const edit = new Edit(posA, posA, posB, posB + range.len);
+      edits.push(edit);
+      posB += range.len;
+    }
+  }
+
+  return edits;
+}

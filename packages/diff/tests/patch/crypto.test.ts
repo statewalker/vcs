@@ -6,7 +6,7 @@ import {
   sha1,
   sha256,
   WebCryptoProvider,
-} from "../../src/patch/crypto.js";
+} from "../../src/common/crypto/index.js";
 
 describe("crypto", () => {
   describe("WebCryptoProvider", () => {

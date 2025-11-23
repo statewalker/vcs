@@ -8,10 +8,13 @@
  * - Handling different change types (ADD, DELETE, MODIFY, RENAME, COPY)
  */
 
+import { getDefaultCompressionProvider } from "../common/compression/index.js";
+import type { CompressionProvider } from "../common/compression/index.js";
+import { decodeGitBinaryDelta } from "./binary-delta.js";
 import { nextLF } from "./buffer-utils.js";
 import type { FileHeader } from "./file-header.js";
 import type { HunkHeader } from "./hunk-header.js";
-import { ChangeType, PatchType } from "./types.js";
+import { BinaryHunkType, ChangeType, PatchType } from "./types.js";
 
 /**
  * Result of applying a patch to a single file
@@ -35,6 +38,8 @@ export interface ApplyOptions {
   allowConflicts?: boolean;
   /** Maximum number of lines to shift when fuzzy matching (default: 100) */
   maxFuzz?: number;
+  /** Compression provider for binary patches (auto-detected if not provided) */
+  compressionProvider?: CompressionProvider;
 }
 
 /**
@@ -53,21 +58,24 @@ interface Line {
 export class PatchApplier {
   private errors: string[] = [];
   private warnings: string[] = [];
-  private readonly options: Required<ApplyOptions>;
+  private readonly allowConflicts: boolean;
+  private readonly maxFuzz: number;
+  private readonly compressionProvider?: CompressionProvider;
 
   constructor(options: ApplyOptions = {}) {
-    this.options = {
-      allowConflicts: options.allowConflicts ?? false,
-      maxFuzz: options.maxFuzz ?? 100,
-    };
+    this.allowConflicts = options.allowConflicts ?? false;
+    this.maxFuzz = options.maxFuzz ?? 100;
+    this.compressionProvider = options.compressionProvider;
   }
 
   /**
-   * Apply a file header patch to content
+   * Apply a file header patch to content (synchronous version)
    *
    * @param fileHeader The file header containing hunks to apply
    * @param oldContent The original file content (null for ADD)
    * @returns Result of applying the patch
+   *
+   * @note For binary patches, use applyAsync() or provide a sync-capable compression provider
    */
   apply(fileHeader: FileHeader, oldContent: Uint8Array | null): FileApplyResult {
     this.errors = [];
@@ -89,7 +97,7 @@ export class PatchApplier {
             this.errors.push("Cannot modify/rename/copy: old content is null");
             return this.createResult(false, null);
           }
-          return this.applyModify(fileHeader, oldContent);
+          return this.applyModifySync(fileHeader, oldContent);
 
         default:
           this.errors.push(`Unknown change type: ${fileHeader.changeType}`);
@@ -102,10 +110,71 @@ export class PatchApplier {
   }
 
   /**
-   * Apply ADD operation (create new file)
+   * Apply a file header patch to content (asynchronous version for binary patches)
+   *
+   * @param fileHeader The file header containing hunks to apply
+   * @param oldContent The original file content (null for ADD)
+   * @returns Result of applying the patch
+   */
+  async applyAsync(
+    fileHeader: FileHeader,
+    oldContent: Uint8Array | null,
+  ): Promise<FileApplyResult> {
+    this.errors = [];
+    this.warnings = [];
+
+    try {
+      // Handle different change types
+      switch (fileHeader.changeType) {
+        case ChangeType.ADD:
+          return await this.applyAddAsync(fileHeader);
+
+        case ChangeType.DELETE:
+          return this.applyDelete();
+
+        case ChangeType.MODIFY:
+        case ChangeType.RENAME:
+        case ChangeType.COPY:
+          if (!oldContent) {
+            this.errors.push("Cannot modify/rename/copy: old content is null");
+            return this.createResult(false, null);
+          }
+          return await this.applyModify(fileHeader, oldContent);
+
+        default:
+          this.errors.push(`Unknown change type: ${fileHeader.changeType}`);
+          return this.createResult(false, null);
+      }
+    } catch (error) {
+      this.errors.push(`Unexpected error: ${error}`);
+      return this.createResult(false, null);
+    }
+  }
+
+  /**
+   * Apply ADD operation (create new file) - synchronous version
    */
   private applyAdd(fileHeader: FileHeader): FileApplyResult {
-    // For ADD, we start with empty content and apply all hunks
+    // Handle binary ADD (new binary file)
+    if (fileHeader.patchType === PatchType.GIT_BINARY) {
+      return this.applyBinarySync(fileHeader, new Uint8Array(0));
+    }
+
+    // For text ADD, we start with empty content and apply all hunks
+    const emptyLines: Line[] = [];
+    return this.applyHunks(fileHeader, emptyLines);
+  }
+
+  /**
+   * Apply ADD operation (create new file) - asynchronous version
+   */
+  private async applyAddAsync(fileHeader: FileHeader): Promise<FileApplyResult> {
+    // Handle binary ADD (new binary file)
+    if (fileHeader.patchType === PatchType.GIT_BINARY) {
+      return await this.applyBinary(fileHeader, new Uint8Array(0));
+    }
+
+    // For text ADD, we start with empty content and apply all hunks
     const emptyLines: Line[] = [];
     return this.applyHunks(fileHeader, emptyLines);
   }
@@ -119,12 +188,31 @@ export class PatchApplier {
   }
 
   /**
-   * Apply MODIFY operation (modify existing file)
+   * Apply MODIFY operation (modify existing file) - async version
    */
-  private applyModify(fileHeader: FileHeader, oldContent: Uint8Array): FileApplyResult {
+  private async applyModify(
+    fileHeader: FileHeader,
+    oldContent: Uint8Array,
+  ): Promise<FileApplyResult> {
     // Handle binary patches
     if (fileHeader.patchType === PatchType.GIT_BINARY) {
-      return this.applyBinary(fileHeader, oldContent);
+      return await this.applyBinary(fileHeader, oldContent);
+    }
+
+    // Parse old content into lines
+    const oldLines = this.parseLines(oldContent);
+
+    // Apply text hunks
+    return this.applyHunks(fileHeader, oldLines);
+  }
+
+  /**
+   * Apply MODIFY operation (modify existing file) - sync version
+   */
+  private applyModifySync(fileHeader: FileHeader, oldContent: Uint8Array): FileApplyResult {
+    // Handle binary patches
+    if (fileHeader.patchType === PatchType.GIT_BINARY) {
+      return this.applyBinarySync(fileHeader, oldContent);
     }
 
     // Parse old content into lines
@@ -137,23 +225,139 @@ export class PatchApplier {
   /**
    * Apply binary patch
    */
-  private applyBinary(fileHeader: FileHeader, _oldContent: Uint8Array): FileApplyResult {
+  private async applyBinary(
+    fileHeader: FileHeader,
+    oldContent: Uint8Array,
+  ): Promise<FileApplyResult> {
     if (!fileHeader.forwardBinaryHunk) {
       this.errors.push("Binary patch has no forward hunk");
       return this.createResult(false, null);
     }
 
-    // For now, we decode the base85 data but don't decompress
-    // Full implementation would require inflate/deflate support
     try {
-      fileHeader.forwardBinaryHunk.getData();
-      // TODO: Inflate the data for full binary patch support
-      this.warnings.push(
-        "Binary patch application not fully implemented (requires inflate/deflate)",
+      const hunk = fileHeader.forwardBinaryHunk;
+
+      // Get base85-decoded data
+      const encodedData = hunk.getData();
+
+      // Get compression provider
+      const provider = this.compressionProvider ?? (await getDefaultCompressionProvider());
+
+      // Decompress the data (Git uses deflate)
+      let inflatedData: Uint8Array;
+      try {
+        inflatedData = await provider.decompress(encodedData, {
+          maxSize: 100 * 1024 * 1024, // 100MB limit to prevent decompression bombs
+        });
+      } catch (err) {
+        this.errors.push(`Failed to decompress binary data: ${err}`);
+        return this.createResult(false, null);
+      }
+
+      // Apply based on hunk type
+      let result: Uint8Array;
+
+      switch (hunk.type) {
+        case BinaryHunkType.LITERAL_DEFLATED:
+          // Literal: decompressed data is the result
+          result = inflatedData;
+          break;
+
+        case BinaryHunkType.DELTA_DEFLATED:
+          // Delta: apply Git binary delta to old content
+          try {
+            result = decodeGitBinaryDelta(oldContent, inflatedData);
+          } catch (err) {
+            this.errors.push(`Failed to apply binary delta: ${err}`);
+            return this.createResult(false, null);
+          }
+          break;
+
+        default:
+          this.errors.push(`Unknown binary hunk type: ${hunk.type}`);
+          return this.createResult(false, null);
+      }
+
+      // Verify size matches expected size
+      if (result.length !== hunk.size) {
+        this.warnings.push(
+          `Binary hunk size mismatch: expected ${hunk.size}, got ${result.length}`,
+        );
+      }
+
+      return this.createResult(true, result);
+    } catch (error) {
+      this.errors.push(`Binary patch application failed: ${error}`);
+      return this.createResult(false, null);
+    }
+  }
+
+  /**
+   * Apply binary patch synchronously (if compression provider supports it)
+   */
+  private applyBinarySync(fileHeader: FileHeader, oldContent: Uint8Array): FileApplyResult {
+    if (!fileHeader.forwardBinaryHunk) {
+      this.errors.push("Binary patch has no forward hunk");
+      return this.createResult(false, null);
+    }
+
+    // Check if we have a sync-capable provider
+    if (!this.compressionProvider?.supportsSyncOperations()) {
+      this.errors.push(
+        "Synchronous binary patch application requires a compression provider that supports sync operations",
       );
       return this.createResult(false, null);
+    }
+
+    try {
+      const hunk = fileHeader.forwardBinaryHunk;
+
+      // Get base85-decoded data
+      const encodedData = hunk.getData();
+
+      // Decompress the data (Git uses deflate)
+      let inflatedData: Uint8Array;
+      try {
+        inflatedData = this.compressionProvider.decompressSync(encodedData, {
+          maxSize: 100 * 1024 * 1024, // 100MB limit
+        });
+      } catch (err) {
+        this.errors.push(`Failed to decompress binary data: ${err}`);
+        return this.createResult(false, null);
+      }
+
+      // Apply based on hunk type
+      let result: Uint8Array;
+
+      switch (hunk.type) {
+        case BinaryHunkType.LITERAL_DEFLATED:
+          result = inflatedData;
+          break;
+
+        case BinaryHunkType.DELTA_DEFLATED:
+          try {
+            result = decodeGitBinaryDelta(oldContent, inflatedData);
+          } catch (err) {
+            this.errors.push(`Failed to apply binary delta: ${err}`);
+            return this.createResult(false, null);
+          }
+          break;
+
+        default:
+          this.errors.push(`Unknown binary hunk type: ${hunk.type}`);
+          return this.createResult(false, null);
+      }
+
+      // Verify size
+      if (result.length !== hunk.size) {
+        this.warnings.push(
+          `Binary hunk size mismatch: expected ${hunk.size}, got ${result.length}`,
+        );
+      }
+
+      return this.createResult(true, result);
     } catch (error) {
-      this.errors.push(`Failed to decode binary patch: ${error}`);
+      this.errors.push(`Binary patch application failed: ${error}`);
       return this.createResult(false, null);
     }
   }
@@ -170,7 +374,7 @@ export class PatchApplier {
       const result = this.applyHunk(hunk, newLines, afterLastHunk);
 
       if (!result.success) {
-        if (this.options.allowConflicts) {
+        if (this.allowConflicts) {
           this.warnings.push(`Hunk at line ${hunk.oldStartLine} has conflicts`);
           // TODO: Insert conflict markers
         } else {
@@ -247,7 +451,7 @@ export class PatchApplier {
     }
 
     // Try shifting backwards first (prefer earlier positions)
-    const maxBackShift = Math.min(expectedPosition - afterLastHunk, this.options.maxFuzz);
+    const maxBackShift = Math.min(expectedPosition - afterLastHunk, this.maxFuzz);
     for (let shift = 0; shift <= maxBackShift; shift++) {
       const pos = expectedPosition - shift;
       if (this.canApplyAt(hunk, lines, pos)) {
@@ -261,7 +465,7 @@ export class PatchApplier {
     // Try shifting forwards
     const maxForwardShift = Math.min(
       lines.length - expectedPosition - oldLinesInHunk,
-      this.options.maxFuzz,
+      this.maxFuzz,
     );
     for (let shift = 1; shift <= maxForwardShift; shift++) {
       const pos = expectedPosition + shift;
