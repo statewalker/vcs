@@ -58,7 +58,9 @@ export function decodeGitBase85(encoded: Uint8Array): Uint8Array {
 		const lengthChar = encoded[lineStart];
 		const outputLength = lengthChar - 0x41 + 1; // 'A' = 1 byte, 'B' = 2, etc.
 
-		if (outputLength < 1 || outputLength > 52) {
+		// Git allows up to 'z' (122) which gives 58 bytes per line
+		// This is more than the typical 52 bytes but is used in practice
+		if (outputLength < 1 || outputLength > 58) {
 			throw new Error(
 				`Invalid base85 length character: ${String.fromCharCode(lengthChar)} (expected A-z, got ${outputLength})`,
 			);

@@ -52,6 +52,9 @@ export {
 export {
 	// Patch parsing
 	Patch,
+	FileHeader,
+	HunkHeader,
+	BinaryHunk,
 	// Encoding/decoding
 	encodeGitBase85,
 	decodeGitBase85,

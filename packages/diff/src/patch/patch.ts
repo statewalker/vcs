@@ -11,6 +11,7 @@
 
 import type { FormatError } from "./types.js";
 import { encodeASCII, match, nextLF, isHunkHdr } from "./buffer-utils.js";
+import { FileHeader } from "./file-header.js";
 
 /** Pattern: "diff --git " */
 const DIFF_GIT = encodeASCII("diff --git ");
@@ -38,7 +39,7 @@ const SIG_FOOTER = encodeASCII("-- \n");
  */
 export class Patch {
 	/** List of file changes in the patch */
-	private files: unknown[] = [];
+	private files: FileHeader[] = [];
 
 	/** Formatting errors encountered during parsing */
 	private errors: FormatError[] = [];
@@ -53,7 +54,7 @@ export class Patch {
 	 *
 	 * @returns Array of file headers in order of appearance
 	 */
-	getFiles(): readonly unknown[] {
+	getFiles(): readonly FileHeader[] {
 		return this.files;
 	}
 
@@ -163,12 +164,12 @@ export class Patch {
 
 	/**
 	 * Parse a git-style diff ("diff --git a/... b/...")
-	 * Placeholder - will be implemented with FileHeader parser
 	 */
 	private parseDiffGit(buffer: Uint8Array, offset: number, end: number): number {
-		// TODO: Implement FileHeader parsing
-		this.addError("Git diff parsing not yet implemented", offset);
-		return nextLF(buffer, offset);
+		const header = new FileHeader(buffer, offset);
+		const nextOffset = header.parseGitFileHeader(end);
+		this.files.push(header);
+		return nextOffset;
 	}
 
 	/**

@@ -1,5 +1,8 @@
 // Patch parsing
 export { Patch } from "./patch.js";
+export { FileHeader } from "./file-header.js";
+export { HunkHeader } from "./hunk-header.js";
+export { BinaryHunk } from "./binary-hunk.js";
 
 // Encoding/decoding
 export { encodeGitBase85, decodeGitBase85 } from "./base85.js";
