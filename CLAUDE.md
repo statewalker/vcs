@@ -89,3 +89,21 @@ Give each state a unique `key` in PascalCase:
 ```
 
 **[Full Writing Style Guide](.claude/documentation/writing-style.md)**
+
+### Note Organization
+
+All exploration and planning notes: `notes/src/YYYY-MM-DD/CC-[project]-subject.md`
+
+**Format:** `notes/src/{YYYY-MM-DD}/{CC}-[{project}]-{subject}.md`
+- Store in `notes/src/` - managed by ObservableHQ framework
+- Date folder `{YYYY-MM-DD}` groups daily work
+- Counter `{CC}` resets to `01` daily
+- Optional project tag `[{project}]` in brackets (kebab-case)
+- Subject in kebab-case
+
+**Examples:**
+- `notes/src/2025-11-07/01-[doc-refactoring]-process-analysis.md`
+- `notes/src/2025-11-07/02-architecture-exploration.md` (no project)
+- `notes/src/2025-11-07/03-[fsm-validation]-fixes-applied.md`
+
+**[Full Guidelines](.claude/workflows/note-organization.md)**
