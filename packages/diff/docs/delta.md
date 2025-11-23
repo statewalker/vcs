@@ -4,18 +4,11 @@ The delta module provides binary delta compression for efficient storage and tra
 
 ## Overview
 
-This module implements delta compression inspired by [Fossil SCM](https://fossil-scm.org/home/doc/trunk/www/delta_format.wiki) and rsync, with features compatible with Git's binary delta format.
+This module implements delta compression inspired by [Fossil SCM](https://fossil-scm.org/home/doc/trunk/www/delta_format.wiki) and rsync, with features compatible with Git's binary delta format. When you store multiple versions of a binary file, delta compression lets you save just the differences instead of complete copies. The approach draws from Fossil's delta format, rsync's rolling checksum algorithm, and Git's binary delta encoding from JGit.
 
-**Key inspirations**:
-- Fossil's delta format
-- rsync's rolling checksum algorithm
-- Git's binary delta encoding (from JGit)
+## Delta Compression
 
-## Features
-
-### Delta Compression
-
-Creates compact binary deltas representing changes between two files:
+Creating compact binary deltas is straightforward. You provide the old version (source) and new version (target), and the module finds matching blocks between them:
 
 ```typescript
 import { createDelta } from '@webrun-vcs/diff';
@@ -27,9 +20,7 @@ const delta = createDelta(source, target);
 console.log(`Compressed ${target.length} bytes to ${delta.length} bytes`);
 ```
 
-### Delta Application
-
-Applies a delta to reconstruct the target:
+Applying a delta reconstructs the target from the source and delta:
 
 ```typescript
 import { applyDelta } from '@webrun-vcs/diff';
@@ -41,18 +32,15 @@ const result = applyDelta(source, delta);
 // result now contains the reconstructed target
 ```
 
-### Multiple Delta Algorithms
+### Delta Algorithms
 
-Two algorithms for generating delta ranges:
-
-1. **`createDeltaRanges`** - Optimized for typical binary files
-2. **`createFossilLikeRanges`** - Fossil-style with configurable block size
+You can choose between two algorithms for generating delta ranges. `createDeltaRanges` optimizes for typical binary files with a balance of speed and compression. `createFossilLikeRanges` follows Fossil's approach with configurable block sizes for more control.
 
 ## Key Concepts
 
 ### Delta Ranges
 
-A delta is encoded as a sequence of operations:
+A delta encodes changes as a sequence of operations. Each operation either copies bytes from the source or inserts new bytes:
 
 ```typescript
 interface DeltaRange {
@@ -65,13 +53,11 @@ interface DeltaRange {
 }
 ```
 
-**Operations**:
-- **Copy**: Copy `length` bytes from `source[sourceOffset]`
-- **Insert**: Insert `length` bytes of new data
+Copy operations reference `length` bytes from `source[sourceOffset]`. Insert operations provide `length` bytes of new data.
 
 ### Rolling Checksum
 
-Fast weak checksum for finding matching blocks:
+Finding matching blocks quickly requires a fast weak checksum that updates in constant time. The rolling checksum uses a Rabin-Karp style rolling hash following the rsync and Fossil pattern:
 
 ```typescript
 import { rollingInit, rollingSlide, rollingValue } from '@webrun-vcs/diff';
@@ -85,13 +71,11 @@ rollingSlide(rc, oldByte, newByte);
 console.log(rollingValue(rc)); // Updated checksum
 ```
 
-**Algorithm**: Rabin-Karp style rolling hash (rsync/Fossil pattern)
-- Constant time window sliding: O(1)
-- 32-bit checksum (16-bit s1 + 16-bit s2)
+The 32-bit checksum combines a 16-bit s1 and 16-bit s2, and sliding the window takes O(1) time regardless of window size.
 
 ### Strong Checksum
 
-Cryptographic-quality hash to confirm matches:
+When the rolling checksum finds a potential match, a strong checksum confirms it. This uses FNV-1a 32-bit hash for fast computation with good distribution:
 
 ```typescript
 import { strongChecksum } from '@webrun-vcs/diff';
@@ -99,15 +83,13 @@ import { strongChecksum } from '@webrun-vcs/diff';
 const hash = strongChecksum(buffer, offset, length);
 ```
 
-**Algorithm**: FNV-1a 32-bit hash
-- Fast and good distribution
-- Used to avoid false positives from weak checksum
+The strong checksum prevents false positives from the weak checksum.
 
 ## Key Components
 
 ### createDelta
 
-High-level API for delta creation:
+This high-level API handles delta creation with sensible defaults. You provide source and target buffers, optionally configure the block size and algorithm, and get back an encoded delta:
 
 ```typescript
 import { createDelta } from '@webrun-vcs/diff';
@@ -119,13 +101,11 @@ const delta = createDelta(
 );
 ```
 
-**Options**:
-- `blockSize` - Block size for rolling checksum (default: 16)
-- `algorithm` - Delta algorithm to use
+The block size controls the rolling checksum window (default: 16 bytes). You can also specify which delta algorithm to use.
 
 ### createDeltaRanges
 
-Generates delta ranges using optimized algorithm:
+When you need more control, `createDeltaRanges` generates delta ranges using an optimized algorithm. It merges adjacent operations, optimizes small copy and insert sequences, and balances compression with speed:
 
 ```typescript
 import { createDeltaRanges } from '@webrun-vcs/diff';
@@ -141,14 +121,9 @@ for (const range of ranges) {
 }
 ```
 
-**Features**:
-- Merges adjacent operations
-- Optimizes small copy/insert sequences
-- Good balance of compression and speed
-
 ### createFossilLikeRanges
 
-Generates delta ranges using Fossil-style algorithm:
+This Fossil-style algorithm uses rolling and strong checksums to find matches. You first build an index of source blocks, then generate ranges:
 
 ```typescript
 import { createFossilLikeRanges, buildSourceIndex, DEFAULT_BLOCK_SIZE } from '@webrun-vcs/diff';
@@ -160,15 +135,11 @@ const index = buildSourceIndex(source, DEFAULT_BLOCK_SIZE);
 const ranges = createFossilLikeRanges(index, target);
 ```
 
-**Features**:
-- Rolling checksum for fast block matching
-- Strong checksum to confirm matches
-- Configurable block size (default: 16 bytes)
-- Inspired by Fossil SCM's delta format
+The rolling checksum enables fast block matching, while the strong checksum confirms matches. You can configure the block size (default: 16 bytes). This approach follows Fossil SCM's delta format.
 
 ### buildSourceIndex
 
-Creates an index for efficient block lookup:
+Before generating a delta, you build an index for efficient block lookup. The index maps weak checksums to arrays of source blocks, where each block stores both weak and strong checksums:
 
 ```typescript
 import { buildSourceIndex } from '@webrun-vcs/diff';
@@ -176,14 +147,11 @@ import { buildSourceIndex } from '@webrun-vcs/diff';
 const index = buildSourceIndex(source, blockSize);
 ```
 
-**Structure**:
-- Maps weak checksum → array of source blocks
-- Each block has weak + strong checksums
-- Enables fast O(1) lookups during delta generation
+This structure enables O(1) lookups during delta generation.
 
 ### Fossil Delta Format
 
-Encoding and decoding of Fossil-style delta format:
+When you need to store or transmit deltas, the Fossil format provides compact encoding using variable-length integers:
 
 ```typescript
 import { encodeDeltaBlocks, decodeDeltaBlocks } from '@webrun-vcs/diff';
@@ -195,14 +163,11 @@ const encoded = encodeDeltaBlocks(ranges, targetLength, sourceLength);
 const { ranges: decoded, targetLength, sourceLength } = decodeDeltaBlocks(encoded);
 ```
 
-**Format**:
-- Variable-length integer encoding
-- Efficient representation of copy/insert operations
-- Compatible with Fossil SCM
+This format efficiently represents copy and insert operations while maintaining compatibility with Fossil SCM.
 
 ### Checksum Utilities
 
-Working with checksums:
+You can work with checksums incrementally or compute them directly:
 
 ```typescript
 import { Checksum } from '@webrun-vcs/diff';
@@ -219,7 +184,7 @@ const strong = strongChecksum(buffer, offset, length);
 
 ### mergeChunks
 
-Optimizes delta ranges by merging adjacent operations:
+After generating delta ranges, merging adjacent operations reduces delta size. This optimization combines consecutive copy operations, merges consecutive inserts, and removes redundant operations:
 
 ```typescript
 import { mergeChunks } from '@webrun-vcs/diff';
@@ -227,67 +192,35 @@ import { mergeChunks } from '@webrun-vcs/diff';
 const optimized = mergeChunks(ranges);
 ```
 
-**Optimizations**:
-- Merges consecutive copy operations
-- Merges consecutive insert operations
-- Removes redundant operations
-- Can significantly reduce delta size
+The reduction can be significant, especially when the algorithm generates many small operations.
 
 ## Algorithm Details
 
 ### Delta Generation Process
 
-1. **Index source**:
-   - Divide source into fixed-size blocks
-   - Compute weak + strong checksums for each block
-   - Build hash map: weak checksum → blocks
+The algorithm works in three phases. First, it indexes the source by dividing it into fixed-size blocks, computing weak and strong checksums for each block, and building a hash map from weak checksums to blocks.
 
-2. **Scan target**:
-   - Slide rolling checksum window through target
-   - For each position, check if weak checksum matches any source block
-   - Confirm matches with strong checksum
-   - Generate copy operation for matches
-   - Generate insert operation for non-matches
+Next, it scans the target by sliding a rolling checksum window through it. At each position, it checks whether the weak checksum matches any source block. When it finds a match, it confirms with the strong checksum. Matches become copy operations, while non-matches become insert operations.
 
-3. **Optimize**:
-   - Merge adjacent operations
-   - Remove redundant operations
-   - Balance compression vs. overhead
+Finally, it optimizes the result by merging adjacent operations, removing redundant ones, and balancing compression against overhead.
 
 ### Rolling Checksum Algorithm
 
-Based on rsync/Fossil pattern:
+Following the rsync and Fossil pattern, the checksum maintains two sums. `s1` equals the sum of all bytes in the window, while `s2` equals the sum of `s1` at each position. The final checksum combines them: `(s1 & 0xFFFF) | ((s2 & 0xFFFF) << 16)`.
 
-```
-s1 = sum of all bytes in window
-s2 = sum of s1 at each position
-
-checksum = (s1 & 0xFFFF) | ((s2 & 0xFFFF) << 16)
-```
-
-**Sliding update**:
+Sliding the window updates in O(1):
 ```
 s1' = s1 - old_byte + new_byte
 s2' = s2 - (n * old_byte) + s1'
 ```
 
-**Time complexity**: O(1) per slide
-
 ### Block Size Considerations
 
-**Small blocks** (e.g., 4-8 bytes):
-- Better compression (find more matches)
-- Higher overhead (more operations)
-- More false positives from weak checksum
+Small blocks (4-8 bytes) find more matches, giving better compression, but generate more operations and increase overhead. They also produce more false positives from the weak checksum.
 
-**Large blocks** (e.g., 32-64 bytes):
-- Lower compression (fewer matches)
-- Lower overhead (fewer operations)
-- Fewer false positives
+Large blocks (32-64 bytes) find fewer matches, reducing compression, but generate fewer operations and lower overhead. False positives decrease.
 
-**Default (16 bytes)**:
-- Good balance for most use cases
-- Compatible with Git's typical block sizes
+The default (16 bytes) strikes a good balance for most use cases and stays compatible with Git's typical block sizes.
 
 ## Usage Examples
 
@@ -382,23 +315,15 @@ const ranges = editListToDeltaRanges(edits, target);
 
 ### Time Complexity
 
-- **Index building**: O(N) where N = source size
-- **Delta generation**: O(M) where M = target size
-- **Rolling checksum**: O(1) per position
-- **Overall**: O(N + M) expected
+Building the index takes O(N) where N equals the source size. Delta generation runs in O(M) where M equals the target size. Each rolling checksum position updates in O(1). Overall, expect O(N + M) performance.
 
 ### Space Complexity
 
-- **Source index**: O(N / blockSize) for blocks
-- **Delta ranges**: O(number of operations)
-- **Fossil encoding**: Variable, depends on operations
+The source index uses O(N / blockSize) space for blocks. Delta ranges consume O(number of operations). Fossil encoding varies depending on the operations.
 
 ### Compression Ratio
 
-Depends on similarity between source and target:
-- **High similarity**: 90%+ compression possible
-- **Low similarity**: May be larger than literal encoding
-- **Optimal use**: Incremental changes to large files
+Compression depends on how similar the source and target are. High similarity can achieve 90%+ compression. Low similarity might produce deltas larger than literal encoding. The sweet spot is incremental changes to large files.
 
 ## Git Binary Delta Compatibility
 
@@ -418,14 +343,7 @@ const result = await decodeGitBinaryDelta(source, gitDelta);
 
 ## Differences from Fossil
 
-While inspired by Fossil's delta format, this implementation includes:
-
-1. **Multiple algorithms** - Both optimized and Fossil-like
-2. **Git compatibility** - Can encode/decode Git binary deltas
-3. **TypeScript** - Full type safety
-4. **Modern JavaScript** - ES modules, Uint8Array
-5. **Configurable** - Flexible block sizes and algorithms
-6. **Integration** - Works with text-diff edit lists
+While inspired by Fossil's delta format, this implementation offers multiple algorithms (both optimized and Fossil-like) and Git compatibility for encoding and decoding Git binary deltas. TypeScript provides full type safety, and modern JavaScript features like ES modules and Uint8Array replace older patterns. You get flexible configuration for block sizes and algorithms, plus integration with text-diff edit lists.
 
 ## References
 

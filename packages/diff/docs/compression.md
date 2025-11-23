@@ -4,27 +4,17 @@ The compression module provides a unified interface for compression and decompre
 
 ## Overview
 
-This module is **not based on JGit**. It provides a custom abstraction layer to support both Node.js and Web environments with a consistent API.
+This module is **not based on JGit**. It provides a custom abstraction layer to support both Node.js and Web environments with a consistent API. When you compress data, the module automatically detects your environment and picks the right implementation—`zlib` in Node.js or the Compression Streams API in browsers. You can also plug in custom providers.
 
-## Features
+## Compression Support
 
-### Multi-Environment Support
-
-Automatically detects and uses the best compression provider:
-- **Node.js**: Uses `zlib` module
-- **Web/Browser**: Uses Compression Streams API
-- **Custom**: Pluggable provider interface
-
-### Supported Algorithms
-
-- **Deflate** (zlib) - Standard compression for Git objects
-- **Gzip** - Alternative compression format
+The module handles deflate (zlib), which Git uses for objects, and gzip as an alternative format. In Node.js, it uses the `zlib` module. In browsers, it leverages the Compression Streams API. If you need something different, the pluggable provider interface lets you bring your own implementation.
 
 ## Key Components
 
 ### CompressionProvider Interface
 
-All compression providers implement this interface:
+All compression providers follow this interface, giving you a consistent way to compress and decompress data:
 
 ```typescript
 interface CompressionProvider {
@@ -44,7 +34,7 @@ interface CompressionProvider {
 
 ### Auto-Detection
 
-Get the default provider for your environment:
+When you call `getDefaultCompressionProvider()`, the module detects your environment and returns the appropriate provider:
 
 ```typescript
 import { getDefaultCompressionProvider } from '@webrun-vcs/diff';
@@ -64,7 +54,7 @@ const decompressed = await provider.decompress(
 
 ### NodeCompressionProvider
 
-For Node.js environments:
+In Node.js environments, this provider uses the `zlib` module. You get support for compression levels (0-9), high performance, and streaming support when you use zlib directly:
 
 ```typescript
 import { NodeCompressionProvider, CompressionAlgorithm } from '@webrun-vcs/diff';
@@ -85,15 +75,9 @@ const original = await provider.decompress(
 );
 ```
 
-**Features**:
-- Uses Node.js `zlib` module
-- Supports compression levels (0-9)
-- High performance
-- Streaming support (via zlib directly)
-
 ### WebCompressionProvider
 
-For browser and Web environments:
+For browser and Web environments, this provider uses the `CompressionStream` and `DecompressionStream` APIs. It works in modern browsers, processes data as streams, and requires no external dependencies:
 
 ```typescript
 import { WebCompressionProvider, CompressionAlgorithm } from '@webrun-vcs/diff';
@@ -113,15 +97,9 @@ const original = await provider.decompress(
 );
 ```
 
-**Features**:
-- Uses `CompressionStream` and `DecompressionStream` APIs
-- Modern browser support
-- Stream-based processing
-- No external dependencies
-
 ### Custom Providers
 
-Implement your own compression provider:
+When you need custom compression—maybe using pako or another library—you implement the `CompressionProvider` interface and set it as the default:
 
 ```typescript
 import { CompressionProvider, CompressionAlgorithm, setDefaultCompressionProvider } from '@webrun-vcs/diff';
@@ -290,7 +268,7 @@ if (typeof process !== 'undefined' && process.versions?.node) {
 
 ### Binary Patches
 
-Used for compressing binary patch content:
+When you encode Git binary deltas, the compression module handles the deflate compression automatically:
 
 ```typescript
 import {
@@ -306,7 +284,7 @@ const delta = await encodeGitBinaryDelta(source, target);
 
 ### Patch Application
 
-Used for decompressing binary hunks:
+BinaryHunk automatically uses the compression provider to decompress literal and delta hunks:
 
 ```typescript
 import { BinaryHunk } from '@webrun-vcs/diff';
@@ -319,38 +297,21 @@ import { BinaryHunk } from '@webrun-vcs/diff';
 
 ### Compression Levels (Node.js)
 
-- **Level 0**: No compression (store only)
-- **Level 1-3**: Fast compression, lower ratio
-- **Level 4-6**: Balanced (default: 6)
-- **Level 7-9**: Best compression, slower
-
-**Git default**: Level 6 (balanced)
+In Node.js, you can control compression levels. Level 0 stores without compression. Levels 1-3 compress quickly but with lower ratios. Levels 4-6 balance speed and compression, with 6 as the default (matching Git). Levels 7-9 give the best compression but run slower.
 
 ### Buffer Sizes
 
-For large files:
-- Consider streaming compression (use zlib directly in Node.js)
-- Web Compression Streams API handles streaming automatically
-- This module's API is buffer-based for simplicity
+For large files, consider streaming compression using zlib directly in Node.js. The Web Compression Streams API handles streaming automatically. This module's API uses buffers for simplicity.
 
 ### Memory Usage
 
-- Compression: ~1-3x input size
-- Decompression: ~1x output size
-- Use streaming for very large files (>100MB)
+Compression typically uses 1-3x the input size in memory. Decompression uses about 1x the output size. When working with very large files (over 100MB), streaming becomes important.
 
 ## Browser Compatibility
 
 ### Compression Streams API
 
-Required for `WebCompressionProvider`:
-- Chrome/Edge 80+
-- Firefox 113+
-- Safari 16.4+
-
-For older browsers, you'll need:
-- Polyfill like `pako` or `fflate`
-- Custom provider implementation
+The `WebCompressionProvider` requires the Compression Streams API. You'll find it in Chrome and Edge 80+, Firefox 113+, and Safari 16.4+. For older browsers, use a polyfill like pako or fflate with a custom provider implementation.
 
 ### Example with Pako
 
@@ -383,13 +344,7 @@ setDefaultCompressionProvider(new PakoCompressionProvider());
 
 ## Differences from JGit
 
-JGit uses Java's built-in compression libraries. This module provides:
-
-1. **Cross-platform abstraction** - Works in both Node.js and browsers
-2. **Modern async API** - Promise-based
-3. **Pluggable providers** - Easy to add custom implementations
-4. **Auto-detection** - Automatically selects the best provider
-5. **TypeScript types** - Full type safety
+JGit uses Java's built-in compression libraries. This module provides a cross-platform abstraction that works in both Node.js and browsers, a modern async API using Promises, pluggable providers for custom implementations, auto-detection that picks the best provider, and TypeScript types for full type safety.
 
 ## References
 

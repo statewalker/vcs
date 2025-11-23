@@ -4,29 +4,15 @@ The patch module provides comprehensive support for parsing and applying Git pat
 
 ## Overview
 
-This module is based on [JGit's patch handling implementation](https://github.com/eclipse-jgit/jgit), specifically:
-- `org.eclipse.jgit.patch.Patch`
-- `org.eclipse.jgit.patch.FileHeader`
-- `org.eclipse.jgit.patch.BinaryHunk`
-- `org.eclipse.jgit.util.Base85`
+This module is based on [JGit's patch handling implementation](https://github.com/eclipse-jgit/jgit), specifically `org.eclipse.jgit.patch.Patch`, `FileHeader`, `BinaryHunk`, and `Base85`. When you run `git diff` and save the output, this module reads that file and understands what changed.
 
-## Features
+## Patch Parsing
 
-### Patch Parsing
-
-Supports multiple patch formats:
-- **Unified diff** (`diff -u`)
-- **Git extended diff** (`diff --git`)
-- **Binary patches** (`GIT binary patch`)
-- **Combined diff** (`diff --cc`)
+Think of a patch as a recipe for transforming one file into another. When you save a `git diff` output, Git creates either a unified diff (`diff -u`), an extended Git diff (`diff --git`), a binary patch (`GIT binary patch`), or a combined diff (`diff --cc`). This module reads all these formats.
 
 ### Binary Patch Formats
 
-Git supports two binary patch formats, both implemented in this module:
-
-#### 1. Delta Format
-
-Delta patches encode changes as copy/insert operations, similar to rsync:
+Git supports two ways to encode binary changes. Delta patches store changes as copy and insert operations, similar to how rsync works:
 
 ```
 GIT binary patch
@@ -37,13 +23,9 @@ delta 12
 <base85-encoded old size>
 ```
 
-**Operations:**
-- **Copy**: Copy N bytes from source at offset X
-- **Insert**: Insert N literal bytes
+Each operation either copies N bytes from the source at offset X, or inserts N literal bytes. This works well when files have small changes.
 
-#### 2. Literal Format
-
-Literal patches contain the complete file content, zlib-compressed and base85-encoded:
+Literal patches take a different approach—they store the complete file content, compressed with zlib and encoded in base85:
 
 ```
 GIT binary patch
@@ -54,26 +36,21 @@ literal 1629
 <base85-encoded old compressed data>
 ```
 
+This format makes sense when the delta would be larger than just storing the new file.
+
 ### Base85 Encoding
 
-Git uses a modified base85 encoding (RFC 1924 variant) for binary patches:
+Git uses a modified base85 encoding (RFC 1924 variant) for binary patches. The character set spans `0-9A-Za-z!#$%&()*+-;<=>?@^_`{|}~`, giving you 85 possible values per character instead of base64's 64.
 
-**Character set**: `0-9A-Za-z!#$%&()*+-;<=>?@^_`{|}~`
+Each line starts with a length character where `A` means 1 byte, `B` means 2 bytes, and so on. Then come groups of 5 encoded characters representing 4 bytes of data. Lines end with newlines. This encoding packs data more efficiently than base64 while staying readable in text files.
 
-**Format**:
-- Each line starts with a length character: `A` = 1 byte, `B` = 2 bytes, etc.
-- 5 encoded characters represent 4 bytes of data
-- Lines are newline terminated
-
-**Implementation based on**:
-- Git's [base85.c](https://github.com/git/git/blob/master/base85.c)
-- JGit's [Base85.java](https://github.com/eclipse-jgit/jgit/blob/master/org.eclipse.jgit/src/org/eclipse/jgit/util/Base85.java)
+The implementation follows Git's [base85.c](https://github.com/git/git/blob/master/base85.c) and JGit's [Base85.java](https://github.com/eclipse-jgit/jgit/blob/master/org.eclipse.jgit/src/org/eclipse/jgit/util/Base85.java).
 
 ## Key Components
 
 ### Patch
 
-Entry point for parsing Git patch files.
+The Patch class is your entry point for reading Git patch files. Based on JGit's `Patch.java`, it parses the patch content and gives you access to file changes and any parsing errors:
 
 ```typescript
 import { Patch } from '@webrun-vcs/diff';
@@ -86,30 +63,17 @@ const files = patch.getFiles();
 const errors = patch.getErrors();
 ```
 
-**Based on**: JGit's `Patch.java`
-
 ### FileHeader
 
-Represents a single file change in a patch, containing:
-- Old and new file paths
-- File modes
-- Change type (ADD, DELETE, MODIFY, RENAME, COPY)
-- Object IDs (SHA hashes)
-- Hunks (text or binary)
-
-**Based on**: JGit's `FileHeader.java`
+Each file change in a patch becomes a FileHeader. Based on JGit's `FileHeader.java`, it captures the old and new file paths, file modes, the change type (ADD, DELETE, MODIFY, RENAME, or COPY), object IDs as SHA hashes, and all the hunks that describe the actual changes.
 
 ### BinaryHunk
 
-Represents a binary hunk in a patch, supporting:
-- Delta format (delta compression)
-- Literal format (full content)
-
-**Based on**: JGit's `BinaryHunk.java`
+When a patch includes binary data, BinaryHunk represents those chunks. Based on JGit's `BinaryHunk.java`, it handles both delta format (using delta compression) and literal format (storing full content).
 
 ### PatchApplier
 
-Applies patches to files:
+Once you've parsed a patch, PatchApplier takes care of applying it to your files. You provide functions to read and write files, and it handles the rest:
 
 ```typescript
 import { PatchApplier } from '@webrun-vcs/diff';
@@ -124,19 +88,11 @@ const result = await applier.applyPatch(
 
 ### Buffer Utilities
 
-Low-level utilities for parsing patch files:
-- `match()` - Pattern matching
-- `nextLF()` - Find next line feed
-- `prevLF()` - Find previous line feed
-- `parseBase10()` - Parse decimal numbers
-- `decode()` - UTF-8 decoding
-- `encodeASCII()` - ASCII encoding
-
-**Based on**: JGit's `RawParseUtils.java`
+Behind the scenes, the module uses low-level utilities based on JGit's `RawParseUtils.java` for parsing patch files. These handle pattern matching with `match()`, finding line feeds with `nextLF()` and `prevLF()`, parsing decimal numbers via `parseBase10()`, and converting between UTF-8 and ASCII.
 
 ### Cryptographic Operations
 
-Git object hashing and checksums:
+Git identifies objects by their hash. This module computes SHA-1 and SHA-256 hashes, and can generate Git object IDs:
 
 ```typescript
 import { sha1, sha256, gitObjectHash } from '@webrun-vcs/diff';
@@ -148,9 +104,7 @@ const hash = await sha1(data);
 const oid = await gitObjectHash('blob', data);
 ```
 
-Supports multiple backends:
-- **Node.js**: `crypto` module (`NodeCryptoProvider`)
-- **Web**: `SubtleCrypto` API (`WebCryptoProvider`)
+The implementation works across environments using Node.js's `crypto` module (`NodeCryptoProvider`) or the Web's `SubtleCrypto` API (`WebCryptoProvider`).
 
 ## Types
 
@@ -187,26 +141,13 @@ enum BinaryHunkType {
 
 ## Differences from JGit
 
-While closely following JGit's implementation, this TypeScript version includes:
+While closely following JGit's implementation, this TypeScript version brings modern JavaScript async patterns with async/await support. Compression and crypto operations work through pluggable providers, letting you run the same code in Node.js and Web environments.
 
-1. **Async/await support** - Modern JavaScript async patterns
-2. **Pluggable compression** - Support for both Node.js and Web environments
-3. **Pluggable crypto** - Support for both Node.js crypto and Web Crypto API
-4. **TypeScript types** - Full type safety
-5. **Simplified error handling** - Using Result types instead of exceptions
-6. **Modern JavaScript** - ES modules, Uint8Array instead of byte arrays
+TypeScript types provide full type safety throughout. Instead of Java exceptions, the module uses Result types for simplified error handling. Modern JavaScript features like ES modules and Uint8Array replace Java's byte arrays.
 
 ## Testing
 
-The module is tested against [JGit's test data](https://github.com/eclipse-jgit/jgit/tree/master/org.eclipse.jgit.test/tst-rsrc/org/eclipse/jgit/diff) to ensure compatibility with Git's binary patch format.
-
-Test coverage includes:
-- File loading and validation
-- Patch parsing (delta and literal formats)
-- Base85 encoding/decoding
-- Delta application to binary data
-- Data integrity verification
-- Format compliance
+The module is tested against [JGit's test data](https://github.com/eclipse-jgit/jgit/tree/master/org.eclipse.jgit.test/tst-rsrc/org/eclipse/jgit/diff) to ensure compatibility with Git's binary patch format. Tests cover file loading and validation, patch parsing for both delta and literal formats, base85 encoding and decoding, delta application to binary data, data integrity verification, and format compliance.
 
 ## Usage Example
 

@@ -4,35 +4,19 @@ The text-diff module implements the Myers diff algorithm for computing differenc
 
 ## Overview
 
-This module is based on [JGit's diff algorithm implementation](https://github.com/eclipse-jgit/jgit), specifically:
-- `org.eclipse.jgit.diff.MyersDiff`
-- `org.eclipse.jgit.diff.Edit`
-- `org.eclipse.jgit.diff.EditList`
-- `org.eclipse.jgit.diff.Sequence`
-- `org.eclipse.jgit.diff.SequenceComparator`
-- `org.eclipse.jgit.diff.RawText`
-- `org.eclipse.jgit.diff.HashedSequence`
+This module is based on [JGit's diff algorithm implementation](https://github.com/eclipse-jgit/jgit), drawing from `org.eclipse.jgit.diff.MyersDiff`, `Edit`, `EditList`, `Sequence`, `SequenceComparator`, `RawText`, and `HashedSequence`. When you compare two files, this module finds the shortest sequence of changes that transforms one into the other.
 
-## Features
+## Myers Diff Algorithm
 
-### Myers Diff Algorithm
+Eugene W. Myers' O(ND) difference algorithm finds the minimal edit distance between two sequences. JGit's bidirectional search approach brings space complexity down to O(N) instead of O(N²).
 
-Implementation of Eugene W. Myers' O(ND) difference algorithm with JGit's bidirectional search approach for O(N) space complexity.
+Imagine a grid where one file's lines form the columns and the other file's lines form the rows. Edit paths travel from the upper left to the lower right corner. When lines match, you move diagonally for free. Horizontal and vertical moves cost you—they represent insertions and deletions. A D-path contains exactly D differences, and the algorithm finds the furthest reaching D-path on each diagonal k.
 
-**Key concepts**:
-- Edit paths from upper left to lower right corner
-- Diagonal moves represent matching elements
-- Horizontal/vertical moves represent changes
-- D-paths contain exactly D differences
-- Furthest reaching D-path on diagonal k
-
-**Based on**:
-- Paper: "An O(ND) Difference Algorithm and its Variations" by Eugene W. Myers
-- JGit's [MyersDiff.java](https://github.com/eclipse-jgit/jgit/blob/master/org.eclipse.jgit/src/org/eclipse/jgit/diff/MyersDiff.java)
+The implementation follows the paper "An O(ND) Difference Algorithm and its Variations" by Eugene W. Myers and JGit's [MyersDiff.java](https://github.com/eclipse-jgit/jgit/blob/master/org.eclipse.jgit/src/org/eclipse/jgit/diff/MyersDiff.java).
 
 ### Sequence Abstraction
 
-Generic abstraction for comparing sequences of elements:
+The algorithm works on any sequence—not just text. Based on JGit's `Sequence.java` and `SequenceComparator.java`, you can compare anything that has a size and where elements can be compared:
 
 ```typescript
 abstract class Sequence {
@@ -45,11 +29,11 @@ interface SequenceComparator<S extends Sequence> {
 }
 ```
 
-**Based on**: JGit's `Sequence.java` and `SequenceComparator.java`
+This abstraction lets you diff text lines, binary data, or even custom structures.
 
 ### Edit Operations
 
-Represents changes between sequences:
+Based on JGit's `Edit.java`, each change becomes an Edit that describes what happened. The type tells you whether elements were inserted, deleted, replaced, or left empty (no change). The begin and end positions mark where changes occurred in both sequences:
 
 ```typescript
 enum EditType {
@@ -67,13 +51,11 @@ class Edit {
 }
 ```
 
-**Based on**: JGit's `Edit.java`
-
 ## Key Components
 
 ### MyersDiff
 
-Computes differences between two sequences:
+Based on JGit's `MyersDiff.java`, this is where the diff computation happens. You give it two sequences and a comparator, and it returns a list of edits. The bidirectional search optimizes performance, edit normalization ensures consistent output, and you can plug in custom comparators:
 
 ```typescript
 import { MyersDiff, RawText, RawTextComparator } from '@webrun-vcs/diff';
@@ -88,16 +70,9 @@ for (const edit of edits) {
 }
 ```
 
-**Features**:
-- Bidirectional search for optimal performance
-- Edit normalization for consistent output
-- Support for custom comparators
-
-**Based on**: JGit's `MyersDiff.java`
-
 ### RawText
 
-Text sequence implementation for line-based comparison:
+Based on JGit's `RawText.java`, this class wraps text for line-based comparison. You get the number of lines, extract line content, and check whether the file ends with a newline:
 
 ```typescript
 import { RawText } from '@webrun-vcs/diff';
@@ -109,36 +84,23 @@ console.log(text.getString(0, 1));     // Get line content
 console.log(text.isMissingNewlineAtEnd()); // Check for missing newline
 ```
 
-**Based on**: JGit's `RawText.java`
-
 ### RawTextComparator
 
-Comparator for text sequences with various strategies:
+When comparing text, you often want to handle whitespace differently depending on the situation. Based on JGit's `RawTextComparator.java`, you can compare lines exactly with `DEFAULT`, ignore whitespace changes using `WS_IGNORE_CHANGE`, strip all whitespace with `WS_IGNORE_ALL`, or focus on just leading or trailing whitespace with `WS_IGNORE_LEADING` and `WS_IGNORE_TRAILING`:
 
 ```typescript
 import { RawTextComparator } from '@webrun-vcs/diff';
 
-// Default: compare lines exactly
-RawTextComparator.DEFAULT
-
-// Ignore whitespace changes
-RawTextComparator.WS_IGNORE_CHANGE
-
-// Ignore all whitespace
-RawTextComparator.WS_IGNORE_ALL
-
-// Ignore leading whitespace
-RawTextComparator.WS_IGNORE_LEADING
-
-// Ignore trailing whitespace
-RawTextComparator.WS_IGNORE_TRAILING
+RawTextComparator.DEFAULT            // Compare lines exactly
+RawTextComparator.WS_IGNORE_CHANGE   // Ignore whitespace changes
+RawTextComparator.WS_IGNORE_ALL      // Ignore all whitespace
+RawTextComparator.WS_IGNORE_LEADING  // Ignore leading whitespace
+RawTextComparator.WS_IGNORE_TRAILING // Ignore trailing whitespace
 ```
-
-**Based on**: JGit's `RawTextComparator.java`
 
 ### HashedSequence
 
-Performance optimization using hash-based comparison:
+Based on JGit's `HashedSequence.java`, this optimization reduces redundant element comparisons by caching hash values for frequently compared elements. MyersDiff automatically uses it for better performance:
 
 ```typescript
 import { HashedSequence, HashedSequencePair } from '@webrun-vcs/diff';
@@ -149,16 +111,11 @@ const ha = pair.getA();  // Hashed version of sequence A
 const hb = pair.getB();  // Hashed version of sequence B
 ```
 
-**Features**:
-- Reduces redundant element comparisons
-- Caches hash values for frequently compared elements
-- Automatically used by Myers diff
-
-**Based on**: JGit's `HashedSequence.java`
+You don't usually work with HashedSequence directly—MyersDiff handles it behind the scenes.
 
 ### BinarySequence
 
-Binary data comparison:
+When you need to diff binary data instead of text, BinarySequence gives you two comparison strategies. `BinaryComparator` compares entire sequences, while `ByteLevelComparator` goes byte-by-byte:
 
 ```typescript
 import { BinarySequence, BinaryComparator } from '@webrun-vcs/diff';
@@ -169,13 +126,9 @@ const b = new BinarySequence(new Uint8Array([0x01, 0xFF, 0x03]));
 const edits = MyersDiff.diff(BinaryComparator.INSTANCE, a, b);
 ```
 
-**Comparators**:
-- `BinaryComparator` - Compare entire sequences
-- `ByteLevelComparator` - Compare byte-by-byte
-
 ### Edit List Utilities
 
-Convert between edit lists and delta ranges:
+These utilities bridge the text-diff and delta modules by converting between edit lists and delta ranges:
 
 ```typescript
 import { deltaRangesToEditList, editListToDeltaRanges } from '@webrun-vcs/diff';
@@ -186,8 +139,6 @@ const edits = deltaRangesToEditList(deltaRanges);
 // Convert edit list to delta ranges
 const ranges = editListToDeltaRanges(editList);
 ```
-
-**Note**: These utilities bridge the text-diff and delta modules.
 
 ## Algorithm Details
 
@@ -218,18 +169,11 @@ Result: REPLACE edit at position 1
 
 ### Bidirectional Search
 
-JGit's optimization:
-- Search forward from start
-- Search backward from end
-- Meet in the middle
-- Reduces memory usage from O(N²) to O(N)
+JGit optimizes the algorithm by searching forward from the start and backward from the end, meeting in the middle. This brings memory usage down from O(N²) to O(N), making it practical for large files.
 
 ### Edit Normalization
 
-Ensures consistent edit placement:
-- Shifts edit regions to standard positions
-- Handles ambiguous cases deterministically
-- Compatible with Git's diff output
+Edit normalization ensures consistent edit placement. The algorithm shifts edit regions to standard positions, handles ambiguous cases deterministically, and produces output compatible with Git's diff format.
 
 ## Usage Examples
 
@@ -294,33 +238,21 @@ console.log(`Changed ${edits.length} bytes`);
 
 ## Differences from JGit
 
-1. **TypeScript types** - Full type safety with generics
-2. **Modern JavaScript** - ES modules, Uint8Array, Buffer
-3. **Simplified API** - Removed Java-specific patterns
-4. **Performance** - Native JavaScript optimizations
-5. **Binary support** - Added BinarySequence and ByteLevelComparator
-6. **Delta integration** - Utilities to convert between Edit and DeltaRange
+This TypeScript version brings full type safety with generics and modern JavaScript features like ES modules, Uint8Array, and Buffer. The API removes Java-specific patterns while keeping the core algorithms intact. Native JavaScript optimizations improve performance, and you get extras like BinarySequence, ByteLevelComparator, and utilities to convert between Edit and DeltaRange.
 
 ## Performance Considerations
 
 ### Time Complexity
 
-- **Best case**: O(N) when sequences are identical
-- **Worst case**: O(N * D) where D is the edit distance
-- **Average**: O(N + D²) for typical text files
+In the best case when sequences are identical, the algorithm runs in O(N). The worst case is O(N * D) where D equals the edit distance. For typical text files, expect O(N + D²).
 
 ### Space Complexity
 
-- **O(N)** with bidirectional search (JGit optimization)
-- **O(D)** for the edit path frontier
-- HashedSequence adds O(N) for hash caching
+Bidirectional search (JGit's optimization) keeps space at O(N). The edit path frontier uses O(D). HashedSequence adds O(N) for hash caching, but the performance gain usually outweighs the memory cost.
 
 ### Optimization Tips
 
-1. **Use HashedSequence** - Automatically used by MyersDiff
-2. **Appropriate comparator** - Choose whitespace handling carefully
-3. **Chunking** - For very large files, consider splitting
-4. **Binary data** - Use ByteLevelComparator for small changes
+MyersDiff automatically uses HashedSequence, so you get that optimization without extra work. Choose your comparator carefully—whitespace handling affects performance. For very large files, consider chunking. When diffing binary data with small changes, ByteLevelComparator works well.
 
 ## References
 
