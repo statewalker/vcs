@@ -27,37 +27,6 @@ function formatStats(prefix: string, stats: PerformanceStats): string {
 }
 
 describe("createDeltaRanges - Performance and Correctness Tests", () => {
-  /* * /
-  describe("Very large blocks (500KB - 30MB)", () => {
-    const size500KB = 500 * 1024;
-
-    const mutationsDegrees = [0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0];
-    const sourcesSizes = [size500KB];
-    const targetSizesDelta = [0.75, 0.9, 1.0, 1.1, 1.25];
-    let i = 0;
-    for (const sourceSize of sourcesSizes) {
-      for (const targetSizeDelta of targetSizesDelta) {
-        for (const mutationDegree of mutationsDegrees) {
-          it(`${i}) should handle ${sourceSize}B source, ${Math.floor(sourceSize * targetSizeDelta)}B target, ${(mutationDegree * 100).toFixed(1)}% mutation`, () => {
-            const stats = testCreateDeltaRanges({
-              sourceSize: sourceSize,
-              targetSize: Math.floor(sourceSize * targetSizeDelta),
-              mutationDegree: mutationDegree,
-              seed:
-                sourceSize + Math.floor(mutationDegree * 1000) + Math.floor(targetSizeDelta * 100),
-            });
-            const report = formatStats(`${i}) ==============================`, stats);
-            console.log(report);
-            // Expect that the function completes successfully
-            expect(stats.rangeCount).toBeGreaterThanOrEqual(0);
-            i++;
-          });
-        }
-      }
-    }
-  });
-  // */
-
   describe("Stress test - range of sizes", () => {
     /**
      * Helper to format performance stats for console output

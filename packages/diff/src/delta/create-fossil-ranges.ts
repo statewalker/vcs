@@ -98,7 +98,7 @@ export function buildSourceIndex(source: Uint8Array, blockSize: number = DEFAULT
 // ============================================================================
 // ---- Delta range definitions ----
 
-import type { DeltaRange } from "../types.js";
+import type { DeltaRange } from "./types.js";
 
 interface RangeAccumulator {
   last?: DeltaRange;

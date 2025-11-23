@@ -1,4 +1,4 @@
-import type { DeltaRange } from "../types.js";
+import type { DeltaRange } from "./types.js";
 
 export function* createDeltaRanges(
   source: Uint8Array,
