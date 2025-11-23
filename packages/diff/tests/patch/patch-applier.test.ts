@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { ChangeType, Patch, PatchApplier, PatchType } from "../../src/index.js";
+import {
+  BinaryComparator,
+  BinarySequence,
+  ChangeType,
+  editListToDeltaRanges,
+  encodeGitBase85,
+  encodeGitBinaryDelta,
+  MyersDiff,
+  NodeCompressionProvider,
+  Patch,
+  PatchApplier,
+  PatchType,
+} from "../../src/index.js";
 
 describe("PatchApplier", () => {
   describe("Basic operations", () => {
@@ -364,7 +376,7 @@ index abc123..def456 100644
       expect(result.errors[0]).toContain("old content is null");
     });
 
-    it("should handle binary patches (not yet fully implemented)", () => {
+    it("should fail binary patches without compression provider", () => {
       const patchText = `diff --git a/binary.dat b/binary.dat
 index abc123..def456 100644
 GIT binary patch
@@ -382,9 +394,222 @@ ScmZp0Xmwa1z*+$U3j_csN(Dmz
       const applier = new PatchApplier();
       const result = applier.apply(patch.getFiles()[0], oldContent);
 
-      // Binary patches are not fully implemented yet
+      // Binary patches require a compression provider for synchronous operation
       expect(result.success).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toContain("compression provider");
+    });
+  });
+
+  describe("Binary patch application with compression", () => {
+    it("should apply binary literal patch with NodeCompressionProvider (sync)", async () => {
+      // Create simple binary content
+      const newContent = new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f]); // "Hello"
+
+      // Compress the content
+      const provider = new NodeCompressionProvider();
+      const compressed = await provider.compress(newContent);
+
+      // Encode as base85 (returns Uint8Array with newlines)
+      const base85Bytes = encodeGitBase85(compressed);
+      const base85String = new TextDecoder().decode(base85Bytes);
+
+      // Create a patch with literal binary hunk (ADD operation for sync)
+      const patchText = `diff --git a/binary.dat b/binary.dat
+new file mode 100644
+index 0000000..def456
+GIT binary patch
+literal ${newContent.length}
+${base85String}
+`;
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      expect(patch.getFiles()[0].patchType).toBe(PatchType.GIT_BINARY);
+
+      // Apply with compression provider (sync)
+      const applier = new PatchApplier({ compressionProvider: provider });
+      const result = applier.apply(patch.getFiles()[0], null);
+
+      expect(result.success).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.content).not.toBeNull();
+      expect(result.content).toEqual(newContent);
+    });
+
+    it("should apply binary literal patch with NodeCompressionProvider (async)", async () => {
+      // Create simple binary content
+      const newContent = new Uint8Array([0x57, 0x6f, 0x72, 0x6c, 0x64]); // "World"
+
+      // Compress the content
+      const provider = new NodeCompressionProvider();
+      const compressed = await provider.compress(newContent);
+
+      // Encode as base85 (returns Uint8Array with newlines)
+      const base85Bytes = encodeGitBase85(compressed);
+      const base85String = new TextDecoder().decode(base85Bytes);
+
+      // Create a patch with literal binary hunk
+      const patchText = `diff --git a/binary.dat b/binary.dat
+new file mode 100644
+index 0000000..def456
+GIT binary patch
+literal ${newContent.length}
+${base85String}
+`;
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      expect(patch.getFiles()[0].patchType).toBe(PatchType.GIT_BINARY);
+
+      // Apply with compression provider (async)
+      const applier = new PatchApplier({ compressionProvider: provider });
+      const result = await applier.applyAsync(patch.getFiles()[0], null);
+
+      expect(result.success).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.content).not.toBeNull();
+      expect(result.content).toEqual(newContent);
+    });
+
+    it("should apply binary delta patch with NodeCompressionProvider", async () => {
+      // Create base and target content
+      const baseContent = new Uint8Array([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+      const targetContent = new Uint8Array([0x01, 0x02, 0xff, 0xfe, 0x05, 0x06, 0x07, 0x08]);
+
+      // Create diff using Myers algorithm (static method)
+      const baseSeq = new BinarySequence(baseContent, 1);
+      const targetSeq = new BinarySequence(targetContent, 1);
+      const comparator = new BinaryComparator();
+
+      const editList = MyersDiff.diff(comparator, baseSeq, targetSeq);
+      const deltaRanges = editListToDeltaRanges(editList, baseContent.length, targetContent.length);
+
+      // Encode as Git binary delta
+      const delta = encodeGitBinaryDelta(baseContent, targetContent, deltaRanges);
+
+      // Compress the delta
+      const provider = new NodeCompressionProvider();
+      const compressed = await provider.compress(delta);
+
+      // Encode as base85 (returns Uint8Array with newlines)
+      const base85Bytes = encodeGitBase85(compressed);
+      const base85String = new TextDecoder().decode(base85Bytes);
+
+      // Create a patch with delta binary hunk
+      const patchText = `diff --git a/binary.dat b/binary.dat
+index abc123..def456 100644
+GIT binary patch
+delta ${targetContent.length}
+${base85String}
+`;
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      expect(patch.getFiles()[0].patchType).toBe(PatchType.GIT_BINARY);
+
+      // Apply with compression provider
+      const applier = new PatchApplier({ compressionProvider: provider });
+      const result = await applier.applyAsync(patch.getFiles()[0], baseContent);
+
+      expect(result.success).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.content).not.toBeNull();
+      expect(result.content).toEqual(targetContent);
+    });
+
+    it("should handle large binary content with compression", async () => {
+      // Create larger binary content (1KB)
+      const newContent = new Uint8Array(1024);
+      for (let i = 0; i < newContent.length; i++) {
+        newContent[i] = i % 256;
+      }
+
+      // Compress the content
+      const provider = new NodeCompressionProvider();
+      const compressed = await provider.compress(newContent);
+
+      // Encode as base85 (returns Uint8Array with newlines)
+      const base85Bytes = encodeGitBase85(compressed);
+      const base85String = new TextDecoder().decode(base85Bytes);
+
+      // Create a patch with literal binary hunk
+      const patchText = `diff --git a/large.bin b/large.bin
+new file mode 100644
+index 0000000..def456
+GIT binary patch
+literal ${newContent.length}
+${base85String}
+`;
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      // Apply with compression provider
+      const applier = new PatchApplier({ compressionProvider: provider });
+      const result = await applier.applyAsync(patch.getFiles()[0], null);
+
+      expect(result.success).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.content).not.toBeNull();
+      expect(result.content).toEqual(newContent);
+    });
+
+    it("should validate decompressed size matches expected size", async () => {
+      // Create binary content
+      const actualContent = new Uint8Array([0x01, 0x02, 0x03]);
+      const provider = new NodeCompressionProvider();
+      const compressed = await provider.compress(actualContent);
+      const base85Bytes = encodeGitBase85(compressed);
+      const base85String = new TextDecoder().decode(base85Bytes);
+
+      // Create patch with WRONG size (should trigger warning)
+      const wrongSize = 100; // Actual is 3 bytes
+      const patchText = `diff --git a/binary.dat b/binary.dat
+new file mode 100644
+GIT binary patch
+literal ${wrongSize}
+${base85String}
+`;
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      const applier = new PatchApplier({ compressionProvider: provider });
+      const result = await applier.applyAsync(patch.getFiles()[0], null);
+
+      expect(result.success).toBe(true);
       expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings[0]).toContain("size mismatch");
+      expect(result.content).toEqual(actualContent);
+    });
+
+    it("should handle malformed compressed data gracefully", async () => {
+      // Create malformed base85 data (won't decompress properly)
+      const malformedData = new Uint8Array([0xff, 0xff, 0xff, 0xff]);
+      const base85Bytes = encodeGitBase85(malformedData);
+      const base85String = new TextDecoder().decode(base85Bytes);
+
+      const patchText = `diff --git a/binary.dat b/binary.dat
+new file mode 100644
+GIT binary patch
+literal 100
+${base85String}
+`;
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      const provider = new NodeCompressionProvider();
+      const applier = new PatchApplier({ compressionProvider: provider });
+      const result = await applier.applyAsync(patch.getFiles()[0], null);
+
+      expect(result.success).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toContain("decompress");
     });
   });
 });
