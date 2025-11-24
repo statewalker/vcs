@@ -10,7 +10,8 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@webrun-vcs/core": ["packages/core/src"]
+      "@webrun-vcs/core": ["packages/core/src"],
+      "@webrun-vcs/diff": ["packages/diff/src"]
     }
   }
 }

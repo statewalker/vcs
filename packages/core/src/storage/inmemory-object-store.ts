@@ -1,0 +1,487 @@
+/**
+ * In-memory object store with delta compression support
+ *
+ * Implements content-addressable storage with Fossil-style delta compression,
+ * following the repository pattern for clean separation of concerns.
+ */
+
+import {
+  type CompressionProvider,
+  type CryptoProvider,
+  applyDelta,
+  createDelta,
+  createFossilLikeRanges,
+  decodeDeltaBlocks,
+  encodeDeltaBlocks,
+  getDefaultCompressionProvider,
+  getDefaultCryptoProvider,
+} from "@webrun-vcs/diff";
+import type { DeltaRepository } from "./delta-repository.js";
+import type { IntermediateCache } from "./intermediate-cache.js";
+import type { LRUCache } from "./lru-cache.js";
+import type { MetadataRepository } from "./metadata-repository.js";
+import type { ObjectRepository } from "./object-repository.js";
+import type { CandidateOptions, DeltaOptions, ObjectId } from "./types.js";
+
+/**
+ * Object storage interface (public API)
+ */
+export interface ObjectStorage {
+  /**
+   * Load object content by ID
+   *
+   * @param id Object ID (SHA-256 hash)
+   * @returns Async iterable of content chunks
+   */
+  load(id: ObjectId): AsyncIterable<Uint8Array>;
+
+  /**
+   * Store object content
+   *
+   * @param data Async iterable of content chunks
+   * @returns Object ID (SHA-256 hash)
+   */
+  store(data: AsyncIterable<Uint8Array>): Promise<ObjectId>;
+
+  /**
+   * Check if object exists
+   *
+   * @param id Object ID
+   * @returns True if object exists
+   */
+  has(id: ObjectId): Promise<boolean>;
+
+  /**
+   * Delete object
+   *
+   * @param id Object ID
+   * @returns True if object was deleted
+   */
+  delete(id: ObjectId): Promise<boolean>;
+}
+
+/**
+ * In-memory object store with delta compression
+ *
+ * Orchestrates repositories and caches to provide efficient object storage
+ * with transparent delta compression and reconstruction.
+ */
+export class InMemoryObjectStore implements ObjectStorage {
+  private compressionProvider: CompressionProvider | null = null;
+  private cryptoProvider: CryptoProvider | null = null;
+
+  constructor(
+    private objectRepo: ObjectRepository,
+    private deltaRepo: DeltaRepository,
+    private metadataRepo: MetadataRepository,
+    private contentCache: LRUCache,
+    private intermediateCache: IntermediateCache,
+  ) {}
+
+  /**
+   * Get compression provider (lazy initialization)
+   */
+  private async getCompressionProvider(): Promise<CompressionProvider> {
+    if (!this.compressionProvider) {
+      this.compressionProvider = await getDefaultCompressionProvider();
+    }
+    return this.compressionProvider;
+  }
+
+  /**
+   * Get crypto provider (lazy initialization)
+   */
+  private getCryptoProvider(): CryptoProvider {
+    if (!this.cryptoProvider) {
+      this.cryptoProvider = getDefaultCryptoProvider();
+    }
+    return this.cryptoProvider;
+  }
+
+  /**
+   * Store object content
+   */
+  async store(data: AsyncIterable<Uint8Array>): Promise<ObjectId> {
+    // Collect all chunks into a single buffer
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+
+    for await (const chunk of data) {
+      chunks.push(chunk);
+      totalSize += chunk.length;
+    }
+
+    // Combine into single array
+    const content = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const chunk of chunks) {
+      content.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Compute SHA-256 hash
+    const crypto = this.getCryptoProvider();
+    const id = await crypto.hash("SHA-256", content);
+
+    // Check for existing object
+    if (await this.objectRepo.hasObject(id)) {
+      return id;
+    }
+
+    // Compress with deflate
+    const compression = await this.getCompressionProvider();
+    const compressed = await compression.compress(content);
+
+    // Store as full content initially
+    await this.objectRepo.storeObject({
+      id,
+      size: content.length,
+      content: compressed,
+      created: Date.now(),
+      accessed: Date.now(),
+    });
+
+    // Update metadata
+    await this.metadataRepo.updateSize(id, compressed.length);
+
+    return id;
+  }
+
+  /**
+   * Load object content
+   */
+  async *load(id: ObjectId): AsyncIterable<Uint8Array> {
+    // Check LRU cache first
+    if (this.contentCache.has(id)) {
+      await this.metadataRepo.recordAccess(id);
+      const cached = this.contentCache.get(id);
+      if (cached) {
+        yield cached;
+        return;
+      }
+    }
+
+    // Get object entry from repository
+    const entry = await this.objectRepo.loadObjectEntry(id);
+    if (!entry) {
+      throw new Error(`Object ${id} not found`);
+    }
+
+    // Update access metadata
+    await this.metadataRepo.recordAccess(id);
+
+    // Check if this is a delta
+    const deltaInfo = await this.deltaRepo.get(entry.recordId);
+
+    if (!deltaInfo) {
+      // Full content - decompress and return
+      const compression = await this.getCompressionProvider();
+      const decompressed = await compression.decompress(entry.content);
+      this.contentCache.set(id, decompressed);
+      yield decompressed;
+    } else {
+      // Delta content - reconstruct from chain
+      const reconstructed = await this.reconstructFromDelta(entry.recordId);
+      this.contentCache.set(id, reconstructed);
+      yield reconstructed;
+    }
+  }
+
+  /**
+   * Check if object exists
+   */
+  async has(id: ObjectId): Promise<boolean> {
+    return this.objectRepo.hasObject(id);
+  }
+
+  /**
+   * Delete object
+   */
+  async delete(id: ObjectId): Promise<boolean> {
+    const entry = await this.objectRepo.loadObjectEntry(id);
+    if (!entry) {
+      return false;
+    }
+
+    // Check if any objects depend on this one
+    const hasDeps = await this.deltaRepo.hasDependents(entry.recordId);
+    if (hasDeps) {
+      throw new Error(`Cannot delete object ${id}: other objects depend on it`);
+    }
+
+    // Delete delta relationship if exists
+    await this.deltaRepo.delete(entry.recordId);
+
+    // Delete from object repository
+    const deleted = await this.objectRepo.deleteObject(id);
+
+    // Clear caches
+    this.contentCache.delete(id);
+    this.intermediateCache.clear(entry.recordId);
+
+    return deleted;
+  }
+
+  /**
+   * Deltify object against candidate bases
+   */
+  async deltify(
+    targetId: ObjectId,
+    candidateIds: ObjectId[],
+    options?: DeltaOptions,
+  ): Promise<boolean> {
+    const minSize = options?.minSize ?? 50;
+    const minCompressionRatio = options?.minCompressionRatio ?? 0.75;
+
+    // Get target object
+    const targetEntry = await this.objectRepo.loadObjectEntry(targetId);
+    if (!targetEntry) {
+      throw new Error(`Target object ${targetId} not found`);
+    }
+
+    // Rule 1: Content must be at least 50 bytes
+    if (targetEntry.size < minSize) {
+      return false;
+    }
+
+    // Get decompressed target content
+    const compression = await this.getCompressionProvider();
+    const targetContent = await compression.decompress(targetEntry.content);
+
+    let bestCandidateEntry = null;
+    let bestDelta: Uint8Array | null = null;
+    let bestSize = targetEntry.content.length; // Current compressed size
+
+    // Try each candidate
+    for (const candidateId of candidateIds) {
+      const candidateEntry = await this.objectRepo.loadObjectEntry(candidateId);
+      if (!candidateEntry) continue;
+
+      // Rule 2: Base must be at least 50 bytes
+      if (candidateEntry.size < minSize) continue;
+
+      // Rule 3: Prevent circular dependencies
+      const wouldCycle = await this.deltaRepo.wouldCreateCycle(
+        targetEntry.recordId,
+        candidateEntry.recordId,
+      );
+      if (wouldCycle) {
+        continue;
+      }
+
+      // Get decompressed candidate content (may need reconstruction if it's a delta)
+      const candidateIsObject = !(await this.deltaRepo.has(candidateEntry.recordId));
+      let candidateContent: Uint8Array;
+      if (candidateIsObject) {
+        // Candidate is a full object - decompress it
+        candidateContent = await compression.decompress(candidateEntry.content);
+      } else {
+        // Candidate is itself a delta - reconstruct it
+        candidateContent = await this.reconstructFromDelta(candidateEntry.recordId);
+      }
+
+      // Create delta
+      const deltaRanges = Array.from(createFossilLikeRanges(candidateContent, targetContent));
+      const deltaCommands = createDelta(candidateContent, targetContent, deltaRanges);
+
+      // Encode delta to bytes
+      const deltaChunks = Array.from(encodeDeltaBlocks(deltaCommands));
+      const deltaBytes = this.concatArrays(deltaChunks);
+
+      // Rule 4: Delta must achieve at least 25% compression
+      // Compare delta size against uncompressed target size
+      const compressionRatio = deltaBytes.length / targetEntry.size;
+      if (compressionRatio >= minCompressionRatio) {
+        continue; // Less than 25% compression
+      }
+
+      // Rule 5: Delta must be smaller than current storage (compressed)
+      if (deltaBytes.length < bestSize) {
+        bestCandidateEntry = candidateEntry;
+        bestDelta = deltaBytes;
+        bestSize = deltaBytes.length;
+      }
+    }
+
+    // If we found a good delta, apply it
+    if (bestCandidateEntry && bestDelta) {
+      // Update object content
+      await this.objectRepo.storeObject({
+        id: targetEntry.id,
+        size: targetEntry.size,
+        content: bestDelta,
+        created: targetEntry.created,
+        accessed: Date.now(),
+      });
+
+      // Create delta relationship
+      await this.deltaRepo.set({
+        objectRecordId: targetEntry.recordId,
+        baseRecordId: bestCandidateEntry.recordId,
+        deltaSize: bestDelta.length,
+      });
+
+      // Invalidate caches
+      this.contentCache.delete(targetId);
+      this.intermediateCache.clear(targetEntry.recordId);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Convert delta storage back to full content
+   */
+  async undeltify(id: ObjectId): Promise<void> {
+    // Get object entry
+    const entry = await this.objectRepo.loadObjectEntry(id);
+    if (!entry) {
+      throw new Error(`Object ${id} not found`);
+    }
+
+    // Check if this is actually a delta
+    const deltaInfo = await this.deltaRepo.get(entry.recordId);
+    if (!deltaInfo) {
+      // Already full content
+      return;
+    }
+
+    // Reconstruct full content from delta chain
+    const fullContent = await this.reconstructFromDelta(entry.recordId);
+
+    // Compress and store as full content
+    const compression = await this.getCompressionProvider();
+    const compressed = await compression.compress(fullContent);
+
+    // Update object
+    await this.objectRepo.storeObject({
+      id: entry.id,
+      size: entry.size,
+      content: compressed,
+      created: entry.created,
+      accessed: Date.now(),
+    });
+
+    // Remove delta relationship
+    await this.deltaRepo.delete(entry.recordId);
+
+    // Invalidate caches
+    this.contentCache.delete(id);
+    this.intermediateCache.clear(entry.recordId);
+  }
+
+  /**
+   * Deltify against previous version
+   */
+  async deltifyAgainstPrevious(
+    currentVersionId: ObjectId,
+    previousVersionId: ObjectId,
+  ): Promise<boolean> {
+    return this.deltify(currentVersionId, [previousVersionId]);
+  }
+
+  /**
+   * Deltify against best candidate from multiple options
+   */
+  async deltifyAgainstBest(targetId: ObjectId, candidates: CandidateOptions): Promise<boolean> {
+    const candidateList: ObjectId[] = [];
+
+    if (candidates.previousVersion) {
+      candidateList.push(candidates.previousVersion);
+    }
+
+    if (candidates.parentBranch) {
+      candidateList.push(candidates.parentBranch);
+    }
+
+    if (candidates.similarFiles) {
+      candidateList.push(...candidates.similarFiles);
+    }
+
+    return this.deltify(targetId, candidateList);
+  }
+
+  /**
+   * Reconstruct content from delta chain
+   */
+  private async reconstructFromDelta(objectRecordId: number): Promise<Uint8Array> {
+    // Get entire delta chain from repository
+    const chain = await this.deltaRepo.getChain(objectRecordId);
+
+    // The chain is ordered from target back to base
+    // Last entry points to the base (full content)
+    const baseRecordId = chain.length > 0 ? chain[chain.length - 1].baseRecordId : objectRecordId;
+
+    // Get base content
+    const baseEntry = await this.objectRepo.loadObjectByRecordId(baseRecordId);
+    if (!baseEntry) {
+      throw new Error(`Base object record ${baseRecordId} not found`);
+    }
+
+    const compression = await this.getCompressionProvider();
+    let content = await compression.decompress(baseEntry.content);
+
+    // Apply deltas in reverse order (from base toward target)
+    for (let i = chain.length - 1; i >= 0; i--) {
+      const deltaEntry = chain[i];
+
+      // Check for cached intermediate result
+      const depth = chain.length - i;
+      const cacheKey = `${baseRecordId}:${depth}`;
+      const cached = this.intermediateCache.get(cacheKey);
+
+      if (cached) {
+        content = cached;
+        continue;
+      }
+
+      // Get delta object (stored as delta bytes, NOT compressed)
+      const deltaObj = await this.objectRepo.loadObjectByRecordId(deltaEntry.objectRecordId);
+      if (!deltaObj) {
+        throw new Error(`Delta object record ${deltaEntry.objectRecordId} not found`);
+      }
+
+      // Apply delta to get next version (delta content is NOT compressed)
+      content = await this.applyDeltaBytes(content, deltaObj.content);
+
+      // Cache intermediate results every 8 steps
+      if (depth % 8 === 0) {
+        this.intermediateCache.set(baseRecordId, depth, content);
+      }
+    }
+
+    return content;
+  }
+
+  /**
+   * Apply delta bytes to source content
+   */
+  private async applyDeltaBytes(source: Uint8Array, deltaBytes: Uint8Array): Promise<Uint8Array> {
+    // Parse delta commands from Fossil format
+    const deltaCommands = Array.from(decodeDeltaBlocks(deltaBytes));
+
+    // Apply delta using existing implementation
+    const chunks: Uint8Array[] = [];
+    for (const chunk of applyDelta(source, deltaCommands)) {
+      chunks.push(chunk);
+    }
+
+    return this.concatArrays(chunks);
+  }
+
+  /**
+   * Concatenate Uint8Array chunks
+   */
+  private concatArrays(arrays: Uint8Array[]): Uint8Array {
+    const totalSize = arrays.reduce((sum, arr) => sum + arr.length, 0);
+    const result = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const arr of arrays) {
+      result.set(arr, offset);
+      offset += arr.length;
+    }
+    return result;
+  }
+}

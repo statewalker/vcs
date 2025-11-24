@@ -16,7 +16,11 @@
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run",
+    "test:watch": "vitest run --watch",
     "lint": "biome lint src tests"
+  },
+  "dependencies": {
+    "@webrun-vcs/diff": "workspace:*"
   },
   "devDependencies": {
     "rolldown": "catalog:",
