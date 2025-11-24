@@ -1,3 +1,2 @@
-import { buildGreeting, type ExampleConfig } from "./models/example";
-
-export { buildGreeting, type ExampleConfig };
+// Export storage module
+export * from "./storage/index.js";
