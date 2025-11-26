@@ -74,7 +74,7 @@ export class InMemoryObjectStore implements ObjectStorage {
     private objectRepo: ObjectRepository,
     private deltaRepo: DeltaRepository,
     private metadataRepo: MetadataRepository,
-    private contentCache: LRUCache,
+    private contentCache: LRUCache<ObjectId, Uint8Array>,
     private intermediateCache: IntermediateCache,
   ) {}
 
@@ -288,18 +288,21 @@ export class InMemoryObjectStore implements ObjectStorage {
       const deltaChunks = Array.from(encodeDeltaBlocks(deltaCommands));
       const deltaBytes = this.concatArrays(deltaChunks);
 
+      // Compress delta bytes (like we do for full objects)
+      const compressedDelta = await compression.compress(deltaBytes);
+
       // Rule 4: Delta must achieve at least 25% compression
-      // Compare delta size against uncompressed target size
-      const compressionRatio = deltaBytes.length / targetEntry.size;
+      // Compare compressed delta size against compressed target size
+      const compressionRatio = compressedDelta.length / targetEntry.content.length;
       if (compressionRatio >= minCompressionRatio) {
         continue; // Less than 25% compression
       }
 
       // Rule 5: Delta must be smaller than current storage (compressed)
-      if (deltaBytes.length < bestSize) {
+      if (compressedDelta.length < bestSize) {
         bestCandidateEntry = candidateEntry;
-        bestDelta = deltaBytes;
-        bestSize = deltaBytes.length;
+        bestDelta = compressedDelta;
+        bestSize = compressedDelta.length;
       }
     }
 
@@ -437,14 +440,17 @@ export class InMemoryObjectStore implements ObjectStorage {
         continue;
       }
 
-      // Get delta object (stored as delta bytes, NOT compressed)
+      // Get delta object (stored as compressed delta bytes)
       const deltaObj = await this.objectRepo.loadObjectByRecordId(deltaEntry.objectRecordId);
       if (!deltaObj) {
         throw new Error(`Delta object record ${deltaEntry.objectRecordId} not found`);
       }
 
-      // Apply delta to get next version (delta content is NOT compressed)
-      content = await this.applyDeltaBytes(content, deltaObj.content);
+      // Decompress delta bytes before applying
+      const decompressedDelta = await compression.decompress(deltaObj.content);
+
+      // Apply delta to get next version
+      content = await this.applyDeltaBytes(content, decompressedDelta);
 
       // Cache intermediate results every 8 steps
       if (depth % 8 === 0) {

@@ -7,7 +7,7 @@ import { LRUCache } from "../../src/storage/lru-cache.js";
 
 describe("LRUCache", () => {
   it("should store and retrieve content", () => {
-    const cache = new LRUCache();
+    const cache = new LRUCache<string, Uint8Array>();
     const content = new Uint8Array([1, 2, 3, 4]);
 
     cache.set("obj1", content);
@@ -16,14 +16,14 @@ describe("LRUCache", () => {
   });
 
   it("should return undefined for missing entries", () => {
-    const cache = new LRUCache();
+    const cache = new LRUCache<string, Uint8Array>();
 
     expect(cache.has("missing")).toBe(false);
     expect(cache.get("missing")).toBeUndefined();
   });
 
   it("should delete entries", () => {
-    const cache = new LRUCache();
+    const cache = new LRUCache<string, Uint8Array>();
     const content = new Uint8Array([1, 2, 3]);
 
     cache.set("obj1", content);
@@ -35,13 +35,13 @@ describe("LRUCache", () => {
   });
 
   it("should return false when deleting non-existent entry", () => {
-    const cache = new LRUCache();
+    const cache = new LRUCache<string, Uint8Array>();
     const deleted = cache.delete("missing");
     expect(deleted).toBe(false);
   });
 
   it("should track total size", () => {
-    const cache = new LRUCache();
+    const cache = new LRUCache<string, Uint8Array>();
 
     cache.set("obj1", new Uint8Array(100));
     expect(cache.getTotalSize()).toBe(100);
@@ -54,7 +54,7 @@ describe("LRUCache", () => {
   });
 
   it("should track entry count", () => {
-    const cache = new LRUCache();
+    const cache = new LRUCache<string, Uint8Array>();
 
     cache.set("obj1", new Uint8Array(10));
     expect(cache.size()).toBe(1);
@@ -67,7 +67,7 @@ describe("LRUCache", () => {
   });
 
   it("should evict entries when exceeding max size", () => {
-    const cache = new LRUCache(100, 1000); // 100 bytes max
+    const cache = new LRUCache<string, Uint8Array>(100, 1000); // 100 bytes max
 
     cache.set("obj1", new Uint8Array(40));
     cache.set("obj2", new Uint8Array(40));
@@ -80,7 +80,7 @@ describe("LRUCache", () => {
   });
 
   it("should evict entries when exceeding max entry count", () => {
-    const cache = new LRUCache(1000000, 2); // Max 2 entries
+    const cache = new LRUCache<string, Uint8Array>(1000000, 2); // Max 2 entries
 
     cache.set("obj1", new Uint8Array(10));
     cache.set("obj2", new Uint8Array(10));
@@ -93,7 +93,7 @@ describe("LRUCache", () => {
   });
 
   it("should update access order on get", () => {
-    const cache = new LRUCache(100, 1000);
+    const cache = new LRUCache<string, Uint8Array>(100, 1000);
 
     cache.set("obj1", new Uint8Array(30));
     cache.set("obj2", new Uint8Array(30));
@@ -112,7 +112,7 @@ describe("LRUCache", () => {
   });
 
   it("should replace existing entries", () => {
-    const cache = new LRUCache();
+    const cache = new LRUCache<string, Uint8Array>();
     const content1 = new Uint8Array([1, 2, 3]);
     const content2 = new Uint8Array([4, 5, 6, 7]);
 
@@ -126,7 +126,7 @@ describe("LRUCache", () => {
   });
 
   it("should clear all entries", () => {
-    const cache = new LRUCache();
+    const cache = new LRUCache<string, Uint8Array>();
 
     cache.set("obj1", new Uint8Array(10));
     cache.set("obj2", new Uint8Array(20));
@@ -142,7 +142,7 @@ describe("LRUCache", () => {
   });
 
   it("should keep at least one entry even when over limit", () => {
-    const cache = new LRUCache(10, 1); // Very small limits
+    const cache = new LRUCache<string, Uint8Array>(10, 1); // Very small limits
 
     cache.set("obj1", new Uint8Array(100)); // Exceeds both limits
 
