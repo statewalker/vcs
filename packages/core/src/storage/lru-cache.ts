@@ -1,96 +1,117 @@
 /**
- * LRU (Least Recently Used) cache implementation
+ * LRU (Least Recently Used) cache implementation with doubly-linked list
  *
  * Manages cached content with size and entry count limits,
  * evicting least recently used items when limits are exceeded.
+ *
+ * Uses a doubly-linked list for O(1) access order updates.
  */
-
-import type { ObjectId } from "./types.js";
 
 /**
- * Cache entry with content and metadata
+ * Cache entry node in the doubly-linked list
  */
-interface CacheEntry {
-  /** Cached content */
-  content: Uint8Array;
-  /** Content size in bytes */
+interface CacheEntry<V> {
+  /** Cached value */
+  value: V;
+  /** Size of the value in bytes */
   size: number;
   /** Timestamp of when entry was added/accessed */
   timestamp: number;
+  /** Previous entry in the list (more recently used) */
+  prev: CacheEntry<V> | null;
+  /** Next entry in the list (less recently used) */
+  next: CacheEntry<V> | null;
 }
 
 /**
- * LRU cache for object content
+ * LRU cache with generic key and value types
  *
  * Maintains both size and entry count limits, evicting oldest entries
- * when either limit is exceeded.
+ * when either limit is exceeded. Uses a doubly-linked list for efficient
+ * access order tracking.
+ *
+ * @template K Key type
+ * @template V Value type
  */
-export class LRUCache {
-  private cache = new Map<ObjectId, CacheEntry>();
-  private accessOrder: ObjectId[] = [];
+export class LRUCache<K, V> {
+  private cache = new Map<K, CacheEntry<V>>();
+  private head: CacheEntry<V> | null = null; // Most recently used
+  private tail: CacheEntry<V> | null = null; // Least recently used
   private totalSize = 0;
+  private keyMap = new Map<CacheEntry<V>, K>(); // Reverse map for eviction
 
   /**
    * Create LRU cache with specified limits
    *
    * @param maxSize Maximum total size in bytes (default: 50MB)
    * @param maxEntries Maximum number of entries (default: 500)
+   * @param sizeOf Optional function to calculate size of a value
    */
   constructor(
     private readonly maxSize = 50 * 1024 * 1024,
     private readonly maxEntries = 500,
+    private readonly sizeOf?: (value: V) => number,
   ) {}
 
   /**
-   * Check if object is in cache
+   * Check if key is in cache
    *
-   * @param id Object ID
+   * @param key Cache key
    * @returns True if cached
    */
-  has(id: ObjectId): boolean {
-    return this.cache.has(id);
+  has(key: K): boolean {
+    return this.cache.has(key);
   }
 
   /**
-   * Get cached content
+   * Get cached value and mark as recently used
    *
-   * @param id Object ID
-   * @returns Cached content or undefined
+   * @param key Cache key
+   * @returns Cached value or undefined
    */
-  get(id: ObjectId): Uint8Array | undefined {
-    const entry = this.cache.get(id);
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
     if (!entry) {
       return undefined;
     }
 
-    // Move to end of access order (most recently used)
-    this.updateAccessOrder(id);
+    // Move to front (most recently used)
+    this.moveToFront(entry);
 
-    return entry.content;
+    return entry.value;
   }
 
   /**
-   * Add content to cache
+   * Add value to cache
    *
-   * @param id Object ID
-   * @param content Content to cache
+   * @param key Cache key
+   * @param value Value to cache
    */
-  set(id: ObjectId, content: Uint8Array): void {
+  set(key: K, value: V): void {
     // Remove if already exists
-    if (this.cache.has(id)) {
-      this.delete(id);
+    if (this.cache.has(key)) {
+      this.delete(key);
     }
 
-    // Add to cache
-    const entry: CacheEntry = {
-      content,
-      size: content.length,
+    // Calculate size
+    const size = this.sizeOf ? this.sizeOf(value) : this.getDefaultSize(value);
+
+    // Create new entry
+    const entry: CacheEntry<V> = {
+      value,
+      size,
       timestamp: Date.now(),
+      prev: null,
+      next: null,
     };
 
-    this.cache.set(id, entry);
-    this.accessOrder.push(id);
-    this.totalSize += content.length;
+    // Add to cache and maps
+    this.cache.set(key, entry);
+    this.keyMap.set(entry, key);
+    this.totalSize += size;
+
+    // Add to front of list
+    this.addToFront(entry);
 
     // Evict if over limits
     this.enforceLimit();
@@ -99,24 +120,16 @@ export class LRUCache {
   /**
    * Remove entry from cache
    *
-   * @param id Object ID
+   * @param key Cache key
    * @returns True if entry was removed
    */
-  delete(id: ObjectId): boolean {
-    const entry = this.cache.get(id);
+  delete(key: K): boolean {
+    const entry = this.cache.get(key);
     if (!entry) {
       return false;
     }
 
-    this.totalSize -= entry.size;
-    this.cache.delete(id);
-
-    // Remove from access order
-    const index = this.accessOrder.indexOf(id);
-    if (index !== -1) {
-      this.accessOrder.splice(index, 1);
-    }
-
+    this.removeEntry(key, entry);
     return true;
   }
 
@@ -125,7 +138,9 @@ export class LRUCache {
    */
   clear(): void {
     this.cache.clear();
-    this.accessOrder = [];
+    this.keyMap.clear();
+    this.head = null;
+    this.tail = null;
     this.totalSize = 0;
   }
 
@@ -148,39 +163,101 @@ export class LRUCache {
   }
 
   /**
-   * Update access order by moving ID to end (most recently used)
+   * Add entry to front of list (most recently used)
    */
-  private updateAccessOrder(id: ObjectId): void {
-    const index = this.accessOrder.indexOf(id);
-    if (index !== -1) {
-      this.accessOrder.splice(index, 1);
+  private addToFront(entry: CacheEntry<V>): void {
+    entry.prev = null;
+    entry.next = this.head;
+
+    if (this.head) {
+      this.head.prev = entry;
     }
-    this.accessOrder.push(id);
+
+    this.head = entry;
+
+    if (!this.tail) {
+      this.tail = entry;
+    }
   }
 
   /**
-   * Enforce size and entry count limits by evicting oldest entries
+   * Remove entry from its current position in the list
+   */
+  private unlinkEntry(entry: CacheEntry<V>): void {
+    if (entry.prev) {
+      entry.prev.next = entry.next;
+    } else {
+      // This was the head
+      this.head = entry.next;
+    }
+
+    if (entry.next) {
+      entry.next.prev = entry.prev;
+    } else {
+      // This was the tail
+      this.tail = entry.prev;
+    }
+
+    entry.prev = null;
+    entry.next = null;
+  }
+
+  /**
+   * Move entry to front of list (mark as most recently used)
+   */
+  private moveToFront(entry: CacheEntry<V>): void {
+    // If already at front, nothing to do
+    if (this.head === entry) {
+      return;
+    }
+
+    // Unlink from current position
+    this.unlinkEntry(entry);
+
+    // Add to front
+    this.addToFront(entry);
+  }
+
+  /**
+   * Remove entry from cache and list
+   */
+  private removeEntry(key: K, entry: CacheEntry<V>): void {
+    this.totalSize -= entry.size;
+    this.cache.delete(key);
+    this.keyMap.delete(entry);
+    this.unlinkEntry(entry);
+  }
+
+  /**
+   * Enforce size and entry count limits by evicting least recently used entries
    */
   private enforceLimit(): void {
     while (
       (this.totalSize > this.maxSize || this.cache.size > this.maxEntries) &&
-      this.accessOrder.length > 1 // Keep at least one entry
+      this.tail &&
+      this.cache.size > 1 // Keep at least one entry
     ) {
-      const evictId = this.accessOrder.shift();
-      if (evictId) {
-        this.evict(evictId);
+      // Evict from tail (least recently used)
+      const evictEntry = this.tail;
+      const evictKey = this.keyMap.get(evictEntry);
+
+      if (evictKey !== undefined) {
+        this.removeEntry(evictKey, evictEntry);
       }
     }
   }
 
   /**
-   * Evict entry from cache
+   * Get default size for a value
    */
-  private evict(id: ObjectId): void {
-    const entry = this.cache.get(id);
-    if (entry) {
-      this.totalSize -= entry.size;
-      this.cache.delete(id);
+  private getDefaultSize(value: V): number {
+    if (value instanceof Uint8Array) {
+      return value.length;
     }
+    if (typeof value === "string") {
+      return value.length * 2; // Rough estimate for UTF-16
+    }
+    // For other types, use a default size
+    return 64;
   }
 }

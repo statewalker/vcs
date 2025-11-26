@@ -48,7 +48,10 @@ export function createInMemoryObjectStore(options?: ObjectStoreOptions): InMemor
   const objectRepo = new InMemoryObjectRepository();
   const deltaRepo = new InMemoryDeltaRepository();
   const metadataRepo = new InMemoryMetadataRepository();
-  const contentCache = new LRUCache(options?.maxCacheSize, options?.maxCacheEntries);
+  const contentCache = new LRUCache<string, Uint8Array>(
+    options?.maxCacheSize,
+    options?.maxCacheEntries,
+  );
   const intermediateCache = new IntermediateCache();
 
   return new InMemoryObjectStore(

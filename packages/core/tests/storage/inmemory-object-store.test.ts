@@ -381,6 +381,46 @@ describe("InMemoryObjectStore - Cache Behavior", () => {
     yield data;
   }
 
+  it("should compress delta blobs", async () => {
+    const store = createInMemoryObjectStore();
+
+    // Create two similar large contents to ensure compression benefit
+    const base = new TextEncoder().encode(
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(20),
+    );
+    const modified = new TextEncoder().encode(
+      "Lorem ipsum MODIFIED sit amet, consectetur adipiscing elit. ".repeat(20),
+    );
+
+    const baseId = await store.store(toAsyncIterable(base));
+    const modifiedId = await store.store(toAsyncIterable(modified));
+
+    // Access internal repository to check sizes
+    // @ts-expect-error - Accessing private property for testing
+    const objectRepo = store.objectRepo;
+    const beforeDeltaEntry = await objectRepo.loadObjectEntry(modifiedId);
+    if (!beforeDeltaEntry) throw new Error("Entry not found");
+    const beforeSize = beforeDeltaEntry.content.length;
+
+    // Deltify
+    await store.deltify(modifiedId, [baseId]);
+
+    // Check that delta is stored compressed
+    const afterDeltaEntry = await objectRepo.loadObjectEntry(modifiedId);
+    if (!afterDeltaEntry) throw new Error("Entry not found");
+    const afterSize = afterDeltaEntry.content.length;
+
+    // Delta should be smaller than the full compressed object
+    expect(afterSize).toBeLessThan(beforeSize);
+
+    // Should still load correctly
+    const retrieved: Uint8Array[] = [];
+    for await (const chunk of store.load(modifiedId)) {
+      retrieved.push(chunk);
+    }
+    expect(retrieved[0]).toEqual(modified);
+  });
+
   it("should cache loaded content", async () => {
     const store = createInMemoryObjectStore();
 
