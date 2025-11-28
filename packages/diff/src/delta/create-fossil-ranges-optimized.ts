@@ -198,13 +198,7 @@ function matchForward(
   let len = 0;
 
   // Use Uint32Array fast path if both positions are aligned
-  if (
-    src32 &&
-    tgt32 &&
-    (srcStart & 3) === 0 &&
-    (tgtStart & 3) === 0 &&
-    maxLen >= 16
-  ) {
+  if (src32 && tgt32 && (srcStart & 3) === 0 && (tgtStart & 3) === 0 && maxLen >= 16) {
     const srcIdx = srcStart >>> 2;
     const tgtIdx = tgtStart >>> 2;
     const fastEnd = (maxLen >>> 2) - 1;
