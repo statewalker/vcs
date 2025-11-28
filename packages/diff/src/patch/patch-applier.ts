@@ -8,8 +8,8 @@
  * - Handling different change types (ADD, DELETE, MODIFY, RENAME, COPY)
  */
 
-import type { CompressionProvider } from "../common/compression/index.js";
-import { getDefaultCompressionProvider } from "../common/compression/index.js";
+import type { CompressionProvider } from "@webrun-vcs/common";
+import { getDefaultCompressionProvider } from "@webrun-vcs/common";
 import { decodeGitBinaryDelta } from "./binary-delta.js";
 import { nextLF } from "./buffer-utils.js";
 import type { FileHeader } from "./file-header.js";

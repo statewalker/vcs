@@ -1,16 +1,12 @@
 /**
  * Object storage module with delta compression
  *
- * Provides content-addressable storage with transparent delta compression,
- * following Fossil's architectural patterns.
+ * Re-exports from @webrun-vcs/storage-default and @webrun-vcs/storage-mem
+ * for backward compatibility.
  */
 
-export * from "./create-default-object-storage.js";
-export * from "./default-object-storage.js";
-export * from "./delta-repository.js";
-export * from "./intermediate-cache.js";
-export * from "./lru-cache.js";
-export * from "./mem/index.js";
-export * from "./metadata-repository.js";
-export * from "./object-repository.js";
-export * from "./types.js";
+// Re-export from storage-default
+export * from "@webrun-vcs/storage-default";
+
+// Re-export from storage-mem
+export * from "@webrun-vcs/storage-mem";

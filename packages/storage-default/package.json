@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/diff",
+  "name": "@webrun-vcs/storage-default",
   "version": "0.1.0",
   "private": false,
   "type": "module",
@@ -16,11 +16,12 @@
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run",
-    "test:watch": "vitest run --watch",
     "lint": "biome lint src tests"
   },
   "dependencies": {
-    "@webrun-vcs/common": "workspace:*"
+    "@webrun-vcs/common": "workspace:*",
+    "@webrun-vcs/diff": "workspace:*",
+    "@webrun-vcs/storage": "workspace:*"
   },
   "devDependencies": {
     "rolldown": "catalog:",

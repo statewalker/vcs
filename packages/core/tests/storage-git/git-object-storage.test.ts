@@ -5,7 +5,7 @@ import {
   ObjectType,
   toAsyncIterable,
 } from "../../src/storage-git/git-object-storage.js";
-import { createDefaultObjectStorage } from "../../src/storage-impl/create-default-object-storage.js";
+import { createMemoryStorage as createDefaultObjectStorage } from "../../src/storage-impl/index.js";
 
 describe("GitObjectStorage", () => {
   let gitStorage: GitObjectStorage;
