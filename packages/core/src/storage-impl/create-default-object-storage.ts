@@ -1,3 +1,4 @@
+import type { HashAlgorithm } from "@webrun-vcs/diff";
 import { DefaultObjectStorage } from "../storage-impl/default-object-storage.js";
 import { IntermediateCache } from "./intermediate-cache.js";
 import { LRUCache } from "./lru-cache.js";
@@ -13,6 +14,12 @@ export interface ObjectStoreOptions {
   maxCacheSize?: number;
   /** Maximum number of cached entries (default: 500) */
   maxCacheEntries?: number;
+  /**
+   * Hash algorithm to use for object IDs
+   * - 'SHA-256': Default, used for general content-addressable storage
+   * - 'SHA-1': Use for Git compatibility
+   */
+  hashAlgorithm?: HashAlgorithm;
 }
 
 /**
@@ -37,5 +44,6 @@ export function createDefaultObjectStorage(options?: ObjectStoreOptions): Defaul
     metadataRepo,
     contentCache,
     intermediateCache,
+    { hashAlgorithm: options?.hashAlgorithm },
   );
 }

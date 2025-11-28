@@ -15,6 +15,7 @@ import {
   encodeDeltaBlocks,
   getDefaultCompressionProvider,
   getDefaultCryptoProvider,
+  type HashAlgorithm,
 } from "@webrun-vcs/diff";
 import type { ObjectId, ObjectStorage } from "../storage/index.js";
 import type { DeltaRepository } from "./delta-repository.js";
@@ -25,6 +26,18 @@ import type { ObjectRepository } from "./object-repository.js";
 import type { CandidateOptions, DeltaOptions } from "./types.js";
 
 /**
+ * Configuration options for DefaultObjectStorage
+ */
+export interface ObjectStorageConfig {
+  /**
+   * Hash algorithm to use for object IDs
+   * - 'SHA-256': Default, used for general content-addressable storage
+   * - 'SHA-1': Use for Git compatibility
+   */
+  hashAlgorithm?: HashAlgorithm;
+}
+
+/**
  * Default object storage with delta compression
  *
  * Orchestrates repositories and caches to provide efficient object storage
@@ -33,6 +46,7 @@ import type { CandidateOptions, DeltaOptions } from "./types.js";
 export class DefaultObjectStorage implements ObjectStorage {
   private compressionProvider: CompressionProvider | null = null;
   private cryptoProvider: CryptoProvider | null = null;
+  private readonly hashAlgorithm: HashAlgorithm;
 
   constructor(
     private objectRepo: ObjectRepository,
@@ -40,7 +54,10 @@ export class DefaultObjectStorage implements ObjectStorage {
     private metadataRepo: MetadataRepository,
     private contentCache: LRUCache<ObjectId, Uint8Array>,
     private intermediateCache: IntermediateCache,
-  ) {}
+    config?: ObjectStorageConfig,
+  ) {
+    this.hashAlgorithm = config?.hashAlgorithm ?? "SHA-256";
+  }
 
   /**
    * Get compression provider (lazy initialization)
@@ -83,9 +100,9 @@ export class DefaultObjectStorage implements ObjectStorage {
       offset += chunk.length;
     }
 
-    // Compute SHA-256 hash
+    // Compute hash using configured algorithm
     const crypto = this.getCryptoProvider();
-    const id = await crypto.hash("SHA-256", content);
+    const id = await crypto.hash(this.hashAlgorithm, content);
 
     // Check for existing object
     if (await this.objectRepo.hasObject(id)) {

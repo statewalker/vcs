@@ -48,20 +48,21 @@ describe("createDeltaRanges - Performance and Correctness Tests", () => {
     const mutations = [0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0];
 
     it("should handle various size and mutation combinations", () => {
-      function roundUpToPow2(x: number): number {
+      function _roundUpToPow2(x: number): number {
         const p = Math.ceil(Math.log2(x));
         return 1 << p;
       }
 
-      function chooseBlockSize(fileSize: number): number {
-        const min = 16; // or 32, 64…
-        const max = 64 * 1024; // 64 KiB or whatever upper bound you like
+      function chooseBlockSize(_fileSize: number): number {
+        return 16;
+        // const min = 16; // or 32, 64…
+        // const max = 64 * 1024; // 64 KiB or whatever upper bound you like
 
-        if (fileSize <= 0) return min;
+        // if (fileSize <= 0) return min;
 
-        const raw = Math.sqrt(fileSize); // smooth scaling
-        const rounded = roundUpToPow2(raw); // optional power-of-two
-        return Math.min(max, Math.max(min, rounded));
+        // const raw = Math.sqrt(fileSize); // smooth scaling
+        // const rounded = roundUpToPow2(raw); // optional power-of-two
+        // return Math.min(max, Math.max(min, rounded));
       }
 
       testLog("\n  === Comprehensive Performance Matrix ===");
@@ -71,8 +72,7 @@ describe("createDeltaRanges - Performance and Correctness Tests", () => {
       for (const size of sizes) {
         for (const mutation of mutations) {
           try {
-            let blockSize = chooseBlockSize(size);
-            blockSize = 16;
+            const blockSize = chooseBlockSize(size);
 
             // blockSize = 16;
             const stats = testCreateDeltaRanges({
