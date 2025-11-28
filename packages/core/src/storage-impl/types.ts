@@ -5,7 +5,7 @@
  * providing a foundation for content-addressable storage with delta compression.
  */
 
-import type { ObjectId } from "../storage/types.js";
+import type { ObjectId } from "../storage/index.js";
 
 /**
  * Delta relationship entry

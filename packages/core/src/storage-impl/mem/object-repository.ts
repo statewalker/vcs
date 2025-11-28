@@ -4,8 +4,8 @@
  * Uses JavaScript Maps for fast lookups by both object ID and record ID.
  */
 
-import type { ObjectRepository } from "../../storage/object-repository.js";
-import type { ObjectEntry, ObjectId } from "../../storage/types.js";
+import type { ObjectId } from "../../storage/index.js";
+import type { ObjectEntry, ObjectRepository } from "../object-repository.js";
 
 /**
  * In-memory object repository using Maps
