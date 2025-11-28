@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { InMemoryDeltaRepository } from "../../src/storage/inmemory-delta-repository.js";
+import { InMemoryDeltaRepository } from "../../src/storage-impl/mem/delta-repository.js";
 
 describe("InMemoryDeltaRepository", () => {
   it("should store and retrieve delta entries", async () => {

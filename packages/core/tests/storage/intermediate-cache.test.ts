@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { IntermediateCache } from "../../src/storage/intermediate-cache.js";
+import { IntermediateCache } from "../../src/storage-impl/intermediate-cache.js";
 
 describe("IntermediateCache", () => {
   it("should store and retrieve intermediate results", () => {

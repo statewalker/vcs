@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["packages/**/tests/**/*.test.ts"],
+    include: ["**/tests/**/*.test.ts"],
     coverage: {
       reporter: ["text", "lcov"],
     },
@@ -12,6 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@webrun-vcs/core": "/packages/core/src",
+      "@webrun-vcs/diff": "/packages/diff/src",
     },
   },
 });

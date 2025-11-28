@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { InMemoryMetadataRepository } from "../../src/storage/inmemory-metadata-repository.js";
+import { InMemoryMetadataRepository } from "../../src/storage-impl/mem/metadata-repository.js";
 
 describe("InMemoryMetadataRepository", () => {
   it("should record access", async () => {
