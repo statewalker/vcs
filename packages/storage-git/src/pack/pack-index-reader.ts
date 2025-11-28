@@ -119,7 +119,7 @@ function isTocSignature(data: Uint8Array): boolean {
 abstract class BasePackIndex implements PackIndex {
   protected readonly data: Uint8Array;
   protected readonly fanoutTable: number[];
-  readonly objectCount: number;
+  readonly objectCount!: number; // Set by subclass constructors
 
   constructor(data: Uint8Array) {
     this.data = data;

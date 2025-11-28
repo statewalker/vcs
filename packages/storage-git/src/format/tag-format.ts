@@ -14,7 +14,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/TagBuilder.java
  */
 
-import type { AnnotatedTag } from "@webrun-vcs/storage";
+import type { AnnotatedTag, ObjectTypeCode } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import { typeCodeToString, typeStringToCode } from "./object-header.js";
 import { formatPersonIdent, parsePersonIdent } from "./person-ident.js";
@@ -81,7 +81,7 @@ export function parseTag(data: Uint8Array): AnnotatedTag {
   const lines = text.split(LF);
 
   let object: string | undefined;
-  let objectType: number | undefined;
+  let objectType: ObjectTypeCode | undefined;
   let tagName: string | undefined;
   let tagger: ReturnType<typeof parsePersonIdent> | undefined;
   let encoding: string | undefined;

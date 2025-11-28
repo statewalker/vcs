@@ -24,9 +24,9 @@ export * from "./pack/index.js";
 // Refs handling
 export * from "./refs/index.js";
 
-// Main storage implementations (placeholder)
-// export * from "./git-storage.js";
-// export * from "./git-object-storage.js";
-// export * from "./git-file-tree-storage.js";
-// export * from "./git-commit-storage.js";
-// export * from "./git-tag-storage.js";
+// Main storage implementations
+export * from "./git-storage.js";
+export * from "./git-object-storage.js";
+export * from "./git-file-tree-storage.js";
+export * from "./git-commit-storage.js";
+export * from "./git-tag-storage.js";
