@@ -1,0 +1,34 @@
+{
+  "name": "@webrun-vcs/storage-git",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run",
+    "test:jgit": "vitest run --grep 'jgit'",
+    "test:interop": "vitest run --grep 'interop'",
+    "lint": "biome lint src tests"
+  },
+  "dependencies": {
+    "@webrun-vcs/storage": "workspace:*",
+    "@webrun-vcs/common": "workspace:*"
+  },
+  "devDependencies": {
+    "@webrun-vcs/storage-tests": "workspace:*",
+    "rolldown": "catalog:",
+    "vitest": "catalog:",
+    "typescript": "catalog:",
+    "@types/node": "catalog:"
+  }
+}
