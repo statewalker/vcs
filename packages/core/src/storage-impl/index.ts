@@ -11,4 +11,5 @@ export * from "./intermediate-cache.js";
 export * from "./lru-cache.js";
 export * from "./mem/index.js";
 export * from "./metadata-repository.js";
+export * from "./object-repository.js";
 export * from "./types.js";

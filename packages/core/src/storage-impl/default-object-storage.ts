@@ -16,50 +16,13 @@ import {
   getDefaultCompressionProvider,
   getDefaultCryptoProvider,
 } from "@webrun-vcs/diff";
-import type { ObjectRepository } from "../storage/object-repository.js";
-import type { ObjectId } from "../storage/types.js";
+import type { ObjectId, ObjectStorage } from "../storage/index.js";
 import type { DeltaRepository } from "./delta-repository.js";
 import type { IntermediateCache } from "./intermediate-cache.js";
 import type { LRUCache } from "./lru-cache.js";
 import type { MetadataRepository } from "./metadata-repository.js";
+import type { ObjectRepository } from "./object-repository.js";
 import type { CandidateOptions, DeltaOptions } from "./types.js";
-
-/**
- * Object storage interface (public API)
- */
-export interface ObjectStorage {
-  /**
-   * Load object content by ID
-   *
-   * @param id Object ID (SHA-256 hash)
-   * @returns Async iterable of content chunks
-   */
-  load(id: ObjectId): AsyncIterable<Uint8Array>;
-
-  /**
-   * Store object content
-   *
-   * @param data Async iterable of content chunks
-   * @returns Object ID (SHA-256 hash)
-   */
-  store(data: AsyncIterable<Uint8Array>): Promise<ObjectId>;
-
-  /**
-   * Check if object exists
-   *
-   * @param id Object ID
-   * @returns True if object exists
-   */
-  has(id: ObjectId): Promise<boolean>;
-
-  /**
-   * Delete object
-   *
-   * @param id Object ID
-   * @returns True if object was deleted
-   */
-  delete(id: ObjectId): Promise<boolean>;
-}
 
 /**
  * Default object storage with delta compression
