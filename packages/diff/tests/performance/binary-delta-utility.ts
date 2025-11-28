@@ -1,11 +1,8 @@
-import {
-  decodeGitBinaryDelta,
-  encodeGitBinaryDelta,
-} from "../../src/patch/binary-delta.js";
-import { BinarySequence } from "../../src/text-diff/binary-sequence.js";
+import { decodeGitBinaryDelta, encodeGitBinaryDelta } from "../../src/patch/binary-delta.js";
 import { BinaryComparator } from "../../src/text-diff/binary-comparator.js";
-import { MyersDiff } from "../../src/text-diff/myers-diff.js";
+import { BinarySequence } from "../../src/text-diff/binary-sequence.js";
 import { Edit } from "../../src/text-diff/edit.js";
+import { MyersDiff } from "../../src/text-diff/myers-diff.js";
 
 /**
  * Performance statistics for binary delta encoding/decoding
@@ -201,9 +198,7 @@ export function testBinaryDeltaPerformance(
   }
   for (let i = 0; i < target.length; i++) {
     if (reconstructed[i] !== target[i]) {
-      throw new Error(
-        `Mismatch at position ${i}: expected ${target[i]}, got ${reconstructed[i]}`,
-      );
+      throw new Error(`Mismatch at position ${i}: expected ${target[i]}, got ${reconstructed[i]}`);
     }
   }
 

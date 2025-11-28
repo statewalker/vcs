@@ -38,14 +38,7 @@ describe("Binary Delta - Performance Tests", () => {
     // Note: Myers diff is O(ND) which is slow for large files with many differences
     // Using smaller sizes to keep test time reasonable
     const sizes = [
-      10,
-      50,
-      100,
-      500,
-      1024,
-      5120,
-      10240,
-      51200,
+      10, 50, 100, 500, 1024, 5120, 10240, 51200,
       102400,
       // 125 * 1024,  // Slow with Myers
       // 512 * 1024,  // Very slow
