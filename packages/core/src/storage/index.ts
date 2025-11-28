@@ -5,7 +5,7 @@
  */
 
 /**
- * Object identifier (SHA-256 or SHA-1 hash in hex format)
+ * Object identifier (SHA-1 hash in hex format)
  */
 export type ObjectId = string;
 
@@ -18,7 +18,7 @@ export interface ObjectStorage {
   /**
    * Load object content by ID
    *
-   * @param id Object ID (SHA-256 hash)
+   * @param id Object ID (SHA-1 hash)
    * @returns Async iterable of content chunks
    */
   load(id: ObjectId): AsyncIterable<Uint8Array>;
