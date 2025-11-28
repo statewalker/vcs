@@ -6,18 +6,15 @@ export default defineConfig({
     {
       dir: "dist/esm",
       format: "esm",
+      entryFileNames: "[name].js",
+      chunkFileNames: "[name]-[hash].js",
     },
     {
       dir: "dist/cjs",
       format: "cjs",
+      entryFileNames: "[name].cjs",
+      chunkFileNames: "[name]-[hash].cjs",
     },
-  ],
-  external: [
-    "@webrun-vcs/common",
-    "@webrun-vcs/diff",
-    "@webrun-vcs/storage",
-    "@webrun-vcs/storage-default",
-    "@webrun-vcs/storage-mem",
   ],
   treeshake: true,
 });

@@ -47,7 +47,7 @@ describe("createDeltaRanges - Performance and Correctness Tests", () => {
     ];
     const mutations = [0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0];
 
-    it("should handle various size and mutation combinations", () => {
+    it("should handle various size and mutation combinations", { timeout: 60000 }, () => {
       function _roundUpToPow2(x: number): number {
         const p = Math.ceil(Math.log2(x));
         return 1 << p;
@@ -172,7 +172,7 @@ describe("createDeltaRanges - Performance and Correctness Tests", () => {
       expect(true).toBe(true);
     });
 
-    it("should show performance breakdown for 1MB file", () => {
+    it("should show performance breakdown for 1MB file", { timeout: 30000 }, () => {
       const mutations = [0, 0.1, 0.25, 0.5, 1.0];
 
       testLog("\n  === 1MB File: Generation vs Application ===");

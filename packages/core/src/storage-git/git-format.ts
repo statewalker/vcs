@@ -7,17 +7,9 @@
  * Where type is one of: commit, tree, blob, tag
  */
 
-/**
- * Git object type codes matching JGit Constants
- */
-export const ObjectType = {
-  COMMIT: 1,
-  TREE: 2,
-  BLOB: 3,
-  TAG: 4,
-} as const;
-
-export type ObjectTypeCode = (typeof ObjectType)[keyof typeof ObjectType];
+// Re-export ObjectType and ObjectTypeCode from @webrun-vcs/storage
+import { ObjectType, type ObjectTypeCode } from "@webrun-vcs/storage";
+export { ObjectType, type ObjectTypeCode };
 
 /**
  * Type string to code mapping

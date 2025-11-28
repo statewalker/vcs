@@ -20,7 +20,11 @@
     "lint": "biome lint src tests"
   },
   "dependencies": {
-    "@webrun-vcs/diff": "workspace:*"
+    "@webrun-vcs/common": "workspace:*",
+    "@webrun-vcs/diff": "workspace:*",
+    "@webrun-vcs/storage": "workspace:*",
+    "@webrun-vcs/storage-default": "workspace:*",
+    "@webrun-vcs/storage-mem": "workspace:*"
   },
   "devDependencies": {
     "rolldown": "catalog:",
