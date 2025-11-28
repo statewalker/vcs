@@ -16,7 +16,8 @@
       "@webrun-vcs/storage": ["packages/storage/src"],
       "@webrun-vcs/storage-default": ["packages/storage-default/src"],
       "@webrun-vcs/storage-mem": ["packages/storage-mem/src"],
-      "@webrun-vcs/storage-tests": ["packages/storage-tests/src"]
+      "@webrun-vcs/storage-tests": ["packages/storage-tests/src"],
+      "@webrun-vcs/storage-git": ["packages/storage-git/src"]
     }
   }
 }
