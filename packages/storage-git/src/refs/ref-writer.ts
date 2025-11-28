@@ -33,8 +33,8 @@ export async function writeRef(
   const refPath = files.join(gitDir, ref.name);
 
   // Ensure parent directories exist
-  const parentDir = refPath.substring(0, refPath.lastIndexOf(files.sep));
-  await files.mkdir(parentDir, { recursive: true });
+  const parentDir = files.dirname(refPath);
+  await files.mkdir(parentDir);
 
   let content: string;
   if (isSymbolicRef(ref)) {
@@ -66,8 +66,8 @@ export async function writeObjectRef(
   const refPath = files.join(gitDir, refName);
 
   // Ensure parent directories exist
-  const parentDir = refPath.substring(0, refPath.lastIndexOf(files.sep));
-  await files.mkdir(parentDir, { recursive: true });
+  const parentDir = files.dirname(refPath);
+  await files.mkdir(parentDir);
 
   const content = `${objectId}\n`;
   await files.writeFile(refPath, new TextEncoder().encode(content));
@@ -90,9 +90,9 @@ export async function writeSymbolicRef(
   const refPath = files.join(gitDir, refName);
 
   // Ensure parent directories exist
-  const parentDir = refPath.substring(0, refPath.lastIndexOf(files.sep));
+  const parentDir = files.dirname(refPath);
   if (parentDir !== gitDir) {
-    await files.mkdir(parentDir, { recursive: true });
+    await files.mkdir(parentDir);
   }
 
   const content = `${SYMREF_PREFIX}${target}\n`;
@@ -206,7 +206,7 @@ export async function createRefsStructure(
   files: FileApi,
   gitDir: string,
 ): Promise<void> {
-  await files.mkdir(files.join(gitDir, "refs"), { recursive: true });
-  await files.mkdir(files.join(gitDir, "refs", "heads"), { recursive: true });
-  await files.mkdir(files.join(gitDir, "refs", "tags"), { recursive: true });
+  await files.mkdir(files.join(gitDir, "refs"));
+  await files.mkdir(files.join(gitDir, "refs", "heads"));
+  await files.mkdir(files.join(gitDir, "refs", "tags"));
 }
