@@ -1,15 +1,3 @@
-import { resolve } from "node:path";
-import { defineConfig } from "vitest/config";
+import parentConfig from "../../vitest.config.js";
 
-export default defineConfig({
-  test: {
-    globals: true,
-    environment: "node",
-    include: ["tests/**/*.test.ts"],
-  },
-  resolve: {
-    alias: {
-      "@webrun-vcs/core": resolve(__dirname, "./src"),
-    },
-  },
-});
+export default parentConfig;

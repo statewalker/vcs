@@ -4,8 +4,9 @@
  * Tracks access patterns and provides cache hints for optimization.
  */
 
-import type { MetadataRepository } from "./metadata-repository.js";
-import type { CacheMetadata, ObjectId } from "./types.js";
+import type { ObjectId } from "../../storage/types.js";
+import type { MetadataRepository } from "../metadata-repository.js";
+import type { CacheMetadata } from "../types.js";
 
 /**
  * In-memory metadata repository

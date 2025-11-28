@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { LRUCache } from "../../src/storage/lru-cache.js";
+import { LRUCache } from "../../src/storage-impl/lru-cache.js";
 
 describe("LRUCache - Link Integrity", () => {
   /**

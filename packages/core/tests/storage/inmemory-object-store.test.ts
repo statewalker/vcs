@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createInMemoryObjectStore } from "../../src/storage/index.js";
+import { createDefaultObjectStorage } from "../../src/storage-impl/index.js";
 
 describe("InMemoryObjectStore - Basic Operations", () => {
   async function* toAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
@@ -11,7 +11,7 @@ describe("InMemoryObjectStore - Basic Operations", () => {
   }
 
   it("should store and retrieve content", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
     const content = new TextEncoder().encode("Hello, World!");
 
     const id = await store.store(toAsyncIterable(content));
@@ -28,7 +28,7 @@ describe("InMemoryObjectStore - Basic Operations", () => {
   });
 
   it("should deduplicate identical content", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
     const content = new TextEncoder().encode("Hello, World!");
 
     const id1 = await store.store(toAsyncIterable(content));
@@ -38,7 +38,7 @@ describe("InMemoryObjectStore - Basic Operations", () => {
   });
 
   it("should check if object exists", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
     const content = new TextEncoder().encode("Test content");
 
     const id = await store.store(toAsyncIterable(content));
@@ -48,7 +48,7 @@ describe("InMemoryObjectStore - Basic Operations", () => {
   });
 
   it("should delete objects", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
     const content = new TextEncoder().encode("Test content");
 
     const id = await store.store(toAsyncIterable(content));
@@ -60,7 +60,7 @@ describe("InMemoryObjectStore - Basic Operations", () => {
   });
 
   it("should throw error when loading non-existent object", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const loadPromise = (async () => {
       for await (const _chunk of store.load("nonexistent")) {
@@ -72,7 +72,7 @@ describe("InMemoryObjectStore - Basic Operations", () => {
   });
 
   it("should handle binary content", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
     const content = new Uint8Array([0, 1, 2, 255, 254, 253]);
 
     const id = await store.store(toAsyncIterable(content));
@@ -86,7 +86,7 @@ describe("InMemoryObjectStore - Basic Operations", () => {
   });
 
   it("should handle empty content", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
     const content = new Uint8Array(0);
 
     const id = await store.store(toAsyncIterable(content));
@@ -100,7 +100,7 @@ describe("InMemoryObjectStore - Basic Operations", () => {
   });
 
   it("should handle large content", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
     const content = new Uint8Array(1024 * 1024); // 1MB
     content.fill(42);
 
@@ -121,7 +121,7 @@ describe("InMemoryObjectStore - Delta Compression", () => {
   }
 
   it("should deltify content against base", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const base = new TextEncoder().encode(
       "Line 1 with enough content to exceed minimum\nLine 2 content\nLine 3 content\n",
@@ -149,7 +149,7 @@ describe("InMemoryObjectStore - Delta Compression", () => {
   });
 
   it("should not deltify content smaller than 50 bytes", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const base = new TextEncoder().encode("Small");
     const modified = new TextEncoder().encode("Tiny");
@@ -162,7 +162,7 @@ describe("InMemoryObjectStore - Delta Compression", () => {
   });
 
   it("should not deltify if compression ratio is poor", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     // Create two completely different large contents
     const base = new Uint8Array(1000);
@@ -179,7 +179,7 @@ describe("InMemoryObjectStore - Delta Compression", () => {
   });
 
   it("should undeltify content back to full storage", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const base = new TextEncoder().encode(
       "This is a longer base content that exceeds the 50 byte minimum for deltification",
@@ -208,7 +208,7 @@ describe("InMemoryObjectStore - Delta Compression", () => {
   });
 
   it("should deltify against previous version", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const v1 = new TextEncoder().encode(
       "Version 1 content with enough text to exceed the minimum size requirement",
@@ -225,7 +225,7 @@ describe("InMemoryObjectStore - Delta Compression", () => {
   });
 
   it("should choose best delta from multiple candidates", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const target = new TextEncoder().encode(
       "Target content with enough text to exceed the minimum size requirement for deltification",
@@ -255,7 +255,7 @@ describe("InMemoryObjectStore - Delta Chain Reconstruction", () => {
   }
 
   it("should reconstruct from simple delta chain", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const v1 = new TextEncoder().encode(
       "Version 1 with enough text to meet the minimum size requirement for deltification",
@@ -287,7 +287,7 @@ describe("InMemoryObjectStore - Delta Chain Reconstruction", () => {
   });
 
   it("should reconstruct from deep delta chain", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const versions: string[] = [];
     const versionIds: string[] = [];
@@ -322,7 +322,7 @@ describe("InMemoryObjectStore - Cycle Prevention", () => {
   }
 
   it("should prevent direct cycles", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const content = new TextEncoder().encode(
       "Content with enough text to meet the minimum size requirement for deltification",
@@ -336,7 +336,7 @@ describe("InMemoryObjectStore - Cycle Prevention", () => {
   });
 
   it("should prevent indirect cycles", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const v1 = new TextEncoder().encode(
       "Version 1 with enough text to meet the minimum size requirement for deltification",
@@ -357,7 +357,7 @@ describe("InMemoryObjectStore - Cycle Prevention", () => {
   });
 
   it("should prevent deletion of objects with dependents", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const base = new TextEncoder().encode(
       "Base content with enough text to meet the minimum size requirement for deltification",
@@ -382,7 +382,7 @@ describe("InMemoryObjectStore - Cache Behavior", () => {
   }
 
   it("should compress delta blobs", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     // Create two similar large contents to ensure compression benefit
     const base = new TextEncoder().encode(
@@ -422,7 +422,7 @@ describe("InMemoryObjectStore - Cache Behavior", () => {
   });
 
   it("should cache loaded content", async () => {
-    const store = createInMemoryObjectStore();
+    const store = createDefaultObjectStorage();
 
     const content = new TextEncoder().encode(
       "Content with enough text to meet the minimum size requirement",
@@ -444,7 +444,7 @@ describe("InMemoryObjectStore - Cache Behavior", () => {
   });
 
   it("should evict old entries when cache is full", async () => {
-    const store = createInMemoryObjectStore({
+    const store = createDefaultObjectStorage({
       maxCacheSize: 100, // Very small cache
       maxCacheEntries: 2,
     });

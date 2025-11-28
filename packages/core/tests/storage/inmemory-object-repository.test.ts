@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { InMemoryObjectRepository } from "../../src/storage/inmemory-object-repository.js";
+import { InMemoryObjectRepository } from "../../src/storage-impl/mem/object-repository.js";
 
 describe("InMemoryObjectRepository", () => {
   it("should store and retrieve objects", async () => {

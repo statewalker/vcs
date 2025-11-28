@@ -4,8 +4,8 @@
  * Manages delta relationships with efficient chain traversal and cycle detection.
  */
 
-import type { DeltaRepository } from "./delta-repository.js";
-import type { DeltaEntry } from "./types.js";
+import type { DeltaRepository } from "../delta-repository.js";
+import type { DeltaEntry } from "../types.js";
 
 /**
  * In-memory delta repository

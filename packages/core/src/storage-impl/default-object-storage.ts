@@ -1,14 +1,14 @@
 /**
- * In-memory object store with delta compression support
+ * Default object storage with delta compression support
  *
  * Implements content-addressable storage with Fossil-style delta compression,
  * following the repository pattern for clean separation of concerns.
  */
 
 import {
+  applyDelta,
   type CompressionProvider,
   type CryptoProvider,
-  applyDelta,
   createDelta,
   createFossilLikeRanges,
   decodeDeltaBlocks,
@@ -16,12 +16,13 @@ import {
   getDefaultCompressionProvider,
   getDefaultCryptoProvider,
 } from "@webrun-vcs/diff";
+import type { ObjectRepository } from "../storage/object-repository.js";
+import type { ObjectId } from "../storage/types.js";
 import type { DeltaRepository } from "./delta-repository.js";
 import type { IntermediateCache } from "./intermediate-cache.js";
 import type { LRUCache } from "./lru-cache.js";
 import type { MetadataRepository } from "./metadata-repository.js";
-import type { ObjectRepository } from "./object-repository.js";
-import type { CandidateOptions, DeltaOptions, ObjectId } from "./types.js";
+import type { CandidateOptions, DeltaOptions } from "./types.js";
 
 /**
  * Object storage interface (public API)
@@ -61,12 +62,12 @@ export interface ObjectStorage {
 }
 
 /**
- * In-memory object store with delta compression
+ * Default object storage with delta compression
  *
  * Orchestrates repositories and caches to provide efficient object storage
  * with transparent delta compression and reconstruction.
  */
-export class InMemoryObjectStore implements ObjectStorage {
+export class DefaultObjectStorage implements ObjectStorage {
   private compressionProvider: CompressionProvider | null = null;
   private cryptoProvider: CryptoProvider | null = null;
 
