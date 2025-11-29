@@ -2,8 +2,8 @@
  * Parametrized test suite for ObjectRepository implementations
  */
 
+import type { ObjectRepository } from "@webrun-vcs/storage-default";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ObjectRepository } from "../index.js";
 
 /**
  * Context provided by the repository factory

@@ -14,7 +14,5 @@ export * from "./lru-cache.js";
 export * from "./metadata-repository.js";
 // Repository interfaces
 export * from "./object-repository.js";
-// Test suites for repository implementations
-export * from "./test-suites/index.js";
 // Type definitions
 export * from "./types.js";

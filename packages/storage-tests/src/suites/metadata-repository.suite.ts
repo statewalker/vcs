@@ -2,8 +2,8 @@
  * Parametrized test suite for MetadataRepository implementations
  */
 
+import type { MetadataRepository } from "@webrun-vcs/storage-default";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MetadataRepository } from "../index.js";
 
 /**
  * Context provided by the repository factory

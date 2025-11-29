@@ -6,7 +6,7 @@ import {
   createDeltaRepositoryTests,
   createMetadataRepositoryTests,
   createObjectRepositoryTests,
-} from "@webrun-vcs/storage-default";
+} from "@webrun-vcs/storage-tests";
 import {
   InMemoryDeltaRepository,
   InMemoryMetadataRepository,
