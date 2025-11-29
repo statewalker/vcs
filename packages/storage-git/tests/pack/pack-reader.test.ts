@@ -4,15 +4,15 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { NodeCompressionProvider } from "@webrun-vcs/common";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NodeFileApi } from "../../src/file-api/index.js";
 import {
-  readPackIndex,
-  PackReader,
   applyDelta,
   getDeltaBaseSize,
   getDeltaResultSize,
+  PackReader,
+  readPackIndex,
 } from "../../src/pack/index.js";
 
 const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
@@ -58,17 +58,13 @@ describe("pack-reader", () => {
       // Empty tree (known to exist)
       expect(reader.has("4b825dc642cb6eb9a060e54bf8d69288fbee4904")).toBe(true);
       // Random ID (doesn't exist)
-      expect(reader.has("0000000000000000000000000000000000000000")).toBe(
-        false,
-      );
+      expect(reader.has("0000000000000000000000000000000000000000")).toBe(false);
     });
 
     it("reads blob objects", async () => {
       // Try to load a known object from the pack
       // We'll iterate through and find a blob
-      const obj = await reader.get(
-        "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
-      );
+      const obj = await reader.get("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
       expect(obj).toBeDefined();
       if (obj) {
         expect(obj.type).toBe(2); // TREE
@@ -128,9 +124,7 @@ describe("pack-reader", () => {
     });
 
     it("returns undefined for nonexistent objects", async () => {
-      const obj = await reader.get(
-        "0000000000000000000000000000000000000000",
-      );
+      const obj = await reader.get("0000000000000000000000000000000000000000");
       expect(obj).toBeUndefined();
     });
   });
@@ -177,10 +171,7 @@ describe("pack-reader", () => {
       const index = readPackIndex(
         new Uint8Array(
           await fs.readFile(
-            path.join(
-              FIXTURES_DIR,
-              "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idxV2",
-            ),
+            path.join(FIXTURES_DIR, "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idxV2"),
           ),
         ),
       );
@@ -216,7 +207,7 @@ describe("pack-reader", () => {
     it("applies INSERT-only delta", () => {
       const base = new Uint8Array([1, 2, 3, 4, 5]);
       // Delta: base size = 5, result size = 8, INSERT 3 bytes
-      const delta = new Uint8Array([
+      const _delta = new Uint8Array([
         5, // base size (varint)
         8, // result size (varint)
         0x03, // INSERT 3 bytes
@@ -263,9 +254,7 @@ describe("pack-reader", () => {
     });
 
     it("applies mixed COPY and INSERT delta", () => {
-      const base = new Uint8Array([
-        0x48, 0x65, 0x6c, 0x6c, 0x6f,
-      ]); // "Hello"
+      const base = new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f]); // "Hello"
       // Result: "Hello World" (11 bytes)
       const delta = new Uint8Array([
         5, // base size

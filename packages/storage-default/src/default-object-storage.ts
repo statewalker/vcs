@@ -6,10 +6,10 @@
  */
 
 import {
-  getDefaultCompressionProvider,
-  getDefaultCryptoProvider,
   type CompressionProvider,
   type CryptoProvider,
+  getDefaultCompressionProvider,
+  getDefaultCryptoProvider,
   type HashAlgorithm,
 } from "@webrun-vcs/common";
 import {
@@ -21,9 +21,9 @@ import {
 } from "@webrun-vcs/diff";
 import type {
   CandidateOptions,
+  DeltaChainInfo,
   DeltaObjectStorage,
   DeltaOptions,
-  DeltaChainInfo,
   ObjectId,
 } from "@webrun-vcs/storage";
 import type { DeltaRepository } from "./delta-repository.js";
@@ -405,8 +405,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     if (!deltaInfo) return undefined;
 
     const chain = await this.deltaRepo.getChain(entry.recordId);
-    const baseRecordId =
-      chain.length > 0 ? chain[chain.length - 1].baseRecordId : entry.recordId;
+    const baseRecordId = chain.length > 0 ? chain[chain.length - 1].baseRecordId : entry.recordId;
 
     const baseEntry = await this.objectRepo.loadObjectByRecordId(baseRecordId);
     if (!baseEntry) throw new Error(`Base object not found`);

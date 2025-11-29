@@ -6,8 +6,8 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { describe, expect, it, beforeAll } from "vitest";
-import { readPackIndex, type PackIndex } from "../../src/pack/index.js";
+import { beforeAll, describe, expect, it } from "vitest";
+import { type PackIndex, readPackIndex } from "../../src/pack/index.js";
 
 const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
 
@@ -33,16 +33,10 @@ describe("pack-index", () => {
 
     beforeAll(async () => {
       const smallIdxData = await fs.readFile(
-        path.join(
-          FIXTURES_DIR,
-          "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx",
-        ),
+        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx"),
       );
       const denseIdxData = await fs.readFile(
-        path.join(
-          FIXTURES_DIR,
-          "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idx",
-        ),
+        path.join(FIXTURES_DIR, "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idx"),
       );
       smallIdx = readPackIndex(new Uint8Array(smallIdxData));
       denseIdx = readPackIndex(new Uint8Array(denseIdxData));
@@ -72,24 +66,14 @@ describe("pack-index", () => {
     });
 
     it("finds object positions", () => {
-      expect(
-        smallIdx.findPosition("82c6b885ff600be425b4ea96dee75dca255b69e7"),
-      ).toBe(4);
-      expect(
-        smallIdx.findPosition("c59759f143fb1fe21c197981df75a7ee00290799"),
-      ).toBe(7);
-      expect(
-        smallIdx.findPosition("4b825dc642cb6eb9a060e54bf8d69288fbee4904"),
-      ).toBe(0);
+      expect(smallIdx.findPosition("82c6b885ff600be425b4ea96dee75dca255b69e7")).toBe(4);
+      expect(smallIdx.findPosition("c59759f143fb1fe21c197981df75a7ee00290799")).toBe(7);
+      expect(smallIdx.findPosition("4b825dc642cb6eb9a060e54bf8d69288fbee4904")).toBe(0);
     });
 
     it("returns -1 for objects not in pack", () => {
-      expect(
-        smallIdx.findPosition("0000000000000000000000000000000000000000"),
-      ).toBe(-1);
-      expect(
-        smallIdx.findPosition("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-      ).toBe(-1);
+      expect(smallIdx.findPosition("0000000000000000000000000000000000000000")).toBe(-1);
+      expect(smallIdx.findPosition("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")).toBe(-1);
     });
 
     it("finds object offsets", () => {
@@ -99,12 +83,8 @@ describe("pack-index", () => {
     });
 
     it("returns -1 for offsets of objects not in pack", () => {
-      expect(
-        smallIdx.findOffset("0000000000000000000000000000000000000000"),
-      ).toBe(-1);
-      expect(
-        smallIdx.findOffset("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-      ).toBe(-1);
+      expect(smallIdx.findOffset("0000000000000000000000000000000000000000")).toBe(-1);
+      expect(smallIdx.findOffset("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")).toBe(-1);
     });
 
     it("gets object ID by position", () => {
@@ -121,12 +101,8 @@ describe("pack-index", () => {
     });
 
     it("checks object existence", () => {
-      expect(smallIdx.has("4b825dc642cb6eb9a060e54bf8d69288fbee4904")).toBe(
-        true,
-      );
-      expect(smallIdx.has("0000000000000000000000000000000000000000")).toBe(
-        false,
-      );
+      expect(smallIdx.has("4b825dc642cb6eb9a060e54bf8d69288fbee4904")).toBe(true);
+      expect(smallIdx.has("0000000000000000000000000000000000000000")).toBe(false);
     });
 
     it("handles dense index iteration", () => {
@@ -142,9 +118,7 @@ describe("pack-index", () => {
     it("resolves prefixes", () => {
       // Find objects starting with "4b"
       const matches = smallIdx.resolve("4b", 10);
-      expect(matches).toContain(
-        "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
-      );
+      expect(matches).toContain("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
     });
   });
 
@@ -154,16 +128,10 @@ describe("pack-index", () => {
 
     beforeAll(async () => {
       const smallIdxData = await fs.readFile(
-        path.join(
-          FIXTURES_DIR,
-          "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
-        ),
+        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
       );
       const denseIdxData = await fs.readFile(
-        path.join(
-          FIXTURES_DIR,
-          "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idxV2",
-        ),
+        path.join(FIXTURES_DIR, "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idxV2"),
       );
       smallIdx = readPackIndex(new Uint8Array(smallIdxData));
       denseIdx = readPackIndex(new Uint8Array(denseIdxData));
@@ -189,9 +157,7 @@ describe("pack-index", () => {
     });
 
     it("returns undefined for CRC32 of nonexistent objects", () => {
-      expect(
-        smallIdx.findCRC32("0000000000000000000000000000000000000000"),
-      ).toBeUndefined();
+      expect(smallIdx.findCRC32("0000000000000000000000000000000000000000")).toBeUndefined();
     });
 
     it("iterates entries in sorted order", () => {
@@ -209,24 +175,14 @@ describe("pack-index", () => {
     });
 
     it("finds object positions", () => {
-      expect(
-        smallIdx.findPosition("82c6b885ff600be425b4ea96dee75dca255b69e7"),
-      ).toBe(4);
-      expect(
-        smallIdx.findPosition("c59759f143fb1fe21c197981df75a7ee00290799"),
-      ).toBe(7);
-      expect(
-        smallIdx.findPosition("4b825dc642cb6eb9a060e54bf8d69288fbee4904"),
-      ).toBe(0);
+      expect(smallIdx.findPosition("82c6b885ff600be425b4ea96dee75dca255b69e7")).toBe(4);
+      expect(smallIdx.findPosition("c59759f143fb1fe21c197981df75a7ee00290799")).toBe(7);
+      expect(smallIdx.findPosition("4b825dc642cb6eb9a060e54bf8d69288fbee4904")).toBe(0);
     });
 
     it("returns -1 for objects not in pack", () => {
-      expect(
-        smallIdx.findPosition("0000000000000000000000000000000000000000"),
-      ).toBe(-1);
-      expect(
-        smallIdx.findPosition("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-      ).toBe(-1);
+      expect(smallIdx.findPosition("0000000000000000000000000000000000000000")).toBe(-1);
+      expect(smallIdx.findPosition("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")).toBe(-1);
     });
 
     it("finds object offsets", () => {
@@ -236,12 +192,8 @@ describe("pack-index", () => {
     });
 
     it("returns -1 for offsets of objects not in pack", () => {
-      expect(
-        smallIdx.findOffset("0000000000000000000000000000000000000000"),
-      ).toBe(-1);
-      expect(
-        smallIdx.findOffset("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-      ).toBe(-1);
+      expect(smallIdx.findOffset("0000000000000000000000000000000000000000")).toBe(-1);
+      expect(smallIdx.findOffset("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")).toBe(-1);
     });
 
     it("gets object ID by position", () => {
@@ -258,12 +210,8 @@ describe("pack-index", () => {
     });
 
     it("checks object existence", () => {
-      expect(smallIdx.has("4b825dc642cb6eb9a060e54bf8d69288fbee4904")).toBe(
-        true,
-      );
-      expect(smallIdx.has("0000000000000000000000000000000000000000")).toBe(
-        false,
-      );
+      expect(smallIdx.has("4b825dc642cb6eb9a060e54bf8d69288fbee4904")).toBe(true);
+      expect(smallIdx.has("0000000000000000000000000000000000000000")).toBe(false);
     });
 
     it("handles dense index", () => {
@@ -284,9 +232,7 @@ describe("pack-index", () => {
     it("resolves prefixes", () => {
       // Find objects starting with "4b"
       const matches = smallIdx.resolve("4b", 10);
-      expect(matches).toContain(
-        "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
-      );
+      expect(matches).toContain("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
     });
   });
 
@@ -296,16 +242,10 @@ describe("pack-index", () => {
 
     beforeAll(async () => {
       const v1Data = await fs.readFile(
-        path.join(
-          FIXTURES_DIR,
-          "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx",
-        ),
+        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx"),
       );
       const v2Data = await fs.readFile(
-        path.join(
-          FIXTURES_DIR,
-          "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
-        ),
+        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
       );
       v1Idx = readPackIndex(new Uint8Array(v1Data));
       v2Idx = readPackIndex(new Uint8Array(v2Data));
@@ -326,9 +266,7 @@ describe("pack-index", () => {
       const v1Entries = Array.from(v1Idx.entries());
       const v2Entries = Array.from(v2Idx.entries());
 
-      expect(v1Entries.map((e) => e.offset)).toEqual(
-        v2Entries.map((e) => e.offset),
-      );
+      expect(v1Entries.map((e) => e.offset)).toEqual(v2Entries.map((e) => e.offset));
     });
 
     it("findOffset returns same values", () => {
@@ -346,9 +284,7 @@ describe("pack-index", () => {
 
   describe("error handling", () => {
     it("throws for too-small data", () => {
-      expect(() => readPackIndex(new Uint8Array(4))).toThrow(
-        "Pack index file too small",
-      );
+      expect(() => readPackIndex(new Uint8Array(4))).toThrow("Pack index file too small");
     });
 
     it("throws for unsupported version", () => {
@@ -360,9 +296,7 @@ describe("pack-index", () => {
       data[3] = 0x63; // 'c'
       data[7] = 3; // version 3
 
-      expect(() => readPackIndex(data)).toThrow(
-        "Unsupported pack index version: 3",
-      );
+      expect(() => readPackIndex(data)).toThrow("Unsupported pack index version: 3");
     });
   });
 });

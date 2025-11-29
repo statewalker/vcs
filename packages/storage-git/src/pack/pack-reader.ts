@@ -8,10 +8,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
-import {
-  CompressionAlgorithm,
-  type CompressionProvider,
-} from "@webrun-vcs/common";
+import { CompressionAlgorithm, type CompressionProvider } from "@webrun-vcs/common";
 import type { ObjectId } from "@webrun-vcs/storage";
 import type { FileApi, FileHandle } from "../file-api/index.js";
 import { bytesToHex } from "../utils/index.js";
@@ -140,7 +137,8 @@ export class PackReader {
       case 1: // COMMIT
       case 2: // TREE
       case 3: // BLOB
-      case 4: { // TAG
+      case 4: {
+        // TAG
         const content = await this.decompress(offset + header.headerLength, header.size);
         return {
           type: header.type,
@@ -150,7 +148,8 @@ export class PackReader {
         };
       }
 
-      case 6: { // OFS_DELTA
+      case 6: {
+        // OFS_DELTA
         if (header.baseOffset === undefined) {
           throw new Error("OFS_DELTA missing base offset");
         }
@@ -166,7 +165,8 @@ export class PackReader {
         };
       }
 
-      case 7: { // REF_DELTA
+      case 7: {
+        // REF_DELTA
         if (header.baseId === undefined) {
           throw new Error("REF_DELTA missing base ID");
         }

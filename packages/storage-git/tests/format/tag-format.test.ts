@@ -2,9 +2,9 @@
  * Tests for Git tag format serialization/parsing
  */
 
-import { describe, expect, it } from "vitest";
 import type { AnnotatedTag, PersonIdent } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
+import { describe, expect, it } from "vitest";
 import { parseTag, serializeTag } from "../../src/format/tag-format.js";
 
 describe("tag-format", () => {
@@ -265,7 +265,12 @@ Message`;
     });
 
     it("handles all object types", () => {
-      for (const objectType of [ObjectType.COMMIT, ObjectType.TREE, ObjectType.BLOB, ObjectType.TAG]) {
+      for (const objectType of [
+        ObjectType.COMMIT,
+        ObjectType.TREE,
+        ObjectType.BLOB,
+        ObjectType.TAG,
+      ]) {
         const original: AnnotatedTag = {
           object: sampleObjectId,
           objectType,

@@ -102,7 +102,7 @@ export interface PackIndex {
 /**
  * Git pack file object types
  */
-export const enum PackObjectType {
+export enum PackObjectType {
   COMMIT = 1,
   TREE = 2,
   BLOB = 3,

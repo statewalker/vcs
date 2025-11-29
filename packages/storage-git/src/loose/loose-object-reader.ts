@@ -10,10 +10,7 @@
 import type { CompressionProvider } from "@webrun-vcs/common";
 import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/storage";
 import type { FileApi } from "../file-api/types.js";
-import {
-  type ParsedObjectHeader,
-  parseObjectHeader,
-} from "../format/object-header.js";
+import { type ParsedObjectHeader, parseObjectHeader } from "../format/object-header.js";
 
 /**
  * Result of reading a loose object

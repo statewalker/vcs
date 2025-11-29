@@ -6,15 +6,10 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/revwalk/RevWalk.java
  */
 
-import type {
-  AncestryOptions,
-  Commit,
-  CommitStorage,
-  ObjectId,
-} from "@webrun-vcs/storage";
+import type { AncestryOptions, Commit, CommitStorage, ObjectId } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
-import type { GitObjectStorage } from "./git-object-storage.js";
 import { parseCommit, serializeCommit } from "./format/commit-format.js";
+import type { GitObjectStorage } from "./git-object-storage.js";
 
 /**
  * Priority queue entry for commit traversal
@@ -116,15 +111,14 @@ export class GitCommitStorage implements CommitStorage {
         break;
       }
 
-      const entry = queue.shift()!;
+      const entry = queue.shift();
+      if (!entry) break;
       yield entry.id;
       count++;
 
       // Add parents to queue
       const commit = await this.loadCommit(entry.id);
-      const parents = firstParentOnly
-        ? commit.parents.slice(0, 1)
-        : commit.parents;
+      const parents = firstParentOnly ? commit.parents.slice(0, 1) : commit.parents;
 
       for (const parentId of parents) {
         if (!visited.has(parentId) && !stopSet.has(parentId)) {

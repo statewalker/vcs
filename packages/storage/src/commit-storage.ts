@@ -99,10 +99,7 @@ export interface CommitStorage {
    * @param options Traversal options
    * @returns AsyncIterable of commit ObjectIds
    */
-  walkAncestry(
-    startIds: ObjectId | ObjectId[],
-    options?: AncestryOptions,
-  ): AsyncIterable<ObjectId>;
+  walkAncestry(startIds: ObjectId | ObjectId[], options?: AncestryOptions): AsyncIterable<ObjectId>;
 
   /**
    * Find merge base (common ancestor)

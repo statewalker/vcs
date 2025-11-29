@@ -3,14 +3,14 @@
  */
 
 import {
-  createObjectRepositoryTests,
   createDeltaRepositoryTests,
   createMetadataRepositoryTests,
+  createObjectRepositoryTests,
 } from "@webrun-vcs/storage-default";
 import {
-  InMemoryObjectRepository,
   InMemoryDeltaRepository,
   InMemoryMetadataRepository,
+  InMemoryObjectRepository,
 } from "../src/index.js";
 
 // Run the standard ObjectRepository test suite

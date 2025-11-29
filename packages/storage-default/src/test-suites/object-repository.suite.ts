@@ -2,7 +2,7 @@
  * Parametrized test suite for ObjectRepository implementations
  */
 
-import { describe, beforeEach, afterEach, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ObjectRepository } from "../index.js";
 
 /**
@@ -16,16 +16,12 @@ export interface ObjectRepositoryTestContext {
 /**
  * Factory function to create a repository instance for testing
  */
-export type ObjectRepositoryFactory =
-  () => Promise<ObjectRepositoryTestContext>;
+export type ObjectRepositoryFactory = () => Promise<ObjectRepositoryTestContext>;
 
 /**
  * Create the ObjectRepository test suite with a specific factory
  */
-export function createObjectRepositoryTests(
-  name: string,
-  factory: ObjectRepositoryFactory,
-): void {
+export function createObjectRepositoryTests(name: string, factory: ObjectRepositoryFactory): void {
   describe(`ObjectRepository [${name}]`, () => {
     let ctx: ObjectRepositoryTestContext;
 
@@ -162,9 +158,7 @@ export function createObjectRepositoryTests(
         expect(deleted).toBe(true);
 
         expect(await ctx.repo.hasObject("obj1")).toBe(false);
-        expect(
-          await ctx.repo.loadObjectByRecordId(entry.recordId),
-        ).toBeUndefined();
+        expect(await ctx.repo.loadObjectByRecordId(entry.recordId)).toBeUndefined();
       });
 
       it("returns false when deleting non-existent object", async () => {

@@ -70,11 +70,7 @@ export interface DeltaObjectStorage extends ObjectStorage {
    * @param options Delta creation options
    * @returns True if object was successfully deltified
    */
-  deltify(
-    targetId: ObjectId,
-    candidateIds: ObjectId[],
-    options?: DeltaOptions,
-  ): Promise<boolean>;
+  deltify(targetId: ObjectId, candidateIds: ObjectId[], options?: DeltaOptions): Promise<boolean>;
 
   /**
    * Deltify against previous version
@@ -86,10 +82,7 @@ export interface DeltaObjectStorage extends ObjectStorage {
    * @param previousVersionId Previous version ObjectId
    * @returns True if successfully deltified
    */
-  deltifyAgainstPrevious(
-    currentVersionId: ObjectId,
-    previousVersionId: ObjectId,
-  ): Promise<boolean>;
+  deltifyAgainstPrevious(currentVersionId: ObjectId, previousVersionId: ObjectId): Promise<boolean>;
 
   /**
    * Deltify against best candidate from multiple options

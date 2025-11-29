@@ -200,7 +200,10 @@ export class NodeCompressionProvider implements CompressionProvider {
 
     return new Promise((resolve, reject) => {
       // Create appropriate inflater based on algorithm
-      let inflater: import("node:zlib").Inflate | import("node:zlib").Gunzip | import("node:zlib").InflateRaw;
+      let inflater:
+        | import("node:zlib").Inflate
+        | import("node:zlib").Gunzip
+        | import("node:zlib").InflateRaw;
       if (algorithm === CompressionAlgorithm.GZIP) {
         inflater = zlib.createGunzip();
       } else if (algorithm === CompressionAlgorithm.ZLIB) {
@@ -220,7 +223,9 @@ export class NodeCompressionProvider implements CompressionProvider {
         // Check max size limit
         if (options?.maxSize && totalSize > options.maxSize) {
           inflater.destroy(
-            new Error(`Decompressed size (${totalSize}) exceeds maximum allowed (${options.maxSize})`),
+            new Error(
+              `Decompressed size (${totalSize}) exceeds maximum allowed (${options.maxSize})`,
+            ),
           );
         }
       });

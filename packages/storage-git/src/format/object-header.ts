@@ -130,7 +130,7 @@ export function parseObjectHeader(data: Uint8Array): ParsedObjectHeader {
 
   // Parse size
   const size = parseInt(sizeStr, 10);
-  if (isNaN(size) || size < 0) {
+  if (Number.isNaN(size) || size < 0) {
     throw new Error(`Invalid object size: ${sizeStr}`);
   }
 

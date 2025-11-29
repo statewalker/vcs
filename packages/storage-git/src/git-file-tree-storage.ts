@@ -8,13 +8,8 @@
 
 import type { FileTreeStorage, ObjectId, TreeEntry } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
+import { EMPTY_TREE_ID, findTreeEntry, parseTree, serializeTree } from "./format/tree-format.js";
 import type { GitObjectStorage } from "./git-object-storage.js";
-import {
-  EMPTY_TREE_ID,
-  findTreeEntry,
-  parseTree,
-  serializeTree,
-} from "./format/tree-format.js";
 
 /**
  * Git file tree storage implementation
@@ -33,9 +28,7 @@ export class GitFileTreeStorage implements FileTreeStorage {
    *
    * Entries are consumed, sorted canonically, serialized, and stored.
    */
-  async storeTree(
-    entries: AsyncIterable<TreeEntry> | Iterable<TreeEntry>,
-  ): Promise<ObjectId> {
+  async storeTree(entries: AsyncIterable<TreeEntry> | Iterable<TreeEntry>): Promise<ObjectId> {
     // Collect entries
     const entryArray: TreeEntry[] = [];
 

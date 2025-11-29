@@ -11,12 +11,7 @@
 
 import type { ObjectId } from "@webrun-vcs/storage";
 import type { FileApi } from "../file-api/index.js";
-import {
-  type Ref,
-  type SymbolicRef,
-  SYMREF_PREFIX,
-  isSymbolicRef,
-} from "./ref-types.js";
+import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-types.js";
 
 /**
  * Write a loose ref to disk
@@ -107,11 +102,7 @@ export async function writeSymbolicRef(
  * @param refName Name of the ref to delete
  * @returns True if deleted, false if it didn't exist
  */
-export async function deleteRef(
-  files: FileApi,
-  gitDir: string,
-  refName: string,
-): Promise<boolean> {
+export async function deleteRef(files: FileApi, gitDir: string, refName: string): Promise<boolean> {
   const refPath = files.join(gitDir, refName);
 
   const deleted = await files.unlink(refPath);
@@ -125,11 +116,7 @@ export async function deleteRef(
 /**
  * Remove empty parent directories up to refs/
  */
-async function cleanupEmptyRefDirs(
-  files: FileApi,
-  gitDir: string,
-  refName: string,
-): Promise<void> {
+async function cleanupEmptyRefDirs(files: FileApi, gitDir: string, refName: string): Promise<void> {
   // Only clean up within refs/ hierarchy
   if (!refName.startsWith("refs/")) {
     return;
@@ -202,10 +189,7 @@ export async function updateRef(
  * @param files File system API
  * @param gitDir Path to .git directory
  */
-export async function createRefsStructure(
-  files: FileApi,
-  gitDir: string,
-): Promise<void> {
+export async function createRefsStructure(files: FileApi, gitDir: string): Promise<void> {
   await files.mkdir(files.join(gitDir, "refs"));
   await files.mkdir(files.join(gitDir, "refs", "heads"));
   await files.mkdir(files.join(gitDir, "refs", "tags"));

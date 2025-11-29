@@ -2,8 +2,8 @@
  * Tests for Git object header encoding/parsing
  */
 
-import { describe, expect, it } from "vitest";
 import { ObjectType } from "@webrun-vcs/storage";
+import { describe, expect, it } from "vitest";
 import {
   createGitObject,
   encodeObjectHeader,

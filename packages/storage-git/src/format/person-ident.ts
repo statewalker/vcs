@@ -54,7 +54,7 @@ export function parsePersonIdent(str: string): PersonIdent {
   }
 
   const timestamp = parseInt(parts[0], 10);
-  if (isNaN(timestamp)) {
+  if (Number.isNaN(timestamp)) {
     throw new Error(`Invalid timestamp in person ident: ${parts[0]}`);
   }
 

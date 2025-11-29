@@ -4,11 +4,7 @@
 
 import type { HashAlgorithm } from "@webrun-vcs/common";
 import type { ObjectId } from "@webrun-vcs/storage";
-import {
-  DefaultObjectStorage,
-  IntermediateCache,
-  LRUCache,
-} from "@webrun-vcs/storage-default";
+import { DefaultObjectStorage, IntermediateCache, LRUCache } from "@webrun-vcs/storage-default";
 import { InMemoryDeltaRepository } from "./delta-repository.js";
 import { InMemoryMetadataRepository } from "./metadata-repository.js";
 import { InMemoryObjectRepository } from "./object-repository.js";

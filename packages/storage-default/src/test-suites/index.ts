@@ -5,6 +5,6 @@
  * defined in @webrun-vcs/storage-default.
  */
 
-export * from "./object-repository.suite.js";
 export * from "./delta-repository.suite.js";
 export * from "./metadata-repository.suite.js";
+export * from "./object-repository.suite.js";

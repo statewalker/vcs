@@ -19,18 +19,14 @@ export function decode(data: Uint8Array): string {
 /**
  * Convert a single Uint8Array to an async iterable
  */
-export async function* toAsyncIterable(
-  data: Uint8Array,
-): AsyncIterable<Uint8Array> {
+export async function* toAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
   yield data;
 }
 
 /**
  * Convert multiple Uint8Arrays to an async iterable
  */
-export async function* toAsyncIterableMulti(
-  chunks: Uint8Array[],
-): AsyncIterable<Uint8Array> {
+export async function* toAsyncIterableMulti(chunks: Uint8Array[]): AsyncIterable<Uint8Array> {
   for (const chunk of chunks) {
     yield chunk;
   }
@@ -39,9 +35,7 @@ export async function* toAsyncIterableMulti(
 /**
  * Collect all chunks from an async iterable into a single Uint8Array
  */
-export async function collectContent(
-  stream: AsyncIterable<Uint8Array>,
-): Promise<Uint8Array> {
+export async function collectContent(stream: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   for await (const chunk of stream) {
     chunks.push(chunk);

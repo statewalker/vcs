@@ -11,29 +11,24 @@
 
 import type { ObjectId } from "@webrun-vcs/storage";
 import type { FileApi } from "../file-api/index.js";
-import { readPackedRefs, findPackedRef } from "./packed-refs-reader.js";
+import { findPackedRef } from "./packed-refs-reader.js";
 import { removePackedRef } from "./packed-refs-writer.js";
+import { hasLooseRef, readAllRefs, readRef, resolveRef } from "./ref-reader.js";
 import {
-  readRef,
-  resolveRef,
-  readAllRefs,
-  hasLooseRef,
-} from "./ref-reader.js";
-import {
-  writeObjectRef,
-  writeSymbolicRef,
-  deleteRef as deleteLooseRef,
-  createRefsStructure,
-} from "./ref-writer.js";
-import {
+  HEAD,
+  isSymbolicRef,
+  R_HEADS,
+  R_REMOTES,
+  R_TAGS,
   type Ref,
   type SymbolicRef,
-  HEAD,
-  R_HEADS,
-  R_TAGS,
-  R_REMOTES,
-  isSymbolicRef,
 } from "./ref-types.js";
+import {
+  createRefsStructure,
+  deleteRef as deleteLooseRef,
+  writeObjectRef,
+  writeSymbolicRef,
+} from "./ref-writer.js";
 
 /**
  * Reference directory interface
@@ -137,10 +132,7 @@ export interface RefDirectory {
  * @param gitDir Path to .git directory
  * @returns RefDirectory instance
  */
-export function createRefDirectory(
-  files: FileApi,
-  gitDir: string,
-): RefDirectory {
+export function createRefDirectory(files: FileApi, gitDir: string): RefDirectory {
   return {
     async exactRef(refName: string): Promise<Ref | SymbolicRef | undefined> {
       return readRef(files, gitDir, refName);
@@ -214,9 +206,7 @@ export function createRefDirectory(
         await writeObjectRef(files, gitDir, HEAD, target as ObjectId);
       } else {
         // Symbolic HEAD - ensure it starts with refs/
-        const fullTarget = target.startsWith("refs/")
-          ? target
-          : `${R_HEADS}${target}`;
+        const fullTarget = target.startsWith("refs/") ? target : `${R_HEADS}${target}`;
         await writeSymbolicRef(files, gitDir, HEAD, fullTarget);
       }
     },
@@ -268,8 +258,9 @@ export function isValidRefName(refName: string): boolean {
   if (refName.includes("@{")) return false;
   if (refName.endsWith(".lock")) return false;
 
-  // Check for invalid characters
-  const invalidChars = /[\x00-\x1f\x7f ~^:?*\[\\]/;
+  // Check for invalid characters (control chars, space, and special chars)
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally checking for control characters in ref names
+  const invalidChars = /[\x00-\x1f\x7f ~^:?*[\\]/;
   if (invalidChars.test(refName)) return false;
 
   return true;
