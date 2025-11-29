@@ -141,6 +141,15 @@ abstract class BasePackIndex implements PackIndex {
   abstract resolve(prefix: string, limit?: number): ObjectId[];
 
   /**
+   * List all object IDs in the index
+   */
+  *listObjects(): IterableIterator<ObjectId> {
+    for (let i = 0; i < this.objectCount; i++) {
+      yield this.getObjectId(i);
+    }
+  }
+
+  /**
    * Find which bucket (first byte) contains the nth position
    */
   protected findLevelOne(nthPosition: number): number {

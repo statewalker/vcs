@@ -431,6 +431,32 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
   }
 
   /**
+   * Get the size of an object in bytes
+   *
+   * Returns the uncompressed content size, not the on-disk storage size.
+   *
+   * @param id Object ID to query
+   * @returns Size in bytes, or -1 if object does not exist
+   */
+  async getSize(id: ObjectId): Promise<number> {
+    const entry = await this.objectRepo.loadObjectEntry(id);
+    if (!entry) return -1;
+    return entry.size;
+  }
+
+  /**
+   * Iterate over all object IDs in storage
+   *
+   * @returns AsyncGenerator yielding ObjectIds
+   */
+  async *listObjects(): AsyncGenerator<ObjectId> {
+    const allIds = await this.objectRepo.getAllIds();
+    for (const id of allIds) {
+      yield id;
+    }
+  }
+
+  /**
    * Reconstruct content from delta chain
    */
   private async reconstructFromDelta(objectRecordId: number): Promise<Uint8Array> {
