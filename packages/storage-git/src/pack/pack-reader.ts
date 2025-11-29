@@ -8,9 +8,13 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
-import * as zlib from "node:zlib";
+import {
+  CompressionAlgorithm,
+  type CompressionProvider,
+} from "@webrun-vcs/common";
 import type { ObjectId } from "@webrun-vcs/storage";
 import type { FileApi, FileHandle } from "../file-api/index.js";
+import { bytesToHex } from "../utils/index.js";
 import type {
   PackHeader,
   PackIndex,
@@ -18,7 +22,6 @@ import type {
   PackObjectHeader,
   PackObjectType,
 } from "./types.js";
-import { bytesToHex } from "../utils/index.js";
 
 /** Pack file signature "PACK" */
 const PACK_SIGNATURE = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
@@ -33,6 +36,7 @@ const OBJECT_ID_LENGTH = 20;
  */
 export class PackReader {
   private readonly files: FileApi;
+  private readonly compression: CompressionProvider;
   private readonly packPath: string;
   private readonly index: PackIndex;
   private handle: FileHandle | null = null;
@@ -40,11 +44,12 @@ export class PackReader {
 
   constructor(
     files: FileApi,
-    _compression: unknown, // Kept for API compatibility but not used
+    compression: CompressionProvider,
     packPath: string,
     index: PackIndex,
   ) {
     this.files = files;
+    this.compression = compression;
     this.packPath = packPath;
     this.index = index;
   }
@@ -93,15 +98,13 @@ export class PackReader {
     }
 
     // Version (big-endian)
-    const version =
-      ((buf[4] << 24) | (buf[5] << 16) | (buf[6] << 8) | buf[7]) >>> 0;
+    const version = ((buf[4] << 24) | (buf[5] << 16) | (buf[6] << 8) | buf[7]) >>> 0;
     if (version !== 2 && version !== 3) {
       throw new Error(`Unsupported pack version: ${version}`);
     }
 
     // Object count (big-endian)
-    const objectCount =
-      ((buf[8] << 24) | (buf[9] << 16) | (buf[10] << 8) | buf[11]) >>> 0;
+    const objectCount = ((buf[8] << 24) | (buf[9] << 16) | (buf[10] << 8) | buf[11]) >>> 0;
 
     return { version, objectCount };
   }
@@ -137,62 +140,50 @@ export class PackReader {
       case 1: // COMMIT
       case 2: // TREE
       case 3: // BLOB
-      case 4: // TAG
-        {
-          const content = await this.decompress(
-            offset + header.headerLength,
-            header.size,
-          );
-          return {
-            type: header.type,
-            content,
-            size: header.size,
-            offset,
-          };
-        }
+      case 4: { // TAG
+        const content = await this.decompress(offset + header.headerLength, header.size);
+        return {
+          type: header.type,
+          content,
+          size: header.size,
+          offset,
+        };
+      }
 
-      case 6: // OFS_DELTA
-        {
-          if (header.baseOffset === undefined) {
-            throw new Error("OFS_DELTA missing base offset");
-          }
-          const baseOffset = offset - header.baseOffset;
-          const base = await this.load(baseOffset);
-          const delta = await this.decompress(
-            offset + header.headerLength,
-            header.size,
-          );
-          const content = applyDelta(base.content, delta);
-          return {
-            type: base.type,
-            content,
-            size: content.length,
-            offset,
-          };
+      case 6: { // OFS_DELTA
+        if (header.baseOffset === undefined) {
+          throw new Error("OFS_DELTA missing base offset");
         }
+        const baseOffset = offset - header.baseOffset;
+        const base = await this.load(baseOffset);
+        const delta = await this.decompress(offset + header.headerLength, header.size);
+        const content = applyDelta(base.content, delta);
+        return {
+          type: base.type,
+          content,
+          size: content.length,
+          offset,
+        };
+      }
 
-      case 7: // REF_DELTA
-        {
-          if (header.baseId === undefined) {
-            throw new Error("REF_DELTA missing base ID");
-          }
-          const baseOffset = this.index.findOffset(header.baseId);
-          if (baseOffset === -1) {
-            throw new Error(`Base object not found: ${header.baseId}`);
-          }
-          const base = await this.load(baseOffset);
-          const delta = await this.decompress(
-            offset + header.headerLength,
-            header.size,
-          );
-          const content = applyDelta(base.content, delta);
-          return {
-            type: base.type,
-            content,
-            size: content.length,
-            offset,
-          };
+      case 7: { // REF_DELTA
+        if (header.baseId === undefined) {
+          throw new Error("REF_DELTA missing base ID");
         }
+        const baseOffset = this.index.findOffset(header.baseId);
+        if (baseOffset === -1) {
+          throw new Error(`Base object not found: ${header.baseId}`);
+        }
+        const base = await this.load(baseOffset);
+        const delta = await this.decompress(offset + header.headerLength, header.size);
+        const content = applyDelta(base.content, delta);
+        return {
+          type: base.type,
+          content,
+          size: content.length,
+          offset,
+        };
+      }
 
       default:
         throw new Error(`Unknown object type: ${header.type}`);
@@ -266,7 +257,7 @@ export class PackReader {
    * Decompress zlib data at offset using streaming decompression
    *
    * Pack files store compressed objects contiguously without explicit length
-   * markers for the compressed data. We use streaming decompression which
+   * markers for the compressed data. We use partial decompression which
    * stops when the zlib stream is complete, ignoring trailing data.
    */
   private async decompress(offset: number, expectedSize: number): Promise<Uint8Array> {
@@ -277,55 +268,20 @@ export class PackReader {
     const compressed = new Uint8Array(compressedSize);
     await this.read(compressed, 0, compressedSize, offset);
 
-    // Use streaming decompression to handle trailing data gracefully
-    const result = await this.inflateRaw(compressed, expectedSize);
+    // Use partial decompression to handle trailing data gracefully
+    // Git pack files use zlib format (RFC 1950), not raw DEFLATE
+    const result = await this.compression.decompressPartial(compressed, {
+      algorithm: CompressionAlgorithm.ZLIB,
+      maxSize: expectedSize * 2, // Safety limit
+    });
 
-    if (result.length !== expectedSize) {
+    if (result.data.length !== expectedSize) {
       throw new Error(
-        `Decompression size mismatch: expected ${expectedSize}, got ${result.length}`,
+        `Decompression size mismatch: expected ${expectedSize}, got ${result.data.length}`,
       );
     }
 
-    return result;
-  }
-
-  /**
-   * Decompress zlib data using streaming inflate
-   *
-   * Git pack files use zlib compression (with header), not raw DEFLATE.
-   * This handles the case where the input buffer contains trailing data
-   * after the zlib stream ends.
-   */
-  private inflateRaw(data: Uint8Array, expectedSize: number): Promise<Uint8Array> {
-    return new Promise((resolve, reject) => {
-      const inflater = zlib.createInflate();
-      const chunks: Buffer[] = [];
-      let totalSize = 0;
-
-      inflater.on("data", (chunk: Buffer) => {
-        chunks.push(chunk);
-        totalSize += chunk.length;
-      });
-
-      inflater.on("end", () => {
-        const result = Buffer.concat(chunks, totalSize);
-        resolve(new Uint8Array(result));
-      });
-
-      inflater.on("error", (err) => {
-        // If we got the expected size, the error is likely due to trailing data
-        if (totalSize === expectedSize) {
-          const result = Buffer.concat(chunks, totalSize);
-          resolve(new Uint8Array(result));
-        } else {
-          reject(new Error(`Decompression failed: ${err.message}`));
-        }
-      });
-
-      // Write data and signal end of input
-      inflater.write(Buffer.from(data));
-      inflater.end();
-    });
+    return result.data;
   }
 }
 
@@ -352,9 +308,7 @@ export function applyDelta(base: Uint8Array, delta: Uint8Array): Uint8Array {
   } while ((c & 0x80) !== 0);
 
   if (base.length !== baseLen) {
-    throw new Error(
-      `Delta base length mismatch: expected ${baseLen}, got ${base.length}`,
-    );
+    throw new Error(`Delta base length mismatch: expected ${baseLen}, got ${base.length}`);
   }
 
   // Read result object length (variable length int)
@@ -401,9 +355,7 @@ export function applyDelta(base: Uint8Array, delta: Uint8Array): Uint8Array {
   }
 
   if (resultPtr !== resLen) {
-    throw new Error(
-      `Delta result size mismatch: expected ${resLen}, got ${resultPtr}`,
-    );
+    throw new Error(`Delta result size mismatch: expected ${resLen}, got ${resultPtr}`);
   }
 
   return result;

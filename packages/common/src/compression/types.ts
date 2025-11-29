@@ -9,9 +9,11 @@
  * Compression algorithm types
  */
 export enum CompressionAlgorithm {
-  /** DEFLATE compression (RFC 1951) */
+  /** Raw DEFLATE compression (RFC 1951) - no header/checksum */
   DEFLATE = "DEFLATE",
-  /** GZIP compression (RFC 1952) */
+  /** ZLIB compression (RFC 1950) - deflate with 2-byte header and Adler-32 checksum */
+  ZLIB = "ZLIB",
+  /** GZIP compression (RFC 1952) - deflate with gzip header and CRC-32 checksum */
   GZIP = "GZIP",
   /** No compression */
   NONE = "NONE",
@@ -35,6 +37,16 @@ export interface DecompressionOptions {
   algorithm?: CompressionAlgorithm;
   /** Maximum size to decompress (to prevent decompression bombs) */
   maxSize?: number;
+}
+
+/**
+ * Result of partial decompression
+ */
+export interface PartialDecompressionResult {
+  /** Decompressed data */
+  data: Uint8Array;
+  /** Number of compressed bytes consumed from input */
+  bytesRead: number;
 }
 
 /**
@@ -87,6 +99,22 @@ export interface CompressionProvider {
    * Check if synchronous operations are supported
    */
   supportsSyncOperations(): boolean;
+
+  /**
+   * Decompress data that may contain trailing bytes after the compressed stream.
+   *
+   * This is useful for formats like Git pack files where compressed objects
+   * are stored contiguously without explicit length markers for compressed data.
+   * The decompressor stops when the compressed stream ends.
+   *
+   * @param data Compressed data (may include trailing bytes)
+   * @param options Decompression options
+   * @returns Decompressed data and number of input bytes consumed
+   */
+  decompressPartial(
+    data: Uint8Array,
+    options?: DecompressionOptions,
+  ): Promise<PartialDecompressionResult>;
 }
 
 /**

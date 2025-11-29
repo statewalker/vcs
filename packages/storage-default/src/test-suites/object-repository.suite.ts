@@ -3,7 +3,7 @@
  */
 
 import { describe, beforeEach, afterEach, it, expect } from "vitest";
-import type { ObjectRepository } from "@webrun-vcs/storage-default";
+import type { ObjectRepository } from "../index.js";
 
 /**
  * Context provided by the repository factory

@@ -10,8 +10,8 @@
  */
 
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { PackIndex, PackIndexEntry } from "./types.js";
 import { bytesToHex, hexToBytes } from "../utils/index.js";
+import type { PackIndex, PackIndexEntry } from "./types.js";
 
 /** Magic bytes for V2+ index: 0xFF, 't', 'O', 'c' */
 const TOC_SIGNATURE = new Uint8Array([0xff, 0x74, 0x4f, 0x63]);
@@ -68,11 +68,7 @@ function compareBytes(a: Uint8Array, aOffset: number, b: Uint8Array): number {
  * @param offset Offset into data
  * @returns negative if prefix < id, 0 if prefix matches, positive if prefix > id
  */
-function comparePrefixToBytes(
-  prefix: Uint8Array,
-  data: Uint8Array,
-  offset: number,
-): number {
+function comparePrefixToBytes(prefix: Uint8Array, data: Uint8Array, offset: number): number {
   for (let i = 0; i < prefix.length; i++) {
     const diff = prefix[i] - data[offset + i];
     if (diff !== 0) return diff;
@@ -193,8 +189,7 @@ class PackIndexV1 extends BasePackIndex {
     for (let i = 0; i < FANOUT_SIZE; i++) {
       this.fanoutTable[i] = decodeUInt32(data, i * 4);
     }
-    (this as { objectCount: number }).objectCount =
-      this.fanoutTable[FANOUT_SIZE - 1];
+    (this as { objectCount: number }).objectCount = this.fanoutTable[FANOUT_SIZE - 1];
   }
 
   get offset64Count(): number {
@@ -222,10 +217,7 @@ class PackIndexV1 extends BasePackIndex {
     const recordSize = 4 + OBJECT_ID_LENGTH;
     const entriesEnd = fanoutEnd + this.objectCount * recordSize;
     // Index checksum follows pack checksum
-    return this.data.subarray(
-      entriesEnd + OBJECT_ID_LENGTH,
-      entriesEnd + OBJECT_ID_LENGTH * 2,
-    );
+    return this.data.subarray(entriesEnd + OBJECT_ID_LENGTH, entriesEnd + OBJECT_ID_LENGTH * 2);
   }
 
   findOffset(id: ObjectId): number {
@@ -310,9 +302,7 @@ class PackIndexV1 extends BasePackIndex {
     const recordSize = 4 + OBJECT_ID_LENGTH;
     const fanoutEnd = FANOUT_SIZE * 4;
     const entryOffset = fanoutEnd + nthPosition * recordSize + 4;
-    return bytesToHex(
-      this.data.subarray(entryOffset, entryOffset + OBJECT_ID_LENGTH),
-    );
+    return bytesToHex(this.data.subarray(entryOffset, entryOffset + OBJECT_ID_LENGTH));
   }
 
   getOffset(nthPosition: number): number {
@@ -329,12 +319,7 @@ class PackIndexV1 extends BasePackIndex {
     for (let i = 0; i < this.objectCount; i++) {
       const entryOffset = fanoutEnd + i * recordSize;
       yield {
-        id: bytesToHex(
-          this.data.subarray(
-            entryOffset + 4,
-            entryOffset + 4 + OBJECT_ID_LENGTH,
-          ),
-        ),
+        id: bytesToHex(this.data.subarray(entryOffset + 4, entryOffset + 4 + OBJECT_ID_LENGTH)),
         offset: decodeUInt32(this.data, entryOffset),
       };
     }
@@ -362,11 +347,7 @@ class PackIndexV1 extends BasePackIndex {
     while (low < high) {
       const mid = (low + high) >>> 1;
       const entryOffset = baseOffset + mid * recordSize + 4;
-      const cmp = comparePrefixToBytes(
-        prefixBytes.subarray(0, prefixLen),
-        this.data,
-        entryOffset,
-      );
+      const cmp = comparePrefixToBytes(prefixBytes.subarray(0, prefixLen), this.data, entryOffset);
 
       if (cmp <= 0) {
         high = mid;
@@ -379,20 +360,10 @@ class PackIndexV1 extends BasePackIndex {
     const matches: ObjectId[] = [];
     for (let i = low; i < bucketCount && matches.length < limit; i++) {
       const entryOffset = baseOffset + i * recordSize + 4;
-      if (
-        comparePrefixToBytes(
-          prefixBytes.subarray(0, prefixLen),
-          this.data,
-          entryOffset,
-        ) !== 0
-      ) {
+      if (comparePrefixToBytes(prefixBytes.subarray(0, prefixLen), this.data, entryOffset) !== 0) {
         break;
       }
-      matches.push(
-        bytesToHex(
-          this.data.subarray(entryOffset, entryOffset + OBJECT_ID_LENGTH),
-        ),
-      );
+      matches.push(bytesToHex(this.data.subarray(entryOffset, entryOffset + OBJECT_ID_LENGTH)));
     }
 
     return matches;
@@ -431,8 +402,7 @@ class PackIndexV2 extends BasePackIndex {
     for (let i = 0; i < FANOUT_SIZE; i++) {
       this.fanoutTable[i] = decodeUInt32(data, fanoutOffset + i * 4);
     }
-    (this as { objectCount: number }).objectCount =
-      this.fanoutTable[FANOUT_SIZE - 1];
+    (this as { objectCount: number }).objectCount = this.fanoutTable[FANOUT_SIZE - 1];
 
     // Calculate section offsets
     this.namesOffset = fanoutOffset + FANOUT_SIZE * 4;
@@ -457,10 +427,7 @@ class PackIndexV2 extends BasePackIndex {
   }
 
   get packChecksum(): Uint8Array {
-    return this.data.subarray(
-      this.packChecksumOffset,
-      this.packChecksumOffset + OBJECT_ID_LENGTH,
-    );
+    return this.data.subarray(this.packChecksumOffset, this.packChecksumOffset + OBJECT_ID_LENGTH);
   }
 
   get indexChecksum(): Uint8Array {
@@ -492,8 +459,7 @@ class PackIndexV2 extends BasePackIndex {
 
     while (low < high) {
       const mid = (low + high) >>> 1;
-      const entryOffset =
-        this.namesOffset + (bucketStart + mid) * OBJECT_ID_LENGTH;
+      const entryOffset = this.namesOffset + (bucketStart + mid) * OBJECT_ID_LENGTH;
       const cmp = compareBytes(this.data, entryOffset, idBytes);
 
       if (cmp < 0) {
@@ -524,10 +490,7 @@ class PackIndexV2 extends BasePackIndex {
   }
 
   getOffset(nthPosition: number): number {
-    const offset32 = decodeUInt32(
-      this.data,
-      this.offset32Offset + nthPosition * 4,
-    );
+    const offset32 = decodeUInt32(this.data, this.offset32Offset + nthPosition * 4);
 
     // High bit set means index into 64-bit table
     if ((offset32 & 0x80000000) !== 0) {
@@ -565,13 +528,8 @@ class PackIndexV2 extends BasePackIndex {
 
     while (low < high) {
       const mid = (low + high) >>> 1;
-      const entryOffset =
-        this.namesOffset + (bucketStart + mid) * OBJECT_ID_LENGTH;
-      const cmp = comparePrefixToBytes(
-        prefixBytes.subarray(0, prefixLen),
-        this.data,
-        entryOffset,
-      );
+      const entryOffset = this.namesOffset + (bucketStart + mid) * OBJECT_ID_LENGTH;
+      const cmp = comparePrefixToBytes(prefixBytes.subarray(0, prefixLen), this.data, entryOffset);
 
       if (cmp <= 0) {
         high = mid;
@@ -583,22 +541,11 @@ class PackIndexV2 extends BasePackIndex {
     // Collect matches
     const matches: ObjectId[] = [];
     for (let i = low; i < bucketCount && matches.length < limit; i++) {
-      const entryOffset =
-        this.namesOffset + (bucketStart + i) * OBJECT_ID_LENGTH;
-      if (
-        comparePrefixToBytes(
-          prefixBytes.subarray(0, prefixLen),
-          this.data,
-          entryOffset,
-        ) !== 0
-      ) {
+      const entryOffset = this.namesOffset + (bucketStart + i) * OBJECT_ID_LENGTH;
+      if (comparePrefixToBytes(prefixBytes.subarray(0, prefixLen), this.data, entryOffset) !== 0) {
         break;
       }
-      matches.push(
-        bytesToHex(
-          this.data.subarray(entryOffset, entryOffset + OBJECT_ID_LENGTH),
-        ),
-      );
+      matches.push(bytesToHex(this.data.subarray(entryOffset, entryOffset + OBJECT_ID_LENGTH)));
     }
 
     return matches;

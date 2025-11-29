@@ -10,6 +10,7 @@ import {
   type CompressionOptions,
   type CompressionProvider,
   type DecompressionOptions,
+  type PartialDecompressionResult,
 } from "./types.js";
 
 /**
@@ -71,6 +72,8 @@ export class NodeCompressionProvider implements CompressionProvider {
 
       if (algorithm === CompressionAlgorithm.GZIP) {
         zlib.gzip(data, zlibOptions, callback);
+      } else if (algorithm === CompressionAlgorithm.ZLIB) {
+        zlib.deflate(data, zlibOptions, callback);
       } else {
         zlib.deflateRaw(data, zlibOptions, callback);
       }
@@ -104,6 +107,8 @@ export class NodeCompressionProvider implements CompressionProvider {
 
       if (algorithm === CompressionAlgorithm.GZIP) {
         zlib.gunzip(data, zlibOptions, callback);
+      } else if (algorithm === CompressionAlgorithm.ZLIB) {
+        zlib.inflate(data, zlibOptions, callback);
       } else {
         zlib.inflateRaw(data, zlibOptions, callback);
       }
@@ -127,6 +132,8 @@ export class NodeCompressionProvider implements CompressionProvider {
       let result: Buffer;
       if (algorithm === CompressionAlgorithm.GZIP) {
         result = zlib.gzipSync(data, zlibOptions);
+      } else if (algorithm === CompressionAlgorithm.ZLIB) {
+        result = zlib.deflateSync(data, zlibOptions);
       } else {
         result = zlib.deflateRawSync(data, zlibOptions);
       }
@@ -160,6 +167,8 @@ export class NodeCompressionProvider implements CompressionProvider {
       let result: Buffer;
       if (algorithm === CompressionAlgorithm.GZIP) {
         result = zlib.gunzipSync(data, zlibOptions);
+      } else if (algorithm === CompressionAlgorithm.ZLIB) {
+        result = zlib.inflateSync(data, zlibOptions);
       } else {
         result = zlib.inflateRawSync(data, zlibOptions);
       }
@@ -175,5 +184,76 @@ export class NodeCompressionProvider implements CompressionProvider {
 
   supportsSyncOperations(): boolean {
     return true;
+  }
+
+  async decompressPartial(
+    data: Uint8Array,
+    options?: DecompressionOptions,
+  ): Promise<PartialDecompressionResult> {
+    const algorithm = options?.algorithm ?? CompressionAlgorithm.ZLIB;
+
+    if (algorithm === CompressionAlgorithm.NONE) {
+      return { data, bytesRead: data.length };
+    }
+
+    const zlib = await this.getZlib();
+
+    return new Promise((resolve, reject) => {
+      // Create appropriate inflater based on algorithm
+      let inflater: import("node:zlib").Inflate | import("node:zlib").Gunzip | import("node:zlib").InflateRaw;
+      if (algorithm === CompressionAlgorithm.GZIP) {
+        inflater = zlib.createGunzip();
+      } else if (algorithm === CompressionAlgorithm.ZLIB) {
+        inflater = zlib.createInflate();
+      } else {
+        inflater = zlib.createInflateRaw();
+      }
+
+      const chunks: Buffer[] = [];
+      let totalSize = 0;
+      let bytesRead = data.length; // Default to full input
+
+      inflater.on("data", (chunk: Buffer) => {
+        chunks.push(chunk);
+        totalSize += chunk.length;
+
+        // Check max size limit
+        if (options?.maxSize && totalSize > options.maxSize) {
+          inflater.destroy(
+            new Error(`Decompressed size (${totalSize}) exceeds maximum allowed (${options.maxSize})`),
+          );
+        }
+      });
+
+      inflater.on("end", () => {
+        const result = Buffer.concat(chunks, totalSize);
+        // Calculate bytes read from bytesWritten on the inflater
+        // Node's zlib exposes bytesWritten which is how many input bytes were consumed
+        const inflaterAny = inflater as { bytesWritten?: number };
+        if (typeof inflaterAny.bytesWritten === "number") {
+          bytesRead = inflaterAny.bytesWritten;
+        }
+        resolve({ data: new Uint8Array(result), bytesRead });
+      });
+
+      inflater.on("error", (err) => {
+        // If we got some data, the error might be due to trailing data
+        // This is expected for partial decompression
+        if (totalSize > 0) {
+          const result = Buffer.concat(chunks, totalSize);
+          const inflaterAny = inflater as { bytesWritten?: number };
+          if (typeof inflaterAny.bytesWritten === "number") {
+            bytesRead = inflaterAny.bytesWritten;
+          }
+          resolve({ data: new Uint8Array(result), bytesRead });
+        } else {
+          reject(new CompressionError(`Decompression failed: ${err.message}`, err));
+        }
+      });
+
+      // Write data and signal end of input
+      inflater.write(Buffer.from(data));
+      inflater.end();
+    });
   }
 }

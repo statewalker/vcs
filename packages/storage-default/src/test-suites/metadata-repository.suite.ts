@@ -3,7 +3,7 @@
  */
 
 import { describe, beforeEach, afterEach, it, expect } from "vitest";
-import type { MetadataRepository } from "@webrun-vcs/storage-default";
+import type { MetadataRepository } from "../index.js";
 
 /**
  * Context provided by the repository factory
