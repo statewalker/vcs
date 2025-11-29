@@ -533,3 +533,136 @@ describe("parseRefContent", () => {
     expect(() => parseRefContent("refs/heads/main", content)).toThrow(/too short/);
   });
 });
+
+describe("special refs", () => {
+  let files: MemoryFileApi;
+  let refs: RefDirectory;
+  const gitDir = "/repo/.git";
+  const commitId1 = "a".repeat(40);
+  const commitId2 = "b".repeat(40);
+
+  beforeEach(async () => {
+    files = new MemoryFileApi();
+    refs = createRefDirectory(files, gitDir);
+    await refs.create();
+  });
+
+  describe("FETCH_HEAD", () => {
+    it("reads simple FETCH_HEAD", async () => {
+      // Simple FETCH_HEAD with just an object ID
+      await files.writeFile(
+        files.join(gitDir, "FETCH_HEAD"),
+        new TextEncoder().encode(`${commitId1}\n`),
+      );
+
+      const ref = await refs.exactRef("FETCH_HEAD");
+      expect(ref).toBeDefined();
+      expect(ref?.objectId).toBe(commitId1);
+    });
+
+    it("reads FETCH_HEAD with branch metadata", async () => {
+      // FETCH_HEAD with additional metadata (first 40 chars is the object ID)
+      const content = `${commitId1}\tbranch 'main' of https://github.com/user/repo\n`;
+      await files.writeFile(files.join(gitDir, "FETCH_HEAD"), new TextEncoder().encode(content));
+
+      const ref = await refs.exactRef("FETCH_HEAD");
+      expect(ref).toBeDefined();
+      expect(ref?.objectId).toBe(commitId1);
+    });
+
+    it("reads first entry from multi-line FETCH_HEAD", async () => {
+      // FETCH_HEAD can contain multiple entries, first is "for merge"
+      const content =
+        `${commitId1}\t\tbranch 'main' of https://github.com/user/repo\n` +
+        `${commitId2}\tnot-for-merge\tbranch 'feature' of https://github.com/user/repo\n`;
+      await files.writeFile(files.join(gitDir, "FETCH_HEAD"), new TextEncoder().encode(content));
+
+      const ref = await refs.exactRef("FETCH_HEAD");
+      expect(ref).toBeDefined();
+      expect(ref?.objectId).toBe(commitId1);
+    });
+
+    it("handles missing FETCH_HEAD", async () => {
+      const ref = await refs.exactRef("FETCH_HEAD");
+      expect(ref).toBeUndefined();
+    });
+  });
+
+  describe("ORIG_HEAD", () => {
+    it("reads ORIG_HEAD", async () => {
+      await files.writeFile(
+        files.join(gitDir, "ORIG_HEAD"),
+        new TextEncoder().encode(`${commitId1}\n`),
+      );
+
+      const ref = await refs.exactRef("ORIG_HEAD");
+      expect(ref).toBeDefined();
+      expect(ref?.objectId).toBe(commitId1);
+    });
+
+    it("handles missing ORIG_HEAD", async () => {
+      const ref = await refs.exactRef("ORIG_HEAD");
+      expect(ref).toBeUndefined();
+    });
+
+    it("resolves ORIG_HEAD directly (not symbolic)", async () => {
+      await files.writeFile(
+        files.join(gitDir, "ORIG_HEAD"),
+        new TextEncoder().encode(`${commitId1}\n`),
+      );
+
+      const ref = await refs.exactRef("ORIG_HEAD");
+      expect(ref).toBeDefined();
+      if (ref) {
+        expect(isSymbolicRef(ref)).toBe(false);
+      }
+    });
+  });
+
+  describe("MERGE_HEAD", () => {
+    it("reads MERGE_HEAD", async () => {
+      await files.writeFile(
+        files.join(gitDir, "MERGE_HEAD"),
+        new TextEncoder().encode(`${commitId1}\n`),
+      );
+
+      const ref = await refs.exactRef("MERGE_HEAD");
+      expect(ref).toBeDefined();
+      expect(ref?.objectId).toBe(commitId1);
+    });
+
+    it("reads multi-parent MERGE_HEAD (octopus)", async () => {
+      // MERGE_HEAD can contain multiple commit IDs for octopus merges
+      const content = `${commitId1}\n${commitId2}\n`;
+      await files.writeFile(files.join(gitDir, "MERGE_HEAD"), new TextEncoder().encode(content));
+
+      const ref = await refs.exactRef("MERGE_HEAD");
+      expect(ref).toBeDefined();
+      // First parent is the ref target
+      expect(ref?.objectId).toBe(commitId1);
+    });
+
+    it("handles missing MERGE_HEAD", async () => {
+      const ref = await refs.exactRef("MERGE_HEAD");
+      expect(ref).toBeUndefined();
+    });
+  });
+
+  describe("CHERRY_PICK_HEAD", () => {
+    it("reads CHERRY_PICK_HEAD", async () => {
+      await files.writeFile(
+        files.join(gitDir, "CHERRY_PICK_HEAD"),
+        new TextEncoder().encode(`${commitId1}\n`),
+      );
+
+      const ref = await refs.exactRef("CHERRY_PICK_HEAD");
+      expect(ref).toBeDefined();
+      expect(ref?.objectId).toBe(commitId1);
+    });
+
+    it("handles missing CHERRY_PICK_HEAD", async () => {
+      const ref = await refs.exactRef("CHERRY_PICK_HEAD");
+      expect(ref).toBeUndefined();
+    });
+  });
+});
