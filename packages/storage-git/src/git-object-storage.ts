@@ -255,6 +255,63 @@ export class GitObjectStorage implements ObjectStorage {
     this.packFiles = [];
     this.packsLoaded = false;
   }
+
+  /**
+   * Get the size of an object in bytes
+   *
+   * Returns the uncompressed content size, not the on-disk storage size.
+   *
+   * @param id Object ID to query
+   * @returns Size in bytes, or -1 if object does not exist
+   */
+  async getSize(id: ObjectId): Promise<number> {
+    // Try loose objects first
+    const hasLoose = await this.looseObjects.has(id);
+    if (hasLoose) {
+      const header = await this.looseObjects.readHeader(id);
+      return header.size;
+    }
+
+    // Try pack files
+    await this.ensurePacksLoaded();
+    for (const pack of this.packFiles) {
+      if (pack.index.has(id)) {
+        const reader = await this.getPackReader(pack);
+        const obj = await reader.get(id);
+        if (obj) {
+          return obj.size;
+        }
+      }
+    }
+
+    return -1;
+  }
+
+  /**
+   * Iterate over all object IDs in storage
+   *
+   * @returns AsyncGenerator yielding ObjectIds
+   */
+  async *listObjects(): AsyncGenerator<ObjectId> {
+    const seen = new Set<ObjectId>();
+
+    // Enumerate loose objects
+    for await (const id of this.looseObjects.list()) {
+      seen.add(id);
+      yield id;
+    }
+
+    // Enumerate packed objects (skip duplicates)
+    await this.ensurePacksLoaded();
+    for (const pack of this.packFiles) {
+      for (const id of pack.index.listObjects()) {
+        if (!seen.has(id)) {
+          seen.add(id);
+          yield id;
+        }
+      }
+    }
+  }
 }
 
 /**

@@ -153,6 +153,56 @@ export class ObjectDirectory {
   }
 
   /**
+   * List all loose object IDs
+   *
+   * @yields Object IDs
+   */
+  async *list(): AsyncGenerator<ObjectId> {
+    // List all 2-character subdirectories
+    let entries: DirEntry[] = [];
+    try {
+      entries = await this.files.readdir(this.objectsDir);
+    } catch {
+      return; // Objects directory doesn't exist
+    }
+
+    for (const entry of entries) {
+      // Skip non-directories and special directories
+      if (!entry.isDirectory || entry.name.length !== 2) {
+        continue;
+      }
+
+      // Valid hex prefix?
+      if (!/^[0-9a-f]{2}$/.test(entry.name)) {
+        continue;
+      }
+
+      const prefix = entry.name;
+      const subdir = this.files.join(this.objectsDir, prefix);
+
+      let objects: DirEntry[] = [];
+      try {
+        objects = await this.files.readdir(subdir);
+      } catch {
+        continue;
+      }
+
+      for (const obj of objects) {
+        if (!obj.isFile || obj.name.length !== 38) {
+          continue;
+        }
+
+        // Valid hex suffix?
+        if (!/^[0-9a-f]{38}$/.test(obj.name)) {
+          continue;
+        }
+
+        yield prefix + obj.name;
+      }
+    }
+  }
+
+  /**
    * Enumerate all loose objects in the directory
    *
    * @yields Object entries (id, type, size)

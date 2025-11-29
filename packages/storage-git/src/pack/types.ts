@@ -97,6 +97,13 @@ export interface PackIndex {
    * @returns Matching object IDs
    */
   resolve(prefix: string, limit?: number): ObjectId[];
+
+  /**
+   * List all object IDs in the index
+   *
+   * @returns Iterator of object IDs
+   */
+  listObjects(): IterableIterator<ObjectId>;
 }
 
 /**

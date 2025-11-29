@@ -45,4 +45,25 @@ export interface ObjectStorage {
    * @returns True if object was deleted, false if not found
    */
   delete(id: ObjectId): Promise<boolean>;
+
+  /**
+   * Get the size of an object in bytes
+   *
+   * Returns the uncompressed content size, not the on-disk storage size.
+   * This matches Git's behavior where object size refers to content length.
+   *
+   * @param id Object ID to query
+   * @returns Size in bytes, or -1 if object does not exist
+   */
+  getSize(id: ObjectId): Promise<number>;
+
+  /**
+   * Iterate over all object IDs in storage
+   *
+   * Yields object IDs in an implementation-defined order. No guarantees
+   * are made about ordering or consistency during concurrent modifications.
+   *
+   * @returns AsyncGenerator yielding ObjectIds
+   */
+  listObjects(): AsyncGenerator<ObjectId>;
 }
