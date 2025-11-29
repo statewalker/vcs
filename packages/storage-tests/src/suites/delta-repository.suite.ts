@@ -2,8 +2,8 @@
  * Parametrized test suite for DeltaRepository implementations
  */
 
+import type { DeltaRepository } from "@webrun-vcs/storage-default";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { DeltaRepository } from "../index.js";
 
 /**
  * Context provided by the repository factory
