@@ -10,7 +10,7 @@
 import type { CompressionProvider } from "@webrun-vcs/common";
 import type { ObjectId, ObjectStorage, ObjectTypeCode } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
-import type { FileApi } from "./file-api/index.js";
+import type { DirEntry, FileApi } from "./file-api/index.js";
 import { ObjectDirectory } from "./loose/index.js";
 import { type PackIndex, readPackIndex } from "./pack/index.js";
 import { PackReader } from "./pack/pack-reader.js";
@@ -47,20 +47,14 @@ interface PackFile {
 export class GitObjectStorage implements ObjectStorage {
   private readonly files: FileApi;
   private readonly compression: CompressionProvider;
-  private readonly gitDir: string;
   private readonly objectsDir: string;
   private readonly looseObjects: ObjectDirectory;
   private packFiles: PackFile[] = [];
   private packsLoaded = false;
 
-  constructor(
-    files: FileApi,
-    compression: CompressionProvider,
-    gitDir: string,
-  ) {
+  constructor(files: FileApi, compression: CompressionProvider, gitDir: string) {
     this.files = files;
     this.compression = compression;
-    this.gitDir = gitDir;
     this.objectsDir = files.join(gitDir, "objects");
     this.looseObjects = new ObjectDirectory(files, compression, this.objectsDir);
   }
@@ -192,7 +186,7 @@ export class GitObjectStorage implements ObjectStorage {
     if (this.packsLoaded) return;
 
     const packDir = this.files.join(this.objectsDir, "pack");
-    let entries;
+    let entries: DirEntry[];
     try {
       entries = await this.files.readdir(packDir);
     } catch {
@@ -235,12 +229,7 @@ export class GitObjectStorage implements ObjectStorage {
    */
   private async getPackReader(pack: PackFile): Promise<PackReader> {
     if (!pack.reader) {
-      pack.reader = new PackReader(
-        this.files,
-        this.compression,
-        pack.packPath,
-        pack.index,
-      );
+      pack.reader = new PackReader(this.files, this.compression, pack.packPath, pack.index);
       await pack.reader.open();
     }
     return pack.reader;

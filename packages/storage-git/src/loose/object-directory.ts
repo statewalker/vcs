@@ -9,12 +9,10 @@
 
 import type { CompressionProvider } from "@webrun-vcs/common";
 import type { ObjectId, ObjectTypeCode, ObjectTypeString } from "@webrun-vcs/storage";
-import { ObjectType } from "@webrun-vcs/storage";
-import type { FileApi } from "../file-api/types.js";
-import { typeCodeToString, typeStringToCode } from "../format/object-header.js";
+import type { DirEntry, FileApi } from "../file-api/types.js";
 import {
-  type LooseObjectData,
   hasLooseObject,
+  type LooseObjectData,
   readLooseObject,
   readLooseObjectHeader,
 } from "./loose-object-reader.js";
@@ -83,12 +81,7 @@ export class ObjectDirectory {
    * @returns Object header info
    */
   async readHeader(id: ObjectId): Promise<{ type: ObjectTypeCode; size: number }> {
-    const header = await readLooseObjectHeader(
-      this.files,
-      this.compression,
-      this.objectsDir,
-      id,
-    );
+    const header = await readLooseObjectHeader(this.files, this.compression, this.objectsDir, id);
     return {
       type: header.typeCode,
       size: header.size,
@@ -103,13 +96,7 @@ export class ObjectDirectory {
    * @returns Object ID
    */
   async write(type: ObjectTypeString, content: Uint8Array): Promise<ObjectId> {
-    return writeLooseObject(
-      this.files,
-      this.compression,
-      this.objectsDir,
-      type,
-      content,
-    );
+    return writeLooseObject(this.files, this.compression, this.objectsDir, type, content);
   }
 
   /**
@@ -172,7 +159,7 @@ export class ObjectDirectory {
    */
   async *enumerate(): AsyncGenerator<ObjectEntry> {
     // List all 2-character subdirectories
-    let entries;
+    let entries: DirEntry[] = [];
     try {
       entries = await this.files.readdir(this.objectsDir);
     } catch {
@@ -193,7 +180,7 @@ export class ObjectDirectory {
       const prefix = entry.name;
       const subdir = this.files.join(this.objectsDir, prefix);
 
-      let objects;
+      let objects: DirEntry[] = [];
       try {
         objects = await this.files.readdir(subdir);
       } catch {

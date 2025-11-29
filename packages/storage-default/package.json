@@ -23,6 +23,14 @@
     "@webrun-vcs/diff": "workspace:*",
     "@webrun-vcs/storage": "workspace:*"
   },
+  "peerDependencies": {
+    "vitest": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "rolldown": "catalog:",
     "vitest": "catalog:",

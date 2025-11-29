@@ -207,9 +207,7 @@ export function createFileApiTestSuite(
       });
 
       it("throws for missing source", async () => {
-        await expect(
-          files.rename("nonexistent.txt", "new.txt"),
-        ).rejects.toThrow();
+        await expect(files.rename("nonexistent.txt", "new.txt")).rejects.toThrow();
       });
     });
 

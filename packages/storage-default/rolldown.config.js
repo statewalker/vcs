@@ -20,6 +20,7 @@ export default defineConfig({
     "@webrun-vcs/common",
     "@webrun-vcs/diff",
     "@webrun-vcs/storage",
+    "vitest",
   ],
   treeshake: true,
 });

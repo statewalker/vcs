@@ -15,7 +15,6 @@
  */
 
 import type { AnnotatedTag, ObjectTypeCode } from "@webrun-vcs/storage";
-import { ObjectType } from "@webrun-vcs/storage";
 import { typeCodeToString, typeStringToCode } from "./object-header.js";
 import { formatPersonIdent, parsePersonIdent } from "./person-ident.js";
 

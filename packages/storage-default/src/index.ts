@@ -19,3 +19,6 @@ export * from "./intermediate-cache.js";
 
 // Default implementation
 export * from "./default-object-storage.js";
+
+// Test suites for repository implementations
+export * from "./test-suites/index.js";

@@ -3,7 +3,7 @@
  */
 
 import { describe, beforeEach, afterEach, it, expect } from "vitest";
-import type { DeltaRepository } from "@webrun-vcs/storage-default";
+import type { DeltaRepository } from "../index.js";
 
 /**
  * Context provided by the repository factory
