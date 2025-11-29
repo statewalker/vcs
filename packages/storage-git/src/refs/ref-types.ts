@@ -12,7 +12,7 @@ import type { ObjectId } from "@webrun-vcs/storage";
 /**
  * Storage location of a reference
  */
-export const enum RefStorage {
+export enum RefStorage {
   /** The ref does not exist yet */
   NEW = "new",
   /** Stored as a loose file in refs/ */

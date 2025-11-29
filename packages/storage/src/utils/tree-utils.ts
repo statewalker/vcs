@@ -9,9 +9,7 @@ import { FileMode } from "../types.js";
  * @param entries AsyncIterable of tree entries
  * @returns Array of tree entries
  */
-export async function collectTreeEntries(
-  entries: AsyncIterable<TreeEntry>,
-): Promise<TreeEntry[]> {
+export async function collectTreeEntries(entries: AsyncIterable<TreeEntry>): Promise<TreeEntry[]> {
   const result: TreeEntry[] = [];
   for await (const entry of entries) {
     result.push(entry);
@@ -27,9 +25,7 @@ export async function collectTreeEntries(
  * @param entries Array of tree entries
  * @returns AsyncIterable of tree entries
  */
-export async function* iterateTreeEntries(
-  entries: TreeEntry[],
-): AsyncIterable<TreeEntry> {
+export async function* iterateTreeEntries(entries: TreeEntry[]): AsyncIterable<TreeEntry> {
   for (const entry of entries) {
     yield entry;
   }
@@ -54,8 +50,8 @@ export function isTreeMode(mode: number): boolean {
  */
 export function compareTreeEntries(a: TreeEntry, b: TreeEntry): number {
   // For sorting, directories are compared as if they end with '/'
-  const aName = isTreeMode(a.mode) ? a.name + "/" : a.name;
-  const bName = isTreeMode(b.mode) ? b.name + "/" : b.name;
+  const aName = isTreeMode(a.mode) ? `${a.name}/` : a.name;
+  const bName = isTreeMode(b.mode) ? `${b.name}/` : b.name;
 
   // Byte-by-byte comparison (UTF-8)
   const aBytes = new TextEncoder().encode(aName);

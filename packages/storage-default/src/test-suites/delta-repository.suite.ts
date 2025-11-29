@@ -2,7 +2,7 @@
  * Parametrized test suite for DeltaRepository implementations
  */
 
-import { describe, beforeEach, afterEach, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DeltaRepository } from "../index.js";
 
 /**
@@ -21,10 +21,7 @@ export type DeltaRepositoryFactory = () => Promise<DeltaRepositoryTestContext>;
 /**
  * Create the DeltaRepository test suite with a specific factory
  */
-export function createDeltaRepositoryTests(
-  name: string,
-  factory: DeltaRepositoryFactory,
-): void {
+export function createDeltaRepositoryTests(name: string, factory: DeltaRepositoryFactory): void {
   describe(`DeltaRepository [${name}]`, () => {
     let ctx: DeltaRepositoryTestContext;
 

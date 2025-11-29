@@ -2,10 +2,7 @@
  * ObjectStorage tests for InMemory implementation
  */
 
-import {
-  createObjectStorageTests,
-  createDeltaObjectStorageTests,
-} from "@webrun-vcs/storage-tests";
+import { createDeltaObjectStorageTests, createObjectStorageTests } from "@webrun-vcs/storage-tests";
 import { createMemoryStorage } from "../src/index.js";
 
 // Run the standard ObjectStorage test suite

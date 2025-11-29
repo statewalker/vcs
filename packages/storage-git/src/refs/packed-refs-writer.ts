@@ -9,12 +9,7 @@
  */
 
 import type { FileApi } from "../file-api/index.js";
-import {
-  type Ref,
-  PACKED_REFS,
-  PACKED_REFS_HEADER,
-  PACKED_REFS_PEELED,
-} from "./ref-types.js";
+import { PACKED_REFS, PACKED_REFS_HEADER, PACKED_REFS_PEELED, type Ref } from "./ref-types.js";
 
 /**
  * Write packed-refs file
@@ -28,7 +23,7 @@ export async function writePackedRefs(
   files: FileApi,
   gitDir: string,
   refs: Ref[],
-  peeled: boolean = true,
+  peeled = true,
 ): Promise<void> {
   const packedRefsPath = files.join(gitDir, PACKED_REFS);
 
@@ -49,7 +44,7 @@ export async function writePackedRefs(
  * @param peeled Whether to include peeled trait in header
  * @returns Formatted packed-refs content
  */
-export function formatPackedRefs(refs: Ref[], peeled: boolean = true): string {
+export function formatPackedRefs(refs: Ref[], peeled = true): string {
   const lines: string[] = [];
 
   // Write header
@@ -71,7 +66,7 @@ export function formatPackedRefs(refs: Ref[], peeled: boolean = true): string {
     }
   }
 
-  return lines.join("\n") + "\n";
+  return `${lines.join("\n")}\n`;
 }
 
 /**
@@ -83,11 +78,7 @@ export function formatPackedRefs(refs: Ref[], peeled: boolean = true): string {
  * @param gitDir Path to .git directory
  * @param ref Ref to add
  */
-export async function addPackedRef(
-  files: FileApi,
-  gitDir: string,
-  ref: Ref,
-): Promise<void> {
+export async function addPackedRef(files: FileApi, gitDir: string, ref: Ref): Promise<void> {
   // Import here to avoid circular dependency
   const { readPackedRefs } = await import("./packed-refs-reader.js");
 
@@ -158,7 +149,7 @@ export async function packRefs(
   files: FileApi,
   gitDir: string,
   refNames: string[],
-  deleteLoose: boolean = true,
+  deleteLoose = true,
 ): Promise<void> {
   // Import here to avoid circular dependency
   const { readPackedRefs } = await import("./packed-refs-reader.js");

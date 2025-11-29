@@ -2,8 +2,8 @@
  * Tests for Git commit format serialization/parsing
  */
 
-import { describe, expect, it } from "vitest";
 import type { Commit, PersonIdent } from "@webrun-vcs/storage";
+import { describe, expect, it } from "vitest";
 import { parseCommit, serializeCommit } from "../../src/format/commit-format.js";
 
 describe("commit-format", () => {

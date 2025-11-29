@@ -21,9 +21,9 @@ import { GitFileTreeStorage } from "./git-file-tree-storage.js";
 import { GitObjectStorage } from "./git-object-storage.js";
 import { GitTagStorage } from "./git-tag-storage.js";
 import {
-  type RefDirectory,
   createRefDirectory,
   createRefsStructure,
+  type RefDirectory,
   writeSymbolicRef,
 } from "./refs/index.js";
 
@@ -76,11 +76,7 @@ export class GitStorage implements GitStorageApi {
   readonly refs: RefDirectory;
   readonly gitDir: string;
 
-  private constructor(
-    files: FileApi,
-    compression: CompressionProvider,
-    gitDir: string,
-  ) {
+  private constructor(files: FileApi, compression: CompressionProvider, gitDir: string) {
     this.gitDir = gitDir;
     this.objects = new GitObjectStorage(files, compression, gitDir);
     this.trees = new GitFileTreeStorage(this.objects);
@@ -153,10 +149,7 @@ export class GitStorage implements GitStorageApi {
 \tfilemode = true
 \tbare = ${options.bare ?? false}
 `;
-    await files.writeFile(
-      files.join(gitDir, "config"),
-      new TextEncoder().encode(config),
-    );
+    await files.writeFile(files.join(gitDir, "config"), new TextEncoder().encode(config));
 
     return new GitStorage(files, compression, gitDir);
   }

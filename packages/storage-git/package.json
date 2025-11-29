@@ -18,7 +18,12 @@
     "test": "vitest run",
     "test:jgit": "vitest run --grep 'jgit'",
     "test:interop": "vitest run --grep 'interop'",
-    "lint": "biome lint src tests"
+    "lint": "biome check --write .",
+    "lint:check": "biome check .",
+    "lint:fix": "biome check --write --unsafe .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "format:fix": "biome check --write --unsafe ."
   },
   "dependencies": {
     "@webrun-vcs/storage": "workspace:*",

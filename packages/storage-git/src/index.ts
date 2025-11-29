@@ -11,22 +11,17 @@ export * from "./file-api/index.js";
 
 // Format utilities (for advanced use cases)
 export * from "./format/index.js";
-
-// Utility functions
-export * from "./utils/index.js";
-
-// Loose object handling
-export * from "./loose/index.js";
-
-// Pack file handling
-export * from "./pack/index.js";
-
-// Refs handling
-export * from "./refs/index.js";
-
+export * from "./git-commit-storage.js";
+export * from "./git-file-tree-storage.js";
+export * from "./git-object-storage.js";
 // Main storage implementations
 export * from "./git-storage.js";
-export * from "./git-object-storage.js";
-export * from "./git-file-tree-storage.js";
-export * from "./git-commit-storage.js";
 export * from "./git-tag-storage.js";
+// Loose object handling
+export * from "./loose/index.js";
+// Pack file handling
+export * from "./pack/index.js";
+// Refs handling
+export * from "./refs/index.js";
+// Utility functions
+export * from "./utils/index.js";

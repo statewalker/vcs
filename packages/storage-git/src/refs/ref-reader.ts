@@ -12,16 +12,16 @@ import type { ObjectId } from "@webrun-vcs/storage";
 import type { FileApi } from "../file-api/index.js";
 import { findPackedRef, readPackedRefs } from "./packed-refs-reader.js";
 import {
-  type Ref,
-  type SymbolicRef,
-  RefStorage,
-  SYMREF_PREFIX,
-  OBJECT_ID_STRING_LENGTH,
-  R_REFS,
-  HEAD,
   createRef,
   createSymbolicRef,
+  HEAD,
   isSymbolicRef,
+  OBJECT_ID_STRING_LENGTH,
+  R_REFS,
+  type Ref,
+  RefStorage,
+  SYMREF_PREFIX,
+  type SymbolicRef,
 } from "./ref-types.js";
 
 /** Maximum depth for resolving symbolic refs */
@@ -86,10 +86,7 @@ export async function readLooseRef(
  * @param content File content as bytes
  * @returns Parsed ref or symbolic ref
  */
-export function parseRefContent(
-  refName: string,
-  content: Uint8Array,
-): Ref | SymbolicRef {
+export function parseRefContent(refName: string, content: Uint8Array): Ref | SymbolicRef {
   // Check for symbolic ref (starts with "ref: ")
   if (isSymbolicRefContent(content)) {
     // Decode and extract target
@@ -218,7 +215,7 @@ async function readLooseRefsRecursive(
 
   for (const entry of entries) {
     const entryPath = files.join(prefix, entry.name);
-    const fullPath = files.join(gitDir, entryPath);
+    const _fullPath = files.join(gitDir, entryPath);
 
     try {
       if (entry.isDirectory) {

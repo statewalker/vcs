@@ -8,8 +8,8 @@
 
 import type { AnnotatedTag, ObjectId, TagStorage } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
-import type { GitObjectStorage } from "./git-object-storage.js";
 import { parseTag, serializeTag } from "./format/tag-format.js";
+import type { GitObjectStorage } from "./git-object-storage.js";
 
 /**
  * Git tag storage implementation

@@ -5,6 +5,6 @@
  * for efficient storage of multiple objects.
  */
 
-export * from "./types.js";
 export * from "./pack-index-reader.js";
 export * from "./pack-reader.js";
+export * from "./types.js";

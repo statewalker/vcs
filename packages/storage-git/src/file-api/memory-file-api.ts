@@ -122,13 +122,19 @@ export class MemoryFileApi implements FileApi {
 
     // Remove from old location
     const oldSegments = this.parsePath(oldPath);
-    const oldName = oldSegments.pop()!;
+    const oldName = oldSegments.pop();
+    if (!oldName) {
+      throw createError("EINVAL", `Invalid source path: ${oldPath}`);
+    }
     const oldParent = this.getNode(oldSegments.join("/")) as MemoryDir;
     oldParent.children.delete(oldName);
 
     // Add to new location
     const newSegments = this.parsePath(newPath);
-    const newName = newSegments.pop()!;
+    const newName = newSegments.pop();
+    if (!newName) {
+      throw createError("EINVAL", `Invalid destination path: ${newPath}`);
+    }
     const newParent = this.getOrCreateDir(newSegments);
     newParent.children.set(newName, node);
   }
@@ -250,11 +256,7 @@ export class MemoryFileApi implements FileApi {
     return result;
   }
 
-  private collectFiles(
-    node: MemoryDir,
-    prefix: string,
-    result: Map<string, Uint8Array>,
-  ): void {
+  private collectFiles(node: MemoryDir, prefix: string, result: Map<string, Uint8Array>): void {
     for (const [name, child] of node.children) {
       const path = prefix ? `${prefix}/${name}` : name;
       if (child.type === "file") {

@@ -2,53 +2,42 @@
  * Tests for Git refs handling
  */
 
-import { describe, expect, it, beforeEach } from "vitest";
+import type { ObjectId } from "@webrun-vcs/storage";
+import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryFileApi } from "../../src/file-api/memory-file-api.js";
 import {
-  readRef,
-  resolveRef,
-  readAllRefs,
-  hasLooseRef,
-  parseRefContent,
-} from "../../src/refs/ref-reader.js";
-import {
-  writeRef,
-  writeObjectRef,
-  writeSymbolicRef,
-  deleteRef,
-  createRefsStructure,
-} from "../../src/refs/ref-writer.js";
-import {
-  readPackedRefs,
-  parsePackedRefs,
   findPackedRef,
+  parsePackedRefs,
+  readPackedRefs,
 } from "../../src/refs/packed-refs-reader.js";
 import {
-  writePackedRefs,
-  formatPackedRefs,
   addPackedRef,
+  formatPackedRefs,
   removePackedRef,
+  writePackedRefs,
 } from "../../src/refs/packed-refs-writer.js";
 import {
   createRefDirectory,
   isValidRefName,
   shortenRefName,
 } from "../../src/refs/ref-directory.js";
+import { parseRefContent, readAllRefs, readRef, resolveRef } from "../../src/refs/ref-reader.js";
 import {
-  type Ref,
-  type SymbolicRef,
-  RefStorage,
-  createRef,
   createPeeledRef,
   createPeeledTagRef,
+  createRef,
   createSymbolicRef,
   isSymbolicRef,
-  SYMREF_PREFIX,
-  HEAD,
-  R_HEADS,
-  R_TAGS,
+  type Ref,
+  RefStorage,
+  type SymbolicRef,
 } from "../../src/refs/ref-types.js";
-import type { ObjectId } from "@webrun-vcs/storage";
+import {
+  createRefsStructure,
+  deleteRef,
+  writeObjectRef,
+  writeSymbolicRef,
+} from "../../src/refs/ref-writer.js";
 
 // 40-character hex strings for testing (proper SHA-1 length)
 const ID1 = "1234567890abcdef1234567890abcdef12345678" as ObjectId;
@@ -110,7 +99,8 @@ describe("refs", () => {
       const ref = await readRef(files, gitDir, "refs/heads/main");
 
       expect(ref).toBeDefined();
-      expect(isSymbolicRef(ref!)).toBe(false);
+      if (!ref) return;
+      expect(isSymbolicRef(ref)).toBe(false);
       expect((ref as Ref).objectId).toBe(ID1);
     });
 
@@ -123,7 +113,8 @@ describe("refs", () => {
       const ref = await readRef(files, gitDir, "HEAD");
 
       expect(ref).toBeDefined();
-      expect(isSymbolicRef(ref!)).toBe(true);
+      if (!ref) return;
+      expect(isSymbolicRef(ref)).toBe(true);
       expect((ref as SymbolicRef).target).toBe("refs/heads/main");
     });
 
@@ -145,7 +136,7 @@ describe("refs", () => {
       const resolved = await resolveRef(files, gitDir, "HEAD");
 
       expect(resolved).toBeDefined();
-      expect(resolved!.objectId).toBe(ID1);
+      expect(resolved?.objectId).toBe(ID1);
     });
 
     it("reads all refs", async () => {
@@ -199,9 +190,7 @@ describe("refs", () => {
     it("writes regular ref", async () => {
       await writeObjectRef(files, gitDir, "refs/heads/main", ID1);
 
-      const content = await files.readFile(
-        files.join(gitDir, "refs/heads/main"),
-      );
+      const content = await files.readFile(files.join(gitDir, "refs/heads/main"));
       expect(new TextDecoder().decode(content).trim()).toBe(ID1);
     });
 
@@ -209,22 +198,13 @@ describe("refs", () => {
       await writeSymbolicRef(files, gitDir, "HEAD", "refs/heads/main");
 
       const content = await files.readFile(files.join(gitDir, "HEAD"));
-      expect(new TextDecoder().decode(content).trim()).toBe(
-        "ref: refs/heads/main",
-      );
+      expect(new TextDecoder().decode(content).trim()).toBe("ref: refs/heads/main");
     });
 
     it("creates parent directories", async () => {
-      await writeObjectRef(
-        files,
-        gitDir,
-        "refs/heads/feature/my-feature",
-        ID1,
-      );
+      await writeObjectRef(files, gitDir, "refs/heads/feature/my-feature", ID1);
 
-      const exists = await files.exists(
-        files.join(gitDir, "refs/heads/feature"),
-      );
+      const exists = await files.exists(files.join(gitDir, "refs/heads/feature"));
       expect(exists).toBe(true);
     });
 
@@ -234,9 +214,7 @@ describe("refs", () => {
       const deleted = await deleteRef(files, gitDir, "refs/heads/to-delete");
 
       expect(deleted).toBe(true);
-      const exists = await files.exists(
-        files.join(gitDir, "refs/heads/to-delete"),
-      );
+      const exists = await files.exists(files.join(gitDir, "refs/heads/to-delete"));
       expect(exists).toBe(false);
     });
 
@@ -279,10 +257,7 @@ describe("refs", () => {
 
     it("reads packed-refs from file", async () => {
       const content = `${ID1} refs/heads/main\n`;
-      await files.writeFile(
-        files.join(gitDir, "packed-refs"),
-        new TextEncoder().encode(content),
-      );
+      await files.writeFile(files.join(gitDir, "packed-refs"), new TextEncoder().encode(content));
 
       const { refs } = await readPackedRefs(files, gitDir);
 
@@ -297,23 +272,18 @@ describe("refs", () => {
 
     it("finds specific packed ref", async () => {
       const content = `${ID1} refs/heads/main\n${ID2} refs/heads/develop\n`;
-      await files.writeFile(
-        files.join(gitDir, "packed-refs"),
-        new TextEncoder().encode(content),
-      );
+      await files.writeFile(files.join(gitDir, "packed-refs"), new TextEncoder().encode(content));
 
       const ref = await findPackedRef(files, gitDir, "refs/heads/develop");
 
       expect(ref).toBeDefined();
-      expect(ref!.objectId).toBe(ID2);
+      expect(ref?.objectId).toBe(ID2);
     });
   });
 
   describe("packed-refs-writer", () => {
     it("formats packed-refs with header", () => {
-      const refs: Ref[] = [
-        createPeeledRef("refs/heads/main", ID1, RefStorage.PACKED),
-      ];
+      const refs: Ref[] = [createPeeledRef("refs/heads/main", ID1, RefStorage.PACKED)];
 
       const content = formatPackedRefs(refs, true);
 
@@ -322,9 +292,7 @@ describe("refs", () => {
     });
 
     it("formats peeled tags correctly", () => {
-      const refs: Ref[] = [
-        createPeeledTagRef("refs/tags/v1.0", ID1, ID2, RefStorage.PACKED),
-      ];
+      const refs: Ref[] = [createPeeledTagRef("refs/tags/v1.0", ID1, ID2, RefStorage.PACKED)];
 
       const content = formatPackedRefs(refs, true);
 
@@ -333,9 +301,7 @@ describe("refs", () => {
     });
 
     it("writes packed-refs file", async () => {
-      const refs: Ref[] = [
-        createPeeledRef("refs/heads/main", ID1, RefStorage.PACKED),
-      ];
+      const refs: Ref[] = [createPeeledRef("refs/heads/main", ID1, RefStorage.PACKED)];
 
       await writePackedRefs(files, gitDir, refs);
 
@@ -345,10 +311,7 @@ describe("refs", () => {
 
     it("adds ref to packed-refs", async () => {
       const content = `# pack-refs with: peeled\n${ID1} refs/heads/main\n`;
-      await files.writeFile(
-        files.join(gitDir, "packed-refs"),
-        new TextEncoder().encode(content),
-      );
+      await files.writeFile(files.join(gitDir, "packed-refs"), new TextEncoder().encode(content));
 
       const newRef = createPeeledRef("refs/heads/develop", ID2, RefStorage.PACKED);
 
@@ -362,10 +325,7 @@ describe("refs", () => {
 
     it("removes ref from packed-refs", async () => {
       const content = `# pack-refs with: peeled\n${ID1} refs/heads/main\n${ID2} refs/heads/develop\n`;
-      await files.writeFile(
-        files.join(gitDir, "packed-refs"),
-        new TextEncoder().encode(content),
-      );
+      await files.writeFile(files.join(gitDir, "packed-refs"), new TextEncoder().encode(content));
 
       const removed = await removePackedRef(files, gitDir, "refs/heads/main");
 
@@ -404,7 +364,7 @@ describe("refs", () => {
       const resolved = await refDir.resolve("HEAD");
 
       expect(resolved).toBeDefined();
-      expect(resolved!.objectId).toBe(ID1);
+      expect(resolved?.objectId).toBe(ID1);
     });
 
     it("gets current branch", async () => {
@@ -420,10 +380,7 @@ describe("refs", () => {
     });
 
     it("returns undefined for detached HEAD", async () => {
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
-        new TextEncoder().encode(`${ID1}\n`),
-      );
+      await files.writeFile(files.join(gitDir, "HEAD"), new TextEncoder().encode(`${ID1}\n`));
 
       const refDir = createRefDirectory(files, gitDir);
       const branch = await refDir.getCurrentBranch();
@@ -465,7 +422,8 @@ describe("refs", () => {
 
       const head = await refDir.getHead();
       expect(head).toBeDefined();
-      expect(isSymbolicRef(head!)).toBe(true);
+      if (!head) return;
+      expect(isSymbolicRef(head)).toBe(true);
       expect((head as SymbolicRef).target).toBe("refs/heads/main");
     });
 
@@ -475,7 +433,8 @@ describe("refs", () => {
 
       const head = await refDir.getHead();
       expect(head).toBeDefined();
-      expect(isSymbolicRef(head!)).toBe(false);
+      if (!head) return;
+      expect(isSymbolicRef(head)).toBe(false);
       expect((head as Ref).objectId).toBe(ID1);
     });
 

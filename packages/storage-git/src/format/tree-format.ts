@@ -52,7 +52,7 @@ function bytesToHex(bytes: Uint8Array): string {
  */
 function encodeMode(mode: number): Uint8Array {
   // Convert to octal string, removing leading zeros
-  let octal = mode.toString(8);
+  const octal = mode.toString(8);
 
   // Trees are special - they use 40000 (with leading zero preserved in certain contexts)
   // but actually Git normalizes to no leading zeros

@@ -55,12 +55,7 @@ export interface FileHandle {
    * @param position Position in file to read from
    * @returns Number of bytes actually read
    */
-  read(
-    buffer: Uint8Array,
-    offset: number,
-    length: number,
-    position: number,
-  ): Promise<number>;
+  read(buffer: Uint8Array, offset: number, length: number, position: number): Promise<number>;
 
   /**
    * Close the file handle

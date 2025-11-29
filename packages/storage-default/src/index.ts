@@ -5,20 +5,16 @@
  * content-addressable object storage with delta compression.
  */
 
-// Type definitions
-export * from "./types.js";
-
-// Repository interfaces
-export * from "./object-repository.js";
-export * from "./delta-repository.js";
-export * from "./metadata-repository.js";
-
-// Utility classes
-export * from "./lru-cache.js";
-export * from "./intermediate-cache.js";
-
 // Default implementation
 export * from "./default-object-storage.js";
-
+export * from "./delta-repository.js";
+export * from "./intermediate-cache.js";
+// Utility classes
+export * from "./lru-cache.js";
+export * from "./metadata-repository.js";
+// Repository interfaces
+export * from "./object-repository.js";
 // Test suites for repository implementations
 export * from "./test-suites/index.js";
+// Type definitions
+export * from "./types.js";

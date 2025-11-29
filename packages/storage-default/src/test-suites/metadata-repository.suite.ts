@@ -2,7 +2,7 @@
  * Parametrized test suite for MetadataRepository implementations
  */
 
-import { describe, beforeEach, afterEach, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MetadataRepository } from "../index.js";
 
 /**
@@ -16,8 +16,7 @@ export interface MetadataRepositoryTestContext {
 /**
  * Factory function to create a repository instance for testing
  */
-export type MetadataRepositoryFactory =
-  () => Promise<MetadataRepositoryTestContext>;
+export type MetadataRepositoryFactory = () => Promise<MetadataRepositoryTestContext>;
 
 /**
  * Create the MetadataRepository test suite with a specific factory

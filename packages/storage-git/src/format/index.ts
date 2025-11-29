@@ -8,8 +8,8 @@
  * - Tags (annotated tags)
  */
 
-export * from "./object-header.js";
-export * from "./tree-format.js";
 export * from "./commit-format.js";
-export * from "./tag-format.js";
+export * from "./object-header.js";
 export * from "./person-ident.js";
+export * from "./tag-format.js";
+export * from "./tree-format.js";

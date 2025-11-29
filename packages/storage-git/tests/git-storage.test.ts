@@ -7,11 +7,11 @@
  * - Reference management
  */
 
-import { getDefaultCompressionProvider, type CompressionProvider } from "@webrun-vcs/common";
-import { FileMode, ObjectType, type ObjectId } from "@webrun-vcs/storage";
+import { type CompressionProvider, getDefaultCompressionProvider } from "@webrun-vcs/common";
+import { FileMode, type ObjectId, ObjectType } from "@webrun-vcs/storage";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryFileApi } from "../src/file-api/memory-file-api.js";
-import { GitStorage, createGitStorage } from "../src/git-storage.js";
+import { createGitStorage, GitStorage } from "../src/git-storage.js";
 
 describe("GitStorage", () => {
   let files: MemoryFileApi;
@@ -216,7 +216,7 @@ describe("GitStorage", () => {
 
       const entry = await storage.trees.getEntry(treeId, "target.txt");
       expect(entry).toBeDefined();
-      expect(entry!.name).toBe("target.txt");
+      expect(entry?.name).toBe("target.txt");
 
       const missing = await storage.trees.getEntry(treeId, "missing.txt");
       expect(missing).toBeUndefined();
@@ -436,7 +436,7 @@ describe("GitStorage", () => {
       // Read branch
       const mainRef = await storage.refs.exactRef("refs/heads/main");
       expect(mainRef).toBeDefined();
-      expect(mainRef!.objectId).toBe(commitId);
+      expect(mainRef?.objectId).toBe(commitId);
 
       // List branches
       const branches = await storage.refs.getBranches();
@@ -472,7 +472,7 @@ describe("GitStorage", () => {
       // HEAD should resolve to same commit
       const resolved = await storage.refs.resolve("HEAD");
       expect(resolved).toBeDefined();
-      expect(resolved!.objectId).toBe(commitId);
+      expect(resolved?.objectId).toBe(commitId);
 
       // Current branch should be main
       expect(await storage.getCurrentBranch()).toBe("main");

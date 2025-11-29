@@ -58,10 +58,7 @@ export async function ensureDir(files: FileApi, path: string): Promise<void> {
  * @param path File path
  * @returns File content or undefined
  */
-export async function tryReadFile(
-  files: FileApi,
-  path: string,
-): Promise<Uint8Array | undefined> {
+export async function tryReadFile(files: FileApi, path: string): Promise<Uint8Array | undefined> {
   try {
     return await files.readFile(path);
   } catch (error) {
@@ -89,10 +86,7 @@ export function isNotFoundError(error: unknown): boolean {
  * @param path Directory path
  * @yields Relative paths of all files
  */
-export async function* listFilesRecursive(
-  files: FileApi,
-  path: string,
-): AsyncGenerator<string> {
+export async function* listFilesRecursive(files: FileApi, path: string): AsyncGenerator<string> {
   const entries = await files.readdir(path);
 
   for (const entry of entries) {

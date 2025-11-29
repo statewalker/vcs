@@ -15,15 +15,15 @@
 import type { ObjectId } from "@webrun-vcs/storage";
 import type { FileApi } from "../file-api/index.js";
 import {
-  type Ref,
-  RefStorage,
+  createPeeledRef,
+  createPeeledTagRef,
+  createRef,
   OBJECT_ID_STRING_LENGTH,
   PACKED_REFS,
   PACKED_REFS_HEADER,
   PACKED_REFS_PEELED,
-  createPeeledRef,
-  createPeeledTagRef,
-  createRef,
+  type Ref,
+  RefStorage,
 } from "./ref-types.js";
 
 /**
@@ -43,10 +43,7 @@ export interface PackedRefs {
  * @param gitDir Path to .git directory
  * @returns Parsed refs and metadata
  */
-export async function readPackedRefs(
-  files: FileApi,
-  gitDir: string,
-): Promise<PackedRefs> {
+export async function readPackedRefs(files: FileApi, gitDir: string): Promise<PackedRefs> {
   const packedRefsPath = files.join(gitDir, PACKED_REFS);
 
   let content: string;
@@ -96,12 +93,15 @@ export function parsePackedRefs(content: string): PackedRefs {
       if (lastRef === undefined) {
         throw new Error("Peeled line before ref in packed-refs");
       }
+      if (lastRef.objectId === undefined) {
+        throw new Error("Peeled line for ref without objectId");
+      }
 
       const peeledId = line.substring(1).trim().toLowerCase() as ObjectId;
       // Replace the last ref with a peeled tag version
       refs[refs.length - 1] = createPeeledTagRef(
         lastRef.name,
-        lastRef.objectId!,
+        lastRef.objectId,
         peeledId,
         RefStorage.PACKED,
       );

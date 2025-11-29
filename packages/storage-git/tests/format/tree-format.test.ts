@@ -2,9 +2,9 @@
  * Tests for Git tree format serialization/parsing
  */
 
-import { describe, expect, it } from "vitest";
-import { FileMode } from "@webrun-vcs/storage";
 import type { TreeEntry } from "@webrun-vcs/storage";
+import { FileMode } from "@webrun-vcs/storage";
+import { describe, expect, it } from "vitest";
 import {
   compareTreeEntries,
   EMPTY_TREE_ID,
@@ -40,9 +40,7 @@ describe("tree-format", () => {
     });
 
     it("serializes directory entry", () => {
-      const entries: TreeEntry[] = [
-        { mode: FileMode.TREE, name: "subdir", id: sampleId },
-      ];
+      const entries: TreeEntry[] = [{ mode: FileMode.TREE, name: "subdir", id: sampleId }];
 
       const result = serializeTree(entries);
       const parsed = parseTreeToArray(result);
@@ -63,9 +61,7 @@ describe("tree-format", () => {
     });
 
     it("serializes symlink", () => {
-      const entries: TreeEntry[] = [
-        { mode: FileMode.SYMLINK, name: "link", id: sampleId },
-      ];
+      const entries: TreeEntry[] = [{ mode: FileMode.SYMLINK, name: "link", id: sampleId }];
 
       const result = serializeTree(entries);
       const parsed = parseTreeToArray(result);
@@ -187,9 +183,7 @@ describe("tree-format", () => {
     });
 
     it("returns undefined for missing entry", () => {
-      const entries: TreeEntry[] = [
-        { mode: FileMode.REGULAR_FILE, name: "a.txt", id: sampleId },
-      ];
+      const entries: TreeEntry[] = [{ mode: FileMode.REGULAR_FILE, name: "a.txt", id: sampleId }];
 
       const serialized = serializeTree(entries);
 

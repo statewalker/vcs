@@ -5,16 +5,16 @@
  * All storage implementations must pass these tests.
  */
 
-import { describe, beforeEach, afterEach, it, expect } from "vitest";
 import type { ObjectStorage } from "@webrun-vcs/storage";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  encode,
+  allBytesContent,
+  collectContent,
   decode,
+  encode,
+  patternContent,
   toAsyncIterable,
   toAsyncIterableMulti,
-  collectContent,
-  patternContent,
-  allBytesContent,
 } from "../test-utils.js";
 
 /**
@@ -36,10 +36,7 @@ export type ObjectStorageFactory = () => Promise<ObjectStorageTestContext>;
  * @param name Name of the storage implementation (e.g., "InMemory", "SQLite")
  * @param factory Factory function to create storage instances
  */
-export function createObjectStorageTests(
-  name: string,
-  factory: ObjectStorageFactory,
-): void {
+export function createObjectStorageTests(name: string, factory: ObjectStorageFactory): void {
   describe(`ObjectStorage [${name}]`, () => {
     let ctx: ObjectStorageTestContext;
 
@@ -79,9 +76,7 @@ export function createObjectStorageTests(
       it("checks existence correctly", async () => {
         const id = await ctx.storage.store(toAsyncIterable(encode("Test")));
         expect(await ctx.storage.has(id)).toBe(true);
-        expect(await ctx.storage.has("nonexistent-id-that-does-not-exist")).toBe(
-          false,
-        );
+        expect(await ctx.storage.has("nonexistent-id-that-does-not-exist")).toBe(false);
       });
 
       it("deletes objects", async () => {
@@ -94,9 +89,7 @@ export function createObjectStorageTests(
       });
 
       it("returns false when deleting non-existent object", async () => {
-        const deleted = await ctx.storage.delete(
-          "nonexistent-id-that-does-not-exist",
-        );
+        const deleted = await ctx.storage.delete("nonexistent-id-that-does-not-exist");
         expect(deleted).toBe(false);
       });
     });
@@ -160,9 +153,7 @@ export function createObjectStorageTests(
     describe("Error Handling", () => {
       it("throws on loading non-existent object", async () => {
         await expect(async () => {
-          for await (const _ of ctx.storage.load(
-            "nonexistent-id-that-does-not-exist",
-          )) {
+          for await (const _ of ctx.storage.load("nonexistent-id-that-does-not-exist")) {
             // Should not reach here
           }
         }).rejects.toThrow();
@@ -182,9 +173,7 @@ export function createObjectStorageTests(
       it("handles concurrent stores of different content", async () => {
         const promises = Array(10)
           .fill(null)
-          .map((_, i) =>
-            ctx.storage.store(toAsyncIterable(encode(`Content ${i}`))),
-          );
+          .map((_, i) => ctx.storage.store(toAsyncIterable(encode(`Content ${i}`))));
         const ids = await Promise.all(promises);
 
         // All should be different

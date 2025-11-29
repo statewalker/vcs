@@ -5,9 +5,9 @@
  * Storage implementations that support deltification must pass these tests.
  */
 
-import { describe, beforeEach, afterEach, it, expect } from "vitest";
 import type { DeltaObjectStorage } from "@webrun-vcs/storage";
-import { encode, toAsyncIterable, collectContent, decode } from "../test-utils.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { collectContent, decode, encode, toAsyncIterable } from "../test-utils.js";
 
 /**
  * Context provided by the storage factory
@@ -20,8 +20,7 @@ export interface DeltaObjectStorageTestContext {
 /**
  * Factory function to create a delta storage instance for testing
  */
-export type DeltaObjectStorageFactory =
-  () => Promise<DeltaObjectStorageTestContext>;
+export type DeltaObjectStorageFactory = () => Promise<DeltaObjectStorageTestContext>;
 
 /**
  * Create the DeltaObjectStorage test suite with a specific factory
@@ -203,9 +202,7 @@ export function createDeltaObjectStorageTests(
 
         // Verify each version loads correctly
         for (let i = 0; i < versionIds.length; i++) {
-          const retrieved = await collectContent(
-            ctx.storage.load(versionIds[i]),
-          );
+          const retrieved = await collectContent(ctx.storage.load(versionIds[i]));
           expect(retrieved).toEqual(versions[i]);
         }
       });
