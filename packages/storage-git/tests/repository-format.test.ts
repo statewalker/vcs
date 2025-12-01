@@ -5,24 +5,27 @@
  * Tests repository configuration validation.
  */
 
-import { type CompressionProvider, getDefaultCompressionProvider } from "@webrun-vcs/common";
-import { beforeEach, describe, expect, it } from "vitest";
+import { setCompression } from "@webrun-vcs/common";
+import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryFileApi } from "../src/file-api/memory-file-api.js";
 import { GitStorage } from "../src/git-storage.js";
 
 describe("repository format", () => {
   let files: MemoryFileApi;
-  let compression: CompressionProvider;
   const gitDir = "/repo/.git";
 
-  beforeEach(async () => {
+  beforeAll(() => {
+    setCompression(createNodeCompression());
+  });
+
+  beforeEach(() => {
     files = new MemoryFileApi();
-    compression = await getDefaultCompressionProvider();
   });
 
   describe("repository initialization", () => {
     it("writes repositoryformatversion = 0 in config", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const config = await files.readFile(files.join(gitDir, "config"));
       const configStr = new TextDecoder().decode(config);
@@ -33,7 +36,7 @@ describe("repository format", () => {
     });
 
     it("writes bare = false by default", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const config = await files.readFile(files.join(gitDir, "config"));
       const configStr = new TextDecoder().decode(config);
@@ -44,7 +47,7 @@ describe("repository format", () => {
     });
 
     it("writes bare = true when specified", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, {
+      const storage = await GitStorage.init(files, gitDir, {
         create: true,
         bare: true,
       });
@@ -58,7 +61,7 @@ describe("repository format", () => {
     });
 
     it("writes filemode = true", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const config = await files.readFile(files.join(gitDir, "config"));
       const configStr = new TextDecoder().decode(config);
@@ -69,7 +72,7 @@ describe("repository format", () => {
     });
 
     it("creates config in proper INI format", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const config = await files.readFile(files.join(gitDir, "config"));
       const configStr = new TextDecoder().decode(config);
@@ -87,7 +90,7 @@ describe("repository format", () => {
       await files.mkdir(gitDir);
       await files.mkdir(files.join(gitDir, "objects"));
 
-      await expect(GitStorage.open(files, compression, gitDir)).rejects.toThrow(
+      await expect(GitStorage.open(files, gitDir)).rejects.toThrow(
         /Not a valid git repository/,
       );
     });
@@ -100,7 +103,7 @@ describe("repository format", () => {
         new TextEncoder().encode("ref: refs/heads/main\n"),
       );
 
-      const storage = await GitStorage.open(files, compression, gitDir);
+      const storage = await GitStorage.open(files, gitDir);
       expect(storage).toBeDefined();
 
       await storage.close();
@@ -114,7 +117,7 @@ describe("repository format", () => {
         new TextEncoder().encode(`${"a".repeat(40)}\n`),
       );
 
-      const storage = await GitStorage.open(files, compression, gitDir);
+      const storage = await GitStorage.open(files, gitDir);
       expect(storage).toBeDefined();
 
       await storage.close();
@@ -123,7 +126,7 @@ describe("repository format", () => {
 
   describe("directory structure", () => {
     it("creates objects directory on init", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       expect(await files.exists(files.join(gitDir, "objects"))).toBe(true);
 
@@ -131,7 +134,7 @@ describe("repository format", () => {
     });
 
     it("creates objects/pack directory on init", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       expect(await files.exists(files.join(gitDir, "objects", "pack"))).toBe(true);
 
@@ -139,7 +142,7 @@ describe("repository format", () => {
     });
 
     it("creates refs directory structure on init", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       expect(await files.exists(files.join(gitDir, "refs"))).toBe(true);
       expect(await files.exists(files.join(gitDir, "refs", "heads"))).toBe(true);
@@ -152,7 +155,7 @@ describe("repository format", () => {
   describe("re-opening repository", () => {
     it("preserves objects after re-opening", async () => {
       // Create and store
-      const storage1 = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage1 = await GitStorage.init(files, gitDir, { create: true });
       const id = await storage1.objects.store(
         (async function* () {
           yield new TextEncoder().encode("test content");
@@ -161,7 +164,7 @@ describe("repository format", () => {
       await storage1.close();
 
       // Re-open and verify
-      const storage2 = await GitStorage.open(files, compression, gitDir);
+      const storage2 = await GitStorage.open(files, gitDir);
       expect(await storage2.objects.has(id)).toBe(true);
 
       await storage2.close();
@@ -169,7 +172,7 @@ describe("repository format", () => {
 
     it("preserves refs after re-opening", async () => {
       // Create and store
-      const storage1 = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage1 = await GitStorage.init(files, gitDir, { create: true });
       const person = {
         name: "A",
         email: "a@b.com",
@@ -187,7 +190,7 @@ describe("repository format", () => {
       await storage1.close();
 
       // Re-open and verify
-      const storage2 = await GitStorage.open(files, compression, gitDir);
+      const storage2 = await GitStorage.open(files, gitDir);
       const mainRef = await storage2.refs.exactRef("refs/heads/main");
       expect(mainRef?.objectId).toBe(commitId);
 
@@ -196,7 +199,7 @@ describe("repository format", () => {
 
     it("detects newly added pack files after refresh", async () => {
       // Create repository
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Store object as loose
       const id = await storage.objects.store(
@@ -220,13 +223,13 @@ describe("repository format", () => {
 
   describe("init vs open semantics", () => {
     it("init with create=false throws on missing repo", async () => {
-      await expect(GitStorage.init(files, compression, gitDir, { create: false })).rejects.toThrow(
+      await expect(GitStorage.init(files, gitDir, { create: false })).rejects.toThrow(
         /Not a valid git repository/,
       );
     });
 
     it("init with create=true creates new repo", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       expect(await files.exists(gitDir)).toBe(true);
       expect(await files.exists(files.join(gitDir, "HEAD"))).toBe(true);
@@ -236,7 +239,7 @@ describe("repository format", () => {
 
     it("init on existing repo returns storage without re-creating", async () => {
       // Create first
-      const storage1 = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage1 = await GitStorage.init(files, gitDir, { create: true });
       const person = {
         name: "A",
         email: "a@b.com",
@@ -254,7 +257,7 @@ describe("repository format", () => {
       await storage1.close();
 
       // Init again should open, not overwrite
-      const storage2 = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage2 = await GitStorage.init(files, gitDir, { create: true });
       const mainRef = await storage2.refs.exactRef("refs/heads/main");
       expect(mainRef?.objectId).toBe(commitId);
 

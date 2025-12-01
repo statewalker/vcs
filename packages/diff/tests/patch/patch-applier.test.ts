@@ -1,3 +1,4 @@
+import { compressBlock } from "@webrun-vcs/common";
 import { describe, expect, it } from "vitest";
 import {
   BinaryComparator,
@@ -6,7 +7,6 @@ import {
   encodeGitBase85,
   encodeGitBinaryDelta,
   MyersDiff,
-  NodeCompressionProvider,
   Patch,
   PatchApplier,
   PatchType,
@@ -14,7 +14,7 @@ import {
 
 describe("PatchApplier", () => {
   describe("Basic operations", () => {
-    it("should apply simple modification", () => {
+    it("should apply simple modification", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -33,7 +33,7 @@ index abc123..def456 100644
       expect(patch.getFiles()).toHaveLength(1);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -43,7 +43,7 @@ index abc123..def456 100644
       expect(newContentStr).toBe("line 1\nline 2 modified\nline 3\n");
     });
 
-    it("should apply ADD operation", () => {
+    it("should apply ADD operation", async () => {
       const patchText = `diff --git a/newfile.txt b/newfile.txt
 new file mode 100644
 index 0000000..abc123
@@ -60,7 +60,7 @@ index 0000000..abc123
       expect(patch.getFiles()[0].changeType).toBe(ChangeType.ADD);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], null);
+      const result = await applier.apply(patch.getFiles()[0], null);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -70,7 +70,7 @@ index 0000000..abc123
       expect(newContentStr).toBe("new line 1\nnew line 2\n");
     });
 
-    it("should apply DELETE operation", () => {
+    it("should apply DELETE operation", async () => {
       const patchText = `diff --git a/oldfile.txt b/oldfile.txt
 deleted file mode 100644
 index abc123..0000000
@@ -89,14 +89,14 @@ index abc123..0000000
       expect(patch.getFiles()[0].changeType).toBe(ChangeType.DELETE);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
       expect(result.content).toBeNull();
     });
 
-    it("should handle multiple hunks", () => {
+    it("should handle multiple hunks", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -123,7 +123,7 @@ index abc123..def456 100644
       expect(patch.getFiles()[0].hunks).toHaveLength(2);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -135,7 +135,7 @@ index abc123..def456 100644
       );
     });
 
-    it("should handle additions and deletions", () => {
+    it("should handle additions and deletions", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -154,7 +154,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -166,7 +166,7 @@ index abc123..def456 100644
   });
 
   describe("Fuzzy matching", () => {
-    it("should apply hunk with shifted position (backward)", () => {
+    it("should apply hunk with shifted position (backward)", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -186,7 +186,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier({ maxFuzz: 10 });
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.warnings.length).toBeGreaterThan(0); // Should warn about shift
@@ -196,7 +196,7 @@ index abc123..def456 100644
       expect(newContentStr).toBe("extra 1\nextra 2\ncontext line\nnew line\nmore context\n");
     });
 
-    it("should apply hunk with shifted position (forward)", () => {
+    it("should apply hunk with shifted position (forward)", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -216,7 +216,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier({ maxFuzz: 10 });
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -225,7 +225,7 @@ index abc123..def456 100644
       expect(newContentStr).toBe("context line\nnew line\nmore context\n");
     });
 
-    it("should fail when fuzzy matching fails", () => {
+    it("should fail when fuzzy matching fails", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -245,13 +245,13 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier({ maxFuzz: 10 });
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
     });
 
-    it("should respect maxFuzz limit", () => {
+    it("should respect maxFuzz limit", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -270,7 +270,7 @@ index abc123..def456 100644
 
       // With maxFuzz=5, can't shift from line 100 to line 1
       const applier = new PatchApplier({ maxFuzz: 5 });
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -278,7 +278,7 @@ index abc123..def456 100644
   });
 
   describe("Edge cases", () => {
-    it("should handle empty file", () => {
+    it("should handle empty file", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index 0000000..abc123 100644
 --- a/file.txt
@@ -292,7 +292,7 @@ index 0000000..abc123 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -301,7 +301,7 @@ index 0000000..abc123 100644
       expect(newContentStr).toBe("first line\n");
     });
 
-    it("should handle CRLF line endings", () => {
+    it("should handle CRLF line endings", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -317,7 +317,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -326,7 +326,7 @@ index abc123..def456 100644
       expect(newContentStr).toBe("line 1\r\nline 2 modified\r\n");
     });
 
-    it("should handle file without trailing newline", () => {
+    it("should handle file without trailing newline", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -343,7 +343,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -355,7 +355,7 @@ index abc123..def456 100644
   });
 
   describe("Error handling", () => {
-    it("should error on MODIFY without old content", () => {
+    it("should error on MODIFY without old content", async () => {
       const patchText = `diff --git a/file.txt b/file.txt
 index abc123..def456 100644
 --- a/file.txt
@@ -368,19 +368,20 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], null);
+      const result = await applier.apply(patch.getFiles()[0], null);
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors[0]).toContain("old content is null");
     });
 
-    it("should fail binary patches without compression provider", () => {
+    it("should fail binary patches with invalid base85 data", async () => {
+      // Using characters not in base85 alphabet: space, comma, slash are invalid
       const patchText = `diff --git a/binary.dat b/binary.dat
 index abc123..def456 100644
 GIT binary patch
 literal 14
-ScmZp0Xmwa1z*+$U3j_csN(Dmz
+S invalid,data/here[test]
 
 `;
       const oldContent = new Uint8Array([1, 2, 3, 4]);
@@ -391,12 +392,11 @@ ScmZp0Xmwa1z*+$U3j_csN(Dmz
       expect(patch.getFiles()[0].patchType).toBe(PatchType.GIT_BINARY);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
-      // Binary patches require a compression provider for synchronous operation
+      // Invalid base85 characters should cause decompression/decode failure
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
-      expect(result.errors[0]).toContain("compression provider");
     });
   });
 
@@ -406,8 +406,7 @@ ScmZp0Xmwa1z*+$U3j_csN(Dmz
       const newContent = new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f]); // "Hello"
 
       // Compress the content
-      const provider = new NodeCompressionProvider();
-      const compressed = await provider.compress(newContent);
+      const compressed = await compressBlock(newContent, { raw: false });
 
       // Encode as base85 (returns Uint8Array with newlines)
       const base85Bytes = encodeGitBase85(compressed);
@@ -428,8 +427,8 @@ ${base85String}
       expect(patch.getFiles()[0].patchType).toBe(PatchType.GIT_BINARY);
 
       // Apply with compression provider (sync)
-      const applier = new PatchApplier({ compressionProvider: provider });
-      const result = applier.apply(patch.getFiles()[0], null);
+      const applier = new PatchApplier({});
+      const result = await applier.apply(patch.getFiles()[0], null);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -442,8 +441,7 @@ ${base85String}
       const newContent = new Uint8Array([0x57, 0x6f, 0x72, 0x6c, 0x64]); // "World"
 
       // Compress the content
-      const provider = new NodeCompressionProvider();
-      const compressed = await provider.compress(newContent);
+      const compressed = await compressBlock(newContent, { raw: false });
 
       // Encode as base85 (returns Uint8Array with newlines)
       const base85Bytes = encodeGitBase85(compressed);
@@ -464,8 +462,8 @@ ${base85String}
       expect(patch.getFiles()[0].patchType).toBe(PatchType.GIT_BINARY);
 
       // Apply with compression provider (async)
-      const applier = new PatchApplier({ compressionProvider: provider });
-      const result = await applier.applyAsync(patch.getFiles()[0], null);
+      const applier = new PatchApplier({});
+      const result = await applier.apply(patch.getFiles()[0], null);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -489,8 +487,7 @@ ${base85String}
       const delta = encodeGitBinaryDelta(baseContent, targetContent, editList);
 
       // Compress the delta
-      const provider = new NodeCompressionProvider();
-      const compressed = await provider.compress(delta);
+      const compressed = await compressBlock(delta, { raw: false });
 
       // Encode as base85 (returns Uint8Array with newlines)
       const base85Bytes = encodeGitBase85(compressed);
@@ -510,8 +507,8 @@ ${base85String}
       expect(patch.getFiles()[0].patchType).toBe(PatchType.GIT_BINARY);
 
       // Apply with compression provider
-      const applier = new PatchApplier({ compressionProvider: provider });
-      const result = await applier.applyAsync(patch.getFiles()[0], baseContent);
+      const applier = new PatchApplier({});
+      const result = await applier.apply(patch.getFiles()[0], baseContent);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -527,8 +524,7 @@ ${base85String}
       }
 
       // Compress the content
-      const provider = new NodeCompressionProvider();
-      const compressed = await provider.compress(newContent);
+      const compressed = await compressBlock(newContent, { raw: false });
 
       // Encode as base85 (returns Uint8Array with newlines)
       const base85Bytes = encodeGitBase85(compressed);
@@ -547,8 +543,8 @@ ${base85String}
       patch.parse(new TextEncoder().encode(patchText));
 
       // Apply with compression provider
-      const applier = new PatchApplier({ compressionProvider: provider });
-      const result = await applier.applyAsync(patch.getFiles()[0], null);
+      const applier = new PatchApplier({});
+      const result = await applier.apply(patch.getFiles()[0], null);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -559,8 +555,7 @@ ${base85String}
     it("should validate decompressed size matches expected size", async () => {
       // Create binary content
       const actualContent = new Uint8Array([0x01, 0x02, 0x03]);
-      const provider = new NodeCompressionProvider();
-      const compressed = await provider.compress(actualContent);
+      const compressed = await compressBlock(actualContent, { raw: false });
       const base85Bytes = encodeGitBase85(compressed);
       const base85String = new TextDecoder().decode(base85Bytes);
 
@@ -576,8 +571,8 @@ ${base85String}
       const patch = new Patch();
       patch.parse(new TextEncoder().encode(patchText));
 
-      const applier = new PatchApplier({ compressionProvider: provider });
-      const result = await applier.applyAsync(patch.getFiles()[0], null);
+      const applier = new PatchApplier({});
+      const result = await applier.apply(patch.getFiles()[0], null);
 
       expect(result.success).toBe(true);
       expect(result.warnings.length).toBeGreaterThan(0);
@@ -601,9 +596,8 @@ ${base85String}
       const patch = new Patch();
       patch.parse(new TextEncoder().encode(patchText));
 
-      const provider = new NodeCompressionProvider();
-      const applier = new PatchApplier({ compressionProvider: provider });
-      const result = await applier.applyAsync(patch.getFiles()[0], null);
+      const applier = new PatchApplier({});
+      const result = await applier.apply(patch.getFiles()[0], null);
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);

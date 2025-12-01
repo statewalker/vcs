@@ -6,21 +6,24 @@
  * malformed loose objects.
  */
 
-import { NodeCompressionProvider } from "@webrun-vcs/common";
-import { beforeEach, describe, expect, it } from "vitest";
+import { compressBlock, setCompression } from "@webrun-vcs/common";
+import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryFileApi } from "../../src/file-api/memory-file-api.js";
 import { parseObjectHeader } from "../../src/format/object-header.js";
 import { getLooseObjectPath, readLooseObject } from "../../src/loose/loose-object-reader.js";
 
 describe("corrupt loose objects", () => {
   let files: MemoryFileApi;
-  let compression: NodeCompressionProvider;
   const objectsDir = "objects";
   const fakeId = "0".repeat(40);
 
+  beforeAll(() => {
+    setCompression(createNodeCompression());
+  });
+
   beforeEach(() => {
     files = new MemoryFileApi();
-    compression = new NodeCompressionProvider();
   });
 
   /**
@@ -35,7 +38,7 @@ describe("corrupt loose objects", () => {
     const raw = new Uint8Array(header.length + body.length);
     raw.set(header, 0);
     raw.set(body, header.length);
-    return compression.compress(raw);
+    return compressBlock(raw, { raw: false });
   }
 
   /**
@@ -58,7 +61,7 @@ describe("corrupt loose objects", () => {
       // Header: "blob -1\0"
       await writeCorruptObject(fakeId, "blob -1\0");
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /Invalid object size/,
       );
     });
@@ -67,33 +70,33 @@ describe("corrupt loose objects", () => {
       // Header: "not.a.type 10\0"
       await writeCorruptObject(fakeId, "not.a.type 10\0");
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /Invalid object type/,
       );
     });
 
     it("rejects missing header (empty object)", async () => {
       // Empty compressed data
-      const compressed = await compression.compress(new Uint8Array(0));
+      const compressed = await compressBlock(new Uint8Array(0), { raw: false });
       const path = getLooseObjectPath(objectsDir, fakeId, files);
       const dir = files.dirname(path);
       await files.mkdir(dir, { recursive: true });
       await files.writeFile(path, compressed);
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /no null byte found|Invalid object header/,
       );
     });
 
     it("rejects header without null byte", async () => {
       // Header without null terminator: "blob 10"
-      const compressed = await compression.compress(new TextEncoder().encode("blob 10"));
+      const compressed = await compressBlock(new TextEncoder().encode("blob 10"), { raw: false });
       const path = getLooseObjectPath(objectsDir, fakeId, files);
       const dir = files.dirname(path);
       await files.mkdir(dir, { recursive: true });
       await files.writeFile(path, compressed);
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /no null byte found/,
       );
     });
@@ -102,7 +105,7 @@ describe("corrupt loose objects", () => {
       // Header: "blob10\0"
       await writeCorruptObject(fakeId, "blob10\0");
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /no space found|Invalid/,
       );
     });
@@ -112,7 +115,7 @@ describe("corrupt loose objects", () => {
       // Note: parseInt("1foo", 10) returns 1, so this becomes a size mismatch
       await writeCorruptObject(fakeId, "blob 1foo\0");
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /size mismatch/,
       );
     });
@@ -121,7 +124,7 @@ describe("corrupt loose objects", () => {
       // Header: "blob abc\0"
       await writeCorruptObject(fakeId, "blob abc\0");
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /Invalid object size/,
       );
     });
@@ -133,7 +136,7 @@ describe("corrupt loose objects", () => {
       const body = new TextEncoder().encode("hello");
       await writeCorruptObject(fakeId, "blob 100\0", body);
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /size mismatch/,
       );
     });
@@ -143,7 +146,7 @@ describe("corrupt loose objects", () => {
       const body = new TextEncoder().encode("hello world");
       await writeCorruptObject(fakeId, "blob 3\0", body);
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /size mismatch/,
       );
     });
@@ -152,7 +155,7 @@ describe("corrupt loose objects", () => {
       const body = new TextEncoder().encode("hello");
       await writeCorruptObject(fakeId, "blob 5\0", body);
 
-      const result = await readLooseObject(files, compression, objectsDir, fakeId);
+      const result = await readLooseObject(files, objectsDir, fakeId);
       expect(result.size).toBe(5);
       expect(result.type).toBe("blob");
     });
@@ -177,7 +180,7 @@ describe("corrupt loose objects", () => {
       await files.mkdir(dir, { recursive: true });
       await files.writeFile(path, corruptData);
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow();
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow();
     });
 
     it("rejects truncated zlib stream", async () => {
@@ -195,7 +198,7 @@ describe("corrupt loose objects", () => {
       await files.mkdir(dir, { recursive: true });
       await files.writeFile(path, truncated);
 
-      await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow();
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow();
     });
   });
 
@@ -272,7 +275,7 @@ describe("corrupt loose objects", () => {
         const content = new TextEncoder().encode("test content");
         await writeCorruptObject(fakeId, `${type} ${content.length}\0`, content);
 
-        const result = await readLooseObject(files, compression, objectsDir, fakeId);
+        const result = await readLooseObject(files, objectsDir, fakeId);
         expect(result.type).toBe(type);
         expect(result.typeCode).toBe(typeCode);
         expect(result.size).toBe(content.length);
@@ -282,7 +285,7 @@ describe("corrupt loose objects", () => {
         const content = new TextEncoder().encode("test content");
         await writeCorruptObject(fakeId, `${type} 999\0`, content);
 
-        await expect(readLooseObject(files, compression, objectsDir, fakeId)).rejects.toThrow(
+        await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
           /size mismatch/,
         );
       });
@@ -293,7 +296,7 @@ describe("corrupt loose objects", () => {
     it("handles empty content blob", async () => {
       await writeCorruptObject(fakeId, "blob 0\0", new Uint8Array(0));
 
-      const result = await readLooseObject(files, compression, objectsDir, fakeId);
+      const result = await readLooseObject(files, objectsDir, fakeId);
       expect(result.size).toBe(0);
       expect(result.content.length).toBe(0);
     });
@@ -313,7 +316,7 @@ describe("corrupt loose objects", () => {
       const binaryContent = new Uint8Array([0x00, 0x01, 0x02, 0xff, 0xfe, 0x00, 0x00]);
       await writeCorruptObject(fakeId, `blob ${binaryContent.length}\0`, binaryContent);
 
-      const result = await readLooseObject(files, compression, objectsDir, fakeId);
+      const result = await readLooseObject(files, objectsDir, fakeId);
       expect(result.content).toEqual(binaryContent);
     });
   });

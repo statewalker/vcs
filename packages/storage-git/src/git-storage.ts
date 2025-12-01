@@ -7,7 +7,6 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/Repository.java
  */
 
-import type { CompressionProvider } from "@webrun-vcs/common";
 import type {
   CommitStorage,
   FileTreeStorage,
@@ -76,9 +75,9 @@ export class GitStorage implements GitStorageApi {
   readonly refs: RefDirectory;
   readonly gitDir: string;
 
-  private constructor(files: FileApi, compression: CompressionProvider, gitDir: string) {
+  private constructor(files: FileApi, gitDir: string) {
     this.gitDir = gitDir;
-    this.objects = new GitObjectStorage(files, compression, gitDir);
+    this.objects = new GitObjectStorage(files, gitDir);
     this.trees = new GitFileTreeStorage(this.objects);
     this.commits = new GitCommitStorage(this.objects);
     this.tags = new GitTagStorage(this.objects);
@@ -89,34 +88,27 @@ export class GitStorage implements GitStorageApi {
    * Open an existing Git repository
    *
    * @param files File system API
-   * @param compression Compression provider
    * @param gitDir Path to .git directory
    */
-  static async open(
-    files: FileApi,
-    compression: CompressionProvider,
-    gitDir: string,
-  ): Promise<GitStorage> {
+  static async open(files: FileApi, gitDir: string): Promise<GitStorage> {
     // Verify it's a valid git repository
     const headPath = files.join(gitDir, "HEAD");
     if (!(await files.exists(headPath))) {
       throw new Error(`Not a valid git repository: ${gitDir} (HEAD not found)`);
     }
 
-    return new GitStorage(files, compression, gitDir);
+    return new GitStorage(files, gitDir);
   }
 
   /**
    * Create or open a Git repository
    *
    * @param files File system API
-   * @param compression Compression provider
    * @param gitDir Path to .git directory
    * @param options Creation options
    */
   static async init(
     files: FileApi,
-    compression: CompressionProvider,
     gitDir: string,
     options: GitStorageOptions = {},
   ): Promise<GitStorage> {
@@ -127,7 +119,7 @@ export class GitStorage implements GitStorageApi {
 
     if (exists) {
       // Open existing repository
-      return GitStorage.open(files, compression, gitDir);
+      return GitStorage.open(files, gitDir);
     }
 
     if (!create) {
@@ -151,7 +143,7 @@ export class GitStorage implements GitStorageApi {
 `;
     await files.writeFile(files.join(gitDir, "config"), new TextEncoder().encode(config));
 
-    return new GitStorage(files, compression, gitDir);
+    return new GitStorage(files, gitDir);
   }
 
   /**
@@ -188,18 +180,16 @@ export class GitStorage implements GitStorageApi {
  * Create a Git storage instance
  *
  * @param files File system API
- * @param compression Compression provider
  * @param gitDir Path to .git directory
  * @param options Creation/open options
  */
 export async function createGitStorage(
   files: FileApi,
-  compression: CompressionProvider,
   gitDir: string,
   options: GitStorageOptions = {},
 ): Promise<GitStorage> {
   if (options.create) {
-    return GitStorage.init(files, compression, gitDir, options);
+    return GitStorage.init(files, gitDir, options);
   }
-  return GitStorage.open(files, compression, gitDir);
+  return GitStorage.open(files, gitDir);
 }

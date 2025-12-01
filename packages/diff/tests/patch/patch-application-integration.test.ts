@@ -7,7 +7,7 @@ import { ChangeType, Patch, PatchApplier } from "../../src/index.js";
  */
 describe("Patch Application Integration", () => {
   describe("Simple text patches", () => {
-    it("should apply patch to simple file", () => {
+    it("should apply patch to simple file", async () => {
       const oldContent = new TextEncoder().encode("line 1\nline 2\nline 3\nline 4\nline 5\n");
 
       const patchText = `diff --git a/file.txt b/file.txt
@@ -28,7 +28,7 @@ index abc123..def456 100644
       expect(patch.getFiles()).toHaveLength(1);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -38,7 +38,7 @@ index abc123..def456 100644
       expect(newContent).toBe("line 1\nline 2\nline 3 modified\nline 4\nline 5\n");
     });
 
-    it("should apply patch with multiple modifications", () => {
+    it("should apply patch with multiple modifications", async () => {
       const oldContent = new TextEncoder().encode("a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n");
 
       const patchText = `diff --git a/file.txt b/file.txt
@@ -61,7 +61,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -70,7 +70,7 @@ index abc123..def456 100644
       expect(newContent).toBe("a\nb\nnew line after b\nc\nd\ne\nf\ng\nh\nj\n");
     });
 
-    it("should handle patch with context lines", () => {
+    it("should handle patch with context lines", async () => {
       const oldContent = new TextEncoder().encode(
         "context 1\ncontext 2\nold content\ncontext 3\ncontext 4\n",
       );
@@ -92,7 +92,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -103,7 +103,7 @@ index abc123..def456 100644
   });
 
   describe("Fuzzy matching scenarios", () => {
-    it("should apply patch when file has extra lines at beginning", () => {
+    it("should apply patch when file has extra lines at beginning", async () => {
       // Patch expects line 10, but file has extra 5 lines at start
       const oldContent = new TextEncoder().encode(
         "extra 1\nextra 2\nextra 3\nextra 4\nextra 5\n" +
@@ -125,7 +125,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier({ maxFuzz: 50 });
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.warnings.length).toBeGreaterThan(0); // Should warn about shift
@@ -135,7 +135,7 @@ index abc123..def456 100644
       expect(newContent).toContain("modified target line");
     });
 
-    it("should apply sequential hunks correctly", () => {
+    it("should apply sequential hunks correctly", async () => {
       const oldContent = new TextEncoder().encode(
         "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\n",
       );
@@ -160,7 +160,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -171,7 +171,7 @@ index abc123..def456 100644
       );
     });
 
-    it("should fail when context doesn't match and fuzz limit exceeded", () => {
+    it("should fail when context doesn't match and fuzz limit exceeded", async () => {
       const oldContent = new TextEncoder().encode("completely\ndifferent\ncontent\n");
 
       const patchText = `diff --git a/file.txt b/file.txt
@@ -189,7 +189,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier({ maxFuzz: 10 });
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -197,7 +197,7 @@ index abc123..def456 100644
   });
 
   describe("File operations", () => {
-    it("should create new file from patch", () => {
+    it("should create new file from patch", async () => {
       const patchText = `diff --git a/newfile.txt b/newfile.txt
 new file mode 100644
 index 0000000..abc123
@@ -215,7 +215,7 @@ index 0000000..abc123
       expect(patch.getFiles()[0].changeType).toBe(ChangeType.ADD);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], null);
+      const result = await applier.apply(patch.getFiles()[0], null);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -224,7 +224,7 @@ index 0000000..abc123
       expect(newContent).toBe("First line\nSecond line\nThird line\n");
     });
 
-    it("should delete file", () => {
+    it("should delete file", async () => {
       const oldContent = new TextEncoder().encode("content to delete\n");
 
       const patchText = `diff --git a/oldfile.txt b/oldfile.txt
@@ -242,13 +242,13 @@ index abc123..0000000
       expect(patch.getFiles()[0].changeType).toBe(ChangeType.DELETE);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).toBeNull();
     });
 
-    it("should handle renamed file with modifications", () => {
+    it("should handle renamed file with modifications", async () => {
       const oldContent = new TextEncoder().encode("old content\n");
 
       const patchText = `diff --git a/old.txt b/new.txt
@@ -269,7 +269,7 @@ index abc123..def456 100644
       expect(patch.getFiles()[0].changeType).toBe(ChangeType.RENAME);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -280,7 +280,7 @@ index abc123..def456 100644
   });
 
   describe("Complex scenarios", () => {
-    it("should apply patch to file with no trailing newline", () => {
+    it("should apply patch to file with no trailing newline", async () => {
       const oldContent = new TextEncoder().encode("line 1\nline 2");
 
       const patchText = `diff --git a/file.txt b/file.txt
@@ -298,7 +298,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -307,7 +307,7 @@ index abc123..def456 100644
       expect(newContent).toBe("line 1\nline 2 modified\n");
     });
 
-    it("should handle large file with many hunks", () => {
+    it("should handle large file with many hunks", async () => {
       // Create a file with 100 lines
       const lines = Array.from({ length: 100 }, (_, i) => `line ${i + 1}`);
       const oldContent = new TextEncoder().encode(`${lines.join("\n")}\n`);
@@ -350,7 +350,7 @@ index abc123..def456 100644
       expect(patch.getFiles()[0].hunks).toHaveLength(5);
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -367,7 +367,7 @@ index abc123..def456 100644
       expect(newContent).toContain("line 100\n");
     });
 
-    it("should apply patch with only additions at end of file", () => {
+    it("should apply patch with only additions at end of file", async () => {
       const oldContent = new TextEncoder().encode("existing line 1\nexisting line 2\n");
 
       const patchText = `diff --git a/file.txt b/file.txt
@@ -384,7 +384,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -395,7 +395,7 @@ index abc123..def456 100644
       );
     });
 
-    it("should apply patch with only deletions", () => {
+    it("should apply patch with only deletions", async () => {
       const oldContent = new TextEncoder().encode("line 1\nline 2\nline 3\nline 4\nline 5\n");
 
       const patchText = `diff --git a/file.txt b/file.txt
@@ -414,7 +414,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();
@@ -425,7 +425,7 @@ index abc123..def456 100644
   });
 
   describe("Multi-file patches", () => {
-    it("should apply multi-file patch", () => {
+    it("should apply multi-file patch", async () => {
       const patchText = `diff --git a/file1.txt b/file1.txt
 index abc123..def456 100644
 --- a/file1.txt
@@ -452,13 +452,13 @@ index abc123..def456 100644
 
       const applier = new PatchApplier();
 
-      const result1 = applier.apply(patch.getFiles()[0], file1Content);
+      const result1 = await applier.apply(patch.getFiles()[0], file1Content);
       expect(result1.success).toBe(true);
       expect(result1.content).not.toBeNull();
       const newContent1 = new TextDecoder().decode(result1.content);
       expect(newContent1).toBe("file 1 new\n");
 
-      const result2 = applier.apply(patch.getFiles()[1], file2Content);
+      const result2 = await applier.apply(patch.getFiles()[1], file2Content);
       expect(result2.success).toBe(true);
       expect(result2.content).not.toBeNull();
       const newContent2 = new TextDecoder().decode(result2.content);
@@ -467,7 +467,7 @@ index abc123..def456 100644
   });
 
   describe("Whitespace handling", () => {
-    it("should match lines ignoring trailing whitespace", () => {
+    it("should match lines ignoring trailing whitespace", async () => {
       const oldContent = new TextEncoder().encode("line 1  \nline 2\nline 3\t\n");
 
       const patchText = `diff --git a/file.txt b/file.txt
@@ -485,7 +485,7 @@ index abc123..def456 100644
       patch.parse(new TextEncoder().encode(patchText));
 
       const applier = new PatchApplier();
-      const result = applier.apply(patch.getFiles()[0], oldContent);
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
 
       expect(result.success).toBe(true);
       expect(result.content).not.toBeNull();

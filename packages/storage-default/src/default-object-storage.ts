@@ -6,9 +6,9 @@
  */
 
 import {
-  type CompressionProvider,
   type CryptoProvider,
-  getDefaultCompressionProvider,
+  compressBlock,
+  decompressBlock,
   getDefaultCryptoProvider,
   type HashAlgorithm,
 } from "@webrun-vcs/common";
@@ -51,7 +51,6 @@ export interface ObjectStorageConfig {
  * with transparent delta compression and reconstruction.
  */
 export class DefaultObjectStorage implements DeltaObjectStorage {
-  private compressionProvider: CompressionProvider | null = null;
   private cryptoProvider: CryptoProvider | null = null;
   private readonly hashAlgorithm: HashAlgorithm;
 
@@ -64,16 +63,6 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     config?: ObjectStorageConfig,
   ) {
     this.hashAlgorithm = config?.hashAlgorithm ?? "SHA-256";
-  }
-
-  /**
-   * Get compression provider (lazy initialization)
-   */
-  private async getCompressionProvider(): Promise<CompressionProvider> {
-    if (!this.compressionProvider) {
-      this.compressionProvider = await getDefaultCompressionProvider();
-    }
-    return this.compressionProvider;
   }
 
   /**
@@ -116,9 +105,8 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
       return id;
     }
 
-    // Compress with deflate
-    const compression = await this.getCompressionProvider();
-    const compressed = await compression.compress(content);
+    // Compress with deflate (ZLIB format)
+    const compressed = await compressBlock(content, { raw: false });
 
     // Store as full content initially
     await this.objectRepo.storeObject({
@@ -163,8 +151,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
 
     if (!deltaInfo) {
       // Full content - decompress and return
-      const compression = await this.getCompressionProvider();
-      const decompressed = await compression.decompress(entry.content);
+      const decompressed = await decompressBlock(entry.content, { raw: false });
       this.contentCache.set(id, decompressed);
       yield decompressed;
     } else {
@@ -233,8 +220,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     }
 
     // Get decompressed target content
-    const compression = await this.getCompressionProvider();
-    const targetContent = await compression.decompress(targetEntry.content);
+    const targetContent = await decompressBlock(targetEntry.content, { raw: false });
 
     let bestCandidateEntry = null;
     let bestDelta: Uint8Array | null = null;
@@ -262,7 +248,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
       let candidateContent: Uint8Array;
       if (candidateIsObject) {
         // Candidate is a full object - decompress it
-        candidateContent = await compression.decompress(candidateEntry.content);
+        candidateContent = await decompressBlock(candidateEntry.content, { raw: false });
       } else {
         // Candidate is itself a delta - reconstruct it
         candidateContent = await this.reconstructFromDelta(candidateEntry.recordId);
@@ -277,7 +263,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
       const deltaBytes = this.concatArrays(deltaChunks);
 
       // Compress delta bytes (like we do for full objects)
-      const compressedDelta = await compression.compress(deltaBytes);
+      const compressedDelta = await compressBlock(deltaBytes, { raw: false });
 
       // Rule 4: Delta must achieve at least 25% compression
       // Compare compressed delta size against compressed target size
@@ -343,8 +329,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     const fullContent = await this.reconstructFromDelta(entry.recordId);
 
     // Compress and store as full content
-    const compression = await this.getCompressionProvider();
-    const compressed = await compression.compress(fullContent);
+    const compressed = await compressBlock(fullContent, { raw: false });
 
     // Update object
     await this.objectRepo.storeObject({
@@ -473,8 +458,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
       throw new Error(`Base object record ${baseRecordId} not found`);
     }
 
-    const compression = await this.getCompressionProvider();
-    let content = await compression.decompress(baseEntry.content);
+    let content = await decompressBlock(baseEntry.content, { raw: false });
 
     // Apply deltas in reverse order (from base toward target)
     for (let i = chain.length - 1; i >= 0; i--) {
@@ -497,7 +481,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
       }
 
       // Decompress delta bytes before applying
-      const decompressedDelta = await compression.decompress(deltaObj.content);
+      const decompressedDelta = await decompressBlock(deltaObj.content, { raw: false });
 
       // Apply delta to get next version
       content = await this.applyDeltaBytes(content, decompressedDelta);

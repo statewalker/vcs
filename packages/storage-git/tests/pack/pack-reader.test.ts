@@ -4,7 +4,8 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { NodeCompressionProvider } from "@webrun-vcs/common";
+import { setCompression } from "@webrun-vcs/common";
+import { createNodeCompression } from "@webrun-vcs/common/compression-node";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NodeFileApi } from "../../src/file-api/index.js";
 import {
@@ -17,15 +18,16 @@ import {
 
 const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
 
+// Set up Node.js compression before tests
+setCompression(createNodeCompression());
+
 describe("pack-reader", () => {
   describe("PackReader", () => {
     let files: NodeFileApi;
-    let compression: NodeCompressionProvider;
     let reader: PackReader;
 
     beforeAll(async () => {
       files = new NodeFileApi();
-      compression = new NodeCompressionProvider();
 
       // Load index
       const idxPath = path.join(
@@ -40,7 +42,7 @@ describe("pack-reader", () => {
         FIXTURES_DIR,
         "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack",
       );
-      reader = new PackReader(files, compression, packPath, index);
+      reader = new PackReader(files, packPath, index);
       await reader.open();
     });
 
@@ -131,12 +133,10 @@ describe("pack-reader", () => {
 
   describe("dense pack with deltas", () => {
     let files: NodeFileApi;
-    let compression: NodeCompressionProvider;
     let reader: PackReader;
 
     beforeAll(async () => {
       files = new NodeFileApi();
-      compression = new NodeCompressionProvider();
 
       // Load dense pack index
       const idxPath = path.join(
@@ -151,7 +151,7 @@ describe("pack-reader", () => {
         FIXTURES_DIR,
         "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.pack",
       );
-      reader = new PackReader(files, compression, packPath, index);
+      reader = new PackReader(files, packPath, index);
       await reader.open();
     });
 

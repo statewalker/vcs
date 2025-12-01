@@ -5,28 +5,31 @@
  * Tests fundamental Git operations and edge cases.
  */
 
-import { type CompressionProvider, getDefaultCompressionProvider } from "@webrun-vcs/common";
+import { setCompression } from "@webrun-vcs/common";
+import { createNodeCompression } from "@webrun-vcs/common/compression-node";
 import { FileMode, type ObjectId, ObjectType } from "@webrun-vcs/storage";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryFileApi } from "../src/file-api/memory-file-api.js";
 import { serializeTree } from "../src/format/tree-format.js";
 import { GitStorage } from "../src/git-storage.js";
 
 describe("basic operations", () => {
   let files: MemoryFileApi;
-  let compression: CompressionProvider;
   const gitDir = "/repo/.git";
 
-  beforeEach(async () => {
+  beforeAll(() => {
+    setCompression(createNodeCompression());
+  });
+
+  beforeEach(() => {
     files = new MemoryFileApi();
-    compression = await getDefaultCompressionProvider();
   });
 
   describe("tree validation", () => {
     it.todo("rejects tree entry with empty filename", async () => {
       // TODO: Implement empty filename validation in tree serialization
       // JGit rejects trees with empty filenames (T0003_BasicTest.test002_CreateBadTree)
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create a blob to reference
       const blobId = await storage.objects.store(
@@ -44,7 +47,7 @@ describe("basic operations", () => {
     });
 
     it("stores tree with valid entries", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const blobId = await storage.objects.store(
         (async function* () {
@@ -62,7 +65,7 @@ describe("basic operations", () => {
     });
 
     it("handles tree with multiple file modes", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const blobId = await storage.objects.store(
         (async function* () {
@@ -104,7 +107,7 @@ describe("basic operations", () => {
 
   describe("tag targets", () => {
     it("creates tag pointing to blob", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Store a blob
       const blobId = await storage.objects.store(
@@ -136,7 +139,7 @@ describe("basic operations", () => {
     });
 
     it("creates tag pointing to tree", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Store an empty tree
       const treeId = storage.trees.getEmptyTreeId();
@@ -164,7 +167,7 @@ describe("basic operations", () => {
     });
 
     it("creates tag pointing to another tag", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const person = {
         name: "Tagger",
@@ -211,7 +214,7 @@ describe("basic operations", () => {
 
   describe("merge commits", () => {
     it("creates commit with 2 parents (merge)", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const emptyTree = storage.trees.getEmptyTreeId();
       const person = {
@@ -265,7 +268,7 @@ describe("basic operations", () => {
     });
 
     it("creates commit with 3+ parents (octopus merge)", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const emptyTree = storage.trees.getEmptyTreeId();
       const person = {
@@ -316,7 +319,7 @@ describe("basic operations", () => {
     });
 
     it("walks ancestry through merge commits", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const emptyTree = storage.trees.getEmptyTreeId();
       const person = {
@@ -389,7 +392,7 @@ describe("basic operations", () => {
 
   describe("unicode support", () => {
     it("handles unicode in author/committer names", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const emptyTree = storage.trees.getEmptyTreeId();
       const person = {
@@ -414,7 +417,7 @@ describe("basic operations", () => {
     });
 
     it("handles unicode in commit message", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const emptyTree = storage.trees.getEmptyTreeId();
       const person = {
@@ -441,7 +444,7 @@ describe("basic operations", () => {
     });
 
     it("handles unicode in tree entry names", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const blobId = await storage.objects.store(
         (async function* () {
@@ -472,7 +475,7 @@ describe("basic operations", () => {
 
   describe("blob storage edge cases", () => {
     it("stores very large blob content", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create a 1MB blob
       const largeContent = new Uint8Array(1024 * 1024);
@@ -499,7 +502,7 @@ describe("basic operations", () => {
     });
 
     it("stores blob with null bytes", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const binaryContent = new Uint8Array([0x00, 0x01, 0x00, 0xff, 0x00, 0x00]);
 

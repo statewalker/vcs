@@ -7,7 +7,6 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/LooseObjects.java
  */
 
-import type { CompressionProvider } from "@webrun-vcs/common";
 import type { ObjectId, ObjectTypeCode, ObjectTypeString } from "@webrun-vcs/storage";
 import type { DirEntry, FileApi } from "../file-api/types.js";
 import {
@@ -42,7 +41,6 @@ export interface ObjectEntry {
 export class ObjectDirectory {
   constructor(
     private readonly files: FileApi,
-    private readonly compression: CompressionProvider,
     private readonly objectsDir: string,
   ) {}
 
@@ -71,7 +69,7 @@ export class ObjectDirectory {
    * @throws Error if object not found
    */
   async read(id: ObjectId): Promise<LooseObjectData> {
-    return readLooseObject(this.files, this.compression, this.objectsDir, id);
+    return readLooseObject(this.files, this.objectsDir, id);
   }
 
   /**
@@ -81,7 +79,7 @@ export class ObjectDirectory {
    * @returns Object header info
    */
   async readHeader(id: ObjectId): Promise<{ type: ObjectTypeCode; size: number }> {
-    const header = await readLooseObjectHeader(this.files, this.compression, this.objectsDir, id);
+    const header = await readLooseObjectHeader(this.files, this.objectsDir, id);
     return {
       type: header.typeCode,
       size: header.size,
@@ -96,7 +94,7 @@ export class ObjectDirectory {
    * @returns Object ID
    */
   async write(type: ObjectTypeString, content: Uint8Array): Promise<ObjectId> {
-    return writeLooseObject(this.files, this.compression, this.objectsDir, type, content);
+    return writeLooseObject(this.files, this.objectsDir, type, content);
   }
 
   /**
@@ -277,13 +275,8 @@ export class ObjectDirectory {
  * Create an ObjectDirectory instance
  *
  * @param files FileApi instance
- * @param compression Compression provider
  * @param objectsDir Path to objects directory
  */
-export function createObjectDirectory(
-  files: FileApi,
-  compression: CompressionProvider,
-  objectsDir: string,
-): ObjectDirectory {
-  return new ObjectDirectory(files, compression, objectsDir);
+export function createObjectDirectory(files: FileApi, objectsDir: string): ObjectDirectory {
+  return new ObjectDirectory(files, objectsDir);
 }
