@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs"
+    },
+    "./compression-node": {
+      "types": "./dist/compression-node/index.d.ts",
+      "import": "./dist/esm/compression-node/index.js",
+      "require": "./dist/cjs/compression-node/index.cjs"
     }
   },
   "scripts": {

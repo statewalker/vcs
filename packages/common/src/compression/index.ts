@@ -1,51 +1,164 @@
 /**
- * Compression provider abstraction
+ * Compression module
  *
- * Provides a unified interface for compression/decompression operations
- * with support for multiple backends (Node.js zlib, Web Compression Streams, etc.)
+ * Provides streaming and block-based compression/decompression operations.
+ * By default uses Web Compression Streams API.
+ *
+ * Use setCompression() to override with custom implementations (e.g., Node.js zlib).
+ *
+ * Primary API:
+ * - Streaming: deflate(), inflate() - for large data or incremental processing
+ * - Block: compressBlock(), decompressBlock() - for complete buffers
+ * - Partial: decompressBlockPartial() - for data with trailing bytes (e.g., pack files)
  */
 
-export * from "./node-compression-provider.js";
-export * from "./types.js";
-export * from "./web-compression-provider.js";
+import {
+  CompressionError,
+  type ByteStream,
+  type CompressBlockFunction,
+  type CompressionImplementation,
+  type DecompressBlockFunction,
+  type DecompressBlockPartialFunction,
+  type DeflateFunction,
+  type InflateFunction,
+  type PartialDecompressionResult,
+  type StreamingCompressionOptions,
+} from "./types.js";
+import { deflateWeb, inflateWeb } from "./web-streams.js";
+import { collectStream, streamFromBuffer } from "./utils.js";
 
-// Auto-detect and export a default provider
-let defaultProvider: import("./types.js").CompressionProvider | null = null;
+// Re-export types
+export * from "./types.js";
+export * from "./utils.js";
+
+// Current implementations (default to web-based)
+let _deflate: DeflateFunction = deflateWeb;
+let _inflate: InflateFunction = inflateWeb;
+
+let _compressBlock: CompressBlockFunction | null = null;
+let _decompressBlock: DecompressBlockFunction | null = null;
+let _decompressBlockPartial: DecompressBlockPartialFunction | null = null;
 
 /**
- * Get the default compression provider for the current environment
+ * Set custom compression implementation
+ *
+ * This allows overriding the default web-based compression with
+ * platform-specific implementations (e.g., Node.js zlib for better performance).
+ *
+ * @example
+ * ```ts
+ * import { setCompression } from "@webrun-vcs/common";
+ * import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+ *
+ * setCompression(createNodeCompression());
+ * ```
  */
-export async function getDefaultCompressionProvider(): Promise<
-  import("./types.js").CompressionProvider
-> {
-  if (defaultProvider) {
-    return defaultProvider;
-  }
-
-  // Try Node.js first
-  if (typeof process !== "undefined" && process.versions?.node) {
-    const { NodeCompressionProvider } = await import("./node-compression-provider.js");
-    defaultProvider = new NodeCompressionProvider();
-    return defaultProvider;
-  }
-
-  // Try Web Compression Streams API
-  if (typeof CompressionStream !== "undefined") {
-    const { WebCompressionProvider } = await import("./web-compression-provider.js");
-    defaultProvider = new WebCompressionProvider();
-    return defaultProvider;
-  }
-
-  throw new Error(
-    "No compression provider available. Please provide a custom CompressionProvider.",
-  );
+export function setCompression(impl: Partial<CompressionImplementation>): void {
+  if (impl.deflate) _deflate = impl.deflate;
+  if (impl.inflate) _inflate = impl.inflate;
+  if (impl.compressBlock) _compressBlock = impl.compressBlock;
+  if (impl.decompressBlock) _decompressBlock = impl.decompressBlock;
+  if (impl.decompressBlockPartial) _decompressBlockPartial = impl.decompressBlockPartial;
 }
 
 /**
- * Set the default compression provider
+ * Compress a byte stream using DEFLATE
+ *
+ * @param stream Input byte stream
+ * @param options Compression options (raw: true for raw DEFLATE, false for ZLIB)
+ * @returns Compressed byte stream
  */
-export function setDefaultCompressionProvider(
-  provider: import("./types.js").CompressionProvider,
-): void {
-  defaultProvider = provider;
+export function deflate(stream: ByteStream, options?: StreamingCompressionOptions): ByteStream {
+  return _deflate(stream, options);
+}
+
+/**
+ * Decompress a byte stream using INFLATE
+ *
+ * @param stream Compressed byte stream
+ * @param options Decompression options (raw: true for raw DEFLATE, false for ZLIB)
+ * @returns Decompressed byte stream
+ */
+export function inflate(stream: ByteStream, options?: StreamingCompressionOptions): ByteStream {
+  return _inflate(stream, options);
+}
+
+/**
+ * Compress a data block using DEFLATE
+ *
+ * @param data Data to compress
+ * @param options Compression options (raw: true for raw DEFLATE, false for ZLIB)
+ * @returns Compressed data
+ */
+export async function compressBlock(
+  data: Uint8Array,
+  options?: StreamingCompressionOptions,
+): Promise<Uint8Array> {
+  try {
+    // Use custom implementation if set
+    if (_compressBlock) {
+      return await _compressBlock(data, options);
+    }
+    // Fall back to streaming implementation
+    const stream = streamFromBuffer(data);
+    return await collectStream(deflate(stream, options));
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    throw new CompressionError(`Compression failed: ${err.message}`, err);
+  }
+}
+
+/**
+ * Decompress a data block using INFLATE
+ *
+ * @param data Compressed data
+ * @param options Decompression options (raw: true for raw DEFLATE, false for ZLIB)
+ * @returns Decompressed data
+ */
+export async function decompressBlock(
+  data: Uint8Array,
+  options?: StreamingCompressionOptions,
+): Promise<Uint8Array> {
+  try {
+    // Use custom implementation if set
+    if (_decompressBlock) {
+      return await _decompressBlock(data, options);
+    }
+    // Fall back to streaming implementation
+    const stream = streamFromBuffer(data);
+    return await collectStream(inflate(stream, options));
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    throw new CompressionError(`Decompression failed: ${err.message}`, err);
+  }
+}
+
+/**
+ * Decompress a data block that may contain trailing bytes
+ *
+ * This is useful for formats like Git pack files where compressed objects
+ * are stored contiguously without explicit length markers for compressed data.
+ *
+ * @param data Compressed data (may include trailing bytes)
+ * @param options Decompression options (raw: true for raw DEFLATE, false for ZLIB)
+ * @returns Decompressed data and number of input bytes consumed
+ * @throws CompressionError if no partial decompression implementation is set
+ */
+export async function decompressBlockPartial(
+  data: Uint8Array,
+  options?: StreamingCompressionOptions,
+): Promise<PartialDecompressionResult> {
+  if (!_decompressBlockPartial) {
+    throw new CompressionError(
+      "Partial decompression is not available with web compression. " +
+        "Use setCompression() to set a Node.js compression implementation.",
+    );
+  }
+
+  try {
+    return await _decompressBlockPartial(data, options);
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    throw new CompressionError(`Partial decompression failed: ${err.message}`, err);
+  }
 }
