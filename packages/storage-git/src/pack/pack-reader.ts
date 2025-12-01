@@ -8,7 +8,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
-import { CompressionAlgorithm, type CompressionProvider } from "@webrun-vcs/common";
+import { decompressBlockPartial } from "@webrun-vcs/common";
 import type { ObjectId } from "@webrun-vcs/storage";
 import type { FileApi, FileHandle } from "../file-api/index.js";
 import { bytesToHex } from "../utils/index.js";
@@ -33,20 +33,13 @@ const OBJECT_ID_LENGTH = 20;
  */
 export class PackReader {
   private readonly files: FileApi;
-  private readonly compression: CompressionProvider;
   private readonly packPath: string;
   private readonly index: PackIndex;
   private handle: FileHandle | null = null;
   private length = 0;
 
-  constructor(
-    files: FileApi,
-    compression: CompressionProvider,
-    packPath: string,
-    index: PackIndex,
-  ) {
+  constructor(files: FileApi, packPath: string, index: PackIndex) {
     this.files = files;
-    this.compression = compression;
     this.packPath = packPath;
     this.index = index;
   }
@@ -270,10 +263,7 @@ export class PackReader {
 
     // Use partial decompression to handle trailing data gracefully
     // Git pack files use zlib format (RFC 1950), not raw DEFLATE
-    const result = await this.compression.decompressPartial(compressed, {
-      algorithm: CompressionAlgorithm.ZLIB,
-      maxSize: expectedSize * 2, // Safety limit
-    });
+    const result = await decompressBlockPartial(compressed, { raw: false });
 
     if (result.data.length !== expectedSize) {
       throw new Error(

@@ -7,7 +7,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/LooseObjects.java
  */
 
-import type { CompressionProvider } from "@webrun-vcs/common";
+import { decompressBlock } from "@webrun-vcs/common";
 import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/storage";
 import type { FileApi } from "../file-api/types.js";
 import { type ParsedObjectHeader, parseObjectHeader } from "../format/object-header.js";
@@ -60,7 +60,6 @@ export async function hasLooseObject(
  * Read a loose object from disk
  *
  * @param files FileApi instance
- * @param compression Compression provider
  * @param objectsDir Objects directory path
  * @param id Object ID
  * @returns Object data (type, size, content)
@@ -68,7 +67,6 @@ export async function hasLooseObject(
  */
 export async function readLooseObject(
   files: FileApi,
-  compression: CompressionProvider,
   objectsDir: string,
   id: ObjectId,
 ): Promise<LooseObjectData> {
@@ -77,8 +75,8 @@ export async function readLooseObject(
   // Read compressed data
   const compressedData = await files.readFile(path);
 
-  // Decompress
-  const rawData = await compression.decompress(compressedData);
+  // Decompress (ZLIB format - raw: false)
+  const rawData = await decompressBlock(compressedData, { raw: false });
 
   // Parse header
   const header = parseObjectHeader(rawData);
@@ -109,14 +107,12 @@ export async function readLooseObject(
  * Note: We still need to decompress at least the header portion.
  *
  * @param files FileApi instance
- * @param compression Compression provider
  * @param objectsDir Objects directory path
  * @param id Object ID
  * @returns Parsed header (type, size)
  */
 export async function readLooseObjectHeader(
   files: FileApi,
-  compression: CompressionProvider,
   objectsDir: string,
   id: ObjectId,
 ): Promise<ParsedObjectHeader> {
@@ -124,6 +120,6 @@ export async function readLooseObjectHeader(
   // A more efficient implementation could use streaming decompression
   const path = getLooseObjectPath(objectsDir, id, files);
   const compressedData = await files.readFile(path);
-  const rawData = await compression.decompress(compressedData);
+  const rawData = await decompressBlock(compressedData, { raw: false });
   return parseObjectHeader(rawData);
 }

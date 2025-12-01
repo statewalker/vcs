@@ -7,8 +7,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/LooseObjects.java
  */
 
-import type { CompressionProvider } from "@webrun-vcs/common";
-import { sha1 } from "@webrun-vcs/common";
+import { compressBlock, sha1 } from "@webrun-vcs/common";
 import type { ObjectId, ObjectTypeString } from "@webrun-vcs/storage";
 import type { FileApi } from "../file-api/types.js";
 import { createGitObject } from "../format/object-header.js";
@@ -22,7 +21,6 @@ import { getLooseObjectPath, hasLooseObject } from "./loose-object-reader.js";
  * same ID already exists, this is a no-op (deduplication).
  *
  * @param files FileApi instance
- * @param compression Compression provider
  * @param objectsDir Objects directory path
  * @param type Object type
  * @param content Object content (without header)
@@ -30,7 +28,6 @@ import { getLooseObjectPath, hasLooseObject } from "./loose-object-reader.js";
  */
 export async function writeLooseObject(
   files: FileApi,
-  compression: CompressionProvider,
   objectsDir: string,
   type: ObjectTypeString,
   content: Uint8Array,
@@ -46,53 +43,8 @@ export async function writeLooseObject(
     return id;
   }
 
-  // Compress the full object
-  const compressed = await compression.compress(fullObject);
-
-  // Get path and ensure directory exists
-  const path = getLooseObjectPath(objectsDir, id, files);
-  const dir = files.dirname(path);
-  await ensureDir(files, dir);
-
-  // Write atomically
-  await atomicWriteFile(files, path, compressed);
-
-  return id;
-}
-
-/**
- * Write a loose object synchronously
- *
- * Same as writeLooseObject but uses synchronous compression.
- * Only use when you need synchronous behavior.
- *
- * @param files FileApi instance
- * @param compression Compression provider (must support sync)
- * @param objectsDir Objects directory path
- * @param type Object type
- * @param content Object content (without header)
- * @returns Object ID
- */
-export async function writeLooseObjectWithSyncCompression(
-  files: FileApi,
-  compression: CompressionProvider,
-  objectsDir: string,
-  type: ObjectTypeString,
-  content: Uint8Array,
-): Promise<ObjectId> {
-  // Create Git object with header
-  const fullObject = createGitObject(type, content);
-
-  // Compute hash
-  const id = await sha1(fullObject);
-
-  // Check if object already exists (deduplication)
-  if (await hasLooseObject(files, objectsDir, id)) {
-    return id;
-  }
-
-  // Compress the full object synchronously
-  const compressed = compression.compressSync(fullObject);
+  // Compress the full object (ZLIB format - raw: false)
+  const compressed = await compressBlock(fullObject, { raw: false });
 
   // Get path and ensure directory exists
   const path = getLooseObjectPath(objectsDir, id, files);

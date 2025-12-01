@@ -7,25 +7,28 @@
  * - Reference management
  */
 
-import { type CompressionProvider, getDefaultCompressionProvider } from "@webrun-vcs/common";
+import { setCompression } from "@webrun-vcs/common";
+import { createNodeCompression } from "@webrun-vcs/common/compression-node";
 import { FileMode, type ObjectId, ObjectType } from "@webrun-vcs/storage";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryFileApi } from "../src/file-api/memory-file-api.js";
 import { createGitStorage, GitStorage } from "../src/git-storage.js";
 
 describe("GitStorage", () => {
   let files: MemoryFileApi;
-  let compression: CompressionProvider;
   const gitDir = "/repo/.git";
 
-  beforeEach(async () => {
+  beforeAll(() => {
+    setCompression(createNodeCompression());
+  });
+
+  beforeEach(() => {
     files = new MemoryFileApi();
-    compression = await getDefaultCompressionProvider();
   });
 
   describe("repository initialization", () => {
     it("creates a new repository", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Verify directory structure
       expect(await files.exists(gitDir)).toBe(true);
@@ -43,7 +46,7 @@ describe("GitStorage", () => {
     });
 
     it("creates a repository with custom default branch", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, {
+      const storage = await GitStorage.init(files, gitDir, {
         create: true,
         defaultBranch: "master",
       });
@@ -56,11 +59,11 @@ describe("GitStorage", () => {
 
     it("opens an existing repository", async () => {
       // Create first
-      const storage1 = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage1 = await GitStorage.init(files, gitDir, { create: true });
       await storage1.close();
 
       // Open existing
-      const storage2 = await GitStorage.open(files, compression, gitDir);
+      const storage2 = await GitStorage.open(files, gitDir);
       expect(storage2).toBeDefined();
       expect(storage2.gitDir).toBe(gitDir);
 
@@ -68,7 +71,7 @@ describe("GitStorage", () => {
     });
 
     it("throws when opening non-existent repository", async () => {
-      await expect(GitStorage.open(files, compression, gitDir)).rejects.toThrow(
+      await expect(GitStorage.open(files, gitDir)).rejects.toThrow(
         /Not a valid git repository/,
       );
     });
@@ -76,7 +79,7 @@ describe("GitStorage", () => {
 
   describe("blob storage", () => {
     it("stores and retrieves blobs", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const content = new TextEncoder().encode("Hello, World!");
       const id = await storage.objects.store(
@@ -98,7 +101,7 @@ describe("GitStorage", () => {
     });
 
     it("deduplicates identical content", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const content = new TextEncoder().encode("Duplicate content");
       const id1 = await storage.objects.store(
@@ -120,7 +123,7 @@ describe("GitStorage", () => {
 
   describe("tree storage", () => {
     it("stores and retrieves trees", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Store a blob first
       const content = new TextEncoder().encode("File content");
@@ -153,7 +156,7 @@ describe("GitStorage", () => {
     });
 
     it("handles empty trees", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const emptyTreeId = storage.trees.getEmptyTreeId();
       expect(await storage.trees.hasTree(emptyTreeId)).toBe(true);
@@ -168,7 +171,7 @@ describe("GitStorage", () => {
     });
 
     it("sorts entries canonically", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create blobs for files
       const blob1 = await storage.objects.store(
@@ -201,7 +204,7 @@ describe("GitStorage", () => {
     });
 
     it("gets specific entry from tree", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const blob = await storage.objects.store(
         (async function* () {
@@ -227,7 +230,7 @@ describe("GitStorage", () => {
 
   describe("commit storage", () => {
     it("stores and retrieves commits", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create a tree
       const emptyTree = storage.trees.getEmptyTreeId();
@@ -267,7 +270,7 @@ describe("GitStorage", () => {
     });
 
     it("creates commit chains", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const emptyTree = storage.trees.getEmptyTreeId();
       const timestamp = 1700000000;
@@ -325,7 +328,7 @@ describe("GitStorage", () => {
     });
 
     it("limits ancestry walk", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const emptyTree = storage.trees.getEmptyTreeId();
       const timestamp = 1700000000;
@@ -362,7 +365,7 @@ describe("GitStorage", () => {
 
   describe("tag storage", () => {
     it("stores and retrieves annotated tags", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create a commit to tag
       const emptyTree = storage.trees.getEmptyTreeId();
@@ -411,7 +414,7 @@ describe("GitStorage", () => {
 
   describe("reference management", () => {
     it("reads and writes branches", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create a commit
       const emptyTree = storage.trees.getEmptyTreeId();
@@ -447,7 +450,7 @@ describe("GitStorage", () => {
     });
 
     it("resolves HEAD through symbolic ref", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create a commit
       const emptyTree = storage.trees.getEmptyTreeId();
@@ -481,7 +484,7 @@ describe("GitStorage", () => {
     });
 
     it("reads current branch", async () => {
-      const storage = await GitStorage.init(files, compression, gitDir, { create: true });
+      const storage = await GitStorage.init(files, gitDir, { create: true });
       expect(await storage.getCurrentBranch()).toBe("main");
       await storage.close();
     });
@@ -489,18 +492,18 @@ describe("GitStorage", () => {
 
   describe("factory function", () => {
     it("creates new repository with create option", async () => {
-      const storage = await createGitStorage(files, compression, gitDir, { create: true });
+      const storage = await createGitStorage(files, gitDir, { create: true });
       expect(await files.exists(gitDir)).toBe(true);
       await storage.close();
     });
 
     it("opens existing repository without create option", async () => {
       // Create first
-      const storage1 = await createGitStorage(files, compression, gitDir, { create: true });
+      const storage1 = await createGitStorage(files, gitDir, { create: true });
       await storage1.close();
 
       // Open
-      const storage2 = await createGitStorage(files, compression, gitDir);
+      const storage2 = await createGitStorage(files, gitDir);
       expect(storage2.gitDir).toBe(gitDir);
       await storage2.close();
     });

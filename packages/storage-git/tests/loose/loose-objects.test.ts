@@ -2,8 +2,9 @@
  * Tests for loose object handling
  */
 
-import { NodeCompressionProvider } from "@webrun-vcs/common";
-import { beforeEach, describe, expect, it } from "vitest";
+import { setCompression } from "@webrun-vcs/common";
+import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryFileApi } from "../../src/file-api/memory-file-api.js";
 import {
   getLooseObjectPath,
@@ -15,12 +16,14 @@ import { createObjectDirectory, type ObjectDirectory } from "../../src/loose/obj
 
 describe("loose-objects", () => {
   let files: MemoryFileApi;
-  let compression: NodeCompressionProvider;
   const objectsDir = "objects";
+
+  beforeAll(() => {
+    setCompression(createNodeCompression());
+  });
 
   beforeEach(() => {
     files = new MemoryFileApi();
-    compression = new NodeCompressionProvider();
   });
 
   describe("getLooseObjectPath", () => {
@@ -42,12 +45,12 @@ describe("loose-objects", () => {
     it("writes and reads blob object", async () => {
       const content = new TextEncoder().encode("Hello, World!");
 
-      const id = await writeLooseObject(files, compression, objectsDir, "blob", content);
+      const id = await writeLooseObject(files, objectsDir, "blob", content);
 
       expect(id).toBeDefined();
       expect(id.length).toBe(40);
 
-      const data = await readLooseObject(files, compression, objectsDir, id);
+      const data = await readLooseObject(files, objectsDir, id);
 
       expect(data.type).toBe("blob");
       expect(data.size).toBe(content.length);
@@ -58,9 +61,9 @@ describe("loose-objects", () => {
       // Simple tree-like binary content (not a real tree, just testing)
       const content = new Uint8Array([1, 2, 3, 4, 5]);
 
-      const id = await writeLooseObject(files, compression, objectsDir, "tree", content);
+      const id = await writeLooseObject(files, objectsDir, "tree", content);
 
-      const data = await readLooseObject(files, compression, objectsDir, id);
+      const data = await readLooseObject(files, objectsDir, id);
 
       expect(data.type).toBe("tree");
       expect(data.content).toEqual(content);
@@ -69,8 +72,8 @@ describe("loose-objects", () => {
     it("deduplicates identical content", async () => {
       const content = new TextEncoder().encode("Duplicate content");
 
-      const id1 = await writeLooseObject(files, compression, objectsDir, "blob", content);
-      const id2 = await writeLooseObject(files, compression, objectsDir, "blob", content);
+      const id1 = await writeLooseObject(files, objectsDir, "blob", content);
+      const id2 = await writeLooseObject(files, objectsDir, "blob", content);
 
       expect(id1).toBe(id2);
 
@@ -83,9 +86,9 @@ describe("loose-objects", () => {
     it("handles empty content", async () => {
       const content = new Uint8Array(0);
 
-      const id = await writeLooseObject(files, compression, objectsDir, "blob", content);
+      const id = await writeLooseObject(files, objectsDir, "blob", content);
 
-      const data = await readLooseObject(files, compression, objectsDir, id);
+      const data = await readLooseObject(files, objectsDir, id);
 
       expect(data.size).toBe(0);
       expect(data.content.length).toBe(0);
@@ -95,9 +98,9 @@ describe("loose-objects", () => {
       const content = new Uint8Array(256);
       for (let i = 0; i < 256; i++) content[i] = i;
 
-      const id = await writeLooseObject(files, compression, objectsDir, "blob", content);
+      const id = await writeLooseObject(files, objectsDir, "blob", content);
 
-      const data = await readLooseObject(files, compression, objectsDir, id);
+      const data = await readLooseObject(files, objectsDir, id);
 
       expect(data.content).toEqual(content);
     });
@@ -107,7 +110,7 @@ describe("loose-objects", () => {
     it("returns true for existing object", async () => {
       const content = new TextEncoder().encode("Test");
 
-      const id = await writeLooseObject(files, compression, objectsDir, "blob", content);
+      const id = await writeLooseObject(files, objectsDir, "blob", content);
 
       expect(await hasLooseObject(files, objectsDir, id)).toBe(true);
     });
@@ -122,7 +125,7 @@ describe("loose-objects", () => {
     let objDir: ObjectDirectory;
 
     beforeEach(() => {
-      objDir = createObjectDirectory(files, compression, objectsDir);
+      objDir = createObjectDirectory(files, objectsDir);
     });
 
     it("writes and reads objects", async () => {
@@ -188,7 +191,7 @@ describe("loose-objects", () => {
     it("produces correct SHA-1 for empty blob", async () => {
       const content = new Uint8Array(0);
 
-      const id = await writeLooseObject(files, compression, objectsDir, "blob", content);
+      const id = await writeLooseObject(files, objectsDir, "blob", content);
 
       // Empty blob hash is well-known
       expect(id).toBe("e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
@@ -197,7 +200,7 @@ describe("loose-objects", () => {
     it("produces correct SHA-1 for 'Hello, World!' blob", async () => {
       const content = new TextEncoder().encode("Hello, World!");
 
-      const id = await writeLooseObject(files, compression, objectsDir, "blob", content);
+      const id = await writeLooseObject(files, objectsDir, "blob", content);
 
       // Verified with: echo -n "Hello, World!" | git hash-object --stdin
       expect(id).toBe("b45ef6fec89518d314f546fd6c3025367b721684");

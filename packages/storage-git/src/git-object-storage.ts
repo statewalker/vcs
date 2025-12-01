@@ -7,7 +7,6 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
-import type { CompressionProvider } from "@webrun-vcs/common";
 import type { ObjectId, ObjectStorage, ObjectTypeCode } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import type { DirEntry, FileApi } from "./file-api/index.js";
@@ -46,17 +45,15 @@ interface PackFile {
  */
 export class GitObjectStorage implements ObjectStorage {
   private readonly files: FileApi;
-  private readonly compression: CompressionProvider;
   private readonly objectsDir: string;
   private readonly looseObjects: ObjectDirectory;
   private packFiles: PackFile[] = [];
   private packsLoaded = false;
 
-  constructor(files: FileApi, compression: CompressionProvider, gitDir: string) {
+  constructor(files: FileApi, gitDir: string) {
     this.files = files;
-    this.compression = compression;
     this.objectsDir = files.join(gitDir, "objects");
-    this.looseObjects = new ObjectDirectory(files, compression, this.objectsDir);
+    this.looseObjects = new ObjectDirectory(files, this.objectsDir);
   }
 
   /**
@@ -229,7 +226,7 @@ export class GitObjectStorage implements ObjectStorage {
    */
   private async getPackReader(pack: PackFile): Promise<PackReader> {
     if (!pack.reader) {
-      pack.reader = new PackReader(this.files, this.compression, pack.packPath, pack.index);
+      pack.reader = new PackReader(this.files, pack.packPath, pack.index);
       await pack.reader.open();
     }
     return pack.reader;

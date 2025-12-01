@@ -8,8 +8,7 @@
  * - Handling different change types (ADD, DELETE, MODIFY, RENAME, COPY)
  */
 
-import type { CompressionProvider } from "@webrun-vcs/common";
-import { getDefaultCompressionProvider } from "@webrun-vcs/common";
+import { decompressBlock } from "@webrun-vcs/common";
 import { decodeGitBinaryDelta } from "./binary-delta.js";
 import { nextLF } from "./buffer-utils.js";
 import type { FileHeader } from "./file-header.js";
@@ -38,8 +37,6 @@ export interface ApplyOptions {
   allowConflicts?: boolean;
   /** Maximum number of lines to shift when fuzzy matching (default: 100) */
   maxFuzz?: number;
-  /** Compression provider for binary patches (auto-detected if not provided) */
-  compressionProvider?: CompressionProvider;
 }
 
 /**
@@ -60,24 +57,20 @@ export class PatchApplier {
   private warnings: string[] = [];
   private readonly allowConflicts: boolean;
   private readonly maxFuzz: number;
-  private readonly compressionProvider?: CompressionProvider;
 
   constructor(options: ApplyOptions = {}) {
     this.allowConflicts = options.allowConflicts ?? false;
     this.maxFuzz = options.maxFuzz ?? 100;
-    this.compressionProvider = options.compressionProvider;
   }
 
   /**
-   * Apply a file header patch to content (synchronous version)
+   * Apply a file header patch to content
    *
    * @param fileHeader The file header containing hunks to apply
    * @param oldContent The original file content (null for ADD)
    * @returns Result of applying the patch
-   *
-   * @note For binary patches, use applyAsync() or provide a sync-capable compression provider
    */
-  apply(fileHeader: FileHeader, oldContent: Uint8Array | null): FileApplyResult {
+  async apply(fileHeader: FileHeader, oldContent: Uint8Array | null): Promise<FileApplyResult> {
     this.errors = [];
     this.warnings = [];
 
@@ -85,49 +78,7 @@ export class PatchApplier {
       // Handle different change types
       switch (fileHeader.changeType) {
         case ChangeType.ADD:
-          return this.applyAdd(fileHeader);
-
-        case ChangeType.DELETE:
-          return this.applyDelete();
-
-        case ChangeType.MODIFY:
-        case ChangeType.RENAME:
-        case ChangeType.COPY:
-          if (!oldContent) {
-            this.errors.push("Cannot modify/rename/copy: old content is null");
-            return this.createResult(false, null);
-          }
-          return this.applyModifySync(fileHeader, oldContent);
-
-        default:
-          this.errors.push(`Unknown change type: ${fileHeader.changeType}`);
-          return this.createResult(false, null);
-      }
-    } catch (error) {
-      this.errors.push(`Unexpected error: ${error}`);
-      return this.createResult(false, null);
-    }
-  }
-
-  /**
-   * Apply a file header patch to content (asynchronous version for binary patches)
-   *
-   * @param fileHeader The file header containing hunks to apply
-   * @param oldContent The original file content (null for ADD)
-   * @returns Result of applying the patch
-   */
-  async applyAsync(
-    fileHeader: FileHeader,
-    oldContent: Uint8Array | null,
-  ): Promise<FileApplyResult> {
-    this.errors = [];
-    this.warnings = [];
-
-    try {
-      // Handle different change types
-      switch (fileHeader.changeType) {
-        case ChangeType.ADD:
-          return await this.applyAddAsync(fileHeader);
+          return await this.applyAdd(fileHeader);
 
         case ChangeType.DELETE:
           return this.applyDelete();
@@ -152,23 +103,9 @@ export class PatchApplier {
   }
 
   /**
-   * Apply ADD operation (create new file) - synchronous version
+   * Apply ADD operation (create new file)
    */
-  private applyAdd(fileHeader: FileHeader): FileApplyResult {
-    // Handle binary ADD (new binary file)
-    if (fileHeader.patchType === PatchType.GIT_BINARY) {
-      return this.applyBinarySync(fileHeader, new Uint8Array(0));
-    }
-
-    // For text ADD, we start with empty content and apply all hunks
-    const emptyLines: Line[] = [];
-    return this.applyHunks(fileHeader, emptyLines);
-  }
-
-  /**
-   * Apply ADD operation (create new file) - asynchronous version
-   */
-  private async applyAddAsync(fileHeader: FileHeader): Promise<FileApplyResult> {
+  private async applyAdd(fileHeader: FileHeader): Promise<FileApplyResult> {
     // Handle binary ADD (new binary file)
     if (fileHeader.patchType === PatchType.GIT_BINARY) {
       return await this.applyBinary(fileHeader, new Uint8Array(0));
@@ -188,7 +125,7 @@ export class PatchApplier {
   }
 
   /**
-   * Apply MODIFY operation (modify existing file) - async version
+   * Apply MODIFY operation (modify existing file)
    */
   private async applyModify(
     fileHeader: FileHeader,
@@ -197,22 +134,6 @@ export class PatchApplier {
     // Handle binary patches
     if (fileHeader.patchType === PatchType.GIT_BINARY) {
       return await this.applyBinary(fileHeader, oldContent);
-    }
-
-    // Parse old content into lines
-    const oldLines = this.parseLines(oldContent);
-
-    // Apply text hunks
-    return this.applyHunks(fileHeader, oldLines);
-  }
-
-  /**
-   * Apply MODIFY operation (modify existing file) - sync version
-   */
-  private applyModifySync(fileHeader: FileHeader, oldContent: Uint8Array): FileApplyResult {
-    // Handle binary patches
-    if (fileHeader.patchType === PatchType.GIT_BINARY) {
-      return this.applyBinarySync(fileHeader, oldContent);
     }
 
     // Parse old content into lines
@@ -240,15 +161,10 @@ export class PatchApplier {
       // Get base85-decoded data
       const encodedData = hunk.getData();
 
-      // Get compression provider
-      const provider = this.compressionProvider ?? (await getDefaultCompressionProvider());
-
-      // Decompress the data (Git uses deflate)
+      // Decompress the data (Git uses ZLIB format)
       let inflatedData: Uint8Array;
       try {
-        inflatedData = await provider.decompress(encodedData, {
-          maxSize: 100 * 1024 * 1024, // 100MB limit to prevent decompression bombs
-        });
+        inflatedData = await decompressBlock(encodedData, { raw: false });
       } catch (err) {
         this.errors.push(`Failed to decompress binary data: ${err}`);
         return this.createResult(false, null);
@@ -279,76 +195,6 @@ export class PatchApplier {
       }
 
       // Verify size matches expected size
-      if (result.length !== hunk.size) {
-        this.warnings.push(
-          `Binary hunk size mismatch: expected ${hunk.size}, got ${result.length}`,
-        );
-      }
-
-      return this.createResult(true, result);
-    } catch (error) {
-      this.errors.push(`Binary patch application failed: ${error}`);
-      return this.createResult(false, null);
-    }
-  }
-
-  /**
-   * Apply binary patch synchronously (if compression provider supports it)
-   */
-  private applyBinarySync(fileHeader: FileHeader, oldContent: Uint8Array): FileApplyResult {
-    if (!fileHeader.forwardBinaryHunk) {
-      this.errors.push("Binary patch has no forward hunk");
-      return this.createResult(false, null);
-    }
-
-    // Check if we have a sync-capable provider
-    if (!this.compressionProvider?.supportsSyncOperations()) {
-      this.errors.push(
-        "Synchronous binary patch application requires a compression provider that supports sync operations",
-      );
-      return this.createResult(false, null);
-    }
-
-    try {
-      const hunk = fileHeader.forwardBinaryHunk;
-
-      // Get base85-decoded data
-      const encodedData = hunk.getData();
-
-      // Decompress the data (Git uses deflate)
-      let inflatedData: Uint8Array;
-      try {
-        inflatedData = this.compressionProvider.decompressSync(encodedData, {
-          maxSize: 100 * 1024 * 1024, // 100MB limit
-        });
-      } catch (err) {
-        this.errors.push(`Failed to decompress binary data: ${err}`);
-        return this.createResult(false, null);
-      }
-
-      // Apply based on hunk type
-      let result: Uint8Array;
-
-      switch (hunk.type) {
-        case BinaryHunkType.LITERAL_DEFLATED:
-          result = inflatedData;
-          break;
-
-        case BinaryHunkType.DELTA_DEFLATED:
-          try {
-            result = decodeGitBinaryDelta(oldContent, inflatedData);
-          } catch (err) {
-            this.errors.push(`Failed to apply binary delta: ${err}`);
-            return this.createResult(false, null);
-          }
-          break;
-
-        default:
-          this.errors.push(`Unknown binary hunk type: ${hunk.type}`);
-          return this.createResult(false, null);
-      }
-
-      // Verify size
       if (result.length !== hunk.size) {
         this.warnings.push(
           `Binary hunk size mismatch: expected ${hunk.size}, got ${result.length}`,

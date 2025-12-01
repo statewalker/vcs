@@ -5,22 +5,25 @@
  * Tests error handling, pack file scanning, and concurrent operations.
  */
 
-import { NodeCompressionProvider } from "@webrun-vcs/common";
+import { setCompression } from "@webrun-vcs/common";
+import { createNodeCompression } from "@webrun-vcs/common/compression-node";
 import type { ObjectId } from "@webrun-vcs/storage";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryFileApi } from "../../src/file-api/memory-file-api.js";
 import { createObjectDirectory, type ObjectDirectory } from "../../src/loose/object-directory.js";
 
 describe("ObjectDirectory", () => {
   let files: MemoryFileApi;
-  let compression: NodeCompressionProvider;
   let objDir: ObjectDirectory;
   const objectsDir = "objects";
 
+  beforeAll(() => {
+    setCompression(createNodeCompression());
+  });
+
   beforeEach(() => {
     files = new MemoryFileApi();
-    compression = new NodeCompressionProvider();
-    objDir = createObjectDirectory(files, compression, objectsDir);
+    objDir = createObjectDirectory(files, objectsDir);
   });
 
   describe("error handling", () => {
@@ -305,7 +308,7 @@ describe("ObjectDirectory", () => {
   describe("create() method", () => {
     it("creates objects directory", async () => {
       const newDir = "new-objects";
-      const newObjDir = createObjectDirectory(files, compression, newDir);
+      const newObjDir = createObjectDirectory(files, newDir);
 
       await newObjDir.create();
 
@@ -315,7 +318,7 @@ describe("ObjectDirectory", () => {
 
     it("is idempotent", async () => {
       const newDir = "new-objects";
-      const newObjDir = createObjectDirectory(files, compression, newDir);
+      const newObjDir = createObjectDirectory(files, newDir);
 
       await newObjDir.create();
       await newObjDir.create(); // Should not throw
