@@ -2,7 +2,7 @@
  * File utility functions for Git storage
  */
 
-import type { FileApi } from "../file-api/types.js";
+import type { GitFilesApi } from "../git-files-api.js";
 
 /**
  * Write a file atomically (via temp file + rename)
@@ -10,12 +10,12 @@ import type { FileApi } from "../file-api/types.js";
  * This ensures that readers never see a partially written file.
  * If the write fails, the original file is left unchanged.
  *
- * @param files FileApi instance
+ * @param files GitFilesApi instance
  * @param path Destination path
  * @param content File content
  */
 export async function atomicWriteFile(
-  files: FileApi,
+  files: GitFilesApi,
   path: string,
   content: Uint8Array,
 ): Promise<void> {
@@ -44,21 +44,21 @@ export async function atomicWriteFile(
 /**
  * Ensure a directory exists (create if needed)
  *
- * @param files FileApi instance
+ * @param files GitFilesApi instance
  * @param path Directory path
  */
-export async function ensureDir(files: FileApi, path: string): Promise<void> {
+export async function ensureDir(files: GitFilesApi, path: string): Promise<void> {
   await files.mkdir(path);
 }
 
 /**
  * Read entire file or return undefined if not found
  *
- * @param files FileApi instance
+ * @param files GitFilesApi instance
  * @param path File path
  * @returns File content or undefined
  */
-export async function tryReadFile(files: FileApi, path: string): Promise<Uint8Array | undefined> {
+export async function tryReadFile(files: GitFilesApi, path: string): Promise<Uint8Array | undefined> {
   try {
     return await files.readFile(path);
   } catch (error) {
@@ -82,11 +82,11 @@ export function isNotFoundError(error: unknown): boolean {
 /**
  * List all files in a directory recursively
  *
- * @param files FileApi instance
+ * @param files GitFilesApi instance
  * @param path Directory path
  * @yields Relative paths of all files
  */
-export async function* listFilesRecursive(files: FileApi, path: string): AsyncGenerator<string> {
+export async function* listFilesRecursive(files: GitFilesApi, path: string): AsyncGenerator<string> {
   const entries = await files.readdir(path);
 
   for (const entry of entries) {

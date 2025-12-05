@@ -8,7 +8,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import type { FileApi } from "../file-api/index.js";
+import type { GitFilesApi } from "../git-files-api.js";
 import { PACKED_REFS, PACKED_REFS_HEADER, PACKED_REFS_PEELED, type Ref } from "./ref-types.js";
 
 /**
@@ -20,7 +20,7 @@ import { PACKED_REFS, PACKED_REFS_HEADER, PACKED_REFS_PEELED, type Ref } from ".
  * @param peeled Whether to include peeled data
  */
 export async function writePackedRefs(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refs: Ref[],
   peeled = true,
@@ -78,7 +78,7 @@ export function formatPackedRefs(refs: Ref[], peeled = true): string {
  * @param gitDir Path to .git directory
  * @param ref Ref to add
  */
-export async function addPackedRef(files: FileApi, gitDir: string, ref: Ref): Promise<void> {
+export async function addPackedRef(files: GitFilesApi, gitDir: string, ref: Ref): Promise<void> {
   // Import here to avoid circular dependency
   const { readPackedRefs } = await import("./packed-refs-reader.js");
 
@@ -104,7 +104,7 @@ export async function addPackedRef(files: FileApi, gitDir: string, ref: Ref): Pr
  * @returns True if ref was removed, false if it wasn't in packed-refs
  */
 export async function removePackedRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refName: string,
 ): Promise<boolean> {
@@ -146,7 +146,7 @@ export async function removePackedRef(
  * @param deleteLoose Whether to delete loose ref files after packing
  */
 export async function packRefs(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refNames: string[],
   deleteLoose = true,

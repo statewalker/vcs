@@ -10,7 +10,7 @@
  */
 
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { FileApi } from "../file-api/index.js";
+import type { GitFilesApi } from "../git-files-api.js";
 import { findPackedRef } from "./packed-refs-reader.js";
 import { removePackedRef } from "./packed-refs-writer.js";
 import { hasLooseRef, readAllRefs, readRef, resolveRef } from "./ref-reader.js";
@@ -132,7 +132,7 @@ export interface RefDirectory {
  * @param gitDir Path to .git directory
  * @returns RefDirectory instance
  */
-export function createRefDirectory(files: FileApi, gitDir: string): RefDirectory {
+export function createRefDirectory(files: GitFilesApi, gitDir: string): RefDirectory {
   return {
     async exactRef(refName: string): Promise<Ref | SymbolicRef | undefined> {
       return readRef(files, gitDir, refName);

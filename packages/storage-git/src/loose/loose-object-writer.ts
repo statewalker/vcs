@@ -9,7 +9,7 @@
 
 import { compressBlock, sha1 } from "@webrun-vcs/common";
 import type { ObjectId, ObjectTypeString } from "@webrun-vcs/storage";
-import type { FileApi } from "../file-api/types.js";
+import type { GitFilesApi } from "../git-files-api.js";
 import { createGitObject } from "../format/object-header.js";
 import { atomicWriteFile, ensureDir } from "../utils/file-utils.js";
 import { getLooseObjectPath, hasLooseObject } from "./loose-object-reader.js";
@@ -20,14 +20,14 @@ import { getLooseObjectPath, hasLooseObject } from "./loose-object-reader.js";
  * The object ID is computed from the content. If an object with the
  * same ID already exists, this is a no-op (deduplication).
  *
- * @param files FileApi instance
+ * @param files GitFilesApi instance
  * @param objectsDir Objects directory path
  * @param type Object type
  * @param content Object content (without header)
  * @returns Object ID
  */
 export async function writeLooseObject(
-  files: FileApi,
+  files: GitFilesApi,
   objectsDir: string,
   type: ObjectTypeString,
   content: Uint8Array,

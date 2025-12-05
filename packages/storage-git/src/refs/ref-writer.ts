@@ -10,7 +10,7 @@
  */
 
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { FileApi } from "../file-api/index.js";
+import type { GitFilesApi } from "../git-files-api.js";
 import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-types.js";
 
 /**
@@ -21,7 +21,7 @@ import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-
  * @param ref The ref to write (can be regular or symbolic)
  */
 export async function writeRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   ref: Ref | SymbolicRef,
 ): Promise<void> {
@@ -53,7 +53,7 @@ export async function writeRef(
  * @param objectId Object ID to point to
  */
 export async function writeObjectRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refName: string,
   objectId: ObjectId,
@@ -77,7 +77,7 @@ export async function writeObjectRef(
  * @param target Name of the target ref
  */
 export async function writeSymbolicRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refName: string,
   target: string,
@@ -102,7 +102,7 @@ export async function writeSymbolicRef(
  * @param refName Name of the ref to delete
  * @returns True if deleted, false if it didn't exist
  */
-export async function deleteRef(files: FileApi, gitDir: string, refName: string): Promise<boolean> {
+export async function deleteRef(files: GitFilesApi, gitDir: string, refName: string): Promise<boolean> {
   const refPath = files.join(gitDir, refName);
 
   const deleted = await files.unlink(refPath);
@@ -116,7 +116,7 @@ export async function deleteRef(files: FileApi, gitDir: string, refName: string)
 /**
  * Remove empty parent directories up to refs/
  */
-async function cleanupEmptyRefDirs(files: FileApi, gitDir: string, refName: string): Promise<void> {
+async function cleanupEmptyRefDirs(files: GitFilesApi, gitDir: string, refName: string): Promise<void> {
   // Only clean up within refs/ hierarchy
   if (!refName.startsWith("refs/")) {
     return;
@@ -158,7 +158,7 @@ async function cleanupEmptyRefDirs(files: FileApi, gitDir: string, refName: stri
  * @returns True if update succeeded, false if CAS failed
  */
 export async function updateRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refName: string,
   oldValue: ObjectId | undefined,
@@ -189,7 +189,7 @@ export async function updateRef(
  * @param files File system API
  * @param gitDir Path to .git directory
  */
-export async function createRefsStructure(files: FileApi, gitDir: string): Promise<void> {
+export async function createRefsStructure(files: GitFilesApi, gitDir: string): Promise<void> {
   await files.mkdir(files.join(gitDir, "refs"));
   await files.mkdir(files.join(gitDir, "refs", "heads"));
   await files.mkdir(files.join(gitDir, "refs", "tags"));

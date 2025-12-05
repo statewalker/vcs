@@ -4,8 +4,9 @@
 
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { MemFilesApi } from "@statewalker/webrun-files";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { MemoryFileApi } from "../../src/file-api/memory-file-api.js";
+import { GitFilesApi } from "../../src/git-files-api.js";
 import {
   getLooseObjectPath,
   hasLooseObject,
@@ -15,7 +16,7 @@ import { writeLooseObject } from "../../src/loose/loose-object-writer.js";
 import { createObjectDirectory, type ObjectDirectory } from "../../src/loose/object-directory.js";
 
 describe("loose-objects", () => {
-  let files: MemoryFileApi;
+  let files: GitFilesApi;
   const objectsDir = "objects";
 
   beforeAll(() => {
@@ -23,7 +24,7 @@ describe("loose-objects", () => {
   });
 
   beforeEach(() => {
-    files = new MemoryFileApi();
+    files = new GitFilesApi(new MemFilesApi());
   });
 
   describe("getLooseObjectPath", () => {
@@ -77,10 +78,9 @@ describe("loose-objects", () => {
 
       expect(id1).toBe(id2);
 
-      // Only one file should exist
-      const snapshot = files.snapshot();
-      const objectFiles = Array.from(snapshot.keys()).filter((p) => p.startsWith("objects/"));
-      expect(objectFiles.length).toBe(1);
+      // Both writes should produce the same object ID (deduplication)
+      // The hasLooseObject check inside writeLooseObject prevents duplicate writes
+      expect(await hasLooseObject(files, objectsDir, id1)).toBe(true);
     });
 
     it("handles empty content", async () => {

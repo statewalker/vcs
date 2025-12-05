@@ -10,7 +10,7 @@
 
 import { decompressBlockPartial } from "@webrun-vcs/common";
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { FileApi, FileHandle } from "../file-api/index.js";
+import type { GitFileHandle, GitFilesApi } from "../git-files-api.js";
 import { bytesToHex } from "../utils/index.js";
 import type {
   PackHeader,
@@ -32,13 +32,13 @@ const OBJECT_ID_LENGTH = 20;
  * Provides random access to objects in a pack file, with delta resolution.
  */
 export class PackReader {
-  private readonly files: FileApi;
+  private readonly files: GitFilesApi;
   private readonly packPath: string;
   private readonly index: PackIndex;
-  private handle: FileHandle | null = null;
+  private handle: GitFileHandle | null = null;
   private length = 0;
 
-  constructor(files: FileApi, packPath: string, index: PackIndex) {
+  constructor(files: GitFilesApi, packPath: string, index: PackIndex) {
     this.files = files;
     this.packPath = packPath;
     this.index = index;

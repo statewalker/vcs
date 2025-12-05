@@ -9,7 +9,7 @@
  */
 
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { FileApi } from "../file-api/index.js";
+import type { GitFilesApi } from "../git-files-api.js";
 import { findPackedRef, readPackedRefs } from "./packed-refs-reader.js";
 import {
   createRef,
@@ -36,7 +36,7 @@ const MAX_SYMBOLIC_REF_DEPTH = 5;
  * @returns The ref if found, undefined otherwise
  */
 export async function readRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refName: string,
 ): Promise<Ref | SymbolicRef | undefined> {
@@ -59,7 +59,7 @@ export async function readRef(
  * @returns The ref if found, undefined otherwise
  */
 export async function readLooseRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refName: string,
 ): Promise<Ref | SymbolicRef | undefined> {
@@ -131,7 +131,7 @@ function isSymbolicRefContent(buf: Uint8Array): boolean {
  * @returns The resolved ref, or undefined if it can't be resolved
  */
 export async function resolveRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refOrName: string | Ref | SymbolicRef,
 ): Promise<Ref | undefined> {
@@ -165,7 +165,7 @@ export async function resolveRef(
  * @returns Array of refs
  */
 export async function readAllRefs(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   prefix: string = R_REFS,
 ): Promise<(Ref | SymbolicRef)[]> {
@@ -199,7 +199,7 @@ export async function readAllRefs(
  * Recursively read loose refs from a directory
  */
 async function readLooseRefsRecursive(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   prefix: string,
   refs: (Ref | SymbolicRef)[],
@@ -243,7 +243,7 @@ async function readLooseRefsRecursive(
  * @returns True if the loose ref exists
  */
 export async function hasLooseRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refName: string,
 ): Promise<boolean> {
@@ -260,7 +260,7 @@ export async function hasLooseRef(
  * @returns Array of refs matching the prefix
  */
 export async function getRefsByPrefix(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   prefix: string,
 ): Promise<(Ref | SymbolicRef)[]> {

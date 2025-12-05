@@ -5,8 +5,9 @@
  * Tests various ref management scenarios including edge cases.
  */
 
+import { MemFilesApi } from "@statewalker/webrun-files";
 import { beforeEach, describe, expect, it } from "vitest";
-import { MemoryFileApi } from "../../src/file-api/memory-file-api.js";
+import { GitFilesApi } from "../../src/git-files-api.js";
 import {
   createRefDirectory,
   isValidRefName,
@@ -23,7 +24,7 @@ import {
 } from "../../src/refs/ref-types.js";
 
 describe("RefDirectory", () => {
-  let files: MemoryFileApi;
+  let files: GitFilesApi;
   let refs: RefDirectory;
   const gitDir = "/repo/.git";
 
@@ -34,7 +35,7 @@ describe("RefDirectory", () => {
   const tagId = "d".repeat(40);
 
   beforeEach(async () => {
-    files = new MemoryFileApi();
+    files = new GitFilesApi(new MemFilesApi());
     refs = createRefDirectory(files, gitDir);
     await refs.create();
   });
@@ -535,14 +536,14 @@ describe("parseRefContent", () => {
 });
 
 describe("special refs", () => {
-  let files: MemoryFileApi;
+  let files: GitFilesApi;
   let refs: RefDirectory;
   const gitDir = "/repo/.git";
   const commitId1 = "a".repeat(40);
   const commitId2 = "b".repeat(40);
 
   beforeEach(async () => {
-    files = new MemoryFileApi();
+    files = new GitFilesApi(new MemFilesApi());
     refs = createRefDirectory(files, gitDir);
     await refs.create();
   });

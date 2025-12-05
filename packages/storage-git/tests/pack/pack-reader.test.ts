@@ -6,8 +6,9 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { NodeFilesApi } from "@statewalker/webrun-files";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { NodeFileApi } from "../../src/file-api/index.js";
+import { GitFilesApi } from "../../src/git-files-api.js";
 import {
   applyDelta,
   getDeltaBaseSize,
@@ -23,11 +24,11 @@ setCompression(createNodeCompression());
 
 describe("pack-reader", () => {
   describe("PackReader", () => {
-    let files: NodeFileApi;
+    let files: GitFilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new NodeFileApi();
+      files = new GitFilesApi(new NodeFilesApi({ fs }));
 
       // Load index
       const idxPath = path.join(
@@ -132,11 +133,11 @@ describe("pack-reader", () => {
   });
 
   describe("dense pack with deltas", () => {
-    let files: NodeFileApi;
+    let files: GitFilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new NodeFileApi();
+      files = new GitFilesApi(new NodeFilesApi({ fs }));
 
       // Load dense pack index
       const idxPath = path.join(

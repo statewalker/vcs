@@ -2,9 +2,10 @@
  * Tests for Git refs handling
  */
 
+import { MemFilesApi } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/storage";
 import { beforeEach, describe, expect, it } from "vitest";
-import { MemoryFileApi } from "../../src/file-api/memory-file-api.js";
+import { GitFilesApi } from "../../src/git-files-api.js";
 import {
   findPackedRef,
   parsePackedRefs,
@@ -45,11 +46,11 @@ const ID2 = "abcdef1234567890abcdef1234567890abcdef12" as ObjectId;
 const ID3 = "fedcba0987654321fedcba0987654321fedcba09" as ObjectId;
 
 describe("refs", () => {
-  let files: MemoryFileApi;
+  let files: GitFilesApi;
   const gitDir = ".git";
 
   beforeEach(() => {
-    files = new MemoryFileApi();
+    files = new GitFilesApi(new MemFilesApi());
   });
 
   describe("ref-types", () => {

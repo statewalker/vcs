@@ -7,12 +7,13 @@
 
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { MemFilesApi } from "@statewalker/webrun-files";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { MemoryFileApi } from "../src/file-api/memory-file-api.js";
+import { GitFilesApi } from "../src/git-files-api.js";
 import { GitStorage } from "../src/git-storage.js";
 
 describe("repository format", () => {
-  let files: MemoryFileApi;
+  let files: GitFilesApi;
   const gitDir = "/repo/.git";
 
   beforeAll(() => {
@@ -20,7 +21,7 @@ describe("repository format", () => {
   });
 
   beforeEach(() => {
-    files = new MemoryFileApi();
+    files = new GitFilesApi(new MemFilesApi());
   });
 
   describe("repository initialization", () => {
