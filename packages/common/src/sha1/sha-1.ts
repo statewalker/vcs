@@ -67,7 +67,9 @@ export class Sha1 {
   private _finalized = false;
 
   constructor(...messages: Sha1Input[]) {
-    this.update(...messages);
+    for (const message of messages) {
+      this.update(message);
+    }
   }
 
   get finalized(): boolean {
@@ -78,28 +80,21 @@ export class Sha1 {
     if (this._finalized) throw new Error("Hash was finalized");
   }
 
-  update(...messages: Sha1Input[]): this {
+  update(data: Sha1Input, offset = 0, len: number = data.length - offset): this {
     this.checkFinalized();
-    for (const message of messages) {
-      this.updateSingle(message);
-    }
-    return this;
-  }
-
-  private updateSingle(message: Sha1Input): void {
-    let index = 0;
+    let index = offset;
     let i: number;
-    const length = message.length || 0;
+    const end = offset + len;
 
-    while (index < length) {
+    while (index < end) {
       if (this.hashed) {
         this.hashed = false;
         this.blocks[0] = this.block;
         this.blocks.fill(0, 1, 17);
       }
 
-      for (i = this.start; index < length && i < 64; ++index) {
-        this.blocks[i >> 2] |= message[index] << SHIFT[i++ & 3];
+      for (i = this.start; index < end && i < 64; ++index) {
+        this.blocks[i >> 2] |= data[index] << SHIFT[i++ & 3];
       }
 
       this.lastByteIndex = i;
@@ -117,6 +112,7 @@ export class Sha1 {
       this.hBytes += (this.bytes / 4294967296) << 0;
       this.bytes = this.bytes % 4294967296;
     }
+    return this;
   }
 
   finalize(): Sha1Hash {
@@ -318,7 +314,9 @@ export function newSha1(): Sha1;
 export function newSha1(...messages: Sha1Input[]): Sha1Hash | Sha1 {
   const sha1 = new Sha1();
   if (messages.length) {
-    sha1.update(...messages);
+    for (const message of messages) {
+      sha1.update(message);
+    }
     return sha1.finalize();
   }
   return sha1;

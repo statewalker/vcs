@@ -71,11 +71,11 @@ describe("newSha1", () => {
       expect(toHex(hash)).toBe(toHex(directHash));
     });
 
-    it("should allow multiple messages in single update call", () => {
+    it("should allow chaining multiple update calls", () => {
       const token1 = encoder.encode("Hello");
       const token2 = encoder.encode(" World");
 
-      const hash = newSha1().update(token1, token2).finalize();
+      const hash = newSha1().update(token1).update(token2).finalize();
 
       const directHash = newSha1(encoder.encode("Hello World"));
       expect(toHex(hash)).toBe(toHex(directHash));
@@ -256,6 +256,102 @@ describe("newSha1", () => {
       );
 
       expect(result).toBe(toHex(newSha1(encoder.encode("Hello World"))));
+    });
+  });
+
+  describe("update with offset and len", () => {
+    it("should hash a slice of data using offset", () => {
+      const fullData = encoder.encode("Hello World");
+      // Hash only "World" (starting at offset 6)
+      const hash = newSha1().update(fullData, 6).finalize();
+
+      const directHash = newSha1(encoder.encode("World"));
+      expect(toHex(hash)).toBe(toHex(directHash));
+    });
+
+    it("should hash a slice of data using offset and len", () => {
+      const fullData = encoder.encode("Hello World");
+      // Hash only "ello" (starting at offset 1, length 4)
+      const hash = newSha1().update(fullData, 1, 4).finalize();
+
+      const directHash = newSha1(encoder.encode("ello"));
+      expect(toHex(hash)).toBe(toHex(directHash));
+    });
+
+    it("should hash with offset=0 and explicit len", () => {
+      const fullData = encoder.encode("Hello World");
+      // Hash only "Hello" (starting at offset 0, length 5)
+      const hash = newSha1().update(fullData, 0, 5).finalize();
+
+      const directHash = newSha1(encoder.encode("Hello"));
+      expect(toHex(hash)).toBe(toHex(directHash));
+    });
+
+    it("should hash middle portion of data", () => {
+      const fullData = encoder.encode("prefix_content_suffix");
+      // Hash only "content" (starting at offset 7, length 7)
+      const hash = newSha1().update(fullData, 7, 7).finalize();
+
+      const directHash = newSha1(encoder.encode("content"));
+      expect(toHex(hash)).toBe(toHex(directHash));
+    });
+
+    it("should work with chained updates using different slices", () => {
+      const data = encoder.encode("HelloWorld");
+      // Hash "Hello" + "World" separately using offset/len
+      const hash = newSha1()
+        .update(data, 0, 5) // "Hello"
+        .update(data, 5, 5) // "World"
+        .finalize();
+
+      const directHash = newSha1(encoder.encode("HelloWorld"));
+      expect(toHex(hash)).toBe(toHex(directHash));
+    });
+
+    it("should handle offset with len=0", () => {
+      const fullData = encoder.encode("Hello");
+      const hash = newSha1().update(fullData, 3, 0).finalize();
+
+      const emptyHash = newSha1(encoder.encode(""));
+      expect(toHex(hash)).toBe(toHex(emptyHash));
+    });
+
+    it("should handle Uint8Array with offset and len", () => {
+      const data = new Uint8Array([0x00, 0x01, 0x02, 0x03, 0x04, 0x05]);
+      // Hash only bytes [0x02, 0x03] (offset 2, len 2)
+      const hash = newSha1().update(data, 2, 2).finalize();
+
+      const directHash = newSha1(new Uint8Array([0x02, 0x03]));
+      expect(toHex(hash)).toBe(toHex(directHash));
+    });
+
+    it("should handle number array with offset and len", () => {
+      const data = [72, 101, 108, 108, 111]; // "Hello"
+      // Hash only "ell" (offset 1, len 3)
+      const hash = newSha1().update(data, 1, 3).finalize();
+
+      const directHash = newSha1(encoder.encode("ell"));
+      expect(toHex(hash)).toBe(toHex(directHash));
+    });
+
+    it("should work with data spanning multiple SHA-1 blocks", () => {
+      // Create data larger than one block (64 bytes)
+      const data = new Uint8Array(100).fill(0x42);
+      // Hash bytes 20-80 (60 bytes, almost one full block)
+      const hash = newSha1().update(data, 20, 60).finalize();
+
+      const slice = new Uint8Array(60).fill(0x42);
+      const directHash = newSha1(slice);
+      expect(toHex(hash)).toBe(toHex(directHash));
+    });
+
+    it("should default len to remaining bytes when not specified", () => {
+      const fullData = encoder.encode("Hello World");
+      // Without len, should hash from offset to end
+      const hash = newSha1().update(fullData, 6).finalize();
+
+      const directHash = newSha1(encoder.encode("World"));
+      expect(toHex(hash)).toBe(toHex(directHash));
     });
   });
 
