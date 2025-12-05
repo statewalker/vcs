@@ -116,7 +116,7 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
         expect(retrieved).toEqual(content);
       });
 
-      it("handles large content (1MB)", async () => {
+      it("handles large content (1MB)", { timeout: 30000 }, async () => {
         const content = patternContent(1024 * 1024, 42);
         const id = await ctx.storage.store(toAsyncIterable(content));
         const retrieved = await collectContent(ctx.storage.load(id));

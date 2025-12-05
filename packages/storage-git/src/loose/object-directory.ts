@@ -8,7 +8,7 @@
  */
 
 import type { ObjectId, ObjectTypeCode, ObjectTypeString } from "@webrun-vcs/storage";
-import type { DirEntry, FileApi } from "../file-api/types.js";
+import type { DirEntry, GitFilesApi } from "../git-files-api.js";
 import {
   hasLooseObject,
   type LooseObjectData,
@@ -40,7 +40,7 @@ export interface ObjectEntry {
  */
 export class ObjectDirectory {
   constructor(
-    private readonly files: FileApi,
+    private readonly files: GitFilesApi,
     private readonly objectsDir: string,
   ) {}
 
@@ -274,9 +274,9 @@ export class ObjectDirectory {
 /**
  * Create an ObjectDirectory instance
  *
- * @param files FileApi instance
+ * @param files GitFilesApi instance
  * @param objectsDir Path to objects directory
  */
-export function createObjectDirectory(files: FileApi, objectsDir: string): ObjectDirectory {
+export function createObjectDirectory(files: GitFilesApi, objectsDir: string): ObjectDirectory {
   return new ObjectDirectory(files, objectsDir);
 }

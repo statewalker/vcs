@@ -9,7 +9,7 @@
 
 import type { ObjectId, ObjectStorage, ObjectTypeCode } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
-import type { DirEntry, FileApi } from "./file-api/index.js";
+import type { DirEntry, GitFilesApi } from "./git-files-api.js";
 import { ObjectDirectory } from "./loose/index.js";
 import { type PackIndex, readPackIndex } from "./pack/index.js";
 import { PackReader } from "./pack/pack-reader.js";
@@ -44,13 +44,13 @@ interface PackFile {
  * Implements the ObjectStorage interface for content-addressable storage.
  */
 export class GitObjectStorage implements ObjectStorage {
-  private readonly files: FileApi;
+  private readonly files: GitFilesApi;
   private readonly objectsDir: string;
   private readonly looseObjects: ObjectDirectory;
   private packFiles: PackFile[] = [];
   private packsLoaded = false;
 
-  constructor(files: FileApi, gitDir: string) {
+  constructor(files: GitFilesApi, gitDir: string) {
     this.files = files;
     this.objectsDir = files.join(gitDir, "objects");
     this.looseObjects = new ObjectDirectory(files, this.objectsDir);

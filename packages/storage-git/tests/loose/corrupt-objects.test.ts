@@ -8,13 +8,14 @@
 
 import { compressBlock, setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { MemFilesApi } from "@statewalker/webrun-files";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { MemoryFileApi } from "../../src/file-api/memory-file-api.js";
 import { parseObjectHeader } from "../../src/format/object-header.js";
+import { GitFilesApi } from "../../src/git-files-api.js";
 import { getLooseObjectPath, readLooseObject } from "../../src/loose/loose-object-reader.js";
 
 describe("corrupt loose objects", () => {
-  let files: MemoryFileApi;
+  let files: GitFilesApi;
   const objectsDir = "objects";
   const fakeId = "0".repeat(40);
 
@@ -23,7 +24,7 @@ describe("corrupt loose objects", () => {
   });
 
   beforeEach(() => {
-    files = new MemoryFileApi();
+    files = new GitFilesApi(new MemFilesApi());
   });
 
   /**

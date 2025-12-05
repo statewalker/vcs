@@ -9,7 +9,7 @@
 
 import { decompressBlock } from "@webrun-vcs/common";
 import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/storage";
-import type { FileApi } from "../file-api/types.js";
+import type { GitFilesApi } from "../git-files-api.js";
 import { type ParsedObjectHeader, parseObjectHeader } from "../format/object-header.js";
 
 /**
@@ -33,7 +33,7 @@ export interface LooseObjectData {
  * @param id Object ID (hex string)
  * @returns Path to the loose object file
  */
-export function getLooseObjectPath(objectsDir: string, id: ObjectId, files: FileApi): string {
+export function getLooseObjectPath(objectsDir: string, id: ObjectId, files: GitFilesApi): string {
   const prefix = id.substring(0, 2);
   const suffix = id.substring(2);
   return files.join(objectsDir, prefix, suffix);
@@ -42,13 +42,13 @@ export function getLooseObjectPath(objectsDir: string, id: ObjectId, files: File
 /**
  * Check if a loose object exists
  *
- * @param files FileApi instance
+ * @param files GitFilesApi instance
  * @param objectsDir Objects directory path
  * @param id Object ID
  * @returns True if the loose object exists
  */
 export async function hasLooseObject(
-  files: FileApi,
+  files: GitFilesApi,
   objectsDir: string,
   id: ObjectId,
 ): Promise<boolean> {
@@ -59,14 +59,14 @@ export async function hasLooseObject(
 /**
  * Read a loose object from disk
  *
- * @param files FileApi instance
+ * @param files GitFilesApi instance
  * @param objectsDir Objects directory path
  * @param id Object ID
  * @returns Object data (type, size, content)
  * @throws Error if object not found or invalid format
  */
 export async function readLooseObject(
-  files: FileApi,
+  files: GitFilesApi,
   objectsDir: string,
   id: ObjectId,
 ): Promise<LooseObjectData> {
@@ -106,13 +106,13 @@ export async function readLooseObject(
  * This is more efficient when you only need type and size.
  * Note: We still need to decompress at least the header portion.
  *
- * @param files FileApi instance
+ * @param files GitFilesApi instance
  * @param objectsDir Objects directory path
  * @param id Object ID
  * @returns Parsed header (type, size)
  */
 export async function readLooseObjectHeader(
-  files: FileApi,
+  files: GitFilesApi,
   objectsDir: string,
   id: ObjectId,
 ): Promise<ParsedObjectHeader> {

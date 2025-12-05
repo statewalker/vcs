@@ -14,7 +14,7 @@ import type {
   ObjectStorage,
   TagStorage,
 } from "@webrun-vcs/storage";
-import type { FileApi } from "./file-api/index.js";
+import type { GitFilesApi } from "./git-files-api.js";
 import { GitCommitStorage } from "./git-commit-storage.js";
 import { GitFileTreeStorage } from "./git-file-tree-storage.js";
 import { GitObjectStorage } from "./git-object-storage.js";
@@ -75,7 +75,7 @@ export class GitStorage implements GitStorageApi {
   readonly refs: RefDirectory;
   readonly gitDir: string;
 
-  private constructor(files: FileApi, gitDir: string) {
+  private constructor(files: GitFilesApi, gitDir: string) {
     this.gitDir = gitDir;
     this.objects = new GitObjectStorage(files, gitDir);
     this.trees = new GitFileTreeStorage(this.objects);
@@ -90,7 +90,7 @@ export class GitStorage implements GitStorageApi {
    * @param files File system API
    * @param gitDir Path to .git directory
    */
-  static async open(files: FileApi, gitDir: string): Promise<GitStorage> {
+  static async open(files: GitFilesApi, gitDir: string): Promise<GitStorage> {
     // Verify it's a valid git repository
     const headPath = files.join(gitDir, "HEAD");
     if (!(await files.exists(headPath))) {
@@ -108,7 +108,7 @@ export class GitStorage implements GitStorageApi {
    * @param options Creation options
    */
   static async init(
-    files: FileApi,
+    files: GitFilesApi,
     gitDir: string,
     options: GitStorageOptions = {},
   ): Promise<GitStorage> {
@@ -184,7 +184,7 @@ export class GitStorage implements GitStorageApi {
  * @param options Creation/open options
  */
 export async function createGitStorage(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   options: GitStorageOptions = {},
 ): Promise<GitStorage> {

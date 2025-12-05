@@ -26,6 +26,7 @@
     "format:fix": "biome check --write --unsafe ."
   },
   "dependencies": {
+    "@statewalker/webrun-files": "^0.4.0",
     "@webrun-vcs/storage": "workspace:*",
     "@webrun-vcs/common": "workspace:*"
   },

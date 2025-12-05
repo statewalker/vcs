@@ -7,7 +7,7 @@
  */
 
 // File system abstraction (for custom backends)
-export * from "./file-api/index.js";
+export * from "./git-files-api.js";
 
 // Format utilities (for advanced use cases)
 export * from "./format/index.js";

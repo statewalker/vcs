@@ -13,7 +13,7 @@
  */
 
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { FileApi } from "../file-api/index.js";
+import type { GitFilesApi } from "../git-files-api.js";
 import {
   createPeeledRef,
   createPeeledTagRef,
@@ -43,7 +43,7 @@ export interface PackedRefs {
  * @param gitDir Path to .git directory
  * @returns Parsed refs and metadata
  */
-export async function readPackedRefs(files: FileApi, gitDir: string): Promise<PackedRefs> {
+export async function readPackedRefs(files: GitFilesApi, gitDir: string): Promise<PackedRefs> {
   const packedRefsPath = files.join(gitDir, PACKED_REFS);
 
   let content: string;
@@ -145,7 +145,7 @@ export function parsePackedRefs(content: string): PackedRefs {
  * @returns The ref if found, undefined otherwise
  */
 export async function findPackedRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refName: string,
 ): Promise<Ref | undefined> {
@@ -162,7 +162,7 @@ export async function findPackedRef(
  * @returns True if the ref exists
  */
 export async function hasPackedRef(
-  files: FileApi,
+  files: GitFilesApi,
   gitDir: string,
   refName: string,
 ): Promise<boolean> {

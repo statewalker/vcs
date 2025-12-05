@@ -7,13 +7,14 @@
 
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { MemFilesApi } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/storage";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { MemoryFileApi } from "../../src/file-api/memory-file-api.js";
+import { GitFilesApi } from "../../src/git-files-api.js";
 import { createObjectDirectory, type ObjectDirectory } from "../../src/loose/object-directory.js";
 
 describe("ObjectDirectory", () => {
-  let files: MemoryFileApi;
+  let files: GitFilesApi;
   let objDir: ObjectDirectory;
   const objectsDir = "objects";
 
@@ -22,7 +23,7 @@ describe("ObjectDirectory", () => {
   });
 
   beforeEach(() => {
-    files = new MemoryFileApi();
+    files = new GitFilesApi(new MemFilesApi());
     objDir = createObjectDirectory(files, objectsDir);
   });
 
