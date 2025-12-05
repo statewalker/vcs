@@ -7,5 +7,5 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "tests/sha1/sha-1.test.ts"]
 }
