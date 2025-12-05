@@ -12,7 +12,8 @@
  * setCompression(createNodeCompression());
  * ```
  */
-
+import { promisify } from "node:util";
+import zlib from "node:zlib";
 import type {
   ByteStream,
   CompressionImplementation,
@@ -28,8 +29,6 @@ export async function* deflateNode(
   stream: ByteStream,
   options?: StreamingCompressionOptions,
 ): ByteStream {
-  const zlib = await import("node:zlib");
-
   const deflater = options?.raw
     ? zlib.createDeflateRaw({ level: options?.level ?? 6 })
     : zlib.createDeflate({ level: options?.level ?? 6 });
@@ -100,8 +99,6 @@ export async function* inflateNode(
   stream: ByteStream,
   options?: StreamingCompressionOptions,
 ): ByteStream {
-  const zlib = await import("node:zlib");
-
   const inflater = options?.raw ? zlib.createInflateRaw() : zlib.createInflate();
 
   const outputQueue: Uint8Array[] = [];
@@ -170,9 +167,6 @@ export async function compressBlockNode(
   data: Uint8Array,
   options?: StreamingCompressionOptions,
 ): Promise<Uint8Array> {
-  const zlib = await import("node:zlib");
-  const { promisify } = await import("node:util");
-
   const level = options?.level ?? 6;
   const zlibOptions = { level };
 
@@ -193,9 +187,6 @@ export async function decompressBlockNode(
   data: Uint8Array,
   options?: StreamingCompressionOptions,
 ): Promise<Uint8Array> {
-  const zlib = await import("node:zlib");
-  const { promisify } = await import("node:util");
-
   if (options?.raw) {
     const inflateRaw = promisify(zlib.inflateRaw);
     const result = await inflateRaw(Buffer.from(data));
@@ -216,8 +207,6 @@ export async function decompressBlockPartialNode(
   data: Uint8Array,
   options?: StreamingCompressionOptions,
 ): Promise<PartialDecompressionResult> {
-  const zlib = await import("node:zlib");
-
   return new Promise((resolve, reject) => {
     const inflater = options?.raw ? zlib.createInflateRaw() : zlib.createInflate();
 
