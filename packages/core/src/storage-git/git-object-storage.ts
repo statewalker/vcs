@@ -83,7 +83,8 @@ export class GitObjectStorage {
       yield contentData;
     })();
 
-    return this.storage.store(withHeader);
+    const info = await this.storage.store(withHeader);
+    return info.id;
   }
 
   /**
@@ -145,8 +146,8 @@ export class GitObjectStorage {
    * @param id ObjectId to check
    * @returns True if object exists
    */
-  has(id: ObjectId): Promise<boolean> {
-    return this.storage.has(id);
+  async has(id: ObjectId): Promise<boolean> {
+    return (await this.storage.getInfo(id)) !== null;
   }
 
   /**

@@ -196,9 +196,9 @@ describe("GitObjectStorage", () => {
 
       // Store directly via raw storage (without Git header)
       const rawContent = new TextEncoder().encode("raw content");
-      const rawId = await gitStorage.raw.store(toAsyncIterable(rawContent));
+      const { id: rawId } = await gitStorage.raw.store(toAsyncIterable(rawContent));
 
-      expect(await gitStorage.raw.has(rawId)).toBe(true);
+      expect(await gitStorage.raw.getInfo(rawId)).not.toBeNull();
 
       // Load raw content
       const chunks: Uint8Array[] = [];

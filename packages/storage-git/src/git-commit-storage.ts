@@ -196,7 +196,7 @@ export class GitCommitStorage implements CommitStorage {
    * Check if commit exists
    */
   async hasCommit(id: ObjectId): Promise<boolean> {
-    return this.objectStorage.has(id);
+    return (await this.objectStorage.getInfo(id)) !== null;
   }
 
   /**

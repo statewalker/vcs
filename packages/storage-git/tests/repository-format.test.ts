@@ -157,7 +157,7 @@ describe("repository format", () => {
     it("preserves objects after re-opening", async () => {
       // Create and store
       const storage1 = await GitStorage.init(files, gitDir, { create: true });
-      const id = await storage1.objects.store(
+      const { id } = await storage1.objects.store(
         (async function* () {
           yield new TextEncoder().encode("test content");
         })(),
@@ -166,7 +166,7 @@ describe("repository format", () => {
 
       // Re-open and verify
       const storage2 = await GitStorage.open(files, gitDir);
-      expect(await storage2.objects.has(id)).toBe(true);
+      expect(await storage2.objects.getInfo(id)).not.toBeNull();
 
       await storage2.close();
     });
@@ -203,20 +203,20 @@ describe("repository format", () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Store object as loose
-      const id = await storage.objects.store(
+      const { id } = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("test content");
         })(),
       );
 
-      expect(await storage.objects.has(id)).toBe(true);
+      expect(await storage.objects.getInfo(id)).not.toBeNull();
 
       // Simulate external pack creation (e.g., gc or fetch)
       // For this test, we just verify refresh() doesn't break existing access
 
       await storage.refresh();
 
-      expect(await storage.objects.has(id)).toBe(true);
+      expect(await storage.objects.getInfo(id)).not.toBeNull();
 
       await storage.close();
     });

@@ -1,4 +1,4 @@
-import type { FileMode, ObjectId, TreeEntry } from "@webrun-vcs/storage";
+import type { ObjectId } from "@webrun-vcs/storage";
 import type {
   PackingCandidate,
   PackingContext,
@@ -57,17 +57,17 @@ export class StorageAnalyzer {
     let totalChainDepth = 0;
     let maxChainDepth = 0;
 
-    // Enumerate all objects
-    for await (const objectId of context.objects.listObjects()) {
+    // Enumerate all objects (now yields ObjectInfo)
+    for await (const objectInfo of context.objects.listObjects()) {
       if (options.signal?.aborted) {
         throw new DOMException("Analysis aborted", "AbortError");
       }
 
+      const objectId = objectInfo.id;
+      const size = objectInfo.size;
+
       allObjects.add(objectId);
       totalObjects++;
-
-      const size = await context.objects.getSize(objectId);
-      if (size < 0) continue; // Object disappeared
 
       totalStorageSize += size;
 
@@ -167,8 +167,9 @@ export class StorageAnalyzer {
 
       totalObjects++;
 
-      const size = await context.objects.getSize(objectId);
-      if (size < 0) continue;
+      const info = await context.objects.getInfo(objectId);
+      if (!info) continue;
+      const size = info.size;
 
       totalStorageSize += size;
 
@@ -241,11 +242,11 @@ export class StorageAnalyzer {
       }
     }
 
-    // Find orphans
+    // Find orphans (listObjects now yields ObjectInfo)
     const orphans: ObjectId[] = [];
-    for await (const objectId of context.objects.listObjects()) {
-      if (!reachable.has(objectId)) {
-        orphans.push(objectId);
+    for await (const objectInfo of context.objects.listObjects()) {
+      if (!reachable.has(objectInfo.id)) {
+        orphans.push(objectInfo.id);
       }
     }
 

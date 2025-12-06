@@ -25,6 +25,7 @@ import type {
   DeltaObjectStorage,
   DeltaOptions,
   ObjectId,
+  ObjectInfo,
 } from "@webrun-vcs/storage";
 import type { DeltaRepository } from "./delta-repository.js";
 import type { IntermediateCache } from "./intermediate-cache.js";
@@ -78,14 +79,22 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
   /**
    * Store object content
    */
-  async store(data: AsyncIterable<Uint8Array>): Promise<ObjectId> {
+  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
     // Collect all chunks into a single buffer
     const chunks: Uint8Array[] = [];
     let totalSize = 0;
 
-    for await (const chunk of data) {
-      chunks.push(chunk);
-      totalSize += chunk.length;
+    // Handle both sync and async iterables
+    if (Symbol.asyncIterator in data) {
+      for await (const chunk of data as AsyncIterable<Uint8Array>) {
+        chunks.push(chunk);
+        totalSize += chunk.length;
+      }
+    } else {
+      for (const chunk of data as Iterable<Uint8Array>) {
+        chunks.push(chunk);
+        totalSize += chunk.length;
+      }
     }
 
     // Combine into single array
@@ -99,10 +108,11 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     // Compute hash using configured algorithm
     const crypto = this.getCryptoProvider();
     const id = await crypto.hash(this.hashAlgorithm, content);
+    const size = content.length;
 
     // Check for existing object
     if (await this.objectRepo.hasObject(id)) {
-      return id;
+      return { id, size };
     }
 
     // Compress with deflate (ZLIB format)
@@ -111,7 +121,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     // Store as full content initially
     await this.objectRepo.storeObject({
       id,
-      size: content.length,
+      size,
       content: compressed,
       created: Date.now(),
       accessed: Date.now(),
@@ -120,23 +130,49 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     // Update metadata
     await this.metadataRepo.updateSize(id, compressed.length);
 
-    return id;
+    return { id, size };
   }
 
   /**
    * Load object content
    */
-  async *load(id: ObjectId): AsyncIterable<Uint8Array> {
+  async *load(
+    id: ObjectId,
+    params?: { offset?: number; length?: number },
+  ): AsyncIterable<Uint8Array> {
+    // Get full content first (from cache or storage)
+    let content: Uint8Array;
+
     // Check LRU cache first
     if (this.contentCache.has(id)) {
       await this.metadataRepo.recordAccess(id);
       const cached = this.contentCache.get(id);
       if (cached) {
-        yield cached;
-        return;
+        content = cached;
+      } else {
+        content = await this.loadFullContent(id);
       }
+    } else {
+      content = await this.loadFullContent(id);
     }
 
+    // Apply offset and length if specified
+    const offset = params?.offset ?? 0;
+    const length = params?.length ?? content.length - offset;
+    const end = Math.min(offset + length, content.length);
+
+    if (offset >= content.length) {
+      // Offset beyond content - yield empty
+      return;
+    }
+
+    yield content.subarray(offset, end);
+  }
+
+  /**
+   * Load full content from storage (helper for load())
+   */
+  private async loadFullContent(id: ObjectId): Promise<Uint8Array> {
     // Get object entry from repository
     const entry = await this.objectRepo.loadObjectEntry(id);
     if (!entry) {
@@ -149,24 +185,26 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     // Check if this is a delta
     const deltaInfo = await this.deltaRepo.get(entry.recordId);
 
+    let content: Uint8Array;
     if (!deltaInfo) {
       // Full content - decompress and return
-      const decompressed = await decompressBlock(entry.content, { raw: false });
-      this.contentCache.set(id, decompressed);
-      yield decompressed;
+      content = await decompressBlock(entry.content, { raw: false });
     } else {
       // Delta content - reconstruct from chain
-      const reconstructed = await this.reconstructFromDelta(entry.recordId);
-      this.contentCache.set(id, reconstructed);
-      yield reconstructed;
+      content = await this.reconstructFromDelta(entry.recordId);
     }
+
+    this.contentCache.set(id, content);
+    return content;
   }
 
   /**
-   * Check if object exists
+   * Get object metadata
    */
-  async has(id: ObjectId): Promise<boolean> {
-    return this.objectRepo.hasObject(id);
+  async getInfo(id: ObjectId): Promise<ObjectInfo | null> {
+    const entry = await this.objectRepo.loadObjectEntry(id);
+    if (!entry) return null;
+    return { id: entry.id, size: entry.size };
   }
 
   /**
@@ -416,28 +454,17 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
   }
 
   /**
-   * Get the size of an object in bytes
+   * Iterate over all objects in storage
    *
-   * Returns the uncompressed content size, not the on-disk storage size.
-   *
-   * @param id Object ID to query
-   * @returns Size in bytes, or -1 if object does not exist
+   * @returns AsyncGenerator yielding ObjectInfos
    */
-  async getSize(id: ObjectId): Promise<number> {
-    const entry = await this.objectRepo.loadObjectEntry(id);
-    if (!entry) return -1;
-    return entry.size;
-  }
-
-  /**
-   * Iterate over all object IDs in storage
-   *
-   * @returns AsyncGenerator yielding ObjectIds
-   */
-  async *listObjects(): AsyncGenerator<ObjectId> {
+  async *listObjects(): AsyncGenerator<ObjectInfo> {
     const allIds = await this.objectRepo.getAllIds();
     for (const id of allIds) {
-      yield id;
+      const entry = await this.objectRepo.loadObjectEntry(id);
+      if (entry) {
+        yield { id: entry.id, size: entry.size };
+      }
     }
   }
 

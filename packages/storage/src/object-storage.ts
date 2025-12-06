@@ -1,4 +1,4 @@
-import type { ObjectId } from "./types.js";
+import type { ObjectId, ObjectInfo } from "./types.js";
 
 /**
  * Core object storage interface
@@ -13,30 +13,39 @@ export interface ObjectStorage {
   /**
    * Store object content
    *
-   * Content is hashed to produce the ObjectId. If an object with the
+   * Content is hashed to produce the ObjectInfo. If an object with the
    * same hash already exists, this is a no-op (deduplication).
    *
-   * @param data Async iterable of content chunks
-   * @returns ObjectId (content hash in hex)
+   * Accepts both sync and async iterables, allowing use with:
+   * - Sync generators: `function* () { yield chunk; }`
+   * - Async generators: `async function* () { yield chunk; }`
+   * - Arrays: `[chunk1, chunk2]` (arrays are Iterable)
+   * - Single chunks wrapped: `[chunk]`
+   *
+   * @param data Sync or async iterable of content chunks
+   * @returns ObjectInfo (content hash in hex and size in bytes)
    */
-  store(data: AsyncIterable<Uint8Array>): Promise<ObjectId>;
+  store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo>;
 
   /**
    * Load object content by ID
    *
    * @param id Object ID (content hash)
+   * @param params Optional parameters:
+   *   - offset: start reading from this byte offset (default: 0)
+   *   - length: read up to this many bytes (default: until end)
    * @returns Async iterable of content chunks
    * @throws Error if object not found
    */
-  load(id: ObjectId): AsyncIterable<Uint8Array>;
+  load(id: ObjectId, params?: { offset?: number; length?: number }): AsyncIterable<Uint8Array>;
 
   /**
-   * Check if object exists
+   * Get object metadata
    *
    * @param id Object ID
-   * @returns True if object exists
+   * @returns ObjectInfo or null if not found
    */
-  has(id: ObjectId): Promise<boolean>;
+  getInfo(id: ObjectId): Promise<ObjectInfo | null>;
 
   /**
    * Delete object
@@ -47,23 +56,12 @@ export interface ObjectStorage {
   delete(id: ObjectId): Promise<boolean>;
 
   /**
-   * Get the size of an object in bytes
+   * Iterate over all objects in storage and returns information about them
    *
-   * Returns the uncompressed content size, not the on-disk storage size.
-   * This matches Git's behavior where object size refers to content length.
-   *
-   * @param id Object ID to query
-   * @returns Size in bytes, or -1 if object does not exist
-   */
-  getSize(id: ObjectId): Promise<number>;
-
-  /**
-   * Iterate over all object IDs in storage
-   *
-   * Yields object IDs in an implementation-defined order. No guarantees
+   * Yields object info in an implementation-defined order. No guarantees
    * are made about ordering or consistency during concurrent modifications.
    *
-   * @returns AsyncGenerator yielding ObjectIds
+   * @returns AsyncGenerator yielding ObjectInfos
    */
-  listObjects(): AsyncGenerator<ObjectId>;
+  listObjects(): AsyncGenerator<ObjectInfo>;
 }
