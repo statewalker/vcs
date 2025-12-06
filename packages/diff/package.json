@@ -20,7 +20,8 @@
     "lint": "biome lint src tests"
   },
   "dependencies": {
-    "@webrun-vcs/common": "workspace:*"
+    "@webrun-vcs/common": "workspace:*",
+    "@webrun-vcs/hash": "workspace:*"
   },
   "devDependencies": {
     "rolldown": "catalog:",

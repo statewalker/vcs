@@ -5,7 +5,7 @@
  * for efficient block comparison.
  */
 
-import { weakChecksum } from "../delta/index.js";
+import { RollingChecksum } from "@webrun-vcs/hash";
 import type { BinarySequence } from "./binary-sequence.js";
 import type { SequenceComparator } from "./sequence.js";
 
@@ -54,9 +54,12 @@ export class BinaryComparator implements SequenceComparator<BinarySequence> {
    * @param index Block index
    * @returns Hash value
    */
+  private readonly rc = new RollingChecksum();
+
   hash(seq: BinarySequence, index: number): number {
     const block = seq.getBlock(index);
-    return weakChecksum(block, 0, block.length);
+    this.rc.reset();
+    return this.rc.init(block, 0, block.length).value();
   }
 }
 

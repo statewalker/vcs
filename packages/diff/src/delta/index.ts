@@ -1,7 +1,6 @@
 // Export all delta range generation algorithms
 
 export * from "./apply-delta.js";
-export * from "./checksum-obj.js";
 export * from "./create-delta.js";
 export * from "./create-delta-ranges.js";
 export * from "./create-fossil-ranges.js";

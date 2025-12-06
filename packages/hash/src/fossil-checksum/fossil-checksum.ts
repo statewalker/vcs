@@ -1,7 +1,9 @@
 /**
- * Incremental checksum calculator that allows updating the checksum block by block
+ * Fossil-style incremental checksum calculator.
+ * Processes data in 4-byte groups with 16-byte block optimization.
+ * Used for delta integrity verification.
  */
-export class Checksum {
+export class FossilChecksum {
   private sum0 = 0;
   private sum1 = 0;
   private sum2 = 0;
@@ -9,6 +11,12 @@ export class Checksum {
   private buffer: Uint8Array = new Uint8Array(4);
   private bufferCount = 0;
 
+  /**
+   * Update the checksum with additional data.
+   * @param arr - Data buffer
+   * @param pos - Starting position in buffer
+   * @param len - Number of bytes to process
+   */
   update(arr: Uint8Array, pos: number, len: number): void {
     let z = pos;
     let N = Math.min(len, arr.length - pos);
@@ -79,6 +87,11 @@ export class Checksum {
     }
   }
 
+  /**
+   * Finalize and return the checksum value.
+   * Can be called multiple times (idempotent).
+   * @returns 32-bit unsigned checksum
+   */
   finalize(): number {
     const sum0 = this.sum0;
     const sum1 = this.sum1;
@@ -100,5 +113,17 @@ export class Checksum {
     }
 
     return sum3 >>> 0;
+  }
+
+  /**
+   * Reset the checksum state for reuse.
+   */
+  reset(): void {
+    this.sum0 = 0;
+    this.sum1 = 0;
+    this.sum2 = 0;
+    this.sum3 = 0;
+    this.buffer = new Uint8Array(4);
+    this.bufferCount = 0;
   }
 }

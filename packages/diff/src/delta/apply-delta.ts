@@ -1,8 +1,8 @@
-import { Checksum } from "./checksum-obj.js";
+import { FossilChecksum } from "@webrun-vcs/hash/fossil-checksum";
 import type { Delta } from "./types.js";
 
 export function* applyDelta(source: Uint8Array, deltas: Iterable<Delta>): Generator<Uint8Array> {
-  const checksumObj = new Checksum();
+  const checksumObj = new FossilChecksum();
   let expectedChecksum: number | undefined;
   let targetLen = 0;
   let expectedTargetLen = 0;
