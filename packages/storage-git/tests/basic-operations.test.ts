@@ -33,7 +33,7 @@ describe("basic operations", () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create a blob to reference
-      const blobId = await storage.objects.store(
+      const { id: blobId } = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("content");
         })(),
@@ -50,7 +50,7 @@ describe("basic operations", () => {
     it("stores tree with valid entries", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      const blobId = await storage.objects.store(
+      const { id: blobId } = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("content");
         })(),
@@ -68,7 +68,7 @@ describe("basic operations", () => {
     it("handles tree with multiple file modes", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      const blobId = await storage.objects.store(
+      const { id: blobId } = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("content");
         })(),
@@ -111,7 +111,7 @@ describe("basic operations", () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Store a blob
-      const blobId = await storage.objects.store(
+      const { id: blobId } = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("blob content");
         })(),
@@ -447,7 +447,7 @@ describe("basic operations", () => {
     it("handles unicode in tree entry names", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      const blobId = await storage.objects.store(
+      const { id: blobId } = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("content");
         })(),
@@ -484,7 +484,7 @@ describe("basic operations", () => {
         largeContent[i] = i % 256;
       }
 
-      const blobId = await storage.objects.store(
+      const { id: blobId } = await storage.objects.store(
         (async function* () {
           yield largeContent;
         })(),
@@ -507,7 +507,7 @@ describe("basic operations", () => {
 
       const binaryContent = new Uint8Array([0x00, 0x01, 0x00, 0xff, 0x00, 0x00]);
 
-      const blobId = await storage.objects.store(
+      const { id: blobId } = await storage.objects.store(
         (async function* () {
           yield binaryContent;
         })(),

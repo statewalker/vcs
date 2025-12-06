@@ -46,7 +46,7 @@ export interface DeltaChainInfo {
  * This interface exposes delta operations that implementations
  * may use for storage optimization.
  *
- * The basic ObjectStorage methods (store, load, has, delete) work
+ * The basic ObjectStorage methods (store, load, getInfo, delete) work
  * transparently - callers don't need to know if content is stored
  * as full objects or deltas.
  *

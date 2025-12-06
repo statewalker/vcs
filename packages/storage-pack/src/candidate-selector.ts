@@ -51,19 +51,19 @@ export class CandidateSelector {
     const minSizeRatio = options.minSizeRatio ?? DEFAULT_MIN_SIZE_RATIO;
     const includeDeltaObjects = options.includeDeltaObjects ?? false;
 
-    const targetSize = await context.objects.getSize(targetId);
-    if (targetSize < 0) {
+    const targetInfo = await context.objects.getInfo(targetId);
+    if (!targetInfo) {
       return []; // Target doesn't exist
     }
+    const targetSize = targetInfo.size;
 
     const candidates: SizedCandidate[] = [];
 
-    for await (const candidateId of context.objects.listObjects()) {
+    for await (const candidateInfo of context.objects.listObjects()) {
       // Skip self
-      if (candidateId === targetId) continue;
+      if (candidateInfo.id === targetId) continue;
 
-      const candidateSize = await context.objects.getSize(candidateId);
-      if (candidateSize < 0) continue;
+      const candidateSize = candidateInfo.size;
 
       // Apply size ratio filtering (JGit heuristic)
       // Skip if target is too small relative to candidate
@@ -79,11 +79,11 @@ export class CandidateSelector {
 
       // Optionally skip objects already stored as deltas
       if (!includeDeltaObjects) {
-        const isDelta = await context.objects.isDelta(candidateId);
+        const isDelta = await context.objects.isDelta(candidateInfo.id);
         if (isDelta) continue;
       }
 
-      candidates.push({ id: candidateId, size: candidateSize });
+      candidates.push({ id: candidateInfo.id, size: candidateSize });
     }
 
     // Sort by size descending (larger bases first - "Linus' Law")
@@ -119,16 +119,15 @@ export class CandidateSelector {
 
     // Get directory of target
     const targetDir = this.getDirectory(targetPath);
-    const targetName = this.getBasename(targetPath);
     const targetExt = this.getExtension(targetPath);
 
     // Priority 1: Same path (different versions)
     const samePath = pathToBlobMap.get(targetPath) ?? [];
     for (const blobId of samePath) {
       if (blobId !== targetId) {
-        const size = await context.objects.getSize(blobId);
-        if (size >= 0) {
-          candidates.push({ id: blobId, size });
+        const info = await context.objects.getInfo(blobId);
+        if (info) {
+          candidates.push({ id: blobId, size: info.size });
         }
       }
     }
@@ -140,9 +139,9 @@ export class CandidateSelector {
 
       for (const blobId of blobs) {
         if (blobId !== targetId && !candidates.some((c) => c.id === blobId)) {
-          const size = await context.objects.getSize(blobId);
-          if (size >= 0) {
-            candidates.push({ id: blobId, size });
+          const info = await context.objects.getInfo(blobId);
+          if (info) {
+            candidates.push({ id: blobId, size: info.size });
           }
         }
       }
@@ -154,9 +153,9 @@ export class CandidateSelector {
 
       for (const blobId of blobs) {
         if (blobId !== targetId && !candidates.some((c) => c.id === blobId)) {
-          const size = await context.objects.getSize(blobId);
-          if (size >= 0) {
-            candidates.push({ id: blobId, size });
+          const info = await context.objects.getInfo(blobId);
+          if (info) {
+            candidates.push({ id: blobId, size: info.size });
           }
         }
       }
@@ -205,9 +204,9 @@ export class CandidateSelector {
       const versions = pathHistory.get(path) ?? [];
       for (const version of versions) {
         if (version.blobId !== targetId) {
-          const size = await context.objects.getSize(version.blobId);
-          if (size >= 0 && !candidates.some((c) => c.id === version.blobId)) {
-            candidates.push({ id: version.blobId, size });
+          const info = await context.objects.getInfo(version.blobId);
+          if (info && !candidates.some((c) => c.id === version.blobId)) {
+            candidates.push({ id: version.blobId, size: info.size });
           }
         }
       }

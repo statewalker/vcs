@@ -7,7 +7,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
-import type { ObjectId, ObjectStorage, ObjectTypeCode } from "@webrun-vcs/storage";
+import type { ObjectId, ObjectInfo, ObjectStorage, ObjectTypeCode } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import type { DirEntry, GitFilesApi } from "./git-files-api.js";
 import { ObjectDirectory } from "./loose/index.js";
@@ -59,21 +59,31 @@ export class GitObjectStorage implements ObjectStorage {
   /**
    * Store object content
    *
-   * Content is hashed to produce the ObjectId. If an object with the
+   * Content is hashed to produce the ObjectInfo. If an object with the
    * same hash already exists, this is a no-op (deduplication).
    *
    * Note: This always stores as a blob. For typed storage, use storeTyped().
    */
-  async store(data: AsyncIterable<Uint8Array>): Promise<ObjectId> {
+  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
     // Collect all chunks into a single buffer
     const chunks: Uint8Array[] = [];
-    for await (const chunk of data) {
-      chunks.push(chunk);
+
+    // Handle both sync and async iterables
+    if (Symbol.asyncIterator in data) {
+      for await (const chunk of data as AsyncIterable<Uint8Array>) {
+        chunks.push(chunk);
+      }
+    } else {
+      for (const chunk of data as Iterable<Uint8Array>) {
+        chunks.push(chunk);
+      }
     }
+
     const content = concatUint8Arrays(chunks);
 
     // Store as blob (default type for ObjectStorage)
-    return this.looseObjects.writeBlob(content);
+    const id = await this.looseObjects.writeBlob(content);
+    return { id, size: content.length };
   }
 
   /**
@@ -89,13 +99,28 @@ export class GitObjectStorage implements ObjectStorage {
    *
    * Returns async iterable of content chunks.
    */
-  load(id: ObjectId): AsyncIterable<Uint8Array> {
-    return this.loadGenerator(id);
+  load(id: ObjectId, params?: { offset?: number; length?: number }): AsyncIterable<Uint8Array> {
+    return this.loadGenerator(id, params);
   }
 
-  private async *loadGenerator(id: ObjectId): AsyncGenerator<Uint8Array> {
+  private async *loadGenerator(
+    id: ObjectId,
+    params?: { offset?: number; length?: number },
+  ): AsyncGenerator<Uint8Array> {
     const obj = await this.loadTyped(id);
-    yield obj.content;
+    const content = obj.content;
+
+    // Apply offset and length if specified
+    const offset = params?.offset ?? 0;
+    const length = params?.length ?? content.length - offset;
+    const end = Math.min(offset + length, content.length);
+
+    if (offset >= content.length) {
+      // Offset beyond content - yield empty
+      return;
+    }
+
+    yield content.subarray(offset, end);
   }
 
   /**
@@ -133,23 +158,28 @@ export class GitObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Check if object exists
+   * Get object metadata
    */
-  async has(id: ObjectId): Promise<boolean> {
+  async getInfo(id: ObjectId): Promise<ObjectInfo | null> {
     // Check loose objects first
     if (await this.looseObjects.has(id)) {
-      return true;
+      const header = await this.looseObjects.readHeader(id);
+      return { id, size: header.size };
     }
 
     // Check pack files
     await this.ensurePacksLoaded();
     for (const pack of this.packFiles) {
       if (pack.index.has(id)) {
-        return true;
+        const reader = await this.getPackReader(pack);
+        const obj = await reader.get(id);
+        if (obj) {
+          return { id, size: obj.size };
+        }
       }
     }
 
-    return false;
+    return null;
   }
 
   /**
@@ -254,48 +284,18 @@ export class GitObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Get the size of an object in bytes
+   * Iterate over all objects in storage
    *
-   * Returns the uncompressed content size, not the on-disk storage size.
-   *
-   * @param id Object ID to query
-   * @returns Size in bytes, or -1 if object does not exist
+   * @returns AsyncGenerator yielding ObjectInfos
    */
-  async getSize(id: ObjectId): Promise<number> {
-    // Try loose objects first
-    const hasLoose = await this.looseObjects.has(id);
-    if (hasLoose) {
-      const header = await this.looseObjects.readHeader(id);
-      return header.size;
-    }
-
-    // Try pack files
-    await this.ensurePacksLoaded();
-    for (const pack of this.packFiles) {
-      if (pack.index.has(id)) {
-        const reader = await this.getPackReader(pack);
-        const obj = await reader.get(id);
-        if (obj) {
-          return obj.size;
-        }
-      }
-    }
-
-    return -1;
-  }
-
-  /**
-   * Iterate over all object IDs in storage
-   *
-   * @returns AsyncGenerator yielding ObjectIds
-   */
-  async *listObjects(): AsyncGenerator<ObjectId> {
+  async *listObjects(): AsyncGenerator<ObjectInfo> {
     const seen = new Set<ObjectId>();
 
     // Enumerate loose objects
     for await (const id of this.looseObjects.list()) {
       seen.add(id);
-      yield id;
+      const header = await this.looseObjects.readHeader(id);
+      yield { id, size: header.size };
     }
 
     // Enumerate packed objects (skip duplicates)
@@ -304,7 +304,11 @@ export class GitObjectStorage implements ObjectStorage {
       for (const id of pack.index.listObjects()) {
         if (!seen.has(id)) {
           seen.add(id);
-          yield id;
+          const reader = await this.getPackReader(pack);
+          const obj = await reader.get(id);
+          if (obj) {
+            yield { id, size: obj.size };
+          }
         }
       }
     }

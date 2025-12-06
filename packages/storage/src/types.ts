@@ -7,6 +7,16 @@
 export type ObjectId = string;
 
 /**
+ * Object metadata returned by storage operations
+ */
+export type ObjectInfo = {
+  /** Object ID (content hash in hex) */
+  id: ObjectId;
+  /** Uncompressed content size in bytes */
+  size: number;
+};
+
+/**
  * Git object type codes matching JGit Constants
  */
 export const ObjectType = {
