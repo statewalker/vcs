@@ -27,34 +27,37 @@ export async function* deflateWeb(
     const format = getFormat(options?.raw);
     const compressionStream = new CompressionStream(format);
     const writer = compressionStream.writable.getWriter();
-    const reader = compressionStream.readable.getReader();
-
-    // Start writing input stream to compression stream
-    const writePromise = (async () => {
-      try {
-        for await (const chunk of stream) {
-          await writer.write(chunk as unknown as BufferSource);
-        }
-        await writer.close();
-      } catch (err) {
-        await writer.abort(err);
-        throw err;
-      }
-    })();
-
-    // Read and yield compressed chunks
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        yield value;
+      const reader = compressionStream.readable.getReader();
+      // Read and yield compressed chunks
+      try {
+        // Start writing input stream to compression stream
+        const writePromise = (async () => {
+          try {
+            for await (const chunk of stream) {
+              await writer.write(chunk as unknown as BufferSource);
+            }
+            await writer.close();
+          } catch (err) {
+            await writer.abort(err);
+            throw err;
+          }
+        })();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          yield value;
+        }
+
+        await writePromise;
+        // Ensure write completed without error
+      } finally {
+        reader.releaseLock();
       }
     } finally {
-      reader.releaseLock();
+      writer.releaseLock();
     }
-
-    // Ensure write completed without error
-    await writePromise;
   } catch (error) {
     throw new CompressionError(`Web compression failed: ${error}`, error);
   }
