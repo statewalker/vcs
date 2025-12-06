@@ -1,62 +1,8 @@
-// ============================================================================
-// ---- Rolling checksum functions ----
-// Rolling checksum (weak, Rabin–Karp style)
-// This mirrors the classic rsync/Fossil pattern
+import { RollingChecksum, StrongChecksum } from "@webrun-vcs/hash";
+import type { DeltaRange } from "./types.js";
 
-export interface RollingChecksum {
-  s1: number;
-  s2: number;
-  n: number; // window size
-}
-
-// Initialize rolling checksum for a window
-export function rollingInit(buf: Uint8Array, offset: number, len: number): RollingChecksum {
-  let s1 = 0;
-  let s2 = 0;
-  for (let i = 0; i < len; i++) {
-    s1 = (s1 + buf[offset + i]) | 0;
-    s2 = (s2 + s1) | 0;
-  }
-  return { s1, s2, n: len };
-}
-
-// Slide the window by one byte: remove old byte, add new byte
-export function rollingSlide(rc: RollingChecksum, removeByte: number, addByte: number): void {
-  // All math in 32-bit signed, but we mask later
-  rc.s1 = (rc.s1 - removeByte + addByte) | 0;
-  rc.s2 = (rc.s2 - rc.n * removeByte + rc.s1) | 0;
-}
-
-// Get the 32-bit weak checksum value
-export function rollingValue(rc: RollingChecksum): number {
-  // Keep it close to Fossil’s pattern: lower 16 bits of s1, lower 16 of s2
-  const s1 = rc.s1 & 0xffff;
-  const s2 = rc.s2 & 0xffff;
-  return (s1 | (s2 << 16)) >>> 0;
-}
-
-// Convenience: compute weak checksum for a window
-export function weakChecksum(buf: Uint8Array, offset: number, len: number): number {
-  const rc = rollingInit(buf, offset, len);
-  return rollingValue(rc);
-}
-
-// ---- Strong checksum functions ----
-// Strong checksum (FNV-1a 32-bit)
-// In the future, we might want to swap this out for a better hash (e.g., xxHash)
-export function strongChecksum(buf: Uint8Array, offset: number, len: number): number {
-  let hash = 0x811c9dc5 | 0; // FNV-1a offset basis
-  for (let i = 0; i < len; i++) {
-    hash ^= buf[offset + i];
-    hash = (hash * 0x01000193) >>> 0; // FNV prime
-  }
-  return hash >>> 0;
-}
-
-// // Combine weak and strong checksums into a single 64-bit value
-// function combinedChecksum(weak: number, strong: number): bigint {
-//   return (BigInt(weak) << 32n) | BigInt(strong);
-// }
+// Re-export classes from hash for backward compatibility
+export { RollingChecksum, StrongChecksum } from "@webrun-vcs/hash";
 
 // ============================================================================
 // ---- Build source index ----
@@ -81,10 +27,14 @@ export function buildSourceIndex(
   blockSize: number = DEFAULT_BLOCK_SIZE,
 ): SourceIndex {
   const map = new Map<number, SourceBlock[]>();
+  const rc = new RollingChecksum();
+  const sc = new StrongChecksum();
 
   for (let pos = 0; pos + blockSize <= source.length; pos += blockSize) {
-    const weak = weakChecksum(source, pos, blockSize);
-    const strong = strongChecksum(source, pos, blockSize);
+    rc.reset();
+    sc.reset();
+    const weak = rc.init(source, pos, blockSize).value();
+    const strong = sc.update(source, pos, blockSize).finalize();
     const block: SourceBlock = { pos, weak, strong };
 
     const list = map.get(weak);
@@ -100,8 +50,6 @@ export function buildSourceIndex(
 
 // ============================================================================
 // ---- Delta range definitions ----
-
-import type { DeltaRange } from "./types.js";
 
 interface RangeAccumulator {
   last?: DeltaRange;
@@ -160,19 +108,22 @@ export function* createFossilLikeRanges(
 
   let tPos = 0; // window start in target
   let insertStart = 0; // beginning of current unmatched region in target
-  let rc: RollingChecksum | null = null;
+  const rc = new RollingChecksum();
+  const sc = new StrongChecksum();
+  let rcInitialized = false;
 
   while (tPos + blockSize <= target.length) {
     // Initialize or slide checksum
-    if (rc === null) {
-      rc = rollingInit(target, tPos, blockSize);
+    if (!rcInitialized) {
+      rc.init(target, tPos, blockSize);
+      rcInitialized = true;
     } else {
       const removeByte = target[tPos - 1];
       const addByte = target[tPos + blockSize - 1];
-      rollingSlide(rc, removeByte, addByte);
+      rc.update(removeByte, addByte);
     }
 
-    const weak = rollingValue(rc);
+    const weak = rc.value();
     const candidates = index.map.get(weak);
 
     let bestSrcPos = -1;
@@ -180,7 +131,8 @@ export function* createFossilLikeRanges(
     let bestLen = 0;
 
     if (candidates && candidates.length > 0) {
-      const targetStrong = strongChecksum(target, tPos, blockSize);
+      sc.reset();
+      const targetStrong = sc.update(target, tPos, blockSize).finalize();
 
       for (const cand of candidates) {
         if (cand.strong !== targetStrong) continue;
@@ -235,7 +187,7 @@ export function* createFossilLikeRanges(
       const newTPos = bestTgtPos + bestLen;
       tPos = newTPos;
       insertStart = newTPos;
-      rc = null; // force re-init at the new window position
+      rcInitialized = false; // force re-init at the new window position
     } else {
       // No good match, move window by 1 byte
       tPos++;

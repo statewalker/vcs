@@ -13,6 +13,7 @@
       "@webrun-vcs/common": ["packages/common/src"],
       "@webrun-vcs/core": ["packages/core/src"],
       "@webrun-vcs/diff": ["packages/diff/src"],
+      "@webrun-vcs/hash": ["packages/hash/src"],
       "@webrun-vcs/storage": ["packages/storage/src"],
       "@webrun-vcs/storage-default": ["packages/storage-default/src"],
       "@webrun-vcs/storage-mem": ["packages/storage-mem/src"],

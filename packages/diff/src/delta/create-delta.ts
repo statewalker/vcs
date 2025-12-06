@@ -1,4 +1,4 @@
-import { Checksum } from "./checksum-obj.js";
+import { FossilChecksum } from "@webrun-vcs/hash/fossil-checksum";
 import type { Delta, DeltaRange } from "./types.js";
 
 /**
@@ -15,7 +15,7 @@ export function* createDelta(
   target: Uint8Array,
   ranges: Iterable<DeltaRange>,
 ): Generator<Delta> {
-  const checksumObj = new Checksum();
+  const checksumObj = new FossilChecksum();
   yield {
     type: "start",
     targetLen: target.length,

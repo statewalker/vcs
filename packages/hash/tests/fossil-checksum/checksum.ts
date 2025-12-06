@@ -1,5 +1,6 @@
 /**
  * Calculate a 32-bit checksum of a byte array
+ * Reference implementation for testing FossilChecksum
  */
 
 export function checksum(arr: Uint8Array): number {
