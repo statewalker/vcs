@@ -3,7 +3,9 @@ import { defineConfig } from "rolldown";
 export default defineConfig({
   input: {
     index: "src/index.ts",
+    "crc32/index": "src/crc32/index.ts",
     "sha1/index": "src/sha1/index.ts",
+    "utils/index": "src/utils/index.ts",
     "fossil-checksum/index": "src/fossil-checksum/index.ts",
     "rolling-checksum/index": "src/rolling-checksum/index.ts",
     "strong-checksum/index": "src/strong-checksum/index.ts",

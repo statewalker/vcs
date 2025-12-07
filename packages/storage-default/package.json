@@ -21,6 +21,7 @@
   "dependencies": {
     "@webrun-vcs/common": "workspace:*",
     "@webrun-vcs/diff": "workspace:*",
+    "@webrun-vcs/hash": "workspace:*",
     "@webrun-vcs/storage": "workspace:*"
   },
   "devDependencies": {

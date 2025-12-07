@@ -14,6 +14,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/TreeFormatter.java
  */
 
+import { bytesToHex, hexToBytes } from "@webrun-vcs/hash/utils";
 import type { TreeEntry } from "@webrun-vcs/storage";
 import { FileMode, GitFormat } from "@webrun-vcs/storage";
 
@@ -23,26 +24,6 @@ const decoder = new TextDecoder();
 const SPACE = 0x20;
 const NULL = 0x00;
 const OBJECT_ID_LENGTH = GitFormat.OBJECT_ID_LENGTH; // 20 bytes
-
-/**
- * Convert hex string to raw bytes
- */
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
-  }
-  return bytes;
-}
-
-/**
- * Convert raw bytes to hex string
- */
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 /**
  * Encode file mode as octal ASCII bytes (no leading zeros)

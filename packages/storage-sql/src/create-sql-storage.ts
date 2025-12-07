@@ -5,7 +5,6 @@
  * suitable for persistent storage in browsers and Node.js.
  */
 
-import type { HashAlgorithm } from "@webrun-vcs/common";
 import type { ObjectId } from "@webrun-vcs/storage";
 import { DefaultObjectStorage, IntermediateCache, LRUCache } from "@webrun-vcs/storage-default";
 import type { DatabaseClient } from "./database-client.js";
@@ -22,8 +21,6 @@ export interface SQLStorageOptions {
   maxCacheSize?: number;
   /** Maximum cache entries (default: 500) */
   maxCacheEntries?: number;
-  /** Hash algorithm: 'SHA-256' (default) or 'SHA-1' */
-  hashAlgorithm?: HashAlgorithm;
   /** Run migrations on initialization (default: true) */
   autoMigrate?: boolean;
 }
@@ -78,7 +75,6 @@ export async function createSQLStorage(
   const {
     maxCacheSize = 50 * 1024 * 1024,
     maxCacheEntries = 500,
-    hashAlgorithm = "SHA-256",
     autoMigrate = true,
   } = options;
 
@@ -103,7 +99,6 @@ export async function createSQLStorage(
     metadataRepo,
     contentCache,
     intermediateCache,
-    { hashAlgorithm },
   );
 
   return {

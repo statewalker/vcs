@@ -16,7 +16,7 @@
  */
 
 /** A 20-byte SHA-1 hash result */
-export type Sha1Hash = number[];
+export type Sha1Hash = Uint8Array;
 
 /** Input types accepted for hashing */
 export type Sha1Input = Uint8Array | number[];
@@ -133,7 +133,7 @@ export class Sha1 {
       this.blocks[15] = this.bytes << 3;
       this.hash();
     }
-    return [
+    return new Uint8Array([
       (this.h0 >> 24) & 0xff,
       (this.h0 >> 16) & 0xff,
       (this.h0 >> 8) & 0xff,
@@ -154,7 +154,7 @@ export class Sha1 {
       (this.h4 >> 16) & 0xff,
       (this.h4 >> 8) & 0xff,
       this.h4 & 0xff,
-    ];
+    ]);
   }
 
   clone(): Sha1 {

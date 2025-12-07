@@ -322,33 +322,11 @@ describe("GitObjectStorage", () => {
   });
 });
 
-describe("GitObjectStorage with SHA-256", () => {
-  let gitStorage: GitObjectStorage;
-
-  beforeEach(() => {
-    // Create storage with SHA-256 (non-Git-compatible, but should still work)
-    const baseStorage = createDefaultObjectStorage({ hashAlgorithm: "SHA-256" });
-    gitStorage = new GitObjectStorage(baseStorage);
-  });
-
-  it("should work with SHA-256 hashing", async () => {
-    const content = new TextEncoder().encode("SHA-256 test");
-    const id = await gitStorage.storeTypedBytes(ObjectType.BLOB, content);
-
-    // SHA-256 produces 64-character hex string
-    expect(id.length).toBe(64);
-
-    const loaded = await gitStorage.loadTypedBytes(id);
-    expect(loaded.type).toBe(ObjectType.BLOB);
-    expect(new TextDecoder().decode(loaded.content)).toBe("SHA-256 test");
-  });
-});
-
 describe("GitObjectStorage with default hashing", () => {
   let gitStorage: GitObjectStorage;
 
   beforeEach(() => {
-    // Create storage with default settings (SHA-256)
+    // Create storage with default settings (SHA-1)
     const baseStorage = createDefaultObjectStorage();
     gitStorage = new GitObjectStorage(baseStorage);
   });
@@ -356,6 +334,9 @@ describe("GitObjectStorage with default hashing", () => {
   it("should work with default hashing", async () => {
     const content = new TextEncoder().encode("default hash test");
     const id = await gitStorage.storeTypedBytes(ObjectType.BLOB, content);
+
+    // SHA-1 produces 40-character hex string
+    expect(id.length).toBe(40);
 
     const loaded = await gitStorage.loadTypedBytes(id);
     expect(loaded.type).toBe(ObjectType.BLOB);

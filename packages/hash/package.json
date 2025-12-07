@@ -12,10 +12,20 @@
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs"
     },
+    "./crc32": {
+      "types": "./dist/crc32/index.d.ts",
+      "import": "./dist/esm/crc32/index.js",
+      "require": "./dist/cjs/crc32/index.cjs"
+    },
     "./sha1": {
       "types": "./dist/sha1/index.d.ts",
       "import": "./dist/esm/sha1/index.js",
       "require": "./dist/cjs/sha1/index.cjs"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/esm/utils/index.js",
+      "require": "./dist/cjs/utils/index.cjs"
     },
     "./fossil-checksum": {
       "types": "./dist/fossil-checksum/index.d.ts",

@@ -8,7 +8,9 @@
  */
 
 import { dirname, type FilesApi } from "@statewalker/webrun-files";
-import { compressBlock, sha1 } from "@webrun-vcs/common";
+import { compressBlock } from "@webrun-vcs/common";
+import { sha1 } from "@webrun-vcs/hash/sha1";
+import { bytesToHex } from "@webrun-vcs/hash/utils";
 import type { ObjectId, ObjectTypeString } from "@webrun-vcs/storage";
 import { createGitObject } from "../format/object-header.js";
 import { atomicWriteFile, ensureDir } from "../utils/file-utils.js";
@@ -36,7 +38,7 @@ export async function writeLooseObject(
   const fullObject = createGitObject(type, content);
 
   // Compute hash
-  const id = await sha1(fullObject);
+  const id = bytesToHex(await sha1(fullObject));
 
   // Check if object already exists (deduplication)
   if (await hasLooseObject(files, objectsDir, id)) {
