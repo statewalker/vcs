@@ -117,10 +117,12 @@ export async function writePack(objects: readonly PackWriterObject[]): Promise<P
     const entryOffset = currentOffset;
 
     // Determine if this is a delta object
-    const isRefDelta = obj.deltaBaseId !== undefined && obj.deltaData !== undefined;
+    const deltaBaseId = obj.deltaBaseId;
+    const deltaData = obj.deltaData;
+    const isRefDelta = deltaBaseId !== undefined && deltaData !== undefined;
 
     // Get the data to compress
-    const dataToCompress = isRefDelta ? obj.deltaData! : obj.content;
+    const dataToCompress = isRefDelta ? deltaData : obj.content;
 
     // Write object header
     const type = isRefDelta ? PackObjectType.REF_DELTA : obj.type;
@@ -129,7 +131,7 @@ export async function writePack(objects: readonly PackWriterObject[]): Promise<P
     // For REF_DELTA, include the base object ID after the header
     let fullHeader: Uint8Array;
     if (isRefDelta) {
-      const baseIdBytes = hexToBytes(obj.deltaBaseId!);
+      const baseIdBytes = hexToBytes(deltaBaseId);
       fullHeader = concatBytes(objectHeader, baseIdBytes);
     } else {
       fullHeader = objectHeader;
