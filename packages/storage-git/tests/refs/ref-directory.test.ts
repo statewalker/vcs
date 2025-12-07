@@ -50,9 +50,11 @@ describe("RefDirectory", () => {
 
       const head = await refs.getHead();
       expect(head).toBeDefined();
-      expect(isSymbolicRef(head!)).toBe(true);
-      if (isSymbolicRef(head!)) {
-        expect(head?.target).toBe("refs/heads/main");
+      if (head) {
+        expect(isSymbolicRef(head)).toBe(true);
+        if (isSymbolicRef(head)) {
+          expect(head.target).toBe("refs/heads/main");
+        }
       }
 
       const resolved = await refs.resolve("HEAD");
@@ -66,8 +68,12 @@ describe("RefDirectory", () => {
 
       const head = await refs.getHead();
       expect(head).toBeDefined();
-      expect(isSymbolicRef(head!)).toBe(false);
-      expect(head?.objectId).toBe(commitId1);
+      if (head) {
+        expect(isSymbolicRef(head)).toBe(false);
+        if (!isSymbolicRef(head)) {
+          expect(head.objectId).toBe(commitId1);
+        }
+      }
 
       expect(await refs.getCurrentBranch()).toBeUndefined();
     });
@@ -96,7 +102,9 @@ describe("RefDirectory", () => {
 
       const head = await refs.getHead();
       expect(head).toBeDefined();
-      expect(isSymbolicRef(head!)).toBe(true);
+      if (head) {
+        expect(isSymbolicRef(head)).toBe(true);
+      }
 
       // Resolving should return undefined since target doesn't exist
       const resolved = await refs.resolve("HEAD");
@@ -162,7 +170,7 @@ describe("RefDirectory", () => {
       const ref = await refs.exactRef("refs/tags/v1.0");
       expect(ref).toBeDefined();
       expect(ref?.objectId).toBe(tagId);
-      if (!isSymbolicRef(ref!)) {
+      if (ref && !isSymbolicRef(ref)) {
         expect(ref.peeledObjectId).toBe(commitId1);
       }
     });
@@ -259,9 +267,11 @@ describe("RefDirectory", () => {
       ]);
 
       const head = await refs.getHead();
-      expect(isSymbolicRef(head!)).toBe(true);
-      if (isSymbolicRef(head!)) {
-        expect(head?.target.trim()).toBe("refs/heads/main");
+      if (head) {
+        expect(isSymbolicRef(head)).toBe(true);
+        if (isSymbolicRef(head)) {
+          expect(head.target.trim()).toBe("refs/heads/main");
+        }
       }
     });
   });
@@ -359,9 +369,11 @@ describe("RefDirectory", () => {
       await refs.setHead("main");
 
       const head = await refs.getHead();
-      expect(isSymbolicRef(head!)).toBe(true);
-      if (isSymbolicRef(head!)) {
-        expect(head?.target).toBe("refs/heads/main");
+      if (head) {
+        expect(isSymbolicRef(head)).toBe(true);
+        if (isSymbolicRef(head)) {
+          expect(head.target).toBe("refs/heads/main");
+        }
       }
     });
 
@@ -369,8 +381,12 @@ describe("RefDirectory", () => {
       await refs.setHead(commitId1);
 
       const head = await refs.getHead();
-      expect(isSymbolicRef(head!)).toBe(false);
-      expect(head?.objectId).toBe(commitId1);
+      if (head) {
+        expect(isSymbolicRef(head)).toBe(false);
+        if (!isSymbolicRef(head)) {
+          expect(head.objectId).toBe(commitId1);
+        }
+      }
     });
   });
 });

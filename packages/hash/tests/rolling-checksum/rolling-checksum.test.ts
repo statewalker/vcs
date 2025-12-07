@@ -213,7 +213,7 @@ describe("RollingChecksum", () => {
 
         if (sourceChecksums.has(checksum)) {
           foundMatch = true;
-          matchPos = sourceChecksums.get(checksum)!;
+          matchPos = sourceChecksums.get(checksum) ?? -1;
           break;
         }
       }

@@ -43,9 +43,9 @@ function createTestContext(): PackingContext {
   };
 
   return {
-    objects: objects as any, // Type assertion for mock
-    trees: trees as any,
-    commits: commits as any,
+    objects: objects as unknown as PackingContext["objects"],
+    trees: trees as unknown as PackingContext["trees"],
+    commits: commits as unknown as PackingContext["commits"],
   };
 }
 

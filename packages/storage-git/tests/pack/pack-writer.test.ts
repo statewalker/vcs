@@ -192,7 +192,8 @@ describe("pack-writer", () => {
 
       const offset2Before = writer.getObjectOffset("2222222222222222222222222222222222222222");
       expect(offset2Before).toBeDefined();
-      expect(offset2Before).toBeGreaterThan(offset1Before!);
+      expect(offset1Before).toBeDefined();
+      expect(offset2Before).toBeGreaterThan(offset1Before ?? 0);
     });
 
     it("prevents adding after finalization", async () => {
