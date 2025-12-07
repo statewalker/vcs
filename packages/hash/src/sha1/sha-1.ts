@@ -1,13 +1,13 @@
 /**
  * SHA-1 hash implementation in TypeScript.
+ *
+ * Based on js-sha1 library:
+ * [js-sha1]{@link https://github.com/emn178/js-sha1}
  * Core changes:
  * - Added TypeScript types.
  * - Ensured finalize() is idempotent.
  * - Added support for cloning hash state to allow intermediate hashes.
  * - Improved error handling for finalized hashes.
- *
- * Based on js-sha1 library:
- * [js-sha1]{@link https://github.com/emn178/js-sha1}
  *
  * @version 0.6.0
  * @author Chen, Yi-Cyuan [emn178@gmail.com]
