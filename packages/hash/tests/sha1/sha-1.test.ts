@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { newSha1, Sha1, type Sha1Hash } from "../../src/sha1/sha-1.js";
+import { bytesToHex } from "../../src/utils/index.js";
 
 function toHex(bytes: Sha1Hash): string {
-  return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return bytesToHex(bytes);
 }
 
 describe("newSha1", () => {

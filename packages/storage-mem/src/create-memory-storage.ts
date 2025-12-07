@@ -2,7 +2,6 @@
  * Factory function for creating in-memory storage
  */
 
-import type { HashAlgorithm } from "@webrun-vcs/common";
 import type { ObjectId } from "@webrun-vcs/storage";
 import { DefaultObjectStorage, IntermediateCache, LRUCache } from "@webrun-vcs/storage-default";
 import { InMemoryDeltaRepository } from "./delta-repository.js";
@@ -17,12 +16,6 @@ export interface MemoryStorageOptions {
   maxCacheSize?: number;
   /** Maximum number of cached entries (default: 500) */
   maxCacheEntries?: number;
-  /**
-   * Hash algorithm to use for object IDs
-   * - 'SHA-256': Default, used for general content-addressable storage
-   * - 'SHA-1': Use for Git compatibility
-   */
-  hashAlgorithm?: HashAlgorithm;
 }
 
 /**
@@ -50,7 +43,6 @@ export function createMemoryStorage(options?: MemoryStorageOptions): DefaultObje
     metadataRepo,
     contentCache,
     intermediateCache,
-    { hashAlgorithm: options?.hashAlgorithm },
   );
 }
 

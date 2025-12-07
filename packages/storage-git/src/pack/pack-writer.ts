@@ -9,7 +9,9 @@
  */
 
 import { compressBlock } from "@webrun-vcs/common";
-import { hexToBytes } from "../utils/index.js";
+import { CRC32, crc32 } from "@webrun-vcs/hash/crc32";
+import { sha1 } from "@webrun-vcs/hash/sha1";
+import { hexToBytes } from "@webrun-vcs/hash/utils";
 import { writeOfsVarint, writePackHeader } from "../utils/varint.js";
 import type { PackIndexWriterEntry } from "./pack-index-writer.js";
 import { PackObjectType } from "./types.js";
@@ -55,48 +57,6 @@ export interface PackWriterResult {
   packChecksum: Uint8Array;
   /** Index entries for each object (sorted by object ID) */
   indexEntries: PackIndexWriterEntry[];
-}
-
-/**
- * CRC32 lookup table
- */
-const CRC32_TABLE = makeCRC32Table();
-
-function makeCRC32Table(): Uint32Array {
-  const table = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let crc = i;
-    for (let j = 0; j < 8; j++) {
-      crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
-    }
-    table[i] = crc;
-  }
-  return table;
-}
-
-/**
- * Compute CRC32 checksum
- *
- * @param data Data to checksum
- * @param crc Initial CRC value (for continuing a checksum)
- * @returns CRC32 value
- */
-export function crc32(data: Uint8Array, crc = 0xffffffff): number {
-  for (let i = 0; i < data.length; i++) {
-    crc = CRC32_TABLE[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-/**
- * Compute SHA-1 hash of data
- *
- * @param data Data to hash
- * @returns SHA-1 hash as Uint8Array
- */
-async function sha1(data: Uint8Array): Promise<Uint8Array> {
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data as BufferSource);
-  return new Uint8Array(hashBuffer);
 }
 
 /**
@@ -219,23 +179,6 @@ export async function writePack(objects: readonly PackWriterObject[]): Promise<P
 }
 
 /**
- * Incrementally compute CRC32 over multiple chunks
- */
-class CRC32Calculator {
-  private crc = 0xffffffff;
-
-  update(data: Uint8Array): void {
-    for (let i = 0; i < data.length; i++) {
-      this.crc = CRC32_TABLE[(this.crc ^ data[i]) & 0xff] ^ (this.crc >>> 8);
-    }
-  }
-
-  getValue(): number {
-    return (this.crc ^ 0xffffffff) >>> 0;
-  }
-}
-
-/**
  * Streaming pack writer for building packs incrementally
  *
  * This is useful when you want to:
@@ -275,7 +218,7 @@ export class PackWriterStream {
     const compressed = await compressBlock(content, { raw: false });
 
     // Compute CRC32
-    const crcCalc = new CRC32Calculator();
+    const crcCalc = new CRC32();
     crcCalc.update(header);
     crcCalc.update(compressed);
 
@@ -318,7 +261,7 @@ export class PackWriterStream {
     const compressed = await compressBlock(delta, { raw: false });
 
     // Compute CRC32
-    const crcCalc = new CRC32Calculator();
+    const crcCalc = new CRC32();
     crcCalc.update(header);
     crcCalc.update(baseIdBytes);
     crcCalc.update(compressed);
@@ -373,7 +316,7 @@ export class PackWriterStream {
     const compressed = await compressBlock(delta, { raw: false });
 
     // Compute CRC32
-    const crcCalc = new CRC32Calculator();
+    const crcCalc = new CRC32();
     crcCalc.update(header);
     crcCalc.update(offsetBytes);
     crcCalc.update(compressed);

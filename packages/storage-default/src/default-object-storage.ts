@@ -5,13 +5,7 @@
  * following the repository pattern for clean separation of concerns.
  */
 
-import {
-  type CryptoProvider,
-  compressBlock,
-  decompressBlock,
-  getDefaultCryptoProvider,
-  type HashAlgorithm,
-} from "@webrun-vcs/common";
+import { compressBlock, decompressBlock } from "@webrun-vcs/common";
 import {
   applyDelta,
   createDelta,
@@ -27,23 +21,12 @@ import type {
   ObjectId,
   ObjectInfo,
 } from "@webrun-vcs/storage";
+import { bytesToHex, newSha1 } from "@webrun-vcs/hash";
 import type { DeltaRepository } from "./delta-repository.js";
 import type { IntermediateCache } from "./intermediate-cache.js";
 import type { LRUCache } from "./lru-cache.js";
 import type { MetadataRepository } from "./metadata-repository.js";
 import type { ObjectRepository } from "./object-repository.js";
-
-/**
- * Configuration options for DefaultObjectStorage
- */
-export interface ObjectStorageConfig {
-  /**
-   * Hash algorithm to use for object IDs
-   * - 'SHA-256': Default, used for general content-addressable storage
-   * - 'SHA-1': Use for Git compatibility
-   */
-  hashAlgorithm?: HashAlgorithm;
-}
 
 /**
  * Default object storage with delta compression
@@ -52,29 +35,13 @@ export interface ObjectStorageConfig {
  * with transparent delta compression and reconstruction.
  */
 export class DefaultObjectStorage implements DeltaObjectStorage {
-  private cryptoProvider: CryptoProvider | null = null;
-  private readonly hashAlgorithm: HashAlgorithm;
-
   constructor(
     private objectRepo: ObjectRepository,
     private deltaRepo: DeltaRepository,
     private metadataRepo: MetadataRepository,
     private contentCache: LRUCache<ObjectId, Uint8Array>,
     private intermediateCache: IntermediateCache,
-    config?: ObjectStorageConfig,
-  ) {
-    this.hashAlgorithm = config?.hashAlgorithm ?? "SHA-256";
-  }
-
-  /**
-   * Get crypto provider (lazy initialization)
-   */
-  private getCryptoProvider(): CryptoProvider {
-    if (!this.cryptoProvider) {
-      this.cryptoProvider = getDefaultCryptoProvider();
-    }
-    return this.cryptoProvider;
-  }
+  ) {}
 
   /**
    * Store object content
@@ -106,8 +73,8 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     }
 
     // Compute hash using configured algorithm
-    const crypto = this.getCryptoProvider();
-    const id = await crypto.hash(this.hashAlgorithm, content);
+    const id = bytesToHex(newSha1(content));
+    // crypto.hash(this.hashAlgorithm, content);
     const size = content.length;
 
     // Check for existing object

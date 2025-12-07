@@ -9,9 +9,11 @@ import * as path from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { crc32 } from "@webrun-vcs/hash/crc32";
+import { sha1 } from "@webrun-vcs/hash/sha1";
+import { bytesToHex } from "@webrun-vcs/hash/utils";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
-  crc32,
   PackObjectType,
   PackReader,
   type PackWriterObject,
@@ -30,11 +32,7 @@ setCompression(createNodeCompression());
  * Compute SHA-1 hash of data (for pack name verification)
  */
 async function sha1Hex(data: Uint8Array): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data as BufferSource);
-  const hashArray = new Uint8Array(hashBuffer);
-  return Array.from(hashArray)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return bytesToHex(await sha1(data));
 }
 
 describe("pack-writer", () => {

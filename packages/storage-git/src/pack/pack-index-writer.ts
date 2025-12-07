@@ -9,7 +9,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/PackIndexWriterV2.java
  */
 
-import { hexToBytes } from "../utils/index.js";
+import { sha1 } from "@webrun-vcs/hash/sha1";
+import { hexToBytes } from "@webrun-vcs/hash/utils";
 
 /** Magic bytes for V2+ index: 0xFF, 't', 'O', 'c' */
 const TOC_SIGNATURE = new Uint8Array([0xff, 0x74, 0x4f, 0x63]);
@@ -99,17 +100,6 @@ export function oldestPossibleFormat(entries: readonly PackIndexWriterEntry[]): 
 function canStoreV1(entry: PackIndexWriterEntry): boolean {
   // V1 uses unsigned 32-bit offset, so limit is 0xFFFFFFFF
   return entry.offset <= MAX_OFFSET_V1;
-}
-
-/**
- * Compute SHA-1 hash of data
- *
- * @param data Data to hash
- * @returns SHA-1 hash as Uint8Array
- */
-async function sha1(data: Uint8Array): Promise<Uint8Array> {
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data as BufferSource);
-  return new Uint8Array(hashBuffer);
 }
 
 /**
