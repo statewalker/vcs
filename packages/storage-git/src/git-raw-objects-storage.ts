@@ -34,22 +34,17 @@
  * ```
  */
 
-import {
-  basename,
-  dirname,
-  type FileInfo,
-  type FilesApi,
-  joinPath,
-} from "@statewalker/webrun-files";
+import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
+import { sha1 } from "@webrun-vcs/hash/sha1";
+import { bytesToHex } from "@webrun-vcs/hash/utils";
 import type { ObjectId, ObjectInfo, ObjectStorage } from "@webrun-vcs/storage";
-import { bytesToHex, newSha1 } from "@/packages/hash";
-import { getLooseObjectPath } from "./loose";
+import { getLooseObjectPath } from "./loose/index.js";
 
 /**
- * Git object storage implementation
+ * Git raw object storage implementation for loose objects
  *
- * Combines loose objects and pack files to provide the ObjectStorage interface.
- * Writes go to loose objects; reads check loose first, then pack files.
+ * Stores and loads raw bytes without any interpretation or header handling.
+ * This is the lowest level storage that other storages build upon.
  *
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
@@ -63,44 +58,38 @@ export class GitRawObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Store object content
+   * Store raw content
    *
    * Content is hashed to produce the ObjectInfo. If an object with the
    * same hash already exists, this is a no-op (deduplication).
    *
-   * Note: This stores content as a blob. For typed storage, use
-   * storeTypedObject() from typed-object-utils.ts.
+   * This stores raw bytes as-is. For Git objects with headers,
+   * the caller must include the header in the data.
    */
   async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
-    const dir = dirname(this.objectsDir);
-    const base = basename(this.objectsDir);
-    const tempPath = joinPath(dir, `.${base}.tmp.${Date.now()}`);
-    try {
-      let length = 0;
-      const hash = newSha1();
-      const withHash = (async function* () {
-        for await (const chunk of data) {
-          hash.update(chunk);
-          length += chunk.length;
-          yield chunk;
-        }
-      })();
-      // Write to temp file
-      await this.files.write(tempPath, withHash);
-      const id = bytesToHex(hash.finalize());
-      const path = getLooseObjectPath(this.objectsDir, id);
-      // Atomically rename to final destination
-      await this.files.move(tempPath, path);
-      return { id, size: length };
-    } catch (error) {
-      // Clean up temp file on failure
-      try {
-        await this.files.remove(tempPath);
-      } catch {
-        // Ignore cleanup errors
+    // Collect all chunks
+    const chunks: Uint8Array[] = [];
+
+    if (Symbol.asyncIterator in data) {
+      for await (const chunk of data as AsyncIterable<Uint8Array>) {
+        chunks.push(chunk);
       }
-      throw error;
+    } else {
+      for (const chunk of data as Iterable<Uint8Array>) {
+        chunks.push(chunk);
+      }
     }
+
+    const content = concatUint8Arrays(chunks);
+
+    // Hash the content
+    const id = bytesToHex(await sha1(content));
+    const path = getLooseObjectPath(this.objectsDir, id);
+
+    // Write to file (FilesApi handles atomic write)
+    await this.files.write(path, [content]);
+
+    return { id, size: content.length };
   }
 
   /**
@@ -208,4 +197,23 @@ export class GitRawObjectStorage implements ObjectStorage {
       }
     }
   }
+}
+
+/**
+ * Concatenate Uint8Arrays
+ */
+function concatUint8Arrays(arrays: Uint8Array[]): Uint8Array {
+  if (arrays.length === 0) return new Uint8Array(0);
+  if (arrays.length === 1) return arrays[0];
+
+  const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+
+  return result;
 }

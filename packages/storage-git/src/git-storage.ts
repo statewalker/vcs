@@ -15,9 +15,12 @@ import type {
   ObjectStorage,
   TagStorage,
 } from "@webrun-vcs/storage";
+import { CompositeObjectStorage } from "./composite-object-storage.js";
 import { GitCommitStorage } from "./git-commit-storage.js";
 import { GitFileTreeStorage } from "./git-file-tree-storage.js";
 import { GitObjectStorage } from "./git-object-storage.js";
+import { GitPackStorage } from "./git-pack-storage.js";
+import { GitRawObjectStorage } from "./git-raw-objects-storage.js";
 import { GitTagStorage } from "./git-tag-storage.js";
 import {
   createRefDirectory,
@@ -42,7 +45,9 @@ export interface GitStorageOptions {
  * Combined Git storage providing all storage interfaces
  */
 export interface GitStorageApi {
-  /** Raw object storage */
+  /** Raw object storage (stores/loads raw bytes, combines loose + pack) */
+  rawStorage: ObjectStorage;
+  /** Object storage (blob-centric interface) */
   objects: ObjectStorage & GitObjectStorage;
   /** File tree storage */
   trees: FileTreeStorage;
@@ -63,11 +68,15 @@ export interface GitStorageApi {
  *
  * Provides complete Git-compatible storage with:
  * - Object storage (blobs, trees, commits, tags)
- * - Pack file support for reading
  * - Loose object storage for writing
+ * - Pack file storage for reading
  * - Reference management (branches, tags, HEAD)
+ *
+ * All typed storages use the rawStorage internally for storing
+ * Git objects with proper headers.
  */
 export class GitStorage implements GitStorageApi {
+  readonly rawStorage: CompositeObjectStorage;
   readonly objects: GitObjectStorage;
   readonly trees: GitFileTreeStorage;
   readonly commits: GitCommitStorage;
@@ -75,12 +84,22 @@ export class GitStorage implements GitStorageApi {
   readonly refs: RefDirectory;
   readonly gitDir: string;
 
+  private readonly looseStorage: GitRawObjectStorage;
+  private readonly packStorage: GitPackStorage;
+
   private constructor(files: FilesApi, gitDir: string) {
     this.gitDir = gitDir;
-    this.objects = new GitObjectStorage(files, gitDir);
-    this.trees = new GitFileTreeStorage(this.objects);
-    this.commits = new GitCommitStorage(this.objects);
-    this.tags = new GitTagStorage(this.objects);
+    // Loose object storage for writes and primary reads
+    this.looseStorage = new GitRawObjectStorage(files, gitDir);
+    // Pack file storage for reading packed objects
+    this.packStorage = new GitPackStorage(files, gitDir);
+    // Composite storage combines loose (primary) and pack (fallback)
+    this.rawStorage = new CompositeObjectStorage(this.looseStorage, [this.packStorage]);
+    // All storages use rawStorage internally
+    this.objects = new GitObjectStorage(this.rawStorage);
+    this.trees = new GitFileTreeStorage(this.rawStorage);
+    this.commits = new GitCommitStorage(this.rawStorage);
+    this.tags = new GitTagStorage(this.rawStorage);
     this.refs = createRefDirectory(files, gitDir);
   }
 
@@ -171,9 +190,11 @@ export class GitStorage implements GitStorageApi {
 
   /**
    * Refresh pack files (call after gc or fetch)
+   *
+   * Re-scans the objects/pack directory for new pack files.
    */
   async refresh(): Promise<void> {
-    await this.objects.refresh();
+    await this.packStorage.refresh();
   }
 }
 

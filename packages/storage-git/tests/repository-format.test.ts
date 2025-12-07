@@ -193,7 +193,7 @@ describe("repository format", () => {
       await storage2.close();
     });
 
-    it("detects newly added pack files after refresh", async () => {
+it("detects newly added pack files after refresh", async () => {
       // Create repository
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
