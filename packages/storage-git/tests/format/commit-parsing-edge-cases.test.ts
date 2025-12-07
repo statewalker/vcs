@@ -113,9 +113,8 @@ Message`;
   });
 
   describe("message formats", () => {
-    it.todo("handles CRLF line endings", () => {
-      // TODO: The parser currently splits by LF only, so CRLF isn't handled properly
-      // JGit handles this in RevCommitParseTest.testParse_GitStyleMessageWithCRLF
+    it("handles CRLF line endings", () => {
+      // Based on: JGit RevCommitParseTest.testParse_GitStyleMessageWithCRLF
       const text = `tree ${sampleTreeId}\r
 author A <a@b.com> 1234567890 +0100\r
 committer C <c@d.com> 1234567900 -0500\r
@@ -128,8 +127,12 @@ Signed-off-by: A <a@b.com>\r
 
       const commit = parseCommit(new TextEncoder().encode(text));
 
+      expect(commit.tree).toBe(sampleTreeId);
+      expect(commit.author.name).toBe("A");
+      expect(commit.author.email).toBe("a@b.com");
       expect(commit.message).toContain("This fixes a");
-      expect(commit.message).toContain("Signed-off-by");
+      expect(commit.message).toContain("bug.");
+      expect(commit.message).toContain("Signed-off-by: A <a@b.com>");
     });
 
     it("handles empty message", () => {
@@ -200,10 +203,44 @@ Signed commit message`;
       expect(commit.message).toBe("Signed commit message");
     });
 
-    it.todo("parses gpgsig with internal empty lines", () => {
-      // TODO: The parser currently treats any empty line as message separator
-      // JGit handles this in RevCommitParseTest.testParse_gpgSig
-      // Real GPG signatures may have empty lines within them
+    it("parses gpgsig continuation lines properly", () => {
+      // Based on: JGit RevCommitParseTest.testParse_gpgSig
+      // GPG signatures use continuation lines (space-prefixed) for multi-line content
+      // Empty lines within signature must be space-prefixed (` `) to continue the block
+      // This test verifies that continuation lines are properly parsed
+      //
+      // Note: In Git's format, each continuation line of gpgsig starts with a space.
+      // An empty line within the signature is represented as " " (space only).
+      const gpgSigLines = [
+        "-----BEGIN PGP SIGNATURE-----",
+        "Version: GnuPG v1",
+        "", // This becomes space-only line in continuation format
+        "wsBcBAABCAAQBQJbGB4pCRBK7hj4Ov3rIwAAdHIIAENrvz23867ZgqrmyPemBEZP",
+        "U24B1Tlq/DWvce2buaxmbNQngKZ0pv2s8VMc11916WfTIC9EKvioatmpjduWvhqj",
+        "znQTFyiMoaZMkUjkE7GnQYJWaLYL/plYKGv5MC/SCkjX/IFi/q0qFbXHB3v7JKAA",
+        "-----END PGP SIGNATURE-----",
+      ];
+
+      // Build gpgsig with proper continuation format (first line after 'gpgsig ', rest prefixed with space)
+      const gpgsigHeader = `gpgsig ${gpgSigLines[0]}`;
+      const gpgsigContinuation = gpgSigLines.slice(1).map((line) => ` ${line}`).join("\n");
+
+      const text = `tree e3a1035abd2b319bb01e57d69b0ba6cab289297e
+parent 54e895b87c0768d2317a2b17062e3ad9f76a8105
+author A U Thor <author@example.com> 1528968566 +0200
+committer A U Thor <author@example.com> 1528968566 +0200
+${gpgsigHeader}
+${gpgsigContinuation}
+
+Signed commit with long GPG signature`;
+
+      const commit = parseCommit(new TextEncoder().encode(text));
+
+      expect(commit.gpgSignature).toBeDefined();
+      expect(commit.gpgSignature).toContain("-----BEGIN PGP SIGNATURE-----");
+      expect(commit.gpgSignature).toContain("Version: GnuPG v1");
+      expect(commit.gpgSignature).toContain("-----END PGP SIGNATURE-----");
+      expect(commit.message).toBe("Signed commit with long GPG signature");
     });
 
     it("handles commit without gpgsig", () => {
