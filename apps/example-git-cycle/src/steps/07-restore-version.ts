@@ -55,8 +55,12 @@ export async function step07RestoreVersion(): Promise<void> {
 
   // List files in latest commit
   const headId = await storage.getHead();
-  console.log(`\n  Files in HEAD (${shortId(headId!)}):`);
-  const headCommit = await storage.commits.loadCommit(headId!);
+  if (!headId) {
+    console.log("\n  No HEAD found - repository may be empty");
+    return;
+  }
+  console.log(`\n  Files in HEAD (${shortId(headId)}):`);
+  const headCommit = await storage.commits.loadCommit(headId);
   const headFiles = await listFilesRecursive(storage, headCommit.tree);
   for (const [path, id] of headFiles) {
     console.log(`    ${path} -> ${shortId(id)}`);
@@ -91,7 +95,11 @@ export async function step07RestoreVersion(): Promise<void> {
 
   // Read README from initial commit
   const initialReadme = await storage.trees.getEntry(initialCommit.tree, "README.md");
-  const initialContent = await readBlob(storage, initialReadme?.id);
+  if (!initialReadme) {
+    console.log("\n  README.md not found in initial commit");
+    return;
+  }
+  const initialContent = await readBlob(storage, initialReadme.id);
 
   console.log(`\n  README.md from initial commit:`);
   console.log(`  ┌${"─".repeat(50)}┐`);
@@ -103,7 +111,11 @@ export async function step07RestoreVersion(): Promise<void> {
 
   // Read README from latest commit
   const headReadme = await storage.trees.getEntry(headCommit.tree, "README.md");
-  const headContent = await readBlob(storage, headReadme?.id);
+  if (!headReadme) {
+    console.log("\n  README.md not found in HEAD commit");
+    return;
+  }
+  const headContent = await readBlob(storage, headReadme.id);
 
   console.log(`\n  README.md from HEAD:`);
   console.log(`  ┌${"─".repeat(50)}┐`);
@@ -145,7 +157,7 @@ export async function step07RestoreVersion(): Promise<void> {
     `    After adding files: ${srcUtilsCommit3 ? `exists (${shortId(srcUtilsCommit3.id)})` : "not checked"}`,
   );
 
-  const srcUtilsHead = await checkInCommit(headId!, "src/utils.js");
+  const srcUtilsHead = await checkInCommit(headId, "src/utils.js");
   console.log(`    HEAD: ${srcUtilsHead ? `exists (${shortId(srcUtilsHead.id)})` : "not found"}`);
 
   printSubsection("Restoring to a specific version");
@@ -184,12 +196,12 @@ export async function step07RestoreVersion(): Promise<void> {
   const { createAuthor } = await import("../shared/index.js");
   const revertTarget = storedCommits.commit2; // Revert to after README update
 
-  if (revertTarget) {
+  if (revertTarget && headId) {
     const targetCommit = await storage.commits.loadCommit(revertTarget);
 
     const revertId = await storage.commits.storeCommit({
       tree: targetCommit.tree,
-      parents: [headId!],
+      parents: [headId],
       author: createAuthor("Demo User", "demo@example.com", 10),
       committer: createAuthor("Demo User", "demo@example.com", 10),
       message: `Revert to "${targetCommit.message.split("\n")[0]}"`,

@@ -50,18 +50,25 @@ export async function step08BranchesTags(): Promise<void> {
   const currentBranch = await storage.getCurrentBranch();
   const headId = await storage.getHead();
 
+  if (!headId) {
+    console.log("\n  No HEAD found - repository may be empty");
+    return;
+  }
+
   console.log(`\n  Current branch: ${currentBranch}`);
-  console.log(`  HEAD commit: ${shortId(headId!)}`);
+  console.log(`  HEAD commit: ${shortId(headId)}`);
 
   // Show HEAD symbolic ref
   const head = await storage.refs.getHead();
   console.log(`\n  HEAD reference details:`);
-  if ("target" in head!) {
+  if (head && "target" in head) {
     console.log(`    Type: symbolic ref`);
     console.log(`    Target: ${head.target}`);
-  } else {
+  } else if (head?.objectId) {
     console.log(`    Type: direct ref`);
-    console.log(`    ObjectId: ${shortId(head?.objectId!)}`);
+    console.log(`    ObjectId: ${shortId(head.objectId)}`);
+  } else {
+    console.log(`    HEAD not found`);
   }
 
   printSubsection("Creating a new branch");
@@ -79,15 +86,17 @@ export async function step08BranchesTags(): Promise<void> {
     const name = branch.name.replace("refs/heads/", "");
     const isCurrent = name === currentBranch;
     const marker = isCurrent ? "*" : " ";
-    console.log(`    ${marker} ${name.padEnd(12)} -> ${shortId(branch.objectId!)}`);
+    const branchId = branch.objectId ?? "(unknown)";
+    console.log(`    ${marker} ${name.padEnd(12)} -> ${shortId(branchId)}`);
   }
 
   printSubsection("Switching branches");
 
   // Switch to feature branch
   await storage.refs.setHead("feature");
+  const featureBranchHead = await storage.getHead();
   console.log(`\n  Switched to branch: ${await storage.getCurrentBranch()}`);
-  console.log(`  HEAD now at: ${shortId((await storage.getHead())!)}`);
+  console.log(`  HEAD now at: ${shortId(featureBranchHead ?? "(unknown)")}`);
 
   // Make a commit on feature branch
   const featureBlob = await storeBlob(storage, "# Feature\n\nNew feature code");
@@ -113,9 +122,9 @@ export async function step08BranchesTags(): Promise<void> {
   // Show branch divergence
   console.log(`\n  Branch state after divergence:`);
   const mainHead = await storage.refs.resolve("refs/heads/main");
-  const featureHead = await storage.refs.resolve("refs/heads/feature");
-  console.log(`    main:    ${shortId(mainHead?.objectId!)}`);
-  console.log(`    feature: ${shortId(featureHead?.objectId!)}`);
+  const featureHeadRef = await storage.refs.resolve("refs/heads/feature");
+  console.log(`    main:    ${shortId(mainHead?.objectId ?? "(unknown)")}`);
+  console.log(`    feature: ${shortId(featureHeadRef?.objectId ?? "(unknown)")}`);
 
   printSubsection("Creating lightweight tags");
 
@@ -130,7 +139,7 @@ export async function step08BranchesTags(): Promise<void> {
 
   // Annotated tag = tag object + ref
   const tagId = await storage.tags.storeTag({
-    object: headId!,
+    object: headId,
     objectType: ObjectType.COMMIT,
     tag: "v2.0.0",
     tagger: createAuthor("Release Manager", "release@example.com", 6),
@@ -141,7 +150,7 @@ export async function step08BranchesTags(): Promise<void> {
 
   console.log(`\n  Created annotated tag 'v2.0.0':`);
   console.log(`    Tag object:    ${shortId(tagId)}`);
-  console.log(`    Points to:     ${shortId(headId!)}`);
+  console.log(`    Points to:     ${shortId(headId)}`);
 
   // Load and display tag
   const tag = await storage.tags.loadTag(tagId);
@@ -155,16 +164,22 @@ export async function step08BranchesTags(): Promise<void> {
   const tags = await storage.refs.getTags();
   for (const tagRef of tags) {
     const name = tagRef.name.replace("refs/tags/", "");
+    const tagRefId = tagRef.objectId;
+
+    if (!tagRefId) {
+      console.log(`    ${name.padEnd(10)} -> (unknown)`);
+      continue;
+    }
 
     // Try to load as annotated tag
     try {
-      const tagObj = await storage.tags.loadTag(tagRef.objectId!);
+      const tagObj = await storage.tags.loadTag(tagRefId);
       console.log(
-        `    ${name.padEnd(10)} -> ${shortId(tagRef.objectId!)} (annotated, points to ${shortId(tagObj.object)})`,
+        `    ${name.padEnd(10)} -> ${shortId(tagRefId)} (annotated, points to ${shortId(tagObj.object)})`,
       );
     } catch {
       // Lightweight tag - ref points directly to commit
-      console.log(`    ${name.padEnd(10)} -> ${shortId(tagRef.objectId!)} (lightweight)`);
+      console.log(`    ${name.padEnd(10)} -> ${shortId(tagRefId)} (lightweight)`);
     }
   }
 
@@ -176,8 +191,8 @@ export async function step08BranchesTags(): Promise<void> {
 
   for (const refName of toResolve) {
     const resolved = await storage.refs.resolve(refName);
-    if (resolved) {
-      console.log(`    ${refName.padEnd(20)} -> ${shortId(resolved.objectId!)}`);
+    if (resolved?.objectId) {
+      console.log(`    ${refName.padEnd(20)} -> ${shortId(resolved.objectId)}`);
     } else {
       console.log(`    ${refName.padEnd(20)} -> (not found)`);
     }
