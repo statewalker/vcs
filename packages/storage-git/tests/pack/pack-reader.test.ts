@@ -315,4 +315,201 @@ describe("pack-reader", () => {
       expect(getDeltaResultSize(delta)).toBe(500);
     });
   });
+
+  /**
+   * Object type and size verification tests
+   * Based on jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/internal/storage/file/T0004_PackReaderTest.java
+   */
+  describe("object type and size verification", () => {
+    let files: GitFilesApi;
+    let reader: PackReader;
+
+    beforeAll(async () => {
+      files = new GitFilesApi(new NodeFilesApi({ fs }));
+
+      const idxPath = path.join(
+        FIXTURES_DIR,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
+      );
+      const idxData = await fs.readFile(idxPath);
+      const index = readPackIndex(new Uint8Array(idxData));
+
+      const packPath = path.join(
+        FIXTURES_DIR,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack",
+      );
+      reader = new PackReader(files, packPath, index);
+      await reader.open();
+    });
+
+    afterAll(async () => {
+      await reader.close();
+    });
+
+    it("verifies object type matches expected", async () => {
+      // Empty tree is type TREE (2)
+      const emptyTree = await reader.get("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
+      expect(emptyTree).toBeDefined();
+      expect(emptyTree?.type).toBe(2); // TREE
+    });
+
+    it("verifies object size matches content length", async () => {
+      const ids = [
+        "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "540a36d136cf413e4b064c2b0e0a4db60f77feab",
+        "5b6e7c66c276e7610d4a73c70ec1a1f7c1003259",
+        "6ff87c4664981e4397625791c8ea3bbb5f2279a3",
+        "82c6b885ff600be425b4ea96dee75dca255b69e7",
+        "902d5476fa249b7abc9d84c611577a81381f0327",
+        "aabf2ffaec9b497f0950352b3e582d73035c2035",
+        "c59759f143fb1fe21c197981df75a7ee00290799",
+      ];
+
+      for (const id of ids) {
+        const obj = await reader.get(id);
+        expect(obj).toBeDefined();
+        // Size field should match actual content length
+        expect(obj?.size).toBe(obj?.content.length);
+      }
+    });
+
+    it("verifies object types are valid (1-4)", async () => {
+      const ids = [
+        "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "540a36d136cf413e4b064c2b0e0a4db60f77feab",
+        "5b6e7c66c276e7610d4a73c70ec1a1f7c1003259",
+        "6ff87c4664981e4397625791c8ea3bbb5f2279a3",
+        "82c6b885ff600be425b4ea96dee75dca255b69e7",
+        "902d5476fa249b7abc9d84c611577a81381f0327",
+        "aabf2ffaec9b497f0950352b3e582d73035c2035",
+        "c59759f143fb1fe21c197981df75a7ee00290799",
+      ];
+
+      for (const id of ids) {
+        const obj = await reader.get(id);
+        expect(obj).toBeDefined();
+        // Type should be COMMIT(1), TREE(2), BLOB(3), or TAG(4)
+        expect([1, 2, 3, 4]).toContain(obj?.type);
+      }
+    });
+
+    it("verifies empty tree has zero content length", async () => {
+      const emptyTree = await reader.get("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
+      expect(emptyTree).toBeDefined();
+      expect(emptyTree?.content.length).toBe(0);
+      expect(emptyTree?.size).toBe(0);
+    });
+  });
+
+  /**
+   * Pack header validation tests
+   */
+  describe("pack header validation", () => {
+    let files: GitFilesApi;
+    let reader: PackReader;
+
+    beforeAll(async () => {
+      files = new GitFilesApi(new NodeFilesApi({ fs }));
+
+      const idxPath = path.join(
+        FIXTURES_DIR,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
+      );
+      const idxData = await fs.readFile(idxPath);
+      const index = readPackIndex(new Uint8Array(idxData));
+
+      const packPath = path.join(
+        FIXTURES_DIR,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack",
+      );
+      reader = new PackReader(files, packPath, index);
+      await reader.open();
+    });
+
+    afterAll(async () => {
+      await reader.close();
+    });
+
+    it("reads pack version correctly", async () => {
+      const header = await reader.readPackHeader();
+      expect(header.version).toBe(2);
+    });
+
+    it("reads object count correctly", async () => {
+      const header = await reader.readPackHeader();
+      expect(header.objectCount).toBe(8);
+    });
+
+    it("object count matches index count", async () => {
+      const header = await reader.readPackHeader();
+      const idxPath = path.join(
+        FIXTURES_DIR,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
+      );
+      const idxData = await fs.readFile(idxPath);
+      const index = readPackIndex(new Uint8Array(idxData));
+
+      expect(header.objectCount).toBe(index.objectCount);
+    });
+  });
+
+  /**
+   * Object header parsing tests
+   */
+  describe("object header parsing", () => {
+    let files: GitFilesApi;
+    let reader: PackReader;
+
+    beforeAll(async () => {
+      files = new GitFilesApi(new NodeFilesApi({ fs }));
+
+      const idxPath = path.join(
+        FIXTURES_DIR,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
+      );
+      const idxData = await fs.readFile(idxPath);
+      const index = readPackIndex(new Uint8Array(idxData));
+
+      const packPath = path.join(
+        FIXTURES_DIR,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack",
+      );
+      reader = new PackReader(files, packPath, index);
+      await reader.open();
+    });
+
+    afterAll(async () => {
+      await reader.close();
+    });
+
+    it("parses object headers at known offsets", async () => {
+      // First object starts at offset 12 (after 12-byte pack header)
+      const header = await reader.readObjectHeader(12);
+      expect(header.type).toBeGreaterThan(0);
+      expect(header.type).toBeLessThan(8);
+      expect(header.size).toBeGreaterThanOrEqual(0);
+    });
+
+    it("header type matches resolved object type", async () => {
+      // Get offset from index for a known object
+      const idxPath = path.join(
+        FIXTURES_DIR,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
+      );
+      const idxData = await fs.readFile(idxPath);
+      const index = readPackIndex(new Uint8Array(idxData));
+
+      // Empty tree
+      const offset = index.findOffset("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
+      expect(offset).toBeGreaterThan(0);
+
+      const header = await reader.readObjectHeader(offset);
+      const obj = await reader.get("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
+
+      // For non-delta objects, header type should match resolved type
+      if (header.type <= 4) {
+        expect(header.type).toBe(obj?.type);
+      }
+    });
+  });
 });

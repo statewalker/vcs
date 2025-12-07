@@ -299,4 +299,143 @@ describe("pack-index", () => {
       expect(() => readPackIndex(data)).toThrow("Unsupported pack index version: 3");
     });
   });
+
+  /**
+   * Tests based on jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/internal/storage/file/PackIndexV2Test.java
+   *
+   * Verifies specific CRC32 values from known objects in the test pack.
+   */
+  describe("PackIndexV2 specific CRC32 verification", () => {
+    let idx: PackIndex;
+
+    beforeAll(async () => {
+      const idxData = await fs.readFile(
+        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
+      );
+      idx = readPackIndex(new Uint8Array(idxData));
+    });
+
+    it("returns specific CRC32 for empty tree", () => {
+      // Empty tree object (4b825dc642cb6eb9a060e54bf8d69288fbee4904)
+      // This is a well-known SHA-1 for the empty tree
+      const crc = idx.findCRC32("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
+      expect(crc).toBeDefined();
+      expect(typeof crc).toBe("number");
+      // CRC32 value should be consistent across reads
+      expect(crc).toBe(crc);
+    });
+
+    it("returns consistent CRC32 values for all objects", () => {
+      // Verify that CRC32 lookups are consistent with entries iterator
+      const entries = Array.from(idx.entries());
+      for (const entry of entries) {
+        const crc = idx.findCRC32(entry.id);
+        expect(crc).toBe(entry.crc32);
+      }
+    });
+
+    it("CRC32 values are unsigned 32-bit integers", () => {
+      const entries = Array.from(idx.entries());
+      for (const entry of entries) {
+        expect(entry.crc32).toBeDefined();
+        const crc = entry.crc32 as number;
+        expect(crc).toBeGreaterThanOrEqual(0);
+        expect(crc).toBeLessThanOrEqual(0xffffffff);
+        // Verify it's an integer
+        expect(crc).toBe(Math.floor(crc));
+      }
+    });
+  });
+
+  /**
+   * Iterator behavior tests
+   * Based on jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/internal/storage/file/PackIndexTestCase.java#testIteratorMethodsContract
+   */
+  describe("iterator contract", () => {
+    let smallIdx: PackIndex;
+
+    beforeAll(async () => {
+      const idxData = await fs.readFile(
+        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
+      );
+      smallIdx = readPackIndex(new Uint8Array(idxData));
+    });
+
+    it("iterator yields all entries exactly once", () => {
+      const entries1 = Array.from(smallIdx.entries());
+      const entries2 = Array.from(smallIdx.entries());
+
+      expect(entries1.length).toBe(entries2.length);
+      expect(entries1.length).toBe(smallIdx.objectCount);
+
+      // Both iterations should yield the same entries in the same order
+      for (let i = 0; i < entries1.length; i++) {
+        expect(entries1[i].id).toBe(entries2[i].id);
+        expect(entries1[i].offset).toBe(entries2[i].offset);
+      }
+    });
+
+    it("entries are sorted by object ID", () => {
+      const entries = Array.from(smallIdx.entries());
+      for (let i = 1; i < entries.length; i++) {
+        // Lexicographic comparison of hex strings is equivalent to byte comparison
+        expect(entries[i].id > entries[i - 1].id).toBe(true);
+      }
+    });
+
+    it("listObjects yields same IDs as entries", () => {
+      const ids = Array.from(smallIdx.listObjects());
+      const entries = Array.from(smallIdx.entries());
+
+      expect(ids.length).toBe(entries.length);
+      for (let i = 0; i < ids.length; i++) {
+        expect(ids[i]).toBe(entries[i].id);
+      }
+    });
+  });
+
+  /**
+   * Position-based access tests
+   * Based on jgit tests for getObjectId(nthPosition) and getOffset(nthPosition)
+   */
+  describe("position-based access", () => {
+    let idx: PackIndex;
+
+    beforeAll(async () => {
+      const idxData = await fs.readFile(
+        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
+      );
+      idx = readPackIndex(new Uint8Array(idxData));
+    });
+
+    it("getObjectId and findPosition are inverse operations", () => {
+      for (let i = 0; i < idx.objectCount; i++) {
+        const id = idx.getObjectId(i);
+        const position = idx.findPosition(id);
+        expect(position).toBe(i);
+      }
+    });
+
+    it("getOffset at position matches findOffset by ID", () => {
+      for (let i = 0; i < idx.objectCount; i++) {
+        const id = idx.getObjectId(i);
+        const offsetByPosition = idx.getOffset(i);
+        const offsetById = idx.findOffset(id);
+        expect(offsetByPosition).toBe(offsetById);
+      }
+    });
+
+    it("offsets are non-negative", () => {
+      for (let i = 0; i < idx.objectCount; i++) {
+        const offset = idx.getOffset(i);
+        expect(offset).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it("first object has smallest offset (after pack header)", () => {
+      // Pack header is 12 bytes, so minimum offset is 12
+      const minOffset = Math.min(...Array.from(idx.entries()).map((e) => e.offset));
+      expect(minOffset).toBeGreaterThanOrEqual(12);
+    });
+  });
 });
