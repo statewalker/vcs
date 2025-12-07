@@ -1,0 +1,242 @@
+/**
+ * Step 8: Working with Branches and Tags
+ *
+ * This step demonstrates reference management for branches and tags.
+ *
+ * Key concepts:
+ * - Branches are refs in refs/heads/
+ * - Tags are refs in refs/tags/ (lightweight) or tag objects (annotated)
+ * - HEAD is a symbolic ref pointing to the current branch
+ * - Switching branches = updating HEAD
+ *
+ * @see packages/storage-git/src/refs/ref-directory.ts - RefDirectory interface
+ * @see packages/storage-git/src/refs/ref-types.ts - Ref, SymbolicRef types
+ * @see packages/storage/src/tag-storage.ts - TagStorage for annotated tags
+ */
+
+import {
+  createAuthor,
+  FileMode,
+  getStorage,
+  ObjectType,
+  printSection,
+  printStep,
+  printSubsection,
+  shortId,
+  storeBlob,
+} from "../shared/index.js";
+import { storedCommits } from "./04-create-commits.js";
+
+export async function step08BranchesTags(): Promise<void> {
+  printStep(8, "Working with Branches and Tags");
+
+  const storage = await getStorage();
+
+  // Ensure we have commits
+  if (!storedCommits.commit1) {
+    console.log("  Note: Running previous steps to create commits...\n");
+    const { step02CreateFiles } = await import("./02-create-files.js");
+    const { step03BuildTrees } = await import("./03-build-trees.js");
+    const { step04CreateCommits } = await import("./04-create-commits.js");
+    const { step05UpdateFiles } = await import("./05-update-files.js");
+    await step02CreateFiles();
+    await step03BuildTrees();
+    await step04CreateCommits();
+    await step05UpdateFiles();
+  }
+
+  printSubsection("Current branch state");
+
+  const currentBranch = await storage.getCurrentBranch();
+  const headId = await storage.getHead();
+
+  console.log(`\n  Current branch: ${currentBranch}`);
+  console.log(`  HEAD commit: ${shortId(headId!)}`);
+
+  // Show HEAD symbolic ref
+  const head = await storage.refs.getHead();
+  console.log(`\n  HEAD reference details:`);
+  if ("target" in head!) {
+    console.log(`    Type: symbolic ref`);
+    console.log(`    Target: ${head.target}`);
+  } else {
+    console.log(`    Type: direct ref`);
+    console.log(`    ObjectId: ${shortId(head?.objectId!)}`);
+  }
+
+  printSubsection("Creating a new branch");
+
+  // Create branch from commit2
+  const branchPoint = storedCommits.commit2 || storedCommits.commit1;
+  await storage.refs.setRef("refs/heads/feature", branchPoint);
+
+  console.log(`\n  Created branch 'feature' at ${shortId(branchPoint)}`);
+
+  // List all branches
+  console.log(`\n  All branches:`);
+  const branches = await storage.refs.getBranches();
+  for (const branch of branches) {
+    const name = branch.name.replace("refs/heads/", "");
+    const isCurrent = name === currentBranch;
+    const marker = isCurrent ? "*" : " ";
+    console.log(`    ${marker} ${name.padEnd(12)} -> ${shortId(branch.objectId!)}`);
+  }
+
+  printSubsection("Switching branches");
+
+  // Switch to feature branch
+  await storage.refs.setHead("feature");
+  console.log(`\n  Switched to branch: ${await storage.getCurrentBranch()}`);
+  console.log(`  HEAD now at: ${shortId((await storage.getHead())!)}`);
+
+  // Make a commit on feature branch
+  const featureBlob = await storeBlob(storage, "# Feature\n\nNew feature code");
+  const featureTree = await storage.trees.storeTree([
+    { mode: FileMode.REGULAR_FILE, name: "FEATURE.md", id: featureBlob },
+  ]);
+
+  const featureCommit = await storage.commits.storeCommit({
+    tree: featureTree,
+    parents: [branchPoint],
+    author: createAuthor("Feature Dev", "feature@example.com", 5),
+    committer: createAuthor("Feature Dev", "feature@example.com", 5),
+    message: "Add feature documentation",
+  });
+
+  await storage.refs.setRef("refs/heads/feature", featureCommit);
+  console.log(`\n  Made commit on feature branch: ${shortId(featureCommit)}`);
+
+  // Switch back to main
+  await storage.refs.setHead("main");
+  console.log(`  Switched back to: ${await storage.getCurrentBranch()}`);
+
+  // Show branch divergence
+  console.log(`\n  Branch state after divergence:`);
+  const mainHead = await storage.refs.resolve("refs/heads/main");
+  const featureHead = await storage.refs.resolve("refs/heads/feature");
+  console.log(`    main:    ${shortId(mainHead?.objectId!)}`);
+  console.log(`    feature: ${shortId(featureHead?.objectId!)}`);
+
+  printSubsection("Creating lightweight tags");
+
+  // Lightweight tag = just a ref
+  await storage.refs.setRef("refs/tags/v1.0.0", storedCommits.commit1);
+  console.log(`\n  Created lightweight tag 'v1.0.0' at ${shortId(storedCommits.commit1)}`);
+
+  await storage.refs.setRef("refs/tags/v1.1.0", storedCommits.commit2 || storedCommits.commit1);
+  console.log(`  Created lightweight tag 'v1.1.0'`);
+
+  printSubsection("Creating annotated tags");
+
+  // Annotated tag = tag object + ref
+  const tagId = await storage.tags.storeTag({
+    object: headId!,
+    objectType: ObjectType.COMMIT,
+    tag: "v2.0.0",
+    tagger: createAuthor("Release Manager", "release@example.com", 6),
+    message: "Release version 2.0.0\n\nMajor update with new features and improvements.",
+  });
+
+  await storage.refs.setRef("refs/tags/v2.0.0", tagId);
+
+  console.log(`\n  Created annotated tag 'v2.0.0':`);
+  console.log(`    Tag object:    ${shortId(tagId)}`);
+  console.log(`    Points to:     ${shortId(headId!)}`);
+
+  // Load and display tag
+  const tag = await storage.tags.loadTag(tagId);
+  console.log(`    Tag name:      ${tag.tag}`);
+  console.log(`    Tagger:        ${tag.tagger?.name}`);
+  console.log(`    Message:       ${tag.message.split("\n")[0]}`);
+
+  printSubsection("Listing all tags");
+
+  console.log(`\n  All tags:`);
+  const tags = await storage.refs.getTags();
+  for (const tagRef of tags) {
+    const name = tagRef.name.replace("refs/tags/", "");
+
+    // Try to load as annotated tag
+    try {
+      const tagObj = await storage.tags.loadTag(tagRef.objectId!);
+      console.log(
+        `    ${name.padEnd(10)} -> ${shortId(tagRef.objectId!)} (annotated, points to ${shortId(tagObj.object)})`,
+      );
+    } catch {
+      // Lightweight tag - ref points directly to commit
+      console.log(`    ${name.padEnd(10)} -> ${shortId(tagRef.objectId!)} (lightweight)`);
+    }
+  }
+
+  printSubsection("Reference resolution");
+
+  console.log(`\n  Resolving different references:`);
+
+  const toResolve = ["HEAD", "refs/heads/main", "refs/heads/feature", "refs/tags/v1.0.0"];
+
+  for (const refName of toResolve) {
+    const resolved = await storage.refs.resolve(refName);
+    if (resolved) {
+      console.log(`    ${refName.padEnd(20)} -> ${shortId(resolved.objectId!)}`);
+    } else {
+      console.log(`    ${refName.padEnd(20)} -> (not found)`);
+    }
+  }
+
+  printSubsection("Deleting branches");
+
+  // Delete feature branch
+  const deleted = await storage.refs.delete("refs/heads/feature");
+  console.log(`\n  Deleted branch 'feature': ${deleted}`);
+
+  // Verify deletion
+  const featureExists = await storage.refs.has("refs/heads/feature");
+  console.log(`  Branch 'feature' exists: ${featureExists}`);
+
+  // List remaining branches
+  console.log(`\n  Remaining branches:`);
+  const remainingBranches = await storage.refs.getBranches();
+  for (const branch of remainingBranches) {
+    const name = branch.name.replace("refs/heads/", "");
+    console.log(`    ${name}`);
+  }
+
+  printSubsection("Summary");
+
+  console.log(`
+  Branch and Tag Operations:
+
+  Branches:
+    storage.refs.setRef("refs/heads/name", commitId)  - Create/update
+    storage.refs.setHead("name")                       - Switch branch
+    storage.refs.getBranches()                         - List branches
+    storage.refs.delete("refs/heads/name")             - Delete branch
+
+  Tags:
+    Lightweight: storage.refs.setRef("refs/tags/name", commitId)
+    Annotated:   storage.tags.storeTag({ ... }) + refs.setRef()
+    List:        storage.refs.getTags()
+
+  Resolution:
+    storage.refs.resolve(refName)      - Follow symrefs to commit
+    storage.refs.exactRef(refName)     - Get ref without following
+    storage.refs.has(refName)          - Check existence
+
+  Special refs:
+    HEAD               - Current commit/branch
+    refs/heads/*       - Branches
+    refs/tags/*        - Tags
+    refs/remotes/*     - Remote tracking branches
+`);
+}
+
+// Run standalone
+if (import.meta.url === `file://${process.argv[1]}`) {
+  printSection("Step 8: Working with Branches and Tags");
+  step08BranchesTags()
+    .then(() => console.log("\n  Done!"))
+    .catch((err) => {
+      console.error("Error:", err);
+      process.exit(1);
+    });
+}
