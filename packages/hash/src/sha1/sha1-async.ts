@@ -22,10 +22,12 @@ function hasWebCrypto(): boolean {
  * Compute SHA-1 hash using Web Crypto API
  */
 async function sha1WebCrypto(data: Uint8Array): Promise<Uint8Array> {
-  // Copy to a new ArrayBuffer to ensure compatibility with crypto.subtle.digest
-  const buffer = new ArrayBuffer(data.length);
-  new Uint8Array(buffer).set(data);
-  const hashBuffer = await globalThis.crypto.subtle.digest("SHA-1", buffer);
+  let buffer = data.buffer;
+  if (data.byteOffset !== 0 || data.byteLength !== data.buffer.byteLength) {
+    // Create a view of the relevant slice of the buffer
+    buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  }
+  const hashBuffer = await globalThis.crypto.subtle.digest("SHA-1", buffer as ArrayBuffer);
   return new Uint8Array(hashBuffer);
 }
 
