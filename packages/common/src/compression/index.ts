@@ -13,9 +13,9 @@
  */
 
 import {
-  CompressionError,
   type ByteStream,
   type CompressBlockFunction,
+  CompressionError,
   type CompressionImplementation,
   type DecompressBlockFunction,
   type DecompressBlockPartialFunction,
@@ -24,8 +24,8 @@ import {
   type PartialDecompressionResult,
   type StreamingCompressionOptions,
 } from "./types.js";
-import { deflateWeb, inflateWeb } from "./web-streams.js";
 import { collectStream, streamFromBuffer } from "./utils.js";
+import { deflateWeb, inflateWeb } from "./web-streams.js";
 
 // Re-export types
 export * from "./types.js";

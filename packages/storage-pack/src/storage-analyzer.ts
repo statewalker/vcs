@@ -1,9 +1,5 @@
 import type { ObjectId } from "@webrun-vcs/storage";
-import type {
-  PackingCandidate,
-  PackingContext,
-  StorageAnalysisReport,
-} from "./types.js";
+import type { PackingCandidate, PackingContext, StorageAnalysisReport } from "./types.js";
 
 /**
  * Options for storage analysis
@@ -44,7 +40,7 @@ export class StorageAnalyzer {
    */
   async analyzeAll(
     context: PackingContext,
-    options: AnalyzerOptions = {}
+    options: AnalyzerOptions = {},
   ): Promise<StorageAnalysisReport> {
     const minSize = options.minSize ?? DEFAULT_MIN_SIZE;
     const allObjects = new Set<ObjectId>();
@@ -129,7 +125,7 @@ export class StorageAnalyzer {
   async analyzeFromRoots(
     context: PackingContext,
     roots: ObjectId[],
-    options: AnalyzerOptions = {}
+    options: AnalyzerOptions = {},
   ): Promise<StorageAnalysisReport> {
     const minSize = options.minSize ?? DEFAULT_MIN_SIZE;
     const visited = new Set<ObjectId>();
@@ -221,10 +217,7 @@ export class StorageAnalyzer {
    * @param roots Commit roots to check reachability from
    * @returns Array of orphaned object IDs
    */
-  async findOrphanedObjects(
-    context: PackingContext,
-    roots: ObjectId[]
-  ): Promise<ObjectId[]> {
+  async findOrphanedObjects(context: PackingContext, roots: ObjectId[]): Promise<ObjectId[]> {
     const reachable = new Set<ObjectId>();
     const visited = new Set<ObjectId>();
 
@@ -262,7 +255,7 @@ export class StorageAnalyzer {
     basePath: string,
     visited: Set<ObjectId>,
     pathMap: Map<ObjectId, string>,
-    options: AnalyzerOptions
+    options: AnalyzerOptions,
   ): Promise<void> {
     if (visited.has(treeId)) return;
     visited.add(treeId);
@@ -276,14 +269,7 @@ export class StorageAnalyzer {
 
       if (this.isTreeMode(entry.mode)) {
         // Recurse into subtree
-        await this.walkTree(
-          context,
-          entry.id,
-          fullPath,
-          visited,
-          pathMap,
-          options
-        );
+        await this.walkTree(context, entry.id, fullPath, visited, pathMap, options);
       } else {
         // Record blob path
         pathMap.set(entry.id, fullPath);
@@ -297,7 +283,7 @@ export class StorageAnalyzer {
   private async collectReachableFromTree(
     context: PackingContext,
     treeId: ObjectId,
-    reachable: Set<ObjectId>
+    reachable: Set<ObjectId>,
   ): Promise<void> {
     if (reachable.has(treeId)) return;
     reachable.add(treeId);
@@ -326,10 +312,7 @@ export class StorageAnalyzer {
    * - Similar files typically achieve 60-80% reduction
    * - We estimate conservatively at 50% for full objects
    */
-  private estimateSavings(
-    candidates: PackingCandidate[],
-    fullObjects: number
-  ): number {
+  private estimateSavings(candidates: PackingCandidate[], _fullObjects: number): number {
     let estimatedSavings = 0;
 
     for (const candidate of candidates) {

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-
-import { CompressionError } from "../../src/compression/types.js";
 import type { ByteStream } from "../../src/compression/types.js";
+import { CompressionError } from "../../src/compression/types.js";
 import { deflateWeb, inflateWeb } from "../../src/compression/web-streams.js";
 
 // Suppress unhandled rejections during error tests
@@ -236,7 +235,9 @@ describe("deflateWeb and inflateWeb round-trip", () => {
     const original = encoder.encode("Testing ZLIB format");
 
     const compressed = await collectStream(deflateWeb(toByteStream([original]), { raw: false }));
-    const decompressed = await collectStream(inflateWeb(toByteStream([compressed]), { raw: false }));
+    const decompressed = await collectStream(
+      inflateWeb(toByteStream([compressed]), { raw: false }),
+    );
 
     expect(decompressed).toEqual(original);
   });

@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach } from "vitest";
 import { createMemoryStorage } from "@webrun-vcs/storage-mem";
+import { beforeEach, describe, expect, it } from "vitest";
 import { StorageAnalyzer } from "../src/storage-analyzer.js";
 import type { PackingContext } from "../src/types.js";
 
@@ -126,9 +126,9 @@ describe("StorageAnalyzer", () => {
       const controller = new AbortController();
       controller.abort();
 
-      await expect(
-        analyzer.analyzeAll(context, { signal: controller.signal })
-      ).rejects.toThrow("Analysis aborted");
+      await expect(analyzer.analyzeAll(context, { signal: controller.signal })).rejects.toThrow(
+        "Analysis aborted",
+      );
     });
   });
 });

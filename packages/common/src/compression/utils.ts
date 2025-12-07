@@ -56,9 +56,7 @@ export async function* streamFromBuffer(data: Uint8Array): ByteStream {
  * @param chunks Iterable of buffers to stream
  * @returns Byte stream yielding each buffer
  */
-export async function* streamFromBuffers(
-  chunks: Iterable<Uint8Array>,
-): ByteStream {
+export async function* streamFromBuffers(chunks: Iterable<Uint8Array>): ByteStream {
   for (const chunk of chunks) {
     yield chunk;
   }
@@ -70,9 +68,7 @@ export async function* streamFromBuffers(
  * @param source Async iterable of buffers
  * @returns Byte stream yielding each buffer
  */
-export async function* streamFromAsyncIterable(
-  source: AsyncIterable<Uint8Array>,
-): ByteStream {
+export async function* streamFromAsyncIterable(source: AsyncIterable<Uint8Array>): ByteStream {
   for await (const chunk of source) {
     yield chunk;
   }

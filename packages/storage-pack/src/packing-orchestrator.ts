@@ -12,9 +12,7 @@ import type {
 /**
  * Default packing options following JGit conventions
  */
-const DEFAULT_OPTIONS: Required<
-  Omit<PackingOptions, "progressCallback" | "signal">
-> = {
+const DEFAULT_OPTIONS: Required<Omit<PackingOptions, "progressCallback" | "signal">> = {
   windowSize: 10,
   maxChainDepth: 50,
   minObjectSize: 50,
@@ -56,10 +54,7 @@ export class PackingOrchestrator {
    * @param options Packing options
    * @returns Packing result with statistics
    */
-  async packAll(
-    context: PackingContext,
-    options: PackingOptions = {}
-  ): Promise<PackingResult> {
+  async packAll(context: PackingContext, options: PackingOptions = {}): Promise<PackingResult> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
     const startTime = Date.now();
 
@@ -98,7 +93,7 @@ export class PackingOrchestrator {
   async packFromRoots(
     context: PackingContext,
     roots: ObjectId[],
-    options: PackingOptions = {}
+    options: PackingOptions = {},
   ): Promise<PackingResult> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
     const startTime = Date.now();
@@ -135,7 +130,7 @@ export class PackingOrchestrator {
   async packIncremental(
     context: PackingContext,
     newObjectIds: ObjectId[],
-    options: PackingOptions = {}
+    options: PackingOptions = {},
   ): Promise<PackingResult> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
     const startTime = Date.now();
@@ -173,10 +168,9 @@ export class PackingOrchestrator {
   private async packCandidates(
     context: PackingContext,
     candidates: PackingCandidate[],
-    opts: Required<Omit<PackingOptions, "progressCallback" | "signal">> &
-      PackingOptions,
+    opts: Required<Omit<PackingOptions, "progressCallback" | "signal">> & PackingOptions,
     startTime: number,
-    commitRoots?: ObjectId[]
+    _commitRoots?: ObjectId[],
   ): Promise<PackingResult> {
     const window: WindowEntry[] = [];
     const chainDepthDistribution = new Map<number, number>();
@@ -227,13 +221,14 @@ export class PackingOrchestrator {
       const selectedCandidates = await this.selector.findCandidatesBySize(
         context,
         candidate.objectId,
-        { maxCandidates: opts.windowSize }
+        { maxCandidates: opts.windowSize },
       );
 
       // Merge candidates (window entries have priority)
-      const allCandidates = [
-        ...new Set([...windowCandidates, ...selectedCandidates]),
-      ].slice(0, opts.windowSize);
+      const allCandidates = [...new Set([...windowCandidates, ...selectedCandidates])].slice(
+        0,
+        opts.windowSize,
+      );
 
       if (allCandidates.length === 0) {
         this.addToWindow(window, candidate, opts.windowSize);
@@ -243,23 +238,17 @@ export class PackingOrchestrator {
 
       // Try deltification
       if (!opts.dryRun) {
-        const success = await context.objects.deltify(
-          candidate.objectId,
-          allCandidates,
-          {
-            minSize: opts.minObjectSize,
-            minCompressionRatio: opts.minCompressionRatio,
-            maxChainDepth: opts.maxChainDepth,
-          }
-        );
+        const success = await context.objects.deltify(candidate.objectId, allCandidates, {
+          minSize: opts.minObjectSize,
+          minCompressionRatio: opts.minCompressionRatio,
+          maxChainDepth: opts.maxChainDepth,
+        });
 
         if (success) {
           objectsDeltified++;
 
           // Get new size and chain info
-          const newChainInfo = await context.objects.getDeltaChainInfo(
-            candidate.objectId
-          );
+          const newChainInfo = await context.objects.getDeltaChainInfo(candidate.objectId);
           if (newChainInfo) {
             const savings = newChainInfo.savings;
             bytesSaved += savings;
@@ -295,8 +284,7 @@ export class PackingOrchestrator {
       bytesSaved,
     });
 
-    const averageCompressionRatio =
-      totalOriginalSize > 0 ? totalFinalSize / totalOriginalSize : 1;
+    const averageCompressionRatio = totalOriginalSize > 0 ? totalFinalSize / totalOriginalSize : 1;
 
     return {
       objectsAnalyzed,
@@ -318,7 +306,7 @@ export class PackingOrchestrator {
    */
   private prepareCandidates(
     candidates: PackingCandidate[],
-    opts: Required<Omit<PackingOptions, "progressCallback" | "signal">>
+    opts: Required<Omit<PackingOptions, "progressCallback" | "signal">>,
   ): PackingCandidate[] {
     return candidates
       .filter((c) => c.size >= opts.minObjectSize)
@@ -332,7 +320,7 @@ export class PackingOrchestrator {
   private addToWindow(
     window: WindowEntry[],
     candidate: PackingCandidate,
-    windowSize: number
+    windowSize: number,
   ): void {
     window.push({
       objectId: candidate.objectId,
@@ -349,10 +337,7 @@ export class PackingOrchestrator {
   /**
    * Report progress to callback
    */
-  private reportProgress(
-    opts: PackingOptions,
-    progress: PackingProgress
-  ): void {
+  private reportProgress(opts: PackingOptions, progress: PackingProgress): void {
     if (opts.progressCallback) {
       opts.progressCallback(progress);
     }
