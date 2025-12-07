@@ -64,7 +64,7 @@ export function generateMutatedTarget(
   source: Uint8Array,
   targetSize: number,
   mutationDegree: number,
-  random: SeededRandom
+  random: SeededRandom,
 ): Uint8Array {
   if (targetSize === 0) {
     return new Uint8Array(0);

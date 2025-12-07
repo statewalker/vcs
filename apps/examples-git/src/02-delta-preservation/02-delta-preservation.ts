@@ -6,23 +6,22 @@
  */
 
 import {
-  readPackIndex,
+  type PackObjectHeader,
+  PackObjectType,
   PackReader,
+  type PackWriterObject,
+  readPackIndex,
   writePack,
   writePackIndexV2,
-  PackObjectType,
-  type PackWriterObject,
-  type PackObjectHeader,
 } from "@webrun-vcs/storage-git";
 import {
   createFilesApi,
-  getInputFile,
-  printBanner,
-  printSection,
-  printInfo,
   formatId,
   formatSize,
-  getTypeName,
+  getInputFile,
+  printBanner,
+  printInfo,
+  printSection,
   toHex,
 } from "../shared/utils.js";
 
@@ -77,10 +76,8 @@ function topologicalSort(objects: Map<string, PackObjectInfo>): PackObjectInfo[]
 async function main() {
   // Parse command line arguments
   const inputPath = getInputFile();
-  const packPath = inputPath.endsWith(".idx")
-    ? inputPath.slice(0, -4) + ".pack"
-    : inputPath;
-  const idxPath = packPath.slice(0, -5) + ".idx";
+  const packPath = inputPath.endsWith(".idx") ? `${inputPath.slice(0, -4)}.pack` : inputPath;
+  const idxPath = `${packPath.slice(0, -5)}.idx`;
 
   printBanner("Git Pack Roundtrip: Delta Preservation");
   printInfo("Input pack", packPath);
@@ -266,8 +263,8 @@ async function main() {
 
   // Write output
   printSection("Output");
-  const outputPackPath = packPath + ".no-deltas.pack";
-  const outputIdxPath = outputPackPath.slice(0, -5) + ".idx";
+  const outputPackPath = `${packPath}.no-deltas.pack`;
+  const outputIdxPath = `${outputPackPath.slice(0, -5)}.idx`;
 
   await files.write(outputPackPath, [result.packData]);
   await files.write(outputIdxPath, [newIdxData]);

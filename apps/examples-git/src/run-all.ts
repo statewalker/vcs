@@ -5,7 +5,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { resolve, dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -60,9 +60,9 @@ function runExample(example: Example, inputFile: string): Promise<boolean> {
     // Adjust input file based on expected type
     let actualInput = inputFile;
     if (example.inputType === "idx" && inputFile.endsWith(".pack")) {
-      actualInput = inputFile.slice(0, -5) + ".idx";
+      actualInput = `${inputFile.slice(0, -5)}.idx`;
     } else if (example.inputType === "pack" && inputFile.endsWith(".idx")) {
-      actualInput = inputFile.slice(0, -4) + ".pack";
+      actualInput = `${inputFile.slice(0, -4)}.pack`;
     }
 
     console.log(`\n${"=".repeat(60)}`);
@@ -160,7 +160,7 @@ async function main() {
   }
 
   // Print summary
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log("Summary");
   console.log("=".repeat(60));
 

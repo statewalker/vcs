@@ -72,11 +72,7 @@ export async function createSQLStorage(
   db: DatabaseClient,
   options: SQLStorageOptions = {},
 ): Promise<SQLStorage> {
-  const {
-    maxCacheSize = 50 * 1024 * 1024,
-    maxCacheEntries = 500,
-    autoMigrate = true,
-  } = options;
+  const { maxCacheSize = 50 * 1024 * 1024, maxCacheEntries = 500, autoMigrate = true } = options;
 
   // Initialize schema and run migrations
   if (autoMigrate) {

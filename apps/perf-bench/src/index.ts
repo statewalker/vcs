@@ -1,7 +1,7 @@
 import fs from "node:fs";
+import { benchmarks, getBenchmark, getBenchmarkNames, listBenchmarks } from "./benchmarks/index.js";
 import { parseArgs, showHelp, validateOptions } from "./cli.js";
 import { formatResults } from "./reporter.js";
-import { benchmarks, getBenchmark, getBenchmarkNames, listBenchmarks } from "./benchmarks/index.js";
 import type { BenchmarkConfig, BenchmarkResult } from "./types.js";
 
 async function main(): Promise<void> {
@@ -74,12 +74,10 @@ async function main(): Promise<void> {
       results.push(result);
       console.log(
         `  Completed: ${result.summary.successCount}/${result.summary.totalRuns} passed ` +
-          `(${result.summary.totalDurationMs.toFixed(0)}ms)`
+          `(${result.summary.totalDurationMs.toFixed(0)}ms)`,
       );
     } catch (error) {
-      console.error(
-        `  Failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      console.error(`  Failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

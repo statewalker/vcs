@@ -1,18 +1,14 @@
 import {
-  decodeGitBinaryDelta,
-  encodeGitBinaryDelta,
   BinaryComparator,
   BinarySequence,
+  decodeGitBinaryDelta,
   Edit,
+  encodeGitBinaryDelta,
   MyersDiff,
 } from "@webrun-vcs/diff";
 import type { Benchmark, BenchmarkConfig, BenchmarkResult, MetricResult } from "../types.js";
 import { getEnvironmentInfo } from "../utils/environment.js";
-import {
-  SeededRandom,
-  generateRandomBytes,
-  generateMutatedTarget,
-} from "../utils/random.js";
+import { generateMutatedTarget, generateRandomBytes, SeededRandom } from "../utils/random.js";
 
 /**
  * Run a single binary delta test
@@ -22,7 +18,7 @@ function runSingleTest(
   targetSize: number,
   mutationDegree: number,
   blockSize: number,
-  seed: number
+  seed: number,
 ): MetricResult {
   const random = new SeededRandom(seed);
 
@@ -98,12 +94,10 @@ export const binaryDeltaBenchmark: Benchmark = {
   description: "Binary delta encoding/decoding performance using Myers diff",
 
   async run(config: BenchmarkConfig): Promise<BenchmarkResult> {
-    const sizes = config.sizes.length > 0 ? config.sizes : [
-      10, 50, 100, 500, 1024, 5120, 10240, 51200, 102400,
-    ];
-    const mutations = config.mutations.length > 0 ? config.mutations : [
-      0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0,
-    ];
+    const sizes =
+      config.sizes.length > 0 ? config.sizes : [10, 50, 100, 500, 1024, 5120, 10240, 51200, 102400];
+    const mutations =
+      config.mutations.length > 0 ? config.mutations : [0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0];
     const blockSize = 16;
 
     const results: MetricResult[] = [];
@@ -138,7 +132,7 @@ export const binaryDeltaBenchmark: Benchmark = {
             if (config.verbose) {
               console.error(
                 `  Error at size=${size}, mutation=${mutation}: ` +
-                  `${error instanceof Error ? error.message : String(error)}`
+                  `${error instanceof Error ? error.message : String(error)}`,
               );
             }
           }

@@ -1,11 +1,7 @@
 import { createDeltaRanges, type DeltaRange } from "@webrun-vcs/diff";
 import type { Benchmark, BenchmarkConfig, BenchmarkResult, MetricResult } from "../types.js";
 import { getEnvironmentInfo } from "../utils/environment.js";
-import {
-  SeededRandom,
-  generateRandomBytes,
-  generateMutatedTarget,
-} from "../utils/random.js";
+import { generateMutatedTarget, generateRandomBytes, SeededRandom } from "../utils/random.js";
 
 /**
  * Apply ranges to reconstruct target from source
@@ -35,7 +31,7 @@ function runSingleTest(
   mutationDegree: number,
   blockSize: number,
   minMatch: number,
-  seed: number
+  seed: number,
 ): MetricResult {
   const random = new SeededRandom(seed);
 
@@ -98,13 +94,12 @@ export const deltaRangesBenchmark: Benchmark = {
   description: "Delta range generation and application performance",
 
   async run(config: BenchmarkConfig): Promise<BenchmarkResult> {
-    const sizes = config.sizes.length > 0 ? config.sizes : [
-      10, 50, 100, 500, 1024, 5120, 10240, 51200, 102400,
-      128 * 1024, 512 * 1024, 1024 * 1024,
-    ];
-    const mutations = config.mutations.length > 0 ? config.mutations : [
-      0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0,
-    ];
+    const sizes =
+      config.sizes.length > 0
+        ? config.sizes
+        : [10, 50, 100, 500, 1024, 5120, 10240, 51200, 102400, 128 * 1024, 512 * 1024, 1024 * 1024];
+    const mutations =
+      config.mutations.length > 0 ? config.mutations : [0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0];
     const blockSize = 16;
     const minMatch = 16;
 
@@ -140,7 +135,7 @@ export const deltaRangesBenchmark: Benchmark = {
             if (config.verbose) {
               console.error(
                 `  Error at size=${size}, mutation=${mutation}: ` +
-                  `${error instanceof Error ? error.message : String(error)}`
+                  `${error instanceof Error ? error.message : String(error)}`,
               );
             }
           }
