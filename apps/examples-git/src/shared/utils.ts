@@ -2,12 +2,12 @@
  * Shared utilities for Git pack file examples
  */
 
+import * as fs from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/compression";
 import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
 import { PackObjectType } from "@webrun-vcs/storage-git";
-import { resolve, dirname } from "node:path";
-import * as fs from "node:fs/promises";
 
 // Set up Node.js compression (required for pack file operations)
 setCompression(createNodeCompression());
@@ -78,7 +78,7 @@ export function decodeText(data: Uint8Array): string {
 export function getContentPreview(content: Uint8Array, maxLength = 200): string {
   const text = decodeText(content);
   if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + "...";
+  return `${text.substring(0, maxLength)}...`;
 }
 
 /**
@@ -101,7 +101,7 @@ export function isTextContent(content: Uint8Array): boolean {
  */
 export function getIndexPath(packPath: string): string {
   if (packPath.endsWith(".pack")) {
-    return packPath.slice(0, -5) + ".idx";
+    return `${packPath.slice(0, -5)}.idx`;
   }
   throw new Error(`Invalid pack path: ${packPath}`);
 }
@@ -111,7 +111,7 @@ export function getIndexPath(packPath: string): string {
  */
 export function getPackPath(idxPath: string): string {
   if (idxPath.endsWith(".idx")) {
-    return idxPath.slice(0, -4) + ".pack";
+    return `${idxPath.slice(0, -4)}.pack`;
   }
   throw new Error(`Invalid index path: ${idxPath}`);
 }
@@ -164,7 +164,10 @@ export function printInfo(key: string, value: string | number | boolean): void {
 /**
  * Compare two Uint8Arrays
  */
-export function compareBytes(a: Uint8Array, b: Uint8Array): {
+export function compareBytes(
+  a: Uint8Array,
+  b: Uint8Array,
+): {
   equal: boolean;
   sizeDiff: number;
   firstMismatchIndex: number;

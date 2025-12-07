@@ -6,28 +6,28 @@
  */
 
 import {
-  readPackIndex,
-  PackReader,
-  writePack,
-  writePackIndexV2,
   PackObjectType,
+  PackReader,
   type PackWriterObject,
   parseTreeToArray,
+  readPackIndex,
+  writePack,
+  writePackIndexV2,
 } from "@webrun-vcs/storage-git";
 import {
+  compareBytes,
   createFilesApi,
-  getInputFile,
-  printBanner,
-  printSection,
-  printInfo,
+  decodeText,
   formatId,
   formatSize,
-  getTypeName,
-  toHex,
-  compareBytes,
-  decodeText,
-  isTextContent,
   getContentPreview,
+  getInputFile,
+  getTypeName,
+  isTextContent,
+  printBanner,
+  printInfo,
+  printSection,
+  toHex,
 } from "../shared/utils.js";
 
 /**
@@ -112,10 +112,8 @@ function formatObjectContent(type: PackObjectType, content: Uint8Array): string 
 async function main() {
   // Parse command line arguments
   const inputPath = getInputFile();
-  const packPath = inputPath.endsWith(".idx")
-    ? inputPath.slice(0, -4) + ".pack"
-    : inputPath;
-  const idxPath = packPath.slice(0, -5) + ".idx";
+  const packPath = inputPath.endsWith(".idx") ? `${inputPath.slice(0, -4)}.pack` : inputPath;
+  const idxPath = `${packPath.slice(0, -5)}.idx`;
 
   printBanner("Git Pack Roundtrip: Full Verification");
   printInfo("Input pack", packPath);
@@ -271,8 +269,8 @@ async function main() {
   let objectsVerified = 0;
 
   // Write files first so we can read back
-  const outputPackPath = packPath + ".verified.pack";
-  const outputIdxPath = outputPackPath.slice(0, -5) + ".idx";
+  const outputPackPath = `${packPath}.verified.pack`;
+  const outputIdxPath = `${outputPackPath.slice(0, -5)}.idx`;
   await files.write(outputPackPath, [result.packData]);
   await files.write(outputIdxPath, [newIdxData]);
 

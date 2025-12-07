@@ -5,20 +5,19 @@
  */
 
 import {
+  type PackIndexWriterEntry,
   readPackIndex,
   writePackIndexV1,
   writePackIndexV2,
-  type PackIndexWriterEntry,
 } from "@webrun-vcs/storage-git";
 import {
   createFilesApi,
-  getInputFile,
-  getPackPath,
-  printBanner,
-  printSection,
-  printInfo,
   formatId,
   formatSize,
+  getInputFile,
+  printBanner,
+  printInfo,
+  printSection,
   toHex,
 } from "../shared/utils.js";
 
@@ -51,7 +50,7 @@ function calculateV2Size(objectCount: number, offset64Count: number): number {
 async function main() {
   // Parse command line arguments
   const inputPath = getInputFile();
-  const idxPath = inputPath.endsWith(".pack") ? inputPath.slice(0, -5) + ".idx" : inputPath;
+  const idxPath = inputPath.endsWith(".pack") ? `${inputPath.slice(0, -5)}.idx` : inputPath;
 
   printBanner("Git Pack Index: Format Comparison");
   printInfo("Input index", idxPath);
@@ -104,7 +103,7 @@ async function main() {
   console.log("\n  Sample entries (first 5):");
   for (const entry of entries.slice(0, 5)) {
     console.log(
-      `    ${formatId(entry.id)} offset=${entry.offset} crc32=${entry.crc32.toString(16).padStart(8, "0")}`
+      `    ${formatId(entry.id)} offset=${entry.offset} crc32=${entry.crc32.toString(16).padStart(8, "0")}`,
     );
   }
 
@@ -156,8 +155,12 @@ async function main() {
 
   console.log("\n  Format | Size     | Per Object");
   console.log("  -------|----------|------------");
-  console.log(`  V1     | ${formatSize(v1IdxData.length).padStart(8)} | ${(v1IdxData.length / entries.length).toFixed(1)} bytes`);
-  console.log(`  V2     | ${formatSize(v2IdxData.length).padStart(8)} | ${(v2IdxData.length / entries.length).toFixed(1)} bytes`);
+  console.log(
+    `  V1     | ${formatSize(v1IdxData.length).padStart(8)} | ${(v1IdxData.length / entries.length).toFixed(1)} bytes`,
+  );
+  console.log(
+    `  V2     | ${formatSize(v2IdxData.length).padStart(8)} | ${(v2IdxData.length / entries.length).toFixed(1)} bytes`,
+  );
   console.log(`  Diff   | ${sizeDiff > 0 ? "+" : ""}${sizeDiff} bytes | ${pctDiff}%`);
 
   // Feature comparison
@@ -208,8 +211,8 @@ async function main() {
   printSection("Output");
   const basePath = idxPath.replace(/\.idx$/, "");
 
-  const v1Path = basePath + ".v1.idx";
-  const v2Path = basePath + ".v2.idx";
+  const v1Path = `${basePath}.v1.idx`;
+  const v2Path = `${basePath}.v2.idx`;
 
   await files.write(v1Path, [v1IdxData]);
   await files.write(v2Path, [v2IdxData]);

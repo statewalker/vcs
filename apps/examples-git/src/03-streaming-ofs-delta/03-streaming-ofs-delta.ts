@@ -6,21 +6,21 @@
  */
 
 import {
-  readPackIndex,
+  PackObjectType,
   PackReader,
   PackWriterStream,
+  readPackIndex,
   writePackIndexV2,
-  PackObjectType,
 } from "@webrun-vcs/storage-git";
 import {
   createFilesApi,
-  getInputFile,
-  printBanner,
-  printSection,
-  printInfo,
   formatId,
   formatSize,
+  getInputFile,
   getTypeName,
+  printBanner,
+  printInfo,
+  printSection,
   toHex,
 } from "../shared/utils.js";
 
@@ -217,10 +217,8 @@ interface ObjectInfo {
 async function main() {
   // Parse command line arguments
   const inputPath = getInputFile();
-  const packPath = inputPath.endsWith(".idx")
-    ? inputPath.slice(0, -4) + ".pack"
-    : inputPath;
-  const idxPath = packPath.slice(0, -5) + ".idx";
+  const packPath = inputPath.endsWith(".idx") ? `${inputPath.slice(0, -4)}.pack` : inputPath;
+  const idxPath = `${packPath.slice(0, -5)}.idx`;
 
   printBanner("Git Pack Writer: Streaming with OFS_DELTA");
   printInfo("Input pack", packPath);
@@ -366,7 +364,7 @@ async function main() {
   // Verify
   printSection("Verification");
   const newIndex = readPackIndex(newIdxData);
-  const newReader = new PackReader(files, "", newIndex);
+  const _newReader = new PackReader(files, "", newIndex);
 
   // Can't actually verify without writing the file first
   // So we verify the index
@@ -382,8 +380,8 @@ async function main() {
 
   // Write output
   printSection("Output");
-  const outputPackPath = packPath + ".streamed.pack";
-  const outputIdxPath = outputPackPath.slice(0, -5) + ".idx";
+  const outputPackPath = `${packPath}.streamed.pack`;
+  const outputIdxPath = `${outputPackPath.slice(0, -5)}.idx`;
 
   await files.write(outputPackPath, [result.packData]);
   await files.write(outputIdxPath, [newIdxData]);

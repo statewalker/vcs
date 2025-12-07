@@ -12,7 +12,6 @@ export function formatResults(results: BenchmarkResult[], format: OutputFormat):
       return formatAsCsv(results);
     case "markdown":
       return formatAsMarkdown(results);
-    case "table":
     default:
       return formatAsTable(results);
   }
@@ -140,7 +139,7 @@ function formatAsTable(results: BenchmarkResult[]): string {
     lines.push(separator(70));
     lines.push(
       `Summary: ${result.summary.successCount}/${result.summary.totalRuns} passed, ` +
-        `${formatMs(result.summary.totalDurationMs)} total`
+        `${formatMs(result.summary.totalDurationMs)} total`,
     );
   }
 

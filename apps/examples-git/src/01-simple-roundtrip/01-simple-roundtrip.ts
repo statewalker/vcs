@@ -6,33 +6,30 @@
  */
 
 import {
-  readPackIndex,
   PackReader,
+  type PackWriterObject,
+  readPackIndex,
   writePack,
   writePackIndexV2,
-  type PackWriterObject,
 } from "@webrun-vcs/storage-git";
 import {
+  compareBytes,
   createFilesApi,
-  getInputFile,
-  getIndexPath,
-  printBanner,
-  printSection,
-  printInfo,
   formatId,
   formatSize,
+  getInputFile,
   getTypeName,
+  printBanner,
+  printInfo,
+  printSection,
   toHex,
-  compareBytes,
 } from "../shared/utils.js";
 
 async function main() {
   // Parse command line arguments
   const inputPath = getInputFile();
-  const packPath = inputPath.endsWith(".idx")
-    ? inputPath.slice(0, -4) + ".pack"
-    : inputPath;
-  const idxPath = packPath.slice(0, -5) + ".idx";
+  const packPath = inputPath.endsWith(".idx") ? `${inputPath.slice(0, -4)}.pack` : inputPath;
+  const idxPath = `${packPath.slice(0, -5)}.idx`;
 
   printBanner("Git Pack Roundtrip: Simple");
   printInfo("Input pack", packPath);
@@ -83,7 +80,7 @@ async function main() {
     // Progress output
     if (count <= 10 || count === index.objectCount) {
       console.log(
-        `  [${count}/${index.objectCount}] ${formatId(entry.id)} ${getTypeName(obj.type)} (${formatSize(obj.size)})`
+        `  [${count}/${index.objectCount}] ${formatId(entry.id)} ${getTypeName(obj.type)} (${formatSize(obj.size)})`,
       );
     } else if (count === 11) {
       console.log(`  ... (showing first 10 and last object)`);
@@ -147,8 +144,8 @@ async function main() {
 
   // Write output files
   printSection("Output");
-  const outputPackPath = packPath + ".repacked";
-  const outputIdxPath = outputPackPath.slice(0, -5) + ".idx";
+  const outputPackPath = `${packPath}.repacked`;
+  const outputIdxPath = `${outputPackPath.slice(0, -5)}.idx`;
 
   await files.write(outputPackPath, [result.packData]);
   await files.write(outputIdxPath, [newIdxData]);

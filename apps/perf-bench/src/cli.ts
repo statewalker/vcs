@@ -79,7 +79,7 @@ export function parseArgs(args: string[]): CLIOptions {
         options.sizes = (args[++i] ?? "")
           .split(",")
           .map((s) => parseInt(s.trim(), 10))
-          .filter((n) => !isNaN(n));
+          .filter((n) => !Number.isNaN(n));
         break;
 
       case "-m":
@@ -87,7 +87,7 @@ export function parseArgs(args: string[]): CLIOptions {
         options.mutations = (args[++i] ?? "")
           .split(",")
           .map((s) => parseFloat(s.trim()))
-          .filter((n) => !isNaN(n));
+          .filter((n) => !Number.isNaN(n));
         break;
 
       case "-v":

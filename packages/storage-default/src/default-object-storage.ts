@@ -13,6 +13,7 @@ import {
   decodeDeltaBlocks,
   encodeDeltaBlocks,
 } from "@webrun-vcs/diff";
+import { bytesToHex, newSha1 } from "@webrun-vcs/hash";
 import type {
   CandidateOptions,
   DeltaChainInfo,
@@ -21,7 +22,6 @@ import type {
   ObjectId,
   ObjectInfo,
 } from "@webrun-vcs/storage";
-import { bytesToHex, newSha1 } from "@webrun-vcs/hash";
 import type { DeltaRepository } from "./delta-repository.js";
 import type { IntermediateCache } from "./intermediate-cache.js";
 import type { LRUCache } from "./lru-cache.js";
