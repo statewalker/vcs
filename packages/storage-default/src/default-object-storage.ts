@@ -5,7 +5,7 @@
  * following the repository pattern for clean separation of concerns.
  */
 
-import { compressBlock, decompressBlock } from "@webrun-vcs/common";
+import { compressBlock, decompressBlock } from "@webrun-vcs/compression";
 import {
   applyDelta,
   createDelta,

@@ -7,8 +7,8 @@
  */
 
 import { dirname, FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { compressBlock, setCompression } from "@webrun-vcs/common";
-import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { compressBlock, setCompression } from "@webrun-vcs/compression";
+import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { parseObjectHeader } from "../../src/format/object-header.js";
 import { getLooseObjectPath, readLooseObject } from "../../src/loose/loose-object-reader.js";

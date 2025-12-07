@@ -17,7 +17,7 @@ export default defineConfig({
     },
   ],
   external: [
-    "@webrun-vcs/common",
+    "@webrun-vcs/compression",
     "@webrun-vcs/storage",
     "node:fs/promises",
     "node:fs",

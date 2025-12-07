@@ -9,7 +9,6 @@
  * Primary API:
  * - Streaming: deflate(), inflate() - for large data or incremental processing
  * - Block: compressBlock(), decompressBlock() - for complete buffers
- * - Partial: decompressBlockPartial() - for data with trailing bytes (e.g., pack files)
  */
 
 import {
@@ -18,10 +17,8 @@ import {
   CompressionError,
   type CompressionImplementation,
   type DecompressBlockFunction,
-  type DecompressBlockPartialFunction,
   type DeflateFunction,
   type InflateFunction,
-  type PartialDecompressionResult,
   type StreamingCompressionOptions,
 } from "./types.js";
 import { collectStream, streamFromBuffer } from "./utils.js";
@@ -37,7 +34,6 @@ let _inflate: InflateFunction = inflateWeb;
 
 let _compressBlock: CompressBlockFunction | null = null;
 let _decompressBlock: DecompressBlockFunction | null = null;
-let _decompressBlockPartial: DecompressBlockPartialFunction | null = null;
 
 /**
  * Set custom compression implementation
@@ -47,8 +43,8 @@ let _decompressBlockPartial: DecompressBlockPartialFunction | null = null;
  *
  * @example
  * ```ts
- * import { setCompression } from "@webrun-vcs/common";
- * import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+ * import { setCompression } from "@webrun-vcs/compression";
+ * import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
  *
  * setCompression(createNodeCompression());
  * ```
@@ -58,7 +54,6 @@ export function setCompression(impl: Partial<CompressionImplementation>): void {
   if (impl.inflate) _inflate = impl.inflate;
   if (impl.compressBlock) _compressBlock = impl.compressBlock;
   if (impl.decompressBlock) _decompressBlock = impl.decompressBlock;
-  if (impl.decompressBlockPartial) _decompressBlockPartial = impl.decompressBlockPartial;
 }
 
 /**
@@ -130,35 +125,5 @@ export async function decompressBlock(
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     throw new CompressionError(`Decompression failed: ${err.message}`, err);
-  }
-}
-
-/**
- * Decompress a data block that may contain trailing bytes
- *
- * This is useful for formats like Git pack files where compressed objects
- * are stored contiguously without explicit length markers for compressed data.
- *
- * @param data Compressed data (may include trailing bytes)
- * @param options Decompression options (raw: true for raw DEFLATE, false for ZLIB)
- * @returns Decompressed data and number of input bytes consumed
- * @throws CompressionError if no partial decompression implementation is set
- */
-export async function decompressBlockPartial(
-  data: Uint8Array,
-  options?: StreamingCompressionOptions,
-): Promise<PartialDecompressionResult> {
-  if (!_decompressBlockPartial) {
-    throw new CompressionError(
-      "Partial decompression is not available with web compression. " +
-        "Use setCompression() to set a Node.js compression implementation.",
-    );
-  }
-
-  try {
-    return await _decompressBlockPartial(data, options);
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    throw new CompressionError(`Partial decompression failed: ${err.message}`, err);
   }
 }

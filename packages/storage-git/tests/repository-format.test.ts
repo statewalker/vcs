@@ -6,8 +6,8 @@
  */
 
 import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
-import { setCompression } from "@webrun-vcs/common";
-import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { setCompression } from "@webrun-vcs/compression";
+import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { GitStorage } from "../src/git-storage.js";
 

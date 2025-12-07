@@ -9,7 +9,7 @@
  */
 
 import type { FileHandle, FilesApi } from "@statewalker/webrun-files";
-import { decompressBlockPartial } from "@webrun-vcs/common";
+import { decompressBlock } from "@webrun-vcs/compression";
 import type { ObjectId } from "@webrun-vcs/storage";
 import { bytesToHex } from "../utils/index.js";
 import type {
@@ -262,15 +262,15 @@ export class PackReader {
 
     // Use partial decompression to handle trailing data gracefully
     // Git pack files use zlib format (RFC 1950), not raw DEFLATE
-    const result = await decompressBlockPartial(compressed, { raw: false });
+    const result = await decompressBlock(compressed, { raw: false });
 
-    if (result.data.length !== expectedSize) {
+    if (result.length !== expectedSize) {
       throw new Error(
-        `Decompression size mismatch: expected ${expectedSize}, got ${result.data.length}`,
+        `Decompression size mismatch: expected ${expectedSize}, got ${result.length}`,
       );
     }
 
-    return result.data;
+    return result;
   }
 }
 

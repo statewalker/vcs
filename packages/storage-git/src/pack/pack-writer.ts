@@ -8,7 +8,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/PackOutputStream.java
  */
 
-import { compressBlock } from "@webrun-vcs/common";
+import { compressBlock } from "@webrun-vcs/compression";
 import { CRC32, crc32 } from "@webrun-vcs/hash/crc32";
 import { sha1 } from "@webrun-vcs/hash/sha1";
 import { hexToBytes } from "@webrun-vcs/hash/utils";

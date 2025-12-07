@@ -6,8 +6,8 @@
  *
  * @example
  * ```ts
- * import { setCompression } from "@webrun-vcs/common";
- * import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+ * import { setCompression } from "@webrun-vcs/compression";
+ * import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
  *
  * setCompression(createNodeCompression());
  * ```
@@ -17,7 +17,6 @@ import zlib from "node:zlib";
 import type {
   ByteStream,
   CompressionImplementation,
-  PartialDecompressionResult,
   StreamingCompressionOptions,
 } from "../compression/types.js";
 import { CompressionError } from "../compression/types.js";
@@ -198,63 +197,14 @@ export async function decompressBlockNode(
 }
 
 /**
- * Decompress a data block that may contain trailing bytes (Node.js implementation)
- *
- * This is useful for formats like Git pack files where compressed objects
- * are stored contiguously without explicit length markers for compressed data.
- */
-export async function decompressBlockPartialNode(
-  data: Uint8Array,
-  options?: StreamingCompressionOptions,
-): Promise<PartialDecompressionResult> {
-  return new Promise((resolve, reject) => {
-    const inflater = options?.raw ? zlib.createInflateRaw() : zlib.createInflate();
-
-    const chunks: Buffer[] = [];
-    let totalSize = 0;
-    let bytesRead = data.length;
-
-    inflater.on("data", (chunk: Buffer) => {
-      chunks.push(chunk);
-      totalSize += chunk.length;
-    });
-
-    inflater.on("end", () => {
-      const result = Buffer.concat(chunks, totalSize);
-      const inflaterAny = inflater as { bytesWritten?: number };
-      if (typeof inflaterAny.bytesWritten === "number") {
-        bytesRead = inflaterAny.bytesWritten;
-      }
-      resolve({ data: new Uint8Array(result), bytesRead });
-    });
-
-    inflater.on("error", (err) => {
-      if (totalSize > 0) {
-        const result = Buffer.concat(chunks, totalSize);
-        const inflaterAny = inflater as { bytesWritten?: number };
-        if (typeof inflaterAny.bytesWritten === "number") {
-          bytesRead = inflaterAny.bytesWritten;
-        }
-        resolve({ data: new Uint8Array(result), bytesRead });
-      } else {
-        reject(new CompressionError(`Decompression failed: ${err.message}`, err));
-      }
-    });
-
-    inflater.write(Buffer.from(data));
-    inflater.end();
-  });
-}
-
-/**
  * Create a Node.js compression implementation
  *
  * @returns CompressionImplementation configured for Node.js
  *
  * @example
  * ```ts
- * import { setCompression } from "@webrun-vcs/common";
- * import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+ * import { setCompression } from "@webrun-vcs/compression";
+ * import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
  *
  * setCompression(createNodeCompression());
  * ```
@@ -265,6 +215,5 @@ export function createNodeCompression(): CompressionImplementation {
     inflate: inflateNode,
     compressBlock: compressBlockNode,
     decompressBlock: decompressBlockNode,
-    decompressBlockPartial: decompressBlockPartialNode,
   };
 }

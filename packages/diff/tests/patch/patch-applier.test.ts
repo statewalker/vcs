@@ -1,5 +1,5 @@
-import { compressBlock, setCompression } from "@webrun-vcs/common";
-import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { compressBlock, setCompression } from "@webrun-vcs/compression";
+import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
 import { describe, expect, it } from "vitest";
 
 // Set up Node.js compression before tests

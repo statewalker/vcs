@@ -8,7 +8,7 @@
  */
 
 import { dirname, type FilesApi } from "@statewalker/webrun-files";
-import { compressBlock } from "@webrun-vcs/common";
+import { compressBlock } from "@webrun-vcs/compression";
 import { sha1 } from "@webrun-vcs/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/hash/utils";
 import type { ObjectId, ObjectTypeString } from "@webrun-vcs/storage";

@@ -8,7 +8,7 @@
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
-import { decompressBlock } from "@webrun-vcs/common";
+import { decompressBlock } from "@webrun-vcs/compression";
 import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/storage";
 import { type ParsedObjectHeader, parseObjectHeader } from "../format/object-header.js";
 

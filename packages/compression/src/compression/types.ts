@@ -76,5 +76,4 @@ export interface CompressionImplementation {
   inflate: InflateFunction;
   compressBlock: CompressBlockFunction;
   decompressBlock: DecompressBlockFunction;
-  decompressBlockPartial?: DecompressBlockPartialFunction;
 }
