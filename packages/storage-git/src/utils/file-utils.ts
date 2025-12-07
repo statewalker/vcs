@@ -2,7 +2,7 @@
  * File utility functions for Git storage
  */
 
-import type { GitFilesApi } from "../git-files-api.js";
+import { basename, dirname, type FilesApi, joinPath } from "@statewalker/webrun-files";
 
 /**
  * Write a file atomically (via temp file + rename)
@@ -10,30 +10,30 @@ import type { GitFilesApi } from "../git-files-api.js";
  * This ensures that readers never see a partially written file.
  * If the write fails, the original file is left unchanged.
  *
- * @param files GitFilesApi instance
+ * @param files FilesApi instance
  * @param path Destination path
  * @param content File content
  */
 export async function atomicWriteFile(
-  files: GitFilesApi,
+  files: FilesApi,
   path: string,
   content: Uint8Array,
 ): Promise<void> {
   // Create temp file in same directory
-  const dir = files.dirname(path);
-  const base = files.basename(path);
-  const tempPath = files.join(dir, `.${base}.tmp.${Date.now()}`);
+  const dir = dirname(path);
+  const base = basename(path);
+  const tempPath = joinPath(dir, `.${base}.tmp.${Date.now()}`);
 
   try {
     // Write to temp file
-    await files.writeFile(tempPath, content);
+    await files.write(tempPath, [content]);
 
     // Atomically rename to final destination
-    await files.rename(tempPath, path);
+    await files.move(tempPath, path);
   } catch (error) {
     // Clean up temp file on failure
     try {
-      await files.unlink(tempPath);
+      await files.remove(tempPath);
     } catch {
       // Ignore cleanup errors
     }
@@ -44,21 +44,21 @@ export async function atomicWriteFile(
 /**
  * Ensure a directory exists (create if needed)
  *
- * @param files GitFilesApi instance
+ * @param files FilesApi instance
  * @param path Directory path
  */
-export async function ensureDir(files: GitFilesApi, path: string): Promise<void> {
+export async function ensureDir(files: FilesApi, path: string): Promise<void> {
   await files.mkdir(path);
 }
 
 /**
  * Read entire file or return undefined if not found
  *
- * @param files GitFilesApi instance
+ * @param files FilesApi instance
  * @param path File path
  * @returns File content or undefined
  */
-export async function tryReadFile(files: GitFilesApi, path: string): Promise<Uint8Array | undefined> {
+export async function tryReadFile(files: FilesApi, path: string): Promise<Uint8Array | undefined> {
   try {
     return await files.readFile(path);
   } catch (error) {
@@ -82,19 +82,17 @@ export function isNotFoundError(error: unknown): boolean {
 /**
  * List all files in a directory recursively
  *
- * @param files GitFilesApi instance
+ * @param files FilesApi instance
  * @param path Directory path
  * @yields Relative paths of all files
  */
-export async function* listFilesRecursive(files: GitFilesApi, path: string): AsyncGenerator<string> {
-  const entries = await files.readdir(path);
+export async function* listFilesRecursive(files: FilesApi, path: string): AsyncGenerator<string> {
+  for await (const entry of files.list(path)) {
+    const fullPath = joinPath(path, entry.name);
 
-  for (const entry of entries) {
-    const fullPath = files.join(path, entry.name);
-
-    if (entry.isFile) {
+    if (entry.kind === "file") {
       yield fullPath;
-    } else if (entry.isDirectory) {
+    } else if (entry.kind === "directory") {
       yield* listFilesRecursive(files, fullPath);
     }
   }

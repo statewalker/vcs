@@ -5,15 +5,14 @@
  * Tests repository configuration validation.
  */
 
+import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
-import { MemFilesApi } from "@statewalker/webrun-files";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { GitFilesApi } from "../src/git-files-api.js";
 import { GitStorage } from "../src/git-storage.js";
 
 describe("repository format", () => {
-  let files: GitFilesApi;
+  let files: FilesApi;
   const gitDir = "/repo/.git";
 
   beforeAll(() => {
@@ -21,14 +20,14 @@ describe("repository format", () => {
   });
 
   beforeEach(() => {
-    files = new GitFilesApi(new MemFilesApi());
+    files = new FilesApi(new MemFilesApi());
   });
 
   describe("repository initialization", () => {
     it("writes repositoryformatversion = 0 in config", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      const config = await files.readFile(files.join(gitDir, "config"));
+      const config = await files.readFile(joinPath(gitDir, "config"));
       const configStr = new TextDecoder().decode(config);
 
       expect(configStr).toContain("repositoryformatversion = 0");
@@ -39,7 +38,7 @@ describe("repository format", () => {
     it("writes bare = false by default", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      const config = await files.readFile(files.join(gitDir, "config"));
+      const config = await files.readFile(joinPath(gitDir, "config"));
       const configStr = new TextDecoder().decode(config);
 
       expect(configStr).toContain("bare = false");
@@ -53,7 +52,7 @@ describe("repository format", () => {
         bare: true,
       });
 
-      const config = await files.readFile(files.join(gitDir, "config"));
+      const config = await files.readFile(joinPath(gitDir, "config"));
       const configStr = new TextDecoder().decode(config);
 
       expect(configStr).toContain("bare = true");
@@ -64,7 +63,7 @@ describe("repository format", () => {
     it("writes filemode = true", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      const config = await files.readFile(files.join(gitDir, "config"));
+      const config = await files.readFile(joinPath(gitDir, "config"));
       const configStr = new TextDecoder().decode(config);
 
       expect(configStr).toContain("filemode = true");
@@ -75,7 +74,7 @@ describe("repository format", () => {
     it("creates config in proper INI format", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      const config = await files.readFile(files.join(gitDir, "config"));
+      const config = await files.readFile(joinPath(gitDir, "config"));
       const configStr = new TextDecoder().decode(config);
 
       // Should have [core] section
@@ -89,20 +88,17 @@ describe("repository format", () => {
     it("requires HEAD file to exist", async () => {
       // Create a directory without HEAD
       await files.mkdir(gitDir);
-      await files.mkdir(files.join(gitDir, "objects"));
+      await files.mkdir(joinPath(gitDir, "objects"));
 
-      await expect(GitStorage.open(files, gitDir)).rejects.toThrow(
-        /Not a valid git repository/,
-      );
+      await expect(GitStorage.open(files, gitDir)).rejects.toThrow(/Not a valid git repository/);
     });
 
     it("opens repository with valid HEAD", async () => {
       // Create minimal valid repository
       await files.mkdir(gitDir);
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
+      ]);
 
       const storage = await GitStorage.open(files, gitDir);
       expect(storage).toBeDefined();
@@ -113,10 +109,9 @@ describe("repository format", () => {
     it("opens repository with detached HEAD", async () => {
       // Create repository with detached HEAD
       await files.mkdir(gitDir);
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode(`${"a".repeat(40)}\n`),
-      );
+      ]);
 
       const storage = await GitStorage.open(files, gitDir);
       expect(storage).toBeDefined();
@@ -129,7 +124,7 @@ describe("repository format", () => {
     it("creates objects directory on init", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      expect(await files.exists(files.join(gitDir, "objects"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "objects"))).toBe(true);
 
       await storage.close();
     });
@@ -137,7 +132,7 @@ describe("repository format", () => {
     it("creates objects/pack directory on init", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      expect(await files.exists(files.join(gitDir, "objects", "pack"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "objects", "pack"))).toBe(true);
 
       await storage.close();
     });
@@ -145,9 +140,9 @@ describe("repository format", () => {
     it("creates refs directory structure on init", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      expect(await files.exists(files.join(gitDir, "refs"))).toBe(true);
-      expect(await files.exists(files.join(gitDir, "refs", "heads"))).toBe(true);
-      expect(await files.exists(files.join(gitDir, "refs", "tags"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "refs"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "refs", "heads"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "refs", "tags"))).toBe(true);
 
       await storage.close();
     });
@@ -233,7 +228,7 @@ describe("repository format", () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       expect(await files.exists(gitDir)).toBe(true);
-      expect(await files.exists(files.join(gitDir, "HEAD"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "HEAD"))).toBe(true);
 
       await storage.close();
     });

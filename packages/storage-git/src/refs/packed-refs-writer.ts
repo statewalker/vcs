@@ -8,7 +8,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import type { GitFilesApi } from "../git-files-api.js";
+import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import { PACKED_REFS, PACKED_REFS_HEADER, PACKED_REFS_PEELED, type Ref } from "./ref-types.js";
 
 /**
@@ -20,12 +20,12 @@ import { PACKED_REFS, PACKED_REFS_HEADER, PACKED_REFS_PEELED, type Ref } from ".
  * @param peeled Whether to include peeled data
  */
 export async function writePackedRefs(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refs: Ref[],
   peeled = true,
 ): Promise<void> {
-  const packedRefsPath = files.join(gitDir, PACKED_REFS);
+  const packedRefsPath = joinPath(gitDir, PACKED_REFS);
 
   // Sort refs by name
   const sortedRefs = [...refs].sort((a, b) => a.name.localeCompare(b.name));
@@ -34,7 +34,7 @@ export async function writePackedRefs(
   const content = formatPackedRefs(sortedRefs, peeled);
 
   // Write atomically
-  await files.writeFile(packedRefsPath, new TextEncoder().encode(content));
+  await files.write(packedRefsPath, [new TextEncoder().encode(content)]);
 }
 
 /**
@@ -78,7 +78,7 @@ export function formatPackedRefs(refs: Ref[], peeled = true): string {
  * @param gitDir Path to .git directory
  * @param ref Ref to add
  */
-export async function addPackedRef(files: GitFilesApi, gitDir: string, ref: Ref): Promise<void> {
+export async function addPackedRef(files: FilesApi, gitDir: string, ref: Ref): Promise<void> {
   // Import here to avoid circular dependency
   const { readPackedRefs } = await import("./packed-refs-reader.js");
 
@@ -104,7 +104,7 @@ export async function addPackedRef(files: GitFilesApi, gitDir: string, ref: Ref)
  * @returns True if ref was removed, false if it wasn't in packed-refs
  */
 export async function removePackedRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refName: string,
 ): Promise<boolean> {
@@ -124,9 +124,9 @@ export async function removePackedRef(
     await writePackedRefs(files, gitDir, refs, peeled);
   } else {
     // Delete packed-refs file if empty
-    const packedRefsPath = files.join(gitDir, PACKED_REFS);
+    const packedRefsPath = joinPath(gitDir, PACKED_REFS);
     try {
-      await files.unlink(packedRefsPath);
+      await files.remove(packedRefsPath);
     } catch {
       // Ignore if file doesn't exist
     }
@@ -146,7 +146,7 @@ export async function removePackedRef(
  * @param deleteLoose Whether to delete loose ref files after packing
  */
 export async function packRefs(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refNames: string[],
   deleteLoose = true,

@@ -2,10 +2,9 @@
  * Tests for Git refs handling
  */
 
-import { MemFilesApi } from "@statewalker/webrun-files";
+import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/storage";
 import { beforeEach, describe, expect, it } from "vitest";
-import { GitFilesApi } from "../../src/git-files-api.js";
 import {
   findPackedRef,
   parsePackedRefs,
@@ -46,11 +45,11 @@ const ID2 = "abcdef1234567890abcdef1234567890abcdef12" as ObjectId;
 const ID3 = "fedcba0987654321fedcba0987654321fedcba09" as ObjectId;
 
 describe("refs", () => {
-  let files: GitFilesApi;
+  let files: FilesApi;
   const gitDir = ".git";
 
   beforeEach(() => {
-    files = new GitFilesApi(new MemFilesApi());
+    files = new FilesApi(new MemFilesApi());
   });
 
   describe("ref-types", () => {
@@ -92,10 +91,9 @@ describe("refs", () => {
 
   describe("ref-reader", () => {
     it("reads regular loose ref", async () => {
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID1}\n`),
-      );
+      ]);
 
       const ref = await readRef(files, gitDir, "refs/heads/main");
 
@@ -106,10 +104,9 @@ describe("refs", () => {
     });
 
     it("reads symbolic ref", async () => {
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
+      ]);
 
       const ref = await readRef(files, gitDir, "HEAD");
 
@@ -125,14 +122,12 @@ describe("refs", () => {
     });
 
     it("resolves symbolic refs", async () => {
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID1}\n`),
-      );
+      ]);
 
       const resolved = await resolveRef(files, gitDir, "HEAD");
 
@@ -141,22 +136,16 @@ describe("refs", () => {
     });
 
     it("reads all refs", async () => {
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID1}\n`),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/develop"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/develop"), [
         new TextEncoder().encode(`${ID2}\n`),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/tags/v1.0"),
-        new TextEncoder().encode(`${ID3}\n`),
-      );
+      ]);
+      await files.write(joinPath(gitDir, "refs/tags/v1.0"), [new TextEncoder().encode(`${ID3}\n`)]);
 
       const refs = await readAllRefs(files, gitDir);
 
@@ -191,21 +180,21 @@ describe("refs", () => {
     it("writes regular ref", async () => {
       await writeObjectRef(files, gitDir, "refs/heads/main", ID1);
 
-      const content = await files.readFile(files.join(gitDir, "refs/heads/main"));
+      const content = await files.readFile(joinPath(gitDir, "refs/heads/main"));
       expect(new TextDecoder().decode(content).trim()).toBe(ID1);
     });
 
     it("writes symbolic ref", async () => {
       await writeSymbolicRef(files, gitDir, "HEAD", "refs/heads/main");
 
-      const content = await files.readFile(files.join(gitDir, "HEAD"));
+      const content = await files.readFile(joinPath(gitDir, "HEAD"));
       expect(new TextDecoder().decode(content).trim()).toBe("ref: refs/heads/main");
     });
 
     it("creates parent directories", async () => {
       await writeObjectRef(files, gitDir, "refs/heads/feature/my-feature", ID1);
 
-      const exists = await files.exists(files.join(gitDir, "refs/heads/feature"));
+      const exists = await files.exists(joinPath(gitDir, "refs/heads/feature"));
       expect(exists).toBe(true);
     });
 
@@ -215,7 +204,7 @@ describe("refs", () => {
       const deleted = await deleteRef(files, gitDir, "refs/heads/to-delete");
 
       expect(deleted).toBe(true);
-      const exists = await files.exists(files.join(gitDir, "refs/heads/to-delete"));
+      const exists = await files.exists(joinPath(gitDir, "refs/heads/to-delete"));
       expect(exists).toBe(false);
     });
 
@@ -227,9 +216,9 @@ describe("refs", () => {
     it("creates refs structure", async () => {
       await createRefsStructure(files, gitDir);
 
-      expect(await files.exists(files.join(gitDir, "refs"))).toBe(true);
-      expect(await files.exists(files.join(gitDir, "refs/heads"))).toBe(true);
-      expect(await files.exists(files.join(gitDir, "refs/tags"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "refs"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "refs/heads"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "refs/tags"))).toBe(true);
     });
   });
 
@@ -258,7 +247,7 @@ describe("refs", () => {
 
     it("reads packed-refs from file", async () => {
       const content = `${ID1} refs/heads/main\n`;
-      await files.writeFile(files.join(gitDir, "packed-refs"), new TextEncoder().encode(content));
+      await files.write(joinPath(gitDir, "packed-refs"), [new TextEncoder().encode(content)]);
 
       const { refs } = await readPackedRefs(files, gitDir);
 
@@ -273,7 +262,7 @@ describe("refs", () => {
 
     it("finds specific packed ref", async () => {
       const content = `${ID1} refs/heads/main\n${ID2} refs/heads/develop\n`;
-      await files.writeFile(files.join(gitDir, "packed-refs"), new TextEncoder().encode(content));
+      await files.write(joinPath(gitDir, "packed-refs"), [new TextEncoder().encode(content)]);
 
       const ref = await findPackedRef(files, gitDir, "refs/heads/develop");
 
@@ -306,13 +295,13 @@ describe("refs", () => {
 
       await writePackedRefs(files, gitDir, refs);
 
-      const content = await files.readFile(files.join(gitDir, "packed-refs"));
+      const content = await files.readFile(joinPath(gitDir, "packed-refs"));
       expect(new TextDecoder().decode(content)).toContain("refs/heads/main");
     });
 
     it("adds ref to packed-refs", async () => {
       const content = `# pack-refs with: peeled\n${ID1} refs/heads/main\n`;
-      await files.writeFile(files.join(gitDir, "packed-refs"), new TextEncoder().encode(content));
+      await files.write(joinPath(gitDir, "packed-refs"), [new TextEncoder().encode(content)]);
 
       const newRef = createPeeledRef("refs/heads/develop", ID2, RefStorage.PACKED);
 
@@ -326,7 +315,7 @@ describe("refs", () => {
 
     it("removes ref from packed-refs", async () => {
       const content = `# pack-refs with: peeled\n${ID1} refs/heads/main\n${ID2} refs/heads/develop\n`;
-      await files.writeFile(files.join(gitDir, "packed-refs"), new TextEncoder().encode(content));
+      await files.write(joinPath(gitDir, "packed-refs"), [new TextEncoder().encode(content)]);
 
       const removed = await removePackedRef(files, gitDir, "refs/heads/main");
 
@@ -339,10 +328,9 @@ describe("refs", () => {
 
   describe("ref-directory", () => {
     it("reads exact ref", async () => {
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID1}\n`),
-      );
+      ]);
 
       const refDir = createRefDirectory(files, gitDir);
       const ref = await refDir.exactRef("refs/heads/main");
@@ -352,14 +340,12 @@ describe("refs", () => {
     });
 
     it("resolves HEAD to branch", async () => {
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID1}\n`),
-      );
+      ]);
 
       const refDir = createRefDirectory(files, gitDir);
       const resolved = await refDir.resolve("HEAD");
@@ -369,10 +355,9 @@ describe("refs", () => {
     });
 
     it("gets current branch", async () => {
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
+      ]);
 
       const refDir = createRefDirectory(files, gitDir);
       const branch = await refDir.getCurrentBranch();
@@ -381,7 +366,7 @@ describe("refs", () => {
     });
 
     it("returns undefined for detached HEAD", async () => {
-      await files.writeFile(files.join(gitDir, "HEAD"), new TextEncoder().encode(`${ID1}\n`));
+      await files.write(joinPath(gitDir, "HEAD"), [new TextEncoder().encode(`${ID1}\n`)]);
 
       const refDir = createRefDirectory(files, gitDir);
       const branch = await refDir.getCurrentBranch();
@@ -390,14 +375,12 @@ describe("refs", () => {
     });
 
     it("gets branches", async () => {
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID1}\n`),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/develop"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/develop"), [
         new TextEncoder().encode(`${ID2}\n`),
-      );
+      ]);
 
       const refDir = createRefDirectory(files, gitDir);
       const branches = await refDir.getBranches();
@@ -440,10 +423,9 @@ describe("refs", () => {
     });
 
     it("deletes ref", async () => {
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/to-delete"),
+      await files.write(joinPath(gitDir, "refs/heads/to-delete"), [
         new TextEncoder().encode(`${ID1}\n`),
-      );
+      ]);
 
       const refDir = createRefDirectory(files, gitDir);
       const deleted = await refDir.delete("refs/heads/to-delete");
@@ -453,10 +435,9 @@ describe("refs", () => {
     });
 
     it("checks ref existence", async () => {
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID1}\n`),
-      );
+      ]);
 
       const refDir = createRefDirectory(files, gitDir);
 
@@ -492,16 +473,12 @@ describe("refs", () => {
     it("loose ref takes precedence", async () => {
       // Write packed ref
       const packedContent = `${ID1} refs/heads/main\n`;
-      await files.writeFile(
-        files.join(gitDir, "packed-refs"),
-        new TextEncoder().encode(packedContent),
-      );
+      await files.write(joinPath(gitDir, "packed-refs"), [new TextEncoder().encode(packedContent)]);
 
       // Write different loose ref
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID2}\n`),
-      );
+      ]);
 
       const ref = await readRef(files, gitDir, "refs/heads/main");
 
@@ -514,10 +491,7 @@ describe("refs", () => {
     it("falls back to packed when loose missing", async () => {
       // Write packed ref only
       const packedContent = `${ID1} refs/heads/main\n`;
-      await files.writeFile(
-        files.join(gitDir, "packed-refs"),
-        new TextEncoder().encode(packedContent),
-      );
+      await files.write(joinPath(gitDir, "packed-refs"), [new TextEncoder().encode(packedContent)]);
 
       const ref = await readRef(files, gitDir, "refs/heads/main");
 

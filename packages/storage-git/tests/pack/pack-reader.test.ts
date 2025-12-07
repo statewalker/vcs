@@ -4,11 +4,11 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
-import { NodeFilesApi } from "@statewalker/webrun-files";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GitFilesApi } from "../../src/git-files-api.js";
+
 import {
   applyDelta,
   getDeltaBaseSize,
@@ -24,11 +24,11 @@ setCompression(createNodeCompression());
 
 describe("pack-reader", () => {
   describe("PackReader", () => {
-    let files: GitFilesApi;
+    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new GitFilesApi(new NodeFilesApi({ fs }));
+      files = new FilesApi(new NodeFilesApi({ fs }));
 
       // Load index
       const idxPath = path.join(
@@ -133,11 +133,11 @@ describe("pack-reader", () => {
   });
 
   describe("dense pack with deltas", () => {
-    let files: GitFilesApi;
+    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new GitFilesApi(new NodeFilesApi({ fs }));
+      files = new FilesApi(new NodeFilesApi({ fs }));
 
       // Load dense pack index
       const idxPath = path.join(
@@ -321,11 +321,11 @@ describe("pack-reader", () => {
    * Based on jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/internal/storage/file/T0004_PackReaderTest.java
    */
   describe("object type and size verification", () => {
-    let files: GitFilesApi;
+    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new GitFilesApi(new NodeFilesApi({ fs }));
+      files = new FilesApi(new NodeFilesApi({ fs }));
 
       const idxPath = path.join(
         FIXTURES_DIR,
@@ -405,11 +405,11 @@ describe("pack-reader", () => {
    * Pack header validation tests
    */
   describe("pack header validation", () => {
-    let files: GitFilesApi;
+    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new GitFilesApi(new NodeFilesApi({ fs }));
+      files = new FilesApi(new NodeFilesApi({ fs }));
 
       const idxPath = path.join(
         FIXTURES_DIR,
@@ -457,11 +457,11 @@ describe("pack-reader", () => {
    * Object header parsing tests
    */
   describe("object header parsing", () => {
-    let files: GitFilesApi;
+    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new GitFilesApi(new NodeFilesApi({ fs }));
+      files = new FilesApi(new NodeFilesApi({ fs }));
 
       const idxPath = path.join(
         FIXTURES_DIR,

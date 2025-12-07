@@ -6,9 +6,6 @@
  * implementations that read and write standard Git repository format.
  */
 
-// File system abstraction (for custom backends)
-export * from "./git-files-api.js";
-
 // Format utilities (for advanced use cases)
 export * from "./format/index.js";
 export * from "./git-commit-storage.js";

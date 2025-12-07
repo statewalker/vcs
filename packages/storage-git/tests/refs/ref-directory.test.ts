@@ -5,9 +5,8 @@
  * Tests various ref management scenarios including edge cases.
  */
 
-import { MemFilesApi } from "@statewalker/webrun-files";
+import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
 import { beforeEach, describe, expect, it } from "vitest";
-import { GitFilesApi } from "../../src/git-files-api.js";
 import {
   createRefDirectory,
   isValidRefName,
@@ -24,7 +23,7 @@ import {
 } from "../../src/refs/ref-types.js";
 
 describe("RefDirectory", () => {
-  let files: GitFilesApi;
+  let files: FilesApi;
   let refs: RefDirectory;
   const gitDir = "/repo/.git";
 
@@ -35,21 +34,19 @@ describe("RefDirectory", () => {
   const tagId = "d".repeat(40);
 
   beforeEach(async () => {
-    files = new GitFilesApi(new MemFilesApi());
+    files = new FilesApi(new MemFilesApi());
     refs = createRefDirectory(files, gitDir);
     await refs.create();
   });
 
   describe("HEAD states", () => {
     it("handles symbolic HEAD pointing to main", async () => {
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
+      ]);
 
       const head = await refs.getHead();
       expect(head).toBeDefined();
@@ -65,7 +62,7 @@ describe("RefDirectory", () => {
     });
 
     it("handles detached HEAD pointing to commit", async () => {
-      await files.writeFile(files.join(gitDir, "HEAD"), new TextEncoder().encode(`${commitId1}\n`));
+      await files.write(joinPath(gitDir, "HEAD"), [new TextEncoder().encode(`${commitId1}\n`)]);
 
       const head = await refs.getHead();
       expect(head).toBeDefined();
@@ -77,15 +74,13 @@ describe("RefDirectory", () => {
 
     it("handles detached HEAD with other branches", async () => {
       // HEAD is detached but branches exist
-      await files.writeFile(files.join(gitDir, "HEAD"), new TextEncoder().encode(`${commitId1}\n`));
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "HEAD"), [new TextEncoder().encode(`${commitId1}\n`)]);
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${commitId2}\n`),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/feature"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/feature"), [
         new TextEncoder().encode(`${commitId3}\n`),
-      );
+      ]);
 
       expect(await refs.getCurrentBranch()).toBeUndefined();
 
@@ -94,10 +89,9 @@ describe("RefDirectory", () => {
     });
 
     it("handles unborn branch (HEAD points to non-existent ref)", async () => {
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
+      ]);
       // refs/heads/main does not exist
 
       const head = await refs.getHead();
@@ -116,13 +110,10 @@ describe("RefDirectory", () => {
     it("resolves deeply nested refs", async () => {
       // Create a deep branch hierarchy
       const deepRef = "refs/heads/feature/team/project/task/subtask";
-      await files.mkdir(files.join(gitDir, "refs/heads/feature/team/project/task"), {
+      await files.mkdir(joinPath(gitDir, "refs/heads/feature/team/project/task"), {
         recursive: true,
       });
-      await files.writeFile(
-        files.join(gitDir, deepRef),
-        new TextEncoder().encode(`${commitId1}\n`),
-      );
+      await files.write(joinPath(gitDir, deepRef), [new TextEncoder().encode(`${commitId1}\n`)]);
 
       const ref = await refs.exactRef(deepRef);
       expect(ref).toBeDefined();
@@ -131,30 +122,27 @@ describe("RefDirectory", () => {
 
     it("loose ref overrides packed ref", async () => {
       // Write packed ref first
-      await files.writeFile(
-        files.join(gitDir, "packed-refs"),
+      await files.write(joinPath(gitDir, "packed-refs"), [
         new TextEncoder().encode(
           `# pack-refs with: peeled fully-peeled sorted\n${commitId1} refs/heads/main\n`,
         ),
-      );
+      ]);
 
       // Then write loose ref with different value
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${commitId2}\n`),
-      );
+      ]);
 
       const ref = await refs.exactRef("refs/heads/main");
       expect(ref?.objectId).toBe(commitId2); // Loose takes precedence
     });
 
     it("falls back to packed ref when loose missing", async () => {
-      await files.writeFile(
-        files.join(gitDir, "packed-refs"),
+      await files.write(joinPath(gitDir, "packed-refs"), [
         new TextEncoder().encode(
           `# pack-refs with: peeled fully-peeled sorted\n${commitId1} refs/heads/main\n`,
         ),
-      );
+      ]);
       // No loose ref exists
 
       const ref = await refs.exactRef("refs/heads/main");
@@ -163,14 +151,13 @@ describe("RefDirectory", () => {
 
     it("resolves peeled refs from packed-refs", async () => {
       // Packed refs with peeled tag
-      await files.writeFile(
-        files.join(gitDir, "packed-refs"),
+      await files.write(joinPath(gitDir, "packed-refs"), [
         new TextEncoder().encode(
           `# pack-refs with: peeled fully-peeled sorted\n` +
             `${tagId} refs/tags/v1.0\n` +
             `^${commitId1}\n`,
         ),
-      );
+      ]);
 
       const ref = await refs.exactRef("refs/tags/v1.0");
       expect(ref).toBeDefined();
@@ -183,21 +170,19 @@ describe("RefDirectory", () => {
 
   describe("garbage and invalid refs", () => {
     it("ignores empty ref files", async () => {
-      await files.writeFile(files.join(gitDir, "refs/heads/empty"), new Uint8Array(0));
+      await files.write(joinPath(gitDir, "refs/heads/empty"), [new Uint8Array(0)]);
 
       const ref = await refs.exactRef("refs/heads/empty");
       expect(ref).toBeUndefined();
     });
 
     it("skips .lock files when enumerating", async () => {
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main.lock"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/main.lock"), [
         new TextEncoder().encode(`${commitId2}\n`),
-      );
+      ]);
 
       const branches = await refs.getBranches();
       const branchNames = branches.map((b) => b.name);
@@ -208,30 +193,25 @@ describe("RefDirectory", () => {
     });
 
     it("handles whitespace in ref content", async () => {
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`  ${commitId1}  \n`),
-      );
+      ]);
 
       const ref = await refs.exactRef("refs/heads/main");
       expect(ref?.objectId).toBe(commitId1);
     });
 
     it("handles ref with trailing newline", async () => {
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
+      ]);
 
       const ref = await refs.exactRef("refs/heads/main");
       expect(ref?.objectId).toBe(commitId1);
     });
 
     it("handles ref without trailing newline", async () => {
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
-        new TextEncoder().encode(commitId1),
-      );
+      await files.write(joinPath(gitDir, "refs/heads/main"), [new TextEncoder().encode(commitId1)]);
 
       const ref = await refs.exactRef("refs/heads/main");
       expect(ref?.objectId).toBe(commitId1);
@@ -241,50 +221,42 @@ describe("RefDirectory", () => {
   describe("symbolic refs", () => {
     it("detects symbolic ref cycles", async () => {
       // Create a cycle: A -> B -> C -> A
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/a"),
+      await files.write(joinPath(gitDir, "refs/heads/a"), [
         new TextEncoder().encode("ref: refs/heads/b\n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/b"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/b"), [
         new TextEncoder().encode("ref: refs/heads/c\n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/c"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/c"), [
         new TextEncoder().encode("ref: refs/heads/a\n"),
-      );
+      ]);
 
       await expect(refs.resolve("refs/heads/a")).rejects.toThrow(/Symbolic ref depth exceeded/);
     });
 
     it("resolves chain of symbolic refs", async () => {
       // Create a chain: HEAD -> main -> feature
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode("ref: refs/heads/feature\n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/feature"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/feature"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
+      ]);
 
       const resolved = await refs.resolve("HEAD");
       expect(resolved?.objectId).toBe(commitId1);
     });
 
     it("handles symbolic ref with spaces", async () => {
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref:  refs/heads/main  \n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
+      ]);
 
       const head = await refs.getHead();
       expect(isSymbolicRef(head!)).toBe(true);
@@ -297,27 +269,22 @@ describe("RefDirectory", () => {
   describe("ref enumeration", () => {
     beforeEach(async () => {
       // Set up some refs
-      await files.writeFile(
-        files.join(gitDir, "HEAD"),
+      await files.write(joinPath(gitDir, "HEAD"), [
         new TextEncoder().encode("ref: refs/heads/main\n"),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/main"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/heads/feature"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/heads/feature"), [
         new TextEncoder().encode(`${commitId2}\n`),
-      );
-      await files.writeFile(
-        files.join(gitDir, "refs/tags/v1.0"),
+      ]);
+      await files.write(joinPath(gitDir, "refs/tags/v1.0"), [
         new TextEncoder().encode(`${tagId}\n`),
-      );
-      await files.mkdir(files.join(gitDir, "refs/remotes/origin"), { recursive: true });
-      await files.writeFile(
-        files.join(gitDir, "refs/remotes/origin/main"),
+      ]);
+      await files.mkdir(joinPath(gitDir, "refs/remotes/origin"), { recursive: true });
+      await files.write(joinPath(gitDir, "refs/remotes/origin/main"), [
         new TextEncoder().encode(`${commitId3}\n`),
-      );
+      ]);
     });
 
     it("lists all branches", async () => {
@@ -536,14 +503,14 @@ describe("parseRefContent", () => {
 });
 
 describe("special refs", () => {
-  let files: GitFilesApi;
+  let files: FilesApi;
   let refs: RefDirectory;
   const gitDir = "/repo/.git";
   const commitId1 = "a".repeat(40);
   const commitId2 = "b".repeat(40);
 
   beforeEach(async () => {
-    files = new GitFilesApi(new MemFilesApi());
+    files = new FilesApi(new MemFilesApi());
     refs = createRefDirectory(files, gitDir);
     await refs.create();
   });
@@ -551,10 +518,9 @@ describe("special refs", () => {
   describe("FETCH_HEAD", () => {
     it("reads simple FETCH_HEAD", async () => {
       // Simple FETCH_HEAD with just an object ID
-      await files.writeFile(
-        files.join(gitDir, "FETCH_HEAD"),
+      await files.write(joinPath(gitDir, "FETCH_HEAD"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
+      ]);
 
       const ref = await refs.exactRef("FETCH_HEAD");
       expect(ref).toBeDefined();
@@ -564,7 +530,7 @@ describe("special refs", () => {
     it("reads FETCH_HEAD with branch metadata", async () => {
       // FETCH_HEAD with additional metadata (first 40 chars is the object ID)
       const content = `${commitId1}\tbranch 'main' of https://github.com/user/repo\n`;
-      await files.writeFile(files.join(gitDir, "FETCH_HEAD"), new TextEncoder().encode(content));
+      await files.write(joinPath(gitDir, "FETCH_HEAD"), [new TextEncoder().encode(content)]);
 
       const ref = await refs.exactRef("FETCH_HEAD");
       expect(ref).toBeDefined();
@@ -576,7 +542,7 @@ describe("special refs", () => {
       const content =
         `${commitId1}\t\tbranch 'main' of https://github.com/user/repo\n` +
         `${commitId2}\tnot-for-merge\tbranch 'feature' of https://github.com/user/repo\n`;
-      await files.writeFile(files.join(gitDir, "FETCH_HEAD"), new TextEncoder().encode(content));
+      await files.write(joinPath(gitDir, "FETCH_HEAD"), [new TextEncoder().encode(content)]);
 
       const ref = await refs.exactRef("FETCH_HEAD");
       expect(ref).toBeDefined();
@@ -591,10 +557,9 @@ describe("special refs", () => {
 
   describe("ORIG_HEAD", () => {
     it("reads ORIG_HEAD", async () => {
-      await files.writeFile(
-        files.join(gitDir, "ORIG_HEAD"),
+      await files.write(joinPath(gitDir, "ORIG_HEAD"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
+      ]);
 
       const ref = await refs.exactRef("ORIG_HEAD");
       expect(ref).toBeDefined();
@@ -607,10 +572,9 @@ describe("special refs", () => {
     });
 
     it("resolves ORIG_HEAD directly (not symbolic)", async () => {
-      await files.writeFile(
-        files.join(gitDir, "ORIG_HEAD"),
+      await files.write(joinPath(gitDir, "ORIG_HEAD"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
+      ]);
 
       const ref = await refs.exactRef("ORIG_HEAD");
       expect(ref).toBeDefined();
@@ -622,10 +586,9 @@ describe("special refs", () => {
 
   describe("MERGE_HEAD", () => {
     it("reads MERGE_HEAD", async () => {
-      await files.writeFile(
-        files.join(gitDir, "MERGE_HEAD"),
+      await files.write(joinPath(gitDir, "MERGE_HEAD"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
+      ]);
 
       const ref = await refs.exactRef("MERGE_HEAD");
       expect(ref).toBeDefined();
@@ -635,7 +598,7 @@ describe("special refs", () => {
     it("reads multi-parent MERGE_HEAD (octopus)", async () => {
       // MERGE_HEAD can contain multiple commit IDs for octopus merges
       const content = `${commitId1}\n${commitId2}\n`;
-      await files.writeFile(files.join(gitDir, "MERGE_HEAD"), new TextEncoder().encode(content));
+      await files.write(joinPath(gitDir, "MERGE_HEAD"), [new TextEncoder().encode(content)]);
 
       const ref = await refs.exactRef("MERGE_HEAD");
       expect(ref).toBeDefined();
@@ -651,10 +614,9 @@ describe("special refs", () => {
 
   describe("CHERRY_PICK_HEAD", () => {
     it("reads CHERRY_PICK_HEAD", async () => {
-      await files.writeFile(
-        files.join(gitDir, "CHERRY_PICK_HEAD"),
+      await files.write(joinPath(gitDir, "CHERRY_PICK_HEAD"), [
         new TextEncoder().encode(`${commitId1}\n`),
-      );
+      ]);
 
       const ref = await refs.exactRef("CHERRY_PICK_HEAD");
       expect(ref).toBeDefined();

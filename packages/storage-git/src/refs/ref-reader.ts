@@ -8,8 +8,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
+import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { GitFilesApi } from "../git-files-api.js";
 import { findPackedRef, readPackedRefs } from "./packed-refs-reader.js";
 import {
   createRef,
@@ -36,7 +36,7 @@ const MAX_SYMBOLIC_REF_DEPTH = 5;
  * @returns The ref if found, undefined otherwise
  */
 export async function readRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refName: string,
 ): Promise<Ref | SymbolicRef | undefined> {
@@ -59,11 +59,11 @@ export async function readRef(
  * @returns The ref if found, undefined otherwise
  */
 export async function readLooseRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refName: string,
 ): Promise<Ref | SymbolicRef | undefined> {
-  const refPath = files.join(gitDir, refName);
+  const refPath = joinPath(gitDir, refName);
 
   let content: Uint8Array;
   try {
@@ -131,7 +131,7 @@ function isSymbolicRefContent(buf: Uint8Array): boolean {
  * @returns The resolved ref, or undefined if it can't be resolved
  */
 export async function resolveRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refOrName: string | Ref | SymbolicRef,
 ): Promise<Ref | undefined> {
@@ -165,7 +165,7 @@ export async function resolveRef(
  * @returns Array of refs
  */
 export async function readAllRefs(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   prefix: string = R_REFS,
 ): Promise<(Ref | SymbolicRef)[]> {
@@ -199,38 +199,36 @@ export async function readAllRefs(
  * Recursively read loose refs from a directory
  */
 async function readLooseRefsRecursive(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   prefix: string,
   refs: (Ref | SymbolicRef)[],
 ): Promise<void> {
-  const dirPath = files.join(gitDir, prefix);
+  const dirPath = joinPath(gitDir, prefix);
 
-  let entries: { name: string; isDirectory: boolean }[];
   try {
-    entries = await files.readdir(dirPath);
+    for await (const entry of files.list(dirPath)) {
+      // Don't use joinPath for ref names - it normalizes to absolute paths
+      // Ref names should be relative (e.g., "refs/heads/main" not "/refs/heads/main")
+      const entryPath = prefix.endsWith("/") ? `${prefix}${entry.name}` : `${prefix}/${entry.name}`;
+
+      try {
+        if (entry.kind === "directory") {
+          // Recurse into subdirectory
+          await readLooseRefsRecursive(files, gitDir, entryPath, refs);
+        } else {
+          // Read ref file
+          const ref = await readLooseRef(files, gitDir, entryPath);
+          if (ref !== undefined) {
+            refs.push(ref);
+          }
+        }
+      } catch {
+        // Skip unreadable entries
+      }
+    }
   } catch {
     return; // Directory doesn't exist
-  }
-
-  for (const entry of entries) {
-    const entryPath = files.join(prefix, entry.name);
-    const _fullPath = files.join(gitDir, entryPath);
-
-    try {
-      if (entry.isDirectory) {
-        // Recurse into subdirectory
-        await readLooseRefsRecursive(files, gitDir, entryPath, refs);
-      } else {
-        // Read ref file
-        const ref = await readLooseRef(files, gitDir, entryPath);
-        if (ref !== undefined) {
-          refs.push(ref);
-        }
-      }
-    } catch {
-      // Skip unreadable entries
-    }
   }
 }
 
@@ -243,11 +241,11 @@ async function readLooseRefsRecursive(
  * @returns True if the loose ref exists
  */
 export async function hasLooseRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refName: string,
 ): Promise<boolean> {
-  const refPath = files.join(gitDir, refName);
+  const refPath = joinPath(gitDir, refName);
   return files.exists(refPath);
 }
 
@@ -260,7 +258,7 @@ export async function hasLooseRef(
  * @returns Array of refs matching the prefix
  */
 export async function getRefsByPrefix(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   prefix: string,
 ): Promise<(Ref | SymbolicRef)[]> {

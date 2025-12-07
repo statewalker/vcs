@@ -223,7 +223,10 @@ Signed commit message`;
 
       // Build gpgsig with proper continuation format (first line after 'gpgsig ', rest prefixed with space)
       const gpgsigHeader = `gpgsig ${gpgSigLines[0]}`;
-      const gpgsigContinuation = gpgSigLines.slice(1).map((line) => ` ${line}`).join("\n");
+      const gpgsigContinuation = gpgSigLines
+        .slice(1)
+        .map((line) => ` ${line}`)
+        .join("\n");
 
       const text = `tree e3a1035abd2b319bb01e57d69b0ba6cab289297e
 parent 54e895b87c0768d2317a2b17062e3ad9f76a8105

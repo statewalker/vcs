@@ -5,17 +5,17 @@
  * Tests fundamental Git operations and edge cases.
  */
 
+import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
-import { MemFilesApi } from "@statewalker/webrun-files";
 import { FileMode, type ObjectId, ObjectType } from "@webrun-vcs/storage";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { serializeTree } from "../src/format/tree-format.js";
-import { GitFilesApi } from "../src/git-files-api.js";
+
 import { GitStorage } from "../src/git-storage.js";
 
 describe("basic operations", () => {
-  let files: GitFilesApi;
+  let files: FilesApi;
   const gitDir = "/repo/.git";
 
   beforeAll(() => {
@@ -23,7 +23,7 @@ describe("basic operations", () => {
   });
 
   beforeEach(() => {
-    files = new GitFilesApi(new MemFilesApi());
+    files = new FilesApi(new MemFilesApi());
   });
 
   describe("tree validation", () => {

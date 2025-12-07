@@ -7,9 +7,9 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
+import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
 import type { ObjectId, ObjectInfo, ObjectStorage, ObjectTypeCode } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
-import type { DirEntry, GitFilesApi } from "./git-files-api.js";
 import { ObjectDirectory } from "./loose/index.js";
 import { type PackIndex, readPackIndex } from "./pack/index.js";
 import { PackReader } from "./pack/pack-reader.js";
@@ -44,15 +44,15 @@ interface PackFile {
  * Implements the ObjectStorage interface for content-addressable storage.
  */
 export class GitObjectStorage implements ObjectStorage {
-  private readonly files: GitFilesApi;
+  private readonly files: FilesApi;
   private readonly objectsDir: string;
   private readonly looseObjects: ObjectDirectory;
   private packFiles: PackFile[] = [];
   private packsLoaded = false;
 
-  constructor(files: GitFilesApi, gitDir: string) {
+  constructor(files: FilesApi, gitDir: string) {
     this.files = files;
-    this.objectsDir = files.join(gitDir, "objects");
+    this.objectsDir = joinPath(gitDir, "objects");
     this.looseObjects = new ObjectDirectory(files, this.objectsDir);
   }
 
@@ -212,26 +212,29 @@ export class GitObjectStorage implements ObjectStorage {
   private async ensurePacksLoaded(): Promise<void> {
     if (this.packsLoaded) return;
 
-    const packDir = this.files.join(this.objectsDir, "pack");
-    let entries: DirEntry[];
+    const packDir = joinPath(this.objectsDir, "pack");
+    const entries: FileInfo[] = [];
     try {
-      entries = await this.files.readdir(packDir);
+      for await (const entry of this.files.list(packDir)) {
+        entries.push(entry);
+      }
     } catch {
       this.packsLoaded = true;
       return; // Pack directory doesn't exist
     }
 
     for (const entry of entries) {
-      if (!entry.isFile || !entry.name.endsWith(".idx")) {
+      if (entry.kind !== "file" || !entry.name.endsWith(".idx")) {
         continue;
       }
 
-      const idxPath = this.files.join(packDir, entry.name);
+      const idxPath = joinPath(packDir, entry.name);
       const packPath = idxPath.replace(/\.idx$/, ".pack");
 
       try {
         // Check pack file exists
-        if (!(await this.files.exists(packPath))) {
+        const packStats = await this.files.stats(packPath);
+        if (!packStats) {
           continue;
         }
 

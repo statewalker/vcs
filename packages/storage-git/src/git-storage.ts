@@ -7,6 +7,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/Repository.java
  */
 
+import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import type {
   CommitStorage,
   FileTreeStorage,
@@ -14,7 +15,6 @@ import type {
   ObjectStorage,
   TagStorage,
 } from "@webrun-vcs/storage";
-import type { GitFilesApi } from "./git-files-api.js";
 import { GitCommitStorage } from "./git-commit-storage.js";
 import { GitFileTreeStorage } from "./git-file-tree-storage.js";
 import { GitObjectStorage } from "./git-object-storage.js";
@@ -75,7 +75,7 @@ export class GitStorage implements GitStorageApi {
   readonly refs: RefDirectory;
   readonly gitDir: string;
 
-  private constructor(files: GitFilesApi, gitDir: string) {
+  private constructor(files: FilesApi, gitDir: string) {
     this.gitDir = gitDir;
     this.objects = new GitObjectStorage(files, gitDir);
     this.trees = new GitFileTreeStorage(this.objects);
@@ -90,10 +90,11 @@ export class GitStorage implements GitStorageApi {
    * @param files File system API
    * @param gitDir Path to .git directory
    */
-  static async open(files: GitFilesApi, gitDir: string): Promise<GitStorage> {
+  static async open(files: FilesApi, gitDir: string): Promise<GitStorage> {
     // Verify it's a valid git repository
-    const headPath = files.join(gitDir, "HEAD");
-    if (!(await files.exists(headPath))) {
+    const headPath = joinPath(gitDir, "HEAD");
+    const headStats = await files.stats(headPath);
+    if (!headStats) {
       throw new Error(`Not a valid git repository: ${gitDir} (HEAD not found)`);
     }
 
@@ -108,16 +109,16 @@ export class GitStorage implements GitStorageApi {
    * @param options Creation options
    */
   static async init(
-    files: GitFilesApi,
+    files: FilesApi,
     gitDir: string,
     options: GitStorageOptions = {},
   ): Promise<GitStorage> {
     const { create = true, defaultBranch = "main" } = options;
 
-    const headPath = files.join(gitDir, "HEAD");
-    const exists = await files.exists(headPath);
+    const headPath = joinPath(gitDir, "HEAD");
+    const headStats = await files.stats(headPath);
 
-    if (exists) {
+    if (headStats) {
       // Open existing repository
       return GitStorage.open(files, gitDir);
     }
@@ -128,8 +129,8 @@ export class GitStorage implements GitStorageApi {
 
     // Create new repository structure
     await files.mkdir(gitDir);
-    await files.mkdir(files.join(gitDir, "objects"));
-    await files.mkdir(files.join(gitDir, "objects", "pack"));
+    await files.mkdir(joinPath(gitDir, "objects"));
+    await files.mkdir(joinPath(gitDir, "objects", "pack"));
     await createRefsStructure(files, gitDir);
 
     // Create HEAD pointing to default branch
@@ -141,7 +142,7 @@ export class GitStorage implements GitStorageApi {
 \tfilemode = true
 \tbare = ${options.bare ?? false}
 `;
-    await files.writeFile(files.join(gitDir, "config"), new TextEncoder().encode(config));
+    await files.write(joinPath(gitDir, "config"), [new TextEncoder().encode(config)]);
 
     return new GitStorage(files, gitDir);
   }
@@ -184,7 +185,7 @@ export class GitStorage implements GitStorageApi {
  * @param options Creation/open options
  */
 export async function createGitStorage(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   options: GitStorageOptions = {},
 ): Promise<GitStorage> {

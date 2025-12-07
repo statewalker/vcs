@@ -7,9 +7,9 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/LooseObjects.java
  */
 
+import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import { decompressBlock } from "@webrun-vcs/common";
 import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/storage";
-import type { GitFilesApi } from "../git-files-api.js";
 import { type ParsedObjectHeader, parseObjectHeader } from "../format/object-header.js";
 
 /**
@@ -33,44 +33,44 @@ export interface LooseObjectData {
  * @param id Object ID (hex string)
  * @returns Path to the loose object file
  */
-export function getLooseObjectPath(objectsDir: string, id: ObjectId, files: GitFilesApi): string {
+export function getLooseObjectPath(objectsDir: string, id: ObjectId): string {
   const prefix = id.substring(0, 2);
   const suffix = id.substring(2);
-  return files.join(objectsDir, prefix, suffix);
+  return joinPath(objectsDir, prefix, suffix);
 }
 
 /**
  * Check if a loose object exists
  *
- * @param files GitFilesApi instance
+ * @param files FilesApi instance
  * @param objectsDir Objects directory path
  * @param id Object ID
  * @returns True if the loose object exists
  */
 export async function hasLooseObject(
-  files: GitFilesApi,
+  files: FilesApi,
   objectsDir: string,
   id: ObjectId,
 ): Promise<boolean> {
-  const path = getLooseObjectPath(objectsDir, id, files);
+  const path = getLooseObjectPath(objectsDir, id);
   return files.exists(path);
 }
 
 /**
  * Read a loose object from disk
  *
- * @param files GitFilesApi instance
+ * @param files FilesApi instance
  * @param objectsDir Objects directory path
  * @param id Object ID
  * @returns Object data (type, size, content)
  * @throws Error if object not found or invalid format
  */
 export async function readLooseObject(
-  files: GitFilesApi,
+  files: FilesApi,
   objectsDir: string,
   id: ObjectId,
 ): Promise<LooseObjectData> {
-  const path = getLooseObjectPath(objectsDir, id, files);
+  const path = getLooseObjectPath(objectsDir, id);
 
   // Read compressed data
   const compressedData = await files.readFile(path);
@@ -106,19 +106,19 @@ export async function readLooseObject(
  * This is more efficient when you only need type and size.
  * Note: We still need to decompress at least the header portion.
  *
- * @param files GitFilesApi instance
+ * @param files FilesApi instance
  * @param objectsDir Objects directory path
  * @param id Object ID
  * @returns Parsed header (type, size)
  */
 export async function readLooseObjectHeader(
-  files: GitFilesApi,
+  files: FilesApi,
   objectsDir: string,
   id: ObjectId,
 ): Promise<ParsedObjectHeader> {
   // For now, we read the full object
   // A more efficient implementation could use streaming decompression
-  const path = getLooseObjectPath(objectsDir, id, files);
+  const path = getLooseObjectPath(objectsDir, id);
   const compressedData = await files.readFile(path);
   const rawData = await decompressBlock(compressedData, { raw: false });
   return parseObjectHeader(rawData);

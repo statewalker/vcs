@@ -12,8 +12,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
+import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { GitFilesApi } from "../git-files-api.js";
 import {
   createPeeledRef,
   createPeeledTagRef,
@@ -43,8 +43,8 @@ export interface PackedRefs {
  * @param gitDir Path to .git directory
  * @returns Parsed refs and metadata
  */
-export async function readPackedRefs(files: GitFilesApi, gitDir: string): Promise<PackedRefs> {
-  const packedRefsPath = files.join(gitDir, PACKED_REFS);
+export async function readPackedRefs(files: FilesApi, gitDir: string): Promise<PackedRefs> {
+  const packedRefsPath = joinPath(gitDir, PACKED_REFS);
 
   let content: string;
   try {
@@ -145,7 +145,7 @@ export function parsePackedRefs(content: string): PackedRefs {
  * @returns The ref if found, undefined otherwise
  */
 export async function findPackedRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refName: string,
 ): Promise<Ref | undefined> {
@@ -162,7 +162,7 @@ export async function findPackedRef(
  * @returns True if the ref exists
  */
 export async function hasPackedRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refName: string,
 ): Promise<boolean> {
