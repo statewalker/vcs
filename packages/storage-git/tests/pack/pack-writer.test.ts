@@ -7,8 +7,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { setCompression } from "@webrun-vcs/common";
-import { createNodeCompression } from "@webrun-vcs/common/compression-node";
+import { setCompression } from "@webrun-vcs/compression";
+import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
 import { crc32 } from "@webrun-vcs/hash/crc32";
 import { sha1 } from "@webrun-vcs/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/hash/utils";

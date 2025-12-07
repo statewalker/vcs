@@ -8,7 +8,7 @@
  * - Handling different change types (ADD, DELETE, MODIFY, RENAME, COPY)
  */
 
-import { decompressBlock } from "@webrun-vcs/common";
+import { decompressBlock } from "@webrun-vcs/compression";
 import { decodeGitBinaryDelta } from "./binary-delta.js";
 import { nextLF } from "./buffer-utils.js";
 import type { FileHeader } from "./file-header.js";

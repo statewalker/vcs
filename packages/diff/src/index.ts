@@ -1,7 +1,7 @@
 // Re-export all modules
 
-// Re-export common utilities from @webrun-vcs/common for backward compatibility
-export * from "@webrun-vcs/common";
+// Re-export compression utilities from @webrun-vcs/compression for backward compatibility
+export * from "@webrun-vcs/compression";
 
 export * from "./delta/index.js";
 export * from "./patch/index.js";

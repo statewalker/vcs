@@ -16,6 +16,6 @@ export default defineConfig({
       chunkFileNames: "[name]-[hash].cjs",
     },
   ],
-  external: ["@webrun-vcs/common", "@webrun-vcs/diff", "@webrun-vcs/storage", "vitest"],
+  external: ["@webrun-vcs/compression", "@webrun-vcs/diff", "@webrun-vcs/storage", "vitest"],
   treeshake: true,
 });

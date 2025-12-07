@@ -1,14 +1,12 @@
 {
-  "name": "@webrun-vcs/common",
+  "name": "@webrun-vcs/compression",
   "version": "0.1.0",
   "private": false,
   "type": "module",
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",
   "types": "./dist/index.d.ts",
-  "dependencies": {
-    "@webrun-vcs/hash": "workspace:*"
-  },
+  "dependencies": {},
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

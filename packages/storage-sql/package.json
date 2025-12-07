@@ -24,7 +24,7 @@
     "lint": "biome lint src tests"
   },
   "dependencies": {
-    "@webrun-vcs/common": "workspace:*",
+    "@webrun-vcs/compression": "workspace:*",
     "@webrun-vcs/storage": "workspace:*",
     "@webrun-vcs/storage-default": "workspace:*"
   },

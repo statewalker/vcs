@@ -13,7 +13,7 @@ export default defineConfig({
     },
   ],
   external: [
-    "@webrun-vcs/common",
+    "@webrun-vcs/compression",
     "@webrun-vcs/diff",
     "@webrun-vcs/storage",
     "@webrun-vcs/storage-default",
