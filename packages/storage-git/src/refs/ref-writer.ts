@@ -9,8 +9,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectoryUpdate.java
  */
 
+import { dirname, type FilesApi, joinPath } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { GitFilesApi } from "../git-files-api.js";
 import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-types.js";
 
 /**
@@ -21,14 +21,14 @@ import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-
  * @param ref The ref to write (can be regular or symbolic)
  */
 export async function writeRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   ref: Ref | SymbolicRef,
 ): Promise<void> {
-  const refPath = files.join(gitDir, ref.name);
+  const refPath = joinPath(gitDir, ref.name);
 
   // Ensure parent directories exist
-  const parentDir = files.dirname(refPath);
+  const parentDir = dirname(refPath);
   await files.mkdir(parentDir);
 
   let content: string;
@@ -41,7 +41,7 @@ export async function writeRef(
     content = `${ref.objectId}\n`;
   }
 
-  await files.writeFile(refPath, new TextEncoder().encode(content));
+  await files.write(refPath, [new TextEncoder().encode(content)]);
 }
 
 /**
@@ -53,19 +53,19 @@ export async function writeRef(
  * @param objectId Object ID to point to
  */
 export async function writeObjectRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refName: string,
   objectId: ObjectId,
 ): Promise<void> {
-  const refPath = files.join(gitDir, refName);
+  const refPath = joinPath(gitDir, refName);
 
   // Ensure parent directories exist
-  const parentDir = files.dirname(refPath);
+  const parentDir = dirname(refPath);
   await files.mkdir(parentDir);
 
   const content = `${objectId}\n`;
-  await files.writeFile(refPath, new TextEncoder().encode(content));
+  await files.write(refPath, [new TextEncoder().encode(content)]);
 }
 
 /**
@@ -77,21 +77,21 @@ export async function writeObjectRef(
  * @param target Name of the target ref
  */
 export async function writeSymbolicRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refName: string,
   target: string,
 ): Promise<void> {
-  const refPath = files.join(gitDir, refName);
+  const refPath = joinPath(gitDir, refName);
 
   // Ensure parent directories exist
-  const parentDir = files.dirname(refPath);
+  const parentDir = dirname(refPath);
   if (parentDir !== gitDir) {
     await files.mkdir(parentDir);
   }
 
   const content = `${SYMREF_PREFIX}${target}\n`;
-  await files.writeFile(refPath, new TextEncoder().encode(content));
+  await files.write(refPath, [new TextEncoder().encode(content)]);
 }
 
 /**
@@ -102,10 +102,14 @@ export async function writeSymbolicRef(
  * @param refName Name of the ref to delete
  * @returns True if deleted, false if it didn't exist
  */
-export async function deleteRef(files: GitFilesApi, gitDir: string, refName: string): Promise<boolean> {
-  const refPath = files.join(gitDir, refName);
+export async function deleteRef(
+  files: FilesApi,
+  gitDir: string,
+  refName: string,
+): Promise<boolean> {
+  const refPath = joinPath(gitDir, refName);
 
-  const deleted = await files.unlink(refPath);
+  const deleted = await files.remove(refPath);
   if (deleted) {
     // Clean up empty parent directories
     await cleanupEmptyRefDirs(files, gitDir, refName);
@@ -116,7 +120,11 @@ export async function deleteRef(files: GitFilesApi, gitDir: string, refName: str
 /**
  * Remove empty parent directories up to refs/
  */
-async function cleanupEmptyRefDirs(files: GitFilesApi, gitDir: string, refName: string): Promise<void> {
+async function cleanupEmptyRefDirs(
+  files: FilesApi,
+  gitDir: string,
+  refName: string,
+): Promise<void> {
   // Only clean up within refs/ hierarchy
   if (!refName.startsWith("refs/")) {
     return;
@@ -129,11 +137,15 @@ async function cleanupEmptyRefDirs(files: GitFilesApi, gitDir: string, refName: 
       break;
     }
 
-    const dirPath = files.join(gitDir, current);
+    const dirPath = joinPath(gitDir, current);
     try {
-      const entries = await files.readdir(dirPath);
-      if (entries.length === 0) {
-        await files.rmdir(dirPath);
+      let isEmpty = true;
+      for await (const _ of files.list(dirPath)) {
+        isEmpty = false;
+        break;
+      }
+      if (isEmpty) {
+        await files.remove(dirPath);
       } else {
         break;
       }
@@ -158,7 +170,7 @@ async function cleanupEmptyRefDirs(files: GitFilesApi, gitDir: string, refName: 
  * @returns True if update succeeded, false if CAS failed
  */
 export async function updateRef(
-  files: GitFilesApi,
+  files: FilesApi,
   gitDir: string,
   refName: string,
   oldValue: ObjectId | undefined,
@@ -166,7 +178,7 @@ export async function updateRef(
 ): Promise<boolean> {
   // Read current value if CAS check is needed
   if (oldValue !== undefined) {
-    const refPath = files.join(gitDir, refName);
+    const refPath = joinPath(gitDir, refName);
     try {
       const content = await files.readFile(refPath);
       const currentValue = new TextDecoder().decode(content).trim();
@@ -189,8 +201,8 @@ export async function updateRef(
  * @param files File system API
  * @param gitDir Path to .git directory
  */
-export async function createRefsStructure(files: GitFilesApi, gitDir: string): Promise<void> {
-  await files.mkdir(files.join(gitDir, "refs"));
-  await files.mkdir(files.join(gitDir, "refs", "heads"));
-  await files.mkdir(files.join(gitDir, "refs", "tags"));
+export async function createRefsStructure(files: FilesApi, gitDir: string): Promise<void> {
+  await files.mkdir(joinPath(gitDir, "refs"));
+  await files.mkdir(joinPath(gitDir, "refs", "heads"));
+  await files.mkdir(joinPath(gitDir, "refs", "tags"));
 }

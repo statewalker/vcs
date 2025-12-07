@@ -7,9 +7,9 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/LooseObjects.java
  */
 
+import { dirname, type FilesApi } from "@statewalker/webrun-files";
 import { compressBlock, sha1 } from "@webrun-vcs/common";
 import type { ObjectId, ObjectTypeString } from "@webrun-vcs/storage";
-import type { GitFilesApi } from "../git-files-api.js";
 import { createGitObject } from "../format/object-header.js";
 import { atomicWriteFile, ensureDir } from "../utils/file-utils.js";
 import { getLooseObjectPath, hasLooseObject } from "./loose-object-reader.js";
@@ -20,14 +20,14 @@ import { getLooseObjectPath, hasLooseObject } from "./loose-object-reader.js";
  * The object ID is computed from the content. If an object with the
  * same ID already exists, this is a no-op (deduplication).
  *
- * @param files GitFilesApi instance
+ * @param files FilesApi instance
  * @param objectsDir Objects directory path
  * @param type Object type
  * @param content Object content (without header)
  * @returns Object ID
  */
 export async function writeLooseObject(
-  files: GitFilesApi,
+  files: FilesApi,
   objectsDir: string,
   type: ObjectTypeString,
   content: Uint8Array,
@@ -47,8 +47,8 @@ export async function writeLooseObject(
   const compressed = await compressBlock(fullObject, { raw: false });
 
   // Get path and ensure directory exists
-  const path = getLooseObjectPath(objectsDir, id, files);
-  const dir = files.dirname(path);
+  const path = getLooseObjectPath(objectsDir, id);
+  const dir = dirname(path);
   await ensureDir(files, dir);
 
   // Write atomically

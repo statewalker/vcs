@@ -6,20 +6,19 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
-import { NodeFilesApi } from "@statewalker/webrun-files";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GitFilesApi } from "../../src/git-files-api.js";
 import {
-  type PackWriterObject,
   crc32,
+  PackObjectType,
+  PackReader,
+  type PackWriterObject,
+  PackWriterStream,
+  readPackIndex,
   writePack,
   writePackIndexV2,
-  readPackIndex,
-  PackReader,
-  PackWriterStream,
-  PackObjectType,
 } from "../../src/pack/index.js";
 
 const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
@@ -233,10 +232,10 @@ describe("pack-writer", () => {
 
   describe("roundtrip: write and read pack", () => {
     let tempDir: string;
-    let files: GitFilesApi;
+    let files: FilesApi;
 
     beforeAll(async () => {
-      files = new GitFilesApi(new NodeFilesApi({ fs }));
+      files = new FilesApi(new NodeFilesApi({ fs }));
 
       // Create temp directory for test packs
       tempDir = path.join(FIXTURES_DIR, ".test-temp");
@@ -283,8 +282,8 @@ describe("pack-writer", () => {
         // Verify we can read the object
         const obj = await reader.get(objects[0].id);
         expect(obj).toBeDefined();
-        expect(obj!.type).toBe(PackObjectType.BLOB);
-        expect(new TextDecoder().decode(obj!.content)).toBe("Hello, World!");
+        expect(obj?.type).toBe(PackObjectType.BLOB);
+        expect(new TextDecoder().decode(obj?.content)).toBe("Hello, World!");
       } finally {
         await reader.close();
       }
@@ -334,8 +333,8 @@ describe("pack-writer", () => {
         for (const original of objects) {
           const obj = await reader.get(original.id);
           expect(obj).toBeDefined();
-          expect(obj!.type).toBe(original.type);
-          expect(Array.from(obj!.content)).toEqual(Array.from(original.content));
+          expect(obj?.type).toBe(original.type);
+          expect(Array.from(obj?.content)).toEqual(Array.from(original.content));
         }
       } finally {
         await reader.close();
@@ -364,7 +363,9 @@ describe("pack-writer", () => {
         {
           id: "cccccccccccccccccccccccccccccccccccccccc",
           type: PackObjectType.COMMIT,
-          content: new TextEncoder().encode("tree bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n\ncommit"),
+          content: new TextEncoder().encode(
+            "tree bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n\ncommit",
+          ),
         },
       ];
 
@@ -384,13 +385,13 @@ describe("pack-writer", () => {
       try {
         // Verify types
         const blob = await reader.get("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        expect(blob!.type).toBe(PackObjectType.BLOB);
+        expect(blob?.type).toBe(PackObjectType.BLOB);
 
         const tree = await reader.get("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-        expect(tree!.type).toBe(PackObjectType.TREE);
+        expect(tree?.type).toBe(PackObjectType.TREE);
 
         const commit = await reader.get("cccccccccccccccccccccccccccccccccccccccc");
-        expect(commit!.type).toBe(PackObjectType.COMMIT);
+        expect(commit?.type).toBe(PackObjectType.COMMIT);
       } finally {
         await reader.close();
       }
@@ -425,10 +426,10 @@ describe("pack-writer", () => {
 
       try {
         const obj1 = await reader.get("dddddddddddddddddddddddddddddddddddddddd");
-        expect(new TextDecoder().decode(obj1!.content)).toBe("stream content 1");
+        expect(new TextDecoder().decode(obj1?.content)).toBe("stream content 1");
 
         const obj2 = await reader.get("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
-        expect(new TextDecoder().decode(obj2!.content)).toBe("stream content 2");
+        expect(new TextDecoder().decode(obj2?.content)).toBe("stream content 2");
       } finally {
         await reader.close();
       }
@@ -488,8 +489,8 @@ describe("pack-writer", () => {
       try {
         const obj = await reader.get("1234567890abcdef1234567890abcdef12345678");
         expect(obj).toBeDefined();
-        expect(obj!.content.length).toBe(largeContent.length);
-        expect(Array.from(obj!.content)).toEqual(Array.from(largeContent));
+        expect(obj?.content.length).toBe(largeContent.length);
+        expect(Array.from(obj?.content)).toEqual(Array.from(largeContent));
       } finally {
         await reader.close();
       }

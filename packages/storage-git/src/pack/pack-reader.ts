@@ -8,9 +8,9 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
+import type { FileHandle, FilesApi } from "@statewalker/webrun-files";
 import { decompressBlockPartial } from "@webrun-vcs/common";
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { GitFileHandle, GitFilesApi } from "../git-files-api.js";
 import { bytesToHex } from "../utils/index.js";
 import type {
   PackHeader,
@@ -32,13 +32,13 @@ const OBJECT_ID_LENGTH = 20;
  * Provides random access to objects in a pack file, with delta resolution.
  */
 export class PackReader {
-  private readonly files: GitFilesApi;
+  private readonly files: FilesApi;
   private readonly packPath: string;
   private readonly index: PackIndex;
-  private handle: GitFileHandle | null = null;
+  private handle: FileHandle | null = null;
   private length = 0;
 
-  constructor(files: GitFilesApi, packPath: string, index: PackIndex) {
+  constructor(files: FilesApi, packPath: string, index: PackIndex) {
     this.files = files;
     this.packPath = packPath;
     this.index = index;
@@ -50,9 +50,8 @@ export class PackReader {
   async open(): Promise<void> {
     if (this.handle) return;
 
-    this.handle = await this.files.openFile(this.packPath);
-    const stat = await this.files.stat(this.packPath);
-    this.length = stat.size;
+    this.handle = await this.files.open(this.packPath);
+    this.length = this.handle.size;
 
     // Validate header
     const header = await this.readPackHeader();

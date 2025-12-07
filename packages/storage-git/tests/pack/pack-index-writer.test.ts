@@ -8,13 +8,13 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  oldestPossibleFormat,
   type PackIndex,
   type PackIndexWriterEntry,
   readPackIndex,
+  writePackIndex,
   writePackIndexV1,
   writePackIndexV2,
-  writePackIndex,
-  oldestPossibleFormat,
 } from "../../src/pack/index.js";
 
 const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");

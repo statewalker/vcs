@@ -6,16 +6,15 @@
  * malformed loose objects.
  */
 
+import { dirname, FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { compressBlock, setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
-import { MemFilesApi } from "@statewalker/webrun-files";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { parseObjectHeader } from "../../src/format/object-header.js";
-import { GitFilesApi } from "../../src/git-files-api.js";
 import { getLooseObjectPath, readLooseObject } from "../../src/loose/loose-object-reader.js";
 
 describe("corrupt loose objects", () => {
-  let files: GitFilesApi;
+  let files: FilesApi;
   const objectsDir = "objects";
   const fakeId = "0".repeat(40);
 
@@ -24,7 +23,7 @@ describe("corrupt loose objects", () => {
   });
 
   beforeEach(() => {
-    files = new GitFilesApi(new MemFilesApi());
+    files = new FilesApi(new MemFilesApi());
   });
 
   /**
@@ -52,9 +51,9 @@ describe("corrupt loose objects", () => {
   ): Promise<void> {
     const compressed = await createCorruptObject(headerContent, body);
     const path = getLooseObjectPath(objectsDir, id, files);
-    const dir = files.dirname(path);
+    const dir = dirname(path);
     await files.mkdir(dir, { recursive: true });
-    await files.writeFile(path, compressed);
+    await files.write(path, [compressed]);
   }
 
   describe("header corruption", () => {
@@ -80,9 +79,9 @@ describe("corrupt loose objects", () => {
       // Empty compressed data
       const compressed = await compressBlock(new Uint8Array(0), { raw: false });
       const path = getLooseObjectPath(objectsDir, fakeId, files);
-      const dir = files.dirname(path);
+      const dir = dirname(path);
       await files.mkdir(dir, { recursive: true });
-      await files.writeFile(path, compressed);
+      await files.write(path, [compressed]);
 
       await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /no null byte found|Invalid object header/,
@@ -93,9 +92,9 @@ describe("corrupt loose objects", () => {
       // Header without null terminator: "blob 10"
       const compressed = await compressBlock(new TextEncoder().encode("blob 10"), { raw: false });
       const path = getLooseObjectPath(objectsDir, fakeId, files);
-      const dir = files.dirname(path);
+      const dir = dirname(path);
       await files.mkdir(dir, { recursive: true });
-      await files.writeFile(path, compressed);
+      await files.write(path, [compressed]);
 
       await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
         /no null byte found/,
@@ -116,9 +115,7 @@ describe("corrupt loose objects", () => {
       // Note: parseInt("1foo", 10) returns 1, so this becomes a size mismatch
       await writeCorruptObject(fakeId, "blob 1foo\0");
 
-      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
-        /size mismatch/,
-      );
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(/size mismatch/);
     });
 
     it("rejects non-numeric size", async () => {
@@ -137,9 +134,7 @@ describe("corrupt loose objects", () => {
       const body = new TextEncoder().encode("hello");
       await writeCorruptObject(fakeId, "blob 100\0", body);
 
-      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
-        /size mismatch/,
-      );
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(/size mismatch/);
     });
 
     it("rejects when content is longer than declared size", async () => {
@@ -147,9 +142,7 @@ describe("corrupt loose objects", () => {
       const body = new TextEncoder().encode("hello world");
       await writeCorruptObject(fakeId, "blob 3\0", body);
 
-      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
-        /size mismatch/,
-      );
+      await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(/size mismatch/);
     });
 
     it("accepts when content matches declared size", async () => {
@@ -177,9 +170,9 @@ describe("corrupt loose objects", () => {
       }
 
       const path = getLooseObjectPath(objectsDir, fakeId, files);
-      const dir = files.dirname(path);
+      const dir = dirname(path);
       await files.mkdir(dir, { recursive: true });
-      await files.writeFile(path, corruptData);
+      await files.write(path, [corruptData]);
 
       await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow();
     });
@@ -195,9 +188,9 @@ describe("corrupt loose objects", () => {
       const truncated = validCompressed.subarray(0, Math.max(2, validCompressed.length - 5));
 
       const path = getLooseObjectPath(objectsDir, fakeId, files);
-      const dir = files.dirname(path);
+      const dir = dirname(path);
       await files.mkdir(dir, { recursive: true });
-      await files.writeFile(path, truncated);
+      await files.write(path, [truncated]);
 
       await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow();
     });
@@ -286,9 +279,7 @@ describe("corrupt loose objects", () => {
         const content = new TextEncoder().encode("test content");
         await writeCorruptObject(fakeId, `${type} 999\0`, content);
 
-        await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(
-          /size mismatch/,
-        );
+        await expect(readLooseObject(files, objectsDir, fakeId)).rejects.toThrow(/size mismatch/);
       });
     }
   });

@@ -2,11 +2,11 @@
  * Tests for loose object handling
  */
 
+import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
-import { MemFilesApi } from "@statewalker/webrun-files";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { GitFilesApi } from "../../src/git-files-api.js";
+
 import {
   getLooseObjectPath,
   hasLooseObject,
@@ -16,7 +16,7 @@ import { writeLooseObject } from "../../src/loose/loose-object-writer.js";
 import { createObjectDirectory, type ObjectDirectory } from "../../src/loose/object-directory.js";
 
 describe("loose-objects", () => {
-  let files: GitFilesApi;
+  let files: FilesApi;
   const objectsDir = "objects";
 
   beforeAll(() => {
@@ -24,21 +24,22 @@ describe("loose-objects", () => {
   });
 
   beforeEach(() => {
-    files = new GitFilesApi(new MemFilesApi());
+    files = new FilesApi(new MemFilesApi());
   });
 
   describe("getLooseObjectPath", () => {
     it("creates correct path", () => {
       const id = "a".repeat(40);
       const path = getLooseObjectPath(objectsDir, id, files);
-      // Path is objects/XX/YYYYYY... where XX is first 2 chars, rest is remaining 38 chars
-      expect(path).toBe(`objects/aa/${"a".repeat(38)}`);
+      // Path is /objects/XX/YYYYYY... where XX is first 2 chars, rest is remaining 38 chars
+      // Note: joinPath normalizes to absolute paths with leading /
+      expect(path).toBe(`/objects/aa/${"a".repeat(38)}`);
     });
 
     it("handles different prefixes", () => {
       const id = "1234567890abcdef1234567890abcdef12345678";
       const path = getLooseObjectPath(objectsDir, id, files);
-      expect(path).toBe("objects/12/34567890abcdef1234567890abcdef12345678");
+      expect(path).toBe("/objects/12/34567890abcdef1234567890abcdef12345678");
     });
   });
 

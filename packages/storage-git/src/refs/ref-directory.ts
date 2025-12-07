@@ -9,8 +9,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/RefDatabase.java
  */
 
+import type { FilesApi } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/storage";
-import type { GitFilesApi } from "../git-files-api.js";
 import { findPackedRef } from "./packed-refs-reader.js";
 import { removePackedRef } from "./packed-refs-writer.js";
 import { hasLooseRef, readAllRefs, readRef, resolveRef } from "./ref-reader.js";
@@ -132,7 +132,7 @@ export interface RefDirectory {
  * @param gitDir Path to .git directory
  * @returns RefDirectory instance
  */
-export function createRefDirectory(files: GitFilesApi, gitDir: string): RefDirectory {
+export function createRefDirectory(files: FilesApi, gitDir: string): RefDirectory {
   return {
     async exactRef(refName: string): Promise<Ref | SymbolicRef | undefined> {
       return readRef(files, gitDir, refName);

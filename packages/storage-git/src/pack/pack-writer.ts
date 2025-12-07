@@ -10,7 +10,7 @@
 
 import { compressBlock } from "@webrun-vcs/common";
 import { hexToBytes } from "../utils/index.js";
-import { writePackHeader, writeOfsVarint } from "../utils/varint.js";
+import { writeOfsVarint, writePackHeader } from "../utils/varint.js";
 import type { PackIndexWriterEntry } from "./pack-index-writer.js";
 import { PackObjectType } from "./types.js";
 
@@ -21,7 +21,7 @@ const PACK_SIGNATURE = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
 const PACK_VERSION = 2;
 
 /** SHA-1 hash size in bytes */
-const OBJECT_ID_LENGTH = 20;
+const _OBJECT_ID_LENGTH = 20;
 
 /**
  * Object to be written to a pack file
@@ -143,7 +143,11 @@ export async function writePack(objects: readonly PackWriterObject[]): Promise<P
   const indexEntries: PackIndexWriterEntry[] = [];
 
   // Write pack header: "PACK" + version (4 bytes) + object count (4 bytes)
-  const header = concatBytes(PACK_SIGNATURE, encodeUInt32(PACK_VERSION), encodeUInt32(objects.length));
+  const header = concatBytes(
+    PACK_SIGNATURE,
+    encodeUInt32(PACK_VERSION),
+    encodeUInt32(objects.length),
+  );
   chunks.push(header);
 
   let currentOffset = header.length;

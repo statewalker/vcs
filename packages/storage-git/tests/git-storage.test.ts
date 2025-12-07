@@ -7,16 +7,15 @@
  * - Reference management
  */
 
+import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
-import { MemFilesApi } from "@statewalker/webrun-files";
 import { FileMode, type ObjectId, ObjectType } from "@webrun-vcs/storage";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { GitFilesApi } from "../src/git-files-api.js";
 import { createGitStorage, GitStorage } from "../src/git-storage.js";
 
 describe("GitStorage", () => {
-  let files: GitFilesApi;
+  let files: FilesApi;
   const gitDir = "/repo/.git";
 
   beforeAll(() => {
@@ -24,7 +23,7 @@ describe("GitStorage", () => {
   });
 
   beforeEach(() => {
-    files = new GitFilesApi(new MemFilesApi());
+    files = new FilesApi(new MemFilesApi());
   });
 
   describe("repository initialization", () => {
@@ -33,14 +32,14 @@ describe("GitStorage", () => {
 
       // Verify directory structure
       expect(await files.exists(gitDir)).toBe(true);
-      expect(await files.exists(files.join(gitDir, "objects"))).toBe(true);
-      expect(await files.exists(files.join(gitDir, "refs"))).toBe(true);
-      expect(await files.exists(files.join(gitDir, "refs", "heads"))).toBe(true);
-      expect(await files.exists(files.join(gitDir, "refs", "tags"))).toBe(true);
-      expect(await files.exists(files.join(gitDir, "HEAD"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "objects"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "refs"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "refs", "heads"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "refs", "tags"))).toBe(true);
+      expect(await files.exists(joinPath(gitDir, "HEAD"))).toBe(true);
 
       // Verify HEAD points to default branch
-      const headContent = await files.readFile(files.join(gitDir, "HEAD"));
+      const headContent = await files.readFile(joinPath(gitDir, "HEAD"));
       expect(new TextDecoder().decode(headContent)).toBe("ref: refs/heads/main\n");
 
       await storage.close();
@@ -52,7 +51,7 @@ describe("GitStorage", () => {
         defaultBranch: "master",
       });
 
-      const headContent = await files.readFile(files.join(gitDir, "HEAD"));
+      const headContent = await files.readFile(joinPath(gitDir, "HEAD"));
       expect(new TextDecoder().decode(headContent)).toBe("ref: refs/heads/master\n");
 
       await storage.close();
@@ -72,9 +71,7 @@ describe("GitStorage", () => {
     });
 
     it("throws when opening non-existent repository", async () => {
-      await expect(GitStorage.open(files, gitDir)).rejects.toThrow(
-        /Not a valid git repository/,
-      );
+      await expect(GitStorage.open(files, gitDir)).rejects.toThrow(/Not a valid git repository/);
     });
   });
 

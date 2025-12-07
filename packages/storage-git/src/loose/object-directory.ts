@@ -7,8 +7,8 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/LooseObjects.java
  */
 
+import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
 import type { ObjectId, ObjectTypeCode, ObjectTypeString } from "@webrun-vcs/storage";
-import type { DirEntry, GitFilesApi } from "../git-files-api.js";
 import {
   hasLooseObject,
   type LooseObjectData,
@@ -40,7 +40,7 @@ export interface ObjectEntry {
  */
 export class ObjectDirectory {
   constructor(
-    private readonly files: GitFilesApi,
+    private readonly files: FilesApi,
     private readonly objectsDir: string,
   ) {}
 
@@ -146,8 +146,8 @@ export class ObjectDirectory {
   async delete(id: ObjectId): Promise<boolean> {
     const prefix = id.substring(0, 2);
     const suffix = id.substring(2);
-    const path = this.files.join(this.objectsDir, prefix, suffix);
-    return this.files.unlink(path);
+    const path = joinPath(this.objectsDir, prefix, suffix);
+    return this.files.remove(path);
   }
 
   /**
@@ -157,16 +157,18 @@ export class ObjectDirectory {
    */
   async *list(): AsyncGenerator<ObjectId> {
     // List all 2-character subdirectories
-    let entries: DirEntry[] = [];
+    const entries: FileInfo[] = [];
     try {
-      entries = await this.files.readdir(this.objectsDir);
+      for await (const entry of this.files.list(this.objectsDir)) {
+        entries.push(entry);
+      }
     } catch {
       return; // Objects directory doesn't exist
     }
 
     for (const entry of entries) {
       // Skip non-directories and special directories
-      if (!entry.isDirectory || entry.name.length !== 2) {
+      if (entry.kind !== "directory" || entry.name.length !== 2) {
         continue;
       }
 
@@ -176,17 +178,19 @@ export class ObjectDirectory {
       }
 
       const prefix = entry.name;
-      const subdir = this.files.join(this.objectsDir, prefix);
+      const subdir = joinPath(this.objectsDir, prefix);
 
-      let objects: DirEntry[] = [];
+      const objects: FileInfo[] = [];
       try {
-        objects = await this.files.readdir(subdir);
+        for await (const obj of this.files.list(subdir)) {
+          objects.push(obj);
+        }
       } catch {
         continue;
       }
 
       for (const obj of objects) {
-        if (!obj.isFile || obj.name.length !== 38) {
+        if (obj.kind !== "file" || obj.name.length !== 38) {
           continue;
         }
 
@@ -207,16 +211,18 @@ export class ObjectDirectory {
    */
   async *enumerate(): AsyncGenerator<ObjectEntry> {
     // List all 2-character subdirectories
-    let entries: DirEntry[] = [];
+    const entries: FileInfo[] = [];
     try {
-      entries = await this.files.readdir(this.objectsDir);
+      for await (const entry of this.files.list(this.objectsDir)) {
+        entries.push(entry);
+      }
     } catch {
       return; // Objects directory doesn't exist
     }
 
     for (const entry of entries) {
       // Skip non-directories and special directories
-      if (!entry.isDirectory || entry.name.length !== 2) {
+      if (entry.kind !== "directory" || entry.name.length !== 2) {
         continue;
       }
 
@@ -226,17 +232,19 @@ export class ObjectDirectory {
       }
 
       const prefix = entry.name;
-      const subdir = this.files.join(this.objectsDir, prefix);
+      const subdir = joinPath(this.objectsDir, prefix);
 
-      let objects: DirEntry[] = [];
+      const objects: FileInfo[] = [];
       try {
-        objects = await this.files.readdir(subdir);
+        for await (const obj of this.files.list(subdir)) {
+          objects.push(obj);
+        }
       } catch {
         continue;
       }
 
       for (const obj of objects) {
-        if (!obj.isFile || obj.name.length !== 38) {
+        if (obj.kind !== "file" || obj.name.length !== 38) {
           continue;
         }
 
@@ -274,9 +282,9 @@ export class ObjectDirectory {
 /**
  * Create an ObjectDirectory instance
  *
- * @param files GitFilesApi instance
+ * @param files FilesApi instance
  * @param objectsDir Path to objects directory
  */
-export function createObjectDirectory(files: GitFilesApi, objectsDir: string): ObjectDirectory {
+export function createObjectDirectory(files: FilesApi, objectsDir: string): ObjectDirectory {
   return new ObjectDirectory(files, objectsDir);
 }

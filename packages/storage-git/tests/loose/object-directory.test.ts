@@ -5,16 +5,15 @@
  * Tests error handling, pack file scanning, and concurrent operations.
  */
 
+import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/common";
 import { createNodeCompression } from "@webrun-vcs/common/compression-node";
-import { MemFilesApi } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/storage";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { GitFilesApi } from "../../src/git-files-api.js";
 import { createObjectDirectory, type ObjectDirectory } from "../../src/loose/object-directory.js";
 
 describe("ObjectDirectory", () => {
-  let files: GitFilesApi;
+  let files: FilesApi;
   let objDir: ObjectDirectory;
   const objectsDir = "objects";
 
@@ -23,7 +22,7 @@ describe("ObjectDirectory", () => {
   });
 
   beforeEach(() => {
-    files = new GitFilesApi(new MemFilesApi());
+    files = new FilesApi(new MemFilesApi());
     objDir = createObjectDirectory(files, objectsDir);
   });
 
@@ -85,7 +84,7 @@ describe("ObjectDirectory", () => {
 
       // Create a non-hex directory
       await files.mkdir(`${objectsDir}/zz`);
-      await files.writeFile(`${objectsDir}/zz/${"0".repeat(38)}`, new Uint8Array([1, 2, 3]));
+      await files.write(`${objectsDir}/zz/${"0".repeat(38)}`, [new Uint8Array([1, 2, 3])]);
 
       // Should only find the valid object
       const ids: ObjectId[] = [];
@@ -102,7 +101,7 @@ describe("ObjectDirectory", () => {
       const id = await objDir.writeBlob(new TextEncoder().encode("test"));
 
       // Create a file directly in objects directory
-      await files.writeFile(`${objectsDir}/some-file`, new Uint8Array([1, 2, 3]));
+      await files.write(`${objectsDir}/some-file`, [new Uint8Array([1, 2, 3])]);
 
       // Should only find the valid object
       const ids: ObjectId[] = [];
@@ -120,8 +119,8 @@ describe("ObjectDirectory", () => {
 
       // Create a file with wrong suffix length in aa/ directory
       await files.mkdir(`${objectsDir}/aa`);
-      await files.writeFile(`${objectsDir}/aa/short`, new Uint8Array([1, 2, 3]));
-      await files.writeFile(`${objectsDir}/aa/${"a".repeat(50)}`, new Uint8Array([1, 2, 3]));
+      await files.write(`${objectsDir}/aa/short`, [new Uint8Array([1, 2, 3])]);
+      await files.write(`${objectsDir}/aa/${"a".repeat(50)}`, [new Uint8Array([1, 2, 3])]);
 
       // Should only find the valid object
       const ids: ObjectId[] = [];
@@ -139,10 +138,9 @@ describe("ObjectDirectory", () => {
 
       // Create files with non-hex characters
       await files.mkdir(`${objectsDir}/ab`);
-      await files.writeFile(
-        `${objectsDir}/ab/zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz`,
+      await files.write(`${objectsDir}/ab/zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz`, [
         new Uint8Array([1, 2, 3]),
-      );
+      ]);
 
       const ids: ObjectId[] = [];
       for await (const listId of objDir.list()) {
@@ -179,9 +177,9 @@ describe("ObjectDirectory", () => {
 
       // Write a corrupt object file directly
       await files.mkdir(`${objectsDir}/cc`);
-      await files.writeFile(
+      await files.write(
         `${objectsDir}/cc/${"c".repeat(38)}`,
-        new Uint8Array([1, 2, 3]), // Not valid zlib
+        [new Uint8Array([1, 2, 3])], // Not valid zlib
       );
 
       const entries = [];
@@ -205,11 +203,14 @@ describe("ObjectDirectory", () => {
       const prefix = id.substring(0, 2);
 
       // Verify fanout directory was created
-      const entries = await files.readdir(objectsDir);
+      const entries = [];
+      for await (const entry of files.list(objectsDir)) {
+        entries.push(entry);
+      }
       const fanoutDir = entries.find((e) => e.name === prefix);
 
       expect(fanoutDir).toBeDefined();
-      expect(fanoutDir?.isDirectory).toBe(true);
+      expect(fanoutDir?.kind).toBe("directory");
     });
 
     it("handles multiple objects in same fanout directory", async () => {
