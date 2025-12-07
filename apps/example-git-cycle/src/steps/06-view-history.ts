@@ -37,12 +37,16 @@ export async function step06ViewHistory(): Promise<void> {
   printSubsection("Walking full history");
 
   const headId = await storage.getHead();
-  console.log(`\n  HEAD: ${shortId(headId!)}`);
+  if (!headId) {
+    console.log("\n  No HEAD found - repository may be empty");
+    return;
+  }
+  console.log(`\n  HEAD: ${shortId(headId)}`);
   console.log(`\n  Commit history (newest first):`);
   console.log(`  ${"─".repeat(50)}`);
 
   let count = 0;
-  for await (const commitId of storage.commits.walkAncestry(headId!)) {
+  for await (const commitId of storage.commits.walkAncestry(headId)) {
     const commit = await storage.commits.loadCommit(commitId);
     const date = new Date(commit.author.timestamp * 1000);
     const shortMsg = commit.message.split("\n")[0];
@@ -70,7 +74,7 @@ export async function step06ViewHistory(): Promise<void> {
   console.log(`\n  Using { limit: 2 } to get only the last 2 commits:`);
 
   let limitedCount = 0;
-  for await (const commitId of storage.commits.walkAncestry(headId!, { limit: 2 })) {
+  for await (const commitId of storage.commits.walkAncestry(headId, { limit: 2 })) {
     limitedCount++;
     const commit = await storage.commits.loadCommit(commitId);
     console.log(`    ${limitedCount}. ${shortId(commitId)} - ${commit.message.split("\n")[0]}`);
@@ -81,18 +85,13 @@ export async function step06ViewHistory(): Promise<void> {
   console.log(`\n  Checking commit relationships:`);
 
   // Check if commit1 is ancestor of commit5
-  const isC1AncestorOfC5 = await storage.commits.isAncestor(
-    storedCommits.commit1,
-    storedCommits.commit5 || headId!,
-  );
+  const targetCommit = storedCommits.commit5 || headId;
+  const isC1AncestorOfC5 = await storage.commits.isAncestor(storedCommits.commit1, targetCommit);
   console.log(`\n    Is ${shortId(storedCommits.commit1)} (initial) ancestor of HEAD?`);
   console.log(`    Result: ${isC1AncestorOfC5}`);
 
   // Check reverse
-  const isC5AncestorOfC1 = await storage.commits.isAncestor(
-    storedCommits.commit5 || headId!,
-    storedCommits.commit1,
-  );
+  const isC5AncestorOfC1 = await storage.commits.isAncestor(targetCommit, storedCommits.commit1);
   console.log(`\n    Is HEAD ancestor of ${shortId(storedCommits.commit1)} (initial)?`);
   console.log(`    Result: ${isC5AncestorOfC1}`);
 
@@ -100,7 +99,7 @@ export async function step06ViewHistory(): Promise<void> {
 
   console.log(`\n  Parent chain from HEAD:`);
 
-  let currentId = headId!;
+  let currentId: string | undefined = headId;
   let depth = 0;
   while (currentId) {
     const parents = await storage.commits.getParents(currentId);
