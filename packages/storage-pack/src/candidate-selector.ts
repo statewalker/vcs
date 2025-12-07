@@ -45,7 +45,7 @@ export class CandidateSelector {
   async findCandidatesBySize(
     context: PackingContext,
     targetId: ObjectId,
-    options: CandidateSelectorOptions = {}
+    options: CandidateSelectorOptions = {},
   ): Promise<ObjectId[]> {
     const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_CANDIDATES;
     const minSizeRatio = options.minSizeRatio ?? DEFAULT_MIN_SIZE_RATIO;
@@ -70,10 +70,7 @@ export class CandidateSelector {
       if (targetSize < candidateSize * minSizeRatio) continue;
 
       // Apply maximum size ratio if specified
-      if (
-        options.maxSizeRatio !== undefined &&
-        targetSize > candidateSize * options.maxSizeRatio
-      ) {
+      if (options.maxSizeRatio !== undefined && targetSize > candidateSize * options.maxSizeRatio) {
         continue;
       }
 
@@ -112,7 +109,7 @@ export class CandidateSelector {
     targetId: ObjectId,
     targetPath: string,
     pathToBlobMap: Map<string, ObjectId[]>,
-    options: CandidateSelectorOptions = {}
+    options: CandidateSelectorOptions = {},
   ): Promise<ObjectId[]> {
     const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_CANDIDATES;
     const candidates: SizedCandidate[] = [];
@@ -183,7 +180,7 @@ export class CandidateSelector {
     context: PackingContext,
     targetId: ObjectId,
     commitRoots: ObjectId[],
-    options: CandidateSelectorOptions = {}
+    options: CandidateSelectorOptions = {},
   ): Promise<ObjectId[]> {
     const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_CANDIDATES;
 
@@ -236,7 +233,7 @@ export class CandidateSelector {
       pathToBlobMap: Map<string, ObjectId[]>;
     },
     commitRoots?: ObjectId[],
-    options: CandidateSelectorOptions = {}
+    options: CandidateSelectorOptions = {},
   ): Promise<ObjectId[]> {
     const allCandidates = new Set<ObjectId>();
     const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_CANDIDATES;
@@ -247,7 +244,7 @@ export class CandidateSelector {
         context,
         targetId,
         commitRoots,
-        options
+        options,
       );
       for (const c of treeCandidates) allCandidates.add(c);
     }
@@ -259,18 +256,17 @@ export class CandidateSelector {
         targetId,
         pathInfo.path,
         pathInfo.pathToBlobMap,
-        options
+        options,
       );
       for (const c of pathCandidates) allCandidates.add(c);
     }
 
     // Fill remaining slots with size-based candidates
     if (allCandidates.size < maxCandidates) {
-      const sizeCandidates = await this.findCandidatesBySize(
-        context,
-        targetId,
-        { ...options, maxCandidates: maxCandidates - allCandidates.size }
-      );
+      const sizeCandidates = await this.findCandidatesBySize(context, targetId, {
+        ...options,
+        maxCandidates: maxCandidates - allCandidates.size,
+      });
       for (const c of sizeCandidates) allCandidates.add(c);
     }
 
@@ -282,12 +278,9 @@ export class CandidateSelector {
    */
   private async buildPathHistory(
     context: PackingContext,
-    commitRoots: ObjectId[]
+    commitRoots: ObjectId[],
   ): Promise<Map<string, Array<{ commitId: ObjectId; blobId: ObjectId }>>> {
-    const pathHistory = new Map<
-      string,
-      Array<{ commitId: ObjectId; blobId: ObjectId }>
-    >();
+    const pathHistory = new Map<string, Array<{ commitId: ObjectId; blobId: ObjectId }>>();
     const visitedCommits = new Set<ObjectId>();
 
     for (const rootId of commitRoots) {
@@ -296,13 +289,7 @@ export class CandidateSelector {
         visitedCommits.add(commitId);
 
         const treeId = await context.commits.getTree(commitId);
-        await this.collectPathsFromTree(
-          context,
-          treeId,
-          "",
-          commitId,
-          pathHistory
-        );
+        await this.collectPathsFromTree(context, treeId, "", commitId, pathHistory);
       }
     }
 
@@ -317,19 +304,13 @@ export class CandidateSelector {
     treeId: ObjectId,
     basePath: string,
     commitId: ObjectId,
-    pathHistory: Map<string, Array<{ commitId: ObjectId; blobId: ObjectId }>>
+    pathHistory: Map<string, Array<{ commitId: ObjectId; blobId: ObjectId }>>,
   ): Promise<void> {
     for await (const entry of context.trees.loadTree(treeId)) {
       const fullPath = basePath ? `${basePath}/${entry.name}` : entry.name;
 
       if (this.isTreeMode(entry.mode)) {
-        await this.collectPathsFromTree(
-          context,
-          entry.id,
-          fullPath,
-          commitId,
-          pathHistory
-        );
+        await this.collectPathsFromTree(context, entry.id, fullPath, commitId, pathHistory);
       } else {
         const versions = pathHistory.get(fullPath) ?? [];
         // Only add if this blob is not already recorded for this path

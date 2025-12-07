@@ -5,7 +5,7 @@
  * Inspired by JGit's packing implementation.
  */
 
-export * from "./types.js";
-export * from "./storage-analyzer.js";
 export * from "./candidate-selector.js";
 export * from "./packing-orchestrator.js";
+export * from "./storage-analyzer.js";
+export * from "./types.js";

@@ -7,11 +7,7 @@
 
 import type { HashAlgorithm } from "@webrun-vcs/common";
 import type { ObjectId } from "@webrun-vcs/storage";
-import {
-  DefaultObjectStorage,
-  IntermediateCache,
-  LRUCache,
-} from "@webrun-vcs/storage-default";
+import { DefaultObjectStorage, IntermediateCache, LRUCache } from "@webrun-vcs/storage-default";
 import type { DatabaseClient } from "./database-client.js";
 import { SQLDeltaRepository } from "./delta-repository.js";
 import { SQLMetadataRepository } from "./metadata-repository.js";

@@ -19,11 +19,6 @@ export default defineConfig({
       chunkFileNames: "[name]-[hash].cjs",
     },
   ],
-  external: [
-    "@webrun-vcs/common",
-    "@webrun-vcs/storage",
-    "@webrun-vcs/storage-default",
-    "sql.js",
-  ],
+  external: ["@webrun-vcs/common", "@webrun-vcs/storage", "@webrun-vcs/storage-default", "sql.js"],
   treeshake: true,
 });
