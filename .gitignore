@@ -16,6 +16,7 @@ coverage/
 .turbo/
 
 # Observable Framework
+notes
 .observablehq/
 notes/src/.observablehq/cache/
 notes/dist/
@@ -80,3 +81,4 @@ tmp
 # Optional: Uncomment if using these tools
 # .eslintcache
 # stylelint-cache
+*.fossil
