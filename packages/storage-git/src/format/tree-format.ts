@@ -118,15 +118,46 @@ function isTreeMode(mode: number): boolean {
 }
 
 /**
+ * Validate tree entry name
+ *
+ * Based on: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/ObjectChecker.java#checkPathSegment
+ *
+ * @param name Entry name to validate
+ * @throws Error if name is invalid
+ */
+function validateEntryName(name: string): void {
+  if (name === "") {
+    throw new Error("Tree entry name cannot be empty");
+  }
+  if (name === "." || name === "..") {
+    throw new Error(`Tree entry name cannot be '${name}'`);
+  }
+  if (name.includes("/")) {
+    throw new Error("Tree entry name cannot contain '/'");
+  }
+  if (name.includes("\0")) {
+    throw new Error("Tree entry name cannot contain null bytes");
+  }
+}
+
+/**
  * Serialize tree entries to Git tree format
  *
  * Entries must be sorted in canonical order before calling this function,
  * or pass unsorted entries and let the function sort them.
  *
+ * Based on: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/TreeFormatter.java
+ *
  * @param entries Tree entries (will be sorted if not already)
  * @returns Serialized tree content (without header)
+ * @throws Error if any entry has an invalid name
  */
 export function serializeTree(entries: TreeEntry[]): Uint8Array {
+  // Validate all entry names first
+  for (const entry of entries) {
+    validateEntryName(entry.name);
+  }
+
   // Sort entries in canonical order
   const sorted = [...entries].sort(compareTreeEntries);
 

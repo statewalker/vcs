@@ -69,14 +69,32 @@ export function serializeCommit(commit: Commit): Uint8Array {
 }
 
 /**
+ * Strip trailing CR from a line (handles CRLF -> LF conversion)
+ *
+ * Based on: jgit/org.eclipse.jgit/src/org/eclipse/jgit/revwalk/RevCommit.java
+ */
+function stripCR(line: string): string {
+  if (line.endsWith("\r")) {
+    return line.slice(0, -1);
+  }
+  return line;
+}
+
+/**
  * Parse a commit from Git commit format
+ *
+ * Handles both LF and CRLF line endings.
+ *
+ * Based on: jgit/org.eclipse.jgit/src/org/eclipse/jgit/revwalk/RevCommit.java
  *
  * @param data Serialized commit content (without header)
  * @returns Parsed commit object
  */
 export function parseCommit(data: Uint8Array): Commit {
   const text = decoder.decode(data);
-  const lines = text.split(LF);
+  // Split by LF first, then strip any trailing CR from each line (handles CRLF)
+  const rawLines = text.split(LF);
+  const lines = rawLines.map(stripCR);
 
   let tree: string | undefined;
   const parents: string[] = [];
@@ -93,27 +111,22 @@ export function parseCommit(data: Uint8Array): Commit {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Empty line marks start of message
-    if (line === "" && messageStart === -1) {
-      // Finalize any ongoing gpgsig
-      if (inGpgSig) {
-        gpgSignature = gpgSigLines.join("\n");
-        inGpgSig = false;
-      }
-      messageStart = i + 1;
-      break;
-    }
-
-    // Continuation line for gpgsig
-    if (inGpgSig && line.startsWith(" ")) {
-      gpgSigLines.push(line.substring(1));
-      continue;
-    }
-
-    // End of gpgsig if we hit a non-continuation line
+    // Continuation line for gpgsig (must be checked before empty line check)
+    // In gpgsig, a space-prefixed line or empty line continues the signature
     if (inGpgSig) {
+      if (line.startsWith(" ")) {
+        gpgSigLines.push(line.substring(1));
+        continue;
+      }
+      // Non-continuation line ends gpgsig
       gpgSignature = gpgSigLines.join("\n");
       inGpgSig = false;
+    }
+
+    // Empty line marks start of message (only when not in multi-line field)
+    if (line === "" && messageStart === -1) {
+      messageStart = i + 1;
+      break;
     }
 
     // Parse header lines
@@ -157,9 +170,10 @@ export function parseCommit(data: Uint8Array): Commit {
     throw new Error("Invalid commit: missing committer");
   }
 
-  // Extract message
+  // Extract message (preserve original line endings from rawLines for message content)
   let message = "";
-  if (messageStart !== -1 && messageStart < lines.length) {
+  if (messageStart !== -1 && messageStart < rawLines.length) {
+    // For the message, use the stripped lines to be consistent
     message = lines.slice(messageStart).join(LF);
   }
 

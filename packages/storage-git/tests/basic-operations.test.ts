@@ -27,9 +27,8 @@ describe("basic operations", () => {
   });
 
   describe("tree validation", () => {
-    it.todo("rejects tree entry with empty filename", async () => {
-      // TODO: Implement empty filename validation in tree serialization
-      // JGit rejects trees with empty filenames (T0003_BasicTest.test002_CreateBadTree)
+    it("rejects tree entry with empty filename", async () => {
+      // Based on: JGit T0003_BasicTest.test002_CreateBadTree
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create a blob to reference
@@ -42,7 +41,58 @@ describe("basic operations", () => {
       // Try to store a tree with empty filename - should fail
       await expect(
         storage.trees.storeTree([{ mode: FileMode.REGULAR_FILE, name: "", id: blobId }]),
-      ).rejects.toThrow();
+      ).rejects.toThrow("Tree entry name cannot be empty");
+
+      await storage.close();
+    });
+
+    it("rejects tree entry with '.' filename", async () => {
+      // Based on: JGit ObjectChecker path validation
+      const storage = await GitStorage.init(files, gitDir, { create: true });
+
+      const { id: blobId } = await storage.objects.store(
+        (async function* () {
+          yield new TextEncoder().encode("content");
+        })(),
+      );
+
+      await expect(
+        storage.trees.storeTree([{ mode: FileMode.REGULAR_FILE, name: ".", id: blobId }]),
+      ).rejects.toThrow("Tree entry name cannot be '.'");
+
+      await storage.close();
+    });
+
+    it("rejects tree entry with '..' filename", async () => {
+      // Based on: JGit ObjectChecker path validation
+      const storage = await GitStorage.init(files, gitDir, { create: true });
+
+      const { id: blobId } = await storage.objects.store(
+        (async function* () {
+          yield new TextEncoder().encode("content");
+        })(),
+      );
+
+      await expect(
+        storage.trees.storeTree([{ mode: FileMode.REGULAR_FILE, name: "..", id: blobId }]),
+      ).rejects.toThrow("Tree entry name cannot be '..'");
+
+      await storage.close();
+    });
+
+    it("rejects tree entry with '/' in filename", async () => {
+      // Based on: JGit ObjectChecker path validation
+      const storage = await GitStorage.init(files, gitDir, { create: true });
+
+      const { id: blobId } = await storage.objects.store(
+        (async function* () {
+          yield new TextEncoder().encode("content");
+        })(),
+      );
+
+      await expect(
+        storage.trees.storeTree([{ mode: FileMode.REGULAR_FILE, name: "foo/bar", id: blobId }]),
+      ).rejects.toThrow("Tree entry name cannot contain '/'");
 
       await storage.close();
     });
