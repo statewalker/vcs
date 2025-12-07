@@ -6,5 +6,7 @@
  */
 
 export * from "./pack-index-reader.js";
+export * from "./pack-index-writer.js";
 export * from "./pack-reader.js";
+export * from "./pack-writer.js";
 export * from "./types.js";
