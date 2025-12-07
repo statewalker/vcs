@@ -8,23 +8,13 @@
  */
 
 import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { ObjectId, ObjectInfo, ObjectStorage, ObjectTypeCode } from "@webrun-vcs/storage";
-import { ObjectType } from "@webrun-vcs/storage";
-import { ObjectDirectory } from "./loose/index.js";
-import { type PackIndex, readPackIndex } from "./pack/index.js";
+import type { ObjectId, ObjectInfo, ObjectStorage, ObjectTypeString } from "@webrun-vcs/storage";
+import { createGitObject, parseObjectHeader } from "./format/object-header.js";
+import { hasLooseObject, readRawLooseObject } from "./loose/loose-object-reader.js";
+import { writeRawLooseObject } from "./loose/loose-object-writer.js";
+import { ObjectDirectory } from "./loose/object-directory.js";
+import { type PackIndex, PackObjectType, readPackIndex } from "./pack/index.js";
 import { PackReader } from "./pack/pack-reader.js";
-
-/**
- * Object data with type information
- */
-export interface GitObject {
-  /** Object type code */
-  type: ObjectTypeCode;
-  /** Object content */
-  content: Uint8Array;
-  /** Content size */
-  size: number;
-}
 
 /**
  * Pack file with its index
@@ -42,6 +32,10 @@ interface PackFile {
  * Git object storage combining loose objects and pack files
  *
  * Implements the ObjectStorage interface for content-addressable storage.
+ * Stores and loads raw Git objects (with header: "type size\0content").
+ *
+ * For typed object operations (storeTyped/loadTyped), use the utility
+ * functions from typed-object-utils.ts instead.
  */
 export class GitObjectStorage implements ObjectStorage {
   private readonly files: FilesApi;
@@ -62,7 +56,8 @@ export class GitObjectStorage implements ObjectStorage {
    * Content is hashed to produce the ObjectInfo. If an object with the
    * same hash already exists, this is a no-op (deduplication).
    *
-   * Note: This always stores as a blob. For typed storage, use storeTyped().
+   * Note: This stores content as a blob. For typed storage, use
+   * storeTypedObject() from typed-object-utils.ts.
    */
   async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
     // Collect all chunks into a single buffer
@@ -87,28 +82,16 @@ export class GitObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Store object with explicit type
-   */
-  async storeTyped(type: ObjectTypeCode, content: Uint8Array): Promise<ObjectId> {
-    const typeStr = typeCodeToString(type);
-    return this.looseObjects.write(typeStr, content);
-  }
-
-  /**
    * Load object content by ID
    *
-   * Returns async iterable of content chunks.
+   * Returns content without the Git header.
+   * For typed objects with header parsing, use loadTypedObject() from typed-object-utils.ts.
    */
-  load(id: ObjectId, params?: { offset?: number; length?: number }): AsyncIterable<Uint8Array> {
-    return this.loadGenerator(id, params);
-  }
-
-  private async *loadGenerator(
+  async *load(
     id: ObjectId,
     params?: { offset?: number; length?: number },
-  ): AsyncGenerator<Uint8Array> {
-    const obj = await this.loadTyped(id);
-    const content = obj.content;
+  ): AsyncIterable<Uint8Array> {
+    const content = await this.loadContent(id);
 
     // Apply offset and length if specified
     const offset = params?.offset ?? 0;
@@ -124,18 +107,15 @@ export class GitObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Load object with type information
+   * Load object content (without header)
    */
-  async loadTyped(id: ObjectId): Promise<GitObject> {
+  private async loadContent(id: ObjectId): Promise<Uint8Array> {
     // Try loose objects first
-    const hasLoose = await this.looseObjects.has(id);
+    const hasLoose = await hasLooseObject(this.files, this.objectsDir, id);
     if (hasLoose) {
-      const data = await this.looseObjects.read(id);
-      return {
-        type: data.typeCode,
-        content: data.content,
-        size: data.size,
-      };
+      const rawObject = await readRawLooseObject(this.files, this.objectsDir, id);
+      const header = parseObjectHeader(rawObject);
+      return rawObject.subarray(header.contentOffset);
     }
 
     // Try pack files
@@ -145,11 +125,46 @@ export class GitObjectStorage implements ObjectStorage {
         const reader = await this.getPackReader(pack);
         const obj = await reader.get(id);
         if (obj) {
-          return {
-            type: obj.type as ObjectTypeCode,
-            content: obj.content,
-            size: obj.size,
-          };
+          return obj.content;
+        }
+      }
+    }
+
+    throw new Error(`Object not found: ${id}`);
+  }
+
+  /**
+   * Store raw Git object data (with header)
+   *
+   * Used by typed-object-utils for storing typed objects.
+   * The object must be in Git format (header + content).
+   */
+  async storeRaw(fullObject: Uint8Array): Promise<ObjectId> {
+    return writeRawLooseObject(this.files, this.objectsDir, fullObject);
+  }
+
+  /**
+   * Load raw Git object data (with header)
+   *
+   * Used by typed-object-utils for loading objects with type information.
+   */
+  async loadRaw(id: ObjectId): Promise<Uint8Array> {
+    // Try loose objects first
+    const hasLoose = await hasLooseObject(this.files, this.objectsDir, id);
+    if (hasLoose) {
+      return readRawLooseObject(this.files, this.objectsDir, id);
+    }
+
+    // Try pack files
+    await this.ensurePacksLoaded();
+    for (const pack of this.packFiles) {
+      if (pack.index.has(id)) {
+        const reader = await this.getPackReader(pack);
+        const obj = await reader.get(id);
+        if (obj) {
+          // Pack reader returns parsed content, reconstruct full object
+          const typeStr = packTypeToString(obj.type);
+          return createGitObject(typeStr, obj.content);
         }
       }
     }
@@ -319,20 +334,20 @@ export class GitObjectStorage implements ObjectStorage {
 }
 
 /**
- * Convert type code to string
+ * Convert pack object type to string
  */
-function typeCodeToString(type: ObjectTypeCode): "commit" | "tree" | "blob" | "tag" {
+function packTypeToString(type: PackObjectType): ObjectTypeString {
   switch (type) {
-    case ObjectType.COMMIT:
+    case PackObjectType.COMMIT:
       return "commit";
-    case ObjectType.TREE:
+    case PackObjectType.TREE:
       return "tree";
-    case ObjectType.BLOB:
+    case PackObjectType.BLOB:
       return "blob";
-    case ObjectType.TAG:
+    case PackObjectType.TAG:
       return "tag";
     default:
-      throw new Error(`Unknown object type: ${type}`);
+      throw new Error(`Unknown pack object type: ${type}`);
   }
 }
 

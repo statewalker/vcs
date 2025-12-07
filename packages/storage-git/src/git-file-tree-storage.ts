@@ -9,7 +9,11 @@
 import type { FileTreeStorage, ObjectId, TreeEntry } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import { EMPTY_TREE_ID, findTreeEntry, parseTree, serializeTree } from "./format/tree-format.js";
-import type { GitObjectStorage } from "./git-object-storage.js";
+import {
+  loadTypedObject,
+  storeTypedObject,
+  type TypedObjectStorage,
+} from "./typed-object-utils.js";
 
 /**
  * Git file tree storage implementation
@@ -17,9 +21,9 @@ import type { GitObjectStorage } from "./git-object-storage.js";
  * Implements FileTreeStorage using Git's tree object format.
  */
 export class GitFileTreeStorage implements FileTreeStorage {
-  private readonly objectStorage: GitObjectStorage;
+  private readonly objectStorage: TypedObjectStorage;
 
-  constructor(objectStorage: GitObjectStorage) {
+  constructor(objectStorage: TypedObjectStorage) {
     this.objectStorage = objectStorage;
   }
 
@@ -51,7 +55,7 @@ export class GitFileTreeStorage implements FileTreeStorage {
     const content = serializeTree(entryArray);
 
     // Store as tree object
-    return this.objectStorage.storeTyped(ObjectType.TREE, content);
+    return storeTypedObject(this.objectStorage, ObjectType.TREE, content);
   }
 
   /**
@@ -59,17 +63,13 @@ export class GitFileTreeStorage implements FileTreeStorage {
    *
    * Entries are yielded in canonical sorted order.
    */
-  loadTree(id: ObjectId): AsyncIterable<TreeEntry> {
-    return this.loadTreeGenerator(id);
-  }
-
-  private async *loadTreeGenerator(id: ObjectId): AsyncGenerator<TreeEntry> {
+  async *loadTree(id: ObjectId): AsyncIterable<TreeEntry> {
     // Handle empty tree
     if (id === EMPTY_TREE_ID) {
       return;
     }
 
-    const obj = await this.objectStorage.loadTyped(id);
+    const obj = await loadTypedObject(this.objectStorage, id);
 
     if (obj.type !== ObjectType.TREE) {
       throw new Error(`Expected tree object, got type ${obj.type}`);
@@ -87,7 +87,7 @@ export class GitFileTreeStorage implements FileTreeStorage {
       return undefined;
     }
 
-    const obj = await this.objectStorage.loadTyped(treeId);
+    const obj = await loadTypedObject(this.objectStorage, treeId);
 
     if (obj.type !== ObjectType.TREE) {
       throw new Error(`Expected tree object, got type ${obj.type}`);

@@ -9,7 +9,11 @@
 import type { AnnotatedTag, ObjectId, TagStorage } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import { parseTag, serializeTag } from "./format/tag-format.js";
-import type { GitObjectStorage } from "./git-object-storage.js";
+import {
+  loadTypedObject,
+  storeTypedObject,
+  type TypedObjectStorage,
+} from "./typed-object-utils.js";
 
 /**
  * Git tag storage implementation
@@ -18,9 +22,9 @@ import type { GitObjectStorage } from "./git-object-storage.js";
  * Lightweight tags are just refs and are not handled here.
  */
 export class GitTagStorage implements TagStorage {
-  private readonly objectStorage: GitObjectStorage;
+  private readonly objectStorage: TypedObjectStorage;
 
-  constructor(objectStorage: GitObjectStorage) {
+  constructor(objectStorage: TypedObjectStorage) {
     this.objectStorage = objectStorage;
   }
 
@@ -29,14 +33,14 @@ export class GitTagStorage implements TagStorage {
    */
   async storeTag(tag: AnnotatedTag): Promise<ObjectId> {
     const content = serializeTag(tag);
-    return this.objectStorage.storeTyped(ObjectType.TAG, content);
+    return storeTypedObject(this.objectStorage, ObjectType.TAG, content);
   }
 
   /**
    * Load a tag object by ID
    */
   async loadTag(id: ObjectId): Promise<AnnotatedTag> {
-    const obj = await this.objectStorage.loadTyped(id);
+    const obj = await loadTypedObject(this.objectStorage, id);
 
     if (obj.type !== ObjectType.TAG) {
       throw new Error(`Expected tag object, got type ${obj.type}`);
@@ -62,7 +66,7 @@ export class GitTagStorage implements TagStorage {
     let maxDepth = 100; // Prevent infinite loops
 
     while (maxDepth-- > 0) {
-      const obj = await this.objectStorage.loadTyped(currentId);
+      const obj = await loadTypedObject(this.objectStorage, currentId);
 
       if (obj.type !== ObjectType.TAG) {
         return currentId;
@@ -85,7 +89,7 @@ export class GitTagStorage implements TagStorage {
 
     // Verify it's actually a tag object
     try {
-      const obj = await this.objectStorage.loadTyped(id);
+      const obj = await loadTypedObject(this.objectStorage, id);
       return obj.type === ObjectType.TAG;
     } catch {
       return false;

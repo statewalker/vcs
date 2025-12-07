@@ -9,7 +9,11 @@
 import type { AncestryOptions, Commit, CommitStorage, ObjectId } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import { parseCommit, serializeCommit } from "./format/commit-format.js";
-import type { GitObjectStorage } from "./git-object-storage.js";
+import {
+  loadTypedObject,
+  storeTypedObject,
+  type TypedObjectStorage,
+} from "./typed-object-utils.js";
 
 /**
  * Priority queue entry for commit traversal
@@ -25,9 +29,9 @@ interface CommitEntry {
  * Implements CommitStorage with graph traversal capabilities.
  */
 export class GitCommitStorage implements CommitStorage {
-  private readonly objectStorage: GitObjectStorage;
+  private readonly objectStorage: TypedObjectStorage;
 
-  constructor(objectStorage: GitObjectStorage) {
+  constructor(objectStorage: TypedObjectStorage) {
     this.objectStorage = objectStorage;
   }
 
@@ -36,14 +40,14 @@ export class GitCommitStorage implements CommitStorage {
    */
   async storeCommit(commit: Commit): Promise<ObjectId> {
     const content = serializeCommit(commit);
-    return this.objectStorage.storeTyped(ObjectType.COMMIT, content);
+    return storeTypedObject(this.objectStorage, ObjectType.COMMIT, content);
   }
 
   /**
    * Load a commit object by ID
    */
   async loadCommit(id: ObjectId): Promise<Commit> {
-    const obj = await this.objectStorage.loadTyped(id);
+    const obj = await loadTypedObject(this.objectStorage, id);
 
     if (obj.type !== ObjectType.COMMIT) {
       throw new Error(`Expected commit object, got type ${obj.type}`);

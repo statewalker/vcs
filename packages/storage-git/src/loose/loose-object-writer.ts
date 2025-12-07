@@ -17,6 +17,44 @@ import { atomicWriteFile, ensureDir } from "../utils/file-utils.js";
 import { getLooseObjectPath, hasLooseObject } from "./loose-object-reader.js";
 
 /**
+ * Write a raw pre-formatted Git object to disk
+ *
+ * The object must already be in Git format (header + content).
+ * The object ID is computed from the full object bytes.
+ *
+ * @param files FilesApi instance
+ * @param objectsDir Objects directory path
+ * @param fullObject Complete Git object (header + content)
+ * @returns Object ID
+ */
+export async function writeRawLooseObject(
+  files: FilesApi,
+  objectsDir: string,
+  fullObject: Uint8Array,
+): Promise<ObjectId> {
+  // Compute hash from the full object
+  const id = bytesToHex(await sha1(fullObject));
+
+  // Check if object already exists (deduplication)
+  if (await hasLooseObject(files, objectsDir, id)) {
+    return id;
+  }
+
+  // Compress the full object (ZLIB format - raw: false)
+  const compressed = await compressBlock(fullObject, { raw: false });
+
+  // Get path and ensure directory exists
+  const path = getLooseObjectPath(objectsDir, id);
+  const dir = dirname(path);
+  await ensureDir(files, dir);
+
+  // Write atomically
+  await atomicWriteFile(files, path, compressed);
+
+  return id;
+}
+
+/**
  * Write a loose object to disk
  *
  * The object ID is computed from the content. If an object with the

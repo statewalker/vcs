@@ -20,5 +20,7 @@ export * from "./loose/index.js";
 export * from "./pack/index.js";
 // Refs handling
 export * from "./refs/index.js";
+// Typed object utilities
+export * from "./typed-object-utils.js";
 // Utility functions
 export * from "./utils/index.js";
