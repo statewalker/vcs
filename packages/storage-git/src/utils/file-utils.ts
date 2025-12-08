@@ -102,6 +102,27 @@ export async function* listFilesRecursive(files: FilesApi, path: string): AsyncG
 export { bytesToHex, hexToBytes } from "@webrun-vcs/hash/utils";
 
 /**
+ * Get the file path for a loose object
+ *
+ * Loose objects are stored in a two-level directory structure:
+ * - First 2 characters of hash -> directory name
+ * - Remaining 38 characters -> filename
+ *
+ * Example: object "abc123..." is stored at "objects/ab/c123..."
+ *
+ * Reference: jgit LooseObjects.fileFor()
+ *
+ * @param objectsDir Objects directory path (.git/objects)
+ * @param id Object ID (40-character hex string)
+ * @returns Path to the loose object file
+ */
+export function getLooseObjectPath(objectsDir: string, id: string): string {
+  const prefix = id.substring(0, 2);
+  const suffix = id.substring(2);
+  return joinPath(objectsDir, prefix, suffix);
+}
+
+/**
  * Concatenate multiple Uint8Arrays
  */
 export function concatBytes(...arrays: Uint8Array[]): Uint8Array {

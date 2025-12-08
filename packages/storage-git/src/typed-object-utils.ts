@@ -62,10 +62,7 @@ export async function storeTypedObject(
  * @param id Object ID
  * @returns Typed object data
  */
-export async function loadTypedObject(
-  storage: ObjectStorage,
-  id: ObjectId,
-): Promise<TypedObject> {
+export async function loadTypedObject(storage: ObjectStorage, id: ObjectId): Promise<TypedObject> {
   // Collect all chunks from the async iterable
   const chunks: Uint8Array[] = [];
   for await (const chunk of storage.load(id)) {
@@ -90,40 +87,28 @@ export async function loadTypedObject(
 /**
  * Store a commit object
  */
-export async function storeCommit(
-  storage: ObjectStorage,
-  content: Uint8Array,
-): Promise<ObjectId> {
+export async function storeCommit(storage: ObjectStorage, content: Uint8Array): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.COMMIT, content);
 }
 
 /**
  * Store a tree object
  */
-export async function storeTree(
-  storage: ObjectStorage,
-  content: Uint8Array,
-): Promise<ObjectId> {
+export async function storeTree(storage: ObjectStorage, content: Uint8Array): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.TREE, content);
 }
 
 /**
  * Store a blob object
  */
-export async function storeBlob(
-  storage: ObjectStorage,
-  content: Uint8Array,
-): Promise<ObjectId> {
+export async function storeBlob(storage: ObjectStorage, content: Uint8Array): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.BLOB, content);
 }
 
 /**
  * Store a tag object
  */
-export async function storeTag(
-  storage: ObjectStorage,
-  content: Uint8Array,
-): Promise<ObjectId> {
+export async function storeTag(storage: ObjectStorage, content: Uint8Array): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.TAG, content);
 }
 

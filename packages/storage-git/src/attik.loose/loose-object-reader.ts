@@ -7,10 +7,14 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/LooseObjects.java
  */
 
-import { type FilesApi, joinPath } from "@statewalker/webrun-files";
+import type { FilesApi } from "@statewalker/webrun-files";
 import { decompressBlock } from "@webrun-vcs/compression";
 import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/storage";
 import { type ParsedObjectHeader, parseObjectHeader } from "../format/object-header.js";
+import { getLooseObjectPath } from "../utils/file-utils.js";
+
+// Re-export for backward compatibility
+export { getLooseObjectPath };
 
 /**
  * Result of reading a loose object
@@ -24,19 +28,6 @@ export interface LooseObjectData {
   size: number;
   /** Object content (without header) */
   content: Uint8Array;
-}
-
-/**
- * Get the file path for a loose object
- *
- * @param objectsDir Objects directory path (.git/objects)
- * @param id Object ID (hex string)
- * @returns Path to the loose object file
- */
-export function getLooseObjectPath(objectsDir: string, id: ObjectId): string {
-  const prefix = id.substring(0, 2);
-  const suffix = id.substring(2);
-  return joinPath(objectsDir, prefix, suffix);
 }
 
 /**

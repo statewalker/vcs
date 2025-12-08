@@ -35,10 +35,11 @@
  */
 
 import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
+import { compressBlock, decompressBlock } from "@webrun-vcs/compression";
 import { sha1 } from "@webrun-vcs/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/hash/utils";
 import type { ObjectId, ObjectInfo, ObjectStorage } from "@webrun-vcs/storage";
-import { getLooseObjectPath } from "./loose/index.js";
+import { getLooseObjectPath } from "./utils/file-utils.js";
 
 /**
  * Git raw object storage implementation for loose objects
@@ -58,13 +59,15 @@ export class GitRawObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Store raw content
+   * Store raw content as a compressed loose object
    *
    * Content is hashed to produce the ObjectInfo. If an object with the
    * same hash already exists, this is a no-op (deduplication).
    *
-   * This stores raw bytes as-is. For Git objects with headers,
-   * the caller must include the header in the data.
+   * The content should be a complete Git object (header + content).
+   * It will be compressed using zlib before writing to disk.
+   *
+   * Reference: jgit ObjectDirectoryInserter.toTemp()
    */
   async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
     // Collect all chunks
@@ -82,12 +85,20 @@ export class GitRawObjectStorage implements ObjectStorage {
 
     const content = concatUint8Arrays(chunks);
 
-    // Hash the content
+    // Hash the uncompressed content (Git hashes the logical object)
     const id = bytesToHex(await sha1(content));
     const path = getLooseObjectPath(this.objectsDir, id);
 
-    // Write to file (FilesApi handles atomic write)
-    await this.files.write(path, [content]);
+    // Check if object already exists (deduplication)
+    if (await this.files.exists(path)) {
+      return { id, size: content.length };
+    }
+
+    // Compress using zlib (raw: false for standard zlib header)
+    const compressed = await compressBlock(content, { raw: false });
+
+    // Write compressed data to file
+    await this.files.write(path, [compressed]);
 
     return { id, size: content.length };
   }
@@ -95,34 +106,47 @@ export class GitRawObjectStorage implements ObjectStorage {
   /**
    * Load object content by ID
    *
-   * Returns content without the Git header.
-   * For typed objects with header parsing, use loadTypedObject() from typed-object-utils.ts.
+   * Reads and decompresses a loose object file. Returns the full Git object
+   * (header + content). For typed objects with header parsing, use
+   * loadTypedObject() from typed-object-utils.ts.
+   *
+   * Reference: jgit UnpackedObject.open()
    */
   async *load(
     id: ObjectId,
     params?: { offset?: number; length?: number },
   ): AsyncIterable<Uint8Array> {
-    const path = getLooseObjectPath(this.objectsDir, id);
-    const handler = await this.files.open(path);
-    try {
-      const start = params?.offset ?? 0;
-      const end = params?.length ? start + params.length : undefined;
-      yield* handler.createReadStream({ start, end });
-    } finally {
-      await handler.close();
+    // Read compressed data from file
+    const rawData = await this.loadDecompressed(id);
+    if (rawData === null) {
+      throw new Error(`Object not found: ${id}`);
     }
+    // Apply offset/length if specified
+    const start = params?.offset ?? 0;
+    const end = params?.length ? start + params.length : rawData.length;
+    yield rawData.subarray(start, end);
+  }
+
+  private async loadDecompressed(id: ObjectId): Promise<Uint8Array | null> {
+    const path = getLooseObjectPath(this.objectsDir, id);
+    if (!(await this.files.exists(path))) {
+      return null;
+    }
+    // Read compressed data from file
+    const compressedData = await this.files.readFile(path);
+    // Decompress using zlib (raw: false for standard zlib header)
+    return await decompressBlock(compressedData, { raw: false });
   }
 
   /**
    * Get object metadata
    */
   async getInfo(id: ObjectId): Promise<ObjectInfo | null> {
-    const path = getLooseObjectPath(this.objectsDir, id);
-    const stats = await this.files.stats(path);
-    if (stats) {
-      return { id, size: stats.size ?? 0 };
+    const rawData = await this.loadDecompressed(id);
+    if (rawData === null) {
+      return null;
     }
-    return null;
+    return { id, size: rawData.length };
   }
 
   /**
@@ -144,18 +168,13 @@ export class GitRawObjectStorage implements ObjectStorage {
   /**
    * Iterate over all objects in storage
    *
+   * Reference: jgit LooseObjects.resolve()
+   *
    * @returns AsyncGenerator yielding ObjectInfos
    */
   async *listObjects(): AsyncGenerator<ObjectInfo> {
-    // List all 2-character subdirectories
-    const entries: FileInfo[] = [];
-    try {
-      for await (const entry of this.files.list(this.objectsDir)) {
-        entries.push(entry);
-      }
-    } catch {
-      return; // Objects directory doesn't exist
-    }
+    // List all 2-character fanout directories
+    const entries = await this.listDirectoryEntries(this.objectsDir);
 
     for (const entry of entries) {
       // Skip non-directories and special directories
@@ -171,16 +190,11 @@ export class GitRawObjectStorage implements ObjectStorage {
       const prefix = entry.name;
       const subdir = joinPath(this.objectsDir, prefix);
 
-      const objects: FileInfo[] = [];
-      try {
-        for await (const obj of this.files.list(subdir)) {
-          objects.push(obj);
-        }
-      } catch {
-        continue;
-      }
+      // List all files in the fanout directory
+      const objects = await this.listDirectoryEntries(subdir);
 
       for (const obj of objects) {
+        // Skip non-files and files with wrong suffix length
         if (obj.kind !== "file" || obj.name.length !== 38) {
           continue;
         }
@@ -190,12 +204,28 @@ export class GitRawObjectStorage implements ObjectStorage {
           continue;
         }
 
-        yield {
-          id: prefix + obj.name,
-          size: obj.size ?? 0,
-        };
+        const id = prefix + obj.name;
+        const info = await this.getInfo(id);
+        if (info) {
+          yield info;
+        }
       }
     }
+  }
+
+  /**
+   * Helper to list directory entries, returning empty array on error
+   */
+  private async listDirectoryEntries(path: string): Promise<FileInfo[]> {
+    const entries: FileInfo[] = [];
+    try {
+      for await (const entry of this.files.list(path)) {
+        entries.push(entry);
+      }
+    } catch {
+      // Directory doesn't exist or other error
+    }
+    return entries;
   }
 }
 

@@ -6,6 +6,8 @@
  * implementations that read and write standard Git repository format.
  */
 
+// Loose object handling
+export * from "./attik.loose/index.js";
 // Composite storage
 export * from "./composite-object-storage.js";
 // Format utilities (for advanced use cases)
@@ -18,8 +20,6 @@ export * from "./git-raw-objects-storage.js";
 // Main storage implementations
 export * from "./git-storage.js";
 export * from "./git-tag-storage.js";
-// Loose object handling
-export * from "./loose/index.js";
 // Pack file handling
 export * from "./pack/index.js";
 // Refs handling
