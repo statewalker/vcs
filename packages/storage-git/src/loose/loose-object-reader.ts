@@ -123,3 +123,24 @@ export async function readLooseObjectHeader(
   const rawData = await decompressBlock(compressedData, { raw: false });
   return parseObjectHeader(rawData);
 }
+
+/**
+ * Read raw loose object data (full Git format with header)
+ *
+ * Returns the complete decompressed Git object including the header.
+ * Use this when you need the raw Git object format.
+ *
+ * @param files FilesApi instance
+ * @param objectsDir Objects directory path
+ * @param id Object ID
+ * @returns Raw object data (header + content)
+ */
+export async function readRawLooseObject(
+  files: FilesApi,
+  objectsDir: string,
+  id: ObjectId,
+): Promise<Uint8Array> {
+  const path = getLooseObjectPath(objectsDir, id);
+  const compressedData = await files.readFile(path);
+  return decompressBlock(compressedData, { raw: false });
+}
