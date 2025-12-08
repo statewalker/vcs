@@ -7,4 +7,3 @@
 
 export * from "./loose-object-reader.js";
 export * from "./loose-object-writer.js";
-export * from "./object-directory.js";
