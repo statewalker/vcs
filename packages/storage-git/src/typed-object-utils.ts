@@ -2,37 +2,16 @@
  * Typed object utilities
  *
  * Provides functions for storing and loading Git objects with type information.
- * These utilities work with TypedObjectStorage, allowing higher-level storage
- * classes to be independent of GitObjectStorage concrete implementation.
+ * These utilities work with ObjectStorage, allowing higher-level storage
+ * classes to be independent of specific storage implementations.
+ *
+ * The ObjectStorage interface stores and loads raw bytes. These utilities
+ * handle Git object format (header + content) on top of raw storage.
  */
 
 import type { ObjectId, ObjectStorage, ObjectTypeCode } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import { parseObjectHeader } from "./format/object-header.js";
-
-/**
- * Extended ObjectStorage interface with raw Git object methods
- *
- * This interface extends ObjectStorage with methods needed for typed object
- * operations. GitObjectStorage implements this interface.
- */
-export interface TypedObjectStorage extends ObjectStorage {
-  /**
-   * Store raw Git object data (with header)
-   *
-   * @param fullObject Complete Git object (header + content)
-   * @returns Object ID
-   */
-  storeRaw(fullObject: Uint8Array): Promise<ObjectId>;
-
-  /**
-   * Load raw Git object data (with header)
-   *
-   * @param id Object ID
-   * @returns Raw object data (header + content)
-   */
-  loadRaw(id: ObjectId): Promise<Uint8Array>;
-}
 
 /**
  * Typed object data with type information
@@ -49,15 +28,15 @@ export interface TypedObject {
 /**
  * Store object with explicit type
  *
- * Creates proper Git object format with header and stores via TypedObjectStorage.
+ * Creates proper Git object format with header and stores via ObjectStorage.
  *
- * @param storage TypedObjectStorage instance
+ * @param storage ObjectStorage instance (stores raw bytes)
  * @param type Object type code
  * @param content Object content (without header)
  * @returns Object ID
  */
 export async function storeTypedObject(
-  storage: TypedObjectStorage,
+  storage: ObjectStorage,
   type: ObjectTypeCode,
   content: Uint8Array,
 ): Promise<ObjectId> {
@@ -69,24 +48,31 @@ export async function storeTypedObject(
   fullObject.set(header, 0);
   fullObject.set(content, header.length);
 
-  return storage.storeRaw(fullObject);
+  // Store the full object as raw bytes
+  const info = await storage.store([fullObject]);
+  return info.id;
 }
 
 /**
  * Load object with type information
  *
- * Loads raw object via TypedObjectStorage and parses type from Git object header.
+ * Loads raw object via ObjectStorage and parses type from Git object header.
  *
- * @param storage TypedObjectStorage instance
+ * @param storage ObjectStorage instance (loads raw bytes)
  * @param id Object ID
  * @returns Typed object data
  */
 export async function loadTypedObject(
-  storage: TypedObjectStorage,
+  storage: ObjectStorage,
   id: ObjectId,
 ): Promise<TypedObject> {
-  // Load raw object data (with header)
-  const rawData = await storage.loadRaw(id);
+  // Collect all chunks from the async iterable
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of storage.load(id)) {
+    chunks.push(chunk);
+  }
+
+  const rawData = concatUint8Arrays(chunks);
 
   // Parse header to get type and content offset
   const header = parseObjectHeader(rawData);
@@ -105,7 +91,7 @@ export async function loadTypedObject(
  * Store a commit object
  */
 export async function storeCommit(
-  storage: TypedObjectStorage,
+  storage: ObjectStorage,
   content: Uint8Array,
 ): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.COMMIT, content);
@@ -115,7 +101,7 @@ export async function storeCommit(
  * Store a tree object
  */
 export async function storeTree(
-  storage: TypedObjectStorage,
+  storage: ObjectStorage,
   content: Uint8Array,
 ): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.TREE, content);
@@ -125,7 +111,7 @@ export async function storeTree(
  * Store a blob object
  */
 export async function storeBlob(
-  storage: TypedObjectStorage,
+  storage: ObjectStorage,
   content: Uint8Array,
 ): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.BLOB, content);
@@ -135,10 +121,29 @@ export async function storeBlob(
  * Store a tag object
  */
 export async function storeTag(
-  storage: TypedObjectStorage,
+  storage: ObjectStorage,
   content: Uint8Array,
 ): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.TAG, content);
+}
+
+/**
+ * Concatenate Uint8Arrays
+ */
+function concatUint8Arrays(arrays: Uint8Array[]): Uint8Array {
+  if (arrays.length === 0) return new Uint8Array(0);
+  if (arrays.length === 1) return arrays[0];
+
+  const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+
+  return result;
 }
 
 /**

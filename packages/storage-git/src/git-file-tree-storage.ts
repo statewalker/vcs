@@ -6,14 +6,10 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/TreeFormatter.java
  */
 
-import type { FileTreeStorage, ObjectId, TreeEntry } from "@webrun-vcs/storage";
+import type { FileTreeStorage, ObjectId, ObjectStorage, TreeEntry } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import { EMPTY_TREE_ID, findTreeEntry, parseTree, serializeTree } from "./format/tree-format.js";
-import {
-  loadTypedObject,
-  storeTypedObject,
-  type TypedObjectStorage,
-} from "./typed-object-utils.js";
+import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 
 /**
  * Git file tree storage implementation
@@ -21,10 +17,10 @@ import {
  * Implements FileTreeStorage using Git's tree object format.
  */
 export class GitFileTreeStorage implements FileTreeStorage {
-  private readonly objectStorage: TypedObjectStorage;
+  private readonly rawStorage: ObjectStorage;
 
-  constructor(objectStorage: TypedObjectStorage) {
-    this.objectStorage = objectStorage;
+  constructor(rawStorage: ObjectStorage) {
+    this.rawStorage = rawStorage;
   }
 
   /**
@@ -55,7 +51,7 @@ export class GitFileTreeStorage implements FileTreeStorage {
     const content = serializeTree(entryArray);
 
     // Store as tree object
-    return storeTypedObject(this.objectStorage, ObjectType.TREE, content);
+    return storeTypedObject(this.rawStorage, ObjectType.TREE, content);
   }
 
   /**
@@ -69,7 +65,7 @@ export class GitFileTreeStorage implements FileTreeStorage {
       return;
     }
 
-    const obj = await loadTypedObject(this.objectStorage, id);
+    const obj = await loadTypedObject(this.rawStorage, id);
 
     if (obj.type !== ObjectType.TREE) {
       throw new Error(`Expected tree object, got type ${obj.type}`);
@@ -87,7 +83,7 @@ export class GitFileTreeStorage implements FileTreeStorage {
       return undefined;
     }
 
-    const obj = await loadTypedObject(this.objectStorage, treeId);
+    const obj = await loadTypedObject(this.rawStorage, treeId);
 
     if (obj.type !== ObjectType.TREE) {
       throw new Error(`Expected tree object, got type ${obj.type}`);
@@ -105,7 +101,7 @@ export class GitFileTreeStorage implements FileTreeStorage {
       return true;
     }
 
-    return (await this.objectStorage.getInfo(id)) !== null;
+    return (await this.rawStorage.getInfo(id)) !== null;
   }
 
   /**

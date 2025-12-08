@@ -6,14 +6,16 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/revwalk/RevWalk.java
  */
 
-import type { AncestryOptions, Commit, CommitStorage, ObjectId } from "@webrun-vcs/storage";
+import type {
+  AncestryOptions,
+  Commit,
+  CommitStorage,
+  ObjectId,
+  ObjectStorage,
+} from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import { parseCommit, serializeCommit } from "./format/commit-format.js";
-import {
-  loadTypedObject,
-  storeTypedObject,
-  type TypedObjectStorage,
-} from "./typed-object-utils.js";
+import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 
 /**
  * Priority queue entry for commit traversal
@@ -29,10 +31,10 @@ interface CommitEntry {
  * Implements CommitStorage with graph traversal capabilities.
  */
 export class GitCommitStorage implements CommitStorage {
-  private readonly objectStorage: TypedObjectStorage;
+  private readonly rawStorage: ObjectStorage;
 
-  constructor(objectStorage: TypedObjectStorage) {
-    this.objectStorage = objectStorage;
+  constructor(rawStorage: ObjectStorage) {
+    this.rawStorage = rawStorage;
   }
 
   /**
@@ -40,14 +42,14 @@ export class GitCommitStorage implements CommitStorage {
    */
   async storeCommit(commit: Commit): Promise<ObjectId> {
     const content = serializeCommit(commit);
-    return storeTypedObject(this.objectStorage, ObjectType.COMMIT, content);
+    return storeTypedObject(this.rawStorage, ObjectType.COMMIT, content);
   }
 
   /**
    * Load a commit object by ID
    */
   async loadCommit(id: ObjectId): Promise<Commit> {
-    const obj = await loadTypedObject(this.objectStorage, id);
+    const obj = await loadTypedObject(this.rawStorage, id);
 
     if (obj.type !== ObjectType.COMMIT) {
       throw new Error(`Expected commit object, got type ${obj.type}`);
@@ -200,7 +202,7 @@ export class GitCommitStorage implements CommitStorage {
    * Check if commit exists
    */
   async hasCommit(id: ObjectId): Promise<boolean> {
-    return (await this.objectStorage.getInfo(id)) !== null;
+    return (await this.rawStorage.getInfo(id)) !== null;
   }
 
   /**
