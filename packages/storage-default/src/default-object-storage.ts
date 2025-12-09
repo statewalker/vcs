@@ -20,7 +20,6 @@ import type {
   DeltaObjectStorage,
   DeltaOptions,
   ObjectId,
-  ObjectInfo,
 } from "@webrun-vcs/storage";
 import type { DeltaRepository } from "./delta-repository.js";
 import type { IntermediateCache } from "./intermediate-cache.js";
@@ -46,7 +45,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
   /**
    * Store object content
    */
-  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
+  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
     // Collect all chunks into a single buffer
     const chunks: Uint8Array[] = [];
     let totalSize = 0;
@@ -79,7 +78,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
 
     // Check for existing object
     if (await this.objectRepo.hasObject(id)) {
-      return { id, size };
+      return id;
     }
 
     // Compress with deflate (ZLIB format)
@@ -97,7 +96,7 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     // Update metadata
     await this.metadataRepo.updateSize(id, compressed.length);
 
-    return { id, size };
+    return id;
   }
 
   /**
@@ -166,12 +165,19 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
   }
 
   /**
-   * Get object metadata
+   * Get object size
    */
-  async getInfo(id: ObjectId): Promise<ObjectInfo | null> {
+  async getSize(id: ObjectId): Promise<number> {
     const entry = await this.objectRepo.loadObjectEntry(id);
-    if (!entry) return null;
-    return { id: entry.id, size: entry.size };
+    if (!entry) return -1;
+    return entry.size;
+  }
+
+  /**
+   * Check if object exists
+   */
+  async has(id: ObjectId): Promise<boolean> {
+    return this.objectRepo.hasObject(id);
   }
 
   /**
@@ -421,17 +427,14 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
   }
 
   /**
-   * Iterate over all objects in storage
+   * Iterate over all object IDs in storage
    *
-   * @returns AsyncGenerator yielding ObjectInfos
+   * @returns AsyncGenerator yielding ObjectIds
    */
-  async *listObjects(): AsyncGenerator<ObjectInfo> {
+  async *listObjects(): AsyncGenerator<ObjectId> {
     const allIds = await this.objectRepo.getAllIds();
     for (const id of allIds) {
-      const entry = await this.objectRepo.loadObjectEntry(id);
-      if (entry) {
-        yield { id: entry.id, size: entry.size };
-      }
+      yield id;
     }
   }
 

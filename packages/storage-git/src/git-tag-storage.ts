@@ -79,7 +79,7 @@ export class GitTagStorage implements TagStorage {
    * Check if tag exists
    */
   async hasTag(id: ObjectId): Promise<boolean> {
-    if ((await this.rawStorage.getInfo(id)) === null) {
+    if (!(await this.rawStorage.has(id))) {
       return false;
     }
 

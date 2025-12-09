@@ -11,7 +11,7 @@
  */
 
 import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { ObjectId, ObjectInfo, ObjectStorage } from "@webrun-vcs/storage";
+import type { ObjectId, ObjectStorage } from "@webrun-vcs/storage";
 import { createGitObject } from "./format/object-header.js";
 import { type PackIndex, PackObjectType, readPackIndex } from "./pack/index.js";
 import { PackReader } from "./pack/pack-reader.js";
@@ -48,7 +48,7 @@ export class GitPackStorage implements ObjectStorage {
   /**
    * Store is not supported for pack storage
    */
-  async store(_data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
+  async store(_data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
     throw new Error("GitPackStorage is read-only. Use GitRawObjectStorage for writing.");
   }
 
@@ -91,9 +91,9 @@ export class GitPackStorage implements ObjectStorage {
   }
 
   /**
-   * Get object metadata
+   * Get object size
    */
-  async getInfo(id: ObjectId): Promise<ObjectInfo | null> {
+  async getSize(id: ObjectId): Promise<number> {
     await this.ensurePacksLoaded();
 
     for (const pack of this.packFiles) {
@@ -101,12 +101,27 @@ export class GitPackStorage implements ObjectStorage {
         const reader = await this.getPackReader(pack);
         const obj = await reader.get(id);
         if (obj) {
-          return { id, size: obj.size };
+          return obj.size;
         }
       }
     }
 
-    return null;
+    return -1;
+  }
+
+  /**
+   * Check if object exists
+   */
+  async has(id: ObjectId): Promise<boolean> {
+    await this.ensurePacksLoaded();
+
+    for (const pack of this.packFiles) {
+      if (pack.index.has(id)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -197,11 +212,11 @@ export class GitPackStorage implements ObjectStorage {
   }
 
   /**
-   * Iterate over all objects in pack storage
+   * Iterate over all object IDs in pack storage
    *
-   * @returns AsyncGenerator yielding ObjectInfos
+   * @returns AsyncGenerator yielding ObjectIds
    */
-  async *listObjects(): AsyncGenerator<ObjectInfo> {
+  async *listObjects(): AsyncGenerator<ObjectId> {
     await this.ensurePacksLoaded();
 
     const seen = new Set<ObjectId>();
@@ -210,11 +225,7 @@ export class GitPackStorage implements ObjectStorage {
       for (const id of pack.index.listObjects()) {
         if (!seen.has(id)) {
           seen.add(id);
-          const reader = await this.getPackReader(pack);
-          const obj = await reader.get(id);
-          if (obj) {
-            yield { id, size: obj.size };
-          }
+          yield id;
         }
       }
     }

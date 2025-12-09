@@ -26,15 +26,14 @@ describe("SQL Storage Integration", () => {
         yield content;
       }
 
-      const info = await sqlStorage.storage.store(chunks());
-      expect(info).toBeDefined();
-      expect(info.id).toBeDefined();
-      expect(info.id.length).toBeGreaterThan(0);
-      expect(info.size).toBe(content.length);
+      const id = await sqlStorage.storage.store(chunks());
+      expect(id).toBeDefined();
+      expect(id.length).toBeGreaterThan(0);
+      expect(await sqlStorage.storage.getSize(id)).toBe(content.length);
 
       // Retrieve
       const retrievedChunks: Uint8Array[] = [];
-      for await (const chunk of sqlStorage.storage.load(info.id)) {
+      for await (const chunk of sqlStorage.storage.load(id)) {
         retrievedChunks.push(chunk);
       }
 
@@ -49,24 +48,25 @@ describe("SQL Storage Integration", () => {
         yield content;
       }
 
-      const info1 = await sqlStorage.storage.store(chunks());
-      const info2 = await sqlStorage.storage.store(chunks());
+      const id1 = await sqlStorage.storage.store(chunks());
+      const id2 = await sqlStorage.storage.store(chunks());
 
-      expect(info1.id).toBe(info2.id);
-      expect(info1.size).toBe(info2.size);
+      expect(id1).toBe(id2);
     });
 
-    it("checks if content exists via getInfo", async () => {
+    it("checks if content exists via has and getSize", async () => {
       const content = new TextEncoder().encode("Check exists");
 
       async function* chunks() {
         yield content;
       }
 
-      const { id } = await sqlStorage.storage.store(chunks());
+      const id = await sqlStorage.storage.store(chunks());
 
-      expect(await sqlStorage.storage.getInfo(id)).not.toBeNull();
-      expect(await sqlStorage.storage.getInfo("nonexistent")).toBeNull();
+      expect(await sqlStorage.storage.has(id)).toBe(true);
+      expect(await sqlStorage.storage.has("nonexistent")).toBe(false);
+      expect(await sqlStorage.storage.getSize(id)).toBe(content.length);
+      expect(await sqlStorage.storage.getSize("nonexistent")).toBe(-1);
     });
 
     it("deletes content", async () => {
@@ -76,11 +76,11 @@ describe("SQL Storage Integration", () => {
         yield content;
       }
 
-      const { id } = await sqlStorage.storage.store(chunks());
-      expect(await sqlStorage.storage.getInfo(id)).not.toBeNull();
+      const id = await sqlStorage.storage.store(chunks());
+      expect(await sqlStorage.storage.has(id)).toBe(true);
 
       await sqlStorage.storage.delete(id);
-      expect(await sqlStorage.storage.getInfo(id)).toBeNull();
+      expect(await sqlStorage.storage.has(id)).toBe(false);
     });
   });
 
@@ -93,7 +93,7 @@ describe("SQL Storage Integration", () => {
         async function* chunks() {
           yield content;
         }
-        const { id } = await sqlStorage.storage.store(chunks());
+        const id = await sqlStorage.storage.store(chunks());
         ids.push(id);
       }
 
@@ -102,32 +102,30 @@ describe("SQL Storage Integration", () => {
 
       // Verify all exist
       for (const id of ids) {
-        expect(await sqlStorage.storage.getInfo(id)).not.toBeNull();
+        expect(await sqlStorage.storage.has(id)).toBe(true);
       }
     });
 
-    it("lists all objects with info", async () => {
-      const storedInfos: Array<{ id: string; size: number }> = [];
+    it("lists all objects", async () => {
+      const storedIds: string[] = [];
 
       for (let i = 0; i < 5; i++) {
         const content = new TextEncoder().encode(`List object ${i}`);
         async function* chunks() {
           yield content;
         }
-        const info = await sqlStorage.storage.store(chunks());
-        storedInfos.push(info);
+        const id = await sqlStorage.storage.store(chunks());
+        storedIds.push(id);
       }
 
-      const listed: Array<{ id: string; size: number }> = [];
-      for await (const info of sqlStorage.storage.listObjects()) {
-        listed.push(info);
+      const listedIds: string[] = [];
+      for await (const id of sqlStorage.storage.listObjects()) {
+        listedIds.push(id);
       }
 
-      expect(listed.length).toBe(5);
-      for (const info of storedInfos) {
-        const found = listed.find((l) => l.id === info.id);
-        expect(found).toBeDefined();
-        expect(found?.size).toBe(info.size);
+      expect(listedIds.length).toBe(5);
+      for (const id of storedIds) {
+        expect(listedIds).toContain(id);
       }
     });
   });
@@ -143,7 +141,7 @@ describe("SQL Storage Integration", () => {
         yield content;
       }
 
-      const { id } = await sqlStorage.storage.store(chunks());
+      const id = await sqlStorage.storage.store(chunks());
 
       const retrievedChunks: Uint8Array[] = [];
       for await (const chunk of sqlStorage.storage.load(id)) {
@@ -164,8 +162,8 @@ describe("SQL Storage Integration", () => {
         yield content;
       }
 
-      const { id, size } = await sqlStorage.storage.store(chunks());
-      expect(size).toBe(content.length);
+      const id = await sqlStorage.storage.store(chunks());
+      expect(await sqlStorage.storage.getSize(id)).toBe(content.length);
 
       const retrievedChunks: Uint8Array[] = [];
       for await (const chunk of sqlStorage.storage.load(id)) {
@@ -184,7 +182,7 @@ describe("SQL Storage Integration", () => {
       async function* chunks() {
         yield content;
       }
-      const { id } = await sqlStorage.storage.store(chunks());
+      const id = await sqlStorage.storage.store(chunks());
 
       // Export database
       const db = sqlStorage.db as SqlJsAdapter;
@@ -195,7 +193,7 @@ describe("SQL Storage Integration", () => {
       const sqlStorage2 = await createSQLStorage(db2, { autoMigrate: false });
 
       // Verify content exists
-      expect(await sqlStorage2.storage.getInfo(id)).not.toBeNull();
+      expect(await sqlStorage2.storage.has(id)).toBe(true);
 
       const retrievedChunks: Uint8Array[] = [];
       for await (const chunk of sqlStorage2.storage.load(id)) {
@@ -217,7 +215,7 @@ describe("SQL Storage Integration", () => {
       async function* chunks() {
         yield content;
       }
-      const { id } = await sha1Storage.storage.store(chunks());
+      const id = await sha1Storage.storage.store(chunks());
 
       // SHA-1 produces 40 character hex strings
       expect(id.length).toBe(40);

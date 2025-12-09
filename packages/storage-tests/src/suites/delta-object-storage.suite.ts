@@ -52,8 +52,8 @@ export function createDeltaObjectStorageTests(
           "Line 1 with enough content to exceed minimum\nLine 2 modified\nLine 3 content\n",
         );
 
-        const { id: baseId } = await ctx.storage.store(toAsyncIterable(base));
-        const { id: modifiedId } = await ctx.storage.store(toAsyncIterable(modified));
+        const baseId = await ctx.storage.store(toAsyncIterable(base));
+        const modifiedId = await ctx.storage.store(toAsyncIterable(modified));
 
         const deltified = await ctx.storage.deltify(modifiedId, [baseId]);
         expect(deltified).toBe(true);
@@ -67,8 +67,8 @@ export function createDeltaObjectStorageTests(
         const base = encode("Small");
         const modified = encode("Tiny");
 
-        const { id: baseId } = await ctx.storage.store(toAsyncIterable(base));
-        const { id: modifiedId } = await ctx.storage.store(toAsyncIterable(modified));
+        const baseId = await ctx.storage.store(toAsyncIterable(base));
+        const modifiedId = await ctx.storage.store(toAsyncIterable(modified));
 
         const deltified = await ctx.storage.deltify(modifiedId, [baseId]);
         expect(deltified).toBe(false);
@@ -80,8 +80,8 @@ export function createDeltaObjectStorageTests(
         const modified = new Uint8Array(1000);
         modified.fill(2);
 
-        const { id: baseId } = await ctx.storage.store(toAsyncIterable(base));
-        const { id: modifiedId } = await ctx.storage.store(toAsyncIterable(modified));
+        const baseId = await ctx.storage.store(toAsyncIterable(base));
+        const modifiedId = await ctx.storage.store(toAsyncIterable(modified));
 
         const deltified = await ctx.storage.deltify(modifiedId, [baseId]);
         expect(deltified).toBe(false);
@@ -95,8 +95,8 @@ export function createDeltaObjectStorageTests(
           "This is a longer modified content that exceeds the 50 byte minimum for deltification",
         );
 
-        const { id: baseId } = await ctx.storage.store(toAsyncIterable(base));
-        const { id: modifiedId } = await ctx.storage.store(toAsyncIterable(modified));
+        const baseId = await ctx.storage.store(toAsyncIterable(base));
+        const modifiedId = await ctx.storage.store(toAsyncIterable(modified));
 
         await ctx.storage.deltify(modifiedId, [baseId]);
         await ctx.storage.undeltify(modifiedId);
@@ -112,7 +112,7 @@ export function createDeltaObjectStorageTests(
           "Content with enough text to meet the minimum size requirement for deltification",
         );
 
-        const { id } = await ctx.storage.store(toAsyncIterable(content));
+        const id = await ctx.storage.store(toAsyncIterable(content));
 
         // Try to deltify against itself
         const deltified = await ctx.storage.deltify(id, [id]);
@@ -127,8 +127,8 @@ export function createDeltaObjectStorageTests(
           "Version 2 with enough text to meet the minimum size requirement for deltification",
         );
 
-        const { id: v1Id } = await ctx.storage.store(toAsyncIterable(v1));
-        const { id: v2Id } = await ctx.storage.store(toAsyncIterable(v2));
+        const v1Id = await ctx.storage.store(toAsyncIterable(v1));
+        const v2Id = await ctx.storage.store(toAsyncIterable(v2));
 
         // Create chain: v2 -> v1
         await ctx.storage.deltify(v2Id, [v1Id]);
@@ -146,8 +146,8 @@ export function createDeltaObjectStorageTests(
           "Derived content with enough text to meet the minimum size requirement for deltification",
         );
 
-        const { id: baseId } = await ctx.storage.store(toAsyncIterable(base));
-        const { id: derivedId } = await ctx.storage.store(toAsyncIterable(derived));
+        const baseId = await ctx.storage.store(toAsyncIterable(base));
+        const derivedId = await ctx.storage.store(toAsyncIterable(derived));
 
         await ctx.storage.deltify(derivedId, [baseId]);
 
@@ -168,9 +168,9 @@ export function createDeltaObjectStorageTests(
           "Version 3 with enough text to meet the minimum size requirement for deltification",
         );
 
-        const { id: v1Id } = await ctx.storage.store(toAsyncIterable(v1));
-        const { id: v2Id } = await ctx.storage.store(toAsyncIterable(v2));
-        const { id: v3Id } = await ctx.storage.store(toAsyncIterable(v3));
+        const v1Id = await ctx.storage.store(toAsyncIterable(v1));
+        const v2Id = await ctx.storage.store(toAsyncIterable(v2));
+        const v3Id = await ctx.storage.store(toAsyncIterable(v3));
 
         // Create chain: v3 -> v2 -> v1
         await ctx.storage.deltify(v2Id, [v1Id]);
@@ -191,7 +191,7 @@ export function createDeltaObjectStorageTests(
             `Version ${i} with enough text to meet the minimum size requirement`,
           );
           versions.push(content);
-          const { id } = await ctx.storage.store(toAsyncIterable(content));
+          const id = await ctx.storage.store(toAsyncIterable(content));
           versionIds.push(id);
         }
 
@@ -217,8 +217,8 @@ export function createDeltaObjectStorageTests(
           "Version 2 content with enough text to exceed the minimum size requirement",
         );
 
-        const { id: v1Id } = await ctx.storage.store(toAsyncIterable(v1));
-        const { id: v2Id } = await ctx.storage.store(toAsyncIterable(v2));
+        const v1Id = await ctx.storage.store(toAsyncIterable(v1));
+        const v2Id = await ctx.storage.store(toAsyncIterable(v2));
 
         const deltified = await ctx.storage.deltifyAgainstPrevious(v2Id, v1Id);
         expect(deltified).toBe(true);
@@ -235,9 +235,9 @@ export function createDeltaObjectStorageTests(
           "Completely different content that has nothing in common with the target text at all",
         );
 
-        const { id: targetId } = await ctx.storage.store(toAsyncIterable(target));
-        const { id: similarId } = await ctx.storage.store(toAsyncIterable(similar));
-        const { id: differentId } = await ctx.storage.store(toAsyncIterable(different));
+        const targetId = await ctx.storage.store(toAsyncIterable(target));
+        const similarId = await ctx.storage.store(toAsyncIterable(similar));
+        const differentId = await ctx.storage.store(toAsyncIterable(different));
 
         const deltified = await ctx.storage.deltifyAgainstBest(targetId, {
           similarFiles: [similarId, differentId],

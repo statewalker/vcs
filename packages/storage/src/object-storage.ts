@@ -1,4 +1,4 @@
-import type { ObjectId, ObjectInfo } from "./types.js";
+import type { ObjectId } from "./types.js";
 
 /**
  * Core object storage interface
@@ -13,7 +13,7 @@ export interface ObjectStorage {
   /**
    * Store object content
    *
-   * Content is hashed to produce the ObjectInfo. If an object with the
+   * Content is hashed to produce the object ID. If an object with the
    * same hash already exists, this is a no-op (deduplication).
    *
    * Accepts both sync and async iterables, allowing use with:
@@ -23,9 +23,9 @@ export interface ObjectStorage {
    * - Single chunks wrapped: `[chunk]`
    *
    * @param data Sync or async iterable of content chunks
-   * @returns ObjectInfo (content hash in hex and size in bytes)
+   * @returns Object ID (content hash in hex)
    */
-  store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo>;
+  store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId>;
 
   /**
    * Load object content by ID
@@ -40,12 +40,20 @@ export interface ObjectStorage {
   load(id: ObjectId, params?: { offset?: number; length?: number }): AsyncIterable<Uint8Array>;
 
   /**
-   * Get object metadata
+   * Get object size
    *
    * @param id Object ID
-   * @returns ObjectInfo or null if not found
+   * @returns Size in bytes, or -1 if object not found
    */
-  getInfo(id: ObjectId): Promise<ObjectInfo | null>;
+  getSize(id: ObjectId): Promise<number>;
+
+  /**
+   * Check if object exists
+   *
+   * @param id Object ID
+   * @returns True if object exists, false otherwise
+   */
+  has(id: ObjectId): Promise<boolean>;
 
   /**
    * Delete object
@@ -56,12 +64,12 @@ export interface ObjectStorage {
   delete(id: ObjectId): Promise<boolean>;
 
   /**
-   * Iterate over all objects in storage and returns information about them
+   * Iterate over all object IDs in storage
    *
-   * Yields object info in an implementation-defined order. No guarantees
+   * Yields object IDs in an implementation-defined order. No guarantees
    * are made about ordering or consistency during concurrent modifications.
    *
-   * @returns AsyncGenerator yielding ObjectInfos
+   * @returns AsyncGenerator yielding ObjectIds
    */
-  listObjects(): AsyncGenerator<ObjectInfo>;
+  listObjects(): AsyncGenerator<ObjectId>;
 }

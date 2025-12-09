@@ -8,13 +8,13 @@
  * where new objects are written to loose storage but reads can come from either.
  */
 
-import type { ObjectId, ObjectInfo, ObjectStorage } from "@webrun-vcs/storage";
+import type { ObjectId, ObjectStorage } from "@webrun-vcs/storage";
 
 /**
  * Composite object storage combining multiple backends
  *
  * - store() writes to primaryStorage only
- * - load(), getInfo() check primaryStorage first, then fallback storages
+ * - load(), getSize(), has() check primaryStorage first, then fallback storages
  * - delete() only affects primaryStorage
  * - listObjects() yields from all storages (deduplicating)
  */
@@ -38,7 +38,7 @@ export class CompositeObjectStorage implements ObjectStorage {
    *
    * Writes only to the primary storage.
    */
-  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
+  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
     return this.primaryStorage.store(data);
   }
 
@@ -52,16 +52,14 @@ export class CompositeObjectStorage implements ObjectStorage {
     params?: { offset?: number; length?: number },
   ): AsyncIterable<Uint8Array> {
     // Try primary storage first
-    const primaryInfo = await this.primaryStorage.getInfo(id);
-    if (primaryInfo) {
+    if (await this.primaryStorage.has(id)) {
       yield* this.primaryStorage.load(id, params);
       return;
     }
 
     // Try fallback storages
     for (const storage of this.fallbackStorages) {
-      const info = await storage.getInfo(id);
-      if (info) {
+      if (await storage.has(id)) {
         yield* storage.load(id, params);
         return;
       }
@@ -71,26 +69,47 @@ export class CompositeObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Get object metadata
+   * Get object size
    *
    * Checks primary storage first, then fallback storages.
    */
-  async getInfo(id: ObjectId): Promise<ObjectInfo | null> {
+  async getSize(id: ObjectId): Promise<number> {
     // Try primary storage first
-    const primaryInfo = await this.primaryStorage.getInfo(id);
-    if (primaryInfo) {
-      return primaryInfo;
+    const primarySize = await this.primaryStorage.getSize(id);
+    if (primarySize >= 0) {
+      return primarySize;
     }
 
     // Try fallback storages
     for (const storage of this.fallbackStorages) {
-      const info = await storage.getInfo(id);
-      if (info) {
-        return info;
+      const size = await storage.getSize(id);
+      if (size >= 0) {
+        return size;
       }
     }
 
-    return null;
+    return -1;
+  }
+
+  /**
+   * Check if object exists
+   *
+   * Checks primary storage first, then fallback storages.
+   */
+  async has(id: ObjectId): Promise<boolean> {
+    // Try primary storage first
+    if (await this.primaryStorage.has(id)) {
+      return true;
+    }
+
+    // Try fallback storages
+    for (const storage of this.fallbackStorages) {
+      if (await storage.has(id)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -119,27 +138,27 @@ export class CompositeObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Iterate over all objects in all storages
+   * Iterate over all object IDs in all storages
    *
    * Deduplicates objects that appear in multiple storages.
    *
-   * @returns AsyncGenerator yielding ObjectInfos
+   * @returns AsyncGenerator yielding ObjectIds
    */
-  async *listObjects(): AsyncGenerator<ObjectInfo> {
+  async *listObjects(): AsyncGenerator<ObjectId> {
     const seen = new Set<ObjectId>();
 
     // Enumerate primary storage first
-    for await (const info of this.primaryStorage.listObjects()) {
-      seen.add(info.id);
-      yield info;
+    for await (const id of this.primaryStorage.listObjects()) {
+      seen.add(id);
+      yield id;
     }
 
     // Enumerate fallback storages (skip duplicates)
     for (const storage of this.fallbackStorages) {
-      for await (const info of storage.listObjects()) {
-        if (!seen.has(info.id)) {
-          seen.add(info.id);
-          yield info;
+      for await (const id of storage.listObjects()) {
+        if (!seen.has(id)) {
+          seen.add(id);
+          yield id;
         }
       }
     }
