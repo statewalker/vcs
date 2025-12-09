@@ -232,6 +232,9 @@ importers:
       '@webrun-vcs/compression':
         specifier: workspace:*
         version: link:../compression
+      '@webrun-vcs/diff':
+        specifier: workspace:*
+        version: link:../diff
       '@webrun-vcs/hash':
         specifier: workspace:*
         version: link:../hash

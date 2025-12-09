@@ -27,9 +27,10 @@
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
-    "@webrun-vcs/storage": "workspace:*",
     "@webrun-vcs/compression": "workspace:*",
-    "@webrun-vcs/hash": "workspace:*"
+    "@webrun-vcs/diff": "workspace:*",
+    "@webrun-vcs/hash": "workspace:*",
+    "@webrun-vcs/storage": "workspace:*"
   },
   "devDependencies": {
     "@webrun-vcs/storage-tests": "workspace:*",

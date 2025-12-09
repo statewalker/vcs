@@ -10,7 +10,7 @@
 
 import type { FileHandle, FilesApi } from "@statewalker/webrun-files";
 import { decompressBlock } from "@webrun-vcs/compression";
-import type { ObjectId } from "@webrun-vcs/storage";
+import type { DeltaChainInfo, ObjectId } from "@webrun-vcs/storage";
 import { bytesToHex } from "../utils/index.js";
 import type {
   PackHeader,
@@ -180,6 +180,100 @@ export class PackReader {
       default:
         throw new Error(`Unknown object type: ${header.type}`);
     }
+  }
+
+  /**
+   * Check if an object is stored as a delta
+   *
+   * @param id Object ID to check
+   * @returns True if object is a delta (OFS_DELTA or REF_DELTA)
+   */
+  async isDelta(id: ObjectId): Promise<boolean> {
+    const offset = this.index.findOffset(id);
+    if (offset === -1) return false;
+
+    const header = await this.readObjectHeader(offset);
+    return header.type === 6 || header.type === 7;
+  }
+
+  /**
+   * Get delta chain information for an object
+   *
+   * Walks the delta chain to find the base object and calculate depth.
+   *
+   * @param id Object ID to query
+   * @returns Chain info or undefined if not a delta
+   */
+  async getDeltaChainInfo(id: ObjectId): Promise<DeltaChainInfo | undefined> {
+    const offset = this.index.findOffset(id);
+    if (offset === -1) return undefined;
+
+    const header = await this.readObjectHeader(offset);
+
+    // Not a delta - return undefined per interface contract
+    if (header.type !== 6 && header.type !== 7) {
+      return undefined;
+    }
+
+    // Walk the chain to find base and calculate depth
+    let depth = 0;
+    let currentOffset = offset;
+    let currentHeader = header;
+    let deltaSize = 0;
+    let baseId: ObjectId | undefined;
+
+    while (currentHeader.type === 6 || currentHeader.type === 7) {
+      depth++;
+      deltaSize += currentHeader.size; // Accumulate delta sizes
+
+      if (currentHeader.type === 6) {
+        // OFS_DELTA - base is at relative offset
+        if (currentHeader.baseOffset === undefined) {
+          throw new Error("OFS_DELTA missing base offset");
+        }
+        currentOffset = currentOffset - currentHeader.baseOffset;
+      } else {
+        // REF_DELTA - lookup base by ID
+        if (currentHeader.baseId === undefined) {
+          throw new Error("REF_DELTA missing base ID");
+        }
+        baseId = currentHeader.baseId;
+        currentOffset = this.index.findOffset(baseId);
+        if (currentOffset === -1) {
+          throw new Error(`Base object not found: ${baseId}`);
+        }
+      }
+
+      currentHeader = await this.readObjectHeader(currentOffset);
+    }
+
+    // Get base object ID from index if not already known
+    if (baseId === undefined) {
+      // Find the object ID at the base offset
+      baseId = this.findObjectIdByOffset(currentOffset);
+    }
+
+    // Load the full resolved object to calculate savings
+    const fullObject = await this.load(offset);
+    const savings = fullObject.size - deltaSize;
+
+    return { baseId, depth, savings };
+  }
+
+  /**
+   * Find object ID by its offset in the pack file
+   *
+   * @param offset Offset to search for
+   * @returns Object ID or throws if not found
+   */
+  private findObjectIdByOffset(offset: number): ObjectId {
+    // Iterate through all entries to find matching offset
+    for (const entry of this.index.entries()) {
+      if (entry.offset === offset) {
+        return entry.id;
+      }
+    }
+    throw new Error(`Object at offset ${offset} not found in index`);
   }
 
   /**
@@ -388,4 +482,14 @@ export function getDeltaResultSize(delta: Uint8Array): number {
   } while ((c & 0x80) !== 0);
 
   return resLen;
+}
+
+// Re-export DeltaChainInfo from @webrun-vcs/storage for convenience
+export type { DeltaChainInfo } from "@webrun-vcs/storage";
+
+/**
+ * Check if an object header represents a delta type
+ */
+export function isDeltaType(type: number): boolean {
+  return type === 6 || type === 7; // OFS_DELTA or REF_DELTA
 }

@@ -13,6 +13,7 @@ export * from "./composite-object-storage.js";
 // Format utilities (for advanced use cases)
 export * from "./format/index.js";
 export * from "./git-commit-storage.js";
+export * from "./git-delta-object-storage.js";
 export * from "./git-file-tree-storage.js";
 export * from "./git-object-storage.js";
 export * from "./git-pack-storage.js";

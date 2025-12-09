@@ -11,7 +11,7 @@
  */
 
 import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { ObjectId, ObjectStorage } from "@webrun-vcs/storage";
+import type { DeltaChainInfo, ObjectId, ObjectStorage } from "@webrun-vcs/storage";
 import { createGitObject } from "./format/object-header.js";
 import { type PackIndex, PackObjectType, readPackIndex } from "./pack/index.js";
 import { PackReader } from "./pack/pack-reader.js";
@@ -229,6 +229,44 @@ export class GitPackStorage implements ObjectStorage {
         }
       }
     }
+  }
+
+  /**
+   * Check if an object is stored as a delta
+   *
+   * @param id Object ID to check
+   * @returns True if the object is stored as a delta (OFS_DELTA or REF_DELTA)
+   */
+  async isDelta(id: ObjectId): Promise<boolean> {
+    await this.ensurePacksLoaded();
+
+    for (const pack of this.packFiles) {
+      if (pack.index.has(id)) {
+        const reader = await this.getPackReader(pack);
+        return reader.isDelta(id);
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Get delta chain information for an object
+   *
+   * @param id Object ID to query
+   * @returns Delta chain info or undefined if not a delta
+   */
+  async getDeltaChainInfo(id: ObjectId): Promise<DeltaChainInfo | undefined> {
+    await this.ensurePacksLoaded();
+
+    for (const pack of this.packFiles) {
+      if (pack.index.has(id)) {
+        const reader = await this.getPackReader(pack);
+        return reader.getDeltaChainInfo(id);
+      }
+    }
+
+    return undefined;
   }
 }
 
