@@ -80,17 +80,17 @@ describe("GitStorage", () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const content = new TextEncoder().encode("Hello, World!");
-      const id = await storage.objects.store(
+      const objectId = await storage.objects.store(
         (async function* () {
           yield content;
         })(),
       );
 
-      expect(id).toMatch(/^[0-9a-f]{40}$/);
-      expect(await storage.objects.has(id)).toBe(true);
+      expect(objectId).toMatch(/^[0-9a-f]{40}$/);
+      expect(await storage.objects.has(objectId)).toBe(true);
 
       const chunks: Uint8Array[] = [];
-      for await (const chunk of storage.objects.load(id)) {
+      for await (const chunk of storage.objects.load(objectId)) {
         chunks.push(chunk);
       }
       expect(chunks[0]).toEqual(content);
@@ -102,18 +102,18 @@ describe("GitStorage", () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const content = new TextEncoder().encode("Duplicate content");
-      const info1 = await storage.objects.store(
+      const objectId1 = await storage.objects.store(
         (async function* () {
           yield content;
         })(),
       );
-      const info2 = await storage.objects.store(
+      const objectId2 = await storage.objects.store(
         (async function* () {
           yield content;
         })(),
       );
 
-      expect(info1.id).toBe(info2.id);
+      expect(objectId1).toBe(objectId2);
 
       await storage.close();
     });
@@ -172,12 +172,12 @@ describe("GitStorage", () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create blobs for files
-      const blob1 = await storage.objects.store(
+      const blob1Id = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("a");
         })(),
       );
-      const blob2 = await storage.objects.store(
+      const blob2Id = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("b");
         })(),
@@ -185,8 +185,8 @@ describe("GitStorage", () => {
 
       // Store tree with entries in wrong order
       const treeId = await storage.trees.storeTree([
-        { mode: FileMode.REGULAR_FILE, name: "z-file", id: blob1 },
-        { mode: FileMode.REGULAR_FILE, name: "a-file", id: blob2 },
+        { mode: FileMode.REGULAR_FILE, name: "z-file", id: blob1Id },
+        { mode: FileMode.REGULAR_FILE, name: "a-file", id: blob2Id },
       ]);
 
       // Entries should be returned in sorted order
@@ -204,15 +204,15 @@ describe("GitStorage", () => {
     it("gets specific entry from tree", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      const blob = await storage.objects.store(
+      const blobId = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("content");
         })(),
       );
 
       const treeId = await storage.trees.storeTree([
-        { mode: FileMode.REGULAR_FILE, name: "target.txt", id: blob },
-        { mode: FileMode.REGULAR_FILE, name: "other.txt", id: blob },
+        { mode: FileMode.REGULAR_FILE, name: "target.txt", id: blobId },
+        { mode: FileMode.REGULAR_FILE, name: "other.txt", id: blobId },
       ]);
 
       const entry = await storage.trees.getEntry(treeId, "target.txt");
@@ -437,7 +437,7 @@ describe("GitStorage", () => {
       // Read branch
       const mainRef = await storage.refs.exactRef("refs/heads/main");
       expect(mainRef).toBeDefined();
-      expect(mainRef?.objectId).toBe(commitId);
+      expect(mainRef && "objectId" in mainRef ? mainRef.objectId : undefined).toBe(commitId);
 
       // List branches
       const branches = await storage.refs.getBranches();

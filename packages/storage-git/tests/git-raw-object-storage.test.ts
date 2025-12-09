@@ -102,9 +102,17 @@ describe("GitRawObjectStorage", () => {
     it("stores tree object", async () => {
       // Minimal tree entry: mode SP name NUL sha1
       const treeContent = new Uint8Array([
-        0x31, 0x30, 0x30, 0x36, 0x34, 0x34, // "100644"
+        0x31,
+        0x30,
+        0x30,
+        0x36,
+        0x34,
+        0x34, // "100644"
         0x20, // space
-        0x66, 0x69, 0x6c, 0x65, // "file"
+        0x66,
+        0x69,
+        0x6c,
+        0x65, // "file"
         0x00, // NUL
         ...new Uint8Array(20), // 20-byte SHA-1
       ]);
@@ -436,7 +444,9 @@ describe("GitRawObjectStorage", () => {
     it("throws when loading non-existent object", async () => {
       const fakeId = "0".repeat(40);
 
-      await expect(collectChunks(storage.load(fakeId))).rejects.toThrow(`Object not found: ${fakeId}`);
+      await expect(collectChunks(storage.load(fakeId))).rejects.toThrow(
+        `Object not found: ${fakeId}`,
+      );
     });
 
     it("creates fanout directory if not exists", async () => {
@@ -483,7 +493,10 @@ describe("GitRawObjectStorage", () => {
 
     it("throws on corrupt zlib stream", async () => {
       // Create a valid compressed object first, then corrupt it
-      const validCompressed = await createCompressedObject("blob 5\0", new TextEncoder().encode("hello"));
+      const validCompressed = await createCompressedObject(
+        "blob 5\0",
+        new TextEncoder().encode("hello"),
+      );
 
       // Corrupt the middle of the compressed data
       const corruptData = new Uint8Array(validCompressed);
@@ -498,7 +511,10 @@ describe("GitRawObjectStorage", () => {
 
     it("throws on truncated zlib stream", async () => {
       // Create a valid compressed object, then truncate it
-      const validCompressed = await createCompressedObject("blob 5\0", new TextEncoder().encode("hello"));
+      const validCompressed = await createCompressedObject(
+        "blob 5\0",
+        new TextEncoder().encode("hello"),
+      );
 
       // Truncate the compressed data
       const truncated = validCompressed.subarray(0, Math.max(2, validCompressed.length - 5));
