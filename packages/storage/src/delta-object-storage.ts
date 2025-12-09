@@ -16,18 +16,6 @@ export interface DeltaOptions {
 }
 
 /**
- * Candidate options for multi-candidate deltification
- */
-export interface CandidateOptions {
-  /** Previous version of the same file */
-  previousVersion?: ObjectId;
-  /** Parent branch version */
-  parentBranch?: ObjectId;
-  /** Similar files by name or content */
-  similarFiles?: ObjectId[];
-}
-
-/**
  * Delta chain information
  */
 export interface DeltaChainInfo {
@@ -71,29 +59,6 @@ export interface DeltaObjectStorage extends ObjectStorage {
    * @returns True if object was successfully deltified
    */
   deltify(targetId: ObjectId, candidateIds: ObjectId[], options?: DeltaOptions): Promise<boolean>;
-
-  /**
-   * Deltify against previous version
-   *
-   * Convenience method for the common case of deltifying
-   * against a file's previous version.
-   *
-   * @param currentVersionId Current version ObjectId
-   * @param previousVersionId Previous version ObjectId
-   * @returns True if successfully deltified
-   */
-  deltifyAgainstPrevious(currentVersionId: ObjectId, previousVersionId: ObjectId): Promise<boolean>;
-
-  /**
-   * Deltify against best candidate from multiple options
-   *
-   * Tries multiple candidate sources and picks the best one.
-   *
-   * @param targetId Object to deltify
-   * @param candidates Candidate options
-   * @returns True if successfully deltified
-   */
-  deltifyAgainstBest(targetId: ObjectId, candidates: CandidateOptions): Promise<boolean>;
 
   /**
    * Convert delta storage back to full content

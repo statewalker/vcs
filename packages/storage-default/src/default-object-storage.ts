@@ -15,7 +15,6 @@ import {
 } from "@webrun-vcs/diff";
 import { bytesToHex, newSha1 } from "@webrun-vcs/hash";
 import type {
-  CandidateOptions,
   DeltaChainInfo,
   DeltaObjectStorage,
   DeltaOptions,
@@ -357,37 +356,6 @@ export class DefaultObjectStorage implements DeltaObjectStorage {
     // Invalidate caches
     this.contentCache.delete(id);
     this.intermediateCache.clear(entry.recordId);
-  }
-
-  /**
-   * Deltify against previous version
-   */
-  async deltifyAgainstPrevious(
-    currentVersionId: ObjectId,
-    previousVersionId: ObjectId,
-  ): Promise<boolean> {
-    return this.deltify(currentVersionId, [previousVersionId]);
-  }
-
-  /**
-   * Deltify against best candidate from multiple options
-   */
-  async deltifyAgainstBest(targetId: ObjectId, candidates: CandidateOptions): Promise<boolean> {
-    const candidateList: ObjectId[] = [];
-
-    if (candidates.previousVersion) {
-      candidateList.push(candidates.previousVersion);
-    }
-
-    if (candidates.parentBranch) {
-      candidateList.push(candidates.parentBranch);
-    }
-
-    if (candidates.similarFiles) {
-      candidateList.push(...candidates.similarFiles);
-    }
-
-    return this.deltify(targetId, candidateList);
   }
 
   /**
