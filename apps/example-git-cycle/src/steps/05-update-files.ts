@@ -112,7 +112,7 @@ export function capitalize(str) {
       "Add tests and utility functions\n\n- Add test.js with basic test\n- Add src/utils.js with helpers",
   });
 
-  await storage.refs.setRef("refs/heads/main", storedCommits.commit3);
+  await storage.refs.set("refs/heads/main", storedCommits.commit3);
   console.log(`  Created commit: ${shortId(storedCommits.commit3)}`);
 
   // Show tree contents
@@ -167,7 +167,7 @@ export function capitalize(str) {
     message: "Update package.json version and add scripts",
   });
 
-  await storage.refs.setRef("refs/heads/main", storedCommits.commit4);
+  await storage.refs.set("refs/heads/main", storedCommits.commit4);
   console.log(`\n  Created commit: ${shortId(storedCommits.commit4)}`);
 
   console.log(`\n  Note: Unchanged files keep the same blob ID:`);
@@ -200,7 +200,7 @@ export function capitalize(str) {
     message: "Remove test.js (tests moved to separate repo)",
   });
 
-  await storage.refs.setRef("refs/heads/main", storedCommits.commit5);
+  await storage.refs.set("refs/heads/main", storedCommits.commit5);
   console.log(`  Created commit: ${shortId(storedCommits.commit5)}`);
 
   // Show final tree

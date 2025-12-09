@@ -67,7 +67,7 @@ export async function step04CreateCommits(): Promise<void> {
   console.log(`  Parents: (none - this is the initial commit)`);
 
   // Update branch reference
-  await storage.refs.setRef("refs/heads/main", storedCommits.commit1);
+  await storage.refs.set("refs/heads/main", storedCommits.commit1);
   console.log(`\n  Updated refs/heads/main -> ${shortId(storedCommits.commit1)}`);
 
   printSubsection("Verifying commit");
@@ -118,7 +118,7 @@ Run \`node index.js\` to start the application.
     message: "Update README with Feature C and getting started section",
   });
 
-  await storage.refs.setRef("refs/heads/main", storedCommits.commit2);
+  await storage.refs.set("refs/heads/main", storedCommits.commit2);
 
   console.log(`\n  Created second commit: ${shortId(storedCommits.commit2)}`);
   console.log(`  Parent: ${shortId(storedCommits.commit1)}`);
@@ -127,7 +127,7 @@ Run \`node index.js\` to start the application.
   printSubsection("HEAD resolution");
 
   // Show how HEAD resolves through the ref chain
-  const _head = await storage.refs.getHead();
+  const _head = await storage.refs.get("HEAD");
   console.log(`\n  HEAD (symbolic ref): refs/heads/main`);
 
   const resolved = await storage.refs.resolve("HEAD");

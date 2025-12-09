@@ -5,6 +5,7 @@
 import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/storage";
 import { beforeEach, describe, expect, it } from "vitest";
+import { GitRefStorage } from "../../src/git-ref-storage.js";
 import {
   findPackedRef,
   parsePackedRefs,
@@ -16,11 +17,7 @@ import {
   removePackedRef,
   writePackedRefs,
 } from "../../src/refs/packed-refs-writer.js";
-import {
-  createRefDirectory,
-  isValidRefName,
-  shortenRefName,
-} from "../../src/refs/ref-directory.js";
+import { isValidRefName, shortenRefName } from "../../src/refs/ref-directory.js";
 import { parseRefContent, readAllRefs, readRef, resolveRef } from "../../src/refs/ref-reader.js";
 import {
   createPeeledRef,
@@ -326,14 +323,14 @@ describe("refs", () => {
     });
   });
 
-  describe("ref-directory", () => {
+  describe("GitRefStorage", () => {
     it("reads exact ref", async () => {
       await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID1}\n`),
       ]);
 
-      const refDir = createRefDirectory(files, gitDir);
-      const ref = await refDir.exactRef("refs/heads/main");
+      const refStorage = new GitRefStorage(files, gitDir);
+      const ref = await refStorage.get("refs/heads/main");
 
       expect(ref).toBeDefined();
       expect((ref as Ref).objectId).toBe(ID1);
@@ -347,34 +344,14 @@ describe("refs", () => {
         new TextEncoder().encode(`${ID1}\n`),
       ]);
 
-      const refDir = createRefDirectory(files, gitDir);
-      const resolved = await refDir.resolve("HEAD");
+      const refStorage = new GitRefStorage(files, gitDir);
+      const resolved = await refStorage.resolve("HEAD");
 
       expect(resolved).toBeDefined();
       expect(resolved?.objectId).toBe(ID1);
     });
 
-    it("gets current branch", async () => {
-      await files.write(joinPath(gitDir, "HEAD"), [
-        new TextEncoder().encode("ref: refs/heads/main\n"),
-      ]);
-
-      const refDir = createRefDirectory(files, gitDir);
-      const branch = await refDir.getCurrentBranch();
-
-      expect(branch).toBe("main");
-    });
-
-    it("returns undefined for detached HEAD", async () => {
-      await files.write(joinPath(gitDir, "HEAD"), [new TextEncoder().encode(`${ID1}\n`)]);
-
-      const refDir = createRefDirectory(files, gitDir);
-      const branch = await refDir.getCurrentBranch();
-
-      expect(branch).toBeUndefined();
-    });
-
-    it("gets branches", async () => {
+    it("lists branches", async () => {
       await files.write(joinPath(gitDir, "refs/heads/main"), [
         new TextEncoder().encode(`${ID1}\n`),
       ]);
@@ -382,8 +359,13 @@ describe("refs", () => {
         new TextEncoder().encode(`${ID2}\n`),
       ]);
 
-      const refDir = createRefDirectory(files, gitDir);
-      const branches = await refDir.getBranches();
+      const refStorage = new GitRefStorage(files, gitDir);
+      const branches: Ref[] = [];
+      for await (const ref of refStorage.list("refs/heads/")) {
+        if (!isSymbolicRef(ref)) {
+          branches.push(ref);
+        }
+      }
 
       expect(branches.length).toBe(2);
       const names = branches.map((b) => b.name);
@@ -392,19 +374,19 @@ describe("refs", () => {
     });
 
     it("sets ref", async () => {
-      const refDir = createRefDirectory(files, gitDir);
-      await refDir.setRef("refs/heads/main", ID1);
+      const refStorage = new GitRefStorage(files, gitDir);
+      await refStorage.set("refs/heads/main", ID1);
 
-      const ref = await refDir.exactRef("refs/heads/main");
+      const ref = await refStorage.get("refs/heads/main");
       expect(ref).toBeDefined();
       expect((ref as Ref).objectId).toBe(ID1);
     });
 
-    it("sets symbolic HEAD", async () => {
-      const refDir = createRefDirectory(files, gitDir);
-      await refDir.setHead("main");
+    it("sets symbolic ref", async () => {
+      const refStorage = new GitRefStorage(files, gitDir);
+      await refStorage.setSymbolic("HEAD", "refs/heads/main");
 
-      const head = await refDir.getHead();
+      const head = await refStorage.get("HEAD");
       expect(head).toBeDefined();
       if (!head) return;
       expect(isSymbolicRef(head)).toBe(true);
@@ -412,10 +394,10 @@ describe("refs", () => {
     });
 
     it("sets detached HEAD", async () => {
-      const refDir = createRefDirectory(files, gitDir);
-      await refDir.setHead(ID1);
+      const refStorage = new GitRefStorage(files, gitDir);
+      await refStorage.set("HEAD", ID1);
 
-      const head = await refDir.getHead();
+      const head = await refStorage.get("HEAD");
       expect(head).toBeDefined();
       if (!head) return;
       expect(isSymbolicRef(head)).toBe(false);
@@ -427,11 +409,11 @@ describe("refs", () => {
         new TextEncoder().encode(`${ID1}\n`),
       ]);
 
-      const refDir = createRefDirectory(files, gitDir);
-      const deleted = await refDir.delete("refs/heads/to-delete");
+      const refStorage = new GitRefStorage(files, gitDir);
+      const deleted = await refStorage.delete("refs/heads/to-delete");
 
       expect(deleted).toBe(true);
-      expect(await refDir.has("refs/heads/to-delete")).toBe(false);
+      expect(await refStorage.has("refs/heads/to-delete")).toBe(false);
     });
 
     it("checks ref existence", async () => {
@@ -439,10 +421,10 @@ describe("refs", () => {
         new TextEncoder().encode(`${ID1}\n`),
       ]);
 
-      const refDir = createRefDirectory(files, gitDir);
+      const refStorage = new GitRefStorage(files, gitDir);
 
-      expect(await refDir.has("refs/heads/main")).toBe(true);
-      expect(await refDir.has("refs/heads/nonexistent")).toBe(false);
+      expect(await refStorage.has("refs/heads/main")).toBe(true);
+      expect(await refStorage.has("refs/heads/nonexistent")).toBe(false);
     });
   });
 

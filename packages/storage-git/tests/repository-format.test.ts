@@ -182,12 +182,12 @@ describe("repository format", () => {
         committer: person,
         message: "test",
       });
-      await storage1.refs.setRef("refs/heads/main", commitId);
+      await storage1.refs.set("refs/heads/main", commitId);
       await storage1.close();
 
       // Re-open and verify
       const storage2 = await GitStorage.open(files, gitDir);
-      const mainRef = await storage2.refs.exactRef("refs/heads/main");
+      const mainRef = await storage2.refs.get("refs/heads/main");
       expect(mainRef && "objectId" in mainRef ? mainRef.objectId : undefined).toBe(commitId);
 
       await storage2.close();
@@ -249,12 +249,12 @@ describe("repository format", () => {
         committer: person,
         message: "test",
       });
-      await storage1.refs.setRef("refs/heads/main", commitId);
+      await storage1.refs.set("refs/heads/main", commitId);
       await storage1.close();
 
       // Init again should open, not overwrite
       const storage2 = await GitStorage.init(files, gitDir, { create: true });
-      const mainRef = await storage2.refs.exactRef("refs/heads/main");
+      const mainRef = await storage2.refs.get("refs/heads/main");
       expect(mainRef && "objectId" in mainRef ? mainRef.objectId : undefined).toBe(commitId);
 
       await storage2.close();

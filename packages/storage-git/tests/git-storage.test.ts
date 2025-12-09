@@ -432,15 +432,18 @@ describe("GitStorage", () => {
       });
 
       // Create branch
-      await storage.refs.setRef("refs/heads/main", commitId);
+      await storage.refs.set("refs/heads/main", commitId);
 
       // Read branch
-      const mainRef = await storage.refs.exactRef("refs/heads/main");
+      const mainRef = await storage.refs.get("refs/heads/main");
       expect(mainRef).toBeDefined();
       expect(mainRef && "objectId" in mainRef ? mainRef.objectId : undefined).toBe(commitId);
 
       // List branches
-      const branches = await storage.refs.getBranches();
+      const branches = [];
+      for await (const ref of storage.refs.list("refs/heads/")) {
+        branches.push(ref);
+      }
       expect(branches).toHaveLength(1);
       expect(branches[0].name).toBe("refs/heads/main");
 
@@ -468,7 +471,7 @@ describe("GitStorage", () => {
       });
 
       // Point main to commit
-      await storage.refs.setRef("refs/heads/main", commitId);
+      await storage.refs.set("refs/heads/main", commitId);
 
       // HEAD should resolve to same commit
       const resolved = await storage.refs.resolve("HEAD");
