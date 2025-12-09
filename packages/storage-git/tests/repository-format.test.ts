@@ -188,12 +188,12 @@ describe("repository format", () => {
       // Re-open and verify
       const storage2 = await GitStorage.open(files, gitDir);
       const mainRef = await storage2.refs.exactRef("refs/heads/main");
-      expect(mainRef?.objectId).toBe(commitId);
+      expect(mainRef && "objectId" in mainRef ? mainRef.objectId : undefined).toBe(commitId);
 
       await storage2.close();
     });
 
-it("detects newly added pack files after refresh", async () => {
+    it("detects newly added pack files after refresh", async () => {
       // Create repository
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
@@ -255,7 +255,7 @@ it("detects newly added pack files after refresh", async () => {
       // Init again should open, not overwrite
       const storage2 = await GitStorage.init(files, gitDir, { create: true });
       const mainRef = await storage2.refs.exactRef("refs/heads/main");
-      expect(mainRef?.objectId).toBe(commitId);
+      expect(mainRef && "objectId" in mainRef ? mainRef.objectId : undefined).toBe(commitId);
 
       await storage2.close();
     });
