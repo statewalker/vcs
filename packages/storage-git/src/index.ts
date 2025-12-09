@@ -17,6 +17,7 @@ export * from "./git-file-tree-storage.js";
 export * from "./git-object-storage.js";
 export * from "./git-pack-storage.js";
 export * from "./git-raw-objects-storage.js";
+export * from "./git-ref-storage.js";
 // Main storage implementations
 export * from "./git-storage.js";
 export * from "./git-tag-storage.js";

@@ -187,7 +187,7 @@ export async function step07RestoreVersion(): Promise<void> {
        author, committer,
        message: \`Revert to \${shortId(targetId)}\`
      });
-     await storage.refs.setRef("refs/heads/main", revertId);
+     await storage.refs.set("refs/heads/main", revertId);
 `);
 
   printSubsection("Practical example: Reverting a commit");
@@ -207,7 +207,7 @@ export async function step07RestoreVersion(): Promise<void> {
       message: `Revert to "${targetCommit.message.split("\n")[0]}"`,
     });
 
-    await storage.refs.setRef("refs/heads/main", revertId);
+    await storage.refs.set("refs/heads/main", revertId);
 
     console.log(`\n  Created revert commit: ${shortId(revertId)}`);
     console.log(`  Tree restored to: ${shortId(targetCommit.tree)}`);

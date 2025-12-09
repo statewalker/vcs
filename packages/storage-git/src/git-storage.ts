@@ -8,12 +8,14 @@
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type {
-  CommitStorage,
-  FileTreeStorage,
-  ObjectId,
-  ObjectStorage,
-  TagStorage,
+import {
+  type CommitStorage,
+  type FileTreeStorage,
+  isSymbolicRef,
+  type ObjectId,
+  type ObjectStorage,
+  type RefStorage,
+  type TagStorage,
 } from "@webrun-vcs/storage";
 import { CompositeObjectStorage } from "./composite-object-storage.js";
 import { GitCommitStorage } from "./git-commit-storage.js";
@@ -21,13 +23,9 @@ import { GitFileTreeStorage } from "./git-file-tree-storage.js";
 import { GitObjectStorage } from "./git-object-storage.js";
 import { GitPackStorage } from "./git-pack-storage.js";
 import { GitRawObjectStorage } from "./git-raw-objects-storage.js";
+import { GitRefStorage } from "./git-ref-storage.js";
 import { GitTagStorage } from "./git-tag-storage.js";
-import {
-  createRefDirectory,
-  createRefsStructure,
-  type RefDirectory,
-  writeSymbolicRef,
-} from "./refs/index.js";
+import { R_HEADS } from "./refs/ref-types.js";
 
 /**
  * Options for creating a Git storage
@@ -55,8 +53,8 @@ export interface GitStorageApi {
   commits: CommitStorage;
   /** Tag storage */
   tags: TagStorage;
-  /** Reference directory */
-  refs: RefDirectory;
+  /** Reference storage */
+  refs: RefStorage;
   /** Path to git directory */
   gitDir: string;
   /** Close all resources */
@@ -81,7 +79,7 @@ export class GitStorage implements GitStorageApi {
   readonly trees: GitFileTreeStorage;
   readonly commits: GitCommitStorage;
   readonly tags: GitTagStorage;
-  readonly refs: RefDirectory;
+  readonly refs: GitRefStorage;
   readonly gitDir: string;
 
   private readonly looseStorage: GitRawObjectStorage;
@@ -100,7 +98,7 @@ export class GitStorage implements GitStorageApi {
     this.trees = new GitFileTreeStorage(this.rawStorage);
     this.commits = new GitCommitStorage(this.rawStorage);
     this.tags = new GitTagStorage(this.rawStorage);
-    this.refs = createRefDirectory(files, gitDir);
+    this.refs = new GitRefStorage(files, gitDir);
   }
 
   /**
@@ -150,10 +148,11 @@ export class GitStorage implements GitStorageApi {
     await files.mkdir(gitDir);
     await files.mkdir(joinPath(gitDir, "objects"));
     await files.mkdir(joinPath(gitDir, "objects", "pack"));
-    await createRefsStructure(files, gitDir);
 
-    // Create HEAD pointing to default branch
-    await writeSymbolicRef(files, gitDir, "HEAD", `refs/heads/${defaultBranch}`);
+    // Create refs structure and HEAD
+    const refs = new GitRefStorage(files, gitDir);
+    await refs.initialize();
+    await refs.setSymbolic("HEAD", `refs/heads/${defaultBranch}`);
 
     // Write config (minimal)
     const config = `[core]
@@ -185,7 +184,19 @@ export class GitStorage implements GitStorageApi {
    * Get current branch name
    */
   async getCurrentBranch(): Promise<string | undefined> {
-    return this.refs.getCurrentBranch();
+    const head = await this.refs.get("HEAD");
+    if (head === undefined) return undefined;
+
+    if (isSymbolicRef(head)) {
+      const target = head.target;
+      if (target.startsWith(R_HEADS)) {
+        return target.substring(R_HEADS.length);
+      }
+      return target;
+    }
+
+    // Detached HEAD
+    return undefined;
   }
 
   /**
