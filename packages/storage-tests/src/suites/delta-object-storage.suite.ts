@@ -208,8 +208,8 @@ export function createDeltaObjectStorageTests(
       });
     });
 
-    describe("Advanced Delta Operations", () => {
-      it("deltifies against previous version", async () => {
+    describe("Multi-Candidate Deltification", () => {
+      it("deltifies against single candidate", async () => {
         const v1 = encode(
           "Version 1 content with enough text to exceed the minimum size requirement",
         );
@@ -220,7 +220,7 @@ export function createDeltaObjectStorageTests(
         const v1Id = await ctx.storage.store(toAsyncIterable(v1));
         const v2Id = await ctx.storage.store(toAsyncIterable(v2));
 
-        const deltified = await ctx.storage.deltifyAgainstPrevious(v2Id, v1Id);
+        const deltified = await ctx.storage.deltify(v2Id, [v1Id]);
         expect(deltified).toBe(true);
       });
 
@@ -239,9 +239,7 @@ export function createDeltaObjectStorageTests(
         const similarId = await ctx.storage.store(toAsyncIterable(similar));
         const differentId = await ctx.storage.store(toAsyncIterable(different));
 
-        const deltified = await ctx.storage.deltifyAgainstBest(targetId, {
-          similarFiles: [similarId, differentId],
-        });
+        const deltified = await ctx.storage.deltify(targetId, [similarId, differentId]);
 
         expect(deltified).toBe(true);
       });
