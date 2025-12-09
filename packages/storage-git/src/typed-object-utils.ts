@@ -49,8 +49,7 @@ export async function storeTypedObject(
   fullObject.set(content, header.length);
 
   // Store the full object as raw bytes
-  const info = await storage.store([fullObject]);
-  return info.id;
+  return storage.store([fullObject]);
 }
 
 /**

@@ -51,49 +51,50 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
     describe("Basic Operations", () => {
       it("stores and retrieves content", async () => {
         const content = encode("Hello, World!");
-        const info = await ctx.storage.store(toAsyncIterable(content));
+        const id = await ctx.storage.store(toAsyncIterable(content));
 
-        expect(info).toBeDefined();
-        expect(info.id).toBeDefined();
-        expect(typeof info.id).toBe("string");
-        expect(info.size).toBe(content.length);
+        expect(id).toBeDefined();
+        expect(typeof id).toBe("string");
 
-        const retrieved = await collectContent(ctx.storage.load(info.id));
+        const retrieved = await collectContent(ctx.storage.load(id));
         expect(decode(retrieved)).toBe("Hello, World!");
       });
 
       it("returns consistent IDs for same content", async () => {
         const content = encode("Test content for deduplication");
-        const info1 = await ctx.storage.store(toAsyncIterable(content));
-        const info2 = await ctx.storage.store(toAsyncIterable(content));
-        expect(info1.id).toBe(info2.id);
-        expect(info1.size).toBe(info2.size);
+        const id1 = await ctx.storage.store(toAsyncIterable(content));
+        const id2 = await ctx.storage.store(toAsyncIterable(content));
+        expect(id1).toBe(id2);
       });
 
       it("returns different IDs for different content", async () => {
-        const info1 = await ctx.storage.store(toAsyncIterable(encode("Content A")));
-        const info2 = await ctx.storage.store(toAsyncIterable(encode("Content B")));
-        expect(info1.id).not.toBe(info2.id);
+        const id1 = await ctx.storage.store(toAsyncIterable(encode("Content A")));
+        const id2 = await ctx.storage.store(toAsyncIterable(encode("Content B")));
+        expect(id1).not.toBe(id2);
       });
 
-      it("checks existence via getInfo", async () => {
-        const { id } = await ctx.storage.store(toAsyncIterable(encode("Test")));
-        const info = await ctx.storage.getInfo(id);
-        expect(info).not.toBeNull();
-        expect(info?.id).toBe(id);
-        expect(info?.size).toBe(4); // "Test" is 4 bytes
+      it("checks size via getSize", async () => {
+        const id = await ctx.storage.store(toAsyncIterable(encode("Test")));
+        const size = await ctx.storage.getSize(id);
+        expect(size).toBe(4); // "Test" is 4 bytes
 
-        const nonExistent = await ctx.storage.getInfo("nonexistent-id-that-does-not-exist");
-        expect(nonExistent).toBeNull();
+        const nonExistent = await ctx.storage.getSize("nonexistent-id-that-does-not-exist");
+        expect(nonExistent).toBe(-1);
+      });
+
+      it("checks existence via has", async () => {
+        const id = await ctx.storage.store(toAsyncIterable(encode("Test")));
+        expect(await ctx.storage.has(id)).toBe(true);
+        expect(await ctx.storage.has("nonexistent-id-that-does-not-exist")).toBe(false);
       });
 
       it("deletes objects", async () => {
-        const { id } = await ctx.storage.store(toAsyncIterable(encode("Test")));
-        expect(await ctx.storage.getInfo(id)).not.toBeNull();
+        const id = await ctx.storage.store(toAsyncIterable(encode("Test")));
+        expect(await ctx.storage.has(id)).toBe(true);
 
         const deleted = await ctx.storage.delete(id);
         expect(deleted).toBe(true);
-        expect(await ctx.storage.getInfo(id)).toBeNull();
+        expect(await ctx.storage.has(id)).toBe(false);
       });
 
       it("returns false when deleting non-existent object", async () => {
@@ -105,7 +106,8 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
     describe("Content Types", () => {
       it("handles empty content", async () => {
         const content = new Uint8Array(0);
-        const { id, size } = await ctx.storage.store(toAsyncIterable(content));
+        const id = await ctx.storage.store(toAsyncIterable(content));
+        const size = await ctx.storage.getSize(id);
         expect(size).toBe(0);
         const retrieved = await collectContent(ctx.storage.load(id));
         expect(retrieved.length).toBe(0);
@@ -113,21 +115,22 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
 
       it("handles binary content with null bytes", async () => {
         const content = new Uint8Array([0, 1, 2, 0, 255, 0, 254]);
-        const { id } = await ctx.storage.store(toAsyncIterable(content));
+        const id = await ctx.storage.store(toAsyncIterable(content));
         const retrieved = await collectContent(ctx.storage.load(id));
         expect(retrieved).toEqual(content);
       });
 
       it("handles content with all byte values", async () => {
         const content = allBytesContent();
-        const { id } = await ctx.storage.store(toAsyncIterable(content));
+        const id = await ctx.storage.store(toAsyncIterable(content));
         const retrieved = await collectContent(ctx.storage.load(id));
         expect(retrieved).toEqual(content);
       });
 
       it("handles large content (1MB)", { timeout: 30000 }, async () => {
         const content = patternContent(1024 * 1024, 42);
-        const { id, size } = await ctx.storage.store(toAsyncIterable(content));
+        const id = await ctx.storage.store(toAsyncIterable(content));
+        const size = await ctx.storage.getSize(id);
         expect(size).toBe(content.length);
         const retrieved = await collectContent(ctx.storage.load(id));
         expect(retrieved).toEqual(content);
@@ -137,14 +140,15 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
     describe("Streaming", () => {
       it("accepts multi-chunk async input", async () => {
         const chunks = [encode("Hello, "), encode("World"), encode("!")];
-        const { id } = await ctx.storage.store(toAsyncIterableMulti(chunks));
+        const id = await ctx.storage.store(toAsyncIterableMulti(chunks));
         const retrieved = await collectContent(ctx.storage.load(id));
         expect(decode(retrieved)).toBe("Hello, World!");
       });
 
       it("accepts sync iterable input (array)", async () => {
         const content = encode("Sync iterable test");
-        const { id, size } = await ctx.storage.store([content]);
+        const id = await ctx.storage.store([content]);
+        const size = await ctx.storage.getSize(id);
         expect(size).toBe(content.length);
         const retrieved = await collectContent(ctx.storage.load(id));
         expect(decode(retrieved)).toBe("Sync iterable test");
@@ -155,14 +159,14 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
           yield encode("Chunk1");
           yield encode("Chunk2");
         }
-        const { id } = await ctx.storage.store(chunks());
+        const id = await ctx.storage.store(chunks());
         const retrieved = await collectContent(ctx.storage.load(id));
         expect(decode(retrieved)).toBe("Chunk1Chunk2");
       });
 
       it("yields content correctly regardless of chunking", async () => {
         const content = patternContent(100000, 65);
-        const { id } = await ctx.storage.store(toAsyncIterable(content));
+        const id = await ctx.storage.store(toAsyncIterable(content));
 
         const chunks: Uint8Array[] = [];
         for await (const chunk of ctx.storage.load(id)) {
@@ -181,7 +185,7 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
     describe("Partial Reads", () => {
       it("reads from offset", async () => {
         const content = encode("Hello, World!");
-        const { id } = await ctx.storage.store([content]);
+        const id = await ctx.storage.store([content]);
 
         const retrieved = await collectContent(ctx.storage.load(id, { offset: 7 }));
         expect(decode(retrieved)).toBe("World!");
@@ -189,7 +193,7 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
 
       it("reads with length limit", async () => {
         const content = encode("Hello, World!");
-        const { id } = await ctx.storage.store([content]);
+        const id = await ctx.storage.store([content]);
 
         const retrieved = await collectContent(ctx.storage.load(id, { length: 5 }));
         expect(decode(retrieved)).toBe("Hello");
@@ -197,7 +201,7 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
 
       it("reads with offset and length", async () => {
         const content = encode("Hello, World!");
-        const { id } = await ctx.storage.store([content]);
+        const id = await ctx.storage.store([content]);
 
         const retrieved = await collectContent(ctx.storage.load(id, { offset: 7, length: 5 }));
         expect(decode(retrieved)).toBe("World");
@@ -205,7 +209,7 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
 
       it("handles offset beyond content length", async () => {
         const content = encode("Hello");
-        const { id } = await ctx.storage.store([content]);
+        const id = await ctx.storage.store([content]);
 
         const retrieved = await collectContent(ctx.storage.load(id, { offset: 100 }));
         expect(retrieved.length).toBe(0);
@@ -213,7 +217,7 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
 
       it("handles length exceeding remaining content", async () => {
         const content = encode("Hello");
-        const { id } = await ctx.storage.store([content]);
+        const id = await ctx.storage.store([content]);
 
         const retrieved = await collectContent(ctx.storage.load(id, { offset: 3, length: 100 }));
         expect(decode(retrieved)).toBe("lo");
@@ -221,36 +225,34 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
     });
 
     describe("List Objects", () => {
-      it("lists all stored objects with info", async () => {
+      it("lists all stored objects", async () => {
         const content1 = encode("Content 1");
         const content2 = encode("Content 2");
         const content3 = encode("Content 3");
 
-        const info1 = await ctx.storage.store([content1]);
-        const info2 = await ctx.storage.store([content2]);
-        const info3 = await ctx.storage.store([content3]);
+        const id1 = await ctx.storage.store([content1]);
+        const id2 = await ctx.storage.store([content2]);
+        const id3 = await ctx.storage.store([content3]);
 
-        const listed: Array<{ id: string; size: number }> = [];
-        for await (const info of ctx.storage.listObjects()) {
-          listed.push(info);
+        const listed: string[] = [];
+        for await (const id of ctx.storage.listObjects()) {
+          listed.push(id);
         }
 
         expect(listed.length).toBe(3);
+        expect(listed).toContain(id1);
+        expect(listed).toContain(id2);
+        expect(listed).toContain(id3);
 
-        const ids = listed.map((i) => i.id);
-        expect(ids).toContain(info1.id);
-        expect(ids).toContain(info2.id);
-        expect(ids).toContain(info3.id);
-
-        // Check sizes are correct
-        const foundInfo1 = listed.find((i) => i.id === info1.id);
-        expect(foundInfo1?.size).toBe(content1.length);
+        // Verify sizes can be retrieved separately
+        const size1 = await ctx.storage.getSize(id1);
+        expect(size1).toBe(content1.length);
       });
 
       it("returns empty generator for empty storage", async () => {
-        const listed: Array<{ id: string; size: number }> = [];
-        for await (const info of ctx.storage.listObjects()) {
-          listed.push(info);
+        const listed: string[] = [];
+        for await (const id of ctx.storage.listObjects()) {
+          listed.push(id);
         }
         expect(listed.length).toBe(0);
       });
@@ -270,10 +272,9 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
         const promises = Array(10)
           .fill(null)
           .map(() => ctx.storage.store(toAsyncIterable(content)));
-        const infos = await Promise.all(promises);
+        const ids = await Promise.all(promises);
 
         // All should return same ID
-        const ids = infos.map((i) => i.id);
         expect(new Set(ids).size).toBe(1);
       });
 
@@ -281,10 +282,9 @@ export function createObjectStorageTests(name: string, factory: ObjectStorageFac
         const promises = Array(10)
           .fill(null)
           .map((_, i) => ctx.storage.store(toAsyncIterable(encode(`Content ${i}`))));
-        const infos = await Promise.all(promises);
+        const ids = await Promise.all(promises);
 
         // All should be different
-        const ids = infos.map((i) => i.id);
         expect(new Set(ids).size).toBe(10);
       });
     });

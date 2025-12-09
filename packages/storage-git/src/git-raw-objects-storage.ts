@@ -38,7 +38,7 @@ import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-file
 import { compressBlock, decompressBlock } from "@webrun-vcs/compression";
 import { sha1 } from "@webrun-vcs/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/hash/utils";
-import type { ObjectId, ObjectInfo, ObjectStorage } from "@webrun-vcs/storage";
+import type { ObjectId, ObjectStorage } from "@webrun-vcs/storage";
 import { getLooseObjectPath } from "./utils/file-utils.js";
 
 /**
@@ -61,7 +61,7 @@ export class GitRawObjectStorage implements ObjectStorage {
   /**
    * Store raw content as a compressed loose object
    *
-   * Content is hashed to produce the ObjectInfo. If an object with the
+   * Content is hashed to produce the object ID. If an object with the
    * same hash already exists, this is a no-op (deduplication).
    *
    * The content should be a complete Git object (header + content).
@@ -69,7 +69,7 @@ export class GitRawObjectStorage implements ObjectStorage {
    *
    * Reference: jgit ObjectDirectoryInserter.toTemp()
    */
-  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
+  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
     // Collect all chunks
     const chunks: Uint8Array[] = [];
 
@@ -91,7 +91,7 @@ export class GitRawObjectStorage implements ObjectStorage {
 
     // Check if object already exists (deduplication)
     if (await this.files.exists(path)) {
-      return { id, size: content.length };
+      return id;
     }
 
     // Compress using zlib (raw: false for standard zlib header)
@@ -100,7 +100,7 @@ export class GitRawObjectStorage implements ObjectStorage {
     // Write compressed data to file
     await this.files.write(path, [compressed]);
 
-    return { id, size: content.length };
+    return id;
   }
 
   /**
@@ -139,14 +139,22 @@ export class GitRawObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Get object metadata
+   * Get object size
    */
-  async getInfo(id: ObjectId): Promise<ObjectInfo | null> {
+  async getSize(id: ObjectId): Promise<number> {
     const rawData = await this.loadDecompressed(id);
     if (rawData === null) {
-      return null;
+      return -1;
     }
-    return { id, size: rawData.length };
+    return rawData.length;
+  }
+
+  /**
+   * Check if object exists
+   */
+  async has(id: ObjectId): Promise<boolean> {
+    const path = getLooseObjectPath(this.objectsDir, id);
+    return this.files.exists(path);
   }
 
   /**
@@ -166,13 +174,13 @@ export class GitRawObjectStorage implements ObjectStorage {
   async close(): Promise<void> {}
 
   /**
-   * Iterate over all objects in storage
+   * Iterate over all object IDs in storage
    *
    * Reference: jgit LooseObjects.resolve()
    *
-   * @returns AsyncGenerator yielding ObjectInfos
+   * @returns AsyncGenerator yielding ObjectIds
    */
-  async *listObjects(): AsyncGenerator<ObjectInfo> {
+  async *listObjects(): AsyncGenerator<ObjectId> {
     // List all 2-character fanout directories
     const entries = await this.listDirectoryEntries(this.objectsDir);
 
@@ -204,11 +212,7 @@ export class GitRawObjectStorage implements ObjectStorage {
           continue;
         }
 
-        const id = prefix + obj.name;
-        const info = await this.getInfo(id);
-        if (info) {
-          yield info;
-        }
+        yield prefix + obj.name;
       }
     }
   }

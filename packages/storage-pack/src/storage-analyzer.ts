@@ -53,14 +53,14 @@ export class StorageAnalyzer {
     let totalChainDepth = 0;
     let maxChainDepth = 0;
 
-    // Enumerate all objects (now yields ObjectInfo)
-    for await (const objectInfo of context.objects.listObjects()) {
+    // Enumerate all objects (yields ObjectId)
+    for await (const objectId of context.objects.listObjects()) {
       if (options.signal?.aborted) {
         throw new DOMException("Analysis aborted", "AbortError");
       }
 
-      const objectId = objectInfo.id;
-      const size = objectInfo.size;
+      const size = await context.objects.getSize(objectId);
+      if (size < 0) continue; // Object might have been deleted
 
       allObjects.add(objectId);
       totalObjects++;
@@ -163,9 +163,8 @@ export class StorageAnalyzer {
 
       totalObjects++;
 
-      const info = await context.objects.getInfo(objectId);
-      if (!info) continue;
-      const size = info.size;
+      const size = await context.objects.getSize(objectId);
+      if (size < 0) continue;
 
       totalStorageSize += size;
 
@@ -235,11 +234,11 @@ export class StorageAnalyzer {
       }
     }
 
-    // Find orphans (listObjects now yields ObjectInfo)
+    // Find orphans (listObjects yields ObjectId)
     const orphans: ObjectId[] = [];
-    for await (const objectInfo of context.objects.listObjects()) {
-      if (!reachable.has(objectInfo.id)) {
-        orphans.push(objectInfo.id);
+    for await (const objectId of context.objects.listObjects()) {
+      if (!reachable.has(objectId)) {
+        orphans.push(objectId);
       }
     }
 

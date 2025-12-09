@@ -11,7 +11,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
-import type { ObjectId, ObjectInfo, ObjectStorage } from "@webrun-vcs/storage";
+import type { ObjectId, ObjectStorage } from "@webrun-vcs/storage";
 import { ObjectType } from "@webrun-vcs/storage";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 
@@ -48,7 +48,7 @@ export class GitObjectStorage implements ObjectStorage {
    * Content is wrapped in Git blob format and stored.
    * For other object types, use storeTypedObject() with getRawStorage().
    */
-  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectInfo> {
+  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
     // Collect all chunks into a single buffer
     const chunks: Uint8Array[] = [];
 
@@ -66,8 +66,7 @@ export class GitObjectStorage implements ObjectStorage {
     const content = concatUint8Arrays(chunks);
 
     // Store as blob using utility function
-    const id = await storeTypedObject(this.rawStorage, ObjectType.BLOB, content);
-    return { id, size: content.length };
+    return storeTypedObject(this.rawStorage, ObjectType.BLOB, content);
   }
 
   /**
@@ -97,21 +96,28 @@ export class GitObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Get object metadata
+   * Get object size
    */
-  async getInfo(id: ObjectId): Promise<ObjectInfo | null> {
-    const info = await this.rawStorage.getInfo(id);
-    if (!info) {
-      return null;
+  async getSize(id: ObjectId): Promise<number> {
+    const size = await this.rawStorage.getSize(id);
+    if (size < 0) {
+      return -1;
     }
 
     // Load to get actual content size (without header)
     try {
       const obj = await loadTypedObject(this.rawStorage, id);
-      return { id, size: obj.size };
+      return obj.size;
     } catch {
-      return null;
+      return -1;
     }
+  }
+
+  /**
+   * Check if object exists
+   */
+  async has(id: ObjectId): Promise<boolean> {
+    return this.rawStorage.has(id);
   }
 
   /**
@@ -132,19 +138,13 @@ export class GitObjectStorage implements ObjectStorage {
   }
 
   /**
-   * Iterate over all objects in storage
+   * Iterate over all object IDs in storage
    *
-   * @returns AsyncGenerator yielding ObjectInfos
+   * @returns AsyncGenerator yielding ObjectIds
    */
-  async *listObjects(): AsyncGenerator<ObjectInfo> {
-    for await (const info of this.rawStorage.listObjects()) {
-      // Get actual content size
-      try {
-        const obj = await loadTypedObject(this.rawStorage, info.id);
-        yield { id: info.id, size: obj.size };
-      } catch {
-        // Skip invalid objects
-      }
+  async *listObjects(): AsyncGenerator<ObjectId> {
+    for await (const id of this.rawStorage.listObjects()) {
+      yield id;
     }
   }
 }

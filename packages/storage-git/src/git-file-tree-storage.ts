@@ -101,7 +101,7 @@ export class GitFileTreeStorage implements FileTreeStorage {
       return true;
     }
 
-    return (await this.rawStorage.getInfo(id)) !== null;
+    return this.rawStorage.has(id);
   }
 
   /**

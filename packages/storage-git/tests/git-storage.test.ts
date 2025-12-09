@@ -80,14 +80,14 @@ describe("GitStorage", () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       const content = new TextEncoder().encode("Hello, World!");
-      const { id } = await storage.objects.store(
+      const id = await storage.objects.store(
         (async function* () {
           yield content;
         })(),
       );
 
       expect(id).toMatch(/^[0-9a-f]{40}$/);
-      expect(await storage.objects.getInfo(id)).not.toBeNull();
+      expect(await storage.objects.has(id)).toBe(true);
 
       const chunks: Uint8Array[] = [];
       for await (const chunk of storage.objects.load(id)) {
@@ -125,7 +125,7 @@ describe("GitStorage", () => {
 
       // Store a blob first
       const content = new TextEncoder().encode("File content");
-      const { id: blobId } = await storage.objects.store(
+      const blobId = await storage.objects.store(
         (async function* () {
           yield content;
         })(),
@@ -172,12 +172,12 @@ describe("GitStorage", () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
       // Create blobs for files
-      const { id: blob1 } = await storage.objects.store(
+      const blob1 = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("a");
         })(),
       );
-      const { id: blob2 } = await storage.objects.store(
+      const blob2 = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("b");
         })(),
@@ -204,7 +204,7 @@ describe("GitStorage", () => {
     it("gets specific entry from tree", async () => {
       const storage = await GitStorage.init(files, gitDir, { create: true });
 
-      const { id: blob } = await storage.objects.store(
+      const blob = await storage.objects.store(
         (async function* () {
           yield new TextEncoder().encode("content");
         })(),

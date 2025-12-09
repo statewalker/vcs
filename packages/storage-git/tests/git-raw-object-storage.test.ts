@@ -64,11 +64,11 @@ describe("GitRawObjectStorage", () => {
       const content = new TextEncoder().encode("Hello, World!");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store([gitObject]);
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
-      expect(info.size).toBe(gitObject.length);
+      expect(await storage.getSize(id)).toBe(gitObject.length);
     });
 
     it("stores and loads large blob object", async () => {
@@ -80,11 +80,11 @@ describe("GitRawObjectStorage", () => {
       }
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store([gitObject]);
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
-      expect(info.size).toBe(gitObject.length);
+      expect(await storage.getSize(id)).toBe(gitObject.length);
     });
 
     it("stores commit object", async () => {
@@ -93,8 +93,8 @@ describe("GitRawObjectStorage", () => {
       );
       const gitObject = createGitObject("commit", commitContent);
 
-      const info = await storage.store([gitObject]);
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store([gitObject]);
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
     });
@@ -110,8 +110,8 @@ describe("GitRawObjectStorage", () => {
       ]);
       const gitObject = createGitObject("tree", treeContent);
 
-      const info = await storage.store([gitObject]);
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store([gitObject]);
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
     });
@@ -122,8 +122,8 @@ describe("GitRawObjectStorage", () => {
       );
       const gitObject = createGitObject("tag", tagContent);
 
-      const info = await storage.store([gitObject]);
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store([gitObject]);
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
     });
@@ -138,8 +138,8 @@ describe("GitRawObjectStorage", () => {
         yield gitObject.subarray(10);
       }
 
-      const info = await storage.store(generateChunks());
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store(generateChunks());
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
     });
@@ -148,10 +148,10 @@ describe("GitRawObjectStorage", () => {
       const content = new TextEncoder().encode("Hello, World!");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
+      const id = await storage.store([gitObject]);
 
       // Load just a portion
-      const partial = await collectChunks(storage.load(info.id, { offset: 5, length: 10 }));
+      const partial = await collectChunks(storage.load(id, { offset: 5, length: 10 }));
 
       expect(partial).toEqual(gitObject.subarray(5, 15));
     });
@@ -162,17 +162,17 @@ describe("GitRawObjectStorage", () => {
       const content = new TextEncoder().encode("Test content for compression");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
+      const id = await storage.store([gitObject]);
 
       // Verify file is stored with different size (compressed)
-      const filePath = `.git/objects/${info.id.substring(0, 2)}/${info.id.substring(2)}`;
+      const filePath = `.git/objects/${id.substring(0, 2)}/${id.substring(2)}`;
       const rawFileContent = await files.readFile(filePath);
 
       // Compressed data should be different from original
       expect(rawFileContent.length).not.toBe(gitObject.length);
 
       // But loaded data should match original
-      const loaded = await collectChunks(storage.load(info.id));
+      const loaded = await collectChunks(storage.load(id));
       expect(loaded).toEqual(gitObject);
     });
 
@@ -183,10 +183,10 @@ describe("GitRawObjectStorage", () => {
       // Store twice in different storage instances
       const storage2 = new GitRawObjectStorage(files, gitDir);
 
-      const info1 = await storage.store([gitObject]);
-      const info2 = await storage2.store([gitObject]);
+      const id1 = await storage.store([gitObject]);
+      const id2 = await storage2.store([gitObject]);
 
-      expect(info1.id).toBe(info2.id);
+      expect(id1).toBe(id2);
     });
   });
 
@@ -195,14 +195,13 @@ describe("GitRawObjectStorage", () => {
       const content = new TextEncoder().encode("dedupe test");
       const gitObject = createGitObject("blob", content);
 
-      const info1 = await storage.store([gitObject]);
-      const info2 = await storage.store([gitObject]);
+      const id1 = await storage.store([gitObject]);
+      const id2 = await storage.store([gitObject]);
 
-      expect(info1.id).toBe(info2.id);
-      expect(info1.size).toBe(info2.size);
+      expect(id1).toBe(id2);
 
       // Count files in the fanout directory
-      const prefix = info1.id.substring(0, 2);
+      const prefix = id1.substring(0, 2);
       let fileCount = 0;
       for await (const entry of files.list(`${gitDir}/objects/${prefix}`)) {
         if (entry.kind === "file") fileCount++;
@@ -217,32 +216,45 @@ describe("GitRawObjectStorage", () => {
       const gitObject1 = createGitObject("blob", content1);
       const gitObject2 = createGitObject("blob", content2);
 
-      const info1 = await storage.store([gitObject1]);
-      const info2 = await storage.store([gitObject2]);
+      const id1 = await storage.store([gitObject1]);
+      const id2 = await storage.store([gitObject2]);
 
-      expect(info1.id).not.toBe(info2.id);
+      expect(id1).not.toBe(id2);
     });
   });
 
-  describe("getInfo()", () => {
-    it("returns info for existing object", async () => {
+  describe("getSize() and has()", () => {
+    it("returns size for existing object", async () => {
       const content = new TextEncoder().encode("test");
       const gitObject = createGitObject("blob", content);
 
-      const storeInfo = await storage.store([gitObject]);
-      const loadInfo = await storage.getInfo(storeInfo.id);
+      const id = await storage.store([gitObject]);
+      const size = await storage.getSize(id);
 
-      expect(loadInfo).not.toBeNull();
-      expect(loadInfo?.id).toBe(storeInfo.id);
-      expect(loadInfo?.size).toBe(gitObject.length);
+      expect(size).toBe(gitObject.length);
     });
 
-    it("returns null for non-existent object", async () => {
+    it("returns -1 for non-existent object", async () => {
       const fakeId = "0".repeat(40);
 
-      const info = await storage.getInfo(fakeId);
+      const size = await storage.getSize(fakeId);
 
-      expect(info).toBeNull();
+      expect(size).toBe(-1);
+    });
+
+    it("has() returns true for existing object", async () => {
+      const content = new TextEncoder().encode("test");
+      const gitObject = createGitObject("blob", content);
+
+      const id = await storage.store([gitObject]);
+
+      expect(await storage.has(id)).toBe(true);
+    });
+
+    it("has() returns false for non-existent object", async () => {
+      const fakeId = "0".repeat(40);
+
+      expect(await storage.has(fakeId)).toBe(false);
     });
   });
 
@@ -251,14 +263,13 @@ describe("GitRawObjectStorage", () => {
       const content = new TextEncoder().encode("to be deleted");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
-      const deleted = await storage.delete(info.id);
+      const id = await storage.store([gitObject]);
+      const deleted = await storage.delete(id);
 
       expect(deleted).toBe(true);
 
       // Verify object is gone
-      const loadInfo = await storage.getInfo(info.id);
-      expect(loadInfo).toBeNull();
+      expect(await storage.has(id)).toBe(false);
     });
 
     it("returns false for non-existent object", async () => {
@@ -280,124 +291,123 @@ describe("GitRawObjectStorage", () => {
 
       const storedIds: string[] = [];
       for (const obj of objects) {
-        const info = await storage.store([obj]);
-        storedIds.push(info.id);
+        const id = await storage.store([obj]);
+        storedIds.push(id);
       }
 
-      const listedInfos = [];
-      for await (const info of storage.listObjects()) {
-        listedInfos.push(info);
+      const listedIds: string[] = [];
+      for await (const id of storage.listObjects()) {
+        listedIds.push(id);
       }
 
-      expect(listedInfos).toHaveLength(3);
-      const listedIds = listedInfos.map((i) => i.id);
+      expect(listedIds).toHaveLength(3);
       for (const id of storedIds) {
         expect(listedIds).toContain(id);
       }
     });
 
     it("returns empty iterator when no objects exist", async () => {
-      const infos = [];
-      for await (const info of storage.listObjects()) {
-        infos.push(info);
+      const ids: string[] = [];
+      for await (const id of storage.listObjects()) {
+        ids.push(id);
       }
 
-      expect(infos).toHaveLength(0);
+      expect(ids).toHaveLength(0);
     });
 
     it("skips non-hex directories", async () => {
       const content = new TextEncoder().encode("valid");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
+      const storedId = await storage.store([gitObject]);
 
       // Create a non-hex directory with a file
       await files.mkdir(`${gitDir}/objects/zz`);
       await files.write(`${gitDir}/objects/zz/${"0".repeat(38)}`, [new Uint8Array([1, 2, 3])]);
 
-      const listedInfos = [];
-      for await (const listInfo of storage.listObjects()) {
-        listedInfos.push(listInfo);
+      const listedIds: string[] = [];
+      for await (const id of storage.listObjects()) {
+        listedIds.push(id);
       }
 
-      expect(listedInfos).toHaveLength(1);
-      expect(listedInfos[0].id).toBe(info.id);
+      expect(listedIds).toHaveLength(1);
+      expect(listedIds[0]).toBe(storedId);
     });
 
     it("skips files in root objects directory", async () => {
       const content = new TextEncoder().encode("valid");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
+      const storedId = await storage.store([gitObject]);
 
       // Create a file directly in objects directory (not in a fanout dir)
       await files.write(`${gitDir}/objects/some-file`, [new Uint8Array([1, 2, 3])]);
 
-      const listedInfos = [];
-      for await (const listInfo of storage.listObjects()) {
-        listedInfos.push(listInfo);
+      const listedIds: string[] = [];
+      for await (const id of storage.listObjects()) {
+        listedIds.push(id);
       }
 
-      expect(listedInfos).toHaveLength(1);
-      expect(listedInfos[0].id).toBe(info.id);
+      expect(listedIds).toHaveLength(1);
+      expect(listedIds[0]).toBe(storedId);
     });
 
     it("skips files with wrong suffix length", async () => {
       const content = new TextEncoder().encode("valid");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
+      const storedId = await storage.store([gitObject]);
 
       // Create files with wrong suffix length in aa/ directory
       await files.mkdir(`${gitDir}/objects/aa`);
       await files.write(`${gitDir}/objects/aa/short`, [new Uint8Array([1, 2, 3])]);
       await files.write(`${gitDir}/objects/aa/${"a".repeat(50)}`, [new Uint8Array([1, 2, 3])]);
 
-      const listedInfos = [];
-      for await (const listInfo of storage.listObjects()) {
-        listedInfos.push(listInfo);
+      const listedIds: string[] = [];
+      for await (const id of storage.listObjects()) {
+        listedIds.push(id);
       }
 
-      expect(listedInfos).toHaveLength(1);
-      expect(listedInfos[0].id).toBe(info.id);
+      expect(listedIds).toHaveLength(1);
+      expect(listedIds[0]).toBe(storedId);
     });
 
     it("skips non-hex suffixes", async () => {
       const content = new TextEncoder().encode("valid");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
+      const storedId = await storage.store([gitObject]);
 
       // Create files with non-hex characters in ab/ directory
       await files.mkdir(`${gitDir}/objects/ab`);
       await files.write(`${gitDir}/objects/ab/${"z".repeat(38)}`, [new Uint8Array([1, 2, 3])]);
 
-      const listedInfos = [];
-      for await (const listInfo of storage.listObjects()) {
-        listedInfos.push(listInfo);
+      const listedIds: string[] = [];
+      for await (const id of storage.listObjects()) {
+        listedIds.push(id);
       }
 
-      expect(listedInfos).toHaveLength(1);
-      expect(listedInfos[0].id).toBe(info.id);
+      expect(listedIds).toHaveLength(1);
+      expect(listedIds[0]).toBe(storedId);
     });
 
     it("handles subdirectories inside fanout directories", async () => {
       const content = new TextEncoder().encode("valid");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
+      const storedId = await storage.store([gitObject]);
 
       // Create a subdirectory inside a fanout directory
       await files.mkdir(`${gitDir}/objects/aa`);
       await files.mkdir(`${gitDir}/objects/aa/subdir`);
 
-      const listedInfos = [];
-      for await (const listInfo of storage.listObjects()) {
-        listedInfos.push(listInfo);
+      const listedIds: string[] = [];
+      for await (const id of storage.listObjects()) {
+        listedIds.push(id);
       }
 
-      expect(listedInfos).toHaveLength(1);
-      expect(listedInfos[0].id).toBe(info.id);
+      expect(listedIds).toHaveLength(1);
+      expect(listedIds[0]).toBe(storedId);
     });
 
     it("handles multiple objects in same fanout directory", async () => {
@@ -405,18 +415,17 @@ describe("GitRawObjectStorage", () => {
       const storedIds: string[] = [];
       for (let i = 0; i < 20; i++) {
         const gitObject = createGitObject("blob", new TextEncoder().encode(`content ${i}`));
-        const info = await storage.store([gitObject]);
-        storedIds.push(info.id);
+        const id = await storage.store([gitObject]);
+        storedIds.push(id);
       }
 
       // All objects should be listed
-      const listedInfos = [];
-      for await (const listInfo of storage.listObjects()) {
-        listedInfos.push(listInfo);
+      const listedIds: string[] = [];
+      for await (const id of storage.listObjects()) {
+        listedIds.push(id);
       }
 
-      expect(listedInfos).toHaveLength(20);
-      const listedIds = listedInfos.map((i) => i.id);
+      expect(listedIds).toHaveLength(20);
       for (const id of storedIds) {
         expect(listedIds).toContain(id);
       }
@@ -434,10 +443,10 @@ describe("GitRawObjectStorage", () => {
       const content = new TextEncoder().encode("new fanout");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
+      const id = await storage.store([gitObject]);
 
       // Verify fanout directory was created
-      const prefix = info.id.substring(0, 2);
+      const prefix = id.substring(0, 2);
       const exists = await files.exists(`${gitDir}/objects/${prefix}`);
       expect(exists).toBe(true);
     });
@@ -527,13 +536,13 @@ describe("GitRawObjectStorage", () => {
       expect(loaded).toEqual(createGitObject("blob", content));
     });
 
-    it("getInfo throws for corrupt object", async () => {
+    it("getSize throws for corrupt object", async () => {
       // Write corrupt data
       const garbage = new Uint8Array([0x01, 0x02, 0x03]);
       await writeRawObject(fakeId, garbage);
 
-      // getInfo throws when trying to decompress corrupt data
-      await expect(storage.getInfo(fakeId)).rejects.toThrow();
+      // getSize throws when trying to decompress corrupt data
+      await expect(storage.getSize(fakeId)).rejects.toThrow();
     });
   });
 
@@ -556,19 +565,19 @@ describe("GitRawObjectStorage", () => {
     it("handles empty blob", async () => {
       const gitObject = createGitObject("blob", new Uint8Array(0));
 
-      const info = await storage.store([gitObject]);
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store([gitObject]);
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
-      expect(info.size).toBe(gitObject.length);
+      expect(await storage.getSize(id)).toBe(gitObject.length);
     });
 
     it("handles binary content with null bytes", async () => {
       const content = new Uint8Array([0, 1, 2, 0, 3, 4, 0, 0, 5]);
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store([gitObject]);
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
     });
@@ -577,8 +586,8 @@ describe("GitRawObjectStorage", () => {
       const content = new TextEncoder().encode("Hello 世界 🌍");
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store([gitObject]);
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
     });
@@ -587,8 +596,8 @@ describe("GitRawObjectStorage", () => {
       const content = new Uint8Array([42]);
       const gitObject = createGitObject("blob", content);
 
-      const info = await storage.store([gitObject]);
-      const loaded = await collectChunks(storage.load(info.id));
+      const id = await storage.store([gitObject]);
+      const loaded = await collectChunks(storage.load(id));
 
       expect(loaded).toEqual(gitObject);
     });

@@ -139,9 +139,8 @@ export class PackingOrchestrator {
     const candidates: PackingCandidate[] = [];
 
     for (const objectId of newObjectIds) {
-      const info = await context.objects.getInfo(objectId);
-      if (!info) continue;
-      const size = info.size;
+      const size = await context.objects.getSize(objectId);
+      if (size < 0) continue;
       if (size < opts.minObjectSize) continue;
 
       const chainInfo = await context.objects.getDeltaChainInfo(objectId);

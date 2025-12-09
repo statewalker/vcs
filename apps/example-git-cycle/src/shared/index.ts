@@ -165,8 +165,7 @@ export function createAuthor(
  */
 export async function storeBlob(storage: GitStorage, content: string): Promise<ObjectId> {
   const bytes = new TextEncoder().encode(content);
-  const { id } = await storage.objects.store([bytes]);
-  return id;
+  return storage.objects.store([bytes]);
 }
 
 /**

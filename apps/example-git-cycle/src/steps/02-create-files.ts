@@ -93,10 +93,10 @@ export async function step02CreateFiles(): Promise<void> {
   // Demonstrate object info
   printSubsection("Getting object metadata");
 
-  const info = await storage.objects.getInfo(storedFiles.readme);
+  const size = await storage.objects.getSize(storedFiles.readme);
   console.log(`\n  README.md object info:`);
-  console.log(`    ID:   ${info?.id}`);
-  console.log(`    Size: ${info?.size} bytes`);
+  console.log(`    ID:   ${storedFiles.readme}`);
+  console.log(`    Size: ${size} bytes`);
 
   // Show how blobs are stored internally
   console.log(`\n  Note: Blobs are stored with zlib compression in .git/objects/`);

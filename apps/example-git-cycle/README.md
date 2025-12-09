@@ -74,7 +74,7 @@ Stores file content as Git blob objects. Blobs are content-addressable: identica
 ```typescript
 // Store text as a blob
 const content = new TextEncoder().encode("Hello, World!");
-const { id, size } = await storage.objects.store([content]);
+const id = await storage.objects.store([content]);
 
 // Read blob content
 const chunks: Uint8Array[] = [];
@@ -82,12 +82,17 @@ for await (const chunk of storage.objects.load(id)) {
   chunks.push(chunk);
 }
 const text = new TextDecoder().decode(chunks[0]);
+
+// Check size and existence
+const size = await storage.objects.getSize(id);
+const exists = await storage.objects.has(id);
 ```
 
 **Key APIs:**
-- [`ObjectStorage.store()`](../../packages/storage/src/object-storage.ts#L28) - Store content chunks, returns hash
-- [`ObjectStorage.load()`](../../packages/storage/src/object-storage.ts#L40) - Load content as async iterable
-- [`ObjectStorage.getInfo()`](../../packages/storage/src/object-storage.ts#L48) - Get object metadata
+- [`ObjectStorage.store()`](../../packages/storage/src/object-storage.ts) - Store content chunks, returns ObjectId
+- [`ObjectStorage.load()`](../../packages/storage/src/object-storage.ts) - Load content as async iterable
+- [`ObjectStorage.getSize()`](../../packages/storage/src/object-storage.ts) - Get object size (-1 if not found)
+- [`ObjectStorage.has()`](../../packages/storage/src/object-storage.ts) - Check if object exists
 
 **Key Concepts:**
 - Content is hashed (SHA-1) to produce the ObjectId
