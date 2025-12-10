@@ -250,13 +250,20 @@ export class GitDeltaObjectStorage implements DeltaObjectStorage {
    *
    * This is the Git GC operation - creates new optimized pack files
    * and removes old/redundant storage.
+   *
+   * @param options.maxDepth - Maximum delta chain depth
+   * @param options.windowSize - Size of sliding window for delta candidates (default: 10)
+   * @param options.aggressive - Use more aggressive compression
+   * @param options.pruneLoose - Remove loose objects after packing (default: true)
    */
   async repack(options?: {
     maxDepth?: number;
     windowSize?: number;
     aggressive?: boolean;
+    pruneLoose?: boolean;
   }): Promise<void> {
     const windowSize = options?.windowSize ?? 10;
+    const pruneLoose = options?.pruneLoose ?? true;
 
     // Collect all objects
     const objects: { id: ObjectId; content: Uint8Array; type: PackObjectType; size: number }[] = [];
@@ -332,10 +339,42 @@ export class GitDeltaObjectStorage implements DeltaObjectStorage {
     const indexData = await writePackIndex(result.indexEntries, result.packChecksum);
     await atomicWriteFile(this.files, idxPath, indexData);
 
-    // TODO: Remove old packs and loose objects (careful operation)
-    // This is left as manual operation to avoid data loss
-
     await this.packStorage.refresh();
+
+    // Prune loose objects that are now in the new pack
+    if (pruneLoose) {
+      await this.pruneLooseObjects();
+    }
+  }
+
+  /**
+   * Prune loose objects that exist in pack storage
+   *
+   * Removes loose object files for objects that are safely stored in pack files.
+   * This is called automatically by repack() unless pruneLoose is set to false.
+   *
+   * @returns Number of loose objects pruned
+   */
+  async pruneLooseObjects(): Promise<number> {
+    let pruned = 0;
+
+    // Collect all loose object IDs first (to avoid modifying while iterating)
+    const looseIds: ObjectId[] = [];
+    for await (const id of this.looseStorage.listObjects()) {
+      looseIds.push(id);
+    }
+
+    // Delete loose objects that exist in pack storage
+    for (const id of looseIds) {
+      if (await this.packStorage.has(id)) {
+        const deleted = await this.looseStorage.delete(id);
+        if (deleted) {
+          pruned++;
+        }
+      }
+    }
+
+    return pruned;
   }
 
   // ========== Helper Methods ==========
