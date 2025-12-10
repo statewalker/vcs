@@ -1,0 +1,28 @@
+{
+  "name": "@webrun-vcs/example-git-perf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Performance benchmark: Clone git source repository, run gc, load pack files with webrun-vcs, traverse commit history",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "step:clone": "tsx src/steps/01-clone-repository.ts",
+    "step:gc": "tsx src/steps/02-garbage-collection.ts",
+    "step:load": "tsx src/steps/03-load-pack-files.ts",
+    "step:traverse": "tsx src/steps/04-traverse-commits.ts",
+    "step:measure": "tsx src/steps/05-measure-access.ts",
+    "step:results": "tsx src/steps/06-write-results.ts",
+    "step:checkout": "tsx src/steps/07-checkout-commit.ts"
+  },
+  "dependencies": {
+    "@statewalker/webrun-files": "catalog:",
+    "@webrun-vcs/compression": "workspace:*",
+    "@webrun-vcs/storage": "workspace:*",
+    "@webrun-vcs/storage-git": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}
