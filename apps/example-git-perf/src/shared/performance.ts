@@ -6,7 +6,7 @@ import type { PerformanceMetric } from "./types.js";
 
 export class PerformanceTracker {
   private metrics: PerformanceMetric[] = [];
-  private startTime: number = 0;
+  private startTime = 0;
 
   start(): void {
     this.startTime = performance.now();

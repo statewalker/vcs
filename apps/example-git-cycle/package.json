@@ -18,9 +18,9 @@
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
-    "@webrun-vcs/compression": "workspace:*",
-    "@webrun-vcs/storage": "workspace:*",
-    "@webrun-vcs/storage-git": "workspace:*"
+    "@webrun-vcs/utils": "workspace:*",
+    "@webrun-vcs/vcs": "workspace:*",
+    "@webrun-vcs/store-files": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

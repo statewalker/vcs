@@ -8,7 +8,7 @@
     "lint": "biome lint src"
   },
   "dependencies": {
-    "@webrun-vcs/diff": "workspace:*"
+    "@webrun-vcs/utils": "workspace:*"
   },
   "devDependencies": {
     "tsx": "catalog:",

@@ -11,10 +11,10 @@
  */
 
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { setCompression } from "@webrun-vcs/compression";
-import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
-import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/storage";
-import { createGitStorage, type GitStorage } from "@webrun-vcs/storage-git";
+import { createGitStorage, type GitStorage } from "@webrun-vcs/store-files";
+import { setCompression } from "@webrun-vcs/utils";
+import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/vcs";
 
 // ============================================================================
 // Compression Setup
@@ -156,7 +156,7 @@ export function createAuthor(
  * Blobs are content-addressable: identical content produces identical IDs.
  * Content is hashed (SHA-1) to produce the ObjectId.
  *
- * @see packages/storage/src/object-storage.ts - ObjectStorage.store()
+ * @see packages/storage/src/object-storage.ts - ObjectStore.store()
  * @see packages/storage-git/src/git-object-storage.ts - GitObjectStorage
  *
  * @param storage - Git storage instance
@@ -174,7 +174,7 @@ export async function storeBlob(storage: GitStorage, content: string): Promise<O
  * Content is loaded as an AsyncIterable of chunks for memory efficiency.
  * For small files, chunks are combined into a single string.
  *
- * @see packages/storage/src/object-storage.ts - ObjectStorage.load()
+ * @see packages/storage/src/object-storage.ts - ObjectStore.load()
  *
  * @param storage - Git storage instance
  * @param id - Blob ObjectId
@@ -205,7 +205,7 @@ export async function readBlob(storage: GitStorage, id: ObjectId): Promise<strin
  * Trees are directory snapshots containing entries with mode, name, and id.
  * Subdirectories (mode=TREE) are traversed recursively.
  *
- * @see packages/storage/src/file-tree-storage.ts - FileTreeStorage.loadTree()
+ * @see packages/storage/src/file-tree-storage.ts - TreeStore.loadTree()
  *
  * @param storage - Git storage instance
  * @param treeId - Tree ObjectId
@@ -332,7 +332,7 @@ export function getModeType(mode: number): string {
   }
 }
 
-export type { Commit, ObjectId, PersonIdent, TreeEntry } from "@webrun-vcs/storage";
+export type { GitStorage } from "@webrun-vcs/store-files";
+export type { Commit, ObjectId, PersonIdent, TreeEntry } from "@webrun-vcs/vcs";
 // Re-export commonly used types
-export { FileMode, ObjectType } from "@webrun-vcs/storage";
-export type { GitStorage } from "@webrun-vcs/storage-git";
+export { FileMode, ObjectType } from "@webrun-vcs/vcs";

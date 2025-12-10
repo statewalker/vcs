@@ -8,13 +8,13 @@
 
 import * as fs from "node:fs/promises";
 import {
-  GIT_REPO_URL,
-  PERF_OUTPUT_FILE,
   type CommitInfo,
-  type PerformanceResults,
-  PerformanceTracker,
   formatDuration,
+  GIT_REPO_URL,
   listPackFiles,
+  PERF_OUTPUT_FILE,
+  type PerformanceResults,
+  type PerformanceTracker,
   printBanner,
   printInfo,
   printSection,
@@ -55,14 +55,14 @@ export function printSummary(tracker: PerformanceTracker, commits: CommitInfo[])
   const metrics = tracker.getMetrics();
 
   console.log("\n  Operation Timings:");
-  console.log("  " + "-".repeat(60));
+  console.log(`  ${"-".repeat(60)}`);
 
   for (const metric of metrics) {
     const paddedName = metric.name.padEnd(30);
     console.log(`  ${paddedName} ${formatDuration(metric.duration)}`);
   }
 
-  console.log("  " + "-".repeat(60));
+  console.log(`  ${"-".repeat(60)}`);
   console.log(`  ${"TOTAL".padEnd(30)} ${formatDuration(tracker.getTotalDuration())}`);
 
   // Calculate rates

@@ -6,13 +6,13 @@
  * Run with: pnpm step:traverse
  */
 
-import type { ObjectId } from "@webrun-vcs/storage";
-import type { GitStorage } from "@webrun-vcs/storage-git";
+import type { GitStorage } from "@webrun-vcs/store-files";
+import type { ObjectId } from "@webrun-vcs/vcs";
 import {
   COMMIT_LIMIT,
   type CommitInfo,
-  PerformanceTracker,
   openStorage,
+  PerformanceTracker,
   printBanner,
   printInfo,
   printSection,
@@ -51,7 +51,7 @@ export async function traverseCommits(
 
         const firstLine = commit.message.split("\n")[0].substring(0, 60);
         const displayMessage =
-          firstLine.length < commit.message.split("\n")[0].length ? firstLine + "..." : firstLine;
+          firstLine.length < commit.message.split("\n")[0].length ? `${firstLine}...` : firstLine;
 
         commits.push({
           id: commitId,

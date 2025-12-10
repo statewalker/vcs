@@ -9,7 +9,7 @@
  * - isAncestor() checks commit relationships
  * - findMergeBase() finds common ancestors for merge operations
  *
- * @see packages/storage/src/commit-storage.ts - CommitStorage interface
+ * @see packages/storage/src/commit-storage.ts - CommitStore interface
  * @see packages/storage-git/src/git-commit-storage.ts - walkAncestry implementation
  */
 

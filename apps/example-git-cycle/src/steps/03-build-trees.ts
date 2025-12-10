@@ -9,7 +9,7 @@
  * - Trees are automatically sorted in Git canonical order
  * - File modes indicate type: regular file, executable, symlink, tree, gitlink
  *
- * @see packages/storage/src/file-tree-storage.ts - FileTreeStorage interface
+ * @see packages/storage/src/file-tree-storage.ts - TreeStore interface
  * @see packages/storage-git/src/git-file-tree-storage.ts - Git implementation
  * @see packages/storage-git/src/format/tree-format.ts - Binary format
  */

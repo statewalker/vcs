@@ -5,7 +5,7 @@ import {
   Edit,
   encodeGitBinaryDelta,
   MyersDiff,
-} from "@webrun-vcs/diff";
+} from "@webrun-vcs/utils";
 import type { Benchmark, BenchmarkConfig, BenchmarkResult, MetricResult } from "../types.js";
 import { getEnvironmentInfo } from "../utils/environment.js";
 import { generateMutatedTarget, generateRandomBytes, SeededRandom } from "../utils/random.js";

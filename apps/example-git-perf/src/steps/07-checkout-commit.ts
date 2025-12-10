@@ -7,21 +7,21 @@
  * Run with: pnpm step:checkout
  */
 
-import * as fs from "node:fs/promises";
 import * as fsSync from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { GitStorage } from "@webrun-vcs/storage-git";
-import type { ObjectId } from "@webrun-vcs/storage";
-import { FileMode } from "@webrun-vcs/storage";
+import type { GitStorage } from "@webrun-vcs/store-files";
+import type { ObjectId } from "@webrun-vcs/vcs";
+import { FileMode } from "@webrun-vcs/vcs";
 import {
-  PerformanceTracker,
-  REPO_DIR,
   formatBytes,
   openStorage,
+  PerformanceTracker,
   printBanner,
   printInfo,
   printSection,
+  REPO_DIR,
   runGitCommand,
   shortId,
 } from "../shared/index.js";

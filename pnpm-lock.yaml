@@ -74,15 +74,15 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/compression':
+      '@webrun-vcs/store-files':
         specifier: workspace:*
-        version: link:../../packages/compression
-      '@webrun-vcs/storage':
+        version: link:../../packages/store-files
+      '@webrun-vcs/utils':
         specifier: workspace:*
-        version: link:../../packages/storage
-      '@webrun-vcs/storage-git':
+        version: link:../../packages/utils
+      '@webrun-vcs/vcs':
         specifier: workspace:*
-        version: link:../../packages/storage-git
+        version: link:../../packages/vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -99,15 +99,15 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/compression':
+      '@webrun-vcs/store-files':
         specifier: workspace:*
-        version: link:../../packages/compression
-      '@webrun-vcs/storage':
+        version: link:../../packages/store-files
+      '@webrun-vcs/utils':
         specifier: workspace:*
-        version: link:../../packages/storage
-      '@webrun-vcs/storage-git':
+        version: link:../../packages/utils
+      '@webrun-vcs/vcs':
         specifier: workspace:*
-        version: link:../../packages/storage-git
+        version: link:../../packages/vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -124,15 +124,15 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/compression':
+      '@webrun-vcs/store-files':
         specifier: workspace:*
-        version: link:../../packages/compression
-      '@webrun-vcs/storage':
+        version: link:../../packages/store-files
+      '@webrun-vcs/utils':
         specifier: workspace:*
-        version: link:../../packages/storage
-      '@webrun-vcs/storage-git':
+        version: link:../../packages/utils
+      '@webrun-vcs/vcs':
         specifier: workspace:*
-        version: link:../../packages/storage-git
+        version: link:../../packages/vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -149,12 +149,12 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/compression':
+      '@webrun-vcs/store-files':
         specifier: workspace:*
-        version: link:../../packages/compression
-      '@webrun-vcs/storage-git':
+        version: link:../../packages/store-files
+      '@webrun-vcs/utils':
         specifier: workspace:*
-        version: link:../../packages/storage-git
+        version: link:../../packages/utils
     devDependencies:
       tsx:
         specifier: 'catalog:'
@@ -165,9 +165,9 @@ importers:
 
   apps/perf-bench:
     dependencies:
-      '@webrun-vcs/diff':
+      '@webrun-vcs/utils':
         specifier: workspace:*
-        version: link:../../packages/diff
+        version: link:../../packages/utils
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -179,151 +179,24 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
-  packages/compression:
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/diff:
-    dependencies:
-      '@webrun-vcs/compression':
-        specifier: workspace:*
-        version: link:../compression
-      '@webrun-vcs/hash':
-        specifier: workspace:*
-        version: link:../hash
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/hash:
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/storage:
-    dependencies:
-      '@webrun-vcs/diff':
-        specifier: workspace:*
-        version: link:../diff
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/storage-default:
-    dependencies:
-      '@webrun-vcs/compression':
-        specifier: workspace:*
-        version: link:../compression
-      '@webrun-vcs/diff':
-        specifier: workspace:*
-        version: link:../diff
-      '@webrun-vcs/hash':
-        specifier: workspace:*
-        version: link:../hash
-      '@webrun-vcs/storage':
-        specifier: workspace:*
-        version: link:../storage
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/storage-delta:
-    dependencies:
-      '@webrun-vcs/diff':
-        specifier: workspace:*
-        version: link:../diff
-      '@webrun-vcs/storage':
-        specifier: workspace:*
-        version: link:../storage
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/storage-git:
+  packages/store-files:
     dependencies:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/compression':
+      '@webrun-vcs/utils':
         specifier: workspace:*
-        version: link:../compression
-      '@webrun-vcs/diff':
+        version: link:../utils
+      '@webrun-vcs/vcs':
         specifier: workspace:*
-        version: link:../diff
-      '@webrun-vcs/hash':
-        specifier: workspace:*
-        version: link:../hash
-      '@webrun-vcs/storage':
-        specifier: workspace:*
-        version: link:../storage
+        version: link:../vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
-      '@webrun-vcs/storage-tests':
+      '@webrun-vcs/testing':
         specifier: workspace:*
-        version: link:../storage-tests
+        version: link:../testing
       rolldown:
         specifier: 'catalog:'
         version: 1.0.0-beta.51
@@ -334,70 +207,14 @@ importers:
         specifier: 'catalog:'
         version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
 
-  packages/storage-mem:
+  packages/store-sql:
     dependencies:
-      '@webrun-vcs/compression':
+      '@webrun-vcs/utils':
         specifier: workspace:*
-        version: link:../compression
-      '@webrun-vcs/storage':
+        version: link:../utils
+      '@webrun-vcs/vcs':
         specifier: workspace:*
-        version: link:../storage
-      '@webrun-vcs/storage-default':
-        specifier: workspace:*
-        version: link:../storage-default
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      '@webrun-vcs/storage-tests':
-        specifier: workspace:*
-        version: link:../storage-tests
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/storage-pack:
-    dependencies:
-      '@webrun-vcs/storage':
-        specifier: workspace:*
-        version: link:../storage
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      '@webrun-vcs/storage-mem':
-        specifier: workspace:*
-        version: link:../storage-mem
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/storage-sql:
-    dependencies:
-      '@webrun-vcs/compression':
-        specifier: workspace:*
-        version: link:../compression
-      '@webrun-vcs/diff':
-        specifier: workspace:*
-        version: link:../diff
-      '@webrun-vcs/storage':
-        specifier: workspace:*
-        version: link:../storage
-      '@webrun-vcs/storage-default':
-        specifier: workspace:*
-        version: link:../storage-default
+        version: link:../vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -405,9 +222,9 @@ importers:
       '@types/sql.js':
         specifier: ^1.4.9
         version: 1.4.9
-      '@webrun-vcs/storage-tests':
+      '@webrun-vcs/testing':
         specifier: workspace:*
-        version: link:../storage-tests
+        version: link:../testing
       rolldown:
         specifier: 'catalog:'
         version: 1.0.0-beta.51
@@ -421,14 +238,45 @@ importers:
         specifier: 'catalog:'
         version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
 
-  packages/storage-tests:
+  packages/testing:
     dependencies:
-      '@webrun-vcs/storage':
+      '@webrun-vcs/vcs':
         specifier: workspace:*
-        version: link:../storage
-      '@webrun-vcs/storage-default':
+        version: link:../vcs
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.1
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.51
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
+
+  packages/utils:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.1
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.51
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
+
+  packages/vcs:
+    dependencies:
+      '@webrun-vcs/utils':
         specifier: workspace:*
-        version: link:../storage-default
+        version: link:../utils
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

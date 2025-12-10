@@ -5,9 +5,9 @@
 import * as fs from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { setCompression } from "@webrun-vcs/compression";
-import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
-import { PackObjectType } from "@webrun-vcs/storage-git";
+import { PackObjectType } from "@webrun-vcs/store-files";
+import { setCompression } from "@webrun-vcs/utils";
+import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 
 // Set up Node.js compression (required for pack file operations)
 setCompression(createNodeCompression());

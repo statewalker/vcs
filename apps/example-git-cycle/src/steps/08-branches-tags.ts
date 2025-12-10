@@ -10,9 +10,9 @@
  * - Switching branches = updating HEAD
  *
  * @see packages/storage-git/src/git-ref-storage.ts - GitRefStorage class
- * @see packages/storage/src/ref-storage.ts - RefStorage interface
+ * @see packages/storage/src/ref-storage.ts - RefStore interface
  * @see packages/storage-git/src/refs/ref-types.ts - Ref, SymbolicRef types
- * @see packages/storage/src/tag-storage.ts - TagStorage for annotated tags
+ * @see packages/storage/src/tag-storage.ts - TagStore for annotated tags
  */
 
 import {
