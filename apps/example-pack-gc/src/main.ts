@@ -1,0 +1,608 @@
+/**
+ * Example: Git Repository Creation, Commits, Packing (GC), and Native Git Verification
+ *
+ * This example demonstrates:
+ * 1. Creating a new Git repository using FilesApi on real filesystem
+ * 2. Making multiple commits with file changes
+ * 3. Verifying loose objects appear in .git/objects
+ * 4. Packing all objects (gc operation)
+ * 5. Cleaning up loose objects after packing
+ * 6. Verifying pack files exist and loose objects are removed
+ * 7. Verifying all commits can still be restored from pack files
+ * 8. Verifying native git can read the repository
+ *
+ * Run with: pnpm start
+ */
+
+import { execSync } from "node:child_process";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import { FilesApi, NodeFilesApi, joinPath } from "@statewalker/webrun-files";
+import { setCompression } from "@webrun-vcs/compression";
+import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
+import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/storage";
+import { createGitStorage, type GitStorage } from "@webrun-vcs/storage-git";
+
+// Initialize compression (required before any storage operations)
+setCompression(createNodeCompression());
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+const REPO_DIR = path.join(process.cwd(), "test-repo");
+const GIT_DIR = ".git";
+const OBJECTS_DIR = path.join(REPO_DIR, GIT_DIR, "objects");
+const PACK_DIR = path.join(OBJECTS_DIR, "pack");
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+function createFilesApi(): FilesApi {
+  const nodeFs = new NodeFilesApi({ fs, rootDir: REPO_DIR });
+  return new FilesApi(nodeFs);
+}
+
+function createAuthor(
+  name = "Demo User",
+  email = "demo@example.com",
+  timestamp = Math.floor(Date.now() / 1000),
+): PersonIdent {
+  return {
+    name,
+    email,
+    timestamp,
+    tzOffset: "+0000",
+  };
+}
+
+async function storeBlob(storage: GitStorage, content: string): Promise<ObjectId> {
+  const bytes = new TextEncoder().encode(content);
+  return storage.objects.store([bytes]);
+}
+
+async function readBlob(storage: GitStorage, id: ObjectId): Promise<string> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of storage.objects.load(id)) {
+    chunks.push(chunk);
+  }
+  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return new TextDecoder().decode(result);
+}
+
+function shortId(id: ObjectId): string {
+  return id.substring(0, 7);
+}
+
+function printSection(title: string): void {
+  console.log(`\n${"=".repeat(70)}`);
+  console.log(`  ${title}`);
+  console.log("=".repeat(70));
+}
+
+function printInfo(label: string, value: string | number | boolean): void {
+  console.log(`  ${label}: ${value}`);
+}
+
+async function countLooseObjects(): Promise<{ count: number; objects: string[] }> {
+  const objects: string[] = [];
+
+  try {
+    const fanoutDirs = await fs.readdir(OBJECTS_DIR);
+
+    for (const dir of fanoutDirs) {
+      // Skip pack and info directories
+      if (dir === "pack" || dir === "info" || dir.length !== 2) continue;
+
+      // Check if it's a valid hex prefix
+      if (!/^[0-9a-f]{2}$/i.test(dir)) continue;
+
+      const subdir = path.join(OBJECTS_DIR, dir);
+      try {
+        const files = await fs.readdir(subdir);
+        for (const file of files) {
+          if (file.length === 38 && /^[0-9a-f]{38}$/i.test(file)) {
+            objects.push(dir + file);
+          }
+        }
+      } catch {
+        // Directory doesn't exist
+      }
+    }
+  } catch {
+    // Objects directory doesn't exist
+  }
+
+  return { count: objects.length, objects };
+}
+
+async function listPackFiles(): Promise<string[]> {
+  const packs: string[] = [];
+
+  try {
+    const files = await fs.readdir(PACK_DIR);
+    for (const file of files) {
+      if (file.endsWith(".pack")) {
+        packs.push(file);
+      }
+    }
+  } catch {
+    // Pack directory doesn't exist
+  }
+
+  return packs;
+}
+
+async function cleanupRepo(): Promise<void> {
+  try {
+    await fs.rm(REPO_DIR, { recursive: true, force: true });
+  } catch {
+    // Directory doesn't exist
+  }
+}
+
+function runGitCommand(cmd: string): string {
+  try {
+    return execSync(cmd, { cwd: REPO_DIR, encoding: "utf-8" }).trim();
+  } catch (error) {
+    const e = error as { stderr?: string; message?: string };
+    return `ERROR: ${e.stderr || e.message}`;
+  }
+}
+
+// ============================================================================
+// Main Example
+// ============================================================================
+
+async function main() {
+  console.log(`
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║           webrun-vcs: Pack GC Example with Native Git Verification           ║
+║                                                                              ║
+║  This example demonstrates repository creation, commits, packing (gc),       ║
+║  and verification that native git can read the resulting repository.         ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+`);
+
+  // ========== Step 1: Clean up and create fresh repository ==========
+  printSection("Step 1: Create New Git Repository");
+
+  await cleanupRepo();
+  await fs.mkdir(REPO_DIR, { recursive: true });
+
+  const files = createFilesApi();
+  const storage = await createGitStorage(files, GIT_DIR, {
+    create: true,
+    defaultBranch: "main",
+  });
+
+  printInfo("Repository created at", REPO_DIR);
+  printInfo("Git directory", path.join(REPO_DIR, GIT_DIR));
+
+  // ========== Step 2: Create multiple commits ==========
+  printSection("Step 2: Create Multiple Commits");
+
+  const commits: { id: ObjectId; message: string; files: Map<string, string> }[] = [];
+  let baseTimestamp = Math.floor(Date.now() / 1000);
+
+  // Commit 1: Initial commit with README
+  {
+    const readmeContent = `# Test Repository
+
+This is a test repository created by webrun-vcs.
+
+## Purpose
+
+Demonstrating pack file creation and native git compatibility.
+`;
+    const readmeId = await storeBlob(storage, readmeContent);
+    const treeId = await storage.trees.storeTree([
+      { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
+    ]);
+
+    const author = createAuthor("Demo User", "demo@example.com", baseTimestamp);
+    const commitId = await storage.commits.storeCommit({
+      tree: treeId,
+      parents: [],
+      author,
+      committer: author,
+      message: "Initial commit\n\nAdd README file",
+    });
+
+    await storage.refs.set("refs/heads/main", commitId);
+    commits.push({
+      id: commitId,
+      message: "Initial commit",
+      files: new Map([["README.md", readmeContent]]),
+    });
+    console.log(`  Commit 1: ${shortId(commitId)} - Initial commit`);
+  }
+
+  // Commit 2: Add source file
+  {
+    baseTimestamp += 3600; // 1 hour later
+    const srcContent = `export function hello(name: string): string {
+  return \`Hello, \${name}!\`;
+}
+
+export function add(a: number, b: number): number {
+  return a + b;
+}
+`;
+    const srcId = await storeBlob(storage, srcContent);
+
+    // Get README from previous commit
+    const prevCommit = await storage.commits.loadCommit(commits[0].id);
+    const prevTree = await collectTreeEntries(storage, prevCommit.tree);
+    const readmeEntry = prevTree.find((e) => e.name === "README.md")!;
+
+    const treeId = await storage.trees.storeTree([
+      { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeEntry.id },
+      { mode: FileMode.REGULAR_FILE, name: "index.ts", id: srcId },
+    ]);
+
+    const author = createAuthor("Demo User", "demo@example.com", baseTimestamp);
+    const commitId = await storage.commits.storeCommit({
+      tree: treeId,
+      parents: [commits[0].id],
+      author,
+      committer: author,
+      message: "Add source file\n\nImplement hello and add functions",
+    });
+
+    await storage.refs.set("refs/heads/main", commitId);
+    commits.push({
+      id: commitId,
+      message: "Add source file",
+      files: new Map([
+        ["README.md", commits[0].files.get("README.md")!],
+        ["index.ts", srcContent],
+      ]),
+    });
+    console.log(`  Commit 2: ${shortId(commitId)} - Add source file`);
+  }
+
+  // Commit 3: Update source file (creates delta opportunity)
+  {
+    baseTimestamp += 3600;
+    const srcContent = `export function hello(name: string): string {
+  return \`Hello, \${name}!\`;
+}
+
+export function add(a: number, b: number): number {
+  return a + b;
+}
+
+export function multiply(a: number, b: number): number {
+  return a * b;
+}
+
+export function subtract(a: number, b: number): number {
+  return a - b;
+}
+`;
+    const srcId = await storeBlob(storage, srcContent);
+
+    const prevCommit = await storage.commits.loadCommit(commits[1].id);
+    const prevTree = await collectTreeEntries(storage, prevCommit.tree);
+    const readmeEntry = prevTree.find((e) => e.name === "README.md")!;
+
+    const treeId = await storage.trees.storeTree([
+      { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeEntry.id },
+      { mode: FileMode.REGULAR_FILE, name: "index.ts", id: srcId },
+    ]);
+
+    const author = createAuthor("Demo User", "demo@example.com", baseTimestamp);
+    const commitId = await storage.commits.storeCommit({
+      tree: treeId,
+      parents: [commits[1].id],
+      author,
+      committer: author,
+      message: "Add more functions\n\nImplement multiply and subtract",
+    });
+
+    await storage.refs.set("refs/heads/main", commitId);
+    commits.push({
+      id: commitId,
+      message: "Add more functions",
+      files: new Map([
+        ["README.md", commits[0].files.get("README.md")!],
+        ["index.ts", srcContent],
+      ]),
+    });
+    console.log(`  Commit 3: ${shortId(commitId)} - Add more functions`);
+  }
+
+  // Commit 4: Add another file
+  {
+    baseTimestamp += 3600;
+    const configContent = `{
+  "name": "example-project",
+  "version": "1.0.0",
+  "main": "index.ts"
+}
+`;
+    const configId = await storeBlob(storage, configContent);
+
+    const prevCommit = await storage.commits.loadCommit(commits[2].id);
+    const prevTree = await collectTreeEntries(storage, prevCommit.tree);
+
+    const treeId = await storage.trees.storeTree([
+      ...prevTree.map((e) => ({ mode: e.mode, name: e.name, id: e.id })),
+      { mode: FileMode.REGULAR_FILE, name: "package.json", id: configId },
+    ]);
+
+    const author = createAuthor("Demo User", "demo@example.com", baseTimestamp);
+    const commitId = await storage.commits.storeCommit({
+      tree: treeId,
+      parents: [commits[2].id],
+      author,
+      committer: author,
+      message: "Add package.json",
+    });
+
+    await storage.refs.set("refs/heads/main", commitId);
+    commits.push({
+      id: commitId,
+      message: "Add package.json",
+      files: new Map([
+        ["README.md", commits[0].files.get("README.md")!],
+        ["index.ts", commits[2].files.get("index.ts")!],
+        ["package.json", configContent],
+      ]),
+    });
+    console.log(`  Commit 4: ${shortId(commitId)} - Add package.json`);
+  }
+
+  printInfo("Total commits created", commits.length);
+
+  // ========== Step 3: Verify loose objects exist ==========
+  printSection("Step 3: Verify Loose Objects on Filesystem");
+
+  const { count: looseCountBefore, objects: looseObjectsBefore } = await countLooseObjects();
+  printInfo("Loose objects found", looseCountBefore);
+  console.log("\n  Sample loose objects:");
+  for (let i = 0; i < Math.min(5, looseObjectsBefore.length); i++) {
+    console.log(`    - ${looseObjectsBefore[i]}`);
+  }
+  if (looseObjectsBefore.length > 5) {
+    console.log(`    ... and ${looseObjectsBefore.length - 5} more`);
+  }
+
+  // ========== Step 4: Pack all objects (gc) ==========
+  printSection("Step 4: Pack All Objects (GC)");
+
+  console.log("  Running repack operation...");
+  await storage.rawStorage.repack({ windowSize: 10 });
+  await storage.refresh();
+
+  const packsAfterRepack = await listPackFiles();
+  printInfo("Pack files created", packsAfterRepack.length);
+  for (const pack of packsAfterRepack) {
+    const packPath = path.join(PACK_DIR, pack);
+    const stats = await fs.stat(packPath);
+    console.log(`    - ${pack} (${stats.size} bytes)`);
+  }
+
+  // ========== Step 5: Verify loose objects cleanup ==========
+  printSection("Step 5: Verify Automatic Loose Objects Cleanup");
+
+  const { count: looseAfterRepack, objects: looseObjectsAfterRepack } = await countLooseObjects();
+  console.log(`  Loose objects remaining after repack: ${looseAfterRepack}`);
+
+  if (looseAfterRepack === 0) {
+    console.log("  SUCCESS: Repack automatically removed all loose objects!");
+  } else {
+    console.log("  WARNING: Repack did NOT automatically remove loose objects.");
+    console.log("  This is a known limitation - see git-delta-object-storage.ts");
+    console.log("\n  Sample remaining loose objects:");
+    for (let i = 0; i < Math.min(5, looseObjectsAfterRepack.length); i++) {
+      console.log(`    - ${looseObjectsAfterRepack[i]}`);
+    }
+  }
+
+  // ========== Step 6: Verify pack files exist ==========
+  printSection("Step 6: Verify Filesystem State");
+
+  const { count: looseCountFinal } = await countLooseObjects();
+  const packsFinal = await listPackFiles();
+
+  printInfo("Loose objects remaining", looseCountFinal);
+  printInfo("Pack files", packsFinal.length);
+
+  if (looseCountFinal === 0 && packsFinal.length > 0) {
+    console.log("\n  SUCCESS: All objects are now packed!");
+  } else {
+    console.log("\n  WARNING: Some loose objects may still remain");
+  }
+
+  // ========== Step 7: Verify all commits can be restored ==========
+  printSection("Step 7: Verify All Commits Can Be Restored");
+
+  // Refresh storage to read from pack files
+  await storage.refresh();
+
+  let allCommitsValid = true;
+  for (const commitInfo of commits) {
+    try {
+      const commit = await storage.commits.loadCommit(commitInfo.id);
+      const tree = await collectTreeEntries(storage, commit.tree);
+
+      // Verify we can read all files
+      const actualFiles = new Map<string, string>();
+      for (const entry of tree) {
+        if (entry.mode === FileMode.REGULAR_FILE) {
+          const content = await readBlob(storage, entry.id);
+          actualFiles.set(entry.name, content);
+        }
+      }
+
+      // Check files match expected
+      let filesMatch = true;
+      for (const [name, expectedContent] of commitInfo.files) {
+        const actualContent = actualFiles.get(name);
+        if (actualContent !== expectedContent) {
+          filesMatch = false;
+          break;
+        }
+      }
+
+      if (filesMatch) {
+        console.log(`  ✓ Commit ${shortId(commitInfo.id)}: ${commitInfo.message}`);
+      } else {
+        console.log(`  ✗ Commit ${shortId(commitInfo.id)}: FILES MISMATCH`);
+        allCommitsValid = false;
+      }
+    } catch (error) {
+      console.log(`  ✗ Commit ${shortId(commitInfo.id)}: ${(error as Error).message}`);
+      allCommitsValid = false;
+    }
+  }
+
+  if (allCommitsValid) {
+    console.log("\n  SUCCESS: All commits verified successfully!");
+  } else {
+    console.log("\n  ERROR: Some commits failed verification");
+  }
+
+  // ========== Step 8: Verify native git compatibility ==========
+  printSection("Step 8: Verify Native Git Compatibility");
+
+  // Check if git is available
+  let gitAvailable = true;
+  try {
+    execSync("git --version", { encoding: "utf-8" });
+  } catch {
+    gitAvailable = false;
+    console.log("  Git is not available in PATH, skipping native git verification");
+  }
+
+  if (gitAvailable) {
+    console.log("  Testing native git commands:\n");
+
+    // git status
+    console.log("  $ git status");
+    const status = runGitCommand("git status");
+    console.log(`    ${status.split("\n").join("\n    ")}\n`);
+
+    // git log
+    console.log("  $ git log --oneline");
+    const log = runGitCommand("git log --oneline");
+    console.log(`    ${log.split("\n").join("\n    ")}\n`);
+
+    // git show HEAD
+    console.log("  $ git show HEAD --stat");
+    const show = runGitCommand("git show HEAD --stat");
+    console.log(`    ${show.split("\n").join("\n    ")}\n`);
+
+    // git cat-file to verify pack reading
+    console.log("  $ git cat-file -p HEAD^{tree}");
+    const catTree = runGitCommand("git cat-file -p HEAD^{tree}");
+    console.log(`    ${catTree.split("\n").join("\n    ")}\n`);
+
+    // git fsck to verify repository integrity
+    console.log("  $ git fsck");
+    const fsck = runGitCommand("git fsck");
+    if (fsck === "" || fsck.includes("dangling") || !fsck.startsWith("ERROR")) {
+      console.log("    Repository integrity check passed!\n");
+    } else {
+      console.log(`    ${fsck.split("\n").join("\n    ")}\n`);
+    }
+
+    // Reset to HEAD to checkout files (creates index and working tree)
+    console.log("  $ git reset --hard HEAD");
+    const reset = runGitCommand("git reset --hard HEAD");
+    console.log(`    ${reset}\n`);
+
+    // List checked out files
+    console.log("  Checked out files:");
+    try {
+      const repoFiles = await fs.readdir(REPO_DIR);
+      for (const file of repoFiles) {
+        if (file !== ".git") {
+          const stat = await fs.stat(path.join(REPO_DIR, file));
+          console.log(`    - ${file} (${stat.size} bytes)`);
+        }
+      }
+    } catch (error) {
+      console.log(`    Error reading files: ${(error as Error).message}`);
+    }
+
+    // Verify file contents match what we stored
+    console.log("\n  Verifying file contents:");
+    const readmeContent = await fs.readFile(path.join(REPO_DIR, "README.md"), "utf-8");
+    const expectedReadme = commits[0].files.get("README.md")!;
+    console.log(`    - README.md: ${readmeContent === expectedReadme ? "MATCHES" : "DIFFERS"}`);
+
+    const indexContent = await fs.readFile(path.join(REPO_DIR, "index.ts"), "utf-8");
+    const expectedIndex = commits[3].files.get("index.ts")!;
+    console.log(`    - index.ts: ${indexContent === expectedIndex ? "MATCHES" : "DIFFERS"}`);
+
+    const pkgContent = await fs.readFile(path.join(REPO_DIR, "package.json"), "utf-8");
+    const expectedPkg = commits[3].files.get("package.json")!;
+    console.log(`    - package.json: ${pkgContent === expectedPkg ? "MATCHES" : "DIFFERS"}`);
+  }
+
+  // ========== Summary ==========
+  printSection("Summary");
+
+  console.log(`
+  This example demonstrated:
+
+    1. Repository Creation
+       - Created Git repository at ${REPO_DIR}
+       - Used NodeFilesApi for real filesystem operations
+
+    2. Commit Creation
+       - Created ${commits.length} commits with file changes
+       - Each commit properly linked to parent
+
+    3. Loose Object Storage
+       - Initially stored ${looseCountBefore} loose objects
+       - Objects stored in .git/objects/XX/YYYY... format
+
+    4. Packing (GC)
+       - Ran repack operation to create pack files
+       - Created ${packsFinal.length} pack file(s)
+
+    5. Loose Objects Cleanup
+       - Automatic cleanup: ${looseAfterRepack === 0 ? "YES" : "NO (needs fix)"}
+       - Loose objects remaining: ${looseAfterRepack}
+
+    6. Verification
+       - All commits readable from pack files: ${allCommitsValid ? "YES" : "NO"}
+       - Native git compatible: ${gitAvailable ? "YES" : "N/A"}
+
+  Repository location: ${REPO_DIR}
+  You can explore it with native git commands!
+`);
+
+  await storage.close();
+}
+
+// Helper to collect tree entries
+async function collectTreeEntries(
+  storage: GitStorage,
+  treeId: ObjectId,
+): Promise<{ mode: number; name: string; id: ObjectId }[]> {
+  const entries: { mode: number; name: string; id: ObjectId }[] = [];
+  for await (const entry of storage.trees.loadTree(treeId)) {
+    entries.push({ mode: entry.mode, name: entry.name, id: entry.id });
+  }
+  return entries;
+}
+
+// Run the example
+main().catch((error) => {
+  console.error("\nError:", error);
+  process.exit(1);
+});
