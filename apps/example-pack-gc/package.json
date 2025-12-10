@@ -1,0 +1,21 @@
+{
+  "name": "@webrun-vcs/example-pack-gc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Example demonstrating Git repository creation, commits, packing (gc), and native git compatibility",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@statewalker/webrun-files": "catalog:",
+    "@webrun-vcs/compression": "workspace:*",
+    "@webrun-vcs/storage": "workspace:*",
+    "@webrun-vcs/storage-git": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}
