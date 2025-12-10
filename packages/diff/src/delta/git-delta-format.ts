@@ -62,19 +62,23 @@ function encodeCopy(output: number[], offset: number, len: number): void {
   const offsetBytes: number[] = [];
   let b: number;
 
-  if ((b = offset & 0xff) !== 0) {
+  b = offset & 0xff;
+  if (b !== 0) {
     offsetBytes.push(b);
     cmd |= 0x01;
   }
-  if ((b = (offset >>> 8) & 0xff) !== 0) {
+  b = (offset >>> 8) & 0xff;
+  if (b !== 0) {
     offsetBytes.push(b);
     cmd |= 0x02;
   }
-  if ((b = (offset >>> 16) & 0xff) !== 0) {
+  b = (offset >>> 16) & 0xff;
+  if (b !== 0) {
     offsetBytes.push(b);
     cmd |= 0x04;
   }
-  if ((b = (offset >>> 24) & 0xff) !== 0) {
+  b = (offset >>> 24) & 0xff;
+  if (b !== 0) {
     offsetBytes.push(b);
     cmd |= 0x08;
   }
@@ -83,15 +87,18 @@ function encodeCopy(output: number[], offset: number, len: number): void {
   // size=0 means 0x10000 (64KB default), so we omit size bytes if len === MAX_V2_COPY
   const lenBytes: number[] = [];
   if (len !== MAX_V2_COPY) {
-    if ((b = len & 0xff) !== 0) {
+    b = len & 0xff;
+    if (b !== 0) {
       lenBytes.push(b);
       cmd |= 0x10;
     }
-    if ((b = (len >>> 8) & 0xff) !== 0) {
+    b = (len >>> 8) & 0xff;
+    if (b !== 0) {
       lenBytes.push(b);
       cmd |= 0x20;
     }
-    if ((b = (len >>> 16) & 0xff) !== 0) {
+    b = (len >>> 16) & 0xff;
+    if (b !== 0) {
       lenBytes.push(b);
       cmd |= 0x40;
     }
