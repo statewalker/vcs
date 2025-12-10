@@ -17,7 +17,7 @@
 import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { FilesApi, NodeFilesApi, joinPath } from "@statewalker/webrun-files";
+import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/compression";
 import { createNodeCompression } from "@webrun-vcs/compression/compression-node";
 import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/storage";

@@ -10,6 +10,7 @@ import {
   createDelta,
   createDeltaRanges,
   createFossilLikeRanges,
+  type DeltaRange,
   deltaRangesToGitFormat,
   deltaToGitFormat,
   formatGitDelta,
@@ -17,7 +18,6 @@ import {
   getGitDeltaResultSize,
   gitFormatToDeltaRanges,
   parseGitDelta,
-  type DeltaRange,
 } from "../../src/index.js";
 import { decodeGitBinaryDelta } from "../../src/patch/binary-delta.js";
 

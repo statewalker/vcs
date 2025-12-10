@@ -207,6 +207,10 @@ importers:
         version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
 
   packages/storage:
+    dependencies:
+      '@webrun-vcs/diff':
+        specifier: workspace:*
+        version: link:../diff
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -232,6 +236,28 @@ importers:
       '@webrun-vcs/hash':
         specifier: workspace:*
         version: link:../hash
+      '@webrun-vcs/storage':
+        specifier: workspace:*
+        version: link:../storage
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.1
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.51
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
+
+  packages/storage-delta:
+    dependencies:
+      '@webrun-vcs/diff':
+        specifier: workspace:*
+        version: link:../diff
       '@webrun-vcs/storage':
         specifier: workspace:*
         version: link:../storage
@@ -338,6 +364,9 @@ importers:
       '@webrun-vcs/compression':
         specifier: workspace:*
         version: link:../compression
+      '@webrun-vcs/diff':
+        specifier: workspace:*
+        version: link:../diff
       '@webrun-vcs/storage':
         specifier: workspace:*
         version: link:../storage

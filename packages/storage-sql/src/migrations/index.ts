@@ -72,6 +72,26 @@ export const migrations: Migration[] = [
       DROP TABLE IF EXISTS object;
     `,
   },
+  {
+    version: 2,
+    name: "delta_content_table",
+    up: `
+      CREATE TABLE IF NOT EXISTS delta_content (
+        object_id TEXT PRIMARY KEY,
+        base_object_id TEXT NOT NULL,
+        delta_data BLOB NOT NULL,
+        delta_format TEXT NOT NULL CHECK(delta_format IN ('git', 'fossil')),
+        original_size INTEGER NOT NULL,
+        delta_size INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS delta_content_base_idx ON delta_content(base_object_id);
+    `,
+    down: `
+      DROP INDEX IF EXISTS delta_content_base_idx;
+      DROP TABLE IF EXISTS delta_content;
+    `,
+  },
 ];
 
 /**

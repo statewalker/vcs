@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/storage",
+  "name": "@webrun-vcs/storage-delta",
   "version": "0.1.0",
   "private": false,
   "type": "module",
@@ -15,11 +15,12 @@
   },
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "lint": "biome lint src tests"
   },
   "dependencies": {
-    "@webrun-vcs/diff": "workspace:*"
+    "@webrun-vcs/diff": "workspace:*",
+    "@webrun-vcs/storage": "workspace:*"
   },
   "devDependencies": {
     "rolldown": "catalog:",
