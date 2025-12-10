@@ -243,7 +243,8 @@ export function add(a: number, b: number): number {
     // Get README from previous commit
     const prevCommit = await storage.commits.loadCommit(commits[0].id);
     const prevTree = await collectTreeEntries(storage, prevCommit.tree);
-    const readmeEntry = prevTree.find((e) => e.name === "README.md")!;
+    const readmeEntry = prevTree.find((e) => e.name === "README.md");
+    if (!readmeEntry) throw new Error("README.md not found in tree");
 
     const treeId = await storage.trees.storeTree([
       { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeEntry.id },
@@ -264,7 +265,7 @@ export function add(a: number, b: number): number {
       id: commitId,
       message: "Add source file",
       files: new Map([
-        ["README.md", commits[0].files.get("README.md")!],
+        ["README.md", commits[0].files.get("README.md") ?? ""],
         ["index.ts", srcContent],
       ]),
     });
@@ -294,7 +295,8 @@ export function subtract(a: number, b: number): number {
 
     const prevCommit = await storage.commits.loadCommit(commits[1].id);
     const prevTree = await collectTreeEntries(storage, prevCommit.tree);
-    const readmeEntry = prevTree.find((e) => e.name === "README.md")!;
+    const readmeEntry = prevTree.find((e) => e.name === "README.md");
+    if (!readmeEntry) throw new Error("README.md not found in tree");
 
     const treeId = await storage.trees.storeTree([
       { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeEntry.id },
@@ -315,7 +317,7 @@ export function subtract(a: number, b: number): number {
       id: commitId,
       message: "Add more functions",
       files: new Map([
-        ["README.md", commits[0].files.get("README.md")!],
+        ["README.md", commits[0].files.get("README.md") ?? ""],
         ["index.ts", srcContent],
       ]),
     });
@@ -355,8 +357,8 @@ export function subtract(a: number, b: number): number {
       id: commitId,
       message: "Add package.json",
       files: new Map([
-        ["README.md", commits[0].files.get("README.md")!],
-        ["index.ts", commits[2].files.get("index.ts")!],
+        ["README.md", commits[0].files.get("README.md") ?? ""],
+        ["index.ts", commits[2].files.get("index.ts") ?? ""],
         ["package.json", configContent],
       ]),
     });
@@ -540,15 +542,15 @@ export function subtract(a: number, b: number): number {
     // Verify file contents match what we stored
     console.log("\n  Verifying file contents:");
     const readmeContent = await fs.readFile(path.join(REPO_DIR, "README.md"), "utf-8");
-    const expectedReadme = commits[0].files.get("README.md")!;
+    const expectedReadme = commits[0].files.get("README.md") ?? "";
     console.log(`    - README.md: ${readmeContent === expectedReadme ? "MATCHES" : "DIFFERS"}`);
 
     const indexContent = await fs.readFile(path.join(REPO_DIR, "index.ts"), "utf-8");
-    const expectedIndex = commits[3].files.get("index.ts")!;
+    const expectedIndex = commits[3].files.get("index.ts") ?? "";
     console.log(`    - index.ts: ${indexContent === expectedIndex ? "MATCHES" : "DIFFERS"}`);
 
     const pkgContent = await fs.readFile(path.join(REPO_DIR, "package.json"), "utf-8");
-    const expectedPkg = commits[3].files.get("package.json")!;
+    const expectedPkg = commits[3].files.get("package.json") ?? "";
     console.log(`    - package.json: ${pkgContent === expectedPkg ? "MATCHES" : "DIFFERS"}`);
   }
 
