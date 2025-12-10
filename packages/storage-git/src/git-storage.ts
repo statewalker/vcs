@@ -21,6 +21,7 @@ import { GitCommitStorage } from "./git-commit-storage.js";
 import { GitDeltaObjectStorage } from "./git-delta-object-storage.js";
 import { GitFileTreeStorage } from "./git-file-tree-storage.js";
 import { GitObjectStorage } from "./git-object-storage.js";
+import { GitRawObjectStorage } from "./git-raw-objects-storage.js";
 import { GitRefStorage } from "./git-ref-storage.js";
 import { GitTagStorage } from "./git-tag-storage.js";
 import { R_HEADS } from "./refs/ref-types.js";
@@ -83,14 +84,18 @@ export class GitStorage implements GitStorageApi {
 
   private constructor(files: FilesApi, gitDir: string) {
     this.gitDir = gitDir;
+    // --------------------------------------------
     // Delta object storage combines loose + pack with delta support
-    this.rawStorage = new GitDeltaObjectStorage(files, gitDir);
+    const looseStorage = new GitRawObjectStorage(files, gitDir);
+    this.rawStorage = new GitDeltaObjectStorage(files, gitDir, looseStorage);
+    // Refs storage
+    this.refs = new GitRefStorage(files, gitDir);
+    // --------------------------------------------
     // All typed storages use rawStorage internally
     this.objects = new GitObjectStorage(this.rawStorage);
     this.trees = new GitFileTreeStorage(this.rawStorage);
     this.commits = new GitCommitStorage(this.rawStorage);
     this.tags = new GitTagStorage(this.rawStorage);
-    this.refs = new GitRefStorage(files, gitDir);
   }
 
   /**

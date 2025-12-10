@@ -22,11 +22,11 @@ import type {
   DeltaObjectStorage,
   DeltaOptions,
   ObjectId,
+  ObjectStorage,
 } from "@webrun-vcs/storage";
 import { CompositeObjectStorage } from "./composite-object-storage.js";
 import { parseObjectHeader } from "./format/object-header.js";
 import { GitPackStorage } from "./git-pack-storage.js";
-import { GitRawObjectStorage } from "./git-raw-objects-storage.js";
 import { PackWriterStream, writePackIndex } from "./pack/index.js";
 import { PackObjectType } from "./pack/types.js";
 import { atomicWriteFile, bytesToHex, concatBytes, ensureDir } from "./utils/index.js";
@@ -67,23 +67,23 @@ function typeStringToPackType(type: string): PackObjectType {
 export class GitDeltaObjectStorage implements DeltaObjectStorage {
   private readonly files: FilesApi;
   private readonly gitDir: string;
-  private readonly looseStorage: GitRawObjectStorage;
+  private readonly looseStorage: ObjectStorage;
   private readonly packStorage: GitPackStorage;
   private readonly composite: CompositeObjectStorage;
 
-  constructor(files: FilesApi, gitDir: string) {
+  constructor(files: FilesApi, gitDir: string, looseStorage: ObjectStorage) {
     this.files = files;
     this.gitDir = gitDir;
-    this.looseStorage = new GitRawObjectStorage(files, gitDir);
+    this.looseStorage = looseStorage;
     this.packStorage = new GitPackStorage(files, gitDir);
     // Loose objects take priority (they shadow packed versions)
-    this.composite = new CompositeObjectStorage(this.looseStorage, [this.packStorage]);
+    this.composite = new CompositeObjectStorage(this.packStorage, [this.looseStorage]);
   }
 
   // ========== ObjectStorage Methods (delegate to composite) ==========
 
   async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
-    return this.composite.store(data);
+    return this.looseStorage.store(data);
   }
 
   async *load(
