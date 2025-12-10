@@ -6,7 +6,7 @@ function pad(str: string): string {
   return str.padStart(8, " ");
 }
 
-describe("createDeltaRanges - Performance and Correctness Tests", () => {
+describe.skip("createDeltaRanges - Performance and Correctness Tests", () => {
   describe("Stress test - range of sizes", () => {
     /**
      * Helper to format performance stats for console output

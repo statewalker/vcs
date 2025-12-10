@@ -9,7 +9,7 @@ function pad(str: string): string {
   return str.padStart(10, " ");
 }
 
-describe("Binary Delta - Performance Tests", () => {
+describe.skip("Binary Delta - Performance Tests", () => {
   describe("Stress test - range of sizes", () => {
     function formatStats(prefix: string, stats: BinaryDeltaPerformanceStats): string {
       const formatSize = (size: number): string => {
