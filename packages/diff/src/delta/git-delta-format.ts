@@ -450,3 +450,55 @@ export function getGitDeltaResultSize(delta: Uint8Array): number {
 
   return resultSize;
 }
+
+/**
+ * Serialize Delta[] instructions to Git binary delta format
+ *
+ * This is a convenience function that extracts baseSize from copy instructions
+ * and calls deltaToGitFormat.
+ *
+ * @param delta Delta instructions (must have start, copy/insert, and finish)
+ * @returns Git binary delta
+ */
+export function serializeDeltaToGit(delta: Delta[]): Uint8Array {
+  // Find base size from copy instructions (max offset + length)
+  let baseSize = 0;
+  for (const d of delta) {
+    if (d.type === "copy") {
+      baseSize = Math.max(baseSize, d.start + d.len);
+    }
+  }
+
+  return deltaToGitFormat(baseSize, delta);
+}
+
+/**
+ * Deserialize Git binary delta format to Delta[] instructions
+ *
+ * Converts from Git's compact binary format to the format-agnostic Delta[] array.
+ *
+ * @param binary Git binary delta data
+ * @returns Delta instructions array
+ */
+export function deserializeDeltaFromGit(binary: Uint8Array): Delta[] {
+  const parsed = parseGitDelta(binary);
+  const result: Delta[] = [];
+
+  // Start instruction with target size
+  result.push({ type: "start", targetLen: parsed.resultSize });
+
+  // Convert each Git instruction to Delta
+  for (const instr of parsed.instructions) {
+    if (instr.type === "copy") {
+      result.push({ type: "copy", start: instr.offset, len: instr.size });
+    } else {
+      result.push({ type: "insert", data: instr.data });
+    }
+  }
+
+  // Git format doesn't include checksum, add placeholder (0)
+  // Consumers should validate content via other means if needed
+  result.push({ type: "finish", checksum: 0 });
+
+  return result;
+}

@@ -8,6 +8,8 @@
 
 // Loose object handling
 export * from "./attik.loose/index.js";
+// Backend implementations (new delta architecture)
+export * from "./backends/index.js";
 // Composite storage
 export * from "./composite-object-storage.js";
 // Format utilities (for advanced use cases)

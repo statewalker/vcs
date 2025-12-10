@@ -29,6 +29,8 @@
  * ```
  */
 
+// Backend implementations
+export * from "./backends/index.js";
 // Factory function
 export * from "./create-sql-storage.js";
 

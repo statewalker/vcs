@@ -278,3 +278,40 @@ export function* decodeDeltaBlocks(deltas: Uint8Array): Generator<Delta> {
     return { value, pos: i, end: endChar };
   }
 }
+
+/**
+ * Serialize Delta[] instructions to Fossil binary delta format
+ *
+ * This is a convenience function that collects encoded chunks into a single array.
+ *
+ * @param delta Delta instructions array
+ * @returns Fossil binary delta
+ */
+export function serializeDeltaToFossil(delta: Delta[]): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  for (const chunk of encodeDeltaBlocks(delta)) {
+    chunks.push(chunk);
+  }
+
+  // Calculate total length
+  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
+
+/**
+ * Deserialize Fossil binary delta format to Delta[] instructions
+ *
+ * This is a convenience function that collects decoded deltas into an array.
+ *
+ * @param binary Fossil binary delta data
+ * @returns Delta instructions array
+ */
+export function deserializeDeltaFromFossil(binary: Uint8Array): Delta[] {
+  return [...decodeDeltaBlocks(binary)];
+}
