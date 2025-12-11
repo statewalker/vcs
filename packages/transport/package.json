@@ -1,0 +1,59 @@
+{
+  "name": "@webrun-vcs/transport",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    },
+    "./protocol": {
+      "types": "./dist/protocol/index.d.ts",
+      "import": "./dist/esm/protocol/index.js",
+      "require": "./dist/cjs/protocol/index.cjs"
+    },
+    "./negotiation": {
+      "types": "./dist/negotiation/index.d.ts",
+      "import": "./dist/esm/negotiation/index.js",
+      "require": "./dist/cjs/negotiation/index.cjs"
+    },
+    "./connection": {
+      "types": "./dist/connection/index.d.ts",
+      "import": "./dist/esm/connection/index.js",
+      "require": "./dist/cjs/connection/index.cjs"
+    },
+    "./operations": {
+      "types": "./dist/operations/index.d.ts",
+      "import": "./dist/esm/operations/index.js",
+      "require": "./dist/cjs/operations/index.cjs"
+    },
+    "./streams": {
+      "types": "./dist/streams/index.d.ts",
+      "import": "./dist/esm/streams/index.js",
+      "require": "./dist/cjs/streams/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run",
+    "lint": "biome lint src tests"
+  },
+  "dependencies": {
+    "@webrun-vcs/vcs": "workspace:*",
+    "@webrun-vcs/utils": "workspace:*"
+  },
+  "devDependencies": {
+    "rolldown": "catalog:",
+    "vitest": "catalog:",
+    "typescript": "catalog:",
+    "@types/node": "catalog:"
+  }
+}

@@ -1,7 +1,14 @@
 import { defineConfig } from "rolldown";
 
 export default defineConfig({
-  input: "src/index.ts",
+  input: {
+    index: "src/index.ts",
+    "protocol/index": "src/protocol/index.ts",
+    "negotiation/index": "src/negotiation/index.ts",
+    "connection/index": "src/connection/index.ts",
+    "operations/index": "src/operations/index.ts",
+    "streams/index": "src/streams/index.ts",
+  },
   output: [
     {
       dir: "dist/esm",
@@ -15,16 +22,6 @@ export default defineConfig({
       entryFileNames: "[name].cjs",
       chunkFileNames: "[name]-[hash].cjs",
     },
-  ],
-  external: [
-    "@webrun-vcs/compression",
-    "@webrun-vcs/storage",
-    "@webrun-vcs/utils",
-    /^@webrun-vcs\/utils\//,
-    "node:fs/promises",
-    "node:fs",
-    "node:path",
-    "node:crypto",
   ],
   treeshake: true,
 });

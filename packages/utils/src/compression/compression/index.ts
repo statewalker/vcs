@@ -11,14 +11,17 @@
  * - Block: compressBlock(), decompressBlock() - for complete buffers
  */
 
+import { decompressBlockPartialPako } from "./pako-inflate.js";
 import {
   type ByteStream,
   type CompressBlockFunction,
   CompressionError,
   type CompressionImplementation,
   type DecompressBlockFunction,
+  type DecompressBlockPartialFunction,
   type DeflateFunction,
   type InflateFunction,
+  type PartialDecompressionResult,
   type StreamingCompressionOptions,
 } from "./types.js";
 import { collectStream, streamFromBuffer } from "./utils.js";
@@ -34,6 +37,7 @@ let _inflate: InflateFunction = inflateWeb;
 
 let _compressBlock: CompressBlockFunction | null = null;
 let _decompressBlock: DecompressBlockFunction | null = null;
+let _decompressBlockPartial: DecompressBlockPartialFunction | null = null;
 
 /**
  * Set custom compression implementation
@@ -54,6 +58,7 @@ export function setCompression(impl: Partial<CompressionImplementation>): void {
   if (impl.inflate) _inflate = impl.inflate;
   if (impl.compressBlock) _compressBlock = impl.compressBlock;
   if (impl.decompressBlock) _decompressBlock = impl.decompressBlock;
+  if (impl.decompressBlockPartial) _decompressBlockPartial = impl.decompressBlockPartial;
 }
 
 /**
@@ -125,5 +130,36 @@ export async function decompressBlock(
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     throw new CompressionError(`Decompression failed: ${err.message}`, err);
+  }
+}
+
+/**
+ * Decompress a data block and return how many bytes were consumed from input.
+ *
+ * Essential for pack file parsing where multiple compressed objects are
+ * concatenated without explicit length prefixes. The header only contains
+ * the uncompressed size, not the compressed size.
+ *
+ * @param data Compressed data (may contain trailing data from next object)
+ * @param options Decompression options (raw: true for raw DEFLATE, false for ZLIB)
+ * @returns Decompressed data and number of input bytes consumed
+ */
+export async function decompressBlockPartial(
+  data: Uint8Array,
+  options?: StreamingCompressionOptions,
+): Promise<PartialDecompressionResult> {
+  try {
+    // Use custom implementation if set
+    if (_decompressBlockPartial) {
+      return await _decompressBlockPartial(data, options);
+    }
+    // Fall back to pako implementation
+    return decompressBlockPartialPako(data, options);
+  } catch (error) {
+    if (error instanceof CompressionError) {
+      throw error;
+    }
+    const err = error instanceof Error ? error : new Error(String(error));
+    throw new CompressionError(`Partial decompression failed: ${err.message}`, err);
   }
 }

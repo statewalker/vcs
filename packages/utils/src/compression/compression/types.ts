@@ -76,4 +76,6 @@ export interface CompressionImplementation {
   inflate: InflateFunction;
   compressBlock: CompressBlockFunction;
   decompressBlock: DecompressBlockFunction;
+  /** Optional: decompress with bytes consumed tracking (for pack files) */
+  decompressBlockPartial?: DecompressBlockPartialFunction;
 }

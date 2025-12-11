@@ -72,9 +72,13 @@
     "lint": "biome lint src tests"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/pako": "^2.0.4",
     "rolldown": "catalog:",
-    "vitest": "catalog:",
     "typescript": "catalog:",
-    "@types/node": "catalog:"
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "pako": "^2.1.0"
   }
 }
