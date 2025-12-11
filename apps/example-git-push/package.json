@@ -1,0 +1,22 @@
+{
+  "name": "@webrun-vcs/example-git-push",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Example demonstrating clone, branch creation, commit, and push operations using VCS and native git HTTP server",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@statewalker/webrun-files": "catalog:",
+    "@webrun-vcs/utils": "workspace:*",
+    "@webrun-vcs/vcs": "workspace:*",
+    "@webrun-vcs/store-files": "workspace:*",
+    "@webrun-vcs/transport": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}
