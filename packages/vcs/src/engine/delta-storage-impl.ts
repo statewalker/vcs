@@ -5,6 +5,7 @@
  * to provide unified delta-aware storage.
  */
 
+import type { Delta } from "@webrun-vcs/utils";
 import type {
   DeltaCandidateStrategy,
   DeltaChainDetails,
@@ -19,6 +20,7 @@ import type {
   RepackOptions,
   RepackResult,
   RepositoryAnalysis,
+  StoredDelta,
 } from "../interfaces/index.js";
 import { RollingHashDeltaStrategy } from "./strategies/rolling-hash-compute.js";
 import { SimilarSizeCandidateStrategy } from "./strategies/similar-size-candidate.js";
@@ -286,6 +288,38 @@ export class DeltaStorageImpl implements DeltaStorageManager {
 
   async getDeltaChainInfo(id: ObjectId): Promise<DeltaChainDetails | undefined> {
     return this.deltaBackend.getDeltaChainInfo(id);
+  }
+
+  // ========== Direct Delta Operations ==========
+
+  async storeDelta(targetId: ObjectId, baseId: ObjectId, delta: Delta[]): Promise<boolean> {
+    // Verify base exists
+    if (!(await this.has(baseId))) {
+      throw new Error(`Base object ${baseId} not found`);
+    }
+
+    // Check if storing as delta would exceed chain depth
+    const baseChain = await this.deltaBackend.getDeltaChainInfo(baseId);
+    if (baseChain && baseChain.depth >= this.maxChainDepth - 1) {
+      throw new Error(
+        `Storing delta would exceed max chain depth (${this.maxChainDepth}). ` +
+          `Base ${baseId} is already at depth ${baseChain.depth}.`,
+      );
+    }
+
+    // Store via backend
+    const result = await this.deltaBackend.storeDelta(targetId, baseId, delta);
+
+    // Remove from loose storage if successfully stored as delta
+    if (result && (await this.looseStorage.has(targetId))) {
+      await this.looseStorage.delete(targetId);
+    }
+
+    return result;
+  }
+
+  async loadDelta(id: ObjectId): Promise<StoredDelta | undefined> {
+    return this.deltaBackend.loadDelta(id);
   }
 
   // ========== Analysis & Maintenance ==========
