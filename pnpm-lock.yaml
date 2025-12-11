@@ -172,6 +172,34 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  apps/example-vcs-http-roundtrip:
+    dependencies:
+      '@statewalker/webrun-files':
+        specifier: 'catalog:'
+        version: 0.5.0
+      '@webrun-vcs/store-files':
+        specifier: workspace:*
+        version: link:../../packages/store-files
+      '@webrun-vcs/transport':
+        specifier: workspace:*
+        version: link:../../packages/transport
+      '@webrun-vcs/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
+      '@webrun-vcs/vcs':
+        specifier: workspace:*
+        version: link:../../packages/vcs
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.1
+      tsx:
+        specifier: 'catalog:'
+        version: 4.20.6
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   apps/examples-git:
     dependencies:
       '@statewalker/webrun-files':
