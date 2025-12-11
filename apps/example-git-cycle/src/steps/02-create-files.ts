@@ -9,7 +9,7 @@
  * - Storage uses streaming (AsyncIterable) for memory efficiency
  * - Automatic deduplication - storing same content twice returns same ID
  *
- * @see packages/storage/src/object-storage.ts - ObjectStorage interface
+ * @see packages/storage/src/object-storage.ts - ObjectStore interface
  * @see packages/storage-git/src/git-object-storage.ts - Git implementation
  */
 

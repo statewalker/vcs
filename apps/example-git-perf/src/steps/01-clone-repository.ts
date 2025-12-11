@@ -11,14 +11,14 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import {
+  directoryExists,
   GIT_DIR,
   GIT_REPO_URL,
-  REPO_DIR,
   PerformanceTracker,
-  directoryExists,
   printBanner,
   printInfo,
   printSection,
+  REPO_DIR,
   runGitCommandAsync,
 } from "../shared/index.js";
 

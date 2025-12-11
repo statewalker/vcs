@@ -9,7 +9,7 @@
  * - Initial commits have no parents; subsequent commits reference parents
  * - Branch refs (refs/heads/xxx) point to the latest commit
  *
- * @see packages/storage/src/commit-storage.ts - CommitStorage interface
+ * @see packages/storage/src/commit-storage.ts - CommitStore interface
  * @see packages/storage-git/src/git-commit-storage.ts - Git implementation
  * @see packages/storage-git/src/format/commit-format.ts - Text format
  */

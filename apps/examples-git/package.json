@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
-    "@webrun-vcs/compression": "workspace:*",
-    "@webrun-vcs/storage-git": "workspace:*"
+    "@webrun-vcs/utils": "workspace:*",
+    "@webrun-vcs/store-files": "workspace:*"
   },
   "devDependencies": {
     "tsx": "catalog:",

@@ -8,13 +8,13 @@
  */
 
 import {
-  PerformanceTracker,
-  REPO_DIR,
   fixGitObjectPermissions,
   formatBytes,
   listPackFiles,
+  PerformanceTracker,
   printBanner,
   printSection,
+  REPO_DIR,
   runGitCommandAsync,
 } from "../shared/index.js";
 

@@ -3,7 +3,7 @@
  */
 
 export * from "./config.js";
-export * from "./types.js";
-export * from "./performance.js";
 export * from "./helpers.js";
+export * from "./performance.js";
 export * from "./storage.js";
+export * from "./types.js";

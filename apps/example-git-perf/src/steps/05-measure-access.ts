@@ -7,11 +7,11 @@
  * Run with: pnpm step:measure
  */
 
-import type { GitStorage } from "@webrun-vcs/storage-git";
+import type { GitStorage } from "@webrun-vcs/store-files";
 import {
   type CommitInfo,
-  PerformanceTracker,
   openStorage,
+  PerformanceTracker,
   printBanner,
   printInfo,
   printSection,

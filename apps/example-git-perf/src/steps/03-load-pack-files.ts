@@ -6,13 +6,13 @@
  * Run with: pnpm step:load
  */
 
-import type { GitStorage } from "@webrun-vcs/storage-git";
+import type { GitStorage } from "@webrun-vcs/store-files";
 import {
-  PerformanceTracker,
   fixGitObjectPermissions,
   formatBytes,
   listPackFiles,
   openStorage,
+  PerformanceTracker,
   printBanner,
   printInfo,
   printSection,
