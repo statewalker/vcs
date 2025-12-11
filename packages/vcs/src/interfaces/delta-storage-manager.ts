@@ -1,7 +1,9 @@
+import type { Delta } from "@webrun-vcs/utils";
 import type {
   DeltaChainDetails,
   DeltaChainStore,
   DeltaChainStoreStats,
+  StoredDelta,
 } from "./delta-chain-store.js";
 import type {
   DeltaCandidateStrategy,
@@ -165,6 +167,32 @@ export interface DeltaStorageManager extends ObjectStore {
    * Get delta chain information
    */
   getDeltaChainInfo(id: ObjectId): Promise<DeltaChainDetails | undefined>;
+
+  // ========== Direct Delta Operations ==========
+
+  /**
+   * Store an object as a delta with known base.
+   *
+   * Bypasses candidate selection - useful for importing packs where
+   * delta relationships are already known.
+   *
+   * @param targetId Object to store as delta
+   * @param baseId Base object ID
+   * @param delta Delta instructions (format-agnostic)
+   * @returns True if successfully stored as delta
+   */
+  storeDelta(targetId: ObjectId, baseId: ObjectId, delta: Delta[]): Promise<boolean>;
+
+  /**
+   * Load delta information for an object.
+   *
+   * Returns the stored delta instructions if the object is stored as a delta.
+   * Returns undefined if the object is stored as a base (not delta).
+   *
+   * @param id Object ID
+   * @returns Stored delta with instructions, or undefined if not a delta
+   */
+  loadDelta(id: ObjectId): Promise<StoredDelta | undefined>;
 
   // ========== Analysis & Maintenance ==========
 

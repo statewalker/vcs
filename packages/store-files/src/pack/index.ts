@@ -5,6 +5,8 @@
  * for efficient storage of multiple objects.
  */
 
+export * from "./pack-delta-transfer.js";
+export * from "./pack-entries-parser.js";
 export * from "./pack-index-reader.js";
 export * from "./pack-index-writer.js";
 export * from "./pack-indexer.js";
