@@ -19,7 +19,9 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import {
+  atomicWriteFile,
   createGitStorage,
+  ensureDir,
   extractGitObjectContent,
   type GitStorage,
   indexPack,
@@ -71,6 +73,7 @@ async function main(): Promise<void> {
 
   let server: VcsHttpServer | null = null;
   let remoteStorage: GitStorage | null = null;
+  let localStorage: GitStorage | null = null;
 
   try {
     // Step 1: Setup - Create remote repository with VCS
@@ -91,7 +94,7 @@ async function main(): Promise<void> {
 
     // Step 5: Open local repository with VCS and modify content
     printStep(5, "Modifying content with VCS");
-    const localStorage = await openLocalRepository();
+    localStorage = await openLocalRepository();
     const { newTreeId } = await modifyContent(localStorage);
 
     // Step 6: Create branch and commit
@@ -122,7 +125,13 @@ async function main(): Promise<void> {
     }
     process.exit(1);
   } finally {
-    // Cleanup
+    // Cleanup - close storages to release file handles
+    if (localStorage) {
+      await localStorage.close();
+    }
+    if (remoteStorage) {
+      await remoteStorage.close();
+    }
     if (server) {
       printInfo("\nStopping HTTP server...");
       await server.stop();
@@ -250,23 +259,30 @@ async function cloneWithVcs(): Promise<void> {
   if (cloneResult.packData.length > 0) {
     printInfo("Processing received pack data...");
 
-    // Index the pack
+    // Index the pack to compute object IDs and checksums
     const indexResult = await indexPack(cloneResult.packData);
     printInfo(`Pack contains ${indexResult.objectCount} objects`);
 
-    // Store pack file
+    // Store pack file using FilesApi (platform-agnostic)
+    // This creates a Git-compatible pack file structure.
+    //
+    // Alternative approach for delta-aware storage:
+    // import { importPackAsDeltas, parsePackEntries } from "@webrun-vcs/store-files";
+    // const result = await importPackAsDeltas(deltaStorageManager, cloneResult.packData);
+    // This would preserve delta relationships and store via DeltaStorageManager.
     const packChecksum = bytesToHex(indexResult.packChecksum);
-    const packDir = path.join(gitDir, "objects", "pack");
-    await ensureDirectory(packDir);
+    const packDir = ".git/objects/pack";
+    await ensureDir(files, packDir);
 
     const packFileName = `pack-${packChecksum}.pack`;
     const idxFileName = `pack-${packChecksum}.idx`;
 
-    await fs.writeFile(path.join(packDir, packFileName), cloneResult.packData);
+    // Use atomicWriteFile for safe writes via FilesApi abstraction
+    await atomicWriteFile(files, `${packDir}/${packFileName}`, cloneResult.packData);
 
-    // Generate and write index
+    // Generate and write pack index
     const indexData = await writePackIndex(indexResult.entries, indexResult.packChecksum);
-    await fs.writeFile(path.join(packDir, idxFileName), indexData);
+    await atomicWriteFile(files, `${packDir}/${idxFileName}`, indexData);
 
     printInfo(`Stored pack: ${packFileName}`);
   }

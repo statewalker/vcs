@@ -90,6 +90,50 @@ await storage.refs.setRef("refs/heads/main", commitId);
 
 For performance benchmarks and pack file operations, see [apps/example-git-perf](apps/example-git-perf). This example clones the Git source repository and demonstrates traversing commit history and reading delta-compressed objects.
 
+### Delta Storage and Pack Transfer
+
+The library provides format-agnostic delta storage with utilities for pack import/export:
+
+```typescript
+import { parsePackEntries, importPackAsDeltas } from "@webrun-vcs/store-files";
+import { DeltaStorageImpl } from "@webrun-vcs/vcs/engine";
+
+// Parse pack and preserve delta relationships
+const result = await parsePackEntries(packData);
+for (const entry of result.entries) {
+  if (entry.type === "delta") {
+    // entry.delta contains format-agnostic Delta[] instructions
+    // entry.baseId references the base object
+    console.log(`Delta: ${entry.id} -> base: ${entry.baseId}`);
+  }
+}
+
+// Direct delta storage via DeltaStorageManager
+const manager: DeltaStorageManager = /* ... */;
+
+// Store a delta with known base (bypasses candidate selection)
+await manager.storeDelta(targetId, baseId, delta);
+
+// Load delta information
+const stored = await manager.loadDelta(objectId);
+if (stored) {
+  console.log(`Delta instructions: ${stored.delta.length}`);
+  console.log(`Base: ${stored.baseId}`);
+}
+```
+
+The `Delta` type is format-agnostic and can be serialized to different formats:
+
+```typescript
+import { serializeDeltaToGit, deserializeDeltaFromGit } from "@webrun-vcs/utils";
+
+// Convert Delta[] to Git binary format for pack files
+const gitDelta = serializeDeltaToGit(delta);
+
+// Convert Git binary delta to Delta[]
+const delta = deserializeDeltaFromGit(gitDelta);
+```
+
 ## Example Applications
 
 The `apps/` directory contains several examples:
@@ -98,6 +142,7 @@ The `apps/` directory contains several examples:
 |-------------|-------------|
 | [example-git-cycle](apps/example-git-cycle) | Complete Git workflow demonstration |
 | [example-git-perf](apps/example-git-perf) | Performance benchmarks with real repositories |
+| [example-vcs-http-roundtrip](apps/example-vcs-http-roundtrip) | Full HTTP clone/push workflow using VCS |
 | [example-pack-gc](apps/example-pack-gc) | Pack file garbage collection |
 | [examples-git](apps/examples-git) | Various Git format examples |
 | [perf-bench](apps/perf-bench) | Micro-benchmarks |
