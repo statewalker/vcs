@@ -10,6 +10,8 @@ export * from "./delta-strategies.js";
 // Storage interfaces
 export * from "./object-store.js";
 export * from "./ref-store.js";
+export * from "./staging-edits.js";
+export * from "./staging-store.js";
 export * from "./tag-store.js";
 export * from "./tree-store.js";
 export * from "./types.js";

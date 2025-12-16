@@ -28,6 +28,8 @@ export * from "./git-tag-storage.js";
 export * from "./pack/index.js";
 // Refs handling
 export * from "./refs/index.js";
+// Staging area (index file)
+export * from "./staging/index.js";
 // Typed object utilities
 export * from "./typed-object-utils.js";
 // Utility functions
