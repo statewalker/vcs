@@ -5,6 +5,13 @@
 import type { ReceivePackOptions, RepositoryAccess, UploadPackOptions } from "../handlers/types.js";
 
 /**
+ * Logger interface for Git HTTP server.
+ */
+export interface GitHttpServerLogger {
+  error(message: string, ...args: unknown[]): void;
+}
+
+/**
  * Git HTTP server interface.
  *
  * Provides a single `fetch` method compatible with:
@@ -61,6 +68,12 @@ export interface GitHttpServerOptions {
    * Custom error handler.
    */
   onError?: (error: Error, request: Request) => Response;
+
+  /**
+   * Logger for server errors.
+   * Defaults to console if not provided.
+   */
+  logger?: GitHttpServerLogger;
 
   /**
    * Base path for Git endpoints (default: '/').

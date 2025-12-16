@@ -241,8 +241,16 @@ export interface UploadPackRequest {
   haves: ObjectId[];
   /** Capabilities requested by client */
   capabilities: Set<string>;
-  /** Shallow clone depth */
+  /** Shallow clone depth (0 = not set) */
   depth?: number;
+  /** Deepen since timestamp in seconds (0 = not set) */
+  deepenSince?: number;
+  /** Refs to exclude (deepen-not) */
+  deepenNots?: string[];
+  /** Whether depth is relative to client's shallow commits */
+  deepenRelative?: boolean;
+  /** Commits the client already has as shallow */
+  clientShallowCommits?: Set<ObjectId>;
   /** Filter specification */
   filter?: string;
   /** Whether client sent "done" */

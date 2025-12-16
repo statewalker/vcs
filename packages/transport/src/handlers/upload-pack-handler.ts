@@ -10,14 +10,17 @@
 import { compressBlock, sha1 } from "@webrun-vcs/utils";
 import {
   CAPABILITY_AGENT,
+  CAPABILITY_INCLUDE_TAG,
+  CAPABILITY_MULTI_ACK,
+  CAPABILITY_MULTI_ACK_DETAILED,
   CAPABILITY_NO_PROGRESS,
   CAPABILITY_OFS_DELTA,
   CAPABILITY_SHALLOW,
   CAPABILITY_SIDE_BAND_64K,
   CAPABILITY_SYMREF,
+  CAPABILITY_THIN_PACK,
   PACKET_DONE,
   PACKET_HAVE,
-  PACKET_NAK,
   PACKET_WANT,
   SIDEBAND_DATA,
   SIDEBAND_PROGRESS,
@@ -29,6 +32,19 @@ import {
   packetDataToString,
   pktLineReader,
 } from "../protocol/pkt-line-codec.js";
+import {
+  canGiveUp,
+  createNegotiationState,
+  determineMultiAckMode,
+  generateAckResponse,
+  generateReadyResponse,
+} from "./negotiation-state.js";
+import {
+  computeShallowBoundary,
+  formatShallowPacket,
+  formatUnshallowPacket,
+  hasShallowConstraints,
+} from "./shallow-negotiation.js";
 import type {
   AdvertiseOptions,
   ObjectId,
@@ -42,10 +58,15 @@ const textEncoder = new TextEncoder();
 
 /**
  * Default capabilities for upload-pack.
+ * Order follows JGit's sendAdvertisedRefs() method.
  */
 const DEFAULT_CAPABILITIES = [
-  CAPABILITY_SIDE_BAND_64K,
+  CAPABILITY_INCLUDE_TAG,
+  CAPABILITY_MULTI_ACK_DETAILED,
+  CAPABILITY_MULTI_ACK,
   CAPABILITY_OFS_DELTA,
+  CAPABILITY_SIDE_BAND_64K,
+  CAPABILITY_THIN_PACK,
   CAPABILITY_NO_PROGRESS,
   CAPABILITY_SHALLOW,
 ];
@@ -115,8 +136,9 @@ export function createUploadPackHandler(options: UploadPackOptions): UploadPackH
     },
 
     async *process(input: AsyncIterable<Uint8Array>): AsyncIterable<Uint8Array> {
-      // Parse the request
-      const request = await parseUploadPackRequest(input);
+      // Parse the request with negotiation support
+      const { request, ackResponses, hasCommonBase, lastObjectId } =
+        await parseUploadPackRequestWithNegotiation(input, repository);
 
       if (request.wants.length === 0) {
         // Nothing requested, just send flush
@@ -124,14 +146,62 @@ export function createUploadPackHandler(options: UploadPackOptions): UploadPackH
         return;
       }
 
-      // Send NAK (we don't implement multi-ack negotiation yet)
-      yield encodePacket(`${PACKET_NAK}\n`);
+      // Yield all ACK responses from negotiation
+      for (const ack of ackResponses) {
+        yield encodePacket(ack);
+      }
+
+      // Handle shallow clone constraints
+      const shallowRequest = {
+        depth: request.depth ?? 0,
+        deepenSince: request.deepenSince ?? 0,
+        deepenNots: request.deepenNots ?? [],
+        deepenRelative: request.deepenRelative ?? false,
+        clientShallowCommits: request.clientShallowCommits ?? new Set<string>(),
+      };
+
+      if (hasShallowConstraints(shallowRequest)) {
+        // Compute shallow boundaries
+        const { shallowCommits, unshallowCommits } = await computeShallowBoundary(
+          repository,
+          request.wants,
+          shallowRequest,
+        );
+
+        // Send shallow packets
+        for (const commitId of shallowCommits) {
+          yield encodePacket(formatShallowPacket(commitId));
+        }
+
+        // Send unshallow packets
+        for (const commitId of unshallowCommits) {
+          yield encodePacket(formatUnshallowPacket(commitId));
+        }
+
+        // Flush after shallow/unshallow packets
+        if (shallowCommits.length > 0 || unshallowCommits.length > 0) {
+          yield encodeFlush();
+        }
+      }
+
+      // Send final NAK or ACK based on negotiation result
+      const multiAckMode = determineMultiAckMode(request.capabilities);
+      if (!hasCommonBase) {
+        yield encodePacket("NAK\n");
+      } else if (multiAckMode !== "off" && lastObjectId) {
+        yield encodePacket(`ACK ${lastObjectId}\n`);
+      } else {
+        yield encodePacket("NAK\n");
+      }
 
       // Check if client requested sideband
       const useSideband = request.capabilities.has(CAPABILITY_SIDE_BAND_64K);
 
+      // Check if client requested include-tag
+      const includeTag = request.capabilities.has(CAPABILITY_INCLUDE_TAG);
+
       // Generate pack data
-      const packData = await buildPack(repository, request.wants, request.haves);
+      const packData = await buildPack(repository, request.wants, request.haves, includeTag);
 
       if (useSideband) {
         // Send progress via sideband channel 2
@@ -179,6 +249,141 @@ function buildServerCapabilities(options: {
   }
 
   return caps.join(" ");
+}
+
+/**
+ * Result of parsing upload-pack request with negotiation.
+ */
+interface ParseWithNegotiationResult {
+  request: UploadPackRequest;
+  ackResponses: string[];
+  hasCommonBase: boolean;
+  lastObjectId: ObjectId | null;
+}
+
+/**
+ * Parse upload-pack request from input stream with multi-ACK negotiation.
+ *
+ * This function processes the request and generates ACK responses
+ * based on the negotiated multi-ack mode.
+ */
+async function parseUploadPackRequestWithNegotiation(
+  input: AsyncIterable<Uint8Array>,
+  repository: RepositoryAccess,
+): Promise<ParseWithNegotiationResult> {
+  const wants: ObjectId[] = [];
+  const haves: ObjectId[] = [];
+  const capabilities = new Set<string>();
+  let done = false;
+  let depth: number | undefined;
+  let deepenSince: number | undefined;
+  const deepenNots: string[] = [];
+  let deepenRelative = false;
+  const clientShallowCommits = new Set<ObjectId>();
+  let filter: string | undefined;
+  let isFirstWant = true;
+  const ackResponses: string[] = [];
+
+  // Negotiation state
+  const state = createNegotiationState();
+
+  const packets = pktLineReader(input);
+
+  for await (const packet of packets) {
+    if (packet.type === "flush") {
+      // Flush packet - may continue with more data or end
+      continue;
+    }
+
+    if (packet.type !== "data" || !packet.data) {
+      continue;
+    }
+
+    const line = packetDataToString(packet);
+
+    if (line.startsWith(PACKET_WANT)) {
+      // Parse want line: "want <oid> [capabilities]"
+      const rest = line.slice(PACKET_WANT.length);
+
+      if (isFirstWant) {
+        // First want line contains capabilities after space
+        const spaceIdx = rest.indexOf(" ");
+        if (spaceIdx !== -1) {
+          wants.push(rest.slice(0, spaceIdx));
+          parseCapabilitiesInto(rest.slice(spaceIdx + 1), capabilities);
+        } else {
+          wants.push(rest.trim());
+        }
+        isFirstWant = false;
+
+        // Determine multi-ack mode from capabilities
+        state.multiAckMode = determineMultiAckMode(capabilities);
+      } else {
+        wants.push(rest.trim());
+      }
+    } else if (line.startsWith(PACKET_HAVE)) {
+      const objectId = line.slice(PACKET_HAVE.length).trim();
+      haves.push(objectId);
+
+      // Check if we have this object and generate ACK if appropriate
+      const hasObject = await repository.hasObject(objectId);
+      if (hasObject) {
+        const isNewCommonBase = !state.commonBases.has(objectId);
+        if (isNewCommonBase) {
+          state.commonBases.add(objectId);
+        }
+        state.peerHas.add(objectId);
+        state.lastObjectId = objectId;
+
+        const ackResponse = generateAckResponse({ objectId, hasObject, isNewCommonBase }, state);
+        if (ackResponse) {
+          ackResponses.push(ackResponse);
+        }
+      } else {
+        // Object not found - check if we can give up negotiation
+        if (canGiveUp(state, wants.length) && !state.sentReady) {
+          const readyResponse = generateReadyResponse(objectId, state);
+          if (readyResponse) {
+            ackResponses.push(readyResponse);
+            state.sentReady = true;
+          }
+        }
+      }
+    } else if (line === PACKET_DONE || line.startsWith(PACKET_DONE)) {
+      done = true;
+      break;
+    } else if (line.startsWith("deepen ")) {
+      depth = parseInt(line.slice(7), 10);
+    } else if (line.startsWith("deepen-since ")) {
+      deepenSince = parseInt(line.slice(13), 10);
+    } else if (line.startsWith("deepen-not ")) {
+      deepenNots.push(line.slice(11).trim());
+    } else if (line === "deepen-relative") {
+      deepenRelative = true;
+    } else if (line.startsWith("shallow ")) {
+      clientShallowCommits.add(line.slice(8).trim());
+    } else if (line.startsWith("filter ")) {
+      filter = line.slice(7);
+    }
+  }
+
+  return {
+    request: {
+      wants,
+      haves,
+      capabilities,
+      done,
+      depth,
+      deepenSince,
+      deepenNots: deepenNots.length > 0 ? deepenNots : undefined,
+      deepenRelative: deepenRelative || undefined,
+      clientShallowCommits: clientShallowCommits.size > 0 ? clientShallowCommits : undefined,
+      filter,
+    },
+    ackResponses,
+    hasCommonBase: state.commonBases.size > 0,
+    lastObjectId: state.lastObjectId,
+  };
 }
 
 /**
@@ -254,14 +459,21 @@ function parseCapabilitiesInto(capStr: string, caps: Set<string>): void {
 
 /**
  * Build a pack file from wanted objects.
+ *
+ * @param repository - Repository access
+ * @param wants - Object IDs the client wants
+ * @param haves - Object IDs the client has
+ * @param includeTag - If true, include annotated tags when their targets are sent
  */
 async function buildPack(
   repository: RepositoryAccess,
   wants: ObjectId[],
   haves: ObjectId[],
+  includeTag = false,
 ): Promise<Uint8Array> {
   // Collect objects to send
   const objects: Array<{ id: ObjectId; type: number; content: Uint8Array }> = [];
+  const sentObjectIds = new Set<ObjectId>();
 
   for await (const obj of repository.walkObjects(wants, haves)) {
     objects.push({
@@ -269,6 +481,33 @@ async function buildPack(
       type: obj.type,
       content: obj.content,
     });
+    sentObjectIds.add(obj.id);
+  }
+
+  // Include-tag optimization: when an annotated tag's target is being sent,
+  // automatically include the tag object itself
+  if (includeTag) {
+    for await (const ref of repository.listRefs()) {
+      // Check if this is a tag with a peeled ID (annotated tag)
+      if (ref.peeledId && sentObjectIds.has(ref.peeledId) && !sentObjectIds.has(ref.objectId)) {
+        // The tag's target is being sent but not the tag itself - include it
+        const tagInfo = await repository.getObjectInfo(ref.objectId);
+        if (tagInfo && tagInfo.type === 4) {
+          // type 4 = tag
+          const tagContent: Uint8Array[] = [];
+          for await (const chunk of repository.loadObject(ref.objectId)) {
+            tagContent.push(chunk);
+          }
+          const content = concatBytes(tagContent);
+          objects.push({
+            id: ref.objectId,
+            type: tagInfo.type,
+            content,
+          });
+          sentObjectIds.add(ref.objectId);
+        }
+      }
+    }
   }
 
   // Build pack file
