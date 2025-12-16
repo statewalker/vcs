@@ -492,6 +492,7 @@ describe("GitHttpServer", () => {
           errorCalled = true;
           return new Response("Custom error", { status: 500 });
         },
+        logger: { error() {} }, // Silent logger for tests
       });
 
       const request = new Request("http://localhost/repo.git/info/refs?service=git-upload-pack");
@@ -506,6 +507,7 @@ describe("GitHttpServer", () => {
         async resolveRepository() {
           throw new Error("Test error");
         },
+        logger: { error() {} }, // Silent logger for tests
       });
 
       const request = new Request("http://localhost/repo.git/info/refs?service=git-upload-pack");

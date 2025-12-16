@@ -28,7 +28,7 @@ import type { GitHttpServer, GitHttpServerOptions, ParsedGitUrl } from "./types.
  * @returns Git HTTP server with fetch method
  */
 export function createGitHttpServer(options: GitHttpServerOptions): GitHttpServer {
-  const { resolveRepository, authenticate, authorize, onError, basePath = "" } = options;
+  const { resolveRepository, authenticate, authorize, onError, logger, basePath = "" } = options;
 
   return {
     async fetch(request: Request): Promise<Response> {
@@ -89,7 +89,7 @@ export function createGitHttpServer(options: GitHttpServerOptions): GitHttpServe
 
         return createErrorResponse(404, "Not Found");
       } catch (error) {
-        console.error("Git HTTP server error:", error);
+        (logger ?? console).error("Git HTTP server error:", error);
 
         if (onError) {
           return onError(error as Error, request);
