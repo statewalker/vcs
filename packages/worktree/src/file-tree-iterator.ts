@@ -1,0 +1,369 @@
+/**
+ * FileTreeIterator - Working tree iterator implementation using FilesApi.
+ *
+ * Walks a filesystem directory tree and yields entries compatible with
+ * Git's working tree operations. Supports:
+ * - Recursive directory traversal
+ * - .gitignore pattern matching
+ * - Content hashing in Git blob format
+ * - Sorted output for consistent results
+ *
+ * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/treewalk/FileTreeIterator.java
+ */
+
+import { type FileInfo, type FilesApi, basename, joinPath } from "@statewalker/webrun-files";
+
+/**
+ * Simplified file entry information for mode determination.
+ */
+interface SimplifiedFileInfo {
+  kind: "file" | "directory";
+}
+import { sha1 } from "@webrun-vcs/utils/hash/sha1";
+import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+import { FileMode, type ObjectId } from "@webrun-vcs/vcs";
+
+import type { IgnoreManager } from "./interfaces/ignore-manager.js";
+import type {
+  WorkingTreeEntry,
+  WorkingTreeIterator,
+  WorkingTreeIteratorOptions,
+} from "./interfaces/working-tree-iterator.js";
+import { createIgnoreManager } from "./ignore/ignore-manager.js";
+
+/**
+ * Options for creating a FileTreeIterator.
+ */
+export interface FileTreeIteratorOptions {
+  /** FilesApi instance for filesystem operations */
+  files: FilesApi;
+
+  /** Root path of the working tree */
+  rootPath: string;
+
+  /** Pre-configured IgnoreManager (if not provided, one will be created) */
+  ignoreManager?: IgnoreManager;
+
+  /** Whether to auto-load .gitignore files during traversal (default: true) */
+  autoLoadGitignore?: boolean;
+
+  /** Custom hash function (for testing or alternate algorithms) */
+  hashFunction?: (data: Uint8Array) => Promise<Uint8Array>;
+}
+
+/**
+ * Default file mode determination based on file attributes.
+ *
+ * Follows JGit's DefaultFileModeStrategy.
+ */
+function getFileMode(info: SimplifiedFileInfo, hasGitDir: boolean): number {
+  if (info.kind === "directory") {
+    if (hasGitDir) {
+      return FileMode.GITLINK;
+    }
+    return FileMode.TREE;
+  }
+
+  // For regular files, check if executable
+  // FilesApi doesn't expose executable bit, so default to regular
+  return FileMode.REGULAR_FILE;
+}
+
+/**
+ * Text encoder for Git header construction.
+ */
+const textEncoder = new TextEncoder();
+
+/**
+ * Create a Git blob header.
+ *
+ * Git blobs are stored as: "blob <size>\0<content>"
+ */
+function createBlobHeader(size: number): Uint8Array {
+  return textEncoder.encode(`blob ${size}\0`);
+}
+
+/**
+ * FileTreeIterator implementation.
+ *
+ * Provides working tree iteration functionality using a platform-agnostic
+ * FilesApi for filesystem access.
+ */
+export class FileTreeIterator implements WorkingTreeIterator {
+  private readonly files: FilesApi;
+  private readonly rootPath: string;
+  private readonly ignoreManager: IgnoreManager;
+  private readonly autoLoadGitignore: boolean;
+  private readonly hashFunction: (data: Uint8Array) => Promise<Uint8Array>;
+
+  constructor(options: FileTreeIteratorOptions) {
+    this.files = options.files;
+    this.rootPath = options.rootPath;
+    this.ignoreManager = options.ignoreManager ?? createIgnoreManager();
+    this.autoLoadGitignore = options.autoLoadGitignore ?? true;
+    this.hashFunction = options.hashFunction ?? sha1;
+  }
+
+  /**
+   * Iterate all entries in working tree.
+   *
+   * Entries are yielded in sorted order (by path) for consistent results.
+   * Directories are traversed recursively.
+   */
+  async *walk(options?: WorkingTreeIteratorOptions): AsyncIterable<WorkingTreeEntry> {
+    const includeIgnored = options?.includeIgnored ?? false;
+    const includeDirectories = options?.includeDirectories ?? false;
+    const pathPrefix = options?.pathPrefix ?? "";
+
+    // Add custom ignore patterns if provided
+    if (options?.ignorePatterns?.length) {
+      this.ignoreManager.addGlobalPatterns(options.ignorePatterns);
+    }
+
+    // Start recursive walk from root (or path prefix)
+    const startPath = pathPrefix ? joinPath(this.rootPath, pathPrefix) : this.rootPath;
+    yield* this.walkDirectory(startPath, pathPrefix, includeIgnored, includeDirectories);
+  }
+
+  /**
+   * Recursively walk a directory.
+   */
+  private async *walkDirectory(
+    dirPath: string,
+    relativePath: string,
+    includeIgnored: boolean,
+    includeDirectories: boolean,
+  ): AsyncIterable<WorkingTreeEntry> {
+    // Load .gitignore if auto-loading is enabled
+    if (this.autoLoadGitignore) {
+      await this.tryLoadGitignore(dirPath, relativePath);
+    }
+
+    // List directory entries
+    const entries: FileInfo[] = [];
+    try {
+      for await (const entry of this.files.list(dirPath)) {
+        entries.push(entry);
+      }
+    } catch {
+      // Directory doesn't exist or can't be read
+      return;
+    }
+
+    // Sort entries by name for consistent ordering
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Process each entry
+    for (const entry of entries) {
+      const entryPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      const fullPath = joinPath(dirPath, entry.name);
+      const isDirectory = entry.kind === "directory";
+
+      // Skip .git directory
+      if (entry.name === ".git") {
+        continue;
+      }
+
+      // Check if this entry is ignored
+      const isIgnored = this.ignoreManager.isIgnored(entryPath, isDirectory);
+
+      // Skip ignored entries unless explicitly requested
+      if (isIgnored && !includeIgnored) {
+        continue;
+      }
+
+      // Check for .git inside directory (gitlink detection)
+      let hasGitDir = false;
+      if (isDirectory) {
+        hasGitDir = await this.hasGitDirectory(fullPath);
+      }
+
+      // Get file mode
+      const mode = getFileMode(entry, hasGitDir);
+
+      // Get file stats
+      const stats = await this.getFileStats(fullPath, isDirectory);
+
+      // Create entry
+      const workingEntry: WorkingTreeEntry = {
+        path: entryPath,
+        name: entry.name,
+        mode,
+        size: stats.size,
+        mtime: stats.mtime,
+        isDirectory,
+        isIgnored,
+      };
+
+      // Yield directory entry if requested
+      if (isDirectory && includeDirectories) {
+        yield workingEntry;
+      }
+
+      // For files, yield the entry
+      if (!isDirectory) {
+        yield workingEntry;
+      }
+
+      // Recursively process directories (unless gitlink)
+      if (isDirectory && !hasGitDir) {
+        yield* this.walkDirectory(fullPath, entryPath, includeIgnored, includeDirectories);
+      }
+    }
+  }
+
+  /**
+   * Get specific entry by path.
+   */
+  async getEntry(path: string): Promise<WorkingTreeEntry | undefined> {
+    const fullPath = joinPath(this.rootPath, path);
+
+    try {
+      // Check if path exists and get stats
+      const stats = await this.files.stats(fullPath);
+      if (!stats) {
+        return undefined;
+      }
+
+      // Determine if directory by trying to list (stats doesn't have kind)
+      let isDirectory = false;
+      try {
+        for await (const _ of this.files.list(fullPath)) {
+          isDirectory = true;
+          break;
+        }
+      } catch {
+        // Not a directory or can't be listed
+      }
+
+      const isIgnored = this.ignoreManager.isIgnored(path, isDirectory);
+
+      // Check for gitlink
+      let hasGitDir = false;
+      if (isDirectory) {
+        hasGitDir = await this.hasGitDirectory(fullPath);
+      }
+
+      // Create a minimal object for getFileMode
+      const fileInfo: SimplifiedFileInfo = {
+        kind: isDirectory ? "directory" : "file",
+      };
+      const mode = getFileMode(fileInfo, hasGitDir);
+
+      return {
+        path,
+        name: basename(path),
+        mode,
+        size: stats.size ?? 0,
+        mtime: stats.lastModified ?? 0,
+        isDirectory,
+        isIgnored,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Compute content hash for a file (without storing).
+   *
+   * Uses Git blob format: "blob <size>\0<content>"
+   */
+  async computeHash(path: string): Promise<ObjectId> {
+    const fullPath = joinPath(this.rootPath, path);
+
+    // Read entire file content
+    const content = await this.files.readFile(fullPath);
+
+    // Create Git blob header
+    const header = createBlobHeader(content.length);
+
+    // Combine header and content
+    const combined = new Uint8Array(header.length + content.length);
+    combined.set(header, 0);
+    combined.set(content, header.length);
+
+    // Hash the combined data
+    const hash = await this.hashFunction(combined);
+    return bytesToHex(hash);
+  }
+
+  /**
+   * Read file content as stream.
+   */
+  async *readContent(path: string): AsyncIterable<Uint8Array> {
+    const fullPath = joinPath(this.rootPath, path);
+
+    // Use read() if available for streaming, otherwise readFile()
+    if (this.files.read) {
+      yield* this.files.read(fullPath);
+    } else {
+      yield await this.files.readFile(fullPath);
+    }
+  }
+
+  /**
+   * Try to load a .gitignore file from a directory.
+   */
+  private async tryLoadGitignore(dirPath: string, relativePath: string): Promise<void> {
+    const gitignorePath = joinPath(dirPath, ".gitignore");
+
+    try {
+      if (await this.files.exists(gitignorePath)) {
+        const content = await this.files.readFile(gitignorePath);
+        const text = new TextDecoder().decode(content);
+        this.ignoreManager.addIgnoreFile(relativePath, text);
+      }
+    } catch {
+      // Ignore errors reading .gitignore
+    }
+  }
+
+  /**
+   * Check if a directory contains a .git directory/file (submodule detection).
+   */
+  private async hasGitDirectory(dirPath: string): Promise<boolean> {
+    const gitPath = joinPath(dirPath, ".git");
+    try {
+      return await this.files.exists(gitPath);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get file statistics (size and mtime).
+   */
+  private async getFileStats(
+    fullPath: string,
+    isDirectory: boolean,
+  ): Promise<{ size: number; mtime: number }> {
+    if (isDirectory) {
+      return { size: 0, mtime: 0 };
+    }
+
+    try {
+      const stats = await this.files.stats(fullPath);
+      if (stats) {
+        return {
+          size: stats.size ?? 0,
+          mtime: stats.lastModified ?? 0,
+        };
+      }
+    } catch {
+      // Fall through to defaults
+    }
+
+    return { size: 0, mtime: 0 };
+  }
+}
+
+/**
+ * Create a FileTreeIterator.
+ *
+ * @param options Iterator options
+ * @returns A new FileTreeIterator instance
+ */
+export function createFileTreeIterator(options: FileTreeIteratorOptions): WorkingTreeIterator {
+  return new FileTreeIterator(options);
+}
