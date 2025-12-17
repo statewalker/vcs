@@ -1,4 +1,4 @@
-import type { ObjectId, Ref, SymbolicRef } from "@webrun-vcs/vcs";
+import type { ObjectId, Ref } from "@webrun-vcs/vcs";
 import { isSymbolicRef } from "@webrun-vcs/vcs";
 
 import {
@@ -9,7 +9,7 @@ import {
   RefNotFoundError,
 } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
-import { ListBranchMode, type GitStore } from "../types.js";
+import { ListBranchMode } from "../types.js";
 
 /**
  * Validate a branch name according to Git rules.
@@ -33,8 +33,9 @@ function isValidBranchName(name: string): boolean {
     return false;
   }
 
-  // Cannot contain special characters
-  if (/[\x00-\x1f\x7f ~^:?*\[\\]/.test(name)) {
+  // Cannot contain special characters (control chars, space, ~^:?*[\)
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Git ref validation requires checking for control characters
+  if (/[\x00-\x1f\x7f ~^:?*[\\]/.test(name)) {
     return false;
   }
 
@@ -90,10 +91,6 @@ export class CreateBranchCommand extends GitCommand<Ref> {
   private name?: string;
   private startPoint?: string;
   private force = false;
-
-  constructor(store: GitStore) {
-    super(store);
-  }
 
   /**
    * Set the name of the branch to create.
@@ -199,10 +196,6 @@ export class CreateBranchCommand extends GitCommand<Ref> {
 export class DeleteBranchCommand extends GitCommand<string[]> {
   private branchNames: string[] = [];
   private force = false;
-
-  constructor(store: GitStore) {
-    super(store);
-  }
 
   /**
    * Set the branches to delete.
@@ -318,10 +311,6 @@ export class ListBranchCommand extends GitCommand<Ref[]> {
   private listMode = ListBranchMode.LOCAL;
   private containsCommit?: ObjectId;
 
-  constructor(store: GitStore) {
-    super(store);
-  }
-
   /**
    * Set the listing mode.
    *
@@ -372,10 +361,7 @@ export class ListBranchCommand extends GitCommand<Ref[]> {
 
         // Filter by contains
         if (this.containsCommit && ref.objectId) {
-          const contains = await this.store.commits.isAncestor(
-            this.containsCommit,
-            ref.objectId,
-          );
+          const contains = await this.store.commits.isAncestor(this.containsCommit, ref.objectId);
           if (!contains) {
             continue;
           }
@@ -414,10 +400,6 @@ export class ListBranchCommand extends GitCommand<Ref[]> {
 export class RenameBranchCommand extends GitCommand<Ref> {
   private oldName?: string;
   private newName?: string;
-
-  constructor(store: GitStore) {
-    super(store);
-  }
 
   /**
    * Set the old branch name.
@@ -465,9 +447,7 @@ export class RenameBranchCommand extends GitCommand<Ref> {
     // Determine old ref name
     let oldRefName: string;
     if (this.oldName) {
-      oldRefName = this.oldName.startsWith("refs/")
-        ? this.oldName
-        : `refs/heads/${this.oldName}`;
+      oldRefName = this.oldName.startsWith("refs/") ? this.oldName : `refs/heads/${this.oldName}`;
     } else {
       const currentBranch = await this.getCurrentBranch();
       if (!currentBranch) {

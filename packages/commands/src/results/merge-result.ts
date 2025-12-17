@@ -1,6 +1,6 @@
 import type { ObjectId } from "@webrun-vcs/vcs";
 
-import { MergeFailureReason } from "../errors/merge-errors.js";
+import type { MergeFailureReason } from "../errors/merge-errors.js";
 
 /**
  * Status of a merge operation.

@@ -11,7 +11,7 @@ import {
   RefAlreadyExistsError,
   RefNotFoundError,
 } from "../src/errors/index.js";
-import { createInitializedGit, testAuthor } from "./test-helper.js";
+import { createInitializedGit } from "./test-helper.js";
 
 describe("TagCommand", () => {
   it("should create lightweight tag at HEAD", async () => {
@@ -30,11 +30,7 @@ describe("TagCommand", () => {
     await git.commit().setMessage("Second").setAllowEmpty(true).call();
 
     // Tag the initial commit
-    const ref = await git
-      .tag()
-      .setName("v0.0.1")
-      .setObjectId(initialCommitId)
-      .call();
+    const ref = await git.tag().setName("v0.0.1").setObjectId(initialCommitId).call();
 
     expect(ref.objectId).toBe(initialCommitId);
   });
@@ -57,7 +53,7 @@ describe("TagCommand", () => {
     expect(tagId).toBeDefined();
 
     // The tag object should exist
-    const tag = await store.tags?.loadTag(tagId!);
+    const tag = await store.tags?.loadTag(tagId ?? "");
     expect(tag?.message).toBe("Release version 1.0.0");
     expect(tag?.tagger?.name).toBe("Release Bot");
   });
@@ -65,15 +61,11 @@ describe("TagCommand", () => {
   it("should create annotated tag when message is provided", async () => {
     const { git, store } = await createInitializedGit();
 
-    const ref = await git
-      .tag()
-      .setName("v1.0.0")
-      .setMessage("Release")
-      .call();
+    const ref = await git.tag().setName("v1.0.0").setMessage("Release").call();
 
     // Should be annotated (stored as tag object)
     const tagId = ref.objectId;
-    const tag = await store.tags?.loadTag(tagId!);
+    const tag = await store.tags?.loadTag(tagId ?? "");
     expect(tag).toBeDefined();
   });
 
@@ -101,14 +93,10 @@ describe("TagCommand", () => {
 
     // Create new commit
     const commit = await git.commit().setMessage("New").setAllowEmpty(true).call();
-    const commitId = await store.commits.storeCommit(commit);
+    const _commitId = await store.commits.storeCommit(commit);
 
     // Force re-tag at new commit
-    const ref = await git
-      .tag()
-      .setName("v1.0.0")
-      .setForce(true)
-      .call();
+    const ref = await git.tag().setName("v1.0.0").setForce(true).call();
 
     // Should point to latest HEAD
     const headRef = await store.refs.resolve("HEAD");
@@ -149,9 +137,7 @@ describe("DeleteTagCommand", () => {
   it("should reject deleting non-existent tag", async () => {
     const { git } = await createInitializedGit();
 
-    await expect(git.tagDelete().setTags("nonexistent").call()).rejects.toThrow(
-      RefNotFoundError,
-    );
+    await expect(git.tagDelete().setTags("nonexistent").call()).rejects.toThrow(RefNotFoundError);
   });
 });
 

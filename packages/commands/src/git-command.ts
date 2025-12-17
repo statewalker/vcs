@@ -41,9 +41,7 @@ export abstract class GitCommand<T> {
    */
   protected checkCallable(): void {
     if (!this.callable) {
-      throw new Error(
-        `Command ${this.constructor.name} has already been called`,
-      );
+      throw new Error(`Command ${this.constructor.name} has already been called`);
     }
   }
 

@@ -99,14 +99,14 @@ describe("LogCommand", () => {
 
     // Create two branches
     const main1 = await git.commit().setMessage("Main 1").setAllowEmpty(true).call();
-    const main1Id = await store.commits.storeCommit(main1);
+    const _main1Id = await store.commits.storeCommit(main1);
 
     // Create feature branch commit
     await git.branchCreate().setName("feature").call();
 
     // Make commits on main
     const main2 = await git.commit().setMessage("Main 2").setAllowEmpty(true).call();
-    const main2Id = await store.commits.storeCommit(main2);
+    const _main2Id = await store.commits.storeCommit(main2);
 
     // Checkout feature and make commit (simulated - we'd need checkout command)
     // For now just test that firstParent option works with linear history

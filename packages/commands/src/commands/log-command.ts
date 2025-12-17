@@ -1,7 +1,6 @@
 import type { Commit, ObjectId } from "@webrun-vcs/vcs";
 
 import { GitCommand } from "../git-command.js";
-import type { GitStore } from "../types.js";
 
 /**
  * Show commit history.
@@ -34,10 +33,6 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
   private skip = 0;
   private includeAll = false;
   private firstParentOnly = false;
-
-  constructor(store: GitStore) {
-    super(store);
-  }
 
   /**
    * Add a starting commit for the log.
@@ -180,7 +175,7 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
   /**
    * Check if a commit affects any of the filtered paths.
    */
-  private async affectsPath(commit: Commit, commitId: ObjectId): Promise<boolean> {
+  private async affectsPath(commit: Commit, _commitId: ObjectId): Promise<boolean> {
     // If no parents, this is the initial commit - include if tree has the path
     if (commit.parents.length === 0) {
       return this.treeHasPath(commit.tree);

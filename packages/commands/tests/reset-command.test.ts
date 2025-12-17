@@ -5,9 +5,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-
-import { ResetMode } from "../src/index.js";
 import { RefNotFoundError } from "../src/errors/index.js";
+import { ResetMode } from "../src/index.js";
 import { createInitializedGit, toArray } from "./test-helper.js";
 
 describe("ResetCommand", () => {
