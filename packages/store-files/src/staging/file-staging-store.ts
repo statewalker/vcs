@@ -111,7 +111,6 @@ export class FileStagingStore implements StagingStore {
 
   async clear(): Promise<void> {
     this.entries = [];
-    this.dirty = true;
   }
 
   // ============ Tree Operations ============
@@ -175,7 +174,6 @@ export class FileStagingStore implements StagingStore {
     this.entries = [];
     await this.addTreeRecursive(treeStore, treeId, "", MergeStage.MERGED);
     this.sortEntries();
-    this.dirty = true;
   }
 
   private async addTreeRecursive(
@@ -210,7 +208,6 @@ export class FileStagingStore implements StagingStore {
       // No index file - start empty
       this.entries = [];
       this.updateTime = 0;
-      this.dirty = false;
       return;
     }
 
@@ -220,14 +217,12 @@ export class FileStagingStore implements StagingStore {
     this.entries = parsed.entries;
     this.version = parsed.version;
     this.updateTime = stats.lastModified ?? Date.now();
-    this.dirty = false;
   }
 
   async write(): Promise<void> {
     const data = await serializeIndexFile(this.entries, this.version);
     await this.files.write(this.indexPath, [data]);
     this.updateTime = Date.now();
-    this.dirty = false;
   }
 
   async isOutdated(): Promise<boolean> {
@@ -284,7 +279,6 @@ export class FileStagingStore implements StagingStore {
   /** @internal - Used by builder/editor */
   _replaceEntries(newEntries: StagingEntry[]): void {
     this.entries = newEntries;
-    this.dirty = true;
   }
 
   /** @internal - Used by builder/editor */
