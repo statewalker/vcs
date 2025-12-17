@@ -10,6 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
+      "@webrun-vcs/commands": ["packages/commands/src"],
       "@webrun-vcs/compression": ["packages/compression/src"],
       "@webrun-vcs/diff": ["packages/diff/src"],
       "@webrun-vcs/hash": ["packages/hash/src"],

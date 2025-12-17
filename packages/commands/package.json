@@ -1,0 +1,49 @@
+{
+  "name": "@webrun-vcs/commands",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    },
+    "./commands": {
+      "types": "./dist/commands/index.d.ts",
+      "import": "./dist/esm/commands/index.js",
+      "require": "./dist/cjs/commands/index.cjs"
+    },
+    "./errors": {
+      "types": "./dist/errors/index.d.ts",
+      "import": "./dist/esm/errors/index.js",
+      "require": "./dist/cjs/errors/index.cjs"
+    },
+    "./results": {
+      "types": "./dist/results/index.d.ts",
+      "import": "./dist/esm/results/index.js",
+      "require": "./dist/cjs/results/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run",
+    "lint": "biome lint src tests"
+  },
+  "dependencies": {
+    "@webrun-vcs/vcs": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@webrun-vcs/store-mem": "workspace:*",
+    "rolldown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
