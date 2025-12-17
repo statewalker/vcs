@@ -6,7 +6,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { MultipleParentsNotAllowedError, RevertStatus } from "../src/index.js";
+import {
+  ContentMergeStrategy,
+  MergeStrategy,
+  MultipleParentsNotAllowedError,
+  RevertStatus,
+} from "../src/index.js";
 import { addFile, createInitializedGit, removeFile } from "./test-helper.js";
 
 describe("RevertCommand", () => {
@@ -428,6 +433,102 @@ describe("RevertCommand", () => {
 
     expect(result.status).toBe(RevertStatus.CONFLICTING);
     expect(result.conflicts).toContain("conflict.txt");
+  });
+});
+
+describe("RevertCommand - Strategy and options", () => {
+  /**
+   * Test setStrategy/getStrategy.
+   *
+   * Based on JGit's setStrategy pattern.
+   */
+  it("should support setting merge strategy", async () => {
+    const { git } = await createInitializedGit();
+
+    const command = git.revert();
+    expect(command.getStrategy()).toBe(MergeStrategy.RECURSIVE); // default
+
+    command.setStrategy(MergeStrategy.RESOLVE);
+    expect(command.getStrategy()).toBe(MergeStrategy.RESOLVE);
+
+    command.setStrategy(MergeStrategy.OURS);
+    expect(command.getStrategy()).toBe(MergeStrategy.OURS);
+  });
+
+  /**
+   * Test setContentMergeStrategy/getContentMergeStrategy.
+   *
+   * Based on JGit's content merge strategy options.
+   */
+  it("should support setting content merge strategy", async () => {
+    const { git } = await createInitializedGit();
+
+    const command = git.revert();
+    expect(command.getContentMergeStrategy()).toBeUndefined(); // no default
+
+    command.setContentMergeStrategy(ContentMergeStrategy.OURS);
+    expect(command.getContentMergeStrategy()).toBe(ContentMergeStrategy.OURS);
+
+    command.setContentMergeStrategy(ContentMergeStrategy.THEIRS);
+    expect(command.getContentMergeStrategy()).toBe(ContentMergeStrategy.THEIRS);
+  });
+
+  /**
+   * Test setOurCommitName/getOurCommitName.
+   *
+   * Based on JGit's setOurCommitName for conflict markers.
+   */
+  it("should support setting our commit name for conflict markers", async () => {
+    const { git } = await createInitializedGit();
+
+    const command = git.revert();
+    expect(command.getOurCommitName()).toBeUndefined(); // default
+
+    command.setOurCommitName("feature-branch");
+    expect(command.getOurCommitName()).toBe("feature-branch");
+  });
+
+  /**
+   * Test setReflogPrefix/getReflogPrefix.
+   *
+   * Based on JGit's reflog handling.
+   */
+  it("should support setting reflog prefix", async () => {
+    const { git } = await createInitializedGit();
+
+    const command = git.revert();
+    expect(command.getReflogPrefix()).toBe("revert:"); // default
+
+    command.setReflogPrefix("custom:");
+    expect(command.getReflogPrefix()).toBe("custom:");
+  });
+
+  /**
+   * Test that options are correctly maintained through fluent API.
+   */
+  it("should chain all options fluently", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create setup for revert
+    await addFile(store, "a.txt", "a");
+    await git.commit().setMessage("base").call();
+
+    await addFile(store, "a.txt", "b");
+    await git.commit().setMessage("modify a").call();
+    const modifyCommitRef = await store.refs.resolve("HEAD");
+    const modifyCommit = modifyCommitRef?.objectId ?? "";
+
+    // Chain all options
+    const result = await git
+      .revert()
+      .include(modifyCommit)
+      .setStrategy(MergeStrategy.RECURSIVE)
+      .setContentMergeStrategy(ContentMergeStrategy.OURS)
+      .setOurCommitName("HEAD")
+      .setReflogPrefix("revert:")
+      .call();
+
+    expect(result.status).toBe(RevertStatus.OK);
   });
 });
 

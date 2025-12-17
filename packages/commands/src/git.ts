@@ -7,6 +7,7 @@ import {
   CreateBranchCommand,
   DeleteBranchCommand,
   DeleteTagCommand,
+  DescribeCommand,
   DiffCommand,
   FetchCommand,
   ListBranchCommand,
@@ -335,6 +336,29 @@ export class Git implements Disposable {
   revert(): RevertCommand {
     this.checkClosed();
     return new RevertCommand(this.store);
+  }
+
+  // ============ Describe Operations ============
+
+  /**
+   * Create a DescribeCommand for describing commits with tags.
+   *
+   * @example
+   * ```typescript
+   * // Describe HEAD
+   * const result = await git.describe().call();
+   * console.log(result.description); // e.g., "v1.0.0-5-gabcdef0"
+   *
+   * // Describe with all tags including lightweight
+   * const result = await git.describe().setTags(true).call();
+   *
+   * // Always output something
+   * const result = await git.describe().setAlways(true).call();
+   * ```
+   */
+  describe(): DescribeCommand {
+    this.checkClosed();
+    return new DescribeCommand(this.store);
   }
 
   // ============ Status Operations ============

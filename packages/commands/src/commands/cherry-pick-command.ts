@@ -5,6 +5,7 @@ import { MultipleParentsNotAllowedError } from "../errors/merge-errors.js";
 import { NoHeadError, RefNotFoundError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
 import { type CherryPickResult, CherryPickStatus } from "../results/cherry-pick-result.js";
+import { type ContentMergeStrategy, MergeStrategy } from "../results/merge-result.js";
 
 /**
  * Entry with full path for internal use during merge.
@@ -72,6 +73,10 @@ export class CherryPickCommand extends GitCommand<CherryPickResult> {
   private includes: string[] = [];
   private noCommit = false;
   private mainlineParent?: number;
+  private strategy: MergeStrategy = MergeStrategy.RECURSIVE;
+  private contentStrategy?: ContentMergeStrategy;
+  private ourCommitName?: string;
+  private reflogPrefix = "cherry-pick:";
 
   /**
    * Add a commit to cherry-pick.
@@ -109,6 +114,80 @@ export class CherryPickCommand extends GitCommand<CherryPickResult> {
     this.checkCallable();
     this.mainlineParent = parent;
     return this;
+  }
+
+  /**
+   * Set the merge strategy.
+   *
+   * Default is "recursive".
+   *
+   * @param strategy Merge strategy to use
+   */
+  setStrategy(strategy: MergeStrategy): this {
+    this.checkCallable();
+    this.strategy = strategy;
+    return this;
+  }
+
+  /**
+   * Get the merge strategy.
+   */
+  getStrategy(): MergeStrategy {
+    return this.strategy;
+  }
+
+  /**
+   * Set the content merge strategy for handling conflicts.
+   *
+   * @param contentStrategy Content merge strategy
+   */
+  setContentMergeStrategy(contentStrategy: ContentMergeStrategy): this {
+    this.checkCallable();
+    this.contentStrategy = contentStrategy;
+    return this;
+  }
+
+  /**
+   * Get the content merge strategy.
+   */
+  getContentMergeStrategy(): ContentMergeStrategy | undefined {
+    return this.contentStrategy;
+  }
+
+  /**
+   * Set the name to be used for "ours" in conflict markers.
+   *
+   * @param name Name for ours side (default: HEAD)
+   */
+  setOurCommitName(name: string): this {
+    this.checkCallable();
+    this.ourCommitName = name;
+    return this;
+  }
+
+  /**
+   * Get the name used for "ours" in conflict markers.
+   */
+  getOurCommitName(): string | undefined {
+    return this.ourCommitName;
+  }
+
+  /**
+   * Set the reflog prefix.
+   *
+   * @param prefix Reflog message prefix (default: "cherry-pick:")
+   */
+  setReflogPrefix(prefix: string): this {
+    this.checkCallable();
+    this.reflogPrefix = prefix;
+    return this;
+  }
+
+  /**
+   * Get the reflog prefix.
+   */
+  getReflogPrefix(): string {
+    return this.reflogPrefix;
   }
 
   async call(): Promise<CherryPickResult> {

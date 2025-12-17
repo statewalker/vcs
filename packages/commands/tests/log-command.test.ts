@@ -536,3 +536,16 @@ describe("LogCommand not() exclusion", () => {
     expect(commits[0].message).toBe("C3");
   });
 });
+
+/**
+ * JGit-ported tests: excludePath
+ */
+describe("LogCommand excludePath (JGit parity)", () => {
+  it("should support excludePath method", async () => {
+    const { git } = await createInitializedGit();
+
+    // Just test that the method exists and is chainable
+    const command = git.log().excludePath("some/path").excludePath("another/path");
+    expect(command).toBeDefined();
+  });
+});

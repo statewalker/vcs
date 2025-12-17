@@ -6,7 +6,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { CherryPickStatus, MultipleParentsNotAllowedError } from "../src/index.js";
+import {
+  CherryPickStatus,
+  ContentMergeStrategy,
+  MergeStrategy,
+  MultipleParentsNotAllowedError,
+} from "../src/index.js";
 import { addFile, createInitializedGit, removeFile } from "./test-helper.js";
 
 describe("CherryPickCommand", () => {
@@ -495,6 +500,114 @@ describe("CherryPickCommand", () => {
 
     expect(result.status).toBe(CherryPickStatus.CONFLICTING);
     expect(result.conflicts).toContain("conflict.txt");
+  });
+});
+
+describe("CherryPickCommand - Strategy and options", () => {
+  /**
+   * Test setStrategy/getStrategy.
+   *
+   * Based on JGit's setStrategy pattern.
+   */
+  it("should support setting merge strategy", async () => {
+    const { git } = await createInitializedGit();
+
+    const command = git.cherryPick();
+    expect(command.getStrategy()).toBe(MergeStrategy.RECURSIVE); // default
+
+    command.setStrategy(MergeStrategy.RESOLVE);
+    expect(command.getStrategy()).toBe(MergeStrategy.RESOLVE);
+
+    command.setStrategy(MergeStrategy.OURS);
+    expect(command.getStrategy()).toBe(MergeStrategy.OURS);
+  });
+
+  /**
+   * Test setContentMergeStrategy/getContentMergeStrategy.
+   *
+   * Based on JGit's content merge strategy options.
+   */
+  it("should support setting content merge strategy", async () => {
+    const { git } = await createInitializedGit();
+
+    const command = git.cherryPick();
+    expect(command.getContentMergeStrategy()).toBeUndefined(); // no default
+
+    command.setContentMergeStrategy(ContentMergeStrategy.OURS);
+    expect(command.getContentMergeStrategy()).toBe(ContentMergeStrategy.OURS);
+
+    command.setContentMergeStrategy(ContentMergeStrategy.THEIRS);
+    expect(command.getContentMergeStrategy()).toBe(ContentMergeStrategy.THEIRS);
+  });
+
+  /**
+   * Test setOurCommitName/getOurCommitName.
+   *
+   * Based on JGit's setOurCommitName for conflict markers.
+   */
+  it("should support setting our commit name for conflict markers", async () => {
+    const { git } = await createInitializedGit();
+
+    const command = git.cherryPick();
+    expect(command.getOurCommitName()).toBeUndefined(); // default
+
+    command.setOurCommitName("feature-branch");
+    expect(command.getOurCommitName()).toBe("feature-branch");
+  });
+
+  /**
+   * Test setReflogPrefix/getReflogPrefix.
+   *
+   * Based on JGit's reflog handling.
+   */
+  it("should support setting reflog prefix", async () => {
+    const { git } = await createInitializedGit();
+
+    const command = git.cherryPick();
+    expect(command.getReflogPrefix()).toBe("cherry-pick:"); // default
+
+    command.setReflogPrefix("revert:");
+    expect(command.getReflogPrefix()).toBe("revert:");
+  });
+
+  /**
+   * Test that options are correctly maintained through fluent API.
+   */
+  it("should chain all options fluently", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create setup for cherry-pick
+    await addFile(store, "a.txt", "a");
+    await git.commit().setMessage("base").call();
+    const baseCommit = await store.refs.resolve("HEAD");
+
+    await git
+      .branchCreate()
+      .setName("side")
+      .setStartPoint(baseCommit?.objectId ?? "")
+      .call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+    const baseCommitData = await store.commits.loadCommit(baseCommit?.objectId ?? "");
+    await store.staging.readTree(store.trees, baseCommitData.tree);
+
+    await addFile(store, "b.txt", "b");
+    await git.commit().setMessage("side commit").call();
+    const sideCommit = await store.refs.resolve("HEAD");
+
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(store.trees, baseCommitData.tree);
+
+    // Chain all options
+    const result = await git
+      .cherryPick()
+      .include(sideCommit?.objectId ?? "")
+      .setStrategy(MergeStrategy.RECURSIVE)
+      .setContentMergeStrategy(ContentMergeStrategy.OURS)
+      .setOurCommitName("HEAD")
+      .setReflogPrefix("cherry-pick:")
+      .call();
+
+    expect(result.status).toBe(CherryPickStatus.OK);
   });
 });
 
