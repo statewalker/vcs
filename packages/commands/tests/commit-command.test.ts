@@ -26,7 +26,7 @@ describe("CommitCommand", () => {
   });
 
   it("should create initial commit with no parents", async () => {
-    const { store } = await createInitializedGit();
+    await createInitializedGit();
     const { Git } = await import("../src/index.js");
 
     // Create a new store without initial commit

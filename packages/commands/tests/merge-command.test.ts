@@ -58,7 +58,7 @@ describe("MergeCommand", () => {
      * JGit: testFastForward
      */
     it("should fast-forward when HEAD is ancestor of source", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, store } = await createInitializedGit();
 
       // Create branch1 at initial commit
       await git.branchCreate().setName("branch1").call();
@@ -97,7 +97,7 @@ describe("MergeCommand", () => {
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       // Reset staging to branch1's tree (simulating checkout)
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId ?? "");
       await store.staging.readTree(store.trees, branch1Commit.tree);
 
       // Merge main into branch1
@@ -112,7 +112,7 @@ describe("MergeCommand", () => {
      * JGit: testFastForwardOnly
      */
     it("should fail with FF_ONLY when fast-forward not possible", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, store } = await createInitializedGit();
 
       // Create divergent branches
       await git.branchCreate().setName("branch1").call();
@@ -138,14 +138,13 @@ describe("MergeCommand", () => {
      * JGit: testMergeNoFastForward
      */
     it("should create merge commit with NO_FF", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, store } = await createInitializedGit();
 
       // Create branch1 at initial commit
       await git.branchCreate().setName("branch1").call();
 
       // Add commit on main
       await git.commit().setMessage("main commit").setAllowEmpty(true).call();
-      const _mainHead = await store.refs.resolve("refs/heads/main");
 
       // Switch to branch1
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
@@ -160,7 +159,7 @@ describe("MergeCommand", () => {
       expect(result.status).toBe(MergeStatus.MERGED);
 
       // New HEAD should be a merge commit with 2 parents
-      const newCommit = await store.commits.loadCommit(result.newHead!);
+      const newCommit = await store.commits.loadCommit(result.newHead ?? "");
       expect(newCommit.parents.length).toBe(2);
     });
 
@@ -178,7 +177,7 @@ describe("MergeCommand", () => {
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       // Reset staging to branch1's tree
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId ?? "");
       await store.staging.readTree(store.trees, branch1Commit.tree);
 
       // Add different file on branch1 and commit
@@ -219,7 +218,7 @@ describe("MergeCommand", () => {
 
       expect(result.status).toBe(MergeStatus.MERGED);
 
-      const mergeCommit = await store.commits.loadCommit(result.newHead!);
+      const mergeCommit = await store.commits.loadCommit(result.newHead ?? "");
       expect(mergeCommit.message).toBe("Custom merge message");
     });
   });
@@ -245,7 +244,7 @@ describe("MergeCommand", () => {
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       // Reset staging to branch1's tree
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId ?? "");
       await store.staging.readTree(store.trees, branch1Commit.tree);
 
       // Modify same file differently on branch1
@@ -276,7 +275,7 @@ describe("MergeCommand", () => {
       // Switch to branch1 and modify
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId ?? "");
       await store.staging.readTree(store.trees, branch1Commit.tree);
       await addFile(store, "conflict.txt", "branch version");
       await git.commit().setMessage("branch change").call();
@@ -298,7 +297,7 @@ describe("MergeCommand", () => {
 
   describe("squash merge", () => {
     it("should stage changes but not commit with squash", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, store } = await createInitializedGit();
 
       // Create branch1 at initial commit
       await git.branchCreate().setName("branch1").call();
@@ -342,7 +341,7 @@ describe("MergeCommand", () => {
       // Switch to branch1 and add different file
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       const branch1Before = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Before?.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Before?.objectId ?? "");
       await store.staging.readTree(store.trees, branch1Commit.tree);
       await addFile(store, "file2.txt", "content2");
       await git.commit().setMessage("branch commit").call();
@@ -384,7 +383,7 @@ describe("MergeCommand", () => {
     });
 
     it("should not be callable twice", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const cmd = git.merge().include("HEAD");
       await cmd.call();
@@ -397,7 +396,7 @@ describe("MergeCommand", () => {
 
   describe("branch resolution", () => {
     it("should resolve branch name to commit", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, store } = await createInitializedGit();
 
       // Create and checkout feature branch
       await git.branchCreate().setName("feature").call();
@@ -418,7 +417,7 @@ describe("MergeCommand", () => {
     });
 
     it("should resolve commit ID directly", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, store } = await createInitializedGit();
 
       // Create branch and add commit
       await git.branchCreate().setName("feature").call();
@@ -430,7 +429,10 @@ describe("MergeCommand", () => {
       await store.refs.setSymbolic("HEAD", "refs/heads/main");
 
       // Merge using commit ID
-      const result = await git.merge().include(featureRef?.objectId!).call();
+      const result = await git
+        .merge()
+        .include(featureRef?.objectId ?? "")
+        .call();
 
       expect(result.status).toBe(MergeStatus.FAST_FORWARD);
     });

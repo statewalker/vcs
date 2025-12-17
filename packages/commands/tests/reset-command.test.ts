@@ -11,7 +11,7 @@ import { createInitializedGit, toArray } from "./test-helper.js";
 
 describe("ResetCommand", () => {
   it("should reset to HEAD by default", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create commits
     await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -72,7 +72,7 @@ describe("ResetCommand", () => {
   });
 
   it("should reset with HEAD^ notation", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Create commit
     const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
