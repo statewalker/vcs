@@ -366,6 +366,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
+      '@webrun-vcs/testing':
+        specifier: workspace:*
+        version: link:../testing
       rolldown:
         specifier: 'catalog:'
         version: 1.0.0-beta.51
