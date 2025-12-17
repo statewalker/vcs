@@ -10,24 +10,23 @@
  */
 
 import {
-  FileMode,
   type CommitStore,
+  FileMode,
+  isSymbolicRef,
   type ObjectId,
   type RefStore,
   type StagingStore,
   type TreeStore,
-  isSymbolicRef,
 } from "@webrun-vcs/vcs";
-
-import type { WorkingTreeIterator } from "./interfaces/working-tree-iterator.js";
 import {
   FileStatus,
   type FileStatusEntry,
   type FileStatusValue,
-  type RepositoryStatus,
   type StatusCalculator as IStatusCalculator,
+  type RepositoryStatus,
   type StatusOptions,
 } from "./interfaces/status.js";
+import type { WorkingTreeIterator } from "./interfaces/working-tree-iterator.js";
 
 /**
  * Tree entry info for comparison.
@@ -103,9 +102,7 @@ export class StatusCalculatorImpl implements IStatusCalculator {
 
     // Get HEAD tree
     const headRef = await this.refs.resolve("HEAD");
-    const headTreeId = headRef?.objectId
-      ? await this.commits.getTree(headRef.objectId)
-      : undefined;
+    const headTreeId = headRef?.objectId ? await this.commits.getTree(headRef.objectId) : undefined;
 
     // Build maps for comparison
     const headEntries = headTreeId
@@ -218,9 +215,7 @@ export class StatusCalculatorImpl implements IStatusCalculator {
   async getFileStatus(path: string): Promise<FileStatusEntry | undefined> {
     // Get HEAD tree entry
     const headRef = await this.refs.resolve("HEAD");
-    const headTreeId = headRef?.objectId
-      ? await this.commits.getTree(headRef.objectId)
-      : undefined;
+    const headTreeId = headRef?.objectId ? await this.commits.getTree(headRef.objectId) : undefined;
 
     const headEntry = headTreeId ? await this.getTreeEntry(headTreeId, path) : undefined;
 
@@ -445,10 +440,7 @@ export class StatusCalculatorImpl implements IStatusCalculator {
   /**
    * Get tree entry by path.
    */
-  private async getTreeEntry(
-    treeId: ObjectId,
-    path: string,
-  ): Promise<TreeEntryInfo | undefined> {
+  private async getTreeEntry(treeId: ObjectId, path: string): Promise<TreeEntryInfo | undefined> {
     const parts = path.split("/");
     let currentTreeId = treeId;
 

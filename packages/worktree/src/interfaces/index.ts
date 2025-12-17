@@ -1,3 +1,4 @@
+export * from "./add.js";
 export * from "./checkout.js";
 export * from "./ignore-manager.js";
 export * from "./status.js";

@@ -31,24 +31,24 @@ class GitIgnoreNode implements IgnoreNode {
 
   parse(content: string): void {
     const lines = content.split(/\r?\n/);
-    let lineNumber = 1;
+    let _lineNumber = 1;
 
     for (const line of lines) {
       // Skip empty lines and comments
       if (line.length === 0) {
-        lineNumber++;
+        _lineNumber++;
         continue;
       }
 
       // Skip comment lines
       if (line.startsWith("#")) {
-        lineNumber++;
+        _lineNumber++;
         continue;
       }
 
       // Skip single slash (not a valid pattern)
       if (line === "/") {
-        lineNumber++;
+        _lineNumber++;
         continue;
       }
 
@@ -62,7 +62,7 @@ class GitIgnoreNode implements IgnoreNode {
         // console.warn(`Invalid ignore pattern at line ${lineNumber}: ${line}`);
       }
 
-      lineNumber++;
+      _lineNumber++;
     }
   }
 

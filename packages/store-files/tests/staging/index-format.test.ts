@@ -5,15 +5,15 @@
  * Tests roundtrip serialization, version support, and Git compatibility.
  */
 
-import { describe, expect, it } from "vitest";
 import { FileMode, MergeStage, type StagingEntry } from "@webrun-vcs/vcs";
+import { describe, expect, it } from "vitest";
 import {
-  parseIndexFile,
-  serializeIndexFile,
   INDEX_VERSION_2,
   INDEX_VERSION_3,
   INDEX_VERSION_4,
   type IndexVersion,
+  parseIndexFile,
+  serializeIndexFile,
 } from "../../src/staging/index-format.js";
 
 describe("index-format", () => {
@@ -331,7 +331,7 @@ describe("index-format", () => {
 
     it("handles long paths (>= 0xfff bytes)", async () => {
       // Create a path longer than NAME_MASK (0xfff = 4095)
-      const longPath = "path/" + "a".repeat(4090) + "/file.txt";
+      const longPath = `path/${"a".repeat(4090)}/file.txt`;
       const entries: StagingEntry[] = [createEntry(longPath)];
 
       const data = await serializeIndexFile(entries);

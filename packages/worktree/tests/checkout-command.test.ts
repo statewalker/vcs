@@ -8,26 +8,27 @@
  * - Index updates
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
-import { CheckoutCommand, createCheckoutCommand } from "../src/checkout-command.js";
-import { FileMode } from "@webrun-vcs/vcs";
+import type { FilesApi } from "@statewalker/webrun-files";
 import type {
-  CommitStore,
   Commit,
+  CommitStore,
+  MergeStageValue,
   ObjectId,
   ObjectStore,
-  RefStore,
   Ref,
-  SymbolicRef,
-  StagingStore,
-  StagingEntry,
+  RefStore,
   StagingBuilder,
   StagingEditor,
-  TreeStore,
-  TreeEntry,
-  MergeStageValue,
+  StagingEntry,
   StagingEntryOptions,
+  StagingStore,
+  SymbolicRef,
+  TreeEntry,
+  TreeStore,
 } from "@webrun-vcs/vcs";
+import { FileMode } from "@webrun-vcs/vcs";
+import { beforeEach, describe, expect, it } from "vitest";
+import { CheckoutCommand } from "../src/checkout-command.js";
 
 /**
  * Mock file system.
@@ -50,7 +51,7 @@ function createMockFilesApi() {
     },
 
     async *list(path: string): AsyncIterable<{ name: string; kind: "file" | "directory" }> {
-      const prefix = path === "" ? "" : path + "/";
+      const prefix = path === "" ? "" : `${path}/`;
       const seen = new Set<string>();
 
       for (const filePath of files.keys()) {
@@ -392,7 +393,7 @@ function createMockStagingStore() {
 
     async *listEntriesUnder(prefix: string): AsyncIterable<StagingEntry> {
       for (const entry of entries) {
-        if (entry.path.startsWith(prefix + "/") || entry.path === prefix) {
+        if (entry.path.startsWith(`${prefix}/`) || entry.path === prefix) {
           yield entry;
         }
       }
@@ -457,7 +458,13 @@ function createMockStagingStore() {
     },
   };
 
-  return { store, getEntries: () => entries, setEntries: (e: StagingEntry[]) => (entries = e) };
+  return {
+    store,
+    getEntries: () => entries,
+    setEntries: (e: StagingEntry[]) => {
+      entries = e;
+    },
+  };
 }
 
 describe("CheckoutCommand", () => {
@@ -479,7 +486,7 @@ describe("CheckoutCommand", () => {
     stagingMock = createMockStagingStore();
 
     checkout = new CheckoutCommand({
-      files: files as any,
+      files: files as FilesApi,
       workTreeRoot: ROOT,
       objects,
       trees,
@@ -525,7 +532,7 @@ describe("CheckoutCommand", () => {
       // Verify file was written
       const writtenFile = files.files.get(fullPath("file.txt"));
       expect(writtenFile).toBeDefined();
-      expect(new TextDecoder().decode(writtenFile!.content)).toBe("Hello, World!");
+      expect(new TextDecoder().decode(writtenFile?.content)).toBe("Hello, World!");
     });
 
     it("should checkout a commit by ID", async () => {
@@ -665,7 +672,7 @@ describe("CheckoutCommand", () => {
 
       expect(result.updated).toContain("file.txt");
       const writtenFile = files.files.get(fullPath("file.txt"));
-      expect(new TextDecoder().decode(writtenFile!.content)).toBe("New content");
+      expect(new TextDecoder().decode(writtenFile?.content)).toBe("New content");
     });
 
     it("should handle nested directories", async () => {
@@ -726,7 +733,7 @@ describe("CheckoutCommand", () => {
 
       expect(result.updated).toContain("file.txt");
       const writtenFile = files.files.get(fullPath("file.txt"));
-      expect(new TextDecoder().decode(writtenFile!.content)).toBe("Index content");
+      expect(new TextDecoder().decode(writtenFile?.content)).toBe("Index content");
     });
 
     it("should checkout specific path from HEAD", async () => {
@@ -884,7 +891,7 @@ describe("CheckoutCommand", () => {
       expect(result.updated).toContain("file.txt");
 
       const writtenFile = files.files.get(fullPath("file.txt"));
-      expect(new TextDecoder().decode(writtenFile!.content)).toBe("Target content");
+      expect(new TextDecoder().decode(writtenFile?.content)).toBe("Target content");
     });
   });
 

@@ -11,7 +11,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/treewalk/FileTreeIterator.java
  */
 
-import { type FileInfo, type FilesApi, basename, joinPath } from "@statewalker/webrun-files";
+import { basename, type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
 
 /**
  * Simplified file entry information for mode determination.
@@ -19,17 +19,17 @@ import { type FileInfo, type FilesApi, basename, joinPath } from "@statewalker/w
 interface SimplifiedFileInfo {
   kind: "file" | "directory";
 }
+
 import { sha1 } from "@webrun-vcs/utils/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
 import { FileMode, type ObjectId } from "@webrun-vcs/vcs";
-
+import { createIgnoreManager } from "./ignore/ignore-manager.js";
 import type { IgnoreManager } from "./interfaces/ignore-manager.js";
 import type {
   WorkingTreeEntry,
   WorkingTreeIterator,
   WorkingTreeIteratorOptions,
 } from "./interfaces/working-tree-iterator.js";
-import { createIgnoreManager } from "./ignore/ignore-manager.js";
 
 /**
  * Options for creating a FileTreeIterator.

@@ -8,31 +8,31 @@
  * - Path filtering
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
-import { createStatusCalculator, StatusCalculatorImpl } from "../src/status-calculator.js";
-import { FileStatus } from "../src/interfaces/status.js";
-import { FileMode } from "@webrun-vcs/vcs";
 import type {
-  CommitStore,
   Commit,
+  CommitStore,
+  MergeStageValue,
   ObjectId,
-  RefStore,
   Ref,
-  SymbolicRef,
-  StagingStore,
-  StagingEntry,
+  RefStore,
   StagingBuilder,
   StagingEditor,
-  TreeStore,
-  TreeEntry,
-  MergeStageValue,
+  StagingEntry,
   StagingEntryOptions,
+  StagingStore,
+  SymbolicRef,
+  TreeEntry,
+  TreeStore,
 } from "@webrun-vcs/vcs";
+import { FileMode } from "@webrun-vcs/vcs";
+import { beforeEach, describe, expect, it } from "vitest";
+import { FileStatus } from "../src/interfaces/status.js";
 import type {
-  WorkingTreeIterator,
   WorkingTreeEntry,
+  WorkingTreeIterator,
   WorkingTreeIteratorOptions,
 } from "../src/interfaces/working-tree-iterator.js";
+import { createStatusCalculator, StatusCalculatorImpl } from "../src/status-calculator.js";
 
 /**
  * Mock working tree iterator.
@@ -44,9 +44,7 @@ function createMockWorktreeIterator() {
     async *walk(options: WorkingTreeIteratorOptions = {}): AsyncIterable<WorkingTreeEntry> {
       const { includeIgnored = false, pathPrefix = "" } = options;
 
-      const sortedEntries = [...entries.values()].sort((a, b) =>
-        a.path.localeCompare(b.path),
-      );
+      const sortedEntries = [...entries.values()].sort((a, b) => a.path.localeCompare(b.path));
 
       for (const entry of sortedEntries) {
         if (pathPrefix && !entry.path.startsWith(pathPrefix)) {
@@ -330,7 +328,7 @@ function createMockStagingStore() {
 
     async *listEntriesUnder(prefix: string): AsyncIterable<StagingEntry> {
       for (const entry of entries) {
-        if (entry.path.startsWith(prefix + "/") || entry.path === prefix) {
+        if (entry.path.startsWith(`${prefix}/`) || entry.path === prefix) {
           yield entry;
         }
       }
@@ -489,12 +487,12 @@ describe("StatusCalculator", () => {
           objectId: "blob1",
           stage: 0,
           size: 100,
-          mtime: Date.now() - 5000,
+          mtime: OLD_TIME,
         },
       ]);
 
-      // File also in worktree (same size)
-      worktreeMock.addFile("new-file.txt", { size: 100, mtime: Date.now() - 6000 });
+      // File also in worktree (same size, old mtime to avoid racily-clean detection)
+      worktreeMock.addFile("new-file.txt", { size: 100, mtime: OLD_TIME - 1000 });
 
       const status = await calculator.calculateStatus();
 
@@ -549,12 +547,12 @@ describe("StatusCalculator", () => {
           objectId: "blob2",
           stage: 0,
           size: 150,
-          mtime: Date.now() - 5000,
+          mtime: OLD_TIME,
         },
       ]);
 
-      // File in worktree (same as index)
-      worktreeMock.addFile("file.txt", { size: 150, mtime: Date.now() - 6000 });
+      // File in worktree (same as index, old mtime)
+      worktreeMock.addFile("file.txt", { size: 150, mtime: OLD_TIME - 1000 });
 
       const status = await calculator.calculateStatus();
 
@@ -567,6 +565,19 @@ describe("StatusCalculator", () => {
 
     it("should detect files deleted from worktree", async () => {
       // Setup: file in index but not in worktree
+      // Also needs to be in HEAD to have indexStatus as UNMODIFIED
+      trees.trees.set("tree1", [{ name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
+
+      commits.commits.set("commit1", {
+        tree: "tree1",
+        parents: [],
+        author: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        committer: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        message: "Initial commit",
+      });
+
+      refs.refs.set("HEAD", { objectId: "commit1" });
+
       stagingMock.setEntries([
         {
           path: "file.txt",
@@ -574,7 +585,7 @@ describe("StatusCalculator", () => {
           objectId: "blob1",
           stage: 0,
           size: 100,
-          mtime: Date.now(),
+          mtime: OLD_TIME,
         },
       ]);
 
@@ -588,7 +599,19 @@ describe("StatusCalculator", () => {
     });
 
     it("should detect files modified in worktree (size change)", async () => {
-      // Setup: file in index
+      // Setup: file in HEAD and index
+      trees.trees.set("tree1", [{ name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
+
+      commits.commits.set("commit1", {
+        tree: "tree1",
+        parents: [],
+        author: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        committer: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        message: "Initial commit",
+      });
+
+      refs.refs.set("HEAD", { objectId: "commit1" });
+
       stagingMock.setEntries([
         {
           path: "file.txt",
@@ -596,7 +619,7 @@ describe("StatusCalculator", () => {
           objectId: "blob1",
           stage: 0,
           size: 100,
-          mtime: Date.now() - 5000,
+          mtime: OLD_TIME,
         },
       ]);
 
@@ -768,11 +791,7 @@ describe("StatusCalculator", () => {
 
       const status = await calculator.calculateStatus();
 
-      expect(status.files.map((f) => f.path)).toEqual([
-        "a-file.txt",
-        "m-file.txt",
-        "z-file.txt",
-      ]);
+      expect(status.files.map((f) => f.path)).toEqual(["a-file.txt", "m-file.txt", "z-file.txt"]);
     });
   });
 
@@ -798,11 +817,12 @@ describe("StatusCalculator", () => {
           objectId: "blob1",
           stage: 0,
           size: 100,
-          mtime: Date.now() - 5000,
+          mtime: OLD_TIME,
         },
       ]);
 
-      worktreeMock.addFile("file.txt", { size: 100, mtime: Date.now() - 6000 });
+      // Use OLD_TIME - 1000 to avoid racily-clean detection
+      worktreeMock.addFile("file.txt", { size: 100, mtime: OLD_TIME - 1000 });
 
       const status = await calculator.getFileStatus("file.txt");
 
@@ -815,8 +835,8 @@ describe("StatusCalculator", () => {
       const status = await calculator.getFileStatus("new-file.txt");
 
       expect(status).toBeDefined();
-      expect(status!.path).toBe("new-file.txt");
-      expect(status!.workTreeStatus).toBe(FileStatus.UNTRACKED);
+      expect(status?.path).toBe("new-file.txt");
+      expect(status?.workTreeStatus).toBe(FileStatus.UNTRACKED);
     });
 
     it("should return status for staged file", async () => {
@@ -836,7 +856,7 @@ describe("StatusCalculator", () => {
       const status = await calculator.getFileStatus("file.txt");
 
       expect(status).toBeDefined();
-      expect(status!.indexStatus).toBe(FileStatus.ADDED);
+      expect(status?.indexStatus).toBe(FileStatus.ADDED);
     });
 
     it("should return undefined for non-existent file", async () => {
@@ -846,9 +866,7 @@ describe("StatusCalculator", () => {
     });
 
     it("should handle nested path", async () => {
-      trees.trees.set("subtree", [
-        { name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob1" },
-      ]);
+      trees.trees.set("subtree", [{ name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
 
       trees.trees.set("tree1", [{ name: "src", mode: FileMode.TREE, id: "subtree" }]);
 
@@ -865,8 +883,8 @@ describe("StatusCalculator", () => {
       const status = await calculator.getFileStatus("src/file.txt");
 
       expect(status).toBeDefined();
-      expect(status!.path).toBe("src/file.txt");
-      expect(status!.indexStatus).toBe(FileStatus.DELETED);
+      expect(status?.path).toBe("src/file.txt");
+      expect(status?.indexStatus).toBe(FileStatus.DELETED);
     });
   });
 
@@ -879,12 +897,12 @@ describe("StatusCalculator", () => {
           objectId: "blob1",
           stage: 0,
           size: 100,
-          mtime: Date.now() - 5000,
+          mtime: OLD_TIME,
         },
       ]);
 
-      // Worktree file with same size and old mtime
-      worktreeMock.addFile("file.txt", { size: 100, mtime: Date.now() - 6000 });
+      // Worktree file with same size and old mtime (older than index update)
+      worktreeMock.addFile("file.txt", { size: 100, mtime: OLD_TIME - 1000 });
 
       const modified = await calculator.isModified("file.txt");
 

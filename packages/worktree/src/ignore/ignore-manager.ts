@@ -135,7 +135,7 @@ class GitIgnoreManagerImpl implements IgnoreManager {
     if (dirPath === "" || dirPath === ".") {
       return true;
     }
-    return path === dirPath || path.startsWith(dirPath + "/");
+    return path === dirPath || path.startsWith(`${dirPath}/`);
   }
 
   /**
