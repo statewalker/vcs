@@ -128,7 +128,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
 
       it("sorts directories with trailing slash semantics", async () => {
         // Git sorts directories as if they have a trailing '/'
-        // "foo" (dir) sorts after "foo-bar" (file)
+        // ASCII: '-' (45) < '.' (46) < '/' (47)
+        // So: foo-bar < foo.txt < foo/ (directory)
         const entries: TreeEntry[] = [
           { mode: FileMode.REGULAR_FILE, name: "foo-bar", id: fakeObjectId("foobar") },
           { mode: FileMode.TREE, name: "foo", id: fakeObjectId("foo") },
@@ -138,8 +139,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
         const id = await ctx.treeStore.storeTree(entries);
         const loaded = await collectEntries(ctx.treeStore.loadTree(id));
 
-        // foo-bar < foo (dir treated as "foo/") < foo.txt
-        expect(loaded.map((e) => e.name)).toEqual(["foo-bar", "foo", "foo.txt"]);
+        // foo-bar < foo.txt < foo (dir treated as "foo/")
+        expect(loaded.map((e) => e.name)).toEqual(["foo-bar", "foo.txt", "foo"]);
       });
 
       it("produces consistent hash regardless of input order", async () => {
@@ -241,7 +242,9 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
       });
 
       it("preserves file mode for directories", async () => {
-        const entries: TreeEntry[] = [{ mode: FileMode.TREE, name: "dir", id: fakeObjectId("dir") }];
+        const entries: TreeEntry[] = [
+          { mode: FileMode.TREE, name: "dir", id: fakeObjectId("dir") },
+        ];
         const id = await ctx.treeStore.storeTree(entries);
         const loaded = await collectEntries(ctx.treeStore.loadTree(id));
 
