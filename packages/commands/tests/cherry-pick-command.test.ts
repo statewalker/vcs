@@ -746,4 +746,125 @@ describe("CherryPickCommand - JGit additional tests", () => {
     expect(newCommit.parents).toHaveLength(1);
     expect(newCommit.parents[0]).toBe(mainCommit2?.objectId);
   });
+
+  /**
+   * Test cherry-picking a root commit (first commit with no parent).
+   *
+   * Based on JGit's testRootCherryPick.
+   */
+  it("should cherry-pick a root commit", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create root commit on main branch
+    await addFile(store, "a.txt", "a content");
+    await git.commit().setMessage("root commit").call();
+    const rootCommit = await store.refs.resolve("HEAD");
+
+    // Create orphan branch (start fresh)
+    await git.branchCreate().setName("orphan").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/orphan");
+
+    // Create a different root on orphan branch
+    await addFile(store, "b.txt", "b content");
+    await git.commit().setMessage("orphan root").call();
+
+    // Cherry-pick the original root commit onto orphan branch
+    const result = await git
+      .cherryPick()
+      .include(rootCommit?.objectId ?? "")
+      .call();
+
+    expect(result.status).toBe(CherryPickStatus.OK);
+
+    // Should have both files now
+    const aEntry = await store.staging.getEntry("a.txt");
+    const bEntry = await store.staging.getEntry("b.txt");
+    expect(aEntry).toBeDefined();
+    expect(bEntry).toBeDefined();
+  });
+
+  /**
+   * Test cherry-pick with conflict and noCommit option.
+   *
+   * Based on JGit's testCherryPickConflictResolutionNoCommit.
+   */
+  it("should handle conflict with noCommit option", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create file a on main
+    await addFile(store, "a.txt", "first master");
+    await git.commit().setMessage("first master").call();
+    const firstMaster = await store.refs.resolve("HEAD");
+
+    // Create side branch
+    await git
+      .branchCreate()
+      .setName("side")
+      .setStartPoint(firstMaster?.objectId ?? "")
+      .call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+    const firstCommit = await store.commits.loadCommit(firstMaster?.objectId ?? "");
+    await store.staging.readTree(store.trees, firstCommit.tree);
+
+    // Modify a on side branch
+    await addFile(store, "a.txt", "a(side)");
+    await git.commit().setMessage("side").call();
+    const sideCommit = await store.refs.resolve("HEAD");
+
+    // Checkout main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(store.trees, firstCommit.tree);
+
+    // Modify a on main differently
+    await addFile(store, "a.txt", "a(master)");
+    await git.commit().setMessage("second master").call();
+    const beforeCherryPick = await store.refs.resolve("HEAD");
+
+    // Cherry-pick side commit with noCommit - should conflict
+    const result = await git
+      .cherryPick()
+      .include(sideCommit?.objectId ?? "")
+      .setNoCommit(true)
+      .call();
+
+    expect(result.status).toBe(CherryPickStatus.CONFLICTING);
+    expect(result.conflicts).toContain("a.txt");
+
+    // HEAD should not have moved
+    const afterCherryPick = await store.refs.resolve("HEAD");
+    expect(afterCherryPick?.objectId).toBe(beforeCherryPick?.objectId);
+  });
+
+  /**
+   * Test command cannot be reused after call.
+   */
+  it("should not allow command reuse after call", async () => {
+    const { git, store } = await createInitializedGit();
+
+    await addFile(store, "a.txt", "a");
+    await git.commit().setMessage("base").call();
+    const baseCommit = await store.refs.resolve("HEAD");
+
+    await git
+      .branchCreate()
+      .setName("side")
+      .setStartPoint(baseCommit?.objectId ?? "")
+      .call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+    const baseCommitData = await store.commits.loadCommit(baseCommit?.objectId ?? "");
+    await store.staging.readTree(store.trees, baseCommitData.tree);
+
+    await addFile(store, "b.txt", "b");
+    await git.commit().setMessage("side commit").call();
+    const sideCommit = await store.refs.resolve("HEAD");
+
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(store.trees, baseCommitData.tree);
+
+    const command = git.cherryPick().include(sideCommit?.objectId ?? "");
+    await command.call();
+
+    // Attempting to call again should throw
+    await expect(command.call()).rejects.toThrow();
+  });
 });
