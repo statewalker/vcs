@@ -68,7 +68,8 @@ export function createRefStoreTests(name: string, factory: RefStoreFactory): voi
 
         const ref = await ctx.refStore.get("refs/heads/main");
         expect(ref).toBeDefined();
-        expect(isSymbolicRef(ref!)).toBe(false);
+        if (!ref) return;
+        expect(isSymbolicRef(ref)).toBe(false);
         expect((ref as Ref).objectId).toBe(objectId);
       });
 
@@ -117,7 +118,8 @@ export function createRefStoreTests(name: string, factory: RefStoreFactory): voi
 
         const ref = await ctx.refStore.get("HEAD");
         expect(ref).toBeDefined();
-        expect(isSymbolicRef(ref!)).toBe(true);
+        if (!ref) return;
+        expect(isSymbolicRef(ref)).toBe(true);
         expect((ref as SymbolicRef).target).toBe("refs/heads/main");
       });
 
@@ -192,7 +194,8 @@ export function createRefStoreTests(name: string, factory: RefStoreFactory): voi
         const refs = await collectRefs(ctx.refStore.list());
         const head = refs.find((r) => r.name === "HEAD");
         expect(head).toBeDefined();
-        expect(isSymbolicRef(head!)).toBe(true);
+        if (!head) return;
+        expect(isSymbolicRef(head)).toBe(true);
       });
     });
 

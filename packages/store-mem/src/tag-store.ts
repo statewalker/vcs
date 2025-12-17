@@ -8,8 +8,8 @@
  * Tags are stored directly as JavaScript objects for simplicity and performance.
  */
 
-import type { AnnotatedTag, ObjectId, TagStore } from "../../interfaces/index.js";
-import { ObjectType } from "../../interfaces/types.js";
+import type { AnnotatedTag, ObjectId, TagStore } from "@webrun-vcs/vcs";
+import { ObjectType } from "@webrun-vcs/vcs";
 
 /**
  * Maximum depth for following tag chains to prevent infinite loops.

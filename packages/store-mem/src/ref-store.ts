@@ -5,14 +5,8 @@
  * No persistence - data is lost when the instance is garbage collected.
  */
 
-import type {
-  ObjectId,
-  Ref,
-  RefStore,
-  RefUpdateResult,
-  SymbolicRef,
-} from "../../interfaces/index.js";
-import { RefStoreLocation } from "../../interfaces/ref-store.js";
+import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@webrun-vcs/vcs";
+import { RefStoreLocation } from "@webrun-vcs/vcs";
 
 /**
  * Maximum depth for following symbolic refs to prevent infinite loops.

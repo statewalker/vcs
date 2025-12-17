@@ -1,13 +1,13 @@
 /**
- * In-memory storage implementations
+ * In-memory storage implementations for WebRun VCS
  *
- * Provides in-memory implementations of all storage repositories
+ * Provides in-memory implementations of all storage interfaces
  * for testing and development purposes.
  */
 
-// Store implementations
+// High-level store implementations
 export * from "./commit-store.js";
-// Factory functions
+// Factory function
 export * from "./create-memory-storage.js";
 // Repository implementations
 export * from "./delta-repository.js";
