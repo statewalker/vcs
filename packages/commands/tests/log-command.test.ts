@@ -135,3 +135,217 @@ describe("LogCommand with all refs", () => {
     expect(commits.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("LogCommand date filtering", () => {
+  it("should filter commits by setSince", async () => {
+    const { git } = await createInitializedGit();
+
+    // Create commits with different timestamps
+    const now = Math.floor(Date.now() / 1000);
+
+    await git
+      .commit()
+      .setMessage("Old commit")
+      .setAllowEmpty(true)
+      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 3600, tzOffset: "+0000" })
+      .call();
+
+    await git
+      .commit()
+      .setMessage("Recent commit")
+      .setAllowEmpty(true)
+      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 60, tzOffset: "+0000" })
+      .call();
+
+    // Only get commits from last 30 minutes
+    const commits = await toArray(await git.log().setSince(now - 1800).call());
+
+    expect(commits.length).toBe(1);
+    expect(commits[0].message).toBe("Recent commit");
+  });
+
+  it("should filter commits by setUntil", async () => {
+    const { git } = await createInitializedGit();
+
+    const now = Math.floor(Date.now() / 1000);
+
+    await git
+      .commit()
+      .setMessage("Old commit")
+      .setAllowEmpty(true)
+      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 3600, tzOffset: "+0000" })
+      .call();
+
+    await git
+      .commit()
+      .setMessage("Recent commit")
+      .setAllowEmpty(true)
+      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now, tzOffset: "+0000" })
+      .call();
+
+    // Only get commits older than 30 minutes
+    const commits = await toArray(await git.log().setUntil(now - 1800).call());
+
+    // Should include old commit and initial commit
+    expect(commits.some((c) => c.message === "Old commit")).toBe(true);
+    expect(commits.every((c) => c.message !== "Recent commit")).toBe(true);
+  });
+
+  it("should combine setSince and setUntil", async () => {
+    const { git } = await createInitializedGit();
+
+    const now = Math.floor(Date.now() / 1000);
+
+    await git
+      .commit()
+      .setMessage("Very old")
+      .setAllowEmpty(true)
+      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 7200, tzOffset: "+0000" })
+      .call();
+
+    await git
+      .commit()
+      .setMessage("Middle")
+      .setAllowEmpty(true)
+      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 3600, tzOffset: "+0000" })
+      .call();
+
+    await git
+      .commit()
+      .setMessage("Recent")
+      .setAllowEmpty(true)
+      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now, tzOffset: "+0000" })
+      .call();
+
+    // Get commits between 2 hours ago and 30 minutes ago
+    const commits = await toArray(
+      await git
+        .log()
+        .setSince(now - 7200)
+        .setUntil(now - 1800)
+        .call(),
+    );
+
+    // Should include "Very old" and "Middle" but not "Recent"
+    expect(commits.some((c) => c.message === "Very old")).toBe(true);
+    expect(commits.some((c) => c.message === "Middle")).toBe(true);
+    expect(commits.every((c) => c.message !== "Recent")).toBe(true);
+  });
+});
+
+describe("LogCommand author filtering", () => {
+  it("should filter by author name", async () => {
+    const { git } = await createInitializedGit();
+
+    await git
+      .commit()
+      .setMessage("By Alice")
+      .setAllowEmpty(true)
+      .setAuthor("Alice Smith", "alice@example.com")
+      .call();
+
+    await git
+      .commit()
+      .setMessage("By Bob")
+      .setAllowEmpty(true)
+      .setAuthor("Bob Jones", "bob@example.com")
+      .call();
+
+    const commits = await toArray(await git.log().setAuthorFilter("alice").call());
+
+    expect(commits.length).toBe(1);
+    expect(commits[0].message).toBe("By Alice");
+  });
+
+  it("should filter by author email", async () => {
+    const { git } = await createInitializedGit();
+
+    await git
+      .commit()
+      .setMessage("By Alice")
+      .setAllowEmpty(true)
+      .setAuthor("Alice Smith", "alice@example.com")
+      .call();
+
+    await git
+      .commit()
+      .setMessage("By Bob")
+      .setAllowEmpty(true)
+      .setAuthor("Bob Jones", "bob@example.com")
+      .call();
+
+    const commits = await toArray(await git.log().setAuthorFilter("bob@example.com").call());
+
+    expect(commits.length).toBe(1);
+    expect(commits[0].message).toBe("By Bob");
+  });
+
+  it("should filter by committer", async () => {
+    const { git } = await createInitializedGit();
+
+    await git
+      .commit()
+      .setMessage("Committed by Carol")
+      .setAllowEmpty(true)
+      .setCommitter("Carol Davis", "carol@example.com")
+      .call();
+
+    await git
+      .commit()
+      .setMessage("Committed by Dave")
+      .setAllowEmpty(true)
+      .setCommitter("Dave Wilson", "dave@example.com")
+      .call();
+
+    const commits = await toArray(await git.log().setCommitterFilter("carol").call());
+
+    expect(commits.length).toBe(1);
+    expect(commits[0].message).toBe("Committed by Carol");
+  });
+});
+
+describe("LogCommand not() exclusion", () => {
+  it("should exclude commits reachable from not() target", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create base commit
+    await git.commit().setMessage("Base").setAllowEmpty(true).call();
+    const baseRef = await store.refs.resolve("HEAD");
+    const baseId = baseRef?.objectId ?? "";
+
+    // Create more commits
+    await git.commit().setMessage("Feature 1").setAllowEmpty(true).call();
+    await git.commit().setMessage("Feature 2").setAllowEmpty(true).call();
+
+    // Get commits excluding base and its ancestors
+    const commits = await toArray(await git.log().not(baseId).call());
+
+    expect(commits.length).toBe(2);
+    expect(commits[0].message).toBe("Feature 2");
+    expect(commits[1].message).toBe("Feature 1");
+    // Base and Initial should be excluded
+    expect(commits.every((c) => c.message !== "Base")).toBe(true);
+    expect(commits.every((c) => c.message !== "Initial commit")).toBe(true);
+  });
+
+  it("should support multiple not() calls", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create commit chain
+    await git.commit().setMessage("C1").setAllowEmpty(true).call();
+    const c1Ref = await store.refs.resolve("HEAD");
+    const c1Id = c1Ref?.objectId ?? "";
+
+    await git.commit().setMessage("C2").setAllowEmpty(true).call();
+    const c2Ref = await store.refs.resolve("HEAD");
+    const c2Id = c2Ref?.objectId ?? "";
+
+    await git.commit().setMessage("C3").setAllowEmpty(true).call();
+
+    // Exclude both C1 and C2 explicitly
+    const commits = await toArray(await git.log().not(c1Id).not(c2Id).call());
+
+    expect(commits.length).toBe(1);
+    expect(commits[0].message).toBe("C3");
+  });
+});
