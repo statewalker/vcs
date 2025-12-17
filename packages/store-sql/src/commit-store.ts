@@ -150,10 +150,9 @@ export class SQLCommitStore implements CommitStore {
    * Load a commit object by ID.
    */
   async loadCommit(id: ObjectId): Promise<Commit> {
-    const commits = await this.db.query<CommitRow>(
-      "SELECT * FROM vcs_commit WHERE commit_id = ?",
-      [id],
-    );
+    const commits = await this.db.query<CommitRow>("SELECT * FROM vcs_commit WHERE commit_id = ?", [
+      id,
+    ]);
 
     if (commits.length === 0) {
       throw new Error(`Commit ${id} not found`);

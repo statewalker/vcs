@@ -87,10 +87,9 @@ export class SQLTreeStore implements TreeStore {
     const treeId = computeTreeHash(entryArray);
 
     // Check if tree already exists (deduplication)
-    const existing = await this.db.query<{ id: number }>(
-      "SELECT id FROM tree WHERE tree_id = ?",
-      [treeId],
-    );
+    const existing = await this.db.query<{ id: number }>("SELECT id FROM tree WHERE tree_id = ?", [
+      treeId,
+    ]);
 
     if (existing.length > 0) {
       return treeId;
@@ -146,10 +145,9 @@ export class SQLTreeStore implements TreeStore {
       mode: number;
       name: string;
       object_id: string;
-    }>(
-      "SELECT mode, name, object_id FROM tree_entry WHERE tree_fk = ? ORDER BY position",
-      [treeFk],
-    );
+    }>("SELECT mode, name, object_id FROM tree_entry WHERE tree_fk = ? ORDER BY position", [
+      treeFk,
+    ]);
 
     for (const entry of entries) {
       yield {
