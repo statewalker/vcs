@@ -24,15 +24,35 @@ import { GitCommand } from "../git-command.js";
  *
  * // Skip first N commits
  * const older = await git.log().setSkip(10).setMaxCount(10).call();
+ *
+ * // Filter by date range
+ * const thisWeek = await git.log()
+ *   .setSince(Date.now() - 7 * 24 * 60 * 60 * 1000)
+ *   .call();
+ *
+ * // Filter by author
+ * const myCommits = await git.log()
+ *   .setAuthorFilter("john@example.com")
+ *   .call();
+ *
+ * // Exclude commits
+ * const newCommits = await git.log()
+ *   .not(oldBranchHead)
+ *   .call();
  * ```
  */
 export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
   private startCommits: ObjectId[] = [];
+  private excludeCommits: ObjectId[] = [];
   private paths: string[] = [];
   private maxCount?: number;
   private skip = 0;
   private includeAll = false;
   private firstParentOnly = false;
+  private sinceTime?: number;
+  private untilTime?: number;
+  private authorPattern?: string;
+  private committerPattern?: string;
 
   /**
    * Add a starting commit for the log.
@@ -104,6 +124,74 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
   }
 
   /**
+   * Exclude commits reachable from the given commit.
+   *
+   * Equivalent to `git log ^commit` or `A..B` syntax.
+   * Useful for finding commits in one branch but not another.
+   *
+   * @param commit ObjectId to exclude along with its ancestors
+   */
+  not(commit: ObjectId): this {
+    this.checkCallable();
+    this.excludeCommits.push(commit);
+    return this;
+  }
+
+  /**
+   * Set minimum commit time (--since/--after).
+   *
+   * Only include commits after this timestamp.
+   *
+   * @param timestamp Unix timestamp in milliseconds or seconds
+   */
+  setSince(timestamp: number): this {
+    this.checkCallable();
+    // Normalize to seconds (Git uses seconds)
+    this.sinceTime = timestamp > 1e12 ? Math.floor(timestamp / 1000) : timestamp;
+    return this;
+  }
+
+  /**
+   * Set maximum commit time (--until/--before).
+   *
+   * Only include commits before this timestamp.
+   *
+   * @param timestamp Unix timestamp in milliseconds or seconds
+   */
+  setUntil(timestamp: number): this {
+    this.checkCallable();
+    // Normalize to seconds (Git uses seconds)
+    this.untilTime = timestamp > 1e12 ? Math.floor(timestamp / 1000) : timestamp;
+    return this;
+  }
+
+  /**
+   * Filter by author name or email (case-insensitive).
+   *
+   * Matches against "Author Name <email>" string.
+   *
+   * @param pattern Substring to match in author field
+   */
+  setAuthorFilter(pattern: string): this {
+    this.checkCallable();
+    this.authorPattern = pattern.toLowerCase();
+    return this;
+  }
+
+  /**
+   * Filter by committer name or email (case-insensitive).
+   *
+   * Matches against "Committer Name <email>" string.
+   *
+   * @param pattern Substring to match in committer field
+   */
+  setCommitterFilter(pattern: string): this {
+    this.checkCallable();
+    this.committerPattern = pattern.toLowerCase();
+    return this;
+  }
+
+  /**
    * Execute the log command.
    *
    * @returns AsyncIterable of commits in reverse chronological order
@@ -146,9 +234,45 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
     let count = 0;
     let skipped = 0;
 
+    // Build set of excluded commits (including their ancestors)
+    const excludedSet = await this.buildExcludedSet();
+
     for await (const commitId of this.store.commits.walkAncestry(starts, {
       firstParentOnly: this.firstParentOnly,
     })) {
+      // Skip excluded commits
+      if (excludedSet.has(commitId)) {
+        continue;
+      }
+
+      const commit = await this.store.commits.loadCommit(commitId);
+
+      // Date filtering - since (after)
+      if (this.sinceTime !== undefined && commit.committer.timestamp < this.sinceTime) {
+        // Commits are in reverse chronological order, so we can stop early
+        break;
+      }
+
+      // Date filtering - until (before)
+      if (this.untilTime !== undefined && commit.committer.timestamp > this.untilTime) {
+        continue;
+      }
+
+      // Author filtering
+      if (this.authorPattern !== undefined && !this.matchesAuthor(commit)) {
+        continue;
+      }
+
+      // Committer filtering
+      if (this.committerPattern !== undefined && !this.matchesCommitter(commit)) {
+        continue;
+      }
+
+      // Path filtering
+      if (this.paths.length > 0 && !(await this.affectsPath(commit, commitId))) {
+        continue;
+      }
+
       // Skip first N commits
       if (skipped < this.skip) {
         skipped++;
@@ -160,16 +284,44 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
         break;
       }
 
-      const commit = await this.store.commits.loadCommit(commitId);
-
-      // Path filtering
-      if (this.paths.length > 0 && !(await this.affectsPath(commit, commitId))) {
-        continue;
-      }
-
       count++;
       yield commit;
     }
+  }
+
+  /**
+   * Build set of commits to exclude.
+   */
+  private async buildExcludedSet(): Promise<Set<ObjectId>> {
+    if (this.excludeCommits.length === 0) {
+      return new Set();
+    }
+
+    const excluded = new Set<ObjectId>();
+    for await (const commitId of this.store.commits.walkAncestry(this.excludeCommits, {
+      firstParentOnly: false,
+    })) {
+      excluded.add(commitId);
+    }
+    return excluded;
+  }
+
+  /**
+   * Check if commit author matches the filter pattern.
+   */
+  private matchesAuthor(commit: Commit): boolean {
+    if (!this.authorPattern) return true;
+    const authorStr = `${commit.author.name} <${commit.author.email}>`.toLowerCase();
+    return authorStr.includes(this.authorPattern);
+  }
+
+  /**
+   * Check if commit committer matches the filter pattern.
+   */
+  private matchesCommitter(commit: Commit): boolean {
+    if (!this.committerPattern) return true;
+    const committerStr = `${commit.committer.name} <${commit.committer.email}>`.toLowerCase();
+    return committerStr.includes(this.committerPattern);
   }
 
   /**
