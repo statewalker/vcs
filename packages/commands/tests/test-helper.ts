@@ -163,6 +163,20 @@ export async function createCommit(
 }
 
 /**
+ * Remove a file from the staging area.
+ */
+export async function removeFile(store: GitStore, path: string): Promise<void> {
+  const builder = store.staging.builder();
+  // Add all entries except the one we want to remove
+  for await (const entry of store.staging.listEntries()) {
+    if (entry.path !== path) {
+      builder.add(entry);
+    }
+  }
+  await builder.finish();
+}
+
+/**
  * Collect async iterable to array.
  */
 export async function toArray<T>(iterable: AsyncIterable<T>): Promise<T[]> {
