@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Git } from "../src/index.js";
+import { Git, TagOption } from "../src/index.js";
 import { createTestStore } from "./test-helper.js";
 
 describe("PullCommand", () => {
@@ -133,6 +133,63 @@ describe("PullCommand", () => {
 
       expect(command.getRemote()).toBe("upstream");
       expect(command.getRemoteBranchName()).toBe("develop");
+    });
+  });
+
+  /**
+   * JGit-ported tests: Extended options
+   */
+  describe("extended options (JGit parity)", () => {
+    /**
+     * JGit: PullCommand.setTagOpt()
+     */
+    it("should support tag option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.pull().setTagOpt(TagOption.FETCH_TAGS);
+
+      expect(command.getTagOpt()).toBe(TagOption.FETCH_TAGS);
+    });
+
+    it("should default tag option to undefined", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.pull();
+
+      expect(command.getTagOpt()).toBeUndefined();
+    });
+
+    /**
+     * JGit: PullCommand.setFastForward()
+     */
+    it("should support fast-forward mode getter", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.pull().setFastForwardMode("ff-only");
+
+      expect(command.getFastForwardMode()).toBe("ff-only");
+    });
+
+    it("should return all extended getter values", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git
+        .pull()
+        .setRemote("upstream")
+        .setRemoteBranchName("feature")
+        .setRebase(true)
+        .setFastForwardMode("ff")
+        .setTagOpt(TagOption.NO_TAGS);
+
+      expect(command.getRemote()).toBe("upstream");
+      expect(command.getRemoteBranchName()).toBe("feature");
+      expect(command.isRebase()).toBe(true);
+      expect(command.getFastForwardMode()).toBe("ff");
+      expect(command.getTagOpt()).toBe(TagOption.NO_TAGS);
     });
   });
 });

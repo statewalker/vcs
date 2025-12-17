@@ -546,4 +546,97 @@ describe("FetchCommand", () => {
       expect(command.isForceUpdate()).toBe(true);
     });
   });
+
+  /**
+   * JGit-ported tests: Extended options
+   */
+  describe("extended options (JGit parity)", () => {
+    /**
+     * JGit: FetchCommandTest.testCheckFetchedObjects()
+     */
+    it("should support checkFetchedObjects option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.fetch().setRemote("origin").setCheckFetchedObjects(true);
+
+      expect(command.isCheckFetchedObjects()).toBe(true);
+    });
+
+    /**
+     * JGit: FetchCommand.setInitialBranch()
+     */
+    it("should support initial branch option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.fetch().setRemote("origin").setInitialBranch("develop");
+
+      expect(command.getInitialBranch()).toBe("develop");
+    });
+
+    /**
+     * JGit: FetchCommandTest.testShallowSince()
+     */
+    it("should support shallow since option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const date = new Date("2024-01-15T10:30:00Z");
+      const command = git.fetch().setRemote("origin").setShallowSince(date);
+
+      expect(command.getShallowSince()).toEqual(date);
+    });
+
+    /**
+     * JGit: FetchCommandTest.testShallowExclude()
+     */
+    it("should support shallow exclude option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git
+        .fetch()
+        .setRemote("origin")
+        .addShallowExclude("refs/heads/old-branch")
+        .addShallowExclude("abc123");
+
+      expect(command.getShallowExcludes()).toEqual(["refs/heads/old-branch", "abc123"]);
+    });
+
+    /**
+     * JGit: FetchCommandTest.testUnshallow()
+     */
+    it("should support unshallow option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.fetch().setRemote("origin").setUnshallow(true);
+
+      expect(command.isUnshallow()).toBe(true);
+    });
+
+    it("should return all extended getter values", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const date = new Date("2024-06-20");
+      const command = git
+        .fetch()
+        .setRemote("upstream")
+        .setCheckFetchedObjects(true)
+        .setInitialBranch("feature")
+        .setShallowSince(date)
+        .addShallowExclude("commit1")
+        .addShallowExclude("commit2")
+        .setUnshallow(false);
+
+      expect(command.getRemote()).toBe("upstream");
+      expect(command.isCheckFetchedObjects()).toBe(true);
+      expect(command.getInitialBranch()).toBe("feature");
+      expect(command.getShallowSince()).toEqual(date);
+      expect(command.getShallowExcludes()).toEqual(["commit1", "commit2"]);
+      expect(command.isUnshallow()).toBe(false);
+    });
+  });
 });

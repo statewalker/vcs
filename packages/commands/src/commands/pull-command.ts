@@ -6,7 +6,7 @@ import {
 } from "../results/merge-result.js";
 import type { PullResult } from "../results/pull-result.js";
 import { TransportCommand } from "../transport-command.js";
-import { FetchCommand } from "./fetch-command.js";
+import { FetchCommand, type TagOption } from "./fetch-command.js";
 import { MergeCommand } from "./merge-command.js";
 
 /**
@@ -43,6 +43,7 @@ export class PullCommand extends TransportCommand<PullResult> {
   private rebase = false;
   private strategy?: MergeStrategy;
   private fastForwardMode?: FastForwardMode;
+  private tagOption?: TagOption;
 
   /**
    * Set the remote to pull from.
@@ -127,6 +128,31 @@ export class PullCommand extends TransportCommand<PullResult> {
   }
 
   /**
+   * Get the fast-forward mode.
+   */
+  getFastForwardMode(): FastForwardMode | undefined {
+    return this.fastForwardMode;
+  }
+
+  /**
+   * Set the specification of annotated tag behavior during fetch.
+   *
+   * @param tagOption Tag option
+   */
+  setTagOpt(tagOption: TagOption): this {
+    this.checkCallable();
+    this.tagOption = tagOption;
+    return this;
+  }
+
+  /**
+   * Get the tag option.
+   */
+  getTagOpt(): TagOption | undefined {
+    return this.tagOption;
+  }
+
+  /**
    * Execute the pull operation.
    *
    * @returns Pull result with fetch and merge results
@@ -171,6 +197,9 @@ export class PullCommand extends TransportCommand<PullResult> {
     }
     if (this.progressMessageCallback) {
       fetchCommand.setProgressMessageCallback(this.progressMessageCallback);
+    }
+    if (this.tagOption) {
+      fetchCommand.setTagOpt(this.tagOption);
     }
 
     const fetchResult = await fetchCommand.call();

@@ -67,6 +67,11 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   private depth?: number;
   private dryRun = false;
   private forceUpdate = false;
+  private checkFetchedObjects = false;
+  private initialBranch?: string;
+  private shallowSince?: Date;
+  private shallowExcludes: string[] = [];
+  private unshallow = false;
 
   /**
    * Set the remote to fetch from.
@@ -214,6 +219,111 @@ export class FetchCommand extends TransportCommand<FetchResult> {
    */
   isForceUpdate(): boolean {
     return this.forceUpdate;
+  }
+
+  /**
+   * Set whether to check received objects for validity.
+   *
+   * If true, objects received will be verified.
+   *
+   * @param check Whether to check objects
+   */
+  setCheckFetchedObjects(check: boolean): this {
+    this.checkCallable();
+    this.checkFetchedObjects = check;
+    return this;
+  }
+
+  /**
+   * Whether to check received objects for validity.
+   */
+  isCheckFetchedObjects(): boolean {
+    return this.checkFetchedObjects;
+  }
+
+  /**
+   * Set the initial branch to check out.
+   *
+   * Can be specified as ref name (refs/heads/main), branch name (main),
+   * or tag name (v1.0.0).
+   *
+   * @param branch Initial branch name
+   */
+  setInitialBranch(branch: string): this {
+    this.checkCallable();
+    this.initialBranch = branch;
+    return this;
+  }
+
+  /**
+   * Get the initial branch.
+   */
+  getInitialBranch(): string | undefined {
+    return this.initialBranch;
+  }
+
+  /**
+   * Deepens or shortens the history of a shallow repository to include
+   * all reachable commits after a specified time.
+   *
+   * Equivalent to `git fetch --shallow-since=<date>`.
+   *
+   * @param shallowSince The timestamp
+   */
+  setShallowSince(shallowSince: Date): this {
+    this.checkCallable();
+    this.shallowSince = shallowSince;
+    return this;
+  }
+
+  /**
+   * Get the shallow-since date.
+   */
+  getShallowSince(): Date | undefined {
+    return this.shallowSince;
+  }
+
+  /**
+   * Deepens or shortens the history of a shallow repository to exclude
+   * commits reachable from a specified remote branch or tag.
+   *
+   * Equivalent to `git fetch --shallow-exclude=<ref>`.
+   *
+   * @param shallowExclude The ref or commit to exclude
+   */
+  addShallowExclude(shallowExclude: string): this {
+    this.checkCallable();
+    this.shallowExcludes.push(shallowExclude);
+    return this;
+  }
+
+  /**
+   * Get the shallow excludes.
+   */
+  getShallowExcludes(): string[] {
+    return [...this.shallowExcludes];
+  }
+
+  /**
+   * If the source repository is complete, converts a shallow repository
+   * to a complete one, removing all the limitations imposed by shallow
+   * repositories.
+   *
+   * Equivalent to `git fetch --unshallow`.
+   *
+   * @param unshallow Whether to unshallow
+   */
+  setUnshallow(unshallow: boolean): this {
+    this.checkCallable();
+    this.unshallow = unshallow;
+    return this;
+  }
+
+  /**
+   * Whether unshallow mode is enabled.
+   */
+  isUnshallow(): boolean {
+    return this.unshallow;
   }
 
   /**

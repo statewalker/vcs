@@ -420,4 +420,82 @@ describe("PushCommand", () => {
       expect(command.isDryRun()).toBe(true);
     });
   });
+
+  /**
+   * JGit-ported tests: Extended options
+   */
+  describe("extended options (JGit parity)", () => {
+    /**
+     * JGit: PushCommand.setUseBitmaps()
+     */
+    it("should support useBitmaps option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.push().setRemote("origin").setUseBitmaps(false);
+
+      expect(command.isUseBitmaps()).toBe(false);
+    });
+
+    it("should default useBitmaps to true", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.push().setRemote("origin");
+
+      expect(command.isUseBitmaps()).toBe(true);
+    });
+
+    /**
+     * JGit: PushCommand.setPushOptions()
+     */
+    it("should support push options", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git
+        .push()
+        .setRemote("origin")
+        .setPushOptions(["ci.skip", "merge_request.create"]);
+
+      expect(command.getPushOptions()).toEqual(["ci.skip", "merge_request.create"]);
+    });
+
+    /**
+     * JGit: PushCommand.setReceivePack()
+     */
+    it("should support receive-pack option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.push().setRemote("origin").setReceivePack("/opt/git/receive-pack");
+
+      expect(command.getReceivePack()).toBe("/opt/git/receive-pack");
+    });
+
+    it("should return all extended getter values", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git
+        .push()
+        .setRemote("upstream")
+        .setForce(true)
+        .setAtomic(true)
+        .setThin(false)
+        .setDryRun(true)
+        .setUseBitmaps(false)
+        .setPushOptions(["option1", "option2"])
+        .setReceivePack("/custom/receive-pack");
+
+      expect(command.getRemote()).toBe("upstream");
+      expect(command.isForce()).toBe(true);
+      expect(command.isAtomic()).toBe(true);
+      expect(command.isThin()).toBe(false);
+      expect(command.isDryRun()).toBe(true);
+      expect(command.isUseBitmaps()).toBe(false);
+      expect(command.getPushOptions()).toEqual(["option1", "option2"]);
+      expect(command.getReceivePack()).toBe("/custom/receive-pack");
+    });
+  });
 });
