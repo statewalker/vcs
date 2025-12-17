@@ -6,5 +6,7 @@ export * from "./fetch-result.js";
 export * from "./merge-result.js";
 export * from "./pull-result.js";
 export * from "./push-result.js";
+export * from "./rebase-result.js";
 export * from "./revert-result.js";
+export * from "./stash-result.js";
 export * from "./status-result.js";
