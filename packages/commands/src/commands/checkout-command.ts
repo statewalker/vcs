@@ -102,6 +102,10 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
   private name: string | undefined;
   private createBranch = false;
   private orphan = false;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: JGit compatibility - will be used for working tree checkout
+  private force = false;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: JGit compatibility - will be used for branch reset
+  private forceRefUpdate = false;
   private startPoint: string | undefined;
   private paths: string[] = [];
   private allPaths = false;

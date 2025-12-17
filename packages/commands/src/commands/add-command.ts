@@ -468,6 +468,8 @@ export class AddCommand extends GitCommand<AddResult> {
 
   /**
    * Store file content as blob and return object ID.
+   *
+   * Note: The object store handles blob header internally.
    */
   private async storeFileContent(worktree: WorkingTreeIterator, path: string): Promise<string> {
     // Read content from working tree
@@ -476,23 +478,7 @@ export class AddCommand extends GitCommand<AddResult> {
       chunks.push(chunk);
     }
 
-    // Calculate total size
-    const totalSize = chunks.reduce((sum, c) => sum + c.length, 0);
-
-    // Create blob header
-    const header = new TextEncoder().encode(`blob ${totalSize}\0`);
-
-    // Combine header and content
-    const fullContent = new Uint8Array(header.length + totalSize);
-    fullContent.set(header, 0);
-
-    let offset = header.length;
-    for (const chunk of chunks) {
-      fullContent.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    // Store and get hash
-    return this.store.objects.store([fullContent]);
+    // Store raw content - the object store handles blob formatting
+    return this.store.objects.store(chunks);
   }
 }
