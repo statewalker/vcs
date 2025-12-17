@@ -10,6 +10,7 @@ import {
   FastForwardMode,
   InvalidMergeHeadsError,
   MergeStatus,
+  MergeStrategy,
   NotFastForwardError,
 } from "../src/index.js";
 import { addFile, createInitializedGit, removeFile, toArray } from "./test-helper.js";
@@ -1247,5 +1248,299 @@ describe("MergeCommand - JGit content merge tests", () => {
 
     expect(result.status).toBe(MergeStatus.FAST_FORWARD);
     expect(result.newHead).toBe(mainHead?.objectId);
+  });
+});
+
+describe("MergeCommand - Merge strategies", () => {
+  /**
+   * JGit: testMergeStrategyOurs
+   * OURS strategy keeps our tree unchanged, ignoring their changes.
+   */
+  it("should keep our tree with OURS strategy", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create side branch from initial commit (before main changes)
+    await git.branchCreate().setName("side").setStartPoint(initialCommitId).call();
+
+    // Add file on main
+    await addFile(store, "file", "main content");
+    await git.commit().setMessage("main commit").call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+    const mainTree = (await store.commits.loadCommit(mainHead?.objectId ?? "")).tree;
+
+    // Switch to side branch and add different content
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Add different file on side
+    await addFile(store, "file", "side content");
+    await git.commit().setMessage("side commit").call();
+
+    // Switch back to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(store.trees, mainTree);
+
+    // Merge with OURS strategy - should NOT conflict, keeps our tree
+    const result = await git
+      .merge()
+      .include("refs/heads/side")
+      .setStrategy(MergeStrategy.OURS)
+      .call();
+
+    expect(result.status).toBe(MergeStatus.MERGED);
+    expect(result.conflicts).toBeUndefined();
+
+    // Verify merge commit was created with 2 parents
+    const mergeCommit = await store.commits.loadCommit(result.newHead ?? "");
+    expect(mergeCommit.parents.length).toBe(2);
+
+    // Verify tree is unchanged (same as our tree)
+    expect(mergeCommit.tree).toBe(mainTree);
+  });
+
+  /**
+   * JGit: testMergeStrategyTheirs
+   * THEIRS strategy replaces our tree with theirs.
+   */
+  it("should use their tree with THEIRS strategy", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create side branch from initial commit (before main changes)
+    await git.branchCreate().setName("side").setStartPoint(initialCommitId).call();
+
+    // Add file on main
+    await addFile(store, "file", "main content");
+    await git.commit().setMessage("main commit").call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+    const mainTree = (await store.commits.loadCommit(mainHead?.objectId ?? "")).tree;
+
+    // Switch to side branch and add different content
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Add different file on side
+    await addFile(store, "file", "side content");
+    await git.commit().setMessage("side commit").call();
+    const sideHeadAfter = await store.refs.resolve("refs/heads/side");
+    const sideTree = (await store.commits.loadCommit(sideHeadAfter?.objectId ?? "")).tree;
+
+    // Switch back to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(store.trees, mainTree);
+
+    // Merge with THEIRS strategy - should NOT conflict, uses their tree
+    const result = await git
+      .merge()
+      .include("refs/heads/side")
+      .setStrategy(MergeStrategy.THEIRS)
+      .call();
+
+    expect(result.status).toBe(MergeStatus.MERGED);
+    expect(result.conflicts).toBeUndefined();
+
+    // Verify merge commit was created with 2 parents
+    const mergeCommit = await store.commits.loadCommit(result.newHead ?? "");
+    expect(mergeCommit.parents.length).toBe(2);
+
+    // Verify tree is theirs
+    expect(mergeCommit.tree).toBe(sideTree);
+  });
+
+  /**
+   * OURS strategy with no-commit.
+   */
+  it("should stage our tree with OURS strategy and setCommit(false)", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create side branch from initial commit (before main changes)
+    await git.branchCreate().setName("side").setStartPoint(initialCommitId).call();
+
+    // Add file on main
+    await addFile(store, "file", "main content");
+    await git.commit().setMessage("main commit").call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+    const mainTree = (await store.commits.loadCommit(mainHead?.objectId ?? "")).tree;
+
+    // Switch to side branch and add different content
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Add different file on side
+    await addFile(store, "file", "side content");
+    await git.commit().setMessage("side commit").call();
+
+    // Switch back to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(store.trees, mainTree);
+
+    // Merge with OURS strategy and no-commit
+    const result = await git
+      .merge()
+      .include("refs/heads/side")
+      .setStrategy(MergeStrategy.OURS)
+      .setCommit(false)
+      .call();
+
+    expect(result.status).toBe(MergeStatus.MERGED_NOT_COMMITTED);
+    expect(result.newHead).toBe(mainHead?.objectId);
+
+    // Staging should have our tree
+    const treeId = await store.staging.writeTree(store.trees);
+    expect(treeId).toBe(mainTree);
+  });
+
+  /**
+   * THEIRS strategy with no-commit.
+   */
+  it("should stage their tree with THEIRS strategy and setCommit(false)", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create side branch from initial commit (before main changes)
+    await git.branchCreate().setName("side").setStartPoint(initialCommitId).call();
+
+    // Add file on main
+    await addFile(store, "file", "main content");
+    await git.commit().setMessage("main commit").call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+    const mainTree = (await store.commits.loadCommit(mainHead?.objectId ?? "")).tree;
+
+    // Switch to side branch and add different content
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Add different file on side
+    await addFile(store, "file", "side content");
+    await git.commit().setMessage("side commit").call();
+    const sideHeadAfter = await store.refs.resolve("refs/heads/side");
+    const sideTree = (await store.commits.loadCommit(sideHeadAfter?.objectId ?? "")).tree;
+
+    // Switch back to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(store.trees, mainTree);
+
+    // Merge with THEIRS strategy and no-commit
+    const result = await git
+      .merge()
+      .include("refs/heads/side")
+      .setStrategy(MergeStrategy.THEIRS)
+      .setCommit(false)
+      .call();
+
+    expect(result.status).toBe(MergeStatus.MERGED_NOT_COMMITTED);
+    expect(result.newHead).toBe(mainHead?.objectId);
+
+    // Staging should have their tree
+    const treeId = await store.staging.writeTree(store.trees);
+    expect(treeId).toBe(sideTree);
+  });
+
+  /**
+   * OURS strategy should still fast-forward when possible by default.
+   */
+  it("should fast-forward with OURS strategy when possible", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1 at initial commit
+    await git.branchCreate().setName("branch1").call();
+
+    // Add commit on main
+    await git.commit().setMessage("second commit").setAllowEmpty(true).call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+
+    // Switch to branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Merge main into branch1 with OURS strategy (but FF is possible)
+    const result = await git
+      .merge()
+      .include("refs/heads/main")
+      .setStrategy(MergeStrategy.OURS)
+      .call();
+
+    // Should still fast-forward since we're behind
+    expect(result.status).toBe(MergeStatus.FAST_FORWARD);
+    expect(result.newHead).toBe(mainHead?.objectId);
+  });
+
+  /**
+   * THEIRS strategy should still fast-forward when possible by default.
+   */
+  it("should fast-forward with THEIRS strategy when possible", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1 at initial commit
+    await git.branchCreate().setName("branch1").call();
+
+    // Add commit on main
+    await git.commit().setMessage("second commit").setAllowEmpty(true).call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+
+    // Switch to branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Merge main into branch1 with THEIRS strategy (but FF is possible)
+    const result = await git
+      .merge()
+      .include("refs/heads/main")
+      .setStrategy(MergeStrategy.THEIRS)
+      .call();
+
+    // Should still fast-forward since we're behind
+    expect(result.status).toBe(MergeStatus.FAST_FORWARD);
+    expect(result.newHead).toBe(mainHead?.objectId);
+  });
+
+  /**
+   * OURS strategy with NO_FF should create merge commit.
+   */
+  it("should create merge commit with OURS strategy and NO_FF", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1 at initial commit
+    await git.branchCreate().setName("branch1").call();
+
+    // Add commit on main
+    await git.commit().setMessage("second commit").setAllowEmpty(true).call();
+
+    // Switch to branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Merge main with OURS + NO_FF
+    const result = await git
+      .merge()
+      .include("refs/heads/main")
+      .setStrategy(MergeStrategy.OURS)
+      .setFastForwardMode(FastForwardMode.NO_FF)
+      .call();
+
+    expect(result.status).toBe(MergeStatus.MERGED);
+
+    // Should have created merge commit with 2 parents
+    const mergeCommit = await store.commits.loadCommit(result.newHead ?? "");
+    expect(mergeCommit.parents.length).toBe(2);
   });
 });
