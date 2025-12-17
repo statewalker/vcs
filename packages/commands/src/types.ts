@@ -6,6 +6,7 @@ import type {
   TagStore,
   TreeStore,
 } from "@webrun-vcs/vcs";
+import type { WorkingTreeIterator } from "@webrun-vcs/worktree";
 
 /**
  * Core storage interface for Git operations.
@@ -66,4 +67,31 @@ export enum ListBranchMode {
   REMOTE = "remote",
   /** List both local and remote branches */
   ALL = "all",
+}
+
+/**
+ * Extended GitStore interface with working tree support.
+ *
+ * Required for commands that operate on the working tree:
+ * - AddCommand: Stage files from working tree
+ * - CheckoutCommand: Update working tree from commits
+ * - ResetCommand (hard mode): Reset working tree
+ * - CleanCommand: Remove untracked files
+ *
+ * @example
+ * ```typescript
+ * // Create a store with working tree support
+ * const store: GitStoreWithWorkTree = {
+ *   ...baseStore,
+ *   worktree: createFileTreeIterator(files, workTreeRoot),
+ * };
+ *
+ * // Use with Git facade
+ * const git = Git.wrap(store);
+ * await git.add().addFilepattern("src/").call();
+ * ```
+ */
+export interface GitStoreWithWorkTree extends GitStore {
+  /** Working tree iterator for filesystem operations */
+  readonly worktree: WorkingTreeIterator;
 }

@@ -1,4 +1,5 @@
 import {
+  AddCommand,
   CherryPickCommand,
   CommitCommand,
   CreateBranchCommand,
@@ -76,6 +77,33 @@ export class Git implements Disposable {
    */
   static open(store: GitStore): Git {
     return new Git(store);
+  }
+
+  // ============ Add Operations ============
+
+  /**
+   * Create an AddCommand for staging files from working tree.
+   *
+   * Requires a GitStoreWithWorkTree (store with worktree iterator).
+   *
+   * @example
+   * ```typescript
+   * // Add specific files
+   * await git.add()
+   *   .addFilepattern("src/")
+   *   .addFilepattern("lib/")
+   *   .call();
+   *
+   * // Update only tracked files (git add -u)
+   * await git.add()
+   *   .addFilepattern(".")
+   *   .setUpdate(true)
+   *   .call();
+   * ```
+   */
+  add(): AddCommand {
+    this.checkClosed();
+    return new AddCommand(this.store);
   }
 
   // ============ Commit Operations ============
