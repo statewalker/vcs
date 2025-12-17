@@ -17,6 +17,7 @@ import {
   MergeCommand,
   PullCommand,
   PushCommand,
+  RebaseCommand,
   RemoteAddCommand,
   RemoteListCommand,
   RemoteRemoveCommand,
@@ -24,6 +25,10 @@ import {
   RenameBranchCommand,
   ResetCommand,
   RevertCommand,
+  StashApplyCommand,
+  StashCreateCommand,
+  StashDropCommand,
+  StashListCommand,
   StatusCommand,
   TagCommand,
 } from "./commands/index.js";
@@ -534,6 +539,99 @@ export class Git implements Disposable {
   remoteSetUrl(): RemoteSetUrlCommand {
     this.checkClosed();
     return new RemoteSetUrlCommand(this.store);
+  }
+
+  // ============ Rebase Operations ============
+
+  /**
+   * Create a RebaseCommand for rebasing commits.
+   *
+   * @example
+   * ```typescript
+   * // Rebase current branch onto main
+   * const result = await git.rebase()
+   *   .setUpstream(mainCommitId)
+   *   .call();
+   *
+   * // Abort rebase in progress
+   * const result = await git.rebase()
+   *   .setOperation(RebaseOperation.ABORT)
+   *   .call();
+   * ```
+   */
+  rebase(): RebaseCommand {
+    this.checkClosed();
+    return new RebaseCommand(this.store);
+  }
+
+  // ============ Stash Operations ============
+
+  /**
+   * Create a StashCreateCommand for stashing changes.
+   *
+   * @example
+   * ```typescript
+   * const stashCommit = await git.stashCreate()
+   *   .setWorkingTreeProvider(provider)
+   *   .setMessage("WIP: feature work")
+   *   .call();
+   * ```
+   */
+  stashCreate(): StashCreateCommand {
+    this.checkClosed();
+    return new StashCreateCommand(this.store);
+  }
+
+  /**
+   * Create a StashApplyCommand for applying stashed changes.
+   *
+   * @example
+   * ```typescript
+   * // Apply most recent stash
+   * const result = await git.stashApply().call();
+   *
+   * // Apply specific stash
+   * const result = await git.stashApply()
+   *   .setStashRef("stash@{2}")
+   *   .call();
+   * ```
+   */
+  stashApply(): StashApplyCommand {
+    this.checkClosed();
+    return new StashApplyCommand(this.store);
+  }
+
+  /**
+   * Create a StashDropCommand for dropping stashes.
+   *
+   * @example
+   * ```typescript
+   * // Drop most recent stash
+   * await git.stashDrop().call();
+   *
+   * // Drop all stashes
+   * await git.stashDrop().setAll(true).call();
+   * ```
+   */
+  stashDrop(): StashDropCommand {
+    this.checkClosed();
+    return new StashDropCommand(this.store);
+  }
+
+  /**
+   * Create a StashListCommand for listing stashes.
+   *
+   * @example
+   * ```typescript
+   * const stashes = await git.stashList().call();
+   * for (const stash of stashes) {
+   *   console.log(`stash@{${stash.index}}: ${stash.message}`);
+   * }
+   * ```
+   */
+  stashList(): StashListCommand {
+    this.checkClosed();
+    return new StashListCommand(this.store);
   }
 
   // ============ Lifecycle ============
