@@ -43,6 +43,21 @@ export enum FastForwardMode {
 }
 
 /**
+ * Content merge strategy.
+ *
+ * Determines how to handle file-level conflicts.
+ * Based on JGit's ContentMergeStrategy.
+ */
+export enum ContentMergeStrategy {
+  /** Take our version for conflicts */
+  OURS = "ours",
+  /** Take their version for conflicts */
+  THEIRS = "theirs",
+  /** Perform union merge (both sides) */
+  UNION = "union",
+}
+
+/**
  * Merge strategy.
  *
  * Based on JGit's MergeStrategy.

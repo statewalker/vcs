@@ -4,6 +4,7 @@ export * from "./checkout-command.js";
 export * from "./cherry-pick-command.js";
 export * from "./clone-command.js";
 export * from "./commit-command.js";
+export * from "./describe-command.js";
 export * from "./diff-command.js";
 export * from "./fetch-command.js";
 export * from "./log-command.js";

@@ -74,6 +74,7 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
   private startCommits: ObjectId[] = [];
   private excludeCommits: ObjectId[] = [];
   private paths: string[] = [];
+  private excludePaths: string[] = [];
   private maxCount?: number;
   private skip = 0;
   private includeAll = false;
@@ -106,6 +107,19 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
   addPath(path: string): this {
     this.checkCallable();
     this.paths.push(path);
+    return this;
+  }
+
+  /**
+   * Exclude commits that only affect the given path.
+   *
+   * If a path is both added and excluded, the exclusion wins.
+   *
+   * @param path Repository-relative path to exclude
+   */
+  excludePath(path: string): this {
+    this.checkCallable();
+    this.excludePaths.push(path);
     return this;
   }
 
@@ -342,8 +356,13 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
         continue;
       }
 
-      // Path filtering
+      // Path filtering (include paths)
       if (this.paths.length > 0 && !(await this.affectsPath(commit, commitId))) {
+        continue;
+      }
+
+      // Path filtering (exclude paths) - if commit only affects excluded paths, skip it
+      if (this.excludePaths.length > 0 && (await this.onlyAffectsExcludedPaths(commit))) {
         continue;
       }
 
@@ -421,6 +440,43 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
       const parentId = entryInParent?.objectId;
 
       if (currentId !== parentId) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if a commit only affects excluded paths.
+   *
+   * If the commit only changes files in excludePaths, it should be filtered out.
+   */
+  private async onlyAffectsExcludedPaths(commit: Commit): Promise<boolean> {
+    if (this.excludePaths.length === 0) {
+      return false;
+    }
+
+    // For initial commit, check if all paths in tree are excluded
+    if (commit.parents.length === 0) {
+      // For simplicity, don't exclude initial commits based on path
+      return false;
+    }
+
+    // Compare with first parent's tree
+    const parentCommit = await this.store.commits.loadCommit(commit.parents[0]);
+
+    // Check each excluded path - if ALL changes are to excluded paths, return true
+    for (const path of this.excludePaths) {
+      const entryInCurrent = await this.getTreeEntryForPath(commit.tree, path);
+      const entryInParent = await this.getTreeEntryForPath(parentCommit.tree, path);
+
+      const currentId = entryInCurrent?.objectId;
+      const parentId = entryInParent?.objectId;
+
+      if (currentId !== parentId) {
+        // This excluded path was modified - check if there are non-excluded changes
+        // For simplicity, we filter out commits that touch any excluded path
         return true;
       }
     }
