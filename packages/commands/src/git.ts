@@ -2,15 +2,24 @@ import {
   AddCommand,
   CheckoutCommand,
   CherryPickCommand,
+  CloneCommand,
   CommitCommand,
   CreateBranchCommand,
   DeleteBranchCommand,
   DeleteTagCommand,
   DiffCommand,
+  FetchCommand,
   ListBranchCommand,
   ListTagCommand,
   LogCommand,
+  LsRemoteCommand,
   MergeCommand,
+  PullCommand,
+  PushCommand,
+  RemoteAddCommand,
+  RemoteListCommand,
+  RemoteRemoveCommand,
+  RemoteSetUrlCommand,
   RenameBranchCommand,
   ResetCommand,
   RevertCommand,
@@ -362,6 +371,145 @@ export class Git implements Disposable {
   diff(): DiffCommand {
     this.checkClosed();
     return new DiffCommand(this.store);
+  }
+
+  // ============ Remote Operations ============
+
+  /**
+   * Create a FetchCommand for fetching from remotes.
+   *
+   * @example
+   * ```typescript
+   * await git.fetch()
+   *   .setRemote("origin")
+   *   .call();
+   * ```
+   */
+  fetch(): FetchCommand {
+    this.checkClosed();
+    return new FetchCommand(this.store);
+  }
+
+  /**
+   * Create a PushCommand for pushing to remotes.
+   *
+   * @example
+   * ```typescript
+   * await git.push()
+   *   .setRemote("origin")
+   *   .call();
+   * ```
+   */
+  push(): PushCommand {
+    this.checkClosed();
+    return new PushCommand(this.store);
+  }
+
+  /**
+   * Create a PullCommand for pulling from remotes.
+   *
+   * @example
+   * ```typescript
+   * await git.pull()
+   *   .setRemote("origin")
+   *   .call();
+   * ```
+   */
+  pull(): PullCommand {
+    this.checkClosed();
+    return new PullCommand(this.store);
+  }
+
+  /**
+   * Create a CloneCommand for cloning repositories.
+   *
+   * @example
+   * ```typescript
+   * await git.clone()
+   *   .setURI("https://github.com/user/repo")
+   *   .call();
+   * ```
+   */
+  clone(): CloneCommand {
+    this.checkClosed();
+    return new CloneCommand(this.store);
+  }
+
+  /**
+   * Create an LsRemoteCommand for listing remote refs.
+   *
+   * @example
+   * ```typescript
+   * const refs = await git.lsRemote()
+   *   .setRemote("https://github.com/user/repo")
+   *   .call();
+   * ```
+   */
+  lsRemote(): LsRemoteCommand {
+    this.checkClosed();
+    return new LsRemoteCommand(this.store);
+  }
+
+  // ============ Remote Configuration Operations ============
+
+  /**
+   * Create a RemoteAddCommand for adding remotes.
+   *
+   * @example
+   * ```typescript
+   * await git.remoteAdd()
+   *   .setName("upstream")
+   *   .setUri("https://github.com/user/repo")
+   *   .call();
+   * ```
+   */
+  remoteAdd(): RemoteAddCommand {
+    this.checkClosed();
+    return new RemoteAddCommand(this.store);
+  }
+
+  /**
+   * Create a RemoteRemoveCommand for removing remotes.
+   *
+   * @example
+   * ```typescript
+   * await git.remoteRemove()
+   *   .setRemoteName("upstream")
+   *   .call();
+   * ```
+   */
+  remoteRemove(): RemoteRemoveCommand {
+    this.checkClosed();
+    return new RemoteRemoveCommand(this.store);
+  }
+
+  /**
+   * Create a RemoteListCommand for listing remotes.
+   *
+   * @example
+   * ```typescript
+   * const remotes = await git.remoteList().call();
+   * ```
+   */
+  remoteList(): RemoteListCommand {
+    this.checkClosed();
+    return new RemoteListCommand(this.store);
+  }
+
+  /**
+   * Create a RemoteSetUrlCommand for changing remote URLs.
+   *
+   * @example
+   * ```typescript
+   * await git.remoteSetUrl()
+   *   .setRemoteName("origin")
+   *   .setRemoteUri("https://github.com/user/repo")
+   *   .call();
+   * ```
+   */
+  remoteSetUrl(): RemoteSetUrlCommand {
+    this.checkClosed();
+    return new RemoteSetUrlCommand(this.store);
   }
 
   // ============ Lifecycle ============

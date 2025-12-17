@@ -4,3 +4,4 @@ export * from "./git-api-error.js";
 export * from "./merge-errors.js";
 export * from "./ref-errors.js";
 export * from "./tag-errors.js";
+export * from "./transport-errors.js";
