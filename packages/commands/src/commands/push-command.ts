@@ -51,6 +51,9 @@ export class PushCommand extends TransportCommand<PushResult> {
   private dryRun = false;
   private pushAll = false;
   private pushTags = false;
+  private useBitmaps = true;
+  private pushOptions: string[] = [];
+  private receivePack?: string;
 
   /**
    * Set the remote to push to.
@@ -193,6 +196,65 @@ export class PushCommand extends TransportCommand<PushResult> {
     this.checkCallable();
     this.pushTags = pushTags;
     return this;
+  }
+
+  /**
+   * Set whether to use bitmaps for push.
+   *
+   * Default is true.
+   *
+   * @param useBitmaps Whether to use bitmaps
+   */
+  setUseBitmaps(useBitmaps: boolean): this {
+    this.checkCallable();
+    this.useBitmaps = useBitmaps;
+    return this;
+  }
+
+  /**
+   * Whether bitmaps are used for push.
+   */
+  isUseBitmaps(): boolean {
+    return this.useBitmaps;
+  }
+
+  /**
+   * Set push options associated with the push operation.
+   *
+   * Push options are strings passed to the receive-pack on the server
+   * side, where they can be used by hooks.
+   *
+   * @param options Push option strings
+   */
+  setPushOptions(options: string[]): this {
+    this.checkCallable();
+    this.pushOptions = [...options];
+    return this;
+  }
+
+  /**
+   * Get push options.
+   */
+  getPushOptions(): string[] {
+    return [...this.pushOptions];
+  }
+
+  /**
+   * Set the remote executable providing receive-pack service.
+   *
+   * @param receivePack Name of the remote executable
+   */
+  setReceivePack(receivePack: string): this {
+    this.checkCallable();
+    this.receivePack = receivePack;
+    return this;
+  }
+
+  /**
+   * Get the receive-pack executable name.
+   */
+  getReceivePack(): string | undefined {
+    return this.receivePack;
   }
 
   /**

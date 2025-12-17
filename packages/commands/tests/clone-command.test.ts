@@ -7,7 +7,7 @@
 import type { Ref } from "@webrun-vcs/vcs";
 import { describe, expect, it } from "vitest";
 
-import { Git } from "../src/index.js";
+import { Git, TagOption } from "../src/index.js";
 import { createTestStore } from "./test-helper.js";
 import {
   addFileAndCommit,
@@ -317,6 +317,251 @@ describe("CloneCommand", () => {
       } finally {
         globalThis.fetch = originalFetch;
       }
+    });
+
+    /**
+     * JGit: CloneCommandTest.testCloneRepositoryAllBranchesTakesPreference()
+     */
+    it("should have cloneAllBranches take precedence over branchesToClone", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      // Create additional branch on server
+      const mainRef = (await server.serverStore.refs.get("refs/heads/main")) as Ref | undefined;
+      await server.serverStore.refs.set("refs/heads/test", mainRef?.objectId ?? "");
+
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const command = git
+          .clone()
+          .setURI(remoteUrl)
+          .setCloneAllBranches(true)
+          .setBranchesToClone(["refs/heads/test"]);
+
+        expect(command.isCloneAllBranches()).toBe(true);
+        expect(command.getBranchesToClone()).toEqual(["refs/heads/test"]);
+
+        const result = await command.call();
+        expect(result.fetchResult).toBeDefined();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  /**
+   * JGit-ported tests: Mirror mode
+   */
+  describe("mirror clone", () => {
+    /**
+     * JGit: CloneCommandTest.testBareCloneRepositoryMirror()
+     */
+    it("should clone with mirror option implying bare", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const command = git.clone().setURI(remoteUrl).setMirror(true);
+
+        // Mirror implies bare
+        expect(command.isMirror()).toBe(true);
+        expect(command.isBare()).toBe(true);
+
+        const result = await command.call();
+        expect(result.fetchResult).toBeDefined();
+        expect(result.bare).toBe(true);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  /**
+   * JGit-ported tests: Tag options
+   */
+  describe("tag options", () => {
+    /**
+     * JGit: CloneCommandTest.testCloneNoTags()
+     */
+    it("should clone with no tags option", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const command = git.clone().setURI(remoteUrl).setNoTags();
+
+        expect(command.getTagOption()).toBe(TagOption.NO_TAGS);
+
+        const result = await command.call();
+        expect(result.fetchResult).toBeDefined();
+
+        // Tags should be filtered out
+        const tagRefs = result.fetchResult.trackingRefUpdates.filter((u) =>
+          u.localRef.startsWith("refs/tags/"),
+        );
+        expect(tagRefs.length).toBe(0);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    /**
+     * JGit: CloneCommandTest.testCloneFollowTags()
+     */
+    it("should clone with fetch tags option", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const command = git.clone().setURI(remoteUrl).setTagOption(TagOption.FETCH_TAGS);
+
+        expect(command.getTagOption()).toBe(TagOption.FETCH_TAGS);
+
+        const result = await command.call();
+        expect(result.fetchResult).toBeDefined();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("should default to auto follow tags", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git.clone().setURI("http://example.com/repo.git");
+
+      expect(command.getTagOption()).toBe(TagOption.AUTO_FOLLOW);
+    });
+  });
+
+  /**
+   * JGit-ported tests: Branches to clone
+   */
+  describe("branches to clone", () => {
+    /**
+     * JGit: CloneCommandTest.testCloneRepositoryOnlyOneBranch()
+     */
+    it("should clone only specified branches", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const command = git
+          .clone()
+          .setURI(remoteUrl)
+          .setBranch("main")
+          .setBranchesToClone(["refs/heads/main"])
+          .setCloneAllBranches(false);
+
+        expect(command.getBranchesToClone()).toEqual(["refs/heads/main"]);
+        expect(command.isCloneAllBranches()).toBe(false);
+
+        const result = await command.call();
+        expect(result.fetchResult).toBeDefined();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  /**
+   * JGit-ported tests: Shallow clone options
+   */
+  describe("shallow clone options", () => {
+    /**
+     * JGit: CloneCommandTest.testCloneRepositoryWithShallowSince()
+     */
+    it("should support shallow since option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const date = new Date("2024-01-01");
+      const command = git.clone().setURI("http://example.com/repo.git").setShallowSince(date);
+
+      expect(command.getShallowSince()).toEqual(date);
+    });
+
+    /**
+     * JGit: CloneCommandTest.testCloneRepositoryWithShallowExclude()
+     */
+    it("should support shallow exclude option", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const command = git
+        .clone()
+        .setURI("http://example.com/repo.git")
+        .addShallowExclude("abc123")
+        .addShallowExclude("def456");
+
+      expect(command.getShallowExcludes()).toEqual(["abc123", "def456"]);
+    });
+  });
+
+  /**
+   * JGit-ported tests: Extended options getters
+   */
+  describe("extended options getters", () => {
+    it("should return correct values for all getters", () => {
+      const clientStore = createTestStore();
+      const git = Git.wrap(clientStore);
+
+      const date = new Date("2024-06-15");
+      const command = git
+        .clone()
+        .setURI("http://example.com/repo.git")
+        .setBranch("develop")
+        .setRemote("upstream")
+        .setBare(true)
+        .setNoCheckout(true)
+        .setMirror(false)
+        .setCloneAllBranches(true)
+        .setBranchesToClone(["refs/heads/main", "refs/heads/develop"])
+        .setTagOption(TagOption.FETCH_TAGS)
+        .setShallowSince(date)
+        .addShallowExclude("commit1")
+        .addShallowExclude("commit2");
+
+      expect(command.getURI()).toBe("http://example.com/repo.git");
+      expect(command.getBranch()).toBe("develop");
+      expect(command.getRemote()).toBe("upstream");
+      expect(command.isBare()).toBe(true);
+      expect(command.isNoCheckout()).toBe(true);
+      expect(command.isMirror()).toBe(false);
+      expect(command.isCloneAllBranches()).toBe(true);
+      expect(command.getBranchesToClone()).toEqual(["refs/heads/main", "refs/heads/develop"]);
+      expect(command.getTagOption()).toBe(TagOption.FETCH_TAGS);
+      expect(command.getShallowSince()).toEqual(date);
+      expect(command.getShallowExcludes()).toEqual(["commit1", "commit2"]);
     });
   });
 });
