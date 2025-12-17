@@ -194,7 +194,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
     await this.store.staging.write();
 
     return {
-      status: MergeStatus.MERGED_SQUASHED,
+      status: MergeStatus.FAST_FORWARD_SQUASHED,
       newHead: headId,
       mergedCommits: [headId, srcId],
       message: "Squashed commit of merged changes",

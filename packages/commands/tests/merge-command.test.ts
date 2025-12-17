@@ -12,7 +12,7 @@ import {
   MergeStatus,
   NotFastForwardError,
 } from "../src/index.js";
-import { addFile, createInitializedGit, toArray } from "./test-helper.js";
+import { addFile, createInitializedGit, removeFile, toArray } from "./test-helper.js";
 
 describe("MergeCommand", () => {
   // ===== Already Up To Date =====
@@ -296,7 +296,7 @@ describe("MergeCommand", () => {
   // ===== Squash Merge =====
 
   describe("squash merge", () => {
-    it("should stage changes but not commit with squash", async () => {
+    it("should stage changes but not commit with squash (fast-forward case)", async () => {
       const { git, store } = await createInitializedGit();
 
       // Create branch1 at initial commit
@@ -310,10 +310,10 @@ describe("MergeCommand", () => {
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
 
-      // Squash merge main
+      // Squash merge main (this is a fast-forward scenario)
       const result = await git.merge().include("refs/heads/main").setSquash(true).call();
 
-      expect(result.status).toBe(MergeStatus.MERGED_SQUASHED);
+      expect(result.status).toBe(MergeStatus.FAST_FORWARD_SQUASHED);
 
       // HEAD should still be at original position (not moved)
       const newBranch1 = await store.refs.resolve("refs/heads/branch1");
@@ -467,5 +467,785 @@ describe("MergeCommand with log verification", () => {
     expect(mergeCommit.parents.length).toBe(2);
     expect(mergeCommit.parents).toContain(featureHead?.objectId);
     expect(mergeCommit.parents).toContain(mainHead?.objectId);
+  });
+});
+
+// ===== JGit Ported Tests =====
+
+describe("MergeCommand - JGit deletion tests", () => {
+  /**
+   * JGit: testSingleDeletion
+   * Tests merging a deletion from one branch into another.
+   */
+  it("should merge when one side deletes a file (single deletion)", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Setup: add files a, b, c, d
+    await addFile(store, "a", "1\na\n3\n");
+    await addFile(store, "b", "1\nb\n3\n");
+    await addFile(store, "c/c/c", "1\nc\n3\n");
+    await addFile(store, "d", "1\nd\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    // Reset staging to side's tree
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    // Delete file b on side branch
+    await removeFile(store, "b");
+    await git.commit().setMessage("side - delete b").call();
+
+    // Switch back to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    // Modify files a and c on main
+    await addFile(store, "a", "1\na\n3(main)\n");
+    await addFile(store, "c/c/c", "1\nc(main)\n3\n");
+    await git.commit().setMessage("main - modify a and c").call();
+
+    // Merge side into main - should succeed with b deleted
+    const result = await git.merge().include("refs/heads/side").call();
+
+    expect(result.status).toBe(MergeStatus.MERGED);
+
+    // File b should be deleted in merged tree
+    const entry = await store.staging.getEntry("b");
+    expect(entry).toBeUndefined();
+
+    // File a should have main's content
+    const entryA = await store.staging.getEntry("a");
+    expect(entryA).toBeDefined();
+  });
+
+  /**
+   * JGit: testMultipleDeletions
+   * Both sides delete the same file.
+   */
+  it("should merge when both sides delete same file", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Add file a
+    await addFile(store, "a", "1\na\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    // Reset staging
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    // Delete file a on side
+    await removeFile(store, "a");
+    await git.commit().setMessage("side - delete a").call();
+
+    // Switch to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    // Delete file a on main too
+    await removeFile(store, "a");
+    await git.commit().setMessage("main - delete a").call();
+
+    // Merge side into main
+    const result = await git.merge().include("refs/heads/side").call();
+
+    expect(result.status).toBe(MergeStatus.MERGED);
+  });
+
+  /**
+   * JGit: testDeletionAndConflict
+   * One side deletes a file, other side has unrelated conflict.
+   */
+  it("should handle deletion with unrelated conflict", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Setup files
+    await addFile(store, "a", "1\na\n3\n");
+    await addFile(store, "b", "1\nb\n3\n");
+    await addFile(store, "c/c/c", "1\nc\n3\n");
+    await addFile(store, "d", "1\nd\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    // Delete b and modify a on side
+    await removeFile(store, "b");
+    await addFile(store, "a", "1\na\n3(side)\n");
+    await git.commit().setMessage("side changes").call();
+
+    // Switch to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    // Modify a differently on main (will conflict) and c
+    await addFile(store, "a", "1\na\n3(main)\n");
+    await addFile(store, "c/c/c", "1\nc(main)\n3\n");
+    await git.commit().setMessage("main changes").call();
+
+    // Merge should conflict on a, but b deletion should be applied
+    const result = await git.merge().include("refs/heads/side").call();
+
+    expect(result.status).toBe(MergeStatus.CONFLICTING);
+    expect(result.conflicts).toContain("a");
+  });
+
+  /**
+   * JGit: testDeletionOnSideConflict
+   * Side deletes a file, main modifies it - should conflict.
+   */
+  it("should conflict when side deletes what main modified", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Add files
+    await addFile(store, "a", "1\na\n3\n");
+    await addFile(store, "b", "1\nb\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch and delete a
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    await removeFile(store, "a");
+    await git.commit().setMessage("side - delete a").call();
+
+    // Switch to main and modify a
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    await addFile(store, "a", "1\na(main)\n3\n");
+    await git.commit().setMessage("main - modify a").call();
+
+    // Merge - should conflict
+    const result = await git.merge().include("refs/heads/side").call();
+
+    expect(result.status).toBe(MergeStatus.CONFLICTING);
+    expect(result.conflicts).toContain("a");
+  });
+
+  /**
+   * JGit: testDeletionOnMasterConflict
+   * Main deletes a file, side modifies it - should conflict.
+   */
+  it("should conflict when main deletes what side modified", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Add files
+    await addFile(store, "a", "1\na\n3\n");
+    await addFile(store, "b", "1\nb\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch and modify a
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    await addFile(store, "a", "1\na(side)\n3\n");
+    await git.commit().setMessage("side - modify a").call();
+
+    // Switch to main and delete a
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    await removeFile(store, "a");
+    await git.commit().setMessage("main - delete a").call();
+
+    // Merge - should conflict
+    const result = await git.merge().include("refs/heads/side").call();
+
+    expect(result.status).toBe(MergeStatus.CONFLICTING);
+    expect(result.conflicts).toContain("a");
+  });
+});
+
+describe("MergeCommand - JGit creation tests", () => {
+  /**
+   * JGit: testMultipleCreations
+   * Both sides create same file with different content - should conflict.
+   */
+  it("should conflict when both sides create same file differently", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Add initial file
+    await addFile(store, "a", "1\na\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    // Create file b on side
+    await addFile(store, "b", "1\nb(side)\n3\n");
+    await git.commit().setMessage("side - add b").call();
+
+    // Switch to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    // Create file b with different content on main
+    await addFile(store, "b", "1\nb(main)\n3\n");
+    await git.commit().setMessage("main - add b").call();
+
+    // Merge - should conflict
+    const result = await git.merge().include("refs/heads/side").call();
+
+    expect(result.status).toBe(MergeStatus.CONFLICTING);
+    expect(result.conflicts).toContain("b");
+  });
+
+  /**
+   * JGit: testMultipleCreationsSameContent
+   * Both sides create same file with same content - should merge cleanly.
+   */
+  it("should merge when both sides create same file with same content", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Add initial file
+    await addFile(store, "a", "1\na\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    // Create file b on side
+    await addFile(store, "b", "1\nb(same)\n3\n");
+    await git.commit().setMessage("side - add b").call();
+
+    // Switch to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    // Create file b with same content on main
+    await addFile(store, "b", "1\nb(same)\n3\n");
+    await git.commit().setMessage("main - add b").call();
+
+    // Merge - should succeed
+    const result = await git.merge().include("refs/heads/side").call();
+
+    expect(result.status).toBe(MergeStatus.MERGED);
+
+    // File b should exist
+    const entry = await store.staging.getEntry("b");
+    expect(entry).toBeDefined();
+  });
+});
+
+describe("MergeCommand - JGit squash tests", () => {
+  /**
+   * JGit: testSquashFastForward
+   * Squash merge when fast-forward is possible.
+   */
+  it("should return FAST_FORWARD_SQUASHED when squashing fast-forward merge", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1 at initial commit
+    await git.branchCreate().setName("branch1").call();
+
+    // Stay on main, checkout branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+
+    // Add files on branch1
+    await addFile(store, "file2", "file2 content");
+    await git.commit().setMessage("second commit").call();
+
+    await addFile(store, "file3", "file3 content");
+    await git.commit().setMessage("third commit").call();
+
+    // Switch back to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Squash merge branch1 into main
+    const result = await git.merge().include("refs/heads/branch1").setSquash(true).call();
+
+    expect(result.status).toBe(MergeStatus.FAST_FORWARD_SQUASHED);
+    // HEAD should not move
+    expect(result.newHead).toBe(initialCommitId);
+
+    // But staging should have the files
+    const entry2 = await store.staging.getEntry("file2");
+    const entry3 = await store.staging.getEntry("file3");
+    expect(entry2).toBeDefined();
+    expect(entry3).toBeDefined();
+  });
+
+  /**
+   * JGit: testSquashMerge
+   * Squash merge with divergent branches.
+   */
+  it("should return MERGED_SQUASHED when squashing three-way merge", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1 at initial commit
+    await git.branchCreate().setName("branch1").call();
+
+    // Add file on main
+    await addFile(store, "file2", "file2");
+    await git.commit().setMessage("second commit on main").call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+
+    // Switch to branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Add file on branch1
+    await addFile(store, "file3", "file3");
+    await git.commit().setMessage("third commit on branch1").call();
+
+    // Switch back to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(mainHead?.objectId ?? "")).tree,
+    );
+
+    // Squash merge branch1
+    const result = await git.merge().include("refs/heads/branch1").setSquash(true).call();
+
+    expect(result.status).toBe(MergeStatus.MERGED_SQUASHED);
+    // HEAD should not move
+    expect(result.newHead).toBe(mainHead?.objectId);
+
+    // Staging should have both files
+    const entry2 = await store.staging.getEntry("file2");
+    const entry3 = await store.staging.getEntry("file3");
+    expect(entry2).toBeDefined();
+    expect(entry3).toBeDefined();
+  });
+
+  /**
+   * JGit: testSquashMergeConflict
+   * Squash merge with conflict.
+   */
+  it("should return CONFLICTING when squash merge has conflicts", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1
+    await git.branchCreate().setName("branch1").call();
+
+    // Add file on main
+    await addFile(store, "file", "main content");
+    await git.commit().setMessage("main commit").call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+
+    // Switch to branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Add same file with different content on branch1
+    await addFile(store, "file", "branch content");
+    await git.commit().setMessage("branch commit").call();
+
+    // Switch back to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(mainHead?.objectId ?? "")).tree,
+    );
+
+    // Squash merge - should conflict
+    const result = await git.merge().include("refs/heads/branch1").setSquash(true).call();
+
+    expect(result.status).toBe(MergeStatus.CONFLICTING);
+    expect(result.conflicts).toContain("file");
+  });
+});
+
+describe("MergeCommand - JGit fast-forward tests", () => {
+  /**
+   * JGit: testFastForwardNoCommit
+   * Fast-forward with setCommit(false) - should still fast-forward.
+   */
+  it("should fast-forward even with setCommit(false)", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1 at initial commit
+    await git.branchCreate().setName("branch1").call();
+
+    // Add commit on main
+    await git.commit().setMessage("second commit").setAllowEmpty(true).call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+
+    // Switch to branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Fast-forward merge with no-commit flag
+    const result = await git.merge().include("refs/heads/main").setCommit(false).call();
+
+    // Should still fast-forward (no-commit doesn't affect FF)
+    expect(result.status).toBe(MergeStatus.FAST_FORWARD);
+    expect(result.newHead).toBe(mainHead?.objectId);
+  });
+
+  /**
+   * JGit: testFastForwardOnly
+   * FF_ONLY mode when fast-forward is possible.
+   */
+  it("should fast-forward when FF_ONLY and fast-forward possible", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1
+    await git.branchCreate().setName("branch1").call();
+
+    // Add commit on main
+    await git.commit().setMessage("second commit").setAllowEmpty(true).call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+
+    // Switch to branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // FF_ONLY merge
+    const result = await git
+      .merge()
+      .include("refs/heads/main")
+      .setFastForwardMode(FastForwardMode.FF_ONLY)
+      .call();
+
+    expect(result.status).toBe(MergeStatus.FAST_FORWARD);
+    expect(result.newHead).toBe(mainHead?.objectId);
+  });
+
+  /**
+   * JGit: testNoFastForward
+   * NO_FF mode - always create merge commit.
+   */
+  it("should create merge commit when NO_FF even if fast-forward possible", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1
+    await git.branchCreate().setName("branch1").call();
+
+    // Add commit on main
+    await git.commit().setMessage("second commit").setAllowEmpty(true).call();
+
+    // Switch to branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // NO_FF merge
+    const result = await git
+      .merge()
+      .include("refs/heads/main")
+      .setFastForwardMode(FastForwardMode.NO_FF)
+      .call();
+
+    expect(result.status).toBe(MergeStatus.MERGED);
+
+    // Should have created merge commit with 2 parents
+    const newCommit = await store.commits.loadCommit(result.newHead ?? "");
+    expect(newCommit.parents.length).toBe(2);
+  });
+
+  /**
+   * JGit: testNoFastForwardNoCommit
+   * NO_FF with setCommit(false) - merge but don't commit.
+   */
+  it("should merge but not commit when NO_FF with setCommit(false)", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create branch1
+    await git.branchCreate().setName("branch1").call();
+
+    // Add commit on main
+    await git.commit().setMessage("second commit").setAllowEmpty(true).call();
+
+    // Switch to branch1
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    const branch1Before = await store.refs.resolve("refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // NO_FF merge with no-commit
+    const result = await git
+      .merge()
+      .include("refs/heads/main")
+      .setFastForwardMode(FastForwardMode.NO_FF)
+      .setCommit(false)
+      .call();
+
+    expect(result.status).toBe(MergeStatus.MERGED_NOT_COMMITTED);
+
+    // HEAD should not have moved
+    const branch1After = await store.refs.resolve("refs/heads/branch1");
+    expect(branch1After?.objectId).toBe(branch1Before?.objectId);
+  });
+
+  /**
+   * JGit: testFastForwardWithFiles
+   * Fast-forward merge updates staging area with new files.
+   */
+  it("should update staging with files on fast-forward merge", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Add file1 on initial
+    await addFile(store, "file1", "file1 content");
+    await git.commit().setMessage("add file1").call();
+
+    // Create branch1
+    await git.branchCreate().setName("branch1").call();
+
+    // Add file2 on main
+    await addFile(store, "file2", "file2 content");
+    await git.commit().setMessage("add file2").call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+
+    // Switch to branch1 (which doesn't have file2)
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    const branch1Ref = await store.refs.resolve("refs/heads/branch1");
+    const branch1Tree = (await store.commits.loadCommit(branch1Ref?.objectId ?? "")).tree;
+    await store.staging.readTree(store.trees, branch1Tree);
+
+    // Verify file2 not in staging
+    const entry2Before = await store.staging.getEntry("file2");
+    expect(entry2Before).toBeUndefined();
+
+    // Fast-forward merge main into branch1
+    const result = await git.merge().include("refs/heads/main").call();
+
+    expect(result.status).toBe(MergeStatus.FAST_FORWARD);
+    expect(result.newHead).toBe(mainHead?.objectId);
+
+    // Now file2 should be in staging
+    const entry2After = await store.staging.getEntry("file2");
+    expect(entry2After).toBeDefined();
+  });
+});
+
+describe("MergeCommand - JGit content merge tests", () => {
+  /**
+   * JGit: testSuccessfulContentMerge (adapted)
+   *
+   * Note: The current implementation does FILE-LEVEL merge only,
+   * not content-level (line-by-line) merge. When both sides modify
+   * the same file differently, it's marked as conflict even if the
+   * changes are in different parts of the file.
+   *
+   * This test is adapted to verify file-level merge behavior:
+   * - Each side modifies DIFFERENT files
+   * - Same-file modifications result in conflict
+   */
+  it("should merge when each side modifies different files", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Setup initial files
+    await addFile(store, "a", "1\na\n3\n");
+    await addFile(store, "b", "1\nb\n3\n");
+    await addFile(store, "c/c/c", "1\nc\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    // Modify only b on side (not a)
+    await addFile(store, "b", "1\nb(side)\n3\n");
+    await git.commit().setMessage("side changes").call();
+
+    // Switch to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    // Modify only a and c on main (not b)
+    await addFile(store, "a", "1\na\n3(main)\n");
+    await addFile(store, "c/c/c", "1\nc(main)\n3\n");
+    await git.commit().setMessage("main changes").call();
+
+    // Merge - should succeed (no file modified by both sides)
+    const result = await git.merge().include("refs/heads/side").call();
+
+    expect(result.status).toBe(MergeStatus.MERGED);
+    expect(result.conflicts).toBeUndefined();
+
+    // Verify merge commit has 2 parents
+    const mergeCommit = await store.commits.loadCommit(result.newHead ?? "");
+    expect(mergeCommit.parents.length).toBe(2);
+  });
+
+  /**
+   * Content-level merge limitation test.
+   *
+   * When both sides modify the same file (even in different parts),
+   * the current file-level merge marks it as conflict.
+   */
+  it("should conflict when both sides modify same file (file-level merge)", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Setup initial file
+    await addFile(store, "a", "1\na\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    // Modify file a on side (first line)
+    await addFile(store, "a", "1(side)\na\n3\n");
+    await git.commit().setMessage("side changes").call();
+
+    // Switch to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    // Modify file a on main (last line)
+    await addFile(store, "a", "1\na\n3(main)\n");
+    await git.commit().setMessage("main changes").call();
+
+    // Merge - conflicts because same file modified by both (file-level merge)
+    const result = await git.merge().include("refs/heads/side").call();
+
+    expect(result.status).toBe(MergeStatus.CONFLICTING);
+    expect(result.conflicts).toContain("a");
+  });
+
+  /**
+   * JGit: testSuccessfulContentMergeNoCommit
+   * Non-overlapping merge with setCommit(false).
+   */
+  it("should merge non-overlapping changes without commit when setCommit(false)", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Setup
+    await addFile(store, "a", "1\na\n3\n");
+    await addFile(store, "b", "1\nb\n3\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create side branch
+    await git.branchCreate().setName("side").call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/side");
+
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, sideCommit.tree);
+
+    // Modify b on side
+    await addFile(store, "b", "1\nb(side)\n3\n");
+    await git.commit().setMessage("side changes").call();
+
+    // Switch to main
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, mainCommit.tree);
+
+    // Modify a on main
+    await addFile(store, "a", "1\na(main)\n3\n");
+    await git.commit().setMessage("main changes").call();
+    const mainHeadBefore = await store.refs.resolve("refs/heads/main");
+
+    // Merge with no-commit
+    const result = await git.merge().include("refs/heads/side").setCommit(false).call();
+
+    expect(result.status).toBe(MergeStatus.MERGED_NOT_COMMITTED);
+
+    // HEAD should not have moved
+    const mainHeadAfter = await store.refs.resolve("refs/heads/main");
+    expect(mainHeadAfter?.objectId).toBe(mainHeadBefore?.objectId);
+  });
+
+  /**
+   * JGit: testMergeTag
+   * Merge using a tag reference.
+   */
+  it("should resolve and merge a tag", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // Create a commit on main
+    await git.commit().setMessage("second commit").setAllowEmpty(true).call();
+    const mainHead = await store.refs.resolve("refs/heads/main");
+
+    // Create a tag pointing to main
+    await store.refs.set("refs/tags/v1.0", mainHead?.objectId ?? "");
+
+    // Create branch1 at initial commit
+    await git.branchCreate().setName("branch1").setStartPoint(initialCommitId).call();
+    await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
+    await store.staging.readTree(
+      store.trees,
+      (await store.commits.loadCommit(initialCommitId)).tree,
+    );
+
+    // Merge the tag
+    const result = await git.merge().include("refs/tags/v1.0").call();
+
+    expect(result.status).toBe(MergeStatus.FAST_FORWARD);
+    expect(result.newHead).toBe(mainHead?.objectId);
   });
 });

@@ -10,6 +10,8 @@ import type { MergeFailureReason } from "../errors/merge-errors.js";
 export enum MergeStatus {
   /** Merge is a fast-forward (only HEAD moved) */
   FAST_FORWARD = "fast-forward",
+  /** Fast-forward merge with squash (HEAD not moved, changes staged) */
+  FAST_FORWARD_SQUASHED = "fast-forward-squashed",
   /** Merge was a no-op - already up to date */
   ALREADY_UP_TO_DATE = "already-up-to-date",
   /** Merge completed successfully (merge commit created) */
@@ -68,6 +70,7 @@ export interface MergeResult {
 export function isMergeSuccessful(status: MergeStatus): boolean {
   return (
     status === MergeStatus.FAST_FORWARD ||
+    status === MergeStatus.FAST_FORWARD_SQUASHED ||
     status === MergeStatus.ALREADY_UP_TO_DATE ||
     status === MergeStatus.MERGED ||
     status === MergeStatus.MERGED_NOT_COMMITTED ||
