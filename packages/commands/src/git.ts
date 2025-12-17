@@ -1,5 +1,6 @@
 import {
   AddCommand,
+  CheckoutCommand,
   CherryPickCommand,
   CommitCommand,
   CreateBranchCommand,
@@ -104,6 +105,34 @@ export class Git implements Disposable {
   add(): AddCommand {
     this.checkClosed();
     return new AddCommand(this.store);
+  }
+
+  // ============ Checkout Operations ============
+
+  /**
+   * Create a CheckoutCommand for switching branches or restoring files.
+   *
+   * @example
+   * ```typescript
+   * // Checkout existing branch
+   * await git.checkout().setName("feature").call();
+   *
+   * // Create and checkout new branch
+   * await git.checkout()
+   *   .setCreateBranch(true)
+   *   .setName("newbranch")
+   *   .call();
+   *
+   * // Checkout paths from commit
+   * await git.checkout()
+   *   .setStartPoint("HEAD~1")
+   *   .addPath("file.txt")
+   *   .call();
+   * ```
+   */
+  checkout(): CheckoutCommand {
+    this.checkClosed();
+    return new CheckoutCommand(this.store);
   }
 
   // ============ Commit Operations ============
