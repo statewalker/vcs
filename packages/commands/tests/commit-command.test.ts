@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 
 import { EmptyCommitError, NoMessageError } from "../src/errors/index.js";
-import { createInitializedGit, testAuthor, toArray } from "./test-helper.js";
+import { addFile, createInitializedGit, testAuthor, toArray } from "./test-helper.js";
 
 describe("CommitCommand", () => {
   it("should require a message", async () => {
@@ -191,3 +191,125 @@ describe("CommitCommand with Log", () => {
     expect(commits[3].message).toBe("Initial commit");
   });
 });
+
+describe("CommitCommand with --only flag", () => {
+  it("should commit only specified paths", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create initial commit with two files
+    await addFile(store, "file1.txt", "content1\n");
+    await addFile(store, "file2.txt", "content2\n");
+    await git.commit().setMessage("add two files").call();
+
+    // Modify both files in staging
+    await addFile(store, "file1.txt", "modified1\n");
+    await addFile(store, "file2.txt", "modified2\n");
+
+    // Commit only file1.txt
+    await git.commit().setMessage("update file1 only").setOnly("file1.txt").call();
+
+    // Get the committed tree
+    const headRef = await store.refs.resolve("HEAD");
+    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+
+    // Check that file1 was updated
+    const file1Entry = await store.trees.getEntry(headCommit.tree, "file1.txt");
+    expect(file1Entry).toBeDefined();
+    const file1Content = await store.objects.load(file1Entry?.id);
+    const file1Text = new TextDecoder().decode(await collectBytes(file1Content));
+    expect(file1Text).toBe("modified1\n");
+
+    // Check that file2 was NOT updated (still has original content)
+    const file2Entry = await store.trees.getEntry(headCommit.tree, "file2.txt");
+    expect(file2Entry).toBeDefined();
+    const file2Content = await store.objects.load(file2Entry?.id);
+    const file2Text = new TextDecoder().decode(await collectBytes(file2Content));
+    expect(file2Text).toBe("content2\n");
+  });
+
+  it("should commit multiple specified paths", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create initial commit with three files
+    await addFile(store, "a.txt", "a\n");
+    await addFile(store, "b.txt", "b\n");
+    await addFile(store, "c.txt", "c\n");
+    await git.commit().setMessage("add files").call();
+
+    // Modify all files
+    await addFile(store, "a.txt", "aa\n");
+    await addFile(store, "b.txt", "bb\n");
+    await addFile(store, "c.txt", "cc\n");
+
+    // Commit only a.txt and c.txt
+    await git.commit().setMessage("update a and c").setOnly("a.txt", "c.txt").call();
+
+    // Get committed tree
+    const headRef = await store.refs.resolve("HEAD");
+    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+
+    // Verify a.txt was updated
+    const aEntry = await store.trees.getEntry(headCommit.tree, "a.txt");
+    const aContent = await store.objects.load(aEntry?.id);
+    expect(new TextDecoder().decode(await collectBytes(aContent))).toBe("aa\n");
+
+    // Verify b.txt was NOT updated
+    const bEntry = await store.trees.getEntry(headCommit.tree, "b.txt");
+    const bContent = await store.objects.load(bEntry?.id);
+    expect(new TextDecoder().decode(await collectBytes(bContent))).toBe("b\n");
+
+    // Verify c.txt was updated
+    const cEntry = await store.trees.getEntry(headCommit.tree, "c.txt");
+    const cContent = await store.objects.load(cEntry?.id);
+    expect(new TextDecoder().decode(await collectBytes(cContent))).toBe("cc\n");
+  });
+
+  it("should work with files in subdirectories", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create files in subdirectories
+    await addFile(store, "src/main.ts", "main\n");
+    await addFile(store, "src/utils.ts", "utils\n");
+    await addFile(store, "tests/main.test.ts", "test\n");
+    await git.commit().setMessage("initial structure").call();
+
+    // Modify files
+    await addFile(store, "src/main.ts", "main updated\n");
+    await addFile(store, "src/utils.ts", "utils updated\n");
+    await addFile(store, "tests/main.test.ts", "test updated\n");
+
+    // Commit only src/main.ts
+    await git.commit().setMessage("update main only").setOnly("src/main.ts").call();
+
+    // Verify results
+    const headRef = await store.refs.resolve("HEAD");
+    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+
+    // Need to walk tree to get src subtree
+    const srcEntry = await store.trees.getEntry(headCommit.tree, "src");
+    expect(srcEntry).toBeDefined();
+
+    const mainEntry = await store.trees.getEntry(srcEntry?.id, "main.ts");
+    const mainContent = await store.objects.load(mainEntry?.id);
+    expect(new TextDecoder().decode(await collectBytes(mainContent))).toBe("main updated\n");
+
+    const utilsEntry = await store.trees.getEntry(srcEntry?.id, "utils.ts");
+    const utilsContent = await store.objects.load(utilsEntry?.id);
+    expect(new TextDecoder().decode(await collectBytes(utilsContent))).toBe("utils\n");
+  });
+});
+
+async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of iterable) {
+    chunks.push(chunk);
+  }
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}

@@ -49,6 +49,12 @@ function getTimezoneOffset(): string {
  *   .setMessage("Empty commit")
  *   .setAllowEmpty(true)
  *   .call();
+ *
+ * // Commit only specific paths
+ * const commit = await git.commit()
+ *   .setMessage("Partial commit")
+ *   .setOnly("src/file.ts", "tests/file.test.ts")
+ *   .call();
  * ```
  */
 export class CommitCommand extends GitCommand<Commit> {
@@ -58,6 +64,7 @@ export class CommitCommand extends GitCommand<Commit> {
   private amend = false;
   private allowEmpty = false;
   private parents: ObjectId[] = [];
+  private onlyPaths: string[] = [];
 
   /**
    * Set the commit message.
@@ -163,6 +170,21 @@ export class CommitCommand extends GitCommand<Commit> {
   }
 
   /**
+   * Set paths to commit (--only mode).
+   *
+   * When set, only the specified paths are taken from the staging area.
+   * All other paths are taken from the parent commit's tree. This allows
+   * partial commits without affecting unstaged changes to other files.
+   *
+   * @param paths Paths to include in commit
+   */
+  setOnly(...paths: string[]): this {
+    this.checkCallable();
+    this.onlyPaths = paths;
+    return this;
+  }
+
+  /**
    * Execute the commit.
    *
    * @returns The created commit
@@ -228,9 +250,6 @@ export class CommitCommand extends GitCommand<Commit> {
       committer = author;
     }
 
-    // Generate tree from staging area
-    const treeId = await this.store.staging.writeTree(this.store.trees);
-
     // Determine parents
     let parents: ObjectId[];
     if (this.parents.length > 0) {
@@ -249,6 +268,17 @@ export class CommitCommand extends GitCommand<Commit> {
         // Initial commit
         parents = [];
       }
+    }
+
+    // Generate tree from staging area
+    let treeId: ObjectId;
+
+    if (this.onlyPaths.length > 0 && parents.length > 0) {
+      // --only mode: combine parent tree with specified paths from staging
+      treeId = await this.buildOnlyTree(parents[0]);
+    } else {
+      // Normal mode: use full staging area
+      treeId = await this.store.staging.writeTree(this.store.trees);
     }
 
     // Check for empty commit
@@ -283,5 +313,85 @@ export class CommitCommand extends GitCommand<Commit> {
     this.setCallable(false);
 
     return commit;
+  }
+
+  /**
+   * Build tree for --only mode.
+   *
+   * Combines parent tree with specified paths from staging area.
+   *
+   * @param parentCommitId Parent commit ID
+   * @returns Tree ObjectId
+   */
+  private async buildOnlyTree(parentCommitId: ObjectId): Promise<ObjectId> {
+    const parentCommit = await this.store.commits.loadCommit(parentCommitId);
+
+    // Collect staging entries for onlyPaths
+    const onlyPathSet = new Set(this.onlyPaths);
+    const stagingEntriesMap = new Map<string, { objectId: ObjectId; mode: number }>();
+
+    for await (const entry of this.store.staging.listEntries()) {
+      if (onlyPathSet.has(entry.path) && entry.stage === 0) {
+        stagingEntriesMap.set(entry.path, {
+          objectId: entry.objectId,
+          mode: entry.mode,
+        });
+      }
+    }
+
+    // Create builder and populate with filtered tree
+    const builder = this.store.staging.builder();
+
+    // Walk parent tree and add entries NOT in onlyPaths
+    await this.addTreeFiltered(builder, parentCommit.tree, "", onlyPathSet);
+
+    // Add staging entries for onlyPaths
+    for (const [path, { objectId, mode }] of stagingEntriesMap) {
+      builder.add({
+        path,
+        mode,
+        objectId,
+        size: 0,
+        mtime: Date.now(),
+      });
+    }
+
+    await builder.finish();
+
+    // Now write tree from staging
+    return await this.store.staging.writeTree(this.store.trees);
+  }
+
+  /**
+   * Recursively walk tree and add entries to builder, excluding specified paths.
+   */
+  private async addTreeFiltered(
+    builder: ReturnType<typeof this.store.staging.builder>,
+    treeId: ObjectId,
+    prefix: string,
+    excludePaths: Set<string>,
+  ): Promise<void> {
+    for await (const entry of this.store.trees.loadTree(treeId)) {
+      const fullPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+
+      // Check if this is a tree (directory)
+      const isTree = (entry.mode & 0o170000) === 0o040000;
+
+      if (isTree) {
+        // Recursively process subtree
+        await this.addTreeFiltered(builder, entry.id, fullPath, excludePaths);
+      } else {
+        // Only add if not in excluded paths
+        if (!excludePaths.has(fullPath)) {
+          builder.add({
+            path: fullPath,
+            mode: entry.mode,
+            objectId: entry.id,
+            size: 0,
+            mtime: Date.now(),
+          });
+        }
+      }
+    }
   }
 }
