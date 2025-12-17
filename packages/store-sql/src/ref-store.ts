@@ -113,10 +113,9 @@ export class SQLRefStore implements RefStore {
     let rows: RefRow[];
 
     if (prefix) {
-      rows = await this.db.query<RefRow>(
-        "SELECT * FROM vcs_ref WHERE name LIKE ? ORDER BY name",
-        [`${prefix}%`],
-      );
+      rows = await this.db.query<RefRow>("SELECT * FROM vcs_ref WHERE name LIKE ? ORDER BY name", [
+        `${prefix}%`,
+      ]);
     } else {
       rows = await this.db.query<RefRow>("SELECT * FROM vcs_ref ORDER BY name", []);
     }
