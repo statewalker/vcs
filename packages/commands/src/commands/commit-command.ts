@@ -1,8 +1,22 @@
 import type { Commit, ObjectId, PersonIdent } from "@webrun-vcs/vcs";
 import { isSymbolicRef } from "@webrun-vcs/vcs";
+import type { WorkingTreeIterator } from "@webrun-vcs/worktree";
 
 import { EmptyCommitError, NoMessageError, UnmergedPathsError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
+import type { GitStoreWithWorkTree } from "../types.js";
+import { AddCommand } from "./add-command.js";
+
+/**
+ * Result of a commit operation.
+ *
+ * Extends Commit with the ID of the created commit.
+ * JGit's CommitCommand returns RevCommit which includes getId().
+ */
+export interface CommitResult extends Commit {
+  /** The ObjectId of the created commit */
+  id: ObjectId;
+}
 
 /**
  * Get current timezone offset as string (+HHMM or -HHMM).
@@ -55,9 +69,16 @@ function getTimezoneOffset(): string {
  *   .setMessage("Partial commit")
  *   .setOnly("src/file.ts", "tests/file.test.ts")
  *   .call();
+ *
+ * // Auto-stage and commit tracked changes (requires worktree)
+ * const commit = await git.commit()
+ *   .setMessage("All changes")
+ *   .setAll(true)
+ *   .setWorkingTreeIterator(worktree)
+ *   .call();
  * ```
  */
-export class CommitCommand extends GitCommand<Commit> {
+export class CommitCommand extends GitCommand<CommitResult> {
   private message?: string;
   private author?: PersonIdent;
   private committer?: PersonIdent;
@@ -65,6 +86,8 @@ export class CommitCommand extends GitCommand<Commit> {
   private allowEmpty = false;
   private parents: ObjectId[] = [];
   private onlyPaths: string[] = [];
+  private all = false;
+  private worktreeIterator: WorkingTreeIterator | undefined;
 
   /**
    * Set the commit message.
@@ -176,24 +199,82 @@ export class CommitCommand extends GitCommand<Commit> {
    * All other paths are taken from the parent commit's tree. This allows
    * partial commits without affecting unstaged changes to other files.
    *
+   * Cannot be combined with setAll().
+   *
    * @param paths Paths to include in commit
+   * @throws Error if combined with --all mode
    */
   setOnly(...paths: string[]): this {
     this.checkCallable();
+    // JGit: --all and --only are mutually exclusive
+    if (this.all && paths.length > 0) {
+      throw new Error("Cannot combine --only with --all");
+    }
     this.onlyPaths = paths;
+    return this;
+  }
+
+  /**
+   * Set whether to auto-stage modified tracked files before committing.
+   *
+   * If true, stages all modified and deleted tracked files before
+   * creating the commit. Requires a working tree iterator.
+   *
+   * Cannot be combined with setOnly().
+   *
+   * Equivalent to `git commit -a` or `git commit --all`.
+   *
+   * @param all Whether to auto-stage tracked changes
+   * @returns this for chaining
+   * @throws Error if combined with --only paths
+   */
+  setAll(all: boolean): this {
+    this.checkCallable();
+    // JGit: --all and --only are mutually exclusive
+    if (all && this.onlyPaths.length > 0) {
+      throw new Error("Cannot combine --all with --only");
+    }
+    this.all = all;
+    return this;
+  }
+
+  /**
+   * Whether --all mode is enabled.
+   */
+  isAll(): boolean {
+    return this.all;
+  }
+
+  /**
+   * Set a custom working tree iterator.
+   *
+   * Required when using setAll(true) if the store doesn't have
+   * a built-in working tree.
+   *
+   * @param iterator Custom working tree iterator
+   * @returns this for chaining
+   */
+  setWorkingTreeIterator(iterator: WorkingTreeIterator): this {
+    this.checkCallable();
+    this.worktreeIterator = iterator;
     return this;
   }
 
   /**
    * Execute the commit.
    *
-   * @returns The created commit
+   * @returns The created commit with its ID
    * @throws NoMessageError if message is not set and not amending
    * @throws UnmergedPathsError if there are unresolved conflicts
    * @throws EmptyCommitError if nothing to commit and allowEmpty is false
    */
-  async call(): Promise<Commit> {
+  async call(): Promise<CommitResult> {
     this.checkCallable();
+
+    // Handle --all flag: auto-stage modified tracked files
+    if (this.all) {
+      await this.stageTrackedChanges();
+    }
 
     // Check message
     if (!this.message && !this.amend) {
@@ -312,7 +393,8 @@ export class CommitCommand extends GitCommand<Commit> {
 
     this.setCallable(false);
 
-    return commit;
+    // Return commit with its ID (like JGit's RevCommit)
+    return { ...commit, id: commitId };
   }
 
   /**
@@ -393,5 +475,42 @@ export class CommitCommand extends GitCommand<Commit> {
         }
       }
     }
+  }
+
+  /**
+   * Stage all modified/deleted tracked files.
+   *
+   * Uses AddCommand with setUpdate(true) to stage changes,
+   * equivalent to `git add -u .` which JGit does for --all.
+   */
+  private async stageTrackedChanges(): Promise<void> {
+    // Get working tree iterator
+    const worktree = this.getWorktreeIterator();
+    if (!worktree) {
+      throw new Error(
+        "Working tree iterator required for --all mode. " +
+          "Use GitStoreWithWorkTree or call setWorkingTreeIterator().",
+      );
+    }
+
+    // Use AddCommand to stage all modified tracked files
+    const addCommand = new AddCommand(this.store);
+    addCommand.addFilepattern(".");
+    addCommand.setUpdate(true);
+    addCommand.setWorkingTreeIterator(worktree);
+    await addCommand.call();
+  }
+
+  /**
+   * Get working tree iterator from store or explicitly set.
+   */
+  private getWorktreeIterator(): WorkingTreeIterator | undefined {
+    if (this.worktreeIterator) {
+      return this.worktreeIterator;
+    }
+
+    // Try to get from store if it's a GitStoreWithWorkTree
+    const store = this.store as GitStoreWithWorkTree;
+    return store.worktree;
   }
 }

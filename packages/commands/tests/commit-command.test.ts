@@ -331,3 +331,199 @@ async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8A
   }
   return result;
 }
+
+import { FileMode, type ObjectId } from "@webrun-vcs/vcs";
+/**
+ * Mock working tree for testing --all flag.
+ * Simulates a filesystem with files that can be modified/deleted.
+ */
+import type {
+  WorkingTreeEntry,
+  WorkingTreeIterator,
+  WorkingTreeIteratorOptions,
+} from "@webrun-vcs/worktree";
+
+class MockWorkingTree implements WorkingTreeIterator {
+  private files: Map<string, { content: Uint8Array; mode: number; mtime: number }> = new Map();
+
+  addFile(path: string, content: string, mode = FileMode.REGULAR_FILE): void {
+    this.files.set(path, {
+      content: new TextEncoder().encode(content),
+      mode,
+      mtime: Date.now(),
+    });
+  }
+
+  removeFile(path: string): void {
+    this.files.delete(path);
+  }
+
+  async *walk(_options?: WorkingTreeIteratorOptions): AsyncIterable<WorkingTreeEntry> {
+    for (const [path, file] of this.files) {
+      yield {
+        path,
+        name: path.split("/").pop() ?? path,
+        mode: file.mode,
+        size: file.content.length,
+        mtime: file.mtime,
+        isDirectory: false,
+        isIgnored: false,
+      };
+    }
+  }
+
+  async getEntry(path: string): Promise<WorkingTreeEntry | undefined> {
+    const file = this.files.get(path);
+    if (!file) return undefined;
+    return {
+      path,
+      name: path.split("/").pop() ?? path,
+      mode: file.mode,
+      size: file.content.length,
+      mtime: file.mtime,
+      isDirectory: false,
+      isIgnored: false,
+    };
+  }
+
+  async computeHash(_path: string): Promise<ObjectId> {
+    // Not used in these tests, return placeholder
+    return "0000000000000000000000000000000000000000";
+  }
+
+  async *readContent(path: string): AsyncIterable<Uint8Array> {
+    const file = this.files.get(path);
+    if (file) {
+      yield file.content;
+    }
+  }
+}
+
+describe("CommitCommand with --all flag", () => {
+  it("should auto-stage modified tracked files", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create initial commit with files
+    await addFile(store, "file1.txt", "original1\n");
+    await addFile(store, "file2.txt", "original2\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create mock working tree with modified content
+    const worktree = new MockWorkingTree();
+    worktree.addFile("file1.txt", "modified1\n");
+    worktree.addFile("file2.txt", "modified2\n");
+
+    // Commit with --all flag (should auto-stage modified files)
+    const commit = await git
+      .commit()
+      .setMessage("commit all changes")
+      .setAll(true)
+      .setWorkingTreeIterator(worktree)
+      .call();
+
+    expect(commit.message).toBe("commit all changes");
+
+    // Verify both files were updated in the commit
+    const headRef = await store.refs.resolve("HEAD");
+    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+
+    const file1Entry = await store.trees.getEntry(headCommit.tree, "file1.txt");
+    const file1Content = await store.objects.load(file1Entry?.id);
+    expect(new TextDecoder().decode(await collectBytes(file1Content))).toBe("modified1\n");
+
+    const file2Entry = await store.trees.getEntry(headCommit.tree, "file2.txt");
+    const file2Content = await store.objects.load(file2Entry?.id);
+    expect(new TextDecoder().decode(await collectBytes(file2Content))).toBe("modified2\n");
+  });
+
+  it("should auto-stage deleted tracked files", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create initial commit with files
+    await addFile(store, "file1.txt", "content1\n");
+    await addFile(store, "file2.txt", "content2\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create mock working tree with file1 deleted
+    const worktree = new MockWorkingTree();
+    worktree.addFile("file2.txt", "content2\n"); // file1.txt is deleted
+
+    // Commit with --all flag (should stage the deletion)
+    const commit = await git
+      .commit()
+      .setMessage("delete file1")
+      .setAll(true)
+      .setWorkingTreeIterator(worktree)
+      .call();
+
+    expect(commit.message).toBe("delete file1");
+
+    // Verify file1 was removed from the tree
+    const headRef = await store.refs.resolve("HEAD");
+    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+
+    const file1Entry = await store.trees.getEntry(headCommit.tree, "file1.txt");
+    expect(file1Entry).toBeUndefined();
+
+    // file2 should still exist
+    const file2Entry = await store.trees.getEntry(headCommit.tree, "file2.txt");
+    expect(file2Entry).toBeDefined();
+  });
+
+  it("should require working tree iterator for --all", async () => {
+    const { git } = await createInitializedGit();
+
+    // Try to commit with --all but without working tree iterator
+    await expect(git.commit().setMessage("test").setAll(true).call()).rejects.toThrow(
+      /Working tree iterator required/,
+    );
+  });
+
+  it("should throw when combining --all with --only (JGit behavior)", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create initial commit with file
+    await addFile(store, "file.txt", "content\n");
+    await git.commit().setMessage("initial").call();
+
+    // Cannot set --all after --only
+    expect(() => git.commit().setOnly("file.txt").setAll(true)).toThrow(/Cannot combine/);
+
+    // Cannot set --only after --all
+    expect(() => git.commit().setAll(true).setOnly("file.txt")).toThrow(/Cannot combine/);
+  });
+
+  it("should not add new untracked files", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create initial commit with one file
+    await addFile(store, "tracked.txt", "tracked\n");
+    await git.commit().setMessage("initial").call();
+
+    // Create mock working tree with tracked + new untracked file
+    const worktree = new MockWorkingTree();
+    worktree.addFile("tracked.txt", "tracked modified\n");
+    worktree.addFile("untracked.txt", "new file\n");
+
+    // Commit with --all (should only stage tracked file, not untracked)
+    await git
+      .commit()
+      .setMessage("update tracked only")
+      .setAll(true)
+      .setWorkingTreeIterator(worktree)
+      .call();
+
+    // Verify untracked file was NOT added
+    const headRef = await store.refs.resolve("HEAD");
+    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+
+    const untrackedEntry = await store.trees.getEntry(headCommit.tree, "untracked.txt");
+    expect(untrackedEntry).toBeUndefined();
+
+    // Tracked file should be updated
+    const trackedEntry = await store.trees.getEntry(headCommit.tree, "tracked.txt");
+    expect(trackedEntry).toBeDefined();
+    const trackedContent = store.objects.load(trackedEntry?.id ?? "");
+    expect(new TextDecoder().decode(await collectBytes(trackedContent))).toBe("tracked modified\n");
+  });
+});
