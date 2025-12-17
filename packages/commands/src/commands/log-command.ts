@@ -3,6 +3,20 @@ import type { Commit, ObjectId } from "@webrun-vcs/vcs";
 import { GitCommand } from "../git-command.js";
 
 /**
+ * Revision filter for LogCommand.
+ *
+ * Based on JGit's RevFilter.
+ */
+export enum RevFilter {
+  /** Include all commits (default) */
+  ALL = "all",
+  /** Only include merge commits (commits with more than one parent) */
+  ONLY_MERGES = "only-merges",
+  /** Exclude merge commits */
+  NO_MERGES = "no-merges",
+}
+
+/**
  * Show commit history.
  *
  * Equivalent to `git log`.
@@ -39,6 +53,21 @@ import { GitCommand } from "../git-command.js";
  * const newCommits = await git.log()
  *   .not(oldBranchHead)
  *   .call();
+ *
+ * // Only merge commits
+ * const merges = await git.log()
+ *   .setRevFilter(RevFilter.ONLY_MERGES)
+ *   .call();
+ *
+ * // Exclude merge commits
+ * const nonMerges = await git.log()
+ *   .setRevFilter(RevFilter.NO_MERGES)
+ *   .call();
+ *
+ * // Range syntax (commits in feature not in main)
+ * const newInFeature = await git.log()
+ *   .addRange(mainHead, featureHead)
+ *   .call();
  * ```
  */
 export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
@@ -53,6 +82,7 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
   private untilTime?: number;
   private authorPattern?: string;
   private committerPattern?: string;
+  private revFilter = RevFilter.ALL;
 
   /**
    * Add a starting commit for the log.
@@ -192,6 +222,37 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
   }
 
   /**
+   * Set revision filter.
+   *
+   * - ALL: Include all commits (default)
+   * - ONLY_MERGES: Only include merge commits
+   * - NO_MERGES: Exclude merge commits
+   *
+   * @param filter Revision filter
+   */
+  setRevFilter(filter: RevFilter): this {
+    this.checkCallable();
+    this.revFilter = filter;
+    return this;
+  }
+
+  /**
+   * Add a commit range.
+   *
+   * Equivalent to `git log since..until` - includes commits reachable
+   * from `until` but not from `since`.
+   *
+   * @param since Commits reachable from here are excluded
+   * @param until Commits reachable from here are included (start point)
+   */
+  addRange(since: ObjectId, until: ObjectId): this {
+    this.checkCallable();
+    this.excludeCommits.push(since);
+    this.startCommits.push(until);
+    return this;
+  }
+
+  /**
    * Execute the log command.
    *
    * @returns AsyncIterable of commits in reverse chronological order
@@ -246,6 +307,19 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
       }
 
       const commit = await this.store.commits.loadCommit(commitId);
+
+      // RevFilter - ONLY_MERGES or NO_MERGES
+      if (this.revFilter === RevFilter.ONLY_MERGES) {
+        // Only include merge commits (more than one parent)
+        if (commit.parents.length <= 1) {
+          continue;
+        }
+      } else if (this.revFilter === RevFilter.NO_MERGES) {
+        // Exclude merge commits
+        if (commit.parents.length > 1) {
+          continue;
+        }
+      }
 
       // Date filtering - since (after)
       if (this.sinceTime !== undefined && commit.committer.timestamp < this.sinceTime) {

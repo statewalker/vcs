@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { RevFilter } from "../src/commands/log-command.js";
 import { createInitializedGit, toArray } from "./test-helper.js";
 
 describe("LogCommand", () => {
@@ -346,6 +347,147 @@ describe("LogCommand author filtering", () => {
 
     expect(commits.length).toBe(1);
     expect(commits[0].message).toBe("Committed by Carol");
+  });
+});
+
+describe("LogCommand RevFilter", () => {
+  it("should only return merge commits with ONLY_MERGES filter", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create base commit
+    await git.commit().setMessage("m0").setAllowEmpty(true).call();
+
+    // Create branch
+    await git.branchCreate().setName("side").call();
+
+    // Make commit on main
+    await git.commit().setMessage("m1").setAllowEmpty(true).call();
+
+    // Get current HEAD as main branch head
+    const mainRef = await store.refs.resolve("HEAD");
+    const mainId = mainRef?.objectId ?? "";
+
+    // Switch to side branch by updating HEAD
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideId = sideRef?.objectId ?? "";
+    await store.refs.set("HEAD", sideId);
+
+    // Make commit on side
+    await git.commit().setMessage("s0").setAllowEmpty(true).call();
+    const sideHeadRef = await store.refs.resolve("HEAD");
+    const sideHeadId = sideHeadRef?.objectId ?? "";
+
+    // Switch back to main
+    await store.refs.set("HEAD", mainId);
+
+    // Merge side into main
+    await git.merge().include(sideHeadId).setMessage("merge s0 with m1").call();
+
+    // Get all commits
+    const allCommits = await toArray(await git.log().all().call());
+    expect(allCommits.some((c) => c.message === "merge s0 with m1")).toBe(true);
+    expect(allCommits.some((c) => c.message === "s0")).toBe(true);
+    expect(allCommits.some((c) => c.message === "m1")).toBe(true);
+    expect(allCommits.some((c) => c.message === "m0")).toBe(true);
+
+    // Only merge commits
+    const mergeCommits = await toArray(await git.log().setRevFilter(RevFilter.ONLY_MERGES).call());
+    expect(mergeCommits.length).toBe(1);
+    expect(mergeCommits[0].message).toBe("merge s0 with m1");
+  });
+
+  it("should exclude merge commits with NO_MERGES filter", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create base commit
+    await git.commit().setMessage("m0").setAllowEmpty(true).call();
+
+    // Create branch
+    await git.branchCreate().setName("side").call();
+
+    // Make commit on main
+    await git.commit().setMessage("m1").setAllowEmpty(true).call();
+
+    // Get current HEAD as main branch head
+    const mainRef = await store.refs.resolve("HEAD");
+    const mainId = mainRef?.objectId ?? "";
+
+    // Switch to side branch
+    const sideRef = await store.refs.resolve("refs/heads/side");
+    const sideId = sideRef?.objectId ?? "";
+    await store.refs.set("HEAD", sideId);
+
+    // Make commit on side
+    await git.commit().setMessage("s0").setAllowEmpty(true).call();
+    const sideHeadRef = await store.refs.resolve("HEAD");
+    const sideHeadId = sideHeadRef?.objectId ?? "";
+
+    // Switch back to main
+    await store.refs.set("HEAD", mainId);
+
+    // Merge side into main
+    await git.merge().include(sideHeadId).setMessage("merge s0 with m1").call();
+
+    // No merge commits (excludes merge)
+    const nonMergeCommits = await toArray(await git.log().setRevFilter(RevFilter.NO_MERGES).call());
+
+    // Should not contain the merge commit
+    expect(nonMergeCommits.every((c) => c.message !== "merge s0 with m1")).toBe(true);
+    // Should contain the non-merge commits
+    expect(nonMergeCommits.some((c) => c.message === "m1")).toBe(true);
+    expect(nonMergeCommits.some((c) => c.message === "s0")).toBe(true);
+    expect(nonMergeCommits.some((c) => c.message === "m0")).toBe(true);
+  });
+});
+
+describe("LogCommand addRange", () => {
+  it("should return commits in range (since..until)", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create: A - B - C - M
+    //              \     /
+    //               - D (side)
+
+    // A (initial already exists)
+    // B
+    await git.commit().setMessage("commit b").setAllowEmpty(true).call();
+    const bRef = await store.refs.resolve("HEAD");
+    const bId = bRef?.objectId ?? "";
+
+    // C
+    await git.commit().setMessage("commit c").setAllowEmpty(true).call();
+    const cRef = await store.refs.resolve("HEAD");
+    const cId = cRef?.objectId ?? "";
+
+    // Create side branch at B
+    await store.refs.set("refs/heads/side", bId);
+    await store.refs.set("HEAD", bId);
+
+    // D on side
+    await git.commit().setMessage("commit d").setAllowEmpty(true).call();
+    const dRef = await store.refs.resolve("HEAD");
+    const dId = dRef?.objectId ?? "";
+
+    // Switch back to main (at C)
+    await store.refs.set("HEAD", cId);
+
+    // Merge D into main
+    const mergeResult = await git.merge().include(dId).call();
+    const mergeHeadId = mergeResult.newHead ?? "";
+
+    // Range from B to merge head (should include M, C, D but not B or A)
+    const rangeCommits = await toArray(await git.log().addRange(bId, mergeHeadId).call());
+
+    // Should include merge commit, C, and D
+    expect(rangeCommits.length).toBe(3);
+
+    const messages = rangeCommits.map((c) => c.message);
+    expect(messages).toContain("commit c");
+    expect(messages).toContain("commit d");
+
+    // Should not include B or Initial
+    expect(messages.every((m) => m !== "commit b")).toBe(true);
+    expect(messages.every((m) => m !== "Initial commit")).toBe(true);
   });
 });
 
