@@ -43,6 +43,47 @@ export enum FastForwardMode {
 }
 
 /**
+ * Merge strategy.
+ *
+ * Based on JGit's MergeStrategy.
+ */
+export enum MergeStrategy {
+  /**
+   * Recursive three-way merge (default).
+   *
+   * Standard merge algorithm that finds common ancestor and
+   * performs three-way merge on each file.
+   */
+  RECURSIVE = "recursive",
+
+  /**
+   * Always take our side.
+   *
+   * Creates a merge commit but keeps our tree unchanged.
+   * The other branch's changes are completely ignored.
+   * Use case: record that merge happened without accepting changes.
+   */
+  OURS = "ours",
+
+  /**
+   * Always take their side.
+   *
+   * Creates a merge commit but replaces our tree with theirs.
+   * Our changes are completely discarded.
+   * Use case: replace our branch with theirs while preserving history.
+   */
+  THEIRS = "theirs",
+
+  /**
+   * Simple resolve strategy.
+   *
+   * Similar to recursive but doesn't handle criss-cross merges.
+   * Uses a single merge base.
+   */
+  RESOLVE = "resolve",
+}
+
+/**
  * Result of a merge operation.
  *
  * Based on JGit's MergeResult.

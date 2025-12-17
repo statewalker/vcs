@@ -4,7 +4,12 @@ import { FileMode, isSymbolicRef, MergeStage } from "@webrun-vcs/vcs";
 import { InvalidMergeHeadsError, NotFastForwardError } from "../errors/merge-errors.js";
 import { NoHeadError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
-import { FastForwardMode, type MergeResult, MergeStatus } from "../results/merge-result.js";
+import {
+  FastForwardMode,
+  type MergeResult,
+  MergeStatus,
+  MergeStrategy,
+} from "../results/merge-result.js";
 
 /**
  * Merge branches.
@@ -31,11 +36,24 @@ import { FastForwardMode, type MergeResult, MergeStatus } from "../results/merge
  *   .include("feature-branch")
  *   .setFastForwardMode(FastForwardMode.FF_ONLY)
  *   .call();
+ *
+ * // Use "ours" strategy (keep our tree, ignore theirs)
+ * const result = await git.merge()
+ *   .include("feature-branch")
+ *   .setStrategy(MergeStrategy.OURS)
+ *   .call();
+ *
+ * // Use "theirs" strategy (replace our tree with theirs)
+ * const result = await git.merge()
+ *   .include("feature-branch")
+ *   .setStrategy(MergeStrategy.THEIRS)
+ *   .call();
  * ```
  */
 export class MergeCommand extends GitCommand<MergeResult> {
   private includes: string[] = [];
   private fastForwardMode = FastForwardMode.FF;
+  private strategy = MergeStrategy.RECURSIVE;
   private squash = false;
   private commit = true;
   private message?: string;
@@ -63,6 +81,22 @@ export class MergeCommand extends GitCommand<MergeResult> {
   setFastForwardMode(mode: FastForwardMode): this {
     this.checkCallable();
     this.fastForwardMode = mode;
+    return this;
+  }
+
+  /**
+   * Set merge strategy.
+   *
+   * - RECURSIVE (default): Standard three-way merge
+   * - OURS: Keep our tree, ignore their changes (creates merge commit)
+   * - THEIRS: Replace our tree with theirs (creates merge commit)
+   * - RESOLVE: Simple resolve strategy
+   *
+   * @param strategy Merge strategy
+   */
+  setStrategy(strategy: MergeStrategy): this {
+    this.checkCallable();
+    this.strategy = strategy;
     return this;
   }
 
@@ -218,39 +252,57 @@ export class MergeCommand extends GitCommand<MergeResult> {
 
     const baseId = mergeBases[0]; // Use first merge base
 
-    // Load commits and trees
+    // Load commits
     const headCommit = await this.store.commits.loadCommit(headId);
     const srcCommit = await this.store.commits.loadCommit(srcId);
-    const baseCommit = await this.store.commits.loadCommit(baseId);
 
-    // Perform tree-level merge
-    const mergeResult = await this.mergeTreesThreeWay(
-      baseCommit.tree,
-      headCommit.tree,
-      srcCommit.tree,
-    );
+    // Handle strategy-specific merge
+    let treeId: ObjectId;
 
-    if (mergeResult.conflicts.length > 0) {
-      // Has conflicts - write conflict state to staging
-      await this.writeConflictStaging(
+    if (this.strategy === MergeStrategy.OURS) {
+      // OURS strategy: keep our tree unchanged, completely ignore theirs
+      treeId = headCommit.tree;
+      await this.store.staging.readTree(this.store.trees, treeId);
+      await this.store.staging.write();
+    } else if (this.strategy === MergeStrategy.THEIRS) {
+      // THEIRS strategy: replace our tree with theirs
+      treeId = srcCommit.tree;
+      await this.store.staging.readTree(this.store.trees, treeId);
+      await this.store.staging.write();
+    } else {
+      // RECURSIVE or RESOLVE strategy: do three-way merge
+      const baseCommit = await this.store.commits.loadCommit(baseId);
+
+      // Perform tree-level merge
+      const mergeResult = await this.mergeTreesThreeWay(
         baseCommit.tree,
         headCommit.tree,
         srcCommit.tree,
-        mergeResult,
       );
+
+      if (mergeResult.conflicts.length > 0) {
+        // Has conflicts - write conflict state to staging
+        await this.writeConflictStaging(
+          baseCommit.tree,
+          headCommit.tree,
+          srcCommit.tree,
+          mergeResult,
+        );
+        await this.store.staging.write();
+
+        return {
+          status: MergeStatus.CONFLICTING,
+          mergeBase: baseId,
+          mergedCommits: [headId, srcId],
+          conflicts: mergeResult.conflicts,
+        };
+      }
+
+      // No conflicts - write merged tree to staging
+      await this.writeMergedStaging(mergeResult);
       await this.store.staging.write();
-
-      return {
-        status: MergeStatus.CONFLICTING,
-        mergeBase: baseId,
-        mergedCommits: [headId, srcId],
-        conflicts: mergeResult.conflicts,
-      };
+      treeId = await this.store.staging.writeTree(this.store.trees);
     }
-
-    // No conflicts - write merged tree to staging
-    await this.writeMergedStaging(mergeResult);
-    await this.store.staging.write();
 
     if (!this.commit || this.squash) {
       // Don't commit
@@ -264,7 +316,6 @@ export class MergeCommand extends GitCommand<MergeResult> {
     }
 
     // Create merge commit
-    const treeId = await this.store.staging.writeTree(this.store.trees);
     const mergeMessage = this.message ?? `Merge commit '${srcId.slice(0, 7)}'`;
 
     const now = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
