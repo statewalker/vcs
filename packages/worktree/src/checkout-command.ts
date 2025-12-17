@@ -12,8 +12,8 @@
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import {
-  FileMode,
   type CommitStore,
+  FileMode,
   type ObjectId,
   type ObjectStore,
   type RefStore,
@@ -288,7 +288,7 @@ export class CheckoutCommand implements Checkout {
   /**
    * Write file content to working tree.
    */
-  private async writeFileContent(path: string, objectId: ObjectId, mode: number): Promise<void> {
+  private async writeFileContent(path: string, objectId: ObjectId, _mode: number): Promise<void> {
     const absolutePath = joinPath(this.workTreeRoot, path);
 
     // Ensure parent directory exists

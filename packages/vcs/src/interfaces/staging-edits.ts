@@ -1,6 +1,6 @@
-import type { FileModeValue, ObjectId } from "./types.js";
-import type { StagingEdit, StagingEntry, MergeStageValue } from "./staging-store.js";
+import type { MergeStageValue, StagingEdit, StagingEntry } from "./staging-store.js";
 import { MergeStage } from "./staging-store.js";
+import type { FileModeValue, ObjectId } from "./types.js";
 
 /**
  * Update or create an entry.
@@ -53,7 +53,7 @@ export class DeleteStagingTree implements StagingEdit {
   apply(entry: StagingEntry | undefined): StagingEntry | undefined {
     if (!entry) return undefined;
     // Delete if entry path matches exactly or is under this directory
-    if (entry.path === this.path || entry.path.startsWith(this.path + "/")) {
+    if (entry.path === this.path || entry.path.startsWith(`${this.path}/`)) {
       return undefined;
     }
     return entry;

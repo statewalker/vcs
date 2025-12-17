@@ -1,3 +1,4 @@
+export * from "./add-command.js";
 export * from "./checkout-command.js";
 export * from "./file-tree-iterator.js";
 export * from "./ignore/index.js";

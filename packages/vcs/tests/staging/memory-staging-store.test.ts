@@ -5,15 +5,15 @@
  * DirCacheFindTest patterns.
  */
 
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
+  DeleteStagingEntry,
+  FileMode,
   MemoryStagingStore,
   MergeStage,
-  FileMode,
   type StagingEntry,
   type StagingEntryOptions,
   UpdateStagingEntry,
-  DeleteStagingEntry,
 } from "../../src/index.js";
 
 describe("MemoryStagingStore", () => {
@@ -508,7 +508,7 @@ describe("MemoryStagingStore", () => {
       await builder.finish();
 
       const editor = staging.editor();
-      editor.add(new UpdateStagingEntry("b.txt", "new".repeat(13) + "n", FileMode.REGULAR_FILE));
+      editor.add(new UpdateStagingEntry("b.txt", `${"new".repeat(13)}n`, FileMode.REGULAR_FILE));
       await editor.finish();
 
       expect(await staging.getEntryCount()).toBe(3);

@@ -1,22 +1,22 @@
 import type { FilesApi } from "@statewalker/webrun-files";
 import type {
-  StagingStore,
+  MergeStageValue,
+  ObjectId,
+  StagingBuilder,
+  StagingEdit,
+  StagingEditor,
   StagingEntry,
   StagingEntryOptions,
-  StagingBuilder,
-  StagingEditor,
-  StagingEdit,
-  MergeStageValue,
-  TreeStore,
-  ObjectId,
+  StagingStore,
   TreeEntry,
+  TreeStore,
 } from "@webrun-vcs/vcs";
-import { MergeStage, FileMode } from "@webrun-vcs/vcs";
+import { FileMode, MergeStage } from "@webrun-vcs/vcs";
 import {
+  INDEX_VERSION_2,
+  type IndexVersion,
   parseIndexFile,
   serializeIndexFile,
-  type IndexVersion,
-  INDEX_VERSION_2,
 } from "./index-format.js";
 
 /**
@@ -29,8 +29,7 @@ import {
  */
 export class FileStagingStore implements StagingStore {
   private entries: StagingEntry[] = [];
-  private updateTime: number = 0;
-  private dirty: boolean = false;
+  private updateTime = 0;
   private version: IndexVersion = INDEX_VERSION_2;
 
   constructor(
@@ -78,7 +77,7 @@ export class FileStagingStore implements StagingStore {
   }
 
   async *listEntriesUnder(prefix: string): AsyncIterable<StagingEntry> {
-    const normalizedPrefix = prefix.endsWith("/") ? prefix : prefix + "/";
+    const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
     for (const entry of this.entries) {
       if (entry.path.startsWith(normalizedPrefix) || entry.path === prefix) {
         yield entry;
@@ -154,7 +153,7 @@ export class FileStagingStore implements StagingStore {
         if (!subdirs.has(dirName)) {
           subdirs.set(dirName, []);
         }
-        subdirs.get(dirName)!.push(entry);
+        subdirs.get(dirName)?.push(entry);
       }
     }
 
@@ -409,7 +408,7 @@ class FileStagingBuilder implements StagingBuilder {
       if (!pathStages.has(entry.path)) {
         pathStages.set(entry.path, new Set());
       }
-      pathStages.get(entry.path)!.add(entry.stage);
+      pathStages.get(entry.path)?.add(entry.stage);
     }
 
     for (const [path, stages] of pathStages) {
@@ -460,7 +459,7 @@ class FileStagingEditor implements StagingEditor {
 
         if (cmp < 0) {
           // Entry before edit - check for tree deletion
-          if (isDeleteTree(edit) && entry.path.startsWith(edit.path + "/")) {
+          if (isDeleteTree(edit) && entry.path.startsWith(`${edit.path}/`)) {
             // Skip entry (deleted by tree)
             entryIndex++;
           } else {

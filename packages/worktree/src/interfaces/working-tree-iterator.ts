@@ -1,4 +1,4 @@
-import type { ObjectId, FileModeValue } from "@webrun-vcs/vcs";
+import type { FileModeValue, ObjectId } from "@webrun-vcs/vcs";
 
 /**
  * Represents a file or directory in the working tree.

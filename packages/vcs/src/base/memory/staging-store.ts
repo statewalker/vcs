@@ -1,14 +1,14 @@
 import type {
-  StagingStore,
+  MergeStageValue,
+  StagingBuilder,
+  StagingEdit,
+  StagingEditor,
   StagingEntry,
   StagingEntryOptions,
-  StagingBuilder,
-  StagingEditor,
-  StagingEdit,
-  MergeStageValue,
+  StagingStore,
 } from "../../interfaces/staging-store.js";
 import { MergeStage } from "../../interfaces/staging-store.js";
-import type { TreeStore, TreeEntry } from "../../interfaces/tree-store.js";
+import type { TreeEntry, TreeStore } from "../../interfaces/tree-store.js";
 import type { ObjectId } from "../../interfaces/types.js";
 import { FileMode } from "../../interfaces/types.js";
 
@@ -63,7 +63,7 @@ export class MemoryStagingStore implements StagingStore {
   }
 
   async *listEntriesUnder(prefix: string): AsyncIterable<StagingEntry> {
-    const normalizedPrefix = prefix.endsWith("/") ? prefix : prefix + "/";
+    const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
     for (const entry of this.entries) {
       if (entry.path.startsWith(normalizedPrefix) || entry.path === prefix) {
         yield entry;
@@ -134,7 +134,7 @@ export class MemoryStagingStore implements StagingStore {
         if (!subdirs.has(dirName)) {
           subdirs.set(dirName, []);
         }
-        subdirs.get(dirName)!.push(entry);
+        subdirs.get(dirName)?.push(entry);
       }
     }
 
@@ -363,7 +363,7 @@ class MemoryStagingBuilder implements StagingBuilder {
       if (!pathStages.has(entry.path)) {
         pathStages.set(entry.path, new Set());
       }
-      pathStages.get(entry.path)!.add(entry.stage);
+      pathStages.get(entry.path)?.add(entry.stage);
     }
 
     for (const [path, stages] of pathStages) {
@@ -412,7 +412,7 @@ class MemoryStagingEditor implements StagingEditor {
 
         if (cmp < 0) {
           // Check for tree deletion
-          if (isDeleteTree(edit) && entry.path.startsWith(edit.path + "/")) {
+          if (isDeleteTree(edit) && entry.path.startsWith(`${edit.path}/`)) {
             entryIndex++;
           } else {
             newEntries.push(entry);

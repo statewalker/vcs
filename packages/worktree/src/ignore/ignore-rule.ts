@@ -249,7 +249,7 @@ function trimPattern(pattern: string): string {
   while (pattern.length > 0 && pattern.charAt(pattern.length - 1) === " ") {
     if (pattern.length > 1 && pattern.charAt(pattern.length - 2) === "\\") {
       // Last space was escaped by backslash
-      pattern = pattern.substring(0, pattern.length - 2) + " ";
+      pattern = `${pattern.substring(0, pattern.length - 2)} `;
       return pattern;
     }
     pattern = pattern.substring(0, pattern.length - 1);
@@ -291,7 +291,7 @@ function convertGlobToRegex(pattern: string): RegExp {
         if (seenEscape || inBrackets > 0) {
           sb += c;
         } else {
-          sb += "." + c;
+          sb += `.${c}`;
         }
         break;
 
@@ -306,7 +306,7 @@ function convertGlobToRegex(pattern: string): RegExp {
         if (seenEscape || inBrackets > 0) {
           sb += c;
         } else {
-          sb += "\\" + c;
+          sb += `\\${c}`;
         }
         break;
 
@@ -620,7 +620,7 @@ class WildCardMatcher implements IMatcher {
     return this.regex.test(toMatch);
   }
 
-  matchesPath(path: string, assumeDirectory: boolean, pathMatch: boolean): boolean {
+  matchesPath(path: string, assumeDirectory: boolean, _pathMatch: boolean): boolean {
     // Normalize path (remove leading /)
     let p = path;
     if (p.startsWith(PATH_SEPARATOR)) {
@@ -674,7 +674,7 @@ class LeadingAsteriskMatcher implements IMatcher {
     return toMatch.endsWith(this.suffix);
   }
 
-  matchesPath(path: string, assumeDirectory: boolean, pathMatch: boolean): boolean {
+  matchesPath(path: string, assumeDirectory: boolean, _pathMatch: boolean): boolean {
     // Normalize path (remove leading /)
     let p = path;
     if (p.startsWith(PATH_SEPARATOR)) {
@@ -719,7 +719,7 @@ class TrailingAsteriskMatcher implements IMatcher {
     this.dirOnly = dirOnly;
     this.beginning = pattern.charAt(0) === PATH_SEPARATOR;
     // Remove leading / if present, then remove trailing *
-    let p = this.beginning ? pattern.substring(1) : pattern;
+    const p = this.beginning ? pattern.substring(1) : pattern;
     this.prefix = deleteBackslash(p.substring(0, p.length - 1));
   }
 
@@ -728,7 +728,7 @@ class TrailingAsteriskMatcher implements IMatcher {
     return toMatch.startsWith(this.prefix);
   }
 
-  matchesPath(path: string, assumeDirectory: boolean, pathMatch: boolean): boolean {
+  matchesPath(path: string, assumeDirectory: boolean, _pathMatch: boolean): boolean {
     // Normalize path (remove leading /)
     let p = path;
     if (p.startsWith(PATH_SEPARATOR)) {
@@ -875,7 +875,7 @@ class PathMatcherImpl implements IMatcher {
     }
   }
 
-  matches(path: string, startIncl: number, endExcl: number): boolean {
+  matches(_path: string, _startIncl: number, _endExcl: number): boolean {
     throw new Error("Path matcher works only on entire paths");
   }
 
@@ -914,7 +914,10 @@ class PathMatcherImpl implements IMatcher {
     assumeDirectory: boolean,
     pathMatch: boolean,
   ): boolean {
-    const matchers = this.matchers!;
+    const matchers = this.matchers;
+    if (!matchers) {
+      return false;
+    }
     let matcher = 0;
     let right = startIncl;
     let match = false;
@@ -1000,13 +1003,17 @@ class PathMatcherImpl implements IMatcher {
     assumeDirectory: boolean,
     pathMatch: boolean,
   ): boolean {
-    const m = this.matchers![matcherIdx];
+    const m = this.matchers?.[matcherIdx];
+    if (!m) {
+      return false;
+    }
     const matches = m.matches(path, startIncl, endExcl);
 
     if (
       !matches ||
       !pathMatch ||
-      matcherIdx < this.matchers!.length - 1 ||
+      !this.matchers ||
+      matcherIdx < this.matchers.length - 1 ||
       !(m instanceof WildMatcher)
     ) {
       return matches;

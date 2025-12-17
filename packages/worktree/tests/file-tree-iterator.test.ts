@@ -4,10 +4,11 @@
  * Tests working tree iteration, gitignore integration, and content hashing.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
-import { FileTreeIterator, createFileTreeIterator } from "../src/file-tree-iterator.js";
-import { createIgnoreManager } from "../src/ignore/ignore-manager.js";
+import type { FilesApi } from "@statewalker/webrun-files";
 import { FileMode } from "@webrun-vcs/vcs";
+import { describe, expect, it } from "vitest";
+import { createFileTreeIterator } from "../src/file-tree-iterator.js";
+import { createIgnoreManager } from "../src/ignore/ignore-manager.js";
 
 /**
  * Mock file system structure for testing.
@@ -29,7 +30,7 @@ type MockEntry = MockFile | MockDirectory;
  * Create a mock FilesApi for testing.
  */
 function createMockFilesApi(root: MockDirectory) {
-  const textEncoder = new TextEncoder();
+  const _textEncoder = new TextEncoder();
 
   function getEntry(path: string): MockEntry | undefined {
     if (path === "" || path === "/") {
@@ -101,7 +102,7 @@ function createMockFilesApi(root: MockDirectory) {
       return false;
     },
     async move(_from: string, _to: string): Promise<void> {},
-  };
+  } satisfies FilesApi;
 }
 
 /**
@@ -138,7 +139,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -164,7 +165,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -191,7 +192,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -222,7 +223,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -247,7 +248,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -271,7 +272,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: true,
       });
@@ -295,7 +296,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: true,
       });
@@ -319,7 +320,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: true,
       });
@@ -348,7 +349,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: true,
       });
@@ -374,7 +375,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: true,
       });
@@ -398,7 +399,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -421,7 +422,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -444,7 +445,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -468,7 +469,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -492,7 +493,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -515,7 +516,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -535,7 +536,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -555,7 +556,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -579,7 +580,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -603,7 +604,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -622,7 +623,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -643,7 +644,7 @@ describe("FileTreeIterator", () => {
 
       const files = createMockFilesApi(root);
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         autoLoadGitignore: false,
       });
@@ -678,7 +679,7 @@ describe("FileTreeIterator", () => {
       ignoreManager.addGlobalPatterns(["ignored.txt"]);
 
       const iterator = createFileTreeIterator({
-        files: files as any,
+        files,
         rootPath: "",
         ignoreManager,
         autoLoadGitignore: false,

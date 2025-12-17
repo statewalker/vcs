@@ -1,6 +1,5 @@
-import type { StagingEntry, MergeStageValue } from "@webrun-vcs/vcs";
-import { MergeStage } from "@webrun-vcs/vcs";
 import { bytesToHex, hexToBytes, sha1 } from "@webrun-vcs/utils";
+import type { MergeStageValue, StagingEntry } from "@webrun-vcs/vcs";
 
 /**
  * Git index file format constants.
@@ -68,7 +67,7 @@ const SKIP_WORKTREE = 0x40000000;
 const EXTENDED_FLAGS = INTENT_TO_ADD | SKIP_WORKTREE;
 
 /** TREE extension signature */
-const EXT_TREE = 0x54524545;
+const _EXT_TREE = 0x54524545;
 
 /**
  * Supported index versions.
@@ -191,7 +190,7 @@ function parseEntry(
   const stage = ((flags >> 12) & 0x3) as MergeStageValue;
   const hasExtended = (flags & EXTENDED) !== 0;
   const assumeValid = (flags & ASSUME_VALID) !== 0;
-  let nameLength = flags & NAME_MASK;
+  const nameLength = flags & NAME_MASK;
 
   // Extended flags (version 3+, if EXTENDED bit set)
   let intentToAdd = false;
@@ -368,7 +367,7 @@ function serializeEntry(
   const infoLen = hasExtended ? INFO_LEN_EXTENDED : INFO_LEN;
   const baseLen = infoLen + pathBytes.length + 1; // +1 for null terminator
   const alignedLen = (baseLen + 8) & ~7;
-  const padding = alignedLen - baseLen;
+  const _padding = alignedLen - baseLen;
 
   const buffer = new Uint8Array(alignedLen);
   const view = new DataView(buffer.buffer);
