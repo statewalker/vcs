@@ -92,6 +92,110 @@ export const migrations: Migration[] = [
       DROP TABLE IF EXISTS delta_content;
     `,
   },
+  {
+    version: 3,
+    name: "high_level_stores",
+    up: `
+      -- Trees (normalized with entries in separate table)
+      CREATE TABLE IF NOT EXISTS tree (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tree_id TEXT UNIQUE NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS tree_entry (
+        tree_fk INTEGER NOT NULL REFERENCES tree(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        mode INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        object_id TEXT NOT NULL,
+        PRIMARY KEY (tree_fk, position)
+      );
+      CREATE INDEX IF NOT EXISTS tree_entry_name_idx ON tree_entry(tree_fk, name);
+
+      -- Commits
+      CREATE TABLE IF NOT EXISTS vcs_commit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        commit_id TEXT UNIQUE NOT NULL,
+        tree_id TEXT NOT NULL,
+        author_name TEXT NOT NULL,
+        author_email TEXT NOT NULL,
+        author_timestamp INTEGER NOT NULL,
+        author_tz TEXT NOT NULL,
+        committer_name TEXT NOT NULL,
+        committer_email TEXT NOT NULL,
+        committer_timestamp INTEGER NOT NULL,
+        committer_tz TEXT NOT NULL,
+        message TEXT NOT NULL,
+        encoding TEXT,
+        gpg_signature TEXT,
+        created_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS commit_parent (
+        commit_fk INTEGER NOT NULL REFERENCES vcs_commit(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        parent_id TEXT NOT NULL,
+        PRIMARY KEY (commit_fk, position)
+      );
+      CREATE INDEX IF NOT EXISTS commit_parent_parent_idx ON commit_parent(parent_id);
+
+      -- Annotated Tags
+      CREATE TABLE IF NOT EXISTS vcs_tag (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tag_id TEXT UNIQUE NOT NULL,
+        object_id TEXT NOT NULL,
+        object_type INTEGER NOT NULL,
+        tag_name TEXT NOT NULL,
+        tagger_name TEXT,
+        tagger_email TEXT,
+        tagger_timestamp INTEGER,
+        tagger_tz TEXT,
+        message TEXT NOT NULL,
+        encoding TEXT,
+        gpg_signature TEXT,
+        created_at INTEGER NOT NULL
+      );
+
+      -- References (both direct and symbolic)
+      CREATE TABLE IF NOT EXISTS vcs_ref (
+        name TEXT PRIMARY KEY,
+        object_id TEXT,
+        target TEXT,
+        peeled_object_id TEXT,
+        storage TEXT NOT NULL DEFAULT 'primary',
+        updated_at INTEGER NOT NULL
+      ) WITHOUT ROWID;
+
+      -- Staging entries
+      CREATE TABLE IF NOT EXISTS staging_entry (
+        path TEXT NOT NULL,
+        stage INTEGER NOT NULL DEFAULT 0,
+        mode INTEGER NOT NULL,
+        object_id TEXT NOT NULL,
+        size INTEGER NOT NULL DEFAULT 0,
+        mtime INTEGER NOT NULL DEFAULT 0,
+        ctime INTEGER,
+        dev INTEGER,
+        ino INTEGER,
+        assume_valid INTEGER DEFAULT 0,
+        intent_to_add INTEGER DEFAULT 0,
+        skip_worktree INTEGER DEFAULT 0,
+        PRIMARY KEY (path, stage)
+      ) WITHOUT ROWID;
+    `,
+    down: `
+      DROP TABLE IF EXISTS staging_entry;
+      DROP TABLE IF EXISTS vcs_ref;
+      DROP TABLE IF EXISTS vcs_tag;
+      DROP INDEX IF EXISTS commit_parent_parent_idx;
+      DROP TABLE IF EXISTS commit_parent;
+      DROP TABLE IF EXISTS vcs_commit;
+      DROP INDEX IF EXISTS tree_entry_name_idx;
+      DROP TABLE IF EXISTS tree_entry;
+      DROP TABLE IF EXISTS tree;
+    `,
+  },
 ];
 
 /**

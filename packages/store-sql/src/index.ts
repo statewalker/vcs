@@ -31,6 +31,8 @@
 
 // Backend implementations
 export * from "./backends/index.js";
+// High-level store implementations
+export * from "./commit-store.js";
 // Factory function
 export * from "./create-sql-storage.js";
 
@@ -43,3 +45,7 @@ export * from "./metadata-repository.js";
 // Migrations
 export * from "./migrations/index.js";
 export * from "./object-repository.js";
+export * from "./ref-store.js";
+export * from "./staging-store.js";
+export * from "./tag-store.js";
+export * from "./tree-store.js";
