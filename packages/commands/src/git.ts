@@ -25,6 +25,7 @@ import {
   RenameBranchCommand,
   ResetCommand,
   RevertCommand,
+  RmCommand,
   StashApplyCommand,
   StashCreateCommand,
   StashDropCommand,
@@ -341,6 +342,30 @@ export class Git implements Disposable {
   revert(): RevertCommand {
     this.checkClosed();
     return new RevertCommand(this.store);
+  }
+
+  // ============ Rm Operations ============
+
+  /**
+   * Create an RmCommand for removing files from the index.
+   *
+   * @example
+   * ```typescript
+   * // Remove file from index (and working tree if not cached)
+   * await git.rm()
+   *   .addFilepattern("file.txt")
+   *   .call();
+   *
+   * // Remove from index only (keep in working tree)
+   * await git.rm()
+   *   .addFilepattern("file.txt")
+   *   .setCached(true)
+   *   .call();
+   * ```
+   */
+  rm(): RmCommand {
+    this.checkClosed();
+    return new RmCommand(this.store);
   }
 
   // ============ Describe Operations ============
