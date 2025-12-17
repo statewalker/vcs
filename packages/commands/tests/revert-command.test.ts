@@ -645,4 +645,67 @@ describe("RevertCommand - JGit additional tests", () => {
     // The blob IDs should match (same content)
     expect(revertFileId).toBe(baseFileId);
   });
+
+  /**
+   * Test reverting multiple commits where one fails.
+   *
+   * Based on JGit's testRevertMultipleWithFail.
+   */
+  it("should stop on first conflict when reverting multiple commits", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create base
+    await addFile(store, "a.txt", "base");
+    await git.commit().setMessage("base").call();
+
+    // First modification - will revert cleanly
+    await addFile(store, "a.txt", "first change");
+    await git.commit().setMessage("first").call();
+    const firstCommit = await store.refs.resolve("HEAD");
+
+    // Second modification - will cause conflict when reverted
+    await addFile(store, "a.txt", "second change");
+    await git.commit().setMessage("second").call();
+    const secondCommit = await store.refs.resolve("HEAD");
+
+    // Third modification - makes reverting second conflict
+    await addFile(store, "a.txt", "third change");
+    await git.commit().setMessage("third").call();
+
+    // Try to revert second and first
+    // Reverting second should conflict because current state is "third change"
+    // and revert expects to change "second change" -> "first change"
+    const result = await git
+      .revert()
+      .include(secondCommit?.objectId ?? "")
+      .include(firstCommit?.objectId ?? "")
+      .call();
+
+    // Should fail on second (first in revert order)
+    expect(result.status).toBe(RevertStatus.CONFLICTING);
+    expect(result.conflicts).toContain("a.txt");
+
+    // Should have only processed one revert before failing
+    expect(result.revertedRefs).toHaveLength(0);
+  });
+
+  /**
+   * Test command cannot be reused after call.
+   */
+  it("should not allow command reuse after call", async () => {
+    const { git, store } = await createInitializedGit();
+
+    await addFile(store, "a.txt", "a");
+    await git.commit().setMessage("base").call();
+
+    await addFile(store, "a.txt", "b");
+    await git.commit().setMessage("modify").call();
+    const modifyCommit = await store.refs.resolve("HEAD");
+
+    const command = git.revert().include(modifyCommit?.objectId ?? "");
+    await command.call();
+
+    // Attempting to call again should throw
+    await expect(command.call()).rejects.toThrow();
+  });
 });
