@@ -1,16 +1,16 @@
 import type {
   MergeStageValue,
+  ObjectId,
   StagingBuilder,
   StagingEdit,
   StagingEditor,
   StagingEntry,
   StagingEntryOptions,
   StagingStore,
-} from "../../interfaces/staging-store.js";
-import { MergeStage } from "../../interfaces/staging-store.js";
-import type { TreeEntry, TreeStore } from "../../interfaces/tree-store.js";
-import type { ObjectId } from "../../interfaces/types.js";
-import { FileMode } from "../../interfaces/types.js";
+  TreeEntry,
+  TreeStore,
+} from "@webrun-vcs/vcs";
+import { FileMode, MergeStage } from "@webrun-vcs/vcs";
 
 /**
  * In-memory staging store implementation.

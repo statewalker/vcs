@@ -40,7 +40,6 @@
     "@webrun-vcs/utils": "workspace:*"
   },
   "devDependencies": {
-    "@webrun-vcs/testing": "workspace:*",
     "@types/node": "catalog:",
     "rolldown": "catalog:",
     "typescript": "catalog:",

@@ -4,8 +4,7 @@
  * Tracks access patterns and provides cache hints for optimization.
  */
 
-import type { ObjectId } from "../../interfaces/index.js";
-import type { CacheMetadata, MetadataRepository } from "../index.js";
+import type { CacheMetadata, MetadataRepository, ObjectId } from "@webrun-vcs/vcs";
 
 /**
  * In-memory metadata repository

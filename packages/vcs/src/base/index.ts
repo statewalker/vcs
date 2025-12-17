@@ -10,8 +10,6 @@ export * from "./default-object-store.js";
 export * from "./intermediate-cache.js";
 // Utility classes
 export * from "./lru-cache.js";
-// In-memory implementations
-export * from "./memory/index.js";
 
 // Repository type definitions
 export * from "./repositories/index.js";

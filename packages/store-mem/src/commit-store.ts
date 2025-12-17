@@ -8,7 +8,7 @@
  * Commits are stored directly as JavaScript objects for simplicity and performance.
  */
 
-import type { AncestryOptions, Commit, CommitStore, ObjectId } from "../../interfaces/index.js";
+import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@webrun-vcs/vcs";
 
 /**
  * Priority queue entry for commit traversal

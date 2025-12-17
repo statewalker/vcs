@@ -18,7 +18,7 @@ import {
   MemoryStagingStore,
   MemoryTagStore,
   MemoryTreeStore,
-} from "../src/base/memory/index.js";
+} from "../src/index.js";
 
 // TreeStore tests
 createTreeStoreTests("Memory", async () => ({
