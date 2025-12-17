@@ -15,7 +15,7 @@ import { createInitializedGit } from "./test-helper.js";
 
 describe("TagCommand", () => {
   it("should create lightweight tag at HEAD", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     const ref = await git.tag().setName("v1.0.0").call();
 
@@ -24,7 +24,7 @@ describe("TagCommand", () => {
   });
 
   it("should create lightweight tag at specific commit", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create more commits
     await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -86,7 +86,7 @@ describe("TagCommand", () => {
   });
 
   it("should overwrite tag with force", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Create tag at initial commit
     await git.tag().setName("v1.0.0").call();
@@ -124,7 +124,7 @@ describe("DeleteTagCommand", () => {
   });
 
   it("should delete multiple tags", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     await git.tag().setName("v1.0.0").call();
     await git.tag().setName("v1.0.1").call();

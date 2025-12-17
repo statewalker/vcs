@@ -12,7 +12,7 @@ import { addFile, createInitializedGit, toArray } from "./test-helper.js";
 
 describe("Phase 1 Integration Workflow", () => {
   it("should support complete workflow: commit → log → branch → reset", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // === STEP 1: Create commits ===
     const _commit1 = await git
@@ -83,7 +83,7 @@ describe("Phase 1 Integration Workflow", () => {
   });
 
   it("should support branch switching simulation", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Create commits on main
     await git.commit().setMessage("Main commit 1").setAllowEmpty(true).call();
@@ -156,7 +156,7 @@ describe("Phase 1 Integration Workflow", () => {
   });
 
   it("should support branch cleanup", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create commit
     await git.commit().setMessage("Base commit").setAllowEmpty(true).call();
@@ -215,7 +215,7 @@ describe("Phase 1 Integration Workflow", () => {
 
 describe("Phase 2 Integration Workflow", () => {
   it("should support merge workflow: branch → commit → merge", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // === STEP 1: Create feature branch ===
     await git.branchCreate().setName("feature").call();

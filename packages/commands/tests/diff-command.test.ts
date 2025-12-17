@@ -11,7 +11,7 @@ import { addFile, createInitializedGit } from "./test-helper.js";
 
 describe("DiffCommand", () => {
   it("should return empty diff for same tree", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     const entries = await git.diff().setOldTree(initialCommitId).setNewTree(initialCommitId).call();
 
@@ -36,7 +36,7 @@ describe("DiffCommand", () => {
   });
 
   it("should detect deleted files", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Add a file and commit
     await addFile(store, "file.txt", "content");
@@ -61,7 +61,7 @@ describe("DiffCommand", () => {
   });
 
   it("should detect modified files", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Add a file and commit
     await addFile(store, "file.txt", "original content");
@@ -86,7 +86,7 @@ describe("DiffCommand", () => {
   });
 
   it("should detect multiple changes", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Add files and commit
     await addFile(store, "file1.txt", "content1");
@@ -142,7 +142,7 @@ describe("DiffCommand", () => {
   });
 
   it("should use HEAD as default old tree", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Add file and commit
     await addFile(store, "file.txt", "content");
@@ -163,7 +163,7 @@ describe("DiffCommand", () => {
   });
 
   it("should compare to staging with cached=true", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Add file and commit
     await addFile(store, "file.txt", "original");
@@ -184,7 +184,7 @@ describe("DiffCommand", () => {
   });
 
   it("should compare using branch names", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Create a file and commit on main
     await addFile(store, "file.txt", "content");
@@ -264,7 +264,7 @@ describe("DiffCommand", () => {
 
 describe("DiffEntry helpers", () => {
   it("should include object IDs for modifications", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, store } = await createInitializedGit();
 
     // Add file
     const blob1 = await addFile(store, "file.txt", "original");

@@ -26,7 +26,7 @@ describe("CreateBranchCommand", () => {
   });
 
   it("should create branch at specific commit", async () => {
-    const { git, store, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create some commits
     await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -220,7 +220,7 @@ describe("ListBranchCommand", () => {
 
     // Simulate remote tracking branch
     const headRef = await store.refs.resolve("HEAD");
-    await store.refs.set("refs/remotes/origin/main", headRef?.objectId!);
+    await store.refs.set("refs/remotes/origin/main", headRef?.objectId ?? "");
 
     const branches = await git.branchList().setListMode(ListBranchMode.REMOTE).call();
 
@@ -235,7 +235,7 @@ describe("ListBranchCommand", () => {
     await git.branchCreate().setName("feature").call();
 
     const headRef = await store.refs.resolve("HEAD");
-    await store.refs.set("refs/remotes/origin/main", headRef?.objectId!);
+    await store.refs.set("refs/remotes/origin/main", headRef?.objectId ?? "");
 
     const branches = await git.branchList().setListMode(ListBranchMode.ALL).call();
 
