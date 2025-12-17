@@ -19,11 +19,7 @@ describe("CommitCommand", () => {
   it("should create a commit with message", async () => {
     const { git } = await createInitializedGit();
 
-    const commit = await git
-      .commit()
-      .setMessage("Test commit")
-      .setAllowEmpty(true)
-      .call();
+    const commit = await git.commit().setMessage("Test commit").setAllowEmpty(true).call();
 
     expect(commit.message).toBe("Test commit");
     expect(commit.parents.length).toBe(1); // Has parent from initial commit
@@ -42,11 +38,7 @@ describe("CommitCommand", () => {
     await newStore.refs.setSymbolic("HEAD", "refs/heads/main");
 
     // Create initial commit
-    const commit = await git
-      .commit()
-      .setMessage("Initial commit")
-      .setAllowEmpty(true)
-      .call();
+    const commit = await git.commit().setMessage("Initial commit").setAllowEmpty(true).call();
 
     expect(commit.message).toBe("Initial commit");
     expect(commit.parents.length).toBe(0);
@@ -93,9 +85,7 @@ describe("CommitCommand", () => {
     await git.commit().setMessage("First commit").setAllowEmpty(true).call();
 
     // Second empty commit should fail
-    await expect(git.commit().setMessage("Empty commit").call()).rejects.toThrow(
-      EmptyCommitError,
-    );
+    await expect(git.commit().setMessage("Empty commit").call()).rejects.toThrow(EmptyCommitError);
   });
 
   it("should allow empty commit with allowEmpty", async () => {
@@ -105,11 +95,7 @@ describe("CommitCommand", () => {
     await git.commit().setMessage("First commit").setAllowEmpty(true).call();
 
     // Second empty commit with allowEmpty
-    const commit = await git
-      .commit()
-      .setMessage("Empty commit")
-      .setAllowEmpty(true)
-      .call();
+    const commit = await git.commit().setMessage("Empty commit").setAllowEmpty(true).call();
 
     expect(commit.message).toBe("Empty commit");
   });
@@ -144,11 +130,7 @@ describe("CommitCommand", () => {
     const { git } = await createInitializedGit();
 
     // Create first commit
-    await git
-      .commit()
-      .setMessage("Keep this message")
-      .setAllowEmpty(true)
-      .call();
+    await git.commit().setMessage("Keep this message").setAllowEmpty(true).call();
 
     // Amend without new message
     const amended = await git.commit().setAmend(true).setAllowEmpty(true).call();
@@ -177,15 +159,11 @@ describe("CommitCommand", () => {
   it("should update branch ref after commit", async () => {
     const { git, store } = await createInitializedGit();
 
-    const commit = await git
-      .commit()
-      .setMessage("New commit")
-      .setAllowEmpty(true)
-      .call();
+    const commit = await git.commit().setMessage("New commit").setAllowEmpty(true).call();
 
     // Get the branch ref
     const ref = await store.refs.resolve("refs/heads/main");
-    const commitId = await store.commits.storeCommit(commit);
+    const _commitId = await store.commits.storeCommit(commit);
 
     // Note: The commit's stored ID will be the same if the content is the same
     // We just verify that the ref was updated

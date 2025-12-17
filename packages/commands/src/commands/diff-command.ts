@@ -1,14 +1,13 @@
-import type { FileMode, ObjectId, TreeEntry } from "@webrun-vcs/vcs";
+import type { FileModeValue, ObjectId, TreeEntry } from "@webrun-vcs/vcs";
 
 import { GitCommand } from "../git-command.js";
 import {
   ChangeType,
-  type DiffEntry,
   createAddEntry,
   createDeleteEntry,
   createModifyEntry,
+  type DiffEntry,
 } from "../results/diff-entry.js";
-import type { GitStore } from "../types.js";
 
 /**
  * Show changes between commits, trees, and staging.
@@ -47,11 +46,6 @@ export class DiffCommand extends GitCommand<DiffEntry[]> {
   private newTree?: string;
   private cached = false;
   private pathFilter?: string;
-  private contextLines = 3;
-
-  constructor(store: GitStore) {
-    super(store);
-  }
 
   /**
    * Set the old (base) tree/commit for comparison.
@@ -107,19 +101,6 @@ export class DiffCommand extends GitCommand<DiffEntry[]> {
   }
 
   /**
-   * Set the number of context lines to include.
-   *
-   * Only affects text diff output, not the DiffEntry list.
-   *
-   * @param lines Number of context lines (default: 3)
-   */
-  setContextLines(lines: number): this {
-    this.checkCallable();
-    this.contextLines = lines;
-    return this;
-  }
-
-  /**
    * Execute the diff.
    *
    * @returns List of diff entries representing changes
@@ -171,10 +152,7 @@ export class DiffCommand extends GitCommand<DiffEntry[]> {
   /**
    * Compare two trees and return list of differences.
    */
-  private async diffTrees(
-    oldTreeId: ObjectId,
-    newTreeId: ObjectId,
-  ): Promise<DiffEntry[]> {
+  private async diffTrees(oldTreeId: ObjectId, newTreeId: ObjectId): Promise<DiffEntry[]> {
     const entries: DiffEntry[] = [];
 
     // Collect entries from both trees
@@ -193,9 +171,7 @@ export class DiffCommand extends GitCommand<DiffEntry[]> {
       const newEntry = newPaths.get(path);
       if (!newEntry) {
         // File was deleted
-        entries.push(
-          createDeleteEntry(path, oldEntry.id, oldEntry.mode as FileMode),
-        );
+        entries.push(createDeleteEntry(path, oldEntry.id, oldEntry.mode as FileModeValue));
       } else if (oldEntry.id !== newEntry.id || oldEntry.mode !== newEntry.mode) {
         // File was modified
         entries.push(
@@ -203,8 +179,8 @@ export class DiffCommand extends GitCommand<DiffEntry[]> {
             path,
             oldEntry.id,
             newEntry.id,
-            oldEntry.mode as FileMode,
-            newEntry.mode as FileMode,
+            oldEntry.mode as FileModeValue,
+            newEntry.mode as FileModeValue,
           ),
         );
       }
@@ -217,9 +193,7 @@ export class DiffCommand extends GitCommand<DiffEntry[]> {
       }
 
       if (!oldPaths.has(path)) {
-        entries.push(
-          createAddEntry(path, newEntry.id, newEntry.mode as FileMode),
-        );
+        entries.push(createAddEntry(path, newEntry.id, newEntry.mode as FileModeValue));
       }
     }
 

@@ -13,10 +13,7 @@ describe("DiffCommand", () => {
   it("should return empty diff for same tree", async () => {
     const { git, store, initialCommitId } = await createInitializedGit();
 
-    const entries = await git.diff()
-      .setOldTree(initialCommitId)
-      .setNewTree(initialCommitId)
-      .call();
+    const entries = await git.diff().setOldTree(initialCommitId).setNewTree(initialCommitId).call();
 
     expect(entries).toEqual([]);
   });
@@ -31,10 +28,7 @@ describe("DiffCommand", () => {
     const commitId = await store.commits.storeCommit(commit);
 
     // Diff initial vs new commit
-    const entries = await git.diff()
-      .setOldTree(initialCommitId)
-      .setNewTree(commitId)
-      .call();
+    const entries = await git.diff().setOldTree(initialCommitId).setNewTree(commitId).call();
 
     expect(entries.length).toBe(1);
     expect(entries[0].changeType).toBe(ChangeType.ADD);
@@ -59,10 +53,7 @@ describe("DiffCommand", () => {
     const commit2Id = await store.commits.storeCommit(commit2);
 
     // Diff commit1 vs commit2
-    const entries = await git.diff()
-      .setOldTree(commit1Id)
-      .setNewTree(commit2Id)
-      .call();
+    const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
 
     expect(entries.length).toBe(1);
     expect(entries[0].changeType).toBe(ChangeType.DELETE);
@@ -85,10 +76,7 @@ describe("DiffCommand", () => {
     const commit2Id = await store.commits.storeCommit(commit2);
 
     // Diff commit1 vs commit2
-    const entries = await git.diff()
-      .setOldTree(commit1Id)
-      .setNewTree(commit2Id)
-      .call();
+    const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
 
     expect(entries.length).toBe(1);
     expect(entries[0].changeType).toBe(ChangeType.MODIFY);
@@ -119,10 +107,7 @@ describe("DiffCommand", () => {
     const commit2Id = await store.commits.storeCommit(commit2);
 
     // Diff
-    const entries = await git.diff()
-      .setOldTree(commit1Id)
-      .setNewTree(commit2Id)
-      .call();
+    const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
 
     expect(entries.length).toBe(3);
 
@@ -145,7 +130,8 @@ describe("DiffCommand", () => {
     const commitId = await store.commits.storeCommit(commit);
 
     // Diff with path filter
-    const entries = await git.diff()
+    const entries = await git
+      .diff()
       .setOldTree(initialCommitId)
       .setNewTree(commitId)
       .setPathFilter("src/")
@@ -162,7 +148,7 @@ describe("DiffCommand", () => {
     await addFile(store, "file.txt", "content");
     await store.staging.write();
     const commit = await git.commit().setMessage("Add file").call();
-    const commitId = await store.commits.storeCommit(commit);
+    const _commitId = await store.commits.storeCommit(commit);
 
     // Stage another file
     await addFile(store, "staged.txt", "staged");
@@ -183,7 +169,7 @@ describe("DiffCommand", () => {
     await addFile(store, "file.txt", "original");
     await store.staging.write();
     const commit = await git.commit().setMessage("Add file").call();
-    const commitId = await store.commits.storeCommit(commit);
+    const _commitId = await store.commits.storeCommit(commit);
 
     // Modify file in staging
     await addFile(store, "file.txt", "modified");
@@ -214,7 +200,8 @@ describe("DiffCommand", () => {
     await git.commit().setMessage("Add another").call();
 
     // Diff branch1 vs main
-    const entries = await git.diff()
+    const entries = await git
+      .diff()
       .setOldTree("refs/heads/branch1")
       .setNewTree("refs/heads/main")
       .call();
@@ -236,10 +223,7 @@ describe("DiffCommand", () => {
     const commitId = await store.commits.storeCommit(commit);
 
     // Diff
-    const entries = await git.diff()
-      .setOldTree(initialCommitId)
-      .setNewTree(commitId)
-      .call();
+    const entries = await git.diff().setOldTree(initialCommitId).setNewTree(commitId).call();
 
     expect(entries.length).toBe(3);
     expect(entries[0].newPath).toBe("a-file.txt");
@@ -268,10 +252,7 @@ describe("DiffCommand", () => {
     const commitId = await store.commits.storeCommit(commit);
 
     // Diff
-    const entries = await git.diff()
-      .setOldTree(initialCommitId)
-      .setNewTree(commitId)
-      .call();
+    const entries = await git.diff().setOldTree(initialCommitId).setNewTree(commitId).call();
 
     expect(entries.length).toBe(3);
     const paths = entries.map((e) => e.newPath);
@@ -297,10 +278,7 @@ describe("DiffEntry helpers", () => {
     const commit2 = await git.commit().setMessage("Modify").call();
     const commit2Id = await store.commits.storeCommit(commit2);
 
-    const entries = await git.diff()
-      .setOldTree(commit1Id)
-      .setNewTree(commit2Id)
-      .call();
+    const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
 
     expect(entries.length).toBe(1);
     expect(entries[0].oldId).toBe(blob1);

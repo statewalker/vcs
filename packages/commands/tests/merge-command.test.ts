@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   FastForwardMode,
-  MergeStatus,
   InvalidMergeHeadsError,
+  MergeStatus,
   NotFastForwardError,
 } from "../src/index.js";
 import { addFile, createInitializedGit, toArray } from "./test-helper.js";
@@ -97,7 +97,7 @@ describe("MergeCommand", () => {
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       // Reset staging to branch1's tree (simulating checkout)
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Ref!.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId!);
       await store.staging.readTree(store.trees, branch1Commit.tree);
 
       // Merge main into branch1
@@ -126,10 +126,7 @@ describe("MergeCommand", () => {
 
       // Try to merge main with FF_ONLY
       await expect(
-        git.merge()
-          .include("refs/heads/main")
-          .setFastForwardMode(FastForwardMode.FF_ONLY)
-          .call()
+        git.merge().include("refs/heads/main").setFastForwardMode(FastForwardMode.FF_ONLY).call(),
       ).rejects.toThrow(NotFastForwardError);
     });
   });
@@ -148,13 +145,14 @@ describe("MergeCommand", () => {
 
       // Add commit on main
       await git.commit().setMessage("main commit").setAllowEmpty(true).call();
-      const mainHead = await store.refs.resolve("refs/heads/main");
+      const _mainHead = await store.refs.resolve("refs/heads/main");
 
       // Switch to branch1
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
 
       // Merge with NO_FF should create merge commit even though FF is possible
-      const result = await git.merge()
+      const result = await git
+        .merge()
         .include("refs/heads/main")
         .setFastForwardMode(FastForwardMode.NO_FF)
         .call();
@@ -180,7 +178,7 @@ describe("MergeCommand", () => {
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       // Reset staging to branch1's tree
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Ref!.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId!);
       await store.staging.readTree(store.trees, branch1Commit.tree);
 
       // Add different file on branch1 and commit
@@ -213,7 +211,8 @@ describe("MergeCommand", () => {
       await git.commit().setMessage("branch commit").setAllowEmpty(true).call();
 
       // Merge with custom message
-      const result = await git.merge()
+      const result = await git
+        .merge()
         .include("refs/heads/main")
         .setMessage("Custom merge message")
         .call();
@@ -246,7 +245,7 @@ describe("MergeCommand", () => {
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       // Reset staging to branch1's tree
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Ref!.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId!);
       await store.staging.readTree(store.trees, branch1Commit.tree);
 
       // Modify same file differently on branch1
@@ -277,7 +276,7 @@ describe("MergeCommand", () => {
       // Switch to branch1 and modify
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Ref!.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Ref?.objectId!);
       await store.staging.readTree(store.trees, branch1Commit.tree);
       await addFile(store, "conflict.txt", "branch version");
       await git.commit().setMessage("branch change").call();
@@ -313,10 +312,7 @@ describe("MergeCommand", () => {
       const branch1Ref = await store.refs.resolve("refs/heads/branch1");
 
       // Squash merge main
-      const result = await git.merge()
-        .include("refs/heads/main")
-        .setSquash(true)
-        .call();
+      const result = await git.merge().include("refs/heads/main").setSquash(true).call();
 
       expect(result.status).toBe(MergeStatus.MERGED_SQUASHED);
 
@@ -346,7 +342,7 @@ describe("MergeCommand", () => {
       // Switch to branch1 and add different file
       await store.refs.setSymbolic("HEAD", "refs/heads/branch1");
       const branch1Before = await store.refs.resolve("refs/heads/branch1");
-      const branch1Commit = await store.commits.loadCommit(branch1Before!.objectId!);
+      const branch1Commit = await store.commits.loadCommit(branch1Before?.objectId!);
       await store.staging.readTree(store.trees, branch1Commit.tree);
       await addFile(store, "file2.txt", "content2");
       await git.commit().setMessage("branch commit").call();
@@ -354,10 +350,7 @@ describe("MergeCommand", () => {
       const branch1After = await store.refs.resolve("refs/heads/branch1");
 
       // Merge with no-commit
-      const result = await git.merge()
-        .include("refs/heads/main")
-        .setCommit(false)
-        .call();
+      const result = await git.merge().include("refs/heads/main").setCommit(false).call();
 
       expect(result.status).toBe(MergeStatus.MERGED_NOT_COMMITTED);
 
@@ -385,9 +378,9 @@ describe("MergeCommand", () => {
     it("should throw when multiple merge heads specified", async () => {
       const { git } = await createInitializedGit();
 
-      await expect(
-        git.merge().include("branch1").include("branch2").call()
-      ).rejects.toThrow(InvalidMergeHeadsError);
+      await expect(git.merge().include("branch1").include("branch2").call()).rejects.toThrow(
+        InvalidMergeHeadsError,
+      );
     });
 
     it("should not be callable twice", async () => {
@@ -437,7 +430,7 @@ describe("MergeCommand", () => {
       await store.refs.setSymbolic("HEAD", "refs/heads/main");
 
       // Merge using commit ID
-      const result = await git.merge().include(featureRef!.objectId!).call();
+      const result = await git.merge().include(featureRef?.objectId!).call();
 
       expect(result.status).toBe(MergeStatus.FAST_FORWARD);
     });

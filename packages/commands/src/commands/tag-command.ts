@@ -3,7 +3,6 @@ import { ObjectType } from "@webrun-vcs/vcs";
 
 import { InvalidTagNameError, RefAlreadyExistsError, RefNotFoundError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
-import type { GitStore } from "../types.js";
 
 /**
  * Get current timezone offset as string (+HHMM or -HHMM).
@@ -41,8 +40,9 @@ function isValidTagName(name: string): boolean {
     return false;
   }
 
-  // Cannot contain special characters
-  if (/[\x00-\x1f\x7f ~^:?*\[\\]/.test(name)) {
+  // Cannot contain special characters (control chars, space, ~^:?*[\)
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Git ref validation requires checking for control characters
+  if (/[\x00-\x1f\x7f ~^:?*[\\]/.test(name)) {
     return false;
   }
 
@@ -109,10 +109,6 @@ export class TagCommand extends GitCommand<Ref> {
   private annotated = false;
   private force = false;
   private signed = false;
-
-  constructor(store: GitStore) {
-    super(store);
-  }
 
   /**
    * Set the tag name.
@@ -299,10 +295,6 @@ export class TagCommand extends GitCommand<Ref> {
 export class DeleteTagCommand extends GitCommand<string[]> {
   private tags: string[] = [];
 
-  constructor(store: GitStore) {
-    super(store);
-  }
-
   /**
    * Set the tags to delete.
    *
@@ -353,10 +345,6 @@ export class DeleteTagCommand extends GitCommand<string[]> {
  * ```
  */
 export class ListTagCommand extends GitCommand<Ref[]> {
-  constructor(store: GitStore) {
-    super(store);
-  }
-
   /**
    * Execute the tag listing.
    *

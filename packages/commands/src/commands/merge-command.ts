@@ -1,18 +1,10 @@
 import type { Commit, ObjectId, TreeEntry } from "@webrun-vcs/vcs";
-import { FileMode, MergeStage, isSymbolicRef } from "@webrun-vcs/vcs";
+import { FileMode, isSymbolicRef, MergeStage } from "@webrun-vcs/vcs";
 
-import {
-  InvalidMergeHeadsError,
-  NotFastForwardError,
-} from "../errors/merge-errors.js";
+import { InvalidMergeHeadsError, NotFastForwardError } from "../errors/merge-errors.js";
 import { NoHeadError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
-import {
-  FastForwardMode,
-  MergeStatus,
-  type MergeResult,
-} from "../results/merge-result.js";
-import type { GitStore } from "../types.js";
+import { FastForwardMode, type MergeResult, MergeStatus } from "../results/merge-result.js";
 
 /**
  * Merge branches.
@@ -47,10 +39,6 @@ export class MergeCommand extends GitCommand<MergeResult> {
   private squash = false;
   private commit = true;
   private message?: string;
-
-  constructor(store: GitStore) {
-    super(store);
-  }
 
   /**
    * Add a commit/branch to merge.
@@ -128,9 +116,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
     }
 
     if (this.includes.length > 1) {
-      throw new InvalidMergeHeadsError(
-        "Only single-head merges are currently supported",
-      );
+      throw new InvalidMergeHeadsError("Only single-head merges are currently supported");
     }
 
     // Get HEAD
@@ -268,9 +254,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
 
     if (!this.commit || this.squash) {
       // Don't commit
-      const status = this.squash
-        ? MergeStatus.MERGED_SQUASHED
-        : MergeStatus.MERGED_NOT_COMMITTED;
+      const status = this.squash ? MergeStatus.MERGED_SQUASHED : MergeStatus.MERGED_NOT_COMMITTED;
       return {
         status,
         newHead: headId,
@@ -281,8 +265,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
 
     // Create merge commit
     const treeId = await this.store.staging.writeTree(this.store.trees);
-    const mergeMessage =
-      this.message ?? `Merge commit '${srcId.slice(0, 7)}'`;
+    const mergeMessage = this.message ?? `Merge commit '${srcId.slice(0, 7)}'`;
 
     const now = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
     const mergeCommit: Commit = {
@@ -323,10 +306,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
   /**
    * Check if commitA is an ancestor of commitB.
    */
-  private async isAncestor(
-    commitA: ObjectId,
-    commitB: ObjectId,
-  ): Promise<boolean> {
+  private async isAncestor(commitA: ObjectId, commitB: ObjectId): Promise<boolean> {
     if (commitA === commitB) return true;
 
     // Walk ancestors of B looking for A
@@ -334,7 +314,8 @@ export class MergeCommand extends GitCommand<MergeResult> {
     const queue: ObjectId[] = [commitB];
 
     while (queue.length > 0) {
-      const current = queue.shift()!;
+      const current = queue.shift();
+      if (current === undefined) break;
 
       if (visited.has(current)) continue;
       visited.add(current);
@@ -468,10 +449,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
   /**
    * Check if two tree entries are the same.
    */
-  private sameEntry(
-    a: TreeEntry | undefined,
-    b: TreeEntry | undefined,
-  ): boolean {
+  private sameEntry(a: TreeEntry | undefined, b: TreeEntry | undefined): boolean {
     if (a === undefined && b === undefined) return true;
     if (a === undefined || b === undefined) return false;
     return a.id === b.id && a.mode === b.mode;
@@ -481,9 +459,9 @@ export class MergeCommand extends GitCommand<MergeResult> {
    * Write conflict state to staging area.
    */
   private async writeConflictStaging(
-    baseTreeId: ObjectId,
-    oursTreeId: ObjectId,
-    theirsTreeId: ObjectId,
+    _baseTreeId: ObjectId,
+    _oursTreeId: ObjectId,
+    _theirsTreeId: ObjectId,
     mergeResult: TreeMergeResult,
   ): Promise<void> {
     const builder = this.store.staging.builder();

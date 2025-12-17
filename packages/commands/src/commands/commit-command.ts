@@ -3,7 +3,6 @@ import { isSymbolicRef } from "@webrun-vcs/vcs";
 
 import { EmptyCommitError, NoMessageError, UnmergedPathsError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
-import type { GitStore } from "../types.js";
 
 /**
  * Get current timezone offset as string (+HHMM or -HHMM).
@@ -59,10 +58,6 @@ export class CommitCommand extends GitCommand<Commit> {
   private amend = false;
   private allowEmpty = false;
   private parents: ObjectId[] = [];
-
-  constructor(store: GitStore) {
-    super(store);
-  }
 
   /**
    * Set the commit message.

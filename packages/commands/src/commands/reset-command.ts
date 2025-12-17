@@ -2,7 +2,7 @@ import type { ObjectId, Ref } from "@webrun-vcs/vcs";
 import { isSymbolicRef } from "@webrun-vcs/vcs";
 
 import { GitCommand } from "../git-command.js";
-import { ResetMode, type GitStore } from "../types.js";
+import { ResetMode } from "../types.js";
 
 /**
  * Reset HEAD to a specified state.
@@ -40,10 +40,6 @@ export class ResetCommand extends GitCommand<Ref> {
   private ref?: string;
   private mode = ResetMode.MIXED;
   private paths: string[] = [];
-
-  constructor(store: GitStore) {
-    super(store);
-  }
 
   /**
    * Set the ref to reset to.

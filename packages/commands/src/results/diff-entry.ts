@@ -1,4 +1,4 @@
-import type { FileMode, ObjectId } from "@webrun-vcs/vcs";
+import type { FileModeValue, ObjectId } from "@webrun-vcs/vcs";
 
 /**
  * Type of change in a diff entry.
@@ -59,10 +59,10 @@ export interface DiffEntry {
   newId?: ObjectId;
 
   /** File mode in the old tree (null for ADD) */
-  oldMode?: FileMode;
+  oldMode?: FileModeValue;
 
   /** File mode in the new tree (null for DELETE) */
-  newMode?: FileMode;
+  newMode?: FileModeValue;
 
   /** Similarity score for RENAME/COPY (0-100) */
   score?: number;
@@ -71,11 +71,7 @@ export interface DiffEntry {
 /**
  * Create a DiffEntry for an added file.
  */
-export function createAddEntry(
-  path: string,
-  id: ObjectId,
-  mode: FileMode,
-): DiffEntry {
+export function createAddEntry(path: string, id: ObjectId, mode: FileModeValue): DiffEntry {
   return {
     changeType: ChangeType.ADD,
     newPath: path,
@@ -87,11 +83,7 @@ export function createAddEntry(
 /**
  * Create a DiffEntry for a deleted file.
  */
-export function createDeleteEntry(
-  path: string,
-  id: ObjectId,
-  mode: FileMode,
-): DiffEntry {
+export function createDeleteEntry(path: string, id: ObjectId, mode: FileModeValue): DiffEntry {
   return {
     changeType: ChangeType.DELETE,
     oldPath: path,
@@ -107,8 +99,8 @@ export function createModifyEntry(
   path: string,
   oldId: ObjectId,
   newId: ObjectId,
-  oldMode: FileMode,
-  newMode: FileMode,
+  oldMode: FileModeValue,
+  newMode: FileModeValue,
 ): DiffEntry {
   return {
     changeType: ChangeType.MODIFY,
@@ -129,8 +121,8 @@ export function createRenameEntry(
   newPath: string,
   oldId: ObjectId,
   newId: ObjectId,
-  oldMode: FileMode,
-  newMode: FileMode,
+  oldMode: FileModeValue,
+  newMode: FileModeValue,
   score: number,
 ): DiffEntry {
   return {
@@ -153,8 +145,8 @@ export function createCopyEntry(
   newPath: string,
   oldId: ObjectId,
   newId: ObjectId,
-  oldMode: FileMode,
-  newMode: FileMode,
+  oldMode: FileModeValue,
+  newMode: FileModeValue,
   score: number,
 ): DiffEntry {
   return {

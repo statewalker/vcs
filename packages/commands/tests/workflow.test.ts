@@ -1,27 +1,28 @@
 /**
- * Integration tests for Phase 1 workflow
+ * Integration tests for Phase 1 and Phase 2 workflows
  *
- * Verifies the complete workflow: commit → log → branch → reset
+ * Phase 1: commit → log → branch → reset
+ * Phase 2: merge → diff
  */
 
 import { describe, expect, it } from "vitest";
 
-import { ListBranchMode, ResetMode } from "../src/index.js";
-import { createInitializedGit, toArray } from "./test-helper.js";
+import { ChangeType, FastForwardMode, MergeStatus, ResetMode } from "../src/index.js";
+import { addFile, createInitializedGit, toArray } from "./test-helper.js";
 
 describe("Phase 1 Integration Workflow", () => {
   it("should support complete workflow: commit → log → branch → reset", async () => {
     const { git, store, initialCommitId } = await createInitializedGit();
 
     // === STEP 1: Create commits ===
-    const commit1 = await git
+    const _commit1 = await git
       .commit()
       .setMessage("Feature: Add user authentication")
       .setAuthor("Alice", "alice@example.com")
       .setAllowEmpty(true)
       .call();
 
-    const commit2 = await git
+    const _commit2 = await git
       .commit()
       .setMessage("Fix: Authentication bug")
       .setAuthor("Bob", "bob@example.com")
@@ -36,10 +37,7 @@ describe("Phase 1 Integration Workflow", () => {
     expect(commits[2].message).toBe("Initial commit");
 
     // === STEP 3: Create branches ===
-    const featureBranch = await git
-      .branchCreate()
-      .setName("feature/new-api")
-      .call();
+    const featureBranch = await git.branchCreate().setName("feature/new-api").call();
 
     expect(featureBranch.name).toBe("refs/heads/feature/new-api");
 
@@ -50,11 +48,7 @@ describe("Phase 1 Integration Workflow", () => {
     expect(branchNames).toContain("refs/heads/feature/new-api");
 
     // === STEP 4: Create tag ===
-    const tag = await git
-      .tag()
-      .setName("v1.0.0")
-      .setMessage("First stable release")
-      .call();
+    const tag = await git.tag().setName("v1.0.0").setMessage("First stable release").call();
 
     expect(tag.name).toBe("refs/tags/v1.0.0");
 
@@ -92,36 +86,20 @@ describe("Phase 1 Integration Workflow", () => {
     const { git, store, initialCommitId } = await createInitializedGit();
 
     // Create commits on main
-    await git
-      .commit()
-      .setMessage("Main commit 1")
-      .setAllowEmpty(true)
-      .call();
+    await git.commit().setMessage("Main commit 1").setAllowEmpty(true).call();
 
-    const mainCommit2 = await git
-      .commit()
-      .setMessage("Main commit 2")
-      .setAllowEmpty(true)
-      .call();
+    const mainCommit2 = await git.commit().setMessage("Main commit 2").setAllowEmpty(true).call();
 
-    const mainCommit2Id = await store.commits.storeCommit(mainCommit2);
+    const _mainCommit2Id = await store.commits.storeCommit(mainCommit2);
 
     // Create feature branch from commit 1
-    await git
-      .branchCreate()
-      .setName("feature")
-      .setStartPoint("HEAD~1")
-      .call();
+    await git.branchCreate().setName("feature").setStartPoint("HEAD~1").call();
 
     // Simulate checkout to feature branch
     await store.refs.setSymbolic("HEAD", "refs/heads/feature");
 
     // Create commit on feature branch
-    await git
-      .commit()
-      .setMessage("Feature commit")
-      .setAllowEmpty(true)
-      .call();
+    await git.commit().setMessage("Feature commit").setAllowEmpty(true).call();
 
     // Log on feature branch
     let commits = await toArray(await git.log().call());
@@ -142,29 +120,17 @@ describe("Phase 1 Integration Workflow", () => {
     const { git, store } = await createInitializedGit();
 
     // Create release commits
-    await git
-      .commit()
-      .setMessage("Release 1.0.0")
-      .setAllowEmpty(true)
-      .call();
+    await git.commit().setMessage("Release 1.0.0").setAllowEmpty(true).call();
 
-    const release1 = await store.refs.resolve("HEAD");
+    const _release1 = await store.refs.resolve("HEAD");
 
     await git.tag().setName("v1.0.0").call();
 
-    await git
-      .commit()
-      .setMessage("Release 1.0.1 - bugfix")
-      .setAllowEmpty(true)
-      .call();
+    await git.commit().setMessage("Release 1.0.1 - bugfix").setAllowEmpty(true).call();
 
     await git.tag().setName("v1.0.1").call();
 
-    await git
-      .commit()
-      .setMessage("Release 1.1.0 - new features")
-      .setAllowEmpty(true)
-      .call();
+    await git.commit().setMessage("Release 1.1.0 - new features").setAllowEmpty(true).call();
 
     await git
       .tag()
@@ -178,11 +144,7 @@ describe("Phase 1 Integration Workflow", () => {
     expect(tags.length).toBe(3);
 
     const tagNames = tags.map((t) => t.name);
-    expect(tagNames).toEqual([
-      "refs/tags/v1.0.0",
-      "refs/tags/v1.0.1",
-      "refs/tags/v1.1.0",
-    ]);
+    expect(tagNames).toEqual(["refs/tags/v1.0.0", "refs/tags/v1.0.1", "refs/tags/v1.1.0"]);
 
     // Reset to v1.0.0
     await git.reset().setRef("v1.0.0").call();
@@ -197,11 +159,7 @@ describe("Phase 1 Integration Workflow", () => {
     const { git, store } = await createInitializedGit();
 
     // Create commit
-    await git
-      .commit()
-      .setMessage("Base commit")
-      .setAllowEmpty(true)
-      .call();
+    await git.commit().setMessage("Base commit").setAllowEmpty(true).call();
 
     // Create multiple feature branches
     await git.branchCreate().setName("feature-1").call();
@@ -220,11 +178,7 @@ describe("Phase 1 Integration Workflow", () => {
     expect(branches.length).toBe(2); // main + feature-3
 
     // Rename remaining feature branch
-    await git
-      .branchRename()
-      .setOldName("feature-3")
-      .setNewName("develop")
-      .call();
+    await git.branchRename().setOldName("feature-3").setNewName("develop").call();
 
     branches = await git.branchList().call();
     const branchNames = branches.map((b) => b.name);
@@ -238,11 +192,7 @@ describe("Phase 1 Integration Workflow", () => {
 
     // Create 10 commits
     for (let i = 1; i <= 10; i++) {
-      await git
-        .commit()
-        .setMessage(`Commit ${i}`)
-        .setAllowEmpty(true)
-        .call();
+      await git.commit().setMessage(`Commit ${i}`).setAllowEmpty(true).call();
     }
 
     // Get all commits
@@ -260,5 +210,214 @@ describe("Phase 1 Integration Workflow", () => {
     expect(commits.length).toBe(3);
     expect(commits[0].message).toBe("Commit 7");
     expect(commits[2].message).toBe("Commit 5");
+  });
+});
+
+describe("Phase 2 Integration Workflow", () => {
+  it("should support merge workflow: branch → commit → merge", async () => {
+    const { git, store, initialCommitId } = await createInitializedGit();
+
+    // === STEP 1: Create feature branch ===
+    await git.branchCreate().setName("feature").call();
+
+    // === STEP 2: Add commits on main ===
+    await addFile(store, "main.txt", "main content");
+    await store.staging.write();
+    await git.commit().setMessage("Add main.txt").call();
+
+    // === STEP 3: Switch to feature and add commits ===
+    await store.refs.setSymbolic("HEAD", "refs/heads/feature");
+
+    await addFile(store, "feature.txt", "feature content");
+    await store.staging.write();
+    await git.commit().setMessage("Add feature.txt").call();
+
+    // === STEP 4: Switch back to main ===
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+
+    // === STEP 5: Merge feature into main ===
+    const result = await git
+      .merge()
+      .include("refs/heads/feature")
+      .setFastForwardMode(FastForwardMode.NO_FF)
+      .call();
+
+    expect(result.status).toBe(MergeStatus.MERGED);
+
+    // === STEP 6: Verify merge commit has both parents ===
+    const headRef = await store.refs.resolve("HEAD");
+    expect(headRef?.objectId).toBeDefined();
+    const mergeCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+    expect(mergeCommit.parents.length).toBe(2);
+
+    // === STEP 7: Log should show all commits ===
+    const commits = await toArray(await git.log().call());
+    expect(commits.length).toBeGreaterThanOrEqual(4); // initial + main + feature + merge
+  });
+
+  it("should support fast-forward merge workflow", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create feature branch at initial commit
+    await git.branchCreate().setName("feature").call();
+
+    // Add commits on main
+    await git.commit().setMessage("Main commit 1").setAllowEmpty(true).call();
+    await git.commit().setMessage("Main commit 2").setAllowEmpty(true).call();
+
+    // Switch to feature
+    await store.refs.setSymbolic("HEAD", "refs/heads/feature");
+
+    // Feature is behind main - merge main into feature (fast-forward)
+    const result = await git.merge().include("refs/heads/main").call();
+
+    expect(result.status).toBe(MergeStatus.FAST_FORWARD);
+
+    // Feature branch should now be at same commit as main
+    const featureRef = await store.refs.resolve("refs/heads/feature");
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    expect(featureRef?.objectId).toBe(mainRef?.objectId);
+  });
+
+  it("should support diff workflow: compare branches", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create feature branch
+    await git.branchCreate().setName("feature").call();
+
+    // Add file on main
+    await addFile(store, "main-only.txt", "main content");
+    await store.staging.write();
+    await git.commit().setMessage("Add main file").call();
+
+    // Switch to feature - reset staging to match feature branch (initial empty tree)
+    await store.refs.setSymbolic("HEAD", "refs/heads/feature");
+    const featureRef = await store.refs.resolve("refs/heads/feature");
+    const featureCommit = await store.commits.loadCommit(featureRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, featureCommit.tree);
+
+    // Add different file on feature
+    await addFile(store, "feature-only.txt", "feature content");
+    await store.staging.write();
+    await git.commit().setMessage("Add feature file").call();
+
+    // === Diff feature vs main ===
+    const entries = await git
+      .diff()
+      .setOldTree("refs/heads/feature")
+      .setNewTree("refs/heads/main")
+      .call();
+
+    // Should show: main-only.txt added, feature-only.txt deleted
+    expect(entries.length).toBe(2);
+
+    const added = entries.find((e) => e.changeType === ChangeType.ADD);
+    const deleted = entries.find((e) => e.changeType === ChangeType.DELETE);
+
+    expect(added?.newPath).toBe("main-only.txt");
+    expect(deleted?.oldPath).toBe("feature-only.txt");
+  });
+
+  it("should support diff workflow: track changes across commits", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // Create file and commit
+    await addFile(store, "changing.txt", "version 1");
+    await store.staging.write();
+    const commit1 = await git.commit().setMessage("v1").call();
+    const commit1Id = await store.commits.storeCommit(commit1);
+
+    // Modify file
+    await addFile(store, "changing.txt", "version 2");
+    await store.staging.write();
+    await git.commit().setMessage("v2").call();
+
+    // Add new file
+    await addFile(store, "new.txt", "new content");
+    await store.staging.write();
+    const commit3 = await git.commit().setMessage("v3").call();
+    const commit3Id = await store.commits.storeCommit(commit3);
+
+    // === Diff v1 vs v3 ===
+    const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit3Id).call();
+
+    expect(entries.length).toBe(2);
+
+    const modified = entries.find((e) => e.changeType === ChangeType.MODIFY);
+    const added = entries.find((e) => e.changeType === ChangeType.ADD);
+
+    expect(modified?.newPath).toBe("changing.txt");
+    expect(added?.newPath).toBe("new.txt");
+  });
+
+  it("should support complete workflow: branch → diff → merge → verify", async () => {
+    const { git, store } = await createInitializedGit();
+
+    // === Setup: Create diverging branches ===
+
+    // Add base file
+    await addFile(store, "shared.txt", "base content");
+    await store.staging.write();
+    await git.commit().setMessage("Add shared file").call();
+
+    // Create feature branch
+    await git.branchCreate().setName("feature").call();
+
+    // Add file on main
+    await addFile(store, "main-feature.txt", "main feature");
+    await store.staging.write();
+    await git.commit().setMessage("Main feature").call();
+
+    // Switch to feature branch - reset staging to match feature's tree
+    await store.refs.setSymbolic("HEAD", "refs/heads/feature");
+    const featureRef = await store.refs.resolve("refs/heads/feature");
+    const featureCommit = await store.commits.loadCommit(featureRef?.objectId ?? "");
+    await store.staging.readTree(store.trees, featureCommit.tree);
+
+    // Add different file on feature
+    await addFile(store, "feature-feature.txt", "feature work");
+    await store.staging.write();
+    await git.commit().setMessage("Feature work").call();
+
+    // === Diff: See what's different ===
+    const diffBeforeMerge = await git
+      .diff()
+      .setOldTree("refs/heads/main")
+      .setNewTree("refs/heads/feature")
+      .call();
+
+    // main has main-feature.txt, feature has feature-feature.txt
+    expect(diffBeforeMerge.length).toBe(2);
+
+    // === Merge: Combine branches ===
+    // Switch to main first
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+
+    const mergeResult = await git.merge().include("refs/heads/feature").call();
+
+    expect(mergeResult.status).toBe(MergeStatus.MERGED);
+
+    // === Verify: All files present after merge ===
+    const mainRef = await store.refs.resolve("refs/heads/main");
+    expect(mainRef?.objectId).toBeDefined();
+    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    const entries = new Map<string, boolean>();
+
+    for await (const entry of store.trees.loadTree(mainCommit.tree)) {
+      entries.set(entry.name, true);
+    }
+
+    expect(entries.has("shared.txt")).toBe(true);
+    expect(entries.has("main-feature.txt")).toBe(true);
+    expect(entries.has("feature-feature.txt")).toBe(true);
+
+    // === Diff: Should be empty when comparing same commit ===
+    const diffAfterMerge = await git
+      .diff()
+      .setOldTree("refs/heads/main")
+      .setNewTree("refs/heads/main")
+      .call();
+
+    expect(diffAfterMerge.length).toBe(0);
   });
 });

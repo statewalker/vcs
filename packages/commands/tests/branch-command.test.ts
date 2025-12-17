@@ -5,8 +5,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-
-import { ListBranchMode } from "../src/index.js";
 import {
   CannotDeleteCurrentBranchError,
   InvalidRefNameError,
@@ -14,7 +12,8 @@ import {
   RefAlreadyExistsError,
   RefNotFoundError,
 } from "../src/errors/index.js";
-import { createInitializedGit, toArray } from "./test-helper.js";
+import { ListBranchMode } from "../src/index.js";
+import { createInitializedGit } from "./test-helper.js";
 
 describe("CreateBranchCommand", () => {
   it("should create branch at HEAD", async () => {
@@ -33,11 +32,7 @@ describe("CreateBranchCommand", () => {
     await git.commit().setMessage("Second").setAllowEmpty(true).call();
 
     // Create branch at initial commit
-    const ref = await git
-      .branchCreate()
-      .setName("feature")
-      .setStartPoint(initialCommitId)
-      .call();
+    const ref = await git.branchCreate().setName("feature").setStartPoint(initialCommitId).call();
 
     expect(ref.objectId).toBe(initialCommitId);
   });
@@ -76,14 +71,10 @@ describe("CreateBranchCommand", () => {
 
     // Create a commit
     const commit = await git.commit().setMessage("New").setAllowEmpty(true).call();
-    const commitId = await store.commits.storeCommit(commit);
+    const _commitId = await store.commits.storeCommit(commit);
 
     // Force create at new commit
-    const ref = await git
-      .branchCreate()
-      .setName("feature")
-      .setForce(true)
-      .call();
+    const ref = await git.branchCreate().setName("feature").setForce(true).call();
 
     // Branch should point to latest commit on main (HEAD)
     const headRef = await store.refs.resolve("HEAD");
@@ -116,10 +107,7 @@ describe("DeleteBranchCommand", () => {
     await git.branchCreate().setName("feature1").call();
     await git.branchCreate().setName("feature2").call();
 
-    const deleted = await git
-      .branchDelete()
-      .setBranchNames("feature1", "feature2")
-      .call();
+    const deleted = await git.branchDelete().setBranchNames("feature1", "feature2").call();
 
     expect(deleted.length).toBe(2);
     expect(await store.refs.has("refs/heads/feature1")).toBe(false);
@@ -153,7 +141,12 @@ describe("DeleteBranchCommand", () => {
       tree: (await store.commits.loadCommit(initialCommitId)).tree,
       parents: [initialCommitId],
       author: { name: "Test", email: "test@example.com", timestamp: Date.now(), tzOffset: "+0000" },
-      committer: { name: "Test", email: "test@example.com", timestamp: Date.now(), tzOffset: "+0000" },
+      committer: {
+        name: "Test",
+        email: "test@example.com",
+        timestamp: Date.now(),
+        tzOffset: "+0000",
+      },
       message: "Feature commit",
     };
     const featureCommitId = await store.commits.storeCommit(commit);
@@ -175,18 +168,19 @@ describe("DeleteBranchCommand", () => {
       tree: (await store.commits.loadCommit(initialCommitId)).tree,
       parents: [initialCommitId],
       author: { name: "Test", email: "test@example.com", timestamp: Date.now(), tzOffset: "+0000" },
-      committer: { name: "Test", email: "test@example.com", timestamp: Date.now(), tzOffset: "+0000" },
+      committer: {
+        name: "Test",
+        email: "test@example.com",
+        timestamp: Date.now(),
+        tzOffset: "+0000",
+      },
       message: "Feature commit",
     };
     const featureCommitId = await store.commits.storeCommit(commit);
     await store.refs.set("refs/heads/feature", featureCommitId);
 
     // Force delete should work
-    const deleted = await git
-      .branchDelete()
-      .setBranchNames("feature")
-      .setForce(true)
-      .call();
+    const deleted = await git.branchDelete().setBranchNames("feature").setForce(true).call();
 
     expect(deleted).toEqual(["refs/heads/feature"]);
   });
@@ -226,12 +220,9 @@ describe("ListBranchCommand", () => {
 
     // Simulate remote tracking branch
     const headRef = await store.refs.resolve("HEAD");
-    await store.refs.set("refs/remotes/origin/main", headRef!.objectId!);
+    await store.refs.set("refs/remotes/origin/main", headRef?.objectId!);
 
-    const branches = await git
-      .branchList()
-      .setListMode(ListBranchMode.REMOTE)
-      .call();
+    const branches = await git.branchList().setListMode(ListBranchMode.REMOTE).call();
 
     const names = branches.map((b) => b.name);
     expect(names).toContain("refs/remotes/origin/main");
@@ -244,12 +235,9 @@ describe("ListBranchCommand", () => {
     await git.branchCreate().setName("feature").call();
 
     const headRef = await store.refs.resolve("HEAD");
-    await store.refs.set("refs/remotes/origin/main", headRef!.objectId!);
+    await store.refs.set("refs/remotes/origin/main", headRef?.objectId!);
 
-    const branches = await git
-      .branchList()
-      .setListMode(ListBranchMode.ALL)
-      .call();
+    const branches = await git.branchList().setListMode(ListBranchMode.ALL).call();
 
     const names = branches.map((b) => b.name);
     expect(names).toContain("refs/heads/main");
@@ -264,11 +252,7 @@ describe("RenameBranchCommand", () => {
 
     await git.branchCreate().setName("old-name").call();
 
-    const ref = await git
-      .branchRename()
-      .setOldName("old-name")
-      .setNewName("new-name")
-      .call();
+    const ref = await git.branchRename().setOldName("old-name").setNewName("new-name").call();
 
     expect(ref.name).toBe("refs/heads/new-name");
     expect(await store.refs.has("refs/heads/old-name")).toBe(false);

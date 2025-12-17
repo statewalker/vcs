@@ -3,12 +3,12 @@
  */
 
 import {
+  createMemoryStorage,
   MemoryCommitStore,
   MemoryRefStore,
   MemoryStagingStore,
   MemoryTagStore,
   MemoryTreeStore,
-  createMemoryStorage,
 } from "@webrun-vcs/store-mem";
 import type { ObjectId, PersonIdent } from "@webrun-vcs/vcs";
 import { FileMode } from "@webrun-vcs/vcs";
@@ -71,10 +71,7 @@ export async function createInitializedGit(): Promise<{
 /**
  * Create a test author identity.
  */
-export function testAuthor(
-  name = "Test Author",
-  email = "test@example.com",
-): PersonIdent {
+export function testAuthor(name = "Test Author", email = "test@example.com"): PersonIdent {
   return {
     name,
     email,
@@ -86,11 +83,7 @@ export function testAuthor(
 /**
  * Add a file to the staging area and return its object ID.
  */
-export async function addFile(
-  store: GitStore,
-  path: string,
-  content: string,
-): Promise<ObjectId> {
+export async function addFile(store: GitStore, path: string, content: string): Promise<ObjectId> {
   // Store the content as a blob
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
