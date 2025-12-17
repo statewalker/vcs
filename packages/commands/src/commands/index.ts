@@ -1,4 +1,5 @@
 export * from "./branch-command.js";
+export * from "./cherry-pick-command.js";
 export * from "./commit-command.js";
 export * from "./diff-command.js";
 export * from "./log-command.js";

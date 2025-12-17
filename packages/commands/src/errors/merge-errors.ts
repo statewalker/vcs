@@ -40,6 +40,18 @@ export class NotFastForwardError extends GitApiError {
 }
 
 /**
+ * Thrown when cherry-picking/reverting a merge commit without specifying parent.
+ *
+ * Based on JGit's MultipleParentsNotAllowedException.
+ */
+export class MultipleParentsNotAllowedError extends GitApiError {
+  constructor(message?: string) {
+    super(message ?? "Cannot cherry-pick merge commit without specifying mainline parent");
+    this.name = "MultipleParentsNotAllowedError";
+  }
+}
+
+/**
  * Failure reasons for merge operations.
  *
  * Based on JGit's ResolveMerger.MergeFailureReason.

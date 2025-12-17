@@ -1,4 +1,5 @@
 import {
+  CherryPickCommand,
   CommitCommand,
   CreateBranchCommand,
   DeleteBranchCommand,
@@ -236,6 +237,21 @@ export class Git implements Disposable {
   merge(): MergeCommand {
     this.checkClosed();
     return new MergeCommand(this.store);
+  }
+
+  // ============ Cherry-pick Operations ============
+
+  /**
+   * Create a CherryPickCommand for cherry-picking commits.
+   *
+   * @example
+   * ```typescript
+   * await git.cherryPick().include(commitId).call();
+   * ```
+   */
+  cherryPick(): CherryPickCommand {
+    this.checkClosed();
+    return new CherryPickCommand(this.store);
   }
 
   // ============ Diff Operations ============
