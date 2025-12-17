@@ -147,18 +147,33 @@ describe("LogCommand date filtering", () => {
       .commit()
       .setMessage("Old commit")
       .setAllowEmpty(true)
-      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 3600, tzOffset: "+0000" })
+      .setCommitterIdent({
+        name: "Test",
+        email: "test@example.com",
+        timestamp: now - 3600,
+        tzOffset: "+0000",
+      })
       .call();
 
     await git
       .commit()
       .setMessage("Recent commit")
       .setAllowEmpty(true)
-      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 60, tzOffset: "+0000" })
+      .setCommitterIdent({
+        name: "Test",
+        email: "test@example.com",
+        timestamp: now - 60,
+        tzOffset: "+0000",
+      })
       .call();
 
     // Only get commits from last 30 minutes
-    const commits = await toArray(await git.log().setSince(now - 1800).call());
+    const commits = await toArray(
+      await git
+        .log()
+        .setSince(now - 1800)
+        .call(),
+    );
 
     expect(commits.length).toBe(1);
     expect(commits[0].message).toBe("Recent commit");
@@ -173,18 +188,33 @@ describe("LogCommand date filtering", () => {
       .commit()
       .setMessage("Old commit")
       .setAllowEmpty(true)
-      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 3600, tzOffset: "+0000" })
+      .setCommitterIdent({
+        name: "Test",
+        email: "test@example.com",
+        timestamp: now - 3600,
+        tzOffset: "+0000",
+      })
       .call();
 
     await git
       .commit()
       .setMessage("Recent commit")
       .setAllowEmpty(true)
-      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now, tzOffset: "+0000" })
+      .setCommitterIdent({
+        name: "Test",
+        email: "test@example.com",
+        timestamp: now,
+        tzOffset: "+0000",
+      })
       .call();
 
     // Only get commits older than 30 minutes
-    const commits = await toArray(await git.log().setUntil(now - 1800).call());
+    const commits = await toArray(
+      await git
+        .log()
+        .setUntil(now - 1800)
+        .call(),
+    );
 
     // Should include old commit and initial commit
     expect(commits.some((c) => c.message === "Old commit")).toBe(true);
@@ -200,21 +230,36 @@ describe("LogCommand date filtering", () => {
       .commit()
       .setMessage("Very old")
       .setAllowEmpty(true)
-      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 7200, tzOffset: "+0000" })
+      .setCommitterIdent({
+        name: "Test",
+        email: "test@example.com",
+        timestamp: now - 7200,
+        tzOffset: "+0000",
+      })
       .call();
 
     await git
       .commit()
       .setMessage("Middle")
       .setAllowEmpty(true)
-      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now - 3600, tzOffset: "+0000" })
+      .setCommitterIdent({
+        name: "Test",
+        email: "test@example.com",
+        timestamp: now - 3600,
+        tzOffset: "+0000",
+      })
       .call();
 
     await git
       .commit()
       .setMessage("Recent")
       .setAllowEmpty(true)
-      .setCommitterIdent({ name: "Test", email: "test@example.com", timestamp: now, tzOffset: "+0000" })
+      .setCommitterIdent({
+        name: "Test",
+        email: "test@example.com",
+        timestamp: now,
+        tzOffset: "+0000",
+      })
       .call();
 
     // Get commits between 2 hours ago and 30 minutes ago

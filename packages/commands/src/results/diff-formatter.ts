@@ -4,8 +4,8 @@
  * Based on JGit's DiffFormatter class.
  */
 
-import { MyersDiff, RawText, RawTextComparator, type EditList } from "@webrun-vcs/utils";
-import type { ObjectStore, ObjectId } from "@webrun-vcs/vcs";
+import { type EditList, MyersDiff, RawText, RawTextComparator } from "@webrun-vcs/utils";
+import type { ObjectId, ObjectStore } from "@webrun-vcs/vcs";
 
 import { ChangeType, type DiffEntry } from "./diff-entry.js";
 
@@ -168,7 +168,9 @@ export class DiffFormatter {
     }
 
     if (diff.isBinary) {
-      lines.push(`Binary files ${diff.entry.oldPath ?? "/dev/null"} and ${diff.entry.newPath ?? "/dev/null"} differ`);
+      lines.push(
+        `Binary files ${diff.entry.oldPath ?? "/dev/null"} and ${diff.entry.newPath ?? "/dev/null"} differ`,
+      );
       return lines.join("\n");
     }
 
