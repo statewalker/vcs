@@ -7,11 +7,11 @@
 
 import { Sha1 } from "@webrun-vcs/utils/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+import { parseHeader, stripHeader } from "../format/object-header.js";
 import type { GitObjectHeader, GitObjectStore } from "../interfaces/git-object-store.js";
 import type { RawStorage } from "../interfaces/raw-storage.js";
 import type { TempStore } from "../interfaces/temp-store.js";
 import type { ObjectId, ObjectTypeString } from "../interfaces/types.js";
-import { parseHeader, stripHeader } from "../format/object-header.js";
 
 const encoder = new TextEncoder();
 

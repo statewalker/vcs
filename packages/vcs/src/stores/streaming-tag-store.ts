@@ -4,9 +4,7 @@
  * Wraps GitObjectStore with tag serialization/deserialization.
  */
 
-import type { GitObjectStore } from "../interfaces/git-object-store.js";
-import type { AnnotatedTag, TagStore } from "../interfaces/tag-store.js";
-import { ObjectType, type ObjectId } from "../interfaces/types.js";
+import { toArray } from "../format/stream-utils.js";
 import {
   computeTagSize,
   decodeTagEntries,
@@ -14,7 +12,9 @@ import {
   entriesToTag,
   tagToEntries,
 } from "../format/tag-format.js";
-import { toArray } from "../format/stream-utils.js";
+import type { GitObjectStore } from "../interfaces/git-object-store.js";
+import type { AnnotatedTag, TagStore } from "../interfaces/tag-store.js";
+import { type ObjectId, ObjectType } from "../interfaces/types.js";
 
 /**
  * Streaming tag store implementation

@@ -3,17 +3,17 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { collect, toArray } from "../../src/format/stream-utils.js";
+import type { Commit } from "../../src/interfaces/commit-store.js";
+import type { AnnotatedTag } from "../../src/interfaces/tag-store.js";
+import type { TreeEntry } from "../../src/interfaces/tree-store.js";
+import { FileMode, ObjectType } from "../../src/interfaces/types.js";
 import {
   createStreamingStores,
   type StreamingStores,
 } from "../../src/stores/create-streaming-stores.js";
 import { MemoryTempStore } from "../../src/stores/memory-temp-store.js";
 import { MemoryRawStorage } from "./memory-raw-storage.js";
-import { ObjectType, FileMode } from "../../src/interfaces/types.js";
-import type { Commit } from "../../src/interfaces/commit-store.js";
-import type { TreeEntry } from "../../src/interfaces/tree-store.js";
-import type { AnnotatedTag } from "../../src/interfaces/tag-store.js";
-import { collect, toArray } from "../../src/format/stream-utils.js";
 
 describe("streaming stores", () => {
   const encoder = new TextEncoder();

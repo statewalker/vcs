@@ -38,7 +38,6 @@ export * from "./create-sql-storage.js";
 
 // Database client interface
 export * from "./database-client.js";
-
 // Repository implementations
 export * from "./delta-repository.js";
 export * from "./metadata-repository.js";
@@ -46,6 +45,8 @@ export * from "./metadata-repository.js";
 export * from "./migrations/index.js";
 export * from "./object-repository.js";
 export * from "./ref-store.js";
+// Low-level storage
+export * from "./sql-raw-storage.js";
 export * from "./staging-store.js";
 export * from "./tag-store.js";
 export * from "./tree-store.js";

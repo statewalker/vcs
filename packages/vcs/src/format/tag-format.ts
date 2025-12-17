@@ -15,8 +15,8 @@
 import type { AnnotatedTag, ObjectTypeCode } from "../interfaces/index.js";
 import { typeCodeToString, typeStringToCode } from "./object-header.js";
 import { formatPersonIdent, parsePersonIdent } from "./person-ident.js";
-import type { TagEntry } from "./types.js";
 import { asAsyncIterable, collect, encodeString, toArray } from "./stream-utils.js";
+import type { TagEntry } from "./types.js";
 
 const LF = "\n";
 

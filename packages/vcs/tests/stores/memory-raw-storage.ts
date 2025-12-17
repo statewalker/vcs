@@ -2,8 +2,8 @@
  * In-memory RawStorage implementation for testing
  */
 
-import type { RawStorage } from "../../src/interfaces/raw-storage.js";
 import { collect } from "../../src/format/stream-utils.js";
+import type { RawStorage } from "../../src/interfaces/raw-storage.js";
 
 /**
  * Simple in-memory storage for testing

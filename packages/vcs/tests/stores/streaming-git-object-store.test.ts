@@ -3,10 +3,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { StreamingGitObjectStore } from "../../src/stores/streaming-git-object-store.js";
-import { MemoryTempStore } from "../../src/stores/memory-temp-store.js";
-import { MemoryRawStorage } from "./memory-raw-storage.js";
 import { collect, toArray } from "../../src/format/stream-utils.js";
+import { MemoryTempStore } from "../../src/stores/memory-temp-store.js";
+import { StreamingGitObjectStore } from "../../src/stores/streaming-git-object-store.js";
+import { MemoryRawStorage } from "./memory-raw-storage.js";
 
 describe("StreamingGitObjectStore", () => {
   const encoder = new TextEncoder();

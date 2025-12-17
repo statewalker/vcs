@@ -5,9 +5,6 @@
  * Provides graph traversal operations for commit history.
  */
 
-import type { AncestryOptions, Commit, CommitStore } from "../interfaces/commit-store.js";
-import type { GitObjectStore } from "../interfaces/git-object-store.js";
-import type { ObjectId } from "../interfaces/types.js";
 import {
   commitToEntries,
   computeCommitSize,
@@ -16,6 +13,9 @@ import {
   entriesToCommit,
 } from "../format/commit-format.js";
 import { toArray } from "../format/stream-utils.js";
+import type { AncestryOptions, Commit, CommitStore } from "../interfaces/commit-store.js";
+import type { GitObjectStore } from "../interfaces/git-object-store.js";
+import type { ObjectId } from "../interfaces/types.js";
 
 /**
  * Streaming commit store implementation

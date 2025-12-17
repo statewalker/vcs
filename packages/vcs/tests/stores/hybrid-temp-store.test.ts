@@ -3,9 +3,9 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+import { collect } from "../../src/format/stream-utils.js";
 import { HybridTempStore } from "../../src/stores/hybrid-temp-store.js";
 import { MemoryTempStore } from "../../src/stores/memory-temp-store.js";
-import { collect } from "../../src/format/stream-utils.js";
 
 describe("HybridTempStore", () => {
   const encoder = new TextEncoder();

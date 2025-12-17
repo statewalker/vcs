@@ -13,8 +13,8 @@ import {
   typeCodeToString,
   typeStringToCode,
 } from "../../src/format/object-header.js";
-import { ObjectType } from "../../src/interfaces/types.js";
 import { collect } from "../../src/format/stream-utils.js";
+import { ObjectType } from "../../src/interfaces/types.js";
 
 describe("object-header", () => {
   describe("typeCodeToString", () => {
