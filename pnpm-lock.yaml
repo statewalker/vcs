@@ -237,6 +237,9 @@ importers:
 
   packages/commands:
     dependencies:
+      '@webrun-vcs/transport':
+        specifier: workspace:*
+        version: link:../transport
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
@@ -250,6 +253,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
+      '@webrun-vcs/store-files':
+        specifier: workspace:*
+        version: link:../store-files
       '@webrun-vcs/store-mem':
         specifier: workspace:*
         version: link:../store-mem
