@@ -36,7 +36,7 @@ describe("DiffFormatter", () => {
     expect(hunk.oldCount).toBe(0);
     expect(hunk.newStart).toBe(1);
     expect(hunk.newCount).toBe(3);
-    expect(hunk.lines.every(l => l.startsWith("+"))).toBe(true);
+    expect(hunk.lines.every((l) => l.startsWith("+"))).toBe(true);
   });
 
   it("should format deleted file", async () => {
@@ -94,8 +94,8 @@ describe("DiffFormatter", () => {
 
     // Verify hunk contains both - and + lines
     const hunk = diff.hunks[0];
-    const minusLines = hunk.lines.filter(l => l.startsWith("-"));
-    const plusLines = hunk.lines.filter(l => l.startsWith("+"));
+    const minusLines = hunk.lines.filter((l) => l.startsWith("-"));
+    const plusLines = hunk.lines.filter((l) => l.startsWith("+"));
     expect(minusLines.length).toBeGreaterThan(0);
     expect(plusLines.length).toBeGreaterThan(0);
   });
@@ -104,7 +104,7 @@ describe("DiffFormatter", () => {
     const { git, store } = await createInitializedGit();
 
     // Add a file with many lines
-    const lines = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+    const lines = `${Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join("\n")}\n`;
     await addFile(store, "context.txt", lines);
     await git.commit().setMessage("add file").call();
 
@@ -122,7 +122,7 @@ describe("DiffFormatter", () => {
     const hunk = diff.hunks[0];
 
     // Should have context lines (starting with space)
-    const contextLines = hunk.lines.filter(l => l.startsWith(" "));
+    const contextLines = hunk.lines.filter((l) => l.startsWith(" "));
     expect(contextLines.length).toBeGreaterThan(0);
   });
 
@@ -130,7 +130,7 @@ describe("DiffFormatter", () => {
     const { git, store } = await createInitializedGit();
 
     // Add a file with many lines
-    const lines = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+    const lines = `${Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join("\n")}\n`;
     await addFile(store, "multi-hunk.txt", lines);
     await git.commit().setMessage("add file").call();
 
