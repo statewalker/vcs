@@ -237,6 +237,9 @@ importers:
 
   packages/commands:
     dependencies:
+      '@webrun-vcs/utils':
+        specifier: workspace:*
+        version: link:../utils
       '@webrun-vcs/vcs':
         specifier: workspace:*
         version: link:../vcs
