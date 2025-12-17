@@ -11,6 +11,7 @@ import {
   MergeCommand,
   RenameBranchCommand,
   ResetCommand,
+  RevertCommand,
   TagCommand,
 } from "./commands/index.js";
 import type { GitStore } from "./types.js";
@@ -252,6 +253,21 @@ export class Git implements Disposable {
   cherryPick(): CherryPickCommand {
     this.checkClosed();
     return new CherryPickCommand(this.store);
+  }
+
+  // ============ Revert Operations ============
+
+  /**
+   * Create a RevertCommand for reverting commits.
+   *
+   * @example
+   * ```typescript
+   * await git.revert().include(commitId).call();
+   * ```
+   */
+  revert(): RevertCommand {
+    this.checkClosed();
+    return new RevertCommand(this.store);
   }
 
   // ============ Diff Operations ============

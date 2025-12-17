@@ -5,4 +5,5 @@ export * from "./diff-command.js";
 export * from "./log-command.js";
 export * from "./merge-command.js";
 export * from "./reset-command.js";
+export * from "./revert-command.js";
 export * from "./tag-command.js";
