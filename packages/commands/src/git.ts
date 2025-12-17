@@ -12,6 +12,7 @@ import {
   RenameBranchCommand,
   ResetCommand,
   RevertCommand,
+  StatusCommand,
   TagCommand,
 } from "./commands/index.js";
 import type { GitStore } from "./types.js";
@@ -268,6 +269,24 @@ export class Git implements Disposable {
   revert(): RevertCommand {
     this.checkClosed();
     return new RevertCommand(this.store);
+  }
+
+  // ============ Status Operations ============
+
+  /**
+   * Create a StatusCommand for showing staging area status.
+   *
+   * @example
+   * ```typescript
+   * const status = await git.status().call();
+   * if (status.isClean()) {
+   *   console.log("Nothing to commit");
+   * }
+   * ```
+   */
+  status(): StatusCommand {
+    this.checkClosed();
+    return new StatusCommand(this.store);
   }
 
   // ============ Diff Operations ============

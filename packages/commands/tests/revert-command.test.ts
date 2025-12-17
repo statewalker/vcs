@@ -32,8 +32,9 @@ describe("RevertCommand", () => {
 
     // Fix a
     await addFile(store, "a.txt", "first line\nsecond line\nthird line\nfourth line\n");
-    const fixingA = await git.commit().setMessage("fixed a").call();
-    const fixingAId = fixingA;
+    await git.commit().setMessage("fixed a").call();
+    const fixingARef = await store.refs.resolve("HEAD");
+    const fixingAId = fixingARef?.objectId ?? "";
 
     // Fix b
     await addFile(store, "b.txt", "first line\n");
@@ -80,18 +81,18 @@ describe("RevertCommand", () => {
 
     // Add second line
     await addFile(store, "a.txt", "first\nsecond\n");
-    const secondCommit = await git.commit().setMessage("add second").call();
+    await git.commit().setMessage("add second").call();
+    const secondCommitRef = await store.refs.resolve("HEAD");
+    const secondCommit = secondCommitRef?.objectId ?? "";
 
     // Add third line
     await addFile(store, "a.txt", "first\nsecond\nthird\n");
-    const thirdCommit = await git.commit().setMessage("add third").call();
+    await git.commit().setMessage("add third").call();
+    const thirdCommitRef = await store.refs.resolve("HEAD");
+    const thirdCommit = thirdCommitRef?.objectId ?? "";
 
     // Revert both commits (third first, then second)
-    const result = await git
-      .revert()
-      .include(thirdCommit)
-      .include(secondCommit)
-      .call();
+    const result = await git.revert().include(thirdCommit).include(secondCommit).call();
 
     expect(result.status).toBe(RevertStatus.OK);
     expect(result.revertedRefs).toHaveLength(2);
@@ -123,7 +124,9 @@ describe("RevertCommand", () => {
 
     // Modify a - this is the commit we'll revert
     await addFile(store, "a.txt", "a(previous)");
-    const oldCommit = await git.commit().setMessage("second master").call();
+    await git.commit().setMessage("second master").call();
+    const oldCommitRef = await store.refs.resolve("HEAD");
+    const oldCommit = oldCommitRef?.objectId ?? "";
 
     // Modify a again - creates conflict with revert
     await addFile(store, "a.txt", "a(latest)");
@@ -151,20 +154,20 @@ describe("RevertCommand", () => {
 
     // Create base file
     await addFile(store, "a.txt", "original");
-    const baseCommit = await git.commit().setMessage("base").call();
+    await git.commit().setMessage("base").call();
+    const baseCommitRef = await store.refs.resolve("HEAD");
+    const baseCommit = baseCommitRef?.objectId ?? "";
 
     // Modify file
     await addFile(store, "a.txt", "modified");
-    const modifyCommit = await git.commit().setMessage("modify").call();
+    await git.commit().setMessage("modify").call();
+    const modifyCommitRef = await store.refs.resolve("HEAD");
+    const modifyCommit = modifyCommitRef?.objectId ?? "";
 
     const beforeRevertHead = await store.refs.resolve("HEAD");
 
     // Revert with noCommit
-    const result = await git
-      .revert()
-      .include(modifyCommit)
-      .setNoCommit(true)
-      .call();
+    const result = await git.revert().include(modifyCommit).setNoCommit(true).call();
 
     expect(result.status).toBe(RevertStatus.OK);
 
@@ -340,7 +343,9 @@ describe("RevertCommand", () => {
 
     // Add new file
     await addFile(store, "new-file.txt", "new content");
-    const addCommit = await git.commit().setMessage("add new file").call();
+    await git.commit().setMessage("add new file").call();
+    const addCommitRef = await store.refs.resolve("HEAD");
+    const addCommit = addCommitRef?.objectId ?? "";
 
     // Verify file exists
     let entry = await store.staging.getEntry("new-file.txt");
@@ -373,7 +378,9 @@ describe("RevertCommand", () => {
 
     // Delete file
     await removeFile(store, "deleteme.txt");
-    const deleteCommit = await git.commit().setMessage("delete file").call();
+    await git.commit().setMessage("delete file").call();
+    const deleteCommitRef = await store.refs.resolve("HEAD");
+    const deleteCommit = deleteCommitRef?.objectId ?? "";
 
     // Verify file is gone
     let entry = await store.staging.getEntry("deleteme.txt");
@@ -401,7 +408,9 @@ describe("RevertCommand", () => {
 
     // Delete the file - this is the commit we'll revert
     await removeFile(store, "conflict.txt");
-    const deleteCommit = await git.commit().setMessage("delete file").call();
+    await git.commit().setMessage("delete file").call();
+    const deleteCommit2Ref = await store.refs.resolve("HEAD");
+    const deleteCommit2 = deleteCommit2Ref?.objectId ?? "";
 
     // Add a different file - so we have a clean new state
     await addFile(store, "other.txt", "other");
@@ -415,7 +424,7 @@ describe("RevertCommand", () => {
     // Revert the delete commit - should conflict because:
     // - Revert wants to restore "original"
     // - Current state has "different content"
-    const result = await git.revert().include(deleteCommit).call();
+    const result = await git.revert().include(deleteCommit2).call();
 
     expect(result.status).toBe(RevertStatus.CONFLICTING);
     expect(result.conflicts).toContain("conflict.txt");
@@ -429,20 +438,24 @@ describe("RevertCommand - JGit additional tests", () => {
   it("should set correct parent for revert commit", async () => {
     const { git, store } = await createInitializedGit();
 
-    // Create base
+    // Create base with file a
     await addFile(store, "a.txt", "a");
     await git.commit().setMessage("base").call();
 
-    // Make a change
-    await addFile(store, "a.txt", "b");
-    const changeCommit = await git.commit().setMessage("change a").call();
+    // Add a new file b - this is the commit we'll revert
+    await addFile(store, "b.txt", "b content");
+    await git.commit().setMessage("add b").call();
+    const addBCommitRef = await store.refs.resolve("HEAD");
+    const addBCommit = addBCommitRef?.objectId ?? "";
 
-    // Make another change
-    await addFile(store, "a.txt", "c");
-    const headBeforeRevert = await git.commit().setMessage("change a again").call();
+    // Add another file c - so we have a clean HEAD to revert onto
+    await addFile(store, "c.txt", "c content");
+    await git.commit().setMessage("add c").call();
+    const headBeforeRevertRef = await store.refs.resolve("HEAD");
+    const headBeforeRevert = headBeforeRevertRef?.objectId ?? "";
 
-    // Revert
-    const result = await git.revert().include(changeCommit).call();
+    // Revert the add b commit (should cleanly delete b.txt)
+    const result = await git.revert().include(addBCommit).call();
 
     expect(result.status).toBe(RevertStatus.OK);
 
@@ -465,7 +478,9 @@ describe("RevertCommand - JGit additional tests", () => {
     // Create commit with multi-line message
     await addFile(store, "a.txt", "b");
     const detailedMessage = "Fix the bug\n\nThis is a detailed description\nWith multiple lines";
-    const fixCommit = await git.commit().setMessage(detailedMessage).call();
+    await git.commit().setMessage(detailedMessage).call();
+    const fixCommitRef = await store.refs.resolve("HEAD");
+    const fixCommit = fixCommitRef?.objectId ?? "";
 
     // Make another commit so revert is clean
     await addFile(store, "c.txt", "c");
@@ -491,20 +506,24 @@ describe("RevertCommand - JGit additional tests", () => {
     // Create base with specific content
     const originalContent = "original content here";
     await addFile(store, "file.txt", originalContent);
-    const baseCommit = await git.commit().setMessage("base").call();
+    await git.commit().setMessage("base").call();
+    const baseCommit2Ref = await store.refs.resolve("HEAD");
+    const baseCommit2 = baseCommit2Ref?.objectId ?? "";
 
     // Modify the file
     await addFile(store, "file.txt", "modified content");
-    const modifyCommit = await git.commit().setMessage("modify file").call();
+    await git.commit().setMessage("modify file").call();
+    const modifyCommit2Ref = await store.refs.resolve("HEAD");
+    const modifyCommit2 = modifyCommit2Ref?.objectId ?? "";
 
     // Revert the modification
-    const result = await git.revert().include(modifyCommit).call();
+    const result = await git.revert().include(modifyCommit2).call();
 
     expect(result.status).toBe(RevertStatus.OK);
 
     // Read the tree to verify content matches base
     const revertCommit = await store.commits.loadCommit(result.newHead ?? "");
-    const baseCommitData = await store.commits.loadCommit(baseCommit);
+    const baseCommitData = await store.commits.loadCommit(baseCommit2);
 
     // Get file entry from both trees
     let revertFileId: string | undefined;
