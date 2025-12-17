@@ -100,6 +100,24 @@ describe("CommitCommand", () => {
     expect(commit.message).toBe("Empty commit");
   });
 
+  it("should fail when amending on initial commit (no prior commit)", async () => {
+    // Based on JGit's commitAmendOnInitialShouldFail
+    const { Git } = await import("../src/index.js");
+    const { createTestStore } = await import("./test-helper.js");
+
+    // Create a new store without any commits
+    const newStore = createTestStore();
+    const git = Git.wrap(newStore);
+
+    // Set up refs without any commits
+    await newStore.refs.setSymbolic("HEAD", "refs/heads/main");
+
+    // Trying to amend when there's no commit should fail
+    await expect(
+      git.commit().setAmend(true).setMessage("amend").setAllowEmpty(true).call(),
+    ).rejects.toThrow();
+  });
+
   it("should amend previous commit", async () => {
     const { git } = await createInitializedGit();
 
