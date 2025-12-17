@@ -16,3 +16,6 @@ export * from "./format/index.js";
 
 // Interfaces
 export * from "./interfaces/index.js";
+
+// Streaming stores
+export * from "./stores/index.js";
