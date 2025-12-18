@@ -8,6 +8,8 @@
 
 // Adapters
 export * from "./adapters/index.js";
+// Factory function for streaming stores
+export * from "./create-streaming-stores.js";
 // Store implementations
 export * from "./kv-commit-store.js";
 // Low-level storage
