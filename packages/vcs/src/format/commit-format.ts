@@ -13,9 +13,9 @@
  */
 
 import type { Commit } from "../interfaces/commit-store.js";
-import type { CommitEntry } from "./types.js";
-import { asAsyncIterable, collect, encodeString, toArray } from "./stream-utils.js";
 import { formatPersonIdent, parsePersonIdent } from "./person-ident.js";
+import { asAsyncIterable, collect, encodeString, toArray } from "./stream-utils.js";
+import type { CommitEntry } from "./types.js";
 
 const LF = "\n";
 

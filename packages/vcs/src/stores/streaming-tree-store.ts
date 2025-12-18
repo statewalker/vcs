@@ -4,16 +4,16 @@
  * Wraps GitObjectStore with tree serialization/deserialization.
  */
 
-import type { GitObjectStore } from "../interfaces/git-object-store.js";
-import type { TreeEntry, TreeStore } from "../interfaces/tree-store.js";
-import type { ObjectId } from "../interfaces/types.js";
+import { asAsyncIterable } from "../format/stream-utils.js";
 import {
   computeTreeSize,
   decodeTreeEntries,
-  encodeTreeEntries,
   EMPTY_TREE_ID,
+  encodeTreeEntries,
 } from "../format/tree-format.js";
-import { asAsyncIterable } from "../format/stream-utils.js";
+import type { GitObjectStore } from "../interfaces/git-object-store.js";
+import type { TreeEntry, TreeStore } from "../interfaces/tree-store.js";
+import type { ObjectId } from "../interfaces/types.js";
 
 /**
  * Streaming tree store implementation

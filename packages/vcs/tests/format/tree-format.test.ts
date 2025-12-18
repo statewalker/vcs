@@ -3,8 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { TreeEntry } from "../../src/interfaces/tree-store.js";
-import { FileMode } from "../../src/interfaces/types.js";
+import { collect, toArray } from "../../src/format/stream-utils.js";
 import {
   computeTreeSize,
   decodeTreeEntries,
@@ -14,7 +13,8 @@ import {
   parseTreeToArray,
   serializeTree,
 } from "../../src/format/tree-format.js";
-import { collect, toArray } from "../../src/format/stream-utils.js";
+import type { TreeEntry } from "../../src/interfaces/tree-store.js";
+import { FileMode } from "../../src/interfaces/types.js";
 
 describe("tree-format", () => {
   const sampleId = "a".repeat(40);

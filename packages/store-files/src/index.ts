@@ -12,6 +12,9 @@ export * from "./attik.loose/index.js";
 export * from "./backends/index.js";
 // Composite storage
 export * from "./composite-object-storage.js";
+// Low-level storage implementations
+export * from "./file-raw-storage.js";
+export * from "./file-temp-store.js";
 // Format utilities (for advanced use cases)
 export * from "./format/index.js";
 export * from "./git-commit-storage.js";

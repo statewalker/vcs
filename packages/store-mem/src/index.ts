@@ -11,6 +11,8 @@ export * from "./commit-store.js";
 export * from "./create-memory-storage.js";
 // Repository implementations
 export * from "./delta-repository.js";
+// Low-level storage
+export * from "./memory-raw-storage.js";
 export * from "./metadata-repository.js";
 export * from "./object-repository.js";
 export * from "./ref-store.js";

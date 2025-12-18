@@ -10,6 +10,8 @@
 export * from "./adapters/index.js";
 // Store implementations
 export * from "./kv-commit-store.js";
+// Low-level storage
+export * from "./kv-raw-storage.js";
 export * from "./kv-ref-store.js";
 export * from "./kv-staging-store.js";
 // KV Store interface and utilities

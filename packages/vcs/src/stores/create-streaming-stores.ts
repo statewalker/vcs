@@ -8,9 +8,9 @@ import type { GitObjectStore } from "../interfaces/git-object-store.js";
 import type { GitStores } from "../interfaces/git-stores.js";
 import type { RawStorage } from "../interfaces/raw-storage.js";
 import type { TempStore } from "../interfaces/temp-store.js";
-import { StreamingGitObjectStore } from "./streaming-git-object-store.js";
 import { StreamingBlobStore } from "./streaming-blob-store.js";
 import { StreamingCommitStore } from "./streaming-commit-store.js";
+import { StreamingGitObjectStore } from "./streaming-git-object-store.js";
 import { StreamingTagStore } from "./streaming-tag-store.js";
 import { StreamingTreeStore } from "./streaming-tree-store.js";
 

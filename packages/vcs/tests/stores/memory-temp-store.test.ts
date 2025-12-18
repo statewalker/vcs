@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MemoryTempStore } from "../../src/stores/memory-temp-store.js";
 import { collect } from "../../src/format/stream-utils.js";
+import { MemoryTempStore } from "../../src/stores/memory-temp-store.js";
 
 describe("MemoryTempStore", () => {
   const encoder = new TextEncoder();
