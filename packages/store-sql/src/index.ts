@@ -33,8 +33,9 @@
 export * from "./backends/index.js";
 // High-level store implementations
 export * from "./commit-store.js";
-// Factory function
+// Factory functions
 export * from "./create-sql-storage.js";
+export * from "./create-streaming-stores.js";
 
 // Database client interface
 export * from "./database-client.js";

@@ -12,6 +12,8 @@ export * from "./attik.loose/index.js";
 export * from "./backends/index.js";
 // Composite storage
 export * from "./composite-object-storage.js";
+// Factory function for streaming stores
+export * from "./create-streaming-stores.js";
 // Low-level storage implementations
 export * from "./file-raw-storage.js";
 export * from "./file-temp-store.js";
