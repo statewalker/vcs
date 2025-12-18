@@ -1,6 +1,8 @@
 /**
  * Person identity formatting and parsing
  *
+ * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ *
  * Git uses a specific format for author/committer/tagger identity:
  * "Name <email> timestamp timezone"
  *

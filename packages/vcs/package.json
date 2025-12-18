@@ -26,6 +26,16 @@
       "types": "./dist/base/index.d.ts",
       "import": "./dist/esm/base/index.js",
       "require": "./dist/cjs/base/index.cjs"
+    },
+    "./format": {
+      "types": "./dist/format/index.d.ts",
+      "import": "./dist/esm/format/index.js",
+      "require": "./dist/cjs/format/index.cjs"
+    },
+    "./stores": {
+      "types": "./dist/stores/index.d.ts",
+      "import": "./dist/esm/stores/index.js",
+      "require": "./dist/cjs/stores/index.cjs"
     }
   },
   "files": [

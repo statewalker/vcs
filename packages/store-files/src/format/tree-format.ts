@@ -1,6 +1,8 @@
 /**
  * Git tree object format serialization and parsing
  *
+ * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ *
  * Tree format: sequence of entries, each entry is:
  *   mode SP name NUL sha1
  *

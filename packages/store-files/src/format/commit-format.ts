@@ -1,6 +1,8 @@
 /**
  * Git commit object format serialization and parsing
  *
+ * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ *
  * Commit format:
  *   tree <tree-sha1>
  *   parent <parent-sha1>     (repeated for each parent)
