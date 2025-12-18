@@ -16,6 +16,8 @@ export * from "./object-repository.suite.js";
 export * from "./object-storage.suite.js";
 export * from "./ref-store.suite.js";
 export * from "./staging-store.suite.js";
+// Streaming stores test suite
+export * from "./streaming-stores.suite.js";
 export * from "./tag-store.suite.js";
 // High-level store test suites
 export * from "./tree-store.suite.js";
