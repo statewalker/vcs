@@ -1,0 +1,27 @@
+{
+  "name": "@webrun-vcs/storage-tests",
+  "version": "0.1.0",
+  "description": "Cross-backend integration tests for WebRun VCS storage",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "biome check --write .",
+    "lint:check": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@statewalker/webrun-files": "catalog:",
+    "@webrun-vcs/testing": "workspace:*",
+    "@webrun-vcs/store-files": "workspace:*",
+    "@webrun-vcs/store-kv": "workspace:*",
+    "@webrun-vcs/store-mem": "workspace:*",
+    "@webrun-vcs/store-sql": "workspace:*",
+    "@webrun-vcs/utils": "workspace:*",
+    "@webrun-vcs/vcs": "workspace:*",
+    "sql.js": "^1.12.0",
+    "vitest": "catalog:",
+    "typescript": "catalog:",
+    "@types/node": "catalog:"
+  }
+}
