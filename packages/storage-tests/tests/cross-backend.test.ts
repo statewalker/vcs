@@ -6,16 +6,16 @@
  */
 
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
+import { createStreamingFileStores } from "@webrun-vcs/store-files";
+import { createStreamingKvStores, MemoryKVAdapter } from "@webrun-vcs/store-kv";
+import { createStreamingMemoryStores } from "@webrun-vcs/store-mem";
+import { createStreamingSqlStores } from "@webrun-vcs/store-sql";
+import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
 import {
   createCrossBackendTests,
   createStreamingStoresTests,
   type StreamingStoresFactory,
 } from "@webrun-vcs/testing";
-import { createStreamingFileStores } from "@webrun-vcs/store-files";
-import { MemoryKVAdapter, createStreamingKvStores } from "@webrun-vcs/store-kv";
-import { createStreamingMemoryStores } from "@webrun-vcs/store-mem";
-import { createStreamingSqlStores } from "@webrun-vcs/store-sql";
-import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { beforeAll } from "vitest";

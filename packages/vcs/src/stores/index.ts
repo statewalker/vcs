@@ -4,6 +4,9 @@
  * Provides Git-compatible object storage with streaming APIs.
  */
 
+// Compression wrapper
+export * from "./compressing-raw-storage.js";
+
 // Factory
 export * from "./create-streaming-stores.js";
 export * from "./hybrid-temp-store.js";

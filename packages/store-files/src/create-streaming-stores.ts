@@ -7,7 +7,12 @@
 
 import type { FilesApi } from "@statewalker/webrun-files";
 import type { GitStores } from "@webrun-vcs/vcs";
-import { createStreamingStores, HybridTempStore, MemoryTempStore } from "@webrun-vcs/vcs";
+import {
+  CompressingRawStorage,
+  createStreamingStores,
+  HybridTempStore,
+  MemoryTempStore,
+} from "@webrun-vcs/vcs";
 import { FileRawStorage } from "./file-raw-storage.js";
 import { FileTempStore } from "./file-temp-store.js";
 
@@ -39,7 +44,9 @@ export function createStreamingFileStores(
   const tempDir = `${objectsDir}/../tmp`;
   const spillThreshold = options?.spillThreshold ?? 1024 * 1024;
 
-  const storage = new FileRawStorage(files, objectsDir);
+  // FileRawStorage stores raw bytes; wrap with compression for Git compatibility
+  const rawStorage = new FileRawStorage(files, objectsDir);
+  const storage = new CompressingRawStorage(rawStorage);
 
   // Use hybrid temp store: small objects in memory, large spill to files
   const smallStore = new MemoryTempStore();

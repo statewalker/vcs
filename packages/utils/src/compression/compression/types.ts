@@ -5,7 +5,7 @@
 /**
  * Byte stream type - AsyncGenerator yielding Uint8Array chunks
  */
-export type ByteStream = AsyncGenerator<Uint8Array, void, unknown>;
+export type ByteStream = AsyncIterable<Uint8Array>;
 
 /**
  * Options for streaming compression/decompression
