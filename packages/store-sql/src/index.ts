@@ -44,10 +44,14 @@ export * from "./delta-repository.js";
 export * from "./metadata-repository.js";
 // Migrations
 export * from "./migrations/index.js";
+// Native SQL stores with query capabilities
+export * from "./native/index.js";
 export * from "./object-repository.js";
 export * from "./ref-store.js";
 // Low-level storage
 export * from "./sql-raw-storage.js";
 export * from "./staging-store.js";
+// Synchronization utilities
+export * from "./sync.js";
 export * from "./tag-store.js";
 export * from "./tree-store.js";

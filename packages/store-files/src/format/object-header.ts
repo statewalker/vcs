@@ -1,6 +1,8 @@
 /**
  * Git object header encoding/decoding
  *
+ * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ *
  * Git objects are stored with a header: "type size\0content"
  * where type is "blob", "tree", "commit", or "tag" and size is decimal.
  *

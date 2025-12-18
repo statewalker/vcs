@@ -1,6 +1,8 @@
 /**
  * Git annotated tag object format serialization and parsing
  *
+ * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ *
  * Tag format:
  *   object <object-sha1>
  *   type <object-type>

@@ -6,6 +6,8 @@ export default defineConfig({
     "interfaces/index": "src/interfaces/index.ts",
     "engine/index": "src/engine/index.ts",
     "base/index": "src/base/index.ts",
+    "format/index": "src/format/index.ts",
+    "stores/index": "src/stores/index.ts",
   },
   output: [
     {
