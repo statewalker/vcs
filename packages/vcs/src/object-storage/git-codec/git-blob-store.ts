@@ -9,6 +9,27 @@ import type { BlobStore, ObjectId } from "../interfaces/index.js";
 import type { GitObjectStore } from "./git-object-store.js";
 
 /**
+ * Convert sync or async iterable to async iterable
+ */
+function toAsyncIterable(
+  content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+): AsyncIterable<Uint8Array> {
+  // Check if it's already async iterable
+  if (Symbol.asyncIterator in content) {
+    return content as AsyncIterable<Uint8Array>;
+  }
+  // Convert sync iterable to async
+  const syncContent = content as Iterable<Uint8Array>;
+  return {
+    async *[Symbol.asyncIterator]() {
+      for (const chunk of syncContent) {
+        yield chunk;
+      }
+    },
+  };
+}
+
+/**
  * Git blob store implementation
  *
  * Delegates all operations to GitObjectStore with "blob" type.
@@ -19,15 +40,18 @@ export class GitBlobStore implements BlobStore {
   /**
    * Store blob with unknown size
    */
-  store(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
-    return this.objects.store("blob", content);
+  store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
+    return this.objects.store("blob", toAsyncIterable(content));
   }
 
   /**
    * Store blob with known size (optimized path)
    */
-  storeWithSize(size: number, content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
-    return this.objects.storeWithSize("blob", size, content);
+  storeWithSize(
+    size: number,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<ObjectId> {
+    return this.objects.storeWithSize("blob", size, toAsyncIterable(content));
   }
 
   /**

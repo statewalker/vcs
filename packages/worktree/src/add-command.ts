@@ -9,15 +9,11 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/AddCommand.java
  */
 
-import {
-  DeleteStagingEntry,
-  FileMode,
-  type ObjectStore,
-  type StagingStore,
-  UpdateStagingEntry,
-} from "@webrun-vcs/vcs";
+import { type BlobStore, FileMode } from "@webrun-vcs/vcs";
 
 import type { Add, AddOptions, AddResult } from "./interfaces/add.js";
+import { DeleteStagingEntry, UpdateStagingEntry } from "./interfaces/staging-edits.js";
+import type { StagingStore } from "./interfaces/staging-store.js";
 import type { WorkingTreeIterator } from "./interfaces/working-tree-iterator.js";
 
 /**
@@ -27,8 +23,8 @@ export interface AddCommandOptions {
   /** Working tree iterator */
   worktree: WorkingTreeIterator;
 
-  /** Object storage for blobs */
-  objects: ObjectStore;
+  /** Blob storage for file content */
+  blobs: BlobStore;
 
   /** Staging area (index) */
   staging: StagingStore;
@@ -101,12 +97,12 @@ function matchGlob(path: string, pattern: string): boolean {
  */
 export class AddCommand implements Add {
   private readonly worktree: WorkingTreeIterator;
-  private readonly objects: ObjectStore;
+  private readonly blobs: BlobStore;
   private readonly staging: StagingStore;
 
   constructor(options: AddCommandOptions) {
     this.worktree = options.worktree;
-    this.objects = options.objects;
+    this.blobs = options.blobs;
     this.staging = options.staging;
   }
 
@@ -267,21 +263,15 @@ export class AddCommand implements Add {
     // Calculate total size
     const totalSize = chunks.reduce((sum, c) => sum + c.length, 0);
 
-    // Create blob header
-    const header = new TextEncoder().encode(`blob ${totalSize}\0`);
-
-    // Combine header and content
-    const fullContent = new Uint8Array(header.length + totalSize);
-    fullContent.set(header, 0);
-
-    let offset = header.length;
-    for (const chunk of chunks) {
-      fullContent.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    // Store and get hash
-    return await this.objects.store([fullContent]);
+    // Store using BlobStore which handles Git header automatically
+    return await this.blobs.storeWithSize(
+      totalSize,
+      (async function* () {
+        for (const chunk of chunks) {
+          yield chunk;
+        }
+      })(),
+    );
   }
 }
 

@@ -5,7 +5,7 @@
  */
 
 import { type EditList, MyersDiff, RawText, RawTextComparator } from "@webrun-vcs/utils";
-import type { ObjectId, ObjectStore } from "@webrun-vcs/vcs";
+import type { BlobStore, ObjectId } from "@webrun-vcs/vcs";
 
 import { ChangeType, type DiffEntry } from "./diff-entry.js";
 
@@ -68,7 +68,7 @@ export interface FileContentDiff {
  *
  * @example
  * ```typescript
- * const formatter = new DiffFormatter(store.objects);
+ * const formatter = new DiffFormatter(store.blobs);
  *
  * // Get diff entries from DiffCommand
  * const entries = await git.diff().setOldTree(commitA).setNewTree(commitB).call();
@@ -87,7 +87,7 @@ export class DiffFormatter {
   private abbreviationLength: number;
 
   constructor(
-    private readonly objects: ObjectStore,
+    private readonly blobs: BlobStore,
     options: DiffFormatterOptions = {},
   ) {
     this.contextLines = options.contextLines ?? 3;
@@ -213,7 +213,7 @@ export class DiffFormatter {
    */
   private async loadContent(objectId: ObjectId): Promise<Uint8Array> {
     const chunks: Uint8Array[] = [];
-    for await (const chunk of this.objects.load(objectId)) {
+    for await (const chunk of this.blobs.load(objectId)) {
       chunks.push(chunk);
     }
 

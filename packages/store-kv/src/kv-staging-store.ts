@@ -4,19 +4,18 @@
  * Stores staging area entries using a key-value backend with JSON serialization.
  */
 
+import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/vcs";
+import { FileMode } from "@webrun-vcs/vcs";
 import type {
   MergeStageValue,
-  ObjectId,
   StagingBuilder,
   StagingEdit,
   StagingEditor,
   StagingEntry,
   StagingEntryOptions,
   StagingStore,
-  TreeEntry,
-  TreeStore,
-} from "@webrun-vcs/vcs";
-import { FileMode, MergeStage } from "@webrun-vcs/vcs";
+} from "@webrun-vcs/worktree";
+import { MergeStage } from "@webrun-vcs/worktree";
 import type { KVStore } from "./kv-store.js";
 
 /**

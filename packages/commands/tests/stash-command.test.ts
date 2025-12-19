@@ -156,7 +156,7 @@ describe("StashApplyCommand", () => {
     // Create a blob with the new content
     const encoder = new TextEncoder();
     const data = encoder.encode(content);
-    const blobId = await store.objects.store([data]);
+    const blobId = await store.blobs.store([data]);
 
     // Create a new tree with the modified file
     const stashTree = await store.trees.storeTree([{ name: filename, id: blobId, mode: 0o100644 }]);
@@ -340,7 +340,7 @@ describe("StashApplyCommand", () => {
 
     // Create a stash ref without HEAD
     const encoder = new TextEncoder();
-    const blobId = await store.objects.store([encoder.encode("content")]);
+    const blobId = await store.blobs.store([encoder.encode("content")]);
     const tree = await store.trees.storeTree([{ name: "file.txt", id: blobId, mode: 0o100644 }]);
 
     const commit = await store.commits.storeCommit({

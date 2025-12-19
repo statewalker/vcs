@@ -17,7 +17,6 @@ export default defineConfig({
     },
   ],
   external: [
-    "@statewalker/webrun-files",
     "@webrun-vcs/vcs",
     "@webrun-vcs/utils",
     /^@webrun-vcs\/utils\//,

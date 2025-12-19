@@ -233,14 +233,14 @@ describe("CommitCommand with --only flag", () => {
     // Check that file1 was updated
     const file1Entry = await store.trees.getEntry(headCommit.tree, "file1.txt");
     expect(file1Entry).toBeDefined();
-    const file1Content = await store.objects.load(file1Entry?.id);
+    const file1Content = await store.blobs.load(file1Entry?.id);
     const file1Text = new TextDecoder().decode(await collectBytes(file1Content));
     expect(file1Text).toBe("modified1\n");
 
     // Check that file2 was NOT updated (still has original content)
     const file2Entry = await store.trees.getEntry(headCommit.tree, "file2.txt");
     expect(file2Entry).toBeDefined();
-    const file2Content = await store.objects.load(file2Entry?.id);
+    const file2Content = await store.blobs.load(file2Entry?.id);
     const file2Text = new TextDecoder().decode(await collectBytes(file2Content));
     expect(file2Text).toBe("content2\n");
   });
@@ -268,17 +268,17 @@ describe("CommitCommand with --only flag", () => {
 
     // Verify a.txt was updated
     const aEntry = await store.trees.getEntry(headCommit.tree, "a.txt");
-    const aContent = await store.objects.load(aEntry?.id);
+    const aContent = await store.blobs.load(aEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(aContent))).toBe("aa\n");
 
     // Verify b.txt was NOT updated
     const bEntry = await store.trees.getEntry(headCommit.tree, "b.txt");
-    const bContent = await store.objects.load(bEntry?.id);
+    const bContent = await store.blobs.load(bEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(bContent))).toBe("b\n");
 
     // Verify c.txt was updated
     const cEntry = await store.trees.getEntry(headCommit.tree, "c.txt");
-    const cContent = await store.objects.load(cEntry?.id);
+    const cContent = await store.blobs.load(cEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(cContent))).toBe("cc\n");
   });
 
@@ -308,11 +308,11 @@ describe("CommitCommand with --only flag", () => {
     expect(srcEntry).toBeDefined();
 
     const mainEntry = await store.trees.getEntry(srcEntry?.id, "main.ts");
-    const mainContent = await store.objects.load(mainEntry?.id);
+    const mainContent = await store.blobs.load(mainEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(mainContent))).toBe("main updated\n");
 
     const utilsEntry = await store.trees.getEntry(srcEntry?.id, "utils.ts");
-    const utilsContent = await store.objects.load(utilsEntry?.id);
+    const utilsContent = await store.blobs.load(utilsEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(utilsContent))).toBe("utils\n");
   });
 });
@@ -428,11 +428,11 @@ describe("CommitCommand with --all flag", () => {
     const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
 
     const file1Entry = await store.trees.getEntry(headCommit.tree, "file1.txt");
-    const file1Content = await store.objects.load(file1Entry?.id);
+    const file1Content = await store.blobs.load(file1Entry?.id);
     expect(new TextDecoder().decode(await collectBytes(file1Content))).toBe("modified1\n");
 
     const file2Entry = await store.trees.getEntry(headCommit.tree, "file2.txt");
-    const file2Content = await store.objects.load(file2Entry?.id);
+    const file2Content = await store.blobs.load(file2Entry?.id);
     expect(new TextDecoder().decode(await collectBytes(file2Content))).toBe("modified2\n");
   });
 
@@ -523,7 +523,7 @@ describe("CommitCommand with --all flag", () => {
     // Tracked file should be updated
     const trackedEntry = await store.trees.getEntry(headCommit.tree, "tracked.txt");
     expect(trackedEntry).toBeDefined();
-    const trackedContent = store.objects.load(trackedEntry?.id ?? "");
+    const trackedContent = store.blobs.load(trackedEntry?.id ?? "");
     expect(new TextDecoder().decode(await collectBytes(trackedContent))).toBe("tracked modified\n");
   });
 });

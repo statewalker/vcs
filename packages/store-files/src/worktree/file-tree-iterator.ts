@@ -12,6 +12,16 @@
  */
 
 import { basename, type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
+import { sha1 } from "@webrun-vcs/utils/hash/sha1";
+import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+import { FileMode, type ObjectId } from "@webrun-vcs/vcs";
+import {
+  createIgnoreManager,
+  type IgnoreManager,
+  type WorkingTreeEntry,
+  type WorkingTreeIterator,
+  type WorkingTreeIteratorOptions,
+} from "@webrun-vcs/worktree";
 
 /**
  * Simplified file entry information for mode determination.
@@ -19,17 +29,6 @@ import { basename, type FileInfo, type FilesApi, joinPath } from "@statewalker/w
 interface SimplifiedFileInfo {
   kind: "file" | "directory";
 }
-
-import { sha1 } from "@webrun-vcs/utils/hash/sha1";
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
-import { FileMode, type ObjectId } from "@webrun-vcs/vcs";
-import { createIgnoreManager } from "./ignore/ignore-manager.js";
-import type { IgnoreManager } from "./interfaces/ignore-manager.js";
-import type {
-  WorkingTreeEntry,
-  WorkingTreeIterator,
-  WorkingTreeIteratorOptions,
-} from "./interfaces/working-tree-iterator.js";
 
 /**
  * Options for creating a FileTreeIterator.

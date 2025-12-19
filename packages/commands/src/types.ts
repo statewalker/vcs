@@ -1,12 +1,5 @@
-import type {
-  CommitStore,
-  ObjectStore,
-  RefStore,
-  StagingStore,
-  TagStore,
-  TreeStore,
-} from "@webrun-vcs/vcs";
-import type { WorkingTreeIterator } from "@webrun-vcs/worktree";
+import type { BlobStore, CommitStore, RefStore, TagStore, TreeStore } from "@webrun-vcs/vcs";
+import type { StagingStore, WorkingTreeIterator } from "@webrun-vcs/worktree";
 
 /**
  * Core storage interface for Git operations.
@@ -18,8 +11,8 @@ import type { WorkingTreeIterator } from "@webrun-vcs/worktree";
  * - CompositeGitStore: Mix of different storage backends
  */
 export interface GitStore {
-  /** Content-addressable object storage */
-  readonly objects: ObjectStore;
+  /** Blob (file content) storage */
+  readonly blobs: BlobStore;
 
   /** File tree (directory) storage */
   readonly trees: TreeStore;

@@ -31,8 +31,8 @@
  * ```
  */
 
-import { DeleteStagingEntry, FileMode, UpdateStagingEntry } from "@webrun-vcs/vcs";
-import type { WorkingTreeIterator } from "@webrun-vcs/worktree";
+import { FileMode } from "@webrun-vcs/vcs";
+import { DeleteStagingEntry, UpdateStagingEntry, type WorkingTreeIterator } from "@webrun-vcs/worktree";
 
 import { NoFilepatternError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
@@ -478,7 +478,7 @@ export class AddCommand extends GitCommand<AddResult> {
       chunks.push(chunk);
     }
 
-    // Store raw content - the object store handles blob formatting
-    return this.store.objects.store(chunks);
+    // Store raw content - the blob store handles blob formatting
+    return this.store.blobs.store(chunks);
   }
 }

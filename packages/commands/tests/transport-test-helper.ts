@@ -10,6 +10,7 @@ import { MemoryRefStore, MemoryStagingStore, MemoryTagStore } from "@webrun-vcs/
 import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
 import type {
   AncestryOptions,
+  BlobStore,
   Commit,
   CommitStore,
   ObjectId,
@@ -119,6 +120,85 @@ class MemoryGitObjectStore implements ObjectStore {
     for (const id of this.objects.keys()) {
       yield id;
     }
+  }
+}
+
+/**
+ * Collect chunks from sync or async iterable.
+ */
+async function collectChunks(
+  content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+): Promise<Uint8Array[]> {
+  const chunks: Uint8Array[] = [];
+  if (Symbol.asyncIterator in content) {
+    for await (const chunk of content as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+  } else {
+    for (const chunk of content as Iterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+  }
+  return chunks;
+}
+
+/**
+ * BlobStore wrapper that works with MemoryGitObjectStore.
+ *
+ * Handles Git header format: "blob {size}\0{content}"
+ */
+class GitFormatBlobStore implements BlobStore {
+  private objectStore: MemoryGitObjectStore;
+
+  constructor(objectStore: MemoryGitObjectStore) {
+    this.objectStore = objectStore;
+  }
+
+  async store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
+    const chunks = await collectChunks(content);
+    const data = concatBytes(chunks);
+    const gitObject = createGitObject("blob", data);
+    return this.objectStore.store([gitObject]);
+  }
+
+  async storeWithSize(
+    size: number,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<ObjectId> {
+    const chunks = await collectChunks(content);
+    const data = concatBytes(chunks);
+    if (data.length !== size) {
+      throw new Error(`Expected ${size} bytes but got ${data.length}`);
+    }
+    const gitObject = createGitObject("blob", data);
+    return this.objectStore.store([gitObject]);
+  }
+
+  async *load(id: ObjectId): AsyncIterable<Uint8Array> {
+    // Load raw Git object and strip header
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of this.objectStore.load(id)) {
+      chunks.push(chunk);
+    }
+    const data = concatBytes(chunks);
+
+    // Find null byte after header
+    let nullIdx = -1;
+    for (let i = 0; i < Math.min(data.length, 32); i++) {
+      if (data[i] === 0x00) {
+        nullIdx = i;
+        break;
+      }
+    }
+    if (nullIdx < 0) {
+      throw new Error("Invalid Git object: no header null byte");
+    }
+
+    yield data.subarray(nullIdx + 1);
+  }
+
+  async has(id: ObjectId): Promise<boolean> {
+    return this.objectStore.has(id);
   }
 }
 
@@ -359,15 +439,24 @@ class GitFormatTreeStore implements TreeStore {
 }
 
 /**
+ * Extended GitStore interface for testing that includes ObjectStore for transport.
+ */
+export interface TestGitStore extends GitStore {
+  /** Low-level object storage (for transport/pack operations) */
+  readonly objects: ObjectStore;
+}
+
+/**
  * Create a GitStore with Git-format object storage for testing.
  *
  * All stores coordinate to use Git-format SHA-1 IDs, making this
  * compatible with createVcsRepositoryAdapter.
  */
-export function createGitFormatTestStore(): GitStore {
+export function createGitFormatTestStore(): TestGitStore {
   const objects = new MemoryGitObjectStore();
   return {
     objects,
+    blobs: new GitFormatBlobStore(objects),
     trees: new GitFormatTreeStore(objects),
     commits: new GitFormatCommitStore(objects),
     refs: new MemoryRefStore(),
@@ -386,8 +475,8 @@ export interface TestServer {
   mockFetch: typeof globalThis.fetch;
   /** Base URL for the server */
   baseUrl: string;
-  /** The server-side GitStore */
-  serverStore: GitStore;
+  /** The server-side GitStore (with objects for transport) */
+  serverStore: TestGitStore;
   /** The server-side Git facade */
   serverGit: Git;
 }
@@ -420,7 +509,7 @@ function createMockFetch(
  * @param serverStore Optional pre-configured server store
  * @returns Test server configuration
  */
-export function createTestServer(serverStore?: GitStore): TestServer {
+export function createTestServer(serverStore?: TestGitStore): TestServer {
   const store = serverStore ?? createGitFormatTestStore();
 
   // Use createVcsRepositoryAdapter from transport package
@@ -539,16 +628,20 @@ export function createTestFetch(server: TestServer): typeof fetch {
  * createVcsRepositoryAdapter.
  */
 export async function addFileAndCommit(
-  store: GitStore,
+  store: TestGitStore,
   path: string,
   content: string,
   message: string,
 ): Promise<string> {
-  // Store blob in Git format
+  // Store blob using BlobStore (handles Git header automatically)
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
-  const blobGitObject = createGitObject("blob", data);
-  const blobId = await store.objects.store([blobGitObject]);
+  const blobId = await store.blobs.storeWithSize(
+    data.length,
+    (async function* () {
+      yield data;
+    })(),
+  );
 
   // Update staging
   const editor = store.staging.editor();

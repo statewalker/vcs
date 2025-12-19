@@ -9,21 +9,19 @@
  * - Ignored files handling
  */
 
+import type { BlobStore, ObjectId, TreeStore } from "@webrun-vcs/vcs";
+import { FileMode } from "@webrun-vcs/vcs";
+import { beforeEach, describe, expect, it } from "vitest";
+import { AddCommand, createAddCommand } from "../src/add-command.js";
 import type {
   MergeStageValue,
-  ObjectId,
-  ObjectStore,
   StagingBuilder,
   StagingEdit,
   StagingEditor,
   StagingEntry,
   StagingEntryOptions,
   StagingStore,
-  TreeStore,
-} from "@webrun-vcs/vcs";
-import { FileMode } from "@webrun-vcs/vcs";
-import { beforeEach, describe, expect, it } from "vitest";
-import { AddCommand, createAddCommand } from "../src/add-command.js";
+} from "../src/interfaces/staging-store.js";
 import type {
   WorkingTreeEntry,
   WorkingTreeIterator,
@@ -92,59 +90,62 @@ function createMockWorktreeIterator() {
 }
 
 /**
- * Mock object store.
+ * Mock blob store.
  */
-function createMockObjectStore() {
-  const objects = new Map<ObjectId, Uint8Array>();
+function createMockBlobStore() {
+  const blobs = new Map<ObjectId, Uint8Array>();
   let idCounter = 0;
 
-  return {
-    objects,
+  const store = {
+    blobs,
 
-    async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
+    async store(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
       const chunks: Uint8Array[] = [];
-      if (Symbol.asyncIterator in data) {
-        for await (const chunk of data as AsyncIterable<Uint8Array>) {
-          chunks.push(chunk);
-        }
-      } else {
-        for (const chunk of data as Iterable<Uint8Array>) {
-          chunks.push(chunk);
-        }
+      for await (const chunk of content) {
+        chunks.push(chunk);
       }
-
       const totalSize = chunks.reduce((sum, c) => sum + c.length, 0);
-      const content = new Uint8Array(totalSize);
+      const data = new Uint8Array(totalSize);
       let offset = 0;
       for (const chunk of chunks) {
-        content.set(chunk, offset);
+        data.set(chunk, offset);
         offset += chunk.length;
       }
 
       const id = `blob_${idCounter++}`;
-      objects.set(id, content);
+      blobs.set(id, data);
+      return id;
+    },
+
+    async storeWithSize(size: number, content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of content) {
+        chunks.push(chunk);
+      }
+      const data = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) {
+        data.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const id = `blob_${idCounter++}`;
+      blobs.set(id, data);
       return id;
     },
 
     async *load(id: ObjectId): AsyncIterable<Uint8Array> {
-      const content = objects.get(id);
-      if (!content) throw new Error(`Object not found: ${id}`);
+      const content = blobs.get(id);
+      if (!content) throw new Error(`Blob not found: ${id}`);
       yield content;
     },
 
     async has(id: ObjectId): Promise<boolean> {
-      return objects.has(id);
+      return blobs.has(id);
     },
+  } satisfies BlobStore & { blobs: Map<ObjectId, Uint8Array> };
 
-    async getSize(id: ObjectId): Promise<number> {
-      const content = objects.get(id);
-      return content?.length ?? -1;
-    },
-
-    async delete(id: ObjectId): Promise<boolean> {
-      return objects.delete(id);
-    },
-  } satisfies ObjectStore;
+  return store;
 }
 
 /**
@@ -296,18 +297,18 @@ function createMockStagingStore() {
 
 describe("AddCommand", () => {
   let worktreeMock: ReturnType<typeof createMockWorktreeIterator>;
-  let objects: ReturnType<typeof createMockObjectStore>;
+  let blobs: ReturnType<typeof createMockBlobStore>;
   let stagingMock: ReturnType<typeof createMockStagingStore>;
   let addCommand: AddCommand;
 
   beforeEach(() => {
     worktreeMock = createMockWorktreeIterator();
-    objects = createMockObjectStore();
+    blobs = createMockBlobStore();
     stagingMock = createMockStagingStore();
 
     addCommand = new AddCommand({
       worktree: worktreeMock.iterator,
-      objects,
+      blobs,
       staging: stagingMock.store,
     });
   });
@@ -422,13 +423,13 @@ describe("AddCommand", () => {
 
       await addCommand.add(["file.txt"]);
 
-      // Check object was stored
-      expect(objects.objects.size).toBe(1);
+      // Check blob was stored
+      expect(blobs.blobs.size).toBe(1);
 
-      // Verify blob format
-      const [storedContent] = objects.objects.values();
+      // Verify content (BlobStore stores raw content, not Git header format)
+      const [storedContent] = blobs.blobs.values();
       const text = new TextDecoder().decode(storedContent);
-      expect(text).toContain(`blob ${content.length}\0${content}`);
+      expect(text).toBe(content);
     });
 
     it("should preserve executable mode", async () => {
@@ -538,7 +539,7 @@ describe("AddCommand", () => {
     it("should create an AddCommand instance", () => {
       const cmd = createAddCommand({
         worktree: worktreeMock.iterator,
-        objects,
+        blobs,
         staging: stagingMock.store,
       });
 
