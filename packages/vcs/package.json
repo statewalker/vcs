@@ -36,6 +36,16 @@
       "types": "./dist/stores/index.d.ts",
       "import": "./dist/esm/stores/index.js",
       "require": "./dist/cjs/stores/index.cjs"
+    },
+    "./binary-storage": {
+      "types": "./dist/binary-storage/index.d.ts",
+      "import": "./dist/esm/binary-storage/index.js",
+      "require": "./dist/cjs/binary-storage/index.cjs"
+    },
+    "./object-storage": {
+      "types": "./dist/object-storage/index.d.ts",
+      "import": "./dist/esm/object-storage/index.js",
+      "require": "./dist/cjs/object-storage/index.cjs"
     }
   },
   "files": [

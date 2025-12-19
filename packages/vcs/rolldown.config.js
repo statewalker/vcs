@@ -8,6 +8,8 @@ export default defineConfig({
     "base/index": "src/base/index.ts",
     "format/index": "src/format/index.ts",
     "stores/index": "src/stores/index.ts",
+    "binary-storage/index": "src/binary-storage/index.ts",
+    "object-storage/index": "src/object-storage/index.ts",
   },
   output: [
     {

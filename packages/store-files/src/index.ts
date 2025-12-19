@@ -10,6 +10,8 @@
 export * from "./attik.loose/index.js";
 // Backend implementations (new delta architecture)
 export * from "./backends/index.js";
+// Binary storage (new architecture)
+export * from "./binary-storage/index.js";
 // Composite storage
 export * from "./composite-object-storage.js";
 // Factory function for streaming stores

@@ -19,3 +19,5 @@ export * from "./interfaces/index.js";
 
 // Streaming stores
 export * from "./stores/index.js";
+
+// Binary storage is available via '@webrun-vcs/vcs/binary-storage'
