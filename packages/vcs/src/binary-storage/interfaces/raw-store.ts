@@ -21,7 +21,7 @@ export interface RawStore {
    * @param content Async iterable of content chunks
    * @returns Number of bytes stored (may differ from input if compressed)
    */
-  store(key: string, content: AsyncIterable<Uint8Array>): Promise<number>;
+  store(key: string, content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<number>;
 
   /**
    * Load byte stream by key

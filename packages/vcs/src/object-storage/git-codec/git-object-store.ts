@@ -88,14 +88,7 @@ export class GitObjectStore {
     }
 
     const id = bytesToHex(hasher.finalize());
-
-    async function* generateObject(): AsyncIterable<Uint8Array> {
-      for (const chunk of chunks) {
-        yield chunk;
-      }
-    }
-
-    await this.storage.store(id, generateObject());
+    await this.storage.store(id, chunks);
     return id;
   }
 
