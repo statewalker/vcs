@@ -10,6 +10,8 @@ export default defineConfig({
     "stores/index": "src/stores/index.ts",
     "binary-storage/index": "src/binary-storage/index.ts",
     "object-storage/index": "src/object-storage/index.ts",
+    "delta-compression/index": "src/delta-compression/index.ts",
+    "garbage-collection/index": "src/garbage-collection/index.ts",
   },
   output: [
     {
