@@ -13,8 +13,7 @@ import {
   entriesToCommit,
 } from "../../format/commit-format.js";
 import { toArray } from "../../format/stream-utils.js";
-import type { AncestryOptions, Commit, CommitStore } from "../../interfaces/commit-store.js";
-import type { ObjectId } from "../../interfaces/types.js";
+import type { AncestryOptions, Commit, CommitStore, ObjectId } from "../interfaces/index.js";
 import type { GitObjectStore } from "./git-object-store.js";
 
 /**

@@ -7,7 +7,7 @@
  * Example: "John Doe <john@example.com> 1234567890 +0100"
  */
 
-import type { PersonIdent } from "../interfaces/types.js";
+import type { PersonIdent } from "../object-storage/interfaces/index.js";
 
 /**
  * Format a PersonIdent to Git format string

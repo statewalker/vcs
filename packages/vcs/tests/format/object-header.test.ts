@@ -14,7 +14,7 @@ import {
   typeStringToCode,
 } from "../../src/format/object-header.js";
 import { collect } from "../../src/format/stream-utils.js";
-import { ObjectType } from "../../src/interfaces/types.js";
+import { ObjectType } from "../../src/object-storage/interfaces/index.js";
 
 describe("object-header", () => {
   describe("typeCodeToString", () => {

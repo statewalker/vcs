@@ -10,7 +10,7 @@ import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
 import type { RawStore } from "../../binary-storage/interfaces/raw-store.js";
 import type { VolatileStore } from "../../binary-storage/volatile/volatile-store.js";
 import { parseHeader, stripHeader } from "../../format/object-header.js";
-import type { ObjectId, ObjectTypeString } from "../../interfaces/types.js";
+import type { ObjectId, ObjectTypeString } from "../interfaces/index.js";
 
 const encoder = new TextEncoder();
 

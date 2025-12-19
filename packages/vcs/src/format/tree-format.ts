@@ -13,8 +13,7 @@
  */
 
 import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
-import type { TreeEntry } from "../interfaces/tree-store.js";
-import { FileMode, GitFormat } from "../interfaces/types.js";
+import { FileMode, GitFormat, type TreeEntry } from "../object-storage/interfaces/index.js";
 import { asAsyncIterable, concat, encodeString } from "./stream-utils.js";
 
 const SPACE = 0x20;

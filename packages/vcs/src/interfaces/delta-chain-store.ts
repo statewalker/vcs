@@ -1,5 +1,5 @@
 import type { Delta } from "@webrun-vcs/utils";
-import type { ObjectId } from "./types.js";
+import type { ObjectId } from "../object-storage/interfaces/index.js";
 
 /**
  * Stored delta information

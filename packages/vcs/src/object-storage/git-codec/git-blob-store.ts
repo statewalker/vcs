@@ -5,8 +5,7 @@
  * Blobs are the simplest object type - just raw binary content.
  */
 
-import type { BlobStore } from "../../interfaces/blob-store.js";
-import type { ObjectId } from "../../interfaces/types.js";
+import type { BlobStore, ObjectId } from "../interfaces/index.js";
 import type { GitObjectStore } from "./git-object-store.js";
 
 /**

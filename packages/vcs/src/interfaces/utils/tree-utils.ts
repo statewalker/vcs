@@ -1,5 +1,4 @@
-import type { TreeEntry } from "../tree-store.js";
-import { FileMode } from "../types.js";
+import { FileMode, type TreeEntry } from "../../object-storage/interfaces/index.js";
 
 /**
  * Collect tree entries from async iterable into array

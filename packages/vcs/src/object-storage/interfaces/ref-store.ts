@@ -1,3 +1,7 @@
+/**
+ * Reference storage interface
+ */
+
 import type { ObjectId } from "./types.js";
 
 /**

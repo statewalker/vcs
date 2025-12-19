@@ -10,10 +10,12 @@
  * All implementations produce identical Git object IDs for the same content.
  */
 
-import type { BlobStore } from "./blob-store.js";
-import type { CommitStore } from "./commit-store.js";
-import type { TagStore } from "./tag-store.js";
-import type { TreeStore } from "./tree-store.js";
+import type {
+  BlobStore,
+  CommitStore,
+  TagStore,
+  TreeStore,
+} from "../object-storage/interfaces/index.js";
 
 /**
  * Collection of Git-compatible typed stores

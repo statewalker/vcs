@@ -7,15 +7,17 @@
 import { describe, expect, it } from "vitest";
 import { MemoryVolatileStore } from "../../../src/binary-storage/volatile/memory-volatile-store.js";
 import { collect, toArray } from "../../../src/format/stream-utils.js";
-import type { Commit } from "../../../src/interfaces/commit-store.js";
-import type { AnnotatedTag } from "../../../src/interfaces/tag-store.js";
-import type { TreeEntry } from "../../../src/interfaces/tree-store.js";
-import { FileMode, ObjectType } from "../../../src/interfaces/types.js";
 import { GitBlobStore } from "../../../src/object-storage/git-codec/git-blob-store.js";
 import { GitCommitStore } from "../../../src/object-storage/git-codec/git-commit-store.js";
 import { GitObjectStore } from "../../../src/object-storage/git-codec/git-object-store.js";
 import { GitTagStore } from "../../../src/object-storage/git-codec/git-tag-store.js";
 import { GitTreeStore } from "../../../src/object-storage/git-codec/git-tree-store.js";
+import type {
+  AnnotatedTag,
+  Commit,
+  TreeEntry,
+} from "../../../src/object-storage/interfaces/index.js";
+import { FileMode, ObjectType } from "../../../src/object-storage/interfaces/index.js";
 import { MemoryRawStore } from "./memory-raw-store.js";
 
 describe("git-codec stores", () => {

@@ -1,3 +1,7 @@
+/**
+ * Tag storage interface
+ */
+
 import type { ObjectId, ObjectTypeCode, PersonIdent } from "./types.js";
 
 /**

@@ -1,4 +1,4 @@
-import type { ObjectId } from "./types.js";
+import type { ObjectId } from "../object-storage/interfaces/index.js";
 
 /**
  * Core object storage interface

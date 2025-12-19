@@ -6,7 +6,7 @@
  * make good delta bases. This follows Git's pack window approach.
  */
 
-import type { ObjectId } from "../../interfaces/types.js";
+import type { ObjectId } from "../../object-storage/interfaces/index.js";
 import type { DeltaCandidateStrategy, ObjectStorage } from "../types.js";
 
 /**

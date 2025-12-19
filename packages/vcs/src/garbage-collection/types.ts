@@ -5,8 +5,12 @@
  */
 
 import type { DeltaStorageImpl } from "../delta-compression/delta-storage-impl.js";
-import type { CommitStore, TagStore, TreeStore } from "../interfaces/index.js";
-import type { ObjectId } from "../interfaces/types.js";
+import type {
+  CommitStore,
+  ObjectId,
+  TagStore,
+  TreeStore,
+} from "../object-storage/interfaces/index.js";
 
 /**
  * Context aggregating all storages required for packing operations

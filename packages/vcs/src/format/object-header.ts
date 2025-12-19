@@ -5,8 +5,11 @@
  * where type is "blob", "tree", "commit", or "tag" and size is decimal.
  */
 
-import type { ObjectTypeCode, ObjectTypeString } from "../interfaces/types.js";
-import { ObjectType } from "../interfaces/types.js";
+import {
+  ObjectType,
+  type ObjectTypeCode,
+  type ObjectTypeString,
+} from "../object-storage/interfaces/index.js";
 import { concat, encodeString } from "./stream-utils.js";
 
 /** Null byte for header termination */

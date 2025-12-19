@@ -9,7 +9,7 @@
  * SHA-1 hash is computed over the full object (header + content).
  */
 
-import type { ObjectId, ObjectTypeString } from "./types.js";
+import type { ObjectId, ObjectTypeString } from "../object-storage/interfaces/index.js";
 
 /**
  * Parsed Git object header information

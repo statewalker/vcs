@@ -10,25 +10,20 @@
  * - `@webrun-vcs/vcs/garbage-collection` - GCController
  */
 
-// Typed store interfaces (actively used)
-export * from "./blob-store.js";
-export * from "./commit-store.js";
+// Core types and store interfaces from object-storage
+export * from "../object-storage/interfaces/index.js";
+
 // Git object storage interface
 export * from "./git-object-store.js";
 // Combined stores interface
 export * from "./git-stores.js";
 export * from "./object-store.js";
-export * from "./ref-store.js";
 // Staging interfaces
 export * from "./staging-edits.js";
 export * from "./staging-store.js";
-export * from "./tag-store.js";
 
 // Low-level storage interfaces
 export * from "./temp-store.js";
-export * from "./tree-store.js";
-// Core type definitions
-export * from "./types.js";
 
 // Utilities
 export * from "./utils/index.js";

@@ -5,7 +5,7 @@
  * Based on the observation that similar-sized objects often produce good deltas.
  */
 
-import type { ObjectId } from "../../interfaces/types.js";
+import type { ObjectId } from "../../object-storage/interfaces/index.js";
 import type { DeltaCandidateStrategy, ObjectStorage } from "../types.js";
 
 /**
