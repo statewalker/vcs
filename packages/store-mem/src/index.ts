@@ -7,6 +7,8 @@
 
 // Binary storage (new architecture)
 export * from "./binary-storage/index.js";
+// Object storage (new architecture)
+export * from "./object-storage/index.js";
 // High-level store implementations
 export * from "./commit-store.js";
 // Factory functions
