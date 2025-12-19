@@ -7,8 +7,6 @@
  */
 
 export * from "./commit-store.suite.js";
-// Storage interface test suites
-export * from "./delta-object-storage.suite.js";
 // Repository interface test suites
 export * from "./delta-repository.suite.js";
 export * from "./metadata-repository.suite.js";

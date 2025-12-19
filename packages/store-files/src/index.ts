@@ -8,8 +8,6 @@
 
 // Loose object handling
 export * from "./attik.loose/index.js";
-// Backend implementations (new delta architecture)
-export * from "./backends/index.js";
 // Binary storage (new architecture)
 export * from "./binary-storage/index.js";
 // Composite storage
@@ -17,7 +15,6 @@ export * from "./composite-object-storage.js";
 // Factory function for streaming stores
 export * from "./create-streaming-stores.js";
 // Low-level storage implementations
-export * from "./file-raw-storage.js";
 export * from "./file-temp-store.js";
 // Format utilities (for advanced use cases)
 export * from "./format/index.js";

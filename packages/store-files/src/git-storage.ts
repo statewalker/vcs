@@ -10,9 +10,9 @@
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import {
   type CommitStore,
-  type DeltaObjectStore,
   isSymbolicRef,
   type ObjectId,
+  type ObjectStore,
   type RefStore,
   type TagStore,
   type TreeStore,
@@ -43,7 +43,7 @@ export interface GitStorageOptions {
  */
 export interface GitStorageApi {
   /** Raw object storage with delta support (stores/loads raw bytes, combines loose + pack) */
-  rawStorage: DeltaObjectStore;
+  rawStorage: ObjectStore;
   /** Object storage (blob-centric interface) */
   objects: GitObjectStorage;
   /** File tree storage */

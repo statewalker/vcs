@@ -14,8 +14,6 @@ export * from "./create-memory-storage.js";
 export * from "./create-streaming-stores.js";
 // Repository implementations
 export * from "./delta-repository.js";
-// Low-level storage
-export * from "./memory-raw-storage.js";
 export * from "./metadata-repository.js";
 export * from "./object-repository.js";
 // Object storage (new architecture)
