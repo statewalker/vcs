@@ -5,6 +5,8 @@
  * for testing and development purposes.
  */
 
+// Binary storage (new architecture)
+export * from "./binary-storage/index.js";
 // High-level store implementations
 export * from "./commit-store.js";
 // Factory functions

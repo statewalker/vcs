@@ -338,6 +338,9 @@ importers:
 
   packages/store-kv:
     dependencies:
+      '@webrun-vcs/utils':
+        specifier: workspace:*
+        version: link:../utils
       '@webrun-vcs/vcs':
         specifier: workspace:*
         version: link:../vcs
@@ -360,6 +363,9 @@ importers:
 
   packages/store-mem:
     dependencies:
+      '@webrun-vcs/utils':
+        specifier: workspace:*
+        version: link:../utils
       '@webrun-vcs/vcs':
         specifier: workspace:*
         version: link:../vcs
