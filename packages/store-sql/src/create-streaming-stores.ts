@@ -1,17 +1,17 @@
 /**
  * Factory function for creating Git-compatible streaming stores
  *
- * Creates stores using the new streaming architecture that produces
- * Git-compatible object IDs.
+ * @deprecated Use createSqlObjectStores from './object-storage/index.js' instead.
+ * This file is kept for backwards compatibility.
  */
 
 import type { GitStores } from "@webrun-vcs/vcs";
-import { createStreamingStores, MemoryTempStore } from "@webrun-vcs/vcs";
 import type { DatabaseClient } from "./database-client.js";
-import { SqlRawStorage } from "./sql-raw-storage.js";
+import { createSqlObjectStores } from "./object-storage/index.js";
 
 /**
  * Options for creating SQL-based streaming stores
+ * @deprecated Use CreateSqlObjectStoresOptions instead
  */
 export interface StreamingSqlStoresOptions {
   /** Table name for storing raw objects (default: "raw_objects") */
@@ -21,8 +21,7 @@ export interface StreamingSqlStoresOptions {
 /**
  * Create Git-compatible stores backed by SQL database.
  *
- * Uses the streaming architecture with proper Git header format
- * for SHA-1 compatibility.
+ * @deprecated Use createSqlObjectStores from './object-storage/index.js' instead.
  *
  * @param db Database client for SQL operations
  * @param options Optional configuration
@@ -32,10 +31,20 @@ export function createStreamingSqlStores(
   db: DatabaseClient,
   options?: StreamingSqlStoresOptions,
 ): GitStores {
-  const tableName = options?.tableName ?? "raw_objects";
+  const stores = createSqlObjectStores({
+    db,
+    tableName: options?.tableName,
+  });
 
-  const storage = new SqlRawStorage(db, tableName);
-  const temp = new MemoryTempStore();
-
-  return createStreamingStores({ storage, temp });
+  // Return GitStores-compatible interface
+  return {
+    commits: stores.commits,
+    trees: stores.trees,
+    blobs: stores.blobs,
+    tags: stores.tags,
+  };
 }
+
+// Re-export new types for migration
+export type { SqlObjectStores } from "./object-storage/index.js";
+export { createSqlObjectStores } from "./object-storage/index.js";

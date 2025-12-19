@@ -1,17 +1,17 @@
 /**
  * Factory function for creating Git-compatible streaming stores
  *
- * Creates stores using the new streaming architecture that produces
- * Git-compatible object IDs.
+ * @deprecated Use createKvObjectStores from './object-storage/index.js' instead.
+ * This file is kept for backwards compatibility.
  */
 
 import type { GitStores } from "@webrun-vcs/vcs";
-import { createStreamingStores, MemoryTempStore } from "@webrun-vcs/vcs";
-import { KvRawStorage } from "./kv-raw-storage.js";
 import type { KVStore } from "./kv-store.js";
+import { createKvObjectStores } from "./object-storage/index.js";
 
 /**
  * Options for creating KV-based streaming stores
+ * @deprecated Use CreateKvObjectStoresOptions instead
  */
 export interface StreamingKvStoresOptions {
   /** Key prefix for namespacing objects (default: "objects/") */
@@ -21,8 +21,7 @@ export interface StreamingKvStoresOptions {
 /**
  * Create Git-compatible stores backed by key-value store.
  *
- * Uses the streaming architecture with proper Git header format
- * for SHA-1 compatibility.
+ * @deprecated Use createKvObjectStores from './object-storage/index.js' instead.
  *
  * @param kv Key-value store backend
  * @param options Optional configuration
@@ -32,10 +31,20 @@ export function createStreamingKvStores(
   kv: KVStore,
   options?: StreamingKvStoresOptions,
 ): GitStores {
-  const prefix = options?.prefix ?? "objects/";
+  const stores = createKvObjectStores({
+    kv,
+    prefix: options?.prefix ?? "objects/",
+  });
 
-  const storage = new KvRawStorage(kv, prefix);
-  const temp = new MemoryTempStore();
-
-  return createStreamingStores({ storage, temp });
+  // Return GitStores-compatible interface
+  return {
+    commits: stores.commits,
+    trees: stores.trees,
+    blobs: stores.blobs,
+    tags: stores.tags,
+  };
 }
+
+// Re-export new types for migration
+export type { KvObjectStores } from "./object-storage/index.js";
+export { createKvObjectStores } from "./object-storage/index.js";
