@@ -40,3 +40,5 @@ export * from "./staging/index.js";
 export * from "./typed-object-utils.js";
 // Utility functions
 export * from "./utils/index.js";
+// Worktree implementations (file-based)
+export * from "./worktree/index.js";

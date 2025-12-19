@@ -15,9 +15,9 @@ import {
   isSymbolicRef,
   type ObjectId,
   type RefStore,
-  type StagingStore,
   type TreeStore,
 } from "@webrun-vcs/vcs";
+import type { StagingStore } from "./interfaces/staging-store.js";
 import {
   FileStatus,
   type FileStatusEntry,

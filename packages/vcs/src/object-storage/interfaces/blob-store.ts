@@ -20,10 +20,10 @@ export interface BlobStore {
    *
    * Uses TempStore internally to determine size before storage.
    *
-   * @param content Async iterable of blob content chunks
+   * @param content Sync or async iterable of blob content chunks
    * @returns ObjectId of the stored blob
    */
-  store(content: AsyncIterable<Uint8Array>): Promise<ObjectId>;
+  store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId>;
 
   /**
    * Store blob with known size (optimized path)
@@ -31,10 +31,13 @@ export interface BlobStore {
    * Direct streaming without temporary storage.
    *
    * @param size Content size in bytes
-   * @param content Async iterable of blob content chunks
+   * @param content Sync or async iterable of blob content chunks
    * @returns ObjectId of the stored blob
    */
-  storeWithSize(size: number, content: AsyncIterable<Uint8Array>): Promise<ObjectId>;
+  storeWithSize(
+    size: number,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<ObjectId>;
 
   /**
    * Load blob content

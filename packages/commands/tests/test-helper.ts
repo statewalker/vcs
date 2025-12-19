@@ -10,17 +10,49 @@ import {
   MemoryTagStore,
   MemoryTreeStore,
 } from "@webrun-vcs/store-mem";
-import type { ObjectId, PersonIdent } from "@webrun-vcs/vcs";
+import type { BlobStore, ObjectId, ObjectStore, PersonIdent } from "@webrun-vcs/vcs";
 import { FileMode } from "@webrun-vcs/vcs";
 
 import { Git, type GitStore } from "../src/index.js";
 
 /**
+ * Simple BlobStore wrapper around ObjectStore for testing.
+ * Stores content WITHOUT Git headers (simple key-value semantics).
+ */
+class SimpleBlobStore implements BlobStore {
+  private objects: ObjectStore;
+
+  constructor(objects: ObjectStore) {
+    this.objects = objects;
+  }
+
+  async store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
+    return this.objects.store(content);
+  }
+
+  async storeWithSize(
+    _size: number,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<ObjectId> {
+    return this.objects.store(content);
+  }
+
+  load(id: ObjectId): AsyncIterable<Uint8Array> {
+    return this.objects.load(id);
+  }
+
+  has(id: ObjectId): Promise<boolean> {
+    return this.objects.has(id);
+  }
+}
+
+/**
  * Create an in-memory GitStore for testing.
  */
 export function createTestStore(): GitStore {
+  const objects = createMemoryStorage();
   return {
-    objects: createMemoryStorage(),
+    blobs: new SimpleBlobStore(objects),
     trees: new MemoryTreeStore(),
     commits: new MemoryCommitStore(),
     refs: new MemoryRefStore(),
@@ -87,7 +119,12 @@ export async function addFile(store: GitStore, path: string, content: string): P
   // Store the content as a blob
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
-  const objectId = await store.objects.store([data]);
+  const objectId = await store.blobs.storeWithSize(
+    data.length,
+    (async function* () {
+      yield data;
+    })(),
+  );
 
   // Add to staging
   const editor = store.staging.editor();

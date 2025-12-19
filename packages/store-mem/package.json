@@ -26,7 +26,8 @@
   },
   "dependencies": {
     "@webrun-vcs/utils": "workspace:*",
-    "@webrun-vcs/vcs": "workspace:*"
+    "@webrun-vcs/vcs": "workspace:*",
+    "@webrun-vcs/worktree": "workspace:*"
   },
   "devDependencies": {
     "@webrun-vcs/testing": "workspace:*",

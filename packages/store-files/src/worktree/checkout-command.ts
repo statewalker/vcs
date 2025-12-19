@@ -12,17 +12,20 @@
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import {
+  type BlobStore,
   type CommitStore,
   FileMode,
   type ObjectId,
-  type ObjectStore,
   type RefStore,
-  type StagingStore,
   type TreeEntry,
   type TreeStore,
 } from "@webrun-vcs/vcs";
-
-import type { Checkout, CheckoutOptions, CheckoutResult } from "./interfaces/checkout.js";
+import type {
+  Checkout,
+  CheckoutOptions,
+  CheckoutResult,
+  StagingStore,
+} from "@webrun-vcs/worktree";
 
 /**
  * Flattened tree entry with full path.
@@ -42,8 +45,8 @@ export interface CheckoutCommandOptions {
   /** Working tree root path */
   workTreeRoot: string;
 
-  /** Object storage for loading blob content */
-  objects: ObjectStore;
+  /** Blob storage for loading file content */
+  blobs: BlobStore;
 
   /** Tree storage for loading tree entries */
   trees: TreeStore;
@@ -64,7 +67,7 @@ export interface CheckoutCommandOptions {
 export class CheckoutCommand implements Checkout {
   private readonly files: FilesApi;
   private readonly workTreeRoot: string;
-  private readonly objects: ObjectStore;
+  private readonly blobs: BlobStore;
   private readonly trees: TreeStore;
   private readonly commits: CommitStore;
   private readonly refs: RefStore;
@@ -73,7 +76,7 @@ export class CheckoutCommand implements Checkout {
   constructor(options: CheckoutCommandOptions) {
     this.files = options.files;
     this.workTreeRoot = options.workTreeRoot;
-    this.objects = options.objects;
+    this.blobs = options.blobs;
     this.trees = options.trees;
     this.commits = options.commits;
     this.refs = options.refs;
@@ -299,7 +302,7 @@ export class CheckoutCommand implements Checkout {
     }
 
     // Load and write content
-    const content = await this.loadObjectContent(objectId);
+    const content = await this.loadBlobContent(objectId);
     await this.files.write(absolutePath, [content]);
 
     // Note: FilesApi doesn't support chmod, so executable bit is not set
@@ -307,11 +310,11 @@ export class CheckoutCommand implements Checkout {
   }
 
   /**
-   * Load object content as Uint8Array.
+   * Load blob content as Uint8Array.
    */
-  private async loadObjectContent(objectId: ObjectId): Promise<Uint8Array> {
+  private async loadBlobContent(objectId: ObjectId): Promise<Uint8Array> {
     const chunks: Uint8Array[] = [];
-    for await (const chunk of this.objects.load(objectId)) {
+    for await (const chunk of this.blobs.load(objectId)) {
       chunks.push(chunk);
     }
     return concatBytes(chunks);

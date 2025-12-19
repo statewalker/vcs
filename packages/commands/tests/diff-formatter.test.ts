@@ -22,7 +22,7 @@ describe("DiffFormatter", () => {
     expect(entries[0].changeType).toBe(ChangeType.ADD);
 
     // Format the diff
-    const formatter = new DiffFormatter(store.objects);
+    const formatter = new DiffFormatter(store.blobs);
     const diff = await formatter.format(entries[0]);
 
     expect(diff.entry).toBe(entries[0]);
@@ -86,7 +86,7 @@ describe("DiffFormatter", () => {
     expect(entries[0].changeType).toBe(ChangeType.MODIFY);
 
     // Format the diff
-    const formatter = new DiffFormatter(store.objects);
+    const formatter = new DiffFormatter(store.blobs);
     const diff = await formatter.format(entries[0]);
 
     expect(diff.isBinary).toBe(false);
@@ -115,7 +115,7 @@ describe("DiffFormatter", () => {
 
     // Get and format the diff
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.objects, { contextLines: 3 });
+    const formatter = new DiffFormatter(store.blobs, { contextLines: 3 });
     const diff = await formatter.format(entries[0]);
 
     expect(diff.hunks.length).toBe(1);
@@ -143,7 +143,7 @@ describe("DiffFormatter", () => {
 
     // Get and format the diff with small context
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.objects, { contextLines: 2 });
+    const formatter = new DiffFormatter(store.blobs, { contextLines: 2 });
     const diff = await formatter.format(entries[0]);
 
     // Should have 2 separate hunks due to distance
@@ -159,7 +159,7 @@ describe("DiffFormatter", () => {
 
     // Get and format the diff
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.objects);
+    const formatter = new DiffFormatter(store.blobs);
     const diff = await formatter.format(entries[0]);
 
     const output = formatter.toString(diff);
@@ -182,7 +182,7 @@ describe("DiffFormatter", () => {
 
     // Get and format all diffs
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.objects);
+    const formatter = new DiffFormatter(store.blobs);
     const output = await formatter.formatAll(entries);
 
     // Should contain both files
@@ -201,7 +201,7 @@ describe("DiffFormatter", () => {
 
     // Get and format the diff
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.objects);
+    const formatter = new DiffFormatter(store.blobs);
     const diff = await formatter.format(entries[0]);
 
     // Index line should have abbreviated IDs
@@ -220,7 +220,7 @@ describe("DiffFormatter", () => {
 
     // Get and format the diff (MODIFY has both old and new IDs)
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.objects, { abbreviationLength: 10 });
+    const formatter = new DiffFormatter(store.blobs, { abbreviationLength: 10 });
     const diff = await formatter.format(entries[0]);
 
     // Index line should have longer abbreviated IDs (10 chars each)
@@ -233,7 +233,7 @@ describe("DiffFormatter", () => {
     // The entry for an empty added file
     const entry = createAddEntry("empty.txt", "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", 0o100644);
 
-    const formatter = new DiffFormatter(store.objects);
+    const formatter = new DiffFormatter(store.blobs);
 
     // This will fail to load content (object doesn't exist) but should handle gracefully
     // In real usage, the object would exist
@@ -253,11 +253,11 @@ describe("DiffFormatter with binary files", () => {
 
     // Create binary content (with null bytes)
     const binaryContent = new Uint8Array([0x00, 0x01, 0x02, 0x03]);
-    const objectId = await store.objects.store([binaryContent]);
+    const objectId = await store.blobs.store([binaryContent]);
 
     const entry = createAddEntry("binary.bin", objectId, 0o100644);
 
-    const formatter = new DiffFormatter(store.objects);
+    const formatter = new DiffFormatter(store.blobs);
     const diff = await formatter.format(entry);
 
     expect(diff.isBinary).toBe(true);
@@ -269,11 +269,11 @@ describe("DiffFormatter with binary files", () => {
 
     // Create binary content
     const binaryContent = new Uint8Array([0x00, 0x01, 0x02]);
-    const objectId = await store.objects.store([binaryContent]);
+    const objectId = await store.blobs.store([binaryContent]);
 
     const entry = createAddEntry("binary.bin", objectId, 0o100644);
 
-    const formatter = new DiffFormatter(store.objects);
+    const formatter = new DiffFormatter(store.blobs);
     const diff = await formatter.format(entry);
     const output = formatter.toString(diff);
 

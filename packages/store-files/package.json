@@ -29,7 +29,8 @@
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
     "@webrun-vcs/vcs": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*"
+    "@webrun-vcs/utils": "workspace:*",
+    "@webrun-vcs/worktree": "workspace:*"
   },
   "devDependencies": {
     "@webrun-vcs/testing": "workspace:*",

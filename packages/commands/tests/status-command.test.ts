@@ -347,7 +347,7 @@ describe("StatusCommand", () => {
       // (Using builder which replaces all entries, removing conflict stages)
       const encoder = new TextEncoder();
       const resolvedContent = encoder.encode("resolved");
-      const resolvedId = await store.objects.store([resolvedContent]);
+      const resolvedId = await store.blobs.store([resolvedContent]);
 
       const builder = store.staging.builder();
       builder.add({

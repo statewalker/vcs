@@ -524,7 +524,7 @@ export class PushCommand extends TransportCommand<PushResult> {
    */
   private async loadObjectForPush(objectId: string, type: number): Promise<PushObject> {
     const chunks: Uint8Array[] = [];
-    for await (const chunk of this.store.objects.load(objectId)) {
+    for await (const chunk of this.store.blobs.load(objectId)) {
       chunks.push(chunk);
     }
 

@@ -11,21 +11,23 @@
 import type {
   Commit,
   CommitStore,
-  MergeStageValue,
   ObjectId,
   Ref,
   RefStore,
-  StagingBuilder,
-  StagingEditor,
-  StagingEntry,
-  StagingEntryOptions,
-  StagingStore,
   SymbolicRef,
   TreeEntry,
   TreeStore,
 } from "@webrun-vcs/vcs";
 import { FileMode } from "@webrun-vcs/vcs";
 import { beforeEach, describe, expect, it } from "vitest";
+import type {
+  MergeStageValue,
+  StagingBuilder,
+  StagingEditor,
+  StagingEntry,
+  StagingEntryOptions,
+  StagingStore,
+} from "../src/interfaces/staging-store.js";
 import { FileStatus } from "../src/interfaces/status.js";
 import type {
   WorkingTreeEntry,

@@ -86,7 +86,7 @@ describe("CheckoutCommand", () => {
 
       // Verify staging has main's version
       const entry = await store.staging.getEntry("Test.txt");
-      const content = await collectBytes(store.objects.load(entry?.objectId ?? ""));
+      const content = await collectBytes(store.blobs.load(entry?.objectId ?? ""));
       const text = new TextDecoder().decode(content);
       expect(text).toBe("Hello world");
 
@@ -133,7 +133,7 @@ describe("CheckoutCommand", () => {
 
       // Staging should have first commit's content
       const entry = await store.staging.getEntry("Test.txt");
-      const content = await collectBytes(store.objects.load(entry?.objectId ?? ""));
+      const content = await collectBytes(store.blobs.load(entry?.objectId ?? ""));
       const text = new TextDecoder().decode(content);
       expect(text).toBe("Hello world");
     });
@@ -235,7 +235,7 @@ describe("CheckoutCommand", () => {
 
       // Verify staging has version 1
       const entry = await store.staging.getEntry("Test.txt");
-      const content = await collectBytes(store.objects.load(entry?.objectId ?? ""));
+      const content = await collectBytes(store.blobs.load(entry?.objectId ?? ""));
       const text = new TextDecoder().decode(content);
       expect(text).toBe("version 1");
     });
@@ -337,7 +337,7 @@ describe("CheckoutCommand", () => {
      */
     it("should update staging on branch checkout", async () => {
       const { git, store } = await createInitializedGit();
-      const { DeleteStagingEntry } = await import("@webrun-vcs/vcs");
+      const { DeleteStagingEntry } = await import("@webrun-vcs/worktree");
 
       // Create initial state on main
       await addFile(store, "a.txt", "main-a");
@@ -371,7 +371,7 @@ describe("CheckoutCommand", () => {
       expect(entryC).toBeUndefined(); // c.txt only in test branch
 
       // Verify content
-      const contentA = await collectBytes(store.objects.load(entryA?.objectId ?? ""));
+      const contentA = await collectBytes(store.blobs.load(entryA?.objectId ?? ""));
       expect(new TextDecoder().decode(contentA)).toBe("main-a");
     });
   });

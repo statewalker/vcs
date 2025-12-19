@@ -6,9 +6,9 @@
 
 import type { FilesApi } from "@statewalker/webrun-files";
 import { FileMode } from "@webrun-vcs/vcs";
+import { createIgnoreManager } from "@webrun-vcs/worktree";
 import { describe, expect, it } from "vitest";
-import { createFileTreeIterator } from "../src/file-tree-iterator.js";
-import { createIgnoreManager } from "../src/ignore/ignore-manager.js";
+import { createFileTreeIterator } from "../../src/worktree/file-tree-iterator.js";
 
 /**
  * Mock file system structure for testing.

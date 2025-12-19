@@ -33,13 +33,8 @@
  * ```
  */
 
-import {
-  DeleteStagingEntry,
-  FileMode,
-  type ObjectId,
-  type Ref,
-  UpdateStagingEntry,
-} from "@webrun-vcs/vcs";
+import { FileMode, type ObjectId, type Ref } from "@webrun-vcs/vcs";
+import { DeleteStagingEntry, UpdateStagingEntry } from "@webrun-vcs/worktree";
 
 import { RefNotFoundError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";

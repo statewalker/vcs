@@ -10,25 +10,27 @@
 
 import type { FilesApi } from "@statewalker/webrun-files";
 import type {
+  BlobStore,
   Commit,
   CommitStore,
-  MergeStageValue,
   ObjectId,
-  ObjectStore,
   Ref,
   RefStore,
-  StagingBuilder,
-  StagingEditor,
-  StagingEntry,
-  StagingEntryOptions,
-  StagingStore,
   SymbolicRef,
   TreeEntry,
   TreeStore,
 } from "@webrun-vcs/vcs";
 import { FileMode } from "@webrun-vcs/vcs";
+import type {
+  MergeStageValue,
+  StagingBuilder,
+  StagingEditor,
+  StagingEntry,
+  StagingEntryOptions,
+  StagingStore,
+} from "@webrun-vcs/worktree";
 import { beforeEach, describe, expect, it } from "vitest";
-import { CheckoutCommand } from "../src/checkout-command.js";
+import { CheckoutCommand } from "../../src/worktree/checkout-command.js";
 
 /**
  * Mock file system.
@@ -115,50 +117,51 @@ function concatChunks(chunks: Iterable<Uint8Array>): Uint8Array {
 }
 
 /**
- * Mock object store.
+ * Mock blob store.
  */
-function createMockObjectStore() {
-  const objects = new Map<ObjectId, Uint8Array>();
+function createMockBlobStore() {
+  const blobs = new Map<ObjectId, Uint8Array>();
 
-  return {
-    objects,
+  const store = {
+    blobs,
 
-    async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
+    async store(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
       const chunks: Uint8Array[] = [];
-      if (Symbol.asyncIterator in data) {
-        for await (const chunk of data as AsyncIterable<Uint8Array>) {
-          chunks.push(chunk);
-        }
-      } else {
-        for (const chunk of data as Iterable<Uint8Array>) {
-          chunks.push(chunk);
-        }
+      for await (const chunk of content) {
+        chunks.push(chunk);
       }
-      const content = concatChunks(chunks);
-      const id = `obj_${objects.size}`;
-      objects.set(id, content);
+      const data = concatChunks(chunks);
+      const id = `blob_${blobs.size}`;
+      blobs.set(id, data);
+      return id;
+    },
+
+    async storeWithSize(size: number, content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of content) {
+        chunks.push(chunk);
+      }
+      const data = concatChunks(chunks);
+      if (data.length !== size) {
+        throw new Error(`Expected ${size} bytes but got ${data.length}`);
+      }
+      const id = `blob_${blobs.size}`;
+      blobs.set(id, data);
       return id;
     },
 
     async *load(id: ObjectId): AsyncIterable<Uint8Array> {
-      const content = objects.get(id);
-      if (!content) throw new Error(`Object not found: ${id}`);
+      const content = blobs.get(id);
+      if (!content) throw new Error(`Blob not found: ${id}`);
       yield content;
     },
 
     async has(id: ObjectId): Promise<boolean> {
-      return objects.has(id);
+      return blobs.has(id);
     },
+  } satisfies BlobStore & { blobs: Map<ObjectId, Uint8Array> };
 
-    async getSize(id: ObjectId): Promise<number> {
-      const content = objects.get(id);
-      return content?.length ?? -1;
-    },
-
-    async delete(id: ObjectId): Promise<boolean> {
-      return objects.delete(id);
-    },
-  } satisfies ObjectStore;
+  return store;
 }
 
 /**
@@ -469,7 +472,7 @@ function createMockStagingStore() {
 
 describe("CheckoutCommand", () => {
   let files: ReturnType<typeof createMockFilesApi>;
-  let objects: ReturnType<typeof createMockObjectStore>;
+  let blobs: ReturnType<typeof createMockBlobStore>;
   let trees: ReturnType<typeof createMockTreeStore>;
   let commits: ReturnType<typeof createMockCommitStore>;
   let refs: ReturnType<typeof createMockRefStore>;
@@ -479,7 +482,7 @@ describe("CheckoutCommand", () => {
 
   beforeEach(() => {
     files = createMockFilesApi();
-    objects = createMockObjectStore();
+    blobs = createMockBlobStore();
     trees = createMockTreeStore();
     commits = createMockCommitStore();
     refs = createMockRefStore();
@@ -488,7 +491,7 @@ describe("CheckoutCommand", () => {
     checkout = new CheckoutCommand({
       files: files as FilesApi,
       workTreeRoot: ROOT,
-      objects,
+      blobs,
       trees,
       commits,
       refs,
@@ -505,7 +508,7 @@ describe("CheckoutCommand", () => {
     it("should checkout a branch", async () => {
       // Setup: Create blob, tree, commit, and branch
       const content = new TextEncoder().encode("Hello, World!");
-      objects.objects.set("blob1", content);
+      blobs.blobs.set("blob1", content);
 
       trees.trees.set("tree1", [{ name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
 
@@ -538,7 +541,7 @@ describe("CheckoutCommand", () => {
     it("should checkout a commit by ID", async () => {
       // Setup
       const content = new TextEncoder().encode("Content");
-      objects.objects.set("blob1", content);
+      blobs.blobs.set("blob1", content);
 
       trees.trees.set("tree1", [{ name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
 
@@ -560,7 +563,7 @@ describe("CheckoutCommand", () => {
 
     it("should create a new branch if requested", async () => {
       // Setup
-      objects.objects.set("blob1", new TextEncoder().encode("Content"));
+      blobs.blobs.set("blob1", new TextEncoder().encode("Content"));
       trees.trees.set("tree1", [{ name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
       commits.commits.set("commit1", {
         tree: "tree1",
@@ -581,8 +584,8 @@ describe("CheckoutCommand", () => {
 
     it("should remove files not in target tree", async () => {
       // Setup: Current state has two files
-      objects.objects.set("blob1", new TextEncoder().encode("File 1"));
-      objects.objects.set("blob2", new TextEncoder().encode("File 2"));
+      blobs.blobs.set("blob1", new TextEncoder().encode("File 1"));
+      blobs.blobs.set("blob2", new TextEncoder().encode("File 2"));
 
       // Current index has two files
       stagingMock.setEntries([
@@ -639,8 +642,8 @@ describe("CheckoutCommand", () => {
       const oldContent = new TextEncoder().encode("Old content");
       const newContent = new TextEncoder().encode("New content");
 
-      objects.objects.set("blob_old", oldContent);
-      objects.objects.set("blob_new", newContent);
+      blobs.blobs.set("blob_old", oldContent);
+      blobs.blobs.set("blob_new", newContent);
 
       stagingMock.setEntries([
         {
@@ -678,7 +681,7 @@ describe("CheckoutCommand", () => {
     it("should handle nested directories", async () => {
       // Setup: file in nested directory
       const content = new TextEncoder().encode("Nested file");
-      objects.objects.set("blob1", content);
+      blobs.blobs.set("blob1", content);
 
       // Nested tree structure
       trees.trees.set("subtree", [
@@ -709,7 +712,7 @@ describe("CheckoutCommand", () => {
     it("should checkout specific path from index", async () => {
       // Setup: file in index
       const content = new TextEncoder().encode("Index content");
-      objects.objects.set("blob1", content);
+      blobs.blobs.set("blob1", content);
 
       stagingMock.setEntries([
         {
@@ -739,7 +742,7 @@ describe("CheckoutCommand", () => {
     it("should checkout specific path from HEAD", async () => {
       // Setup
       const content = new TextEncoder().encode("HEAD content");
-      objects.objects.set("blob1", content);
+      blobs.blobs.set("blob1", content);
 
       trees.trees.set("tree1", [{ name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
 
@@ -777,8 +780,8 @@ describe("CheckoutCommand", () => {
       const headContent = new TextEncoder().encode("HEAD content");
       const targetContent = new TextEncoder().encode("Target content");
 
-      objects.objects.set("blob_head", headContent);
-      objects.objects.set("blob_target", targetContent);
+      blobs.blobs.set("blob_head", headContent);
+      blobs.blobs.set("blob_target", targetContent);
 
       trees.trees.set("head_tree", [
         { name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob_head" },
@@ -838,8 +841,8 @@ describe("CheckoutCommand", () => {
       const headContent = new TextEncoder().encode("HEAD content");
       const targetContent = new TextEncoder().encode("Target content");
 
-      objects.objects.set("blob_head", headContent);
-      objects.objects.set("blob_target", targetContent);
+      blobs.blobs.set("blob_head", headContent);
+      blobs.blobs.set("blob_target", targetContent);
 
       trees.trees.set("head_tree", [
         { name: "file.txt", mode: FileMode.REGULAR_FILE, id: "blob_head" },
@@ -906,8 +909,8 @@ describe("CheckoutCommand", () => {
   describe("progress reporting", () => {
     it("should call progress callback", async () => {
       // Setup
-      objects.objects.set("blob1", new TextEncoder().encode("File 1"));
-      objects.objects.set("blob2", new TextEncoder().encode("File 2"));
+      blobs.blobs.set("blob1", new TextEncoder().encode("File 1"));
+      blobs.blobs.set("blob2", new TextEncoder().encode("File 2"));
 
       trees.trees.set("tree1", [
         { name: "file1.txt", mode: FileMode.REGULAR_FILE, id: "blob1" },

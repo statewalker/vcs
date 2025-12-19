@@ -319,6 +319,9 @@ importers:
       '@webrun-vcs/vcs':
         specifier: workspace:*
         version: link:../vcs
+      '@webrun-vcs/worktree':
+        specifier: workspace:*
+        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -344,6 +347,9 @@ importers:
       '@webrun-vcs/vcs':
         specifier: workspace:*
         version: link:../vcs
+      '@webrun-vcs/worktree':
+        specifier: workspace:*
+        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -369,6 +375,9 @@ importers:
       '@webrun-vcs/vcs':
         specifier: workspace:*
         version: link:../vcs
+      '@webrun-vcs/worktree':
+        specifier: workspace:*
+        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -394,6 +403,9 @@ importers:
       '@webrun-vcs/vcs':
         specifier: workspace:*
         version: link:../vcs
+      '@webrun-vcs/worktree':
+        specifier: workspace:*
+        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -422,6 +434,9 @@ importers:
       '@webrun-vcs/vcs':
         specifier: workspace:*
         version: link:../vcs
+      '@webrun-vcs/worktree':
+        specifier: workspace:*
+        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -501,9 +516,6 @@ importers:
 
   packages/worktree:
     dependencies:
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
