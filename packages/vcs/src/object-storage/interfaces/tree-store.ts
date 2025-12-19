@@ -1,3 +1,7 @@
+/**
+ * Tree storage interface
+ */
+
 import type { FileModeValue, ObjectId } from "./types.js";
 
 /**

@@ -14,7 +14,7 @@ import {
 } from "../../src/format/commit-format.js";
 import { collect, toArray } from "../../src/format/stream-utils.js";
 import type { CommitEntry } from "../../src/format/types.js";
-import type { Commit } from "../../src/interfaces/commit-store.js";
+import type { Commit } from "../../src/object-storage/interfaces/index.js";
 
 describe("commit-format", () => {
   const treeId = "a".repeat(40);

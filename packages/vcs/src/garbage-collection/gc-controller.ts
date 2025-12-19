@@ -6,7 +6,7 @@
  */
 
 import type { DeltaStorageImpl } from "../delta-compression/delta-storage-impl.js";
-import type { ObjectId } from "../interfaces/types.js";
+import type { ObjectId } from "../object-storage/interfaces/index.js";
 import type { GCResult, GCScheduleOptions, RepackOptions, RepackResult } from "./types.js";
 
 /**

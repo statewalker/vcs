@@ -14,8 +14,8 @@ import {
   tagToEntries,
 } from "../../src/format/tag-format.js";
 import type { TagEntry } from "../../src/format/types.js";
-import type { AnnotatedTag } from "../../src/interfaces/tag-store.js";
-import { ObjectType } from "../../src/interfaces/types.js";
+import type { AnnotatedTag } from "../../src/object-storage/interfaces/index.js";
+import { ObjectType } from "../../src/object-storage/interfaces/index.js";
 
 describe("tag-format", () => {
   const objectId = "a".repeat(40);

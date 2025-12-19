@@ -12,7 +12,7 @@
  *   <commit message>
  */
 
-import type { Commit } from "../interfaces/commit-store.js";
+import type { Commit } from "../object-storage/interfaces/index.js";
 import { formatPersonIdent, parsePersonIdent } from "./person-ident.js";
 import { asAsyncIterable, collect, encodeString, toArray } from "./stream-utils.js";
 import type { CommitEntry } from "./types.js";

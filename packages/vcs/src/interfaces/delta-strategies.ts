@@ -1,6 +1,6 @@
 import type { Delta } from "@webrun-vcs/utils";
+import type { ObjectId } from "../object-storage/interfaces/index.js";
 import type { ObjectStore } from "./object-store.js";
-import type { ObjectId } from "./types.js";
 
 /**
  * Options for delta computation

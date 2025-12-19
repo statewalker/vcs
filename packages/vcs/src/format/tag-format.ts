@@ -12,7 +12,7 @@
  *   <tag message>
  */
 
-import type { AnnotatedTag, ObjectTypeCode } from "../interfaces/index.js";
+import type { AnnotatedTag, ObjectTypeCode } from "../object-storage/interfaces/index.js";
 import { typeCodeToString, typeStringToCode } from "./object-header.js";
 import { formatPersonIdent, parsePersonIdent } from "./person-ident.js";
 import { asAsyncIterable, collect, encodeString, toArray } from "./stream-utils.js";

@@ -5,7 +5,7 @@
  * content-addressable storage with delta compression.
  */
 
-import type { ObjectId } from "../interfaces/index.js";
+import type { ObjectId } from "../object-storage/interfaces/index.js";
 
 /**
  * Object entry stored in the repository

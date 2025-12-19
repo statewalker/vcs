@@ -5,7 +5,7 @@
  * Each field becomes a separate entry that can be processed incrementally.
  */
 
-import type { ObjectTypeCode, PersonIdent } from "../interfaces/types.js";
+import type { ObjectTypeCode, PersonIdent } from "../object-storage/interfaces/index.js";
 
 /**
  * Commit entry for streaming serialization

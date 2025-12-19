@@ -12,8 +12,12 @@ import {
   entriesToTag,
   tagToEntries,
 } from "../../format/tag-format.js";
-import type { AnnotatedTag, TagStore } from "../../interfaces/tag-store.js";
-import { type ObjectId, ObjectType } from "../../interfaces/types.js";
+import {
+  type AnnotatedTag,
+  type ObjectId,
+  ObjectType,
+  type TagStore,
+} from "../interfaces/index.js";
 import type { GitObjectStore } from "./git-object-store.js";
 
 /**

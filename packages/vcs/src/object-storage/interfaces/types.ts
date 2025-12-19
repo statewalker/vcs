@@ -1,4 +1,10 @@
 /**
+ * Core type definitions for object storage
+ *
+ * These types form the foundation for all object storage interfaces.
+ */
+
+/**
  * Object identifier (content hash in hex format)
  *
  * SHA-256: 64 hex characters (256 bits / 4 bits per char)

@@ -11,8 +11,7 @@ import {
   EMPTY_TREE_ID,
   encodeTreeEntries,
 } from "../../format/tree-format.js";
-import type { TreeEntry, TreeStore } from "../../interfaces/tree-store.js";
-import type { ObjectId } from "../../interfaces/types.js";
+import type { ObjectId, TreeEntry, TreeStore } from "../interfaces/index.js";
 import type { GitObjectStore } from "./git-object-store.js";
 
 /**

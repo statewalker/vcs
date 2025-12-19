@@ -1,6 +1,6 @@
+import type { FileModeValue, ObjectId } from "../object-storage/interfaces/index.js";
 import type { MergeStageValue, StagingEdit, StagingEntry } from "./staging-store.js";
 import { MergeStage } from "./staging-store.js";
-import type { FileModeValue, ObjectId } from "./types.js";
 
 /**
  * Update or create an entry.

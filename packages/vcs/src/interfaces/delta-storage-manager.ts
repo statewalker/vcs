@@ -1,4 +1,5 @@
 import type { Delta } from "@webrun-vcs/utils";
+import type { ObjectId } from "../object-storage/interfaces/index.js";
 import type {
   DeltaChainDetails,
   DeltaChainStore,
@@ -11,7 +12,6 @@ import type {
   DeltaComputeStrategy,
 } from "./delta-strategies.js";
 import type { ObjectStore } from "./object-store.js";
-import type { ObjectId } from "./types.js";
 
 /**
  * Repository analysis results

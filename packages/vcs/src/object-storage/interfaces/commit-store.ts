@@ -1,3 +1,7 @@
+/**
+ * Commit storage interface
+ */
+
 import type { ObjectId, PersonIdent } from "./types.js";
 
 /**

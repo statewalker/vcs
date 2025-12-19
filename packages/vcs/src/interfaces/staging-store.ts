@@ -1,5 +1,4 @@
-import type { TreeStore } from "./tree-store.js";
-import type { FileModeValue, ObjectId } from "./types.js";
+import type { FileModeValue, ObjectId, TreeStore } from "../object-storage/interfaces/index.js";
 
 /**
  * Merge stage for index entries.

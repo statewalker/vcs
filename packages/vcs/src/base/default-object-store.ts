@@ -16,12 +16,8 @@ import {
   encodeDeltaBlocks,
   newSha1,
 } from "@webrun-vcs/utils";
-import type {
-  DeltaChainInfo,
-  DeltaObjectStore,
-  DeltaOptions,
-  ObjectId,
-} from "../interfaces/index.js";
+import type { DeltaChainInfo, DeltaObjectStore, DeltaOptions } from "../interfaces/index.js";
+import type { ObjectId } from "../object-storage/interfaces/index.js";
 import type { IntermediateCache } from "./intermediate-cache.js";
 import type { LRUCache } from "./lru-cache.js";
 import type { DeltaRepository } from "./repositories/delta-repository.js";

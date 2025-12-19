@@ -13,8 +13,8 @@ import {
   parseTreeToArray,
   serializeTree,
 } from "../../src/format/tree-format.js";
-import type { TreeEntry } from "../../src/interfaces/tree-store.js";
-import { FileMode } from "../../src/interfaces/types.js";
+import type { TreeEntry } from "../../src/object-storage/interfaces/index.js";
+import { FileMode } from "../../src/object-storage/interfaces/index.js";
 
 describe("tree-format", () => {
   const sampleId = "a".repeat(40);
