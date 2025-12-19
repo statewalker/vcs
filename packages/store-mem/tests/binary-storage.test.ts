@@ -7,10 +7,10 @@
 import type { Delta } from "@webrun-vcs/utils";
 import { describe, expect, it } from "vitest";
 import {
+  createMemBinStore,
   MemBinStore,
   MemDeltaStore,
   MemRawStore,
-  createMemBinStore,
 } from "../src/binary-storage/index.js";
 
 const encoder = new TextEncoder();
@@ -247,10 +247,7 @@ describe("MemDeltaStore", () => {
       const store = new MemDeltaStore();
       const delta = createSampleDelta();
 
-      const result = await store.storeDelta(
-        { baseKey: "base1", targetKey: "target1" },
-        delta
-      );
+      const result = await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, delta);
 
       expect(result).toBe(true);
       expect(await store.isDelta("target1")).toBe(true);
@@ -299,10 +296,7 @@ describe("MemDeltaStore", () => {
   describe("isDelta", () => {
     it("returns true for existing delta", async () => {
       const store = new MemDeltaStore();
-      await store.storeDelta(
-        { baseKey: "base", targetKey: "target" },
-        createSampleDelta()
-      );
+      await store.storeDelta({ baseKey: "base", targetKey: "target" }, createSampleDelta());
 
       expect(await store.isDelta("target")).toBe(true);
     });
@@ -317,10 +311,7 @@ describe("MemDeltaStore", () => {
   describe("removeDelta", () => {
     it("removes existing delta", async () => {
       const store = new MemDeltaStore();
-      await store.storeDelta(
-        { baseKey: "base", targetKey: "target" },
-        createSampleDelta()
-      );
+      await store.storeDelta({ baseKey: "base", targetKey: "target" }, createSampleDelta());
 
       const removed = await store.removeDelta("target");
 
@@ -340,10 +331,7 @@ describe("MemDeltaStore", () => {
   describe("getDeltaChainInfo", () => {
     it("returns chain info for single delta", async () => {
       const store = new MemDeltaStore();
-      await store.storeDelta(
-        { baseKey: "base", targetKey: "target" },
-        createSampleDelta()
-      );
+      await store.storeDelta({ baseKey: "base", targetKey: "target" }, createSampleDelta());
 
       const info = await store.getDeltaChainInfo("target");
 
@@ -356,14 +344,8 @@ describe("MemDeltaStore", () => {
 
     it("returns chain info for delta chain", async () => {
       const store = new MemDeltaStore();
-      await store.storeDelta(
-        { baseKey: "base", targetKey: "middle" },
-        createSampleDelta()
-      );
-      await store.storeDelta(
-        { baseKey: "middle", targetKey: "target" },
-        createSampleDelta()
-      );
+      await store.storeDelta({ baseKey: "base", targetKey: "middle" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "middle", targetKey: "target" }, createSampleDelta());
 
       const info = await store.getDeltaChainInfo("target");
 
@@ -385,14 +367,8 @@ describe("MemDeltaStore", () => {
   describe("listDeltas", () => {
     it("lists all delta relationships", async () => {
       const store = new MemDeltaStore();
-      await store.storeDelta(
-        { baseKey: "base1", targetKey: "target1" },
-        createSampleDelta()
-      );
-      await store.storeDelta(
-        { baseKey: "base2", targetKey: "target2" },
-        createSampleDelta()
-      );
+      await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base2", targetKey: "target2" }, createSampleDelta());
 
       const deltas = await toArray(store.listDeltas());
 
@@ -413,14 +389,8 @@ describe("MemDeltaStore", () => {
   describe("clear", () => {
     it("removes all deltas", async () => {
       const store = new MemDeltaStore();
-      await store.storeDelta(
-        { baseKey: "base1", targetKey: "target1" },
-        createSampleDelta()
-      );
-      await store.storeDelta(
-        { baseKey: "base2", targetKey: "target2" },
-        createSampleDelta()
-      );
+      await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base2", targetKey: "target2" }, createSampleDelta());
 
       store.clear();
 
@@ -435,16 +405,10 @@ describe("MemDeltaStore", () => {
       const store = new MemDeltaStore();
       expect(store.count).toBe(0);
 
-      await store.storeDelta(
-        { baseKey: "base1", targetKey: "target1" },
-        createSampleDelta()
-      );
+      await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, createSampleDelta());
       expect(store.count).toBe(1);
 
-      await store.storeDelta(
-        { baseKey: "base2", targetKey: "target2" },
-        createSampleDelta()
-      );
+      await store.storeDelta({ baseKey: "base2", targetKey: "target2" }, createSampleDelta());
       expect(store.count).toBe(2);
 
       await store.removeDelta("target1");
@@ -526,10 +490,10 @@ describe("MemBinStore", () => {
       const store = new MemBinStore();
 
       await store.raw.store("key", chunks("content"));
-      await store.delta.storeDelta(
-        { baseKey: "base", targetKey: "target" },
-        [{ type: "start", targetLen: 100 }, { type: "finish", checksum: 0 }]
-      );
+      await store.delta.storeDelta({ baseKey: "base", targetKey: "target" }, [
+        { type: "start", targetLen: 100 },
+        { type: "finish", checksum: 0 },
+      ]);
 
       store.clear();
 

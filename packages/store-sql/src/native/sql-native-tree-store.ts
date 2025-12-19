@@ -6,11 +6,11 @@
  * lookups by blob content.
  */
 
+import { Sha1 } from "@webrun-vcs/utils/hash/sha1";
+import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
 import type { ObjectId, TreeEntry } from "@webrun-vcs/vcs";
 import { FileMode } from "@webrun-vcs/vcs";
-import { computeTreeSize, encodeTreeEntries, encodeObjectHeader } from "@webrun-vcs/vcs/format";
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
-import { Sha1 } from "@webrun-vcs/utils/hash/sha1";
+import { computeTreeSize, encodeObjectHeader, encodeTreeEntries } from "@webrun-vcs/vcs/format";
 import type { DatabaseClient } from "../database-client.js";
 import type { SqlNativeTreeStore } from "./types.js";
 

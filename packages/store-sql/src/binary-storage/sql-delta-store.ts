@@ -67,18 +67,26 @@ export class SqlDeltaStore implements DeltaStore {
    */
   private serializeDelta(delta: Delta[]): Uint8Array {
     const encoder = new TextEncoder();
-    return encoder.encode(JSON.stringify(delta.map((d) => {
-      switch (d.type) {
-        case "start":
-          return { type: "start", targetLen: d.targetLen };
-        case "copy":
-          return { type: "copy", start: d.start, len: d.len };
-        case "insert":
-          return { type: "insert", data: Array.from(d.data) };
-        case "finish":
-          return { type: "finish", checksum: d.checksum };
-      }
-    })));
+    return encoder.encode(
+      JSON.stringify(
+        delta.map((d): object => {
+          switch (d.type) {
+            case "start":
+              return { type: "start", targetLen: d.targetLen };
+            case "copy":
+              return { type: "copy", start: d.start, len: d.len };
+            case "insert":
+              return { type: "insert", data: Array.from(d.data) };
+            case "finish":
+              return { type: "finish", checksum: d.checksum };
+            default: {
+              const _exhaustive: never = d;
+              throw new Error(`Unknown delta type: ${(_exhaustive as Delta).type}`);
+            }
+          }
+        }),
+      ),
+    );
   }
 
   /**
@@ -87,20 +95,29 @@ export class SqlDeltaStore implements DeltaStore {
   private deserializeDelta(data: Uint8Array): Delta[] {
     const decoder = new TextDecoder();
     const parsed = JSON.parse(decoder.decode(data));
-    return parsed.map((d: { type: string; targetLen?: number; start?: number; len?: number; data?: number[]; checksum?: number }) => {
-      switch (d.type) {
-        case "start":
-          return { type: "start", targetLen: d.targetLen };
-        case "copy":
-          return { type: "copy", start: d.start, len: d.len };
-        case "insert":
-          return { type: "insert", data: new Uint8Array(d.data || []) };
-        case "finish":
-          return { type: "finish", checksum: d.checksum };
-        default:
-          throw new Error(`Unknown delta type: ${d.type}`);
-      }
-    });
+    return parsed.map(
+      (d: {
+        type: string;
+        targetLen?: number;
+        start?: number;
+        len?: number;
+        data?: number[];
+        checksum?: number;
+      }) => {
+        switch (d.type) {
+          case "start":
+            return { type: "start", targetLen: d.targetLen };
+          case "copy":
+            return { type: "copy", start: d.start, len: d.len };
+          case "insert":
+            return { type: "insert", data: new Uint8Array(d.data || []) };
+          case "finish":
+            return { type: "finish", checksum: d.checksum };
+          default:
+            throw new Error(`Unknown delta type: ${d.type}`);
+        }
+      },
+    );
   }
 
   /**
@@ -182,10 +199,9 @@ export class SqlDeltaStore implements DeltaStore {
   async removeDelta(targetKey: string, _keepAsBase?: boolean): Promise<boolean> {
     await this.ensureInitialized();
 
-    const result = await this.db.execute(
-      `DELETE FROM ${this.tableName} WHERE target_key = ?`,
-      [targetKey],
-    );
+    const result = await this.db.execute(`DELETE FROM ${this.tableName} WHERE target_key = ?`, [
+      targetKey,
+    ]);
 
     return result.changes > 0;
   }
@@ -271,9 +287,6 @@ export class SqlDeltaStore implements DeltaStore {
 /**
  * Create a new SQL-based delta store
  */
-export function createSqlDeltaStore(
-  db: DatabaseClient,
-  tableName?: string,
-): SqlDeltaStore {
+export function createSqlDeltaStore(db: DatabaseClient, tableName?: string): SqlDeltaStore {
   return new SqlDeltaStore(db, tableName);
 }

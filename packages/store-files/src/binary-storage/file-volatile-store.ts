@@ -8,10 +8,7 @@
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type {
-  VolatileContent,
-  VolatileStore,
-} from "@webrun-vcs/vcs/binary-storage";
+import type { VolatileContent, VolatileStore } from "@webrun-vcs/vcs/binary-storage";
 
 /**
  * File-based volatile storage
@@ -83,9 +80,6 @@ export class FileVolatileStore implements VolatileStore {
 /**
  * Create a new file-based volatile store
  */
-export function createFileVolatileStore(
-  files: FilesApi,
-  tempDir: string,
-): FileVolatileStore {
+export function createFileVolatileStore(files: FilesApi, tempDir: string): FileVolatileStore {
   return new FileVolatileStore(files, tempDir);
 }
