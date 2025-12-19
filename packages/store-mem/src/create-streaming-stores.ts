@@ -1,24 +1,32 @@
 /**
  * Factory function for creating Git-compatible streaming stores
  *
- * Creates stores using the new streaming architecture that produces
- * Git-compatible object IDs.
+ * @deprecated Use createMemoryObjectStores from './object-storage/index.js' instead.
+ * This file is kept for backwards compatibility.
  */
 
 import type { GitStores } from "@webrun-vcs/vcs";
-import { createStreamingStores, MemoryTempStore } from "@webrun-vcs/vcs";
-import { MemoryRawStorage } from "./memory-raw-storage.js";
+import { createMemoryObjectStores } from "./object-storage/index.js";
 
 /**
  * Create Git-compatible stores backed by memory.
  *
- * Uses the streaming architecture with proper Git header format
- * for SHA-1 compatibility.
+ * @deprecated Use createMemoryObjectStores from './object-storage/index.js' instead.
  *
  * @returns GitStores with all typed store implementations
  */
 export function createStreamingMemoryStores(): GitStores {
-  const storage = new MemoryRawStorage();
-  const temp = new MemoryTempStore();
-  return createStreamingStores({ storage, temp });
+  const stores = createMemoryObjectStores();
+
+  // Return GitStores-compatible interface
+  return {
+    commits: stores.commits,
+    trees: stores.trees,
+    blobs: stores.blobs,
+    tags: stores.tags,
+  };
 }
+
+// Re-export new types for migration
+export type { MemoryObjectStores } from "./object-storage/index.js";
+export { createMemoryObjectStores } from "./object-storage/index.js";

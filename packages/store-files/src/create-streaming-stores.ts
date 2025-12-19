@@ -1,23 +1,17 @@
 /**
  * Factory function for creating Git-compatible streaming stores
  *
- * Creates stores using the new streaming architecture that produces
- * Git-compatible object IDs.
+ * @deprecated Use createFileObjectStores from './object-storage/index.js' instead.
+ * This file is kept for backwards compatibility.
  */
 
 import type { FilesApi } from "@statewalker/webrun-files";
 import type { GitStores } from "@webrun-vcs/vcs";
-import {
-  CompressingRawStorage,
-  createStreamingStores,
-  HybridTempStore,
-  MemoryTempStore,
-} from "@webrun-vcs/vcs";
-import { FileRawStorage } from "./file-raw-storage.js";
-import { FileTempStore } from "./file-temp-store.js";
+import { createFileObjectStores } from "./object-storage/index.js";
 
 /**
  * Options for creating file-based streaming stores
+ * @deprecated Use CreateFileObjectStoresOptions instead
  */
 export interface StreamingFileStoresOptions {
   /** Threshold for spilling to file-based temp storage (default: 1MB) */
@@ -27,31 +21,33 @@ export interface StreamingFileStoresOptions {
 /**
  * Create Git-compatible stores backed by file system.
  *
- * Uses the streaming architecture with proper Git header format
- * for SHA-1 compatibility. Objects are stored in the standard
- * Git loose object format.
+ * @deprecated Use createFileObjectStores from './object-storage/index.js' instead.
  *
  * @param files FilesApi instance for all file system operations
  * @param objectsDir Path to objects directory (usually .git/objects)
- * @param options Optional configuration
+ * @param _options Optional configuration (ignored in new implementation)
  * @returns GitStores with all typed store implementations
  */
 export function createStreamingFileStores(
   files: FilesApi,
   objectsDir: string,
-  options?: StreamingFileStoresOptions,
+  _options?: StreamingFileStoresOptions,
 ): GitStores {
-  const tempDir = `${objectsDir}/../tmp`;
-  const spillThreshold = options?.spillThreshold ?? 1024 * 1024;
+  const stores = createFileObjectStores({
+    files,
+    objectsPath: objectsDir,
+    tempPath: `${objectsDir}/../tmp`,
+  });
 
-  // FileRawStorage stores raw bytes; wrap with compression for Git compatibility
-  const rawStorage = new FileRawStorage(files, objectsDir);
-  const storage = new CompressingRawStorage(rawStorage);
-
-  // Use hybrid temp store: small objects in memory, large spill to files
-  const smallStore = new MemoryTempStore();
-  const largeStore = new FileTempStore(files, tempDir);
-  const temp = new HybridTempStore(smallStore, largeStore, spillThreshold);
-
-  return createStreamingStores({ storage, temp });
+  // Return GitStores-compatible interface
+  return {
+    commits: stores.commits,
+    trees: stores.trees,
+    blobs: stores.blobs,
+    tags: stores.tags,
+  };
 }
+
+// Re-export new types for migration
+export type { FileObjectStores } from "./object-storage/index.js";
+export { createFileObjectStores } from "./object-storage/index.js";

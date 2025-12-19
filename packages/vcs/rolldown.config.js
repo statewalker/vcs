@@ -4,10 +4,8 @@ export default defineConfig({
   input: {
     index: "src/index.ts",
     "interfaces/index": "src/interfaces/index.ts",
-    "engine/index": "src/engine/index.ts",
     "base/index": "src/base/index.ts",
     "format/index": "src/format/index.ts",
-    "stores/index": "src/stores/index.ts",
     "binary-storage/index": "src/binary-storage/index.ts",
     "object-storage/index": "src/object-storage/index.ts",
     "delta-compression/index": "src/delta-compression/index.ts",

@@ -17,11 +17,6 @@
       "import": "./dist/esm/interfaces/index.js",
       "require": "./dist/cjs/interfaces/index.cjs"
     },
-    "./engine": {
-      "types": "./dist/engine/index.d.ts",
-      "import": "./dist/esm/engine/index.js",
-      "require": "./dist/cjs/engine/index.cjs"
-    },
     "./base": {
       "types": "./dist/base/index.d.ts",
       "import": "./dist/esm/base/index.js",
@@ -31,11 +26,6 @@
       "types": "./dist/format/index.d.ts",
       "import": "./dist/esm/format/index.js",
       "require": "./dist/cjs/format/index.cjs"
-    },
-    "./stores": {
-      "types": "./dist/stores/index.d.ts",
-      "import": "./dist/esm/stores/index.js",
-      "require": "./dist/cjs/stores/index.cjs"
     },
     "./binary-storage": {
       "types": "./dist/binary-storage/index.d.ts",
