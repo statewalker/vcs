@@ -29,8 +29,6 @@
  * ```
  */
 
-// Backend implementations
-export * from "./backends/index.js";
 // Binary storage (new architecture)
 export * from "./binary-storage/index.js";
 // High-level store implementations
@@ -51,8 +49,6 @@ export * from "./object-repository.js";
 // Object storage (new architecture)
 export * from "./object-storage/index.js";
 export * from "./ref-store.js";
-// Low-level storage
-export * from "./sql-raw-storage.js";
 export * from "./staging-store.js";
 // Synchronization utilities
 export * from "./sync.js";

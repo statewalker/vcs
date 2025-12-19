@@ -16,8 +16,33 @@ import {
   encodeDeltaBlocks,
   newSha1,
 } from "@webrun-vcs/utils";
-import type { DeltaChainInfo, DeltaObjectStore, DeltaOptions } from "../interfaces/index.js";
+import type { ObjectStore } from "../interfaces/index.js";
 import type { ObjectId } from "../object-storage/interfaces/index.js";
+
+/**
+ * Options for delta creation
+ */
+export interface DeltaOptions {
+  /** Minimum size for deltification (default: 50 bytes) */
+  minSize?: number;
+  /** Minimum compression ratio to accept delta (default: 0.75 = 25% savings) */
+  minCompressionRatio?: number;
+  /** Maximum delta chain depth (default: 50, matching JGit) */
+  maxChainDepth?: number;
+}
+
+/**
+ * Delta chain information
+ */
+export interface DeltaChainInfo {
+  /** ObjectId of the base (non-delta) object */
+  baseId: ObjectId;
+  /** Chain depth (0 = full object, 1+ = delta depth) */
+  depth: number;
+  /** Total size savings (original - current compressed) */
+  savings: number;
+}
+
 import type { IntermediateCache } from "./intermediate-cache.js";
 import type { LRUCache } from "./lru-cache.js";
 import type { DeltaRepository } from "./repositories/delta-repository.js";
@@ -30,7 +55,7 @@ import type { ObjectRepository } from "./repositories/object-repository.js";
  * Orchestrates repositories and caches to provide efficient object storage
  * with transparent delta compression and reconstruction.
  */
-export class DefaultObjectStore implements DeltaObjectStore {
+export class DefaultObjectStore implements ObjectStore {
   constructor(
     private objectRepo: ObjectRepository,
     private deltaRepo: DeltaRepository,

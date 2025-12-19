@@ -17,13 +17,32 @@
 
 import type { FilesApi } from "@statewalker/webrun-files";
 import { createDeltaRanges, deltaRangesToGitFormat } from "@webrun-vcs/utils";
-import type {
-  DeltaChainInfo,
-  DeltaObjectStore,
-  DeltaOptions,
-  ObjectId,
-  ObjectStore,
-} from "@webrun-vcs/vcs";
+import type { ObjectId, ObjectStore } from "@webrun-vcs/vcs";
+
+/**
+ * Options for delta creation
+ */
+export interface GitDeltaOptions {
+  /** Minimum size for deltification (default: 50 bytes) */
+  minSize?: number;
+  /** Minimum compression ratio to accept delta (default: 0.75 = 25% savings) */
+  minCompressionRatio?: number;
+  /** Maximum delta chain depth (default: 50, matching JGit) */
+  maxChainDepth?: number;
+}
+
+/**
+ * Delta chain information
+ */
+export interface GitDeltaChainInfo {
+  /** ObjectId of the base (non-delta) object */
+  baseId: ObjectId;
+  /** Chain depth (0 = full object, 1+ = delta depth) */
+  depth: number;
+  /** Total size savings (original - current compressed) */
+  savings: number;
+}
+
 import { CompositeObjectStorage } from "./composite-object-storage.js";
 import { parseObjectHeader } from "./format/object-header.js";
 import { GitPackStorage } from "./git-pack-storage.js";
@@ -64,7 +83,7 @@ function typeStringToPackType(type: string): PackObjectType {
  * Provides deltify/undeltify operations by creating new storage artifacts
  * (pack files for deltas, loose objects for undeltified content).
  */
-export class GitDeltaObjectStorage implements DeltaObjectStore {
+export class GitDeltaObjectStorage implements ObjectStore {
   private readonly files: FilesApi;
   private readonly gitDir: string;
   private readonly looseStorage: ObjectStore;
@@ -127,7 +146,7 @@ export class GitDeltaObjectStorage implements DeltaObjectStore {
   /**
    * Get delta chain information
    */
-  async getDeltaChainInfo(id: ObjectId): Promise<DeltaChainInfo | undefined> {
+  async getDeltaChainInfo(id: ObjectId): Promise<GitDeltaChainInfo | undefined> {
     // Loose objects are never deltas
     if (await this.looseStorage.has(id)) {
       return undefined;
@@ -144,7 +163,7 @@ export class GitDeltaObjectStorage implements DeltaObjectStore {
   async deltify(
     targetId: ObjectId,
     candidateIds: ObjectId[],
-    options?: DeltaOptions,
+    options?: GitDeltaOptions,
   ): Promise<boolean> {
     const minSize = options?.minSize ?? DEFAULT_MIN_SIZE;
     const minRatio = options?.minCompressionRatio ?? DEFAULT_MIN_COMPRESSION_RATIO;
