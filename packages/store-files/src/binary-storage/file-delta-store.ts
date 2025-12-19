@@ -39,7 +39,7 @@ type SerializedDeltaInstruction =
  * Convert Delta array to serialized format
  */
 function serializeDelta(delta: Delta[]): SerializedDeltaInstruction[] {
-  return delta.map((d) => {
+  return delta.map((d): SerializedDeltaInstruction => {
     switch (d.type) {
       case "start":
         return { type: "start", targetLen: d.targetLen };
@@ -49,6 +49,10 @@ function serializeDelta(delta: Delta[]): SerializedDeltaInstruction[] {
         return { type: "insert", data: Array.from(d.data) };
       case "finish":
         return { type: "finish", checksum: d.checksum };
+      default: {
+        const _exhaustive: never = d;
+        throw new Error(`Unknown delta type: ${(_exhaustive as Delta).type}`);
+      }
     }
   });
 }
@@ -57,7 +61,7 @@ function serializeDelta(delta: Delta[]): SerializedDeltaInstruction[] {
  * Convert serialized format to Delta array
  */
 function deserializeDelta(serialized: SerializedDeltaInstruction[]): Delta[] {
-  return serialized.map((d) => {
+  return serialized.map((d): Delta => {
     switch (d.type) {
       case "start":
         return { type: "start", targetLen: d.targetLen };
@@ -67,6 +71,10 @@ function deserializeDelta(serialized: SerializedDeltaInstruction[]): Delta[] {
         return { type: "insert", data: new Uint8Array(d.data) };
       case "finish":
         return { type: "finish", checksum: d.checksum };
+      default: {
+        const _exhaustive: never = d;
+        throw new Error(`Unknown delta type: ${(_exhaustive as SerializedDeltaInstruction).type}`);
+      }
     }
   });
 }
@@ -268,8 +276,7 @@ export class FileDeltaStore implements DeltaStore {
             if (suffixEntry.kind !== "file") continue;
             if (!suffixEntry.name.endsWith(".delta")) continue;
 
-            const targetKey =
-              prefixEntry.name + suffixEntry.name.replace(".delta", "");
+            const targetKey = prefixEntry.name + suffixEntry.name.replace(".delta", "");
             const stored = await this.loadDelta(targetKey);
             if (stored) {
               yield {
@@ -301,9 +308,6 @@ export class FileDeltaStore implements DeltaStore {
 /**
  * Create a new file-based delta store
  */
-export function createFileDeltaStore(
-  files: FilesApi,
-  basePath: string,
-): FileDeltaStore {
+export function createFileDeltaStore(files: FilesApi, basePath: string): FileDeltaStore {
   return new FileDeltaStore(files, basePath);
 }

@@ -12,8 +12,6 @@ export * from "./attik.loose/index.js";
 export * from "./backends/index.js";
 // Binary storage (new architecture)
 export * from "./binary-storage/index.js";
-// Object storage (new architecture)
-export * from "./object-storage/index.js";
 // Composite storage
 export * from "./composite-object-storage.js";
 // Factory function for streaming stores
@@ -33,6 +31,8 @@ export * from "./git-ref-storage.js";
 // Main storage implementations
 export * from "./git-storage.js";
 export * from "./git-tag-storage.js";
+// Object storage (new architecture)
+export * from "./object-storage/index.js";
 // Pack file handling
 export * from "./pack/index.js";
 // Refs handling

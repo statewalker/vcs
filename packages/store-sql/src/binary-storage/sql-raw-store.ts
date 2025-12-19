@@ -125,10 +125,7 @@ export class SqlRawStore implements RawStore {
   async delete(key: string): Promise<boolean> {
     await this.ensureInitialized();
 
-    const result = await this.db.execute(
-      `DELETE FROM ${this.tableName} WHERE key = ?`,
-      [key],
-    );
+    const result = await this.db.execute(`DELETE FROM ${this.tableName} WHERE key = ?`, [key]);
 
     return result.changes > 0;
   }
@@ -139,9 +136,7 @@ export class SqlRawStore implements RawStore {
   async *keys(): AsyncIterable<string> {
     await this.ensureInitialized();
 
-    const rows = await this.db.query<{ key: string }>(
-      `SELECT key FROM ${this.tableName}`,
-    );
+    const rows = await this.db.query<{ key: string }>(`SELECT key FROM ${this.tableName}`);
 
     for (const row of rows) {
       yield row.key;
@@ -170,9 +165,6 @@ export class SqlRawStore implements RawStore {
 /**
  * Create a new SQL-based raw store
  */
-export function createSqlRawStore(
-  db: DatabaseClient,
-  tableName?: string,
-): SqlRawStore {
+export function createSqlRawStore(db: DatabaseClient, tableName?: string): SqlRawStore {
   return new SqlRawStore(db, tableName);
 }

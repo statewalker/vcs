@@ -14,14 +14,13 @@ import { SqlNativeTagStoreImpl } from "./sql-native-tag-store.js";
 import { SqlNativeTreeStoreImpl } from "./sql-native-tree-store.js";
 import type { SqlNativeStores } from "./types.js";
 
-// Re-export types
-export * from "./types.js";
-
 // Re-export implementations
 export { SqlNativeBlobStoreImpl } from "./sql-native-blob-store.js";
 export { SqlNativeCommitStoreImpl } from "./sql-native-commit-store.js";
 export { SqlNativeTagStoreImpl } from "./sql-native-tag-store.js";
 export { SqlNativeTreeStoreImpl } from "./sql-native-tree-store.js";
+// Re-export types
+export * from "./types.js";
 
 /**
  * Create native SQL stores with query capabilities

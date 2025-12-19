@@ -49,15 +49,11 @@ export class KvDeltaStore implements DeltaStore {
   /**
    * Serialize delta entry to bytes
    */
-  private serialize(
-    baseKey: string,
-    delta: Delta[],
-    ratio: number,
-  ): Uint8Array {
+  private serialize(baseKey: string, delta: Delta[], ratio: number): Uint8Array {
     const encoder = new TextEncoder();
     const data = {
       baseKey,
-      delta: delta.map((d) => {
+      delta: delta.map((d): object => {
         switch (d.type) {
           case "start":
             return { type: "start", targetLen: d.targetLen };
@@ -67,6 +63,10 @@ export class KvDeltaStore implements DeltaStore {
             return { type: "insert", data: Array.from(d.data) };
           case "finish":
             return { type: "finish", checksum: d.checksum };
+          default: {
+            const _exhaustive: never = d;
+            throw new Error(`Unknown delta type: ${(_exhaustive as Delta).type}`);
+          }
         }
       }),
       ratio,
@@ -77,29 +77,35 @@ export class KvDeltaStore implements DeltaStore {
   /**
    * Deserialize delta entry from bytes
    */
-  private deserialize(
-    bytes: Uint8Array,
-    targetKey: string,
-  ): StoredDelta {
+  private deserialize(bytes: Uint8Array, targetKey: string): StoredDelta {
     const decoder = new TextDecoder();
     const data = JSON.parse(decoder.decode(bytes));
     return {
       baseKey: data.baseKey,
       targetKey,
-      delta: data.delta.map((d: { type: string; targetLen?: number; start?: number; len?: number; data?: number[]; checksum?: number }) => {
-        switch (d.type) {
-          case "start":
-            return { type: "start", targetLen: d.targetLen };
-          case "copy":
-            return { type: "copy", start: d.start, len: d.len };
-          case "insert":
-            return { type: "insert", data: new Uint8Array(d.data || []) };
-          case "finish":
-            return { type: "finish", checksum: d.checksum };
-          default:
-            throw new Error(`Unknown delta type: ${d.type}`);
-        }
-      }),
+      delta: data.delta.map(
+        (d: {
+          type: string;
+          targetLen?: number;
+          start?: number;
+          len?: number;
+          data?: number[];
+          checksum?: number;
+        }) => {
+          switch (d.type) {
+            case "start":
+              return { type: "start", targetLen: d.targetLen };
+            case "copy":
+              return { type: "copy", start: d.start, len: d.len };
+            case "insert":
+              return { type: "insert", data: new Uint8Array(d.data || []) };
+            case "finish":
+              return { type: "finish", checksum: d.checksum };
+            default:
+              throw new Error(`Unknown delta type: ${d.type}`);
+          }
+        },
+      ),
       ratio: data.ratio,
     };
   }

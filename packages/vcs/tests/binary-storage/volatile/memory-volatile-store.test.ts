@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { collect } from "../../../src/format/stream-utils.js";
 import { MemoryVolatileStore } from "../../../src/binary-storage/volatile/memory-volatile-store.js";
+import { collect } from "../../../src/format/stream-utils.js";
 
 describe("MemoryVolatileStore", () => {
   const encoder = new TextEncoder();
