@@ -14,7 +14,7 @@ import {
 } from "../../format/commit-format.js";
 import { toArray } from "../../format/stream-utils.js";
 import type { AncestryOptions, Commit, CommitStore, ObjectId } from "../interfaces/index.js";
-import type { GitObjectStore } from "./git-object-store.js";
+import type { GitObjectStoreImpl } from "./git-object-store.js";
 
 /**
  * Git commit store implementation
@@ -22,7 +22,7 @@ import type { GitObjectStore } from "./git-object-store.js";
  * Handles commit serialization and provides graph traversal.
  */
 export class GitCommitStore implements CommitStore {
-  constructor(private readonly objects: GitObjectStore) {}
+  constructor(private readonly objects: GitObjectStoreImpl) {}
 
   /**
    * Store a commit object

@@ -200,7 +200,7 @@ export async function* splitStream(
  * Reads a header from an async iterable stream.
  * @param input the input async iterable stream
  * @param getHeaderEnd  function that determines the end of the header within a block.
- * @param maxLength Optional maximum length for the header. If exceeded, an error is thrown. 
+ * @param maxLength Optional maximum length for the header. If exceeded, an error is thrown.
  * No limit if zero or negative. Default is -1.
  * @returns A tuple containing the header as a Uint8Array and an async generator for the remaining data.
  */
@@ -212,16 +212,19 @@ export async function readHeader(
   let header: Uint8Array | null = null;
   let iterator: AsyncGenerator<Uint8Array> = (async function* () {})();
   let len = 0;
-  const getSplitPos = maxLength > 0 ? (block: Uint8Array) => {
-    const endPos = getHeaderEnd(block);
-    if (endPos < 0 || endPos > block.length) {
-      len += block.length;
-      if (len > maxLength) {
-        throw new Error(`Header exceeds maximum length of ${maxLength} bytes`);
-      }
-    }
-    return endPos;
-  } : getHeaderEnd;
+  const getSplitPos =
+    maxLength > 0
+      ? (block: Uint8Array) => {
+          const endPos = getHeaderEnd(block);
+          if (endPos < 0 || endPos > block.length) {
+            len += block.length;
+            if (len > maxLength) {
+              throw new Error(`Header exceeds maximum length of ${maxLength} bytes`);
+            }
+          }
+          return endPos;
+        }
+      : getHeaderEnd;
   for await (const it of splitStream(input, getSplitPos)) {
     if (header === null) {
       header = await collect(it);
@@ -256,8 +259,8 @@ export async function readAhead(
 
 /**
  * Creates a simple byte splitter that looks for a single byte delimiter.
- * @param char 
- * @returns 
+ * @param char
+ * @returns
  */
 export function newByteSplitter(char: number): (block: Uint8Array) => number {
   return (block: Uint8Array): number => {

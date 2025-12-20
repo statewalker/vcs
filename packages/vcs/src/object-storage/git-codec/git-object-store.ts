@@ -34,7 +34,7 @@ export interface GitObjectHeader {
  * - SHA-1 hashing over complete object
  * - Two-phase storage for unknown-size content
  */
-export class GitObjectStore implements IGitObjectStore {
+export class GitObjectStoreImpl implements IGitObjectStore {
   /**
    * Create a Git object store
    *

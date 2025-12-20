@@ -20,12 +20,7 @@ import {
   type TreeEntry,
   type TreeStore,
 } from "@webrun-vcs/vcs";
-import type {
-  Checkout,
-  CheckoutOptions,
-  CheckoutResult,
-  StagingStore,
-} from "@webrun-vcs/worktree";
+import type { Checkout, CheckoutOptions, CheckoutResult, StagingStore } from "@webrun-vcs/worktree";
 
 /**
  * Flattened tree entry with full path.
