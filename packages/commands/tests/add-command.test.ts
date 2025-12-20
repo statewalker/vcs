@@ -151,8 +151,8 @@ async function createInitializedGitWithWorkTree(): Promise<{
   const { store, worktree } = createTestStoreWithWorkTree();
   const git = Git.wrap(store);
 
-  // Create empty tree
-  const emptyTreeId = store.trees.getEmptyTreeId();
+  // Create and store empty tree
+  const emptyTreeId = await store.trees.storeTree([]);
 
   // Create initial commit
   const initialCommit = {
@@ -595,8 +595,8 @@ describe("AddCommand", () => {
       const baseStore = createTestStore();
       const git = Git.wrap(baseStore);
 
-      // Initialize store
-      const emptyTreeId = baseStore.trees.getEmptyTreeId();
+      // Initialize store - store the empty tree first
+      const emptyTreeId = await baseStore.trees.storeTree([]);
       const commit = {
         tree: emptyTreeId,
         parents: [],

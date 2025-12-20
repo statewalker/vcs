@@ -1,6 +1,11 @@
 /**
  * Git raw object storage implementation for loose objects.
  *
+ * @deprecated This class implements the deprecated ObjectStore interface.
+ * Use the new architecture instead:
+ * - FileRawStore from binary-storage for key-value storage
+ * - createFileObjectStores() from object-storage for Git-compatible stores
+ *
  * This class provides low-level storage operations for Git objects stored as individual files
  * in the `.git/objects` directory structure. Objects are stored in a two-level directory
  * hierarchy where the first two characters of the SHA-1 hash form the directory name,

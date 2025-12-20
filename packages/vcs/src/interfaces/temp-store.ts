@@ -49,5 +49,5 @@ export interface TempStore {
    * @param content Async iterable of content chunks
    * @returns Handle with size and ability to re-read content
    */
-  store(content: AsyncIterable<Uint8Array>): Promise<TempContent>;
+  store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<TempContent>;
 }

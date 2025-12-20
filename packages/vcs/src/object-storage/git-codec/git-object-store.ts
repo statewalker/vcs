@@ -10,6 +10,8 @@ import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
 import type { RawStore } from "../../binary-storage/interfaces/raw-store.js";
 import type { VolatileStore } from "../../binary-storage/volatile/volatile-store.js";
 import { parseHeader, stripHeader } from "../../format/object-header.js";
+import { newByteSplitter, readHeader } from "../../format/stream-utils.js";
+import type { GitObjectStore as IGitObjectStore } from "../../interfaces/git-object-store.js";
 import type { ObjectId, ObjectTypeString } from "../interfaces/index.js";
 
 const encoder = new TextEncoder();
@@ -32,7 +34,7 @@ export interface GitObjectHeader {
  * - SHA-1 hashing over complete object
  * - Two-phase storage for unknown-size content
  */
-export class GitObjectStore {
+export class GitObjectStore implements IGitObjectStore {
   /**
    * Create a Git object store
    *
@@ -50,7 +52,10 @@ export class GitObjectStore {
    * Uses VolatileStore to buffer content and determine size before
    * computing hash and storing the object.
    */
-  async store(type: ObjectTypeString, content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
+  async store(
+    type: ObjectTypeString,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<ObjectId> {
     const buffered = await this.volatile.store(content);
     try {
       return await this.storeWithSize(type, buffered.size, buffered.read());
@@ -111,8 +116,9 @@ export class GitObjectStore {
    */
   async getHeader(id: ObjectId): Promise<GitObjectHeader> {
     const raw = this.storage.load(id);
-    const firstChunk = await getFirstChunk(raw);
 
+    const [firstChunk, it] = await readHeader(raw, newByteSplitter(0x00));
+    await it.return?.(void 0); // Close the iterator to free resources
     if (!firstChunk) {
       throw new Error(`Object not found: ${id}`);
     }
@@ -144,14 +150,4 @@ export class GitObjectStore {
   async *list(): AsyncIterable<ObjectId> {
     yield* this.storage.keys();
   }
-}
-
-/**
- * Get the first chunk from an async iterable
- */
-async function getFirstChunk(stream: AsyncIterable<Uint8Array>): Promise<Uint8Array | undefined> {
-  for await (const chunk of stream) {
-    return chunk;
-  }
-  return undefined;
 }

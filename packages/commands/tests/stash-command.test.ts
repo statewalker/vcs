@@ -43,16 +43,16 @@ describe("StashListCommand", () => {
     const indexCommit = await store.commits.storeCommit({
       tree: (await store.commits.loadCommit(headCommit)).tree,
       parents: [headCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "index on main: abc1234 initial",
     });
 
     const stashCommit = await store.commits.storeCommit({
       tree: (await store.commits.loadCommit(headCommit)).tree,
       parents: [headCommit, indexCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "WIP on main: abc1234 initial",
     });
 
@@ -164,16 +164,16 @@ describe("StashApplyCommand", () => {
     const indexCommit = await store.commits.storeCommit({
       tree: stashTree,
       parents: [headCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "index on main: abc1234 test",
     });
 
     const stashCommit = await store.commits.storeCommit({
       tree: stashTree,
       parents: [headCommit, indexCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "WIP on main: abc1234 test",
     });
 
@@ -195,16 +195,16 @@ describe("StashApplyCommand", () => {
     const indexCommit = await store.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "index on main: abc1234 test",
     });
 
     const stashCommit = await store.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "WIP on main: abc1234 test",
     });
 
@@ -346,8 +346,8 @@ describe("StashApplyCommand", () => {
     const commit = await store.commits.storeCommit({
       tree,
       parents: [],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "stash",
     });
 
@@ -460,16 +460,16 @@ describe("StashDropCommand", () => {
     const indexCommit = await store.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "index",
     });
 
     const stashCommit = await store.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "WIP",
     });
 
@@ -503,16 +503,16 @@ describe("StashDropCommand", () => {
     const indexCommit = await store.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "index",
     });
 
     const stashCommit = await store.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "WIP",
     });
 
@@ -570,16 +570,16 @@ describe("StashDropCommand", () => {
     const indexCommit = await store.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "index",
     });
 
     const stashCommit = await store.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "WIP",
     });
 
@@ -696,8 +696,8 @@ describe("StashListCommand - additional tests", () => {
     const invalidStash = await store.commits.storeCommit({
       tree: (await store.commits.loadCommit(headCommit)).tree,
       parents: [headCommit],
-      author: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
-      committer: { name: "Test", email: "test@test.com", timestamp: 1000, timezoneOffset: 0 },
+      author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "Not a valid stash",
     });
 
