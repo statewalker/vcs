@@ -123,7 +123,7 @@ export class SqlDeltaStore implements DeltaStore {
   /**
    * Store a delta relationship
    */
-  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<boolean> {
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
     await this.ensureInitialized();
 
     // Calculate ratio
@@ -149,7 +149,7 @@ export class SqlDeltaStore implements DeltaStore {
       [info.targetKey, info.baseKey, deltaData, ratio],
     );
 
-    return true;
+    return deltaData.length;
   }
 
   /**

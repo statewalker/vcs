@@ -249,7 +249,7 @@ describe("MemDeltaStore", () => {
 
       const result = await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, delta);
 
-      expect(result).toBe(true);
+      expect(result).toBeGreaterThan(0);
       expect(await store.isDelta("target1")).toBe(true);
     });
 

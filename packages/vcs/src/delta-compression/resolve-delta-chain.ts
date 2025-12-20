@@ -44,10 +44,7 @@ export async function* resolveDeltaChain(
   const baseContent = await collectBytes(resolveDeltaChain(storedDelta.baseKey, raw, delta));
 
   // Apply delta to reconstruct content (applyDelta returns a generator)
-  const content = collectSyncChunks(applyDelta(baseContent, storedDelta.delta));
-
-  // Yield as single chunk (delta result is already in memory)
-  yield content;
+  yield* applyDelta(baseContent, storedDelta.delta);
 }
 
 /**
@@ -75,30 +72,6 @@ export async function objectExists(
     return true;
   }
   return delta.isDelta(objectId);
-}
-
-/**
- * Collect synchronous iterable into single Uint8Array
- */
-function collectSyncChunks(chunks: Iterable<Uint8Array>): Uint8Array {
-  const parts: Uint8Array[] = [];
-  let totalLength = 0;
-
-  for (const chunk of chunks) {
-    parts.push(chunk);
-    totalLength += chunk.length;
-  }
-
-  if (parts.length === 0) return new Uint8Array(0);
-  if (parts.length === 1) return parts[0];
-
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const part of parts) {
-    result.set(part, offset);
-    offset += part.length;
-  }
-  return result;
 }
 
 /**

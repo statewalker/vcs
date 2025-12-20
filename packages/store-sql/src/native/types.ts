@@ -5,14 +5,7 @@
  * while still computing Git-compatible SHA-1 object IDs for interoperability.
  */
 
-import type {
-  BlobStore,
-  CommitStore,
-  GitStores,
-  ObjectId,
-  TagStore,
-  TreeStore,
-} from "@webrun-vcs/vcs";
+import type { BlobStore, CommitStore, ObjectId, TagStore, TreeStore } from "@webrun-vcs/vcs";
 
 /**
  * Extended CommitStore with SQL query capabilities
@@ -112,10 +105,11 @@ export interface SqlNativeTagStore extends TagStore {
 /**
  * Collection of native SQL stores with query capabilities
  *
- * Extends GitStores with more specific store types that provide
- * additional query methods beyond the standard interface.
+ * Provides structured SQL storage with extended query methods.
+ * Unlike GitStores, these don't use the Git object format internally,
+ * but still compute Git-compatible SHA-1 object IDs for interoperability.
  */
-export interface SqlNativeStores extends GitStores {
+export interface SqlNativeStores {
   readonly commits: SqlNativeCommitStore;
   readonly trees: SqlNativeTreeStore;
   readonly blobs: SqlNativeBlobStore;

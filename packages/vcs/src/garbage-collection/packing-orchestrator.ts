@@ -5,7 +5,7 @@
  * Orchestrates storage analysis, candidate selection, and deltification.
  */
 
-import type { ObjectId } from "../object-storage/interfaces/index.js";
+import type { ObjectId } from "../object-storage/index.js";
 import { StorageAnalyzer } from "./storage-analyzer.js";
 import type {
   PackingCandidate,
