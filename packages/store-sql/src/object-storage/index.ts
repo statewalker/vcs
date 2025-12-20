@@ -10,6 +10,7 @@ import { MemoryVolatileStore } from "@webrun-vcs/vcs/binary-storage";
 import {
   GitBlobStore,
   GitCommitStore,
+  type GitObjectStore,
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
@@ -22,7 +23,7 @@ import type { DatabaseClient } from "../database-client.js";
  */
 export interface SqlObjectStores {
   /** Low-level Git object store */
-  objects: GitObjectStoreImpl;
+  objects: GitObjectStore;
   /** Blob (file content) store */
   blobs: BlobStore;
   /** Tree (directory) store */
@@ -84,6 +85,7 @@ export function createSqlObjectStores(options: CreateSqlObjectStoresOptions): Sq
 export {
   GitBlobStore,
   GitCommitStore,
+  type GitObjectStore,
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,

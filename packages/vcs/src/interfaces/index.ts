@@ -10,11 +10,13 @@
  * - `@webrun-vcs/vcs/garbage-collection` - GCController
  */
 
+// Git object storage interface (now in git-codec alongside implementation)
+export type {
+  GitObjectHeader,
+  GitObjectStore,
+} from "../object-storage/git-codec/git-object-store.js";
 // Core types and store interfaces from object-storage
 export * from "../object-storage/interfaces/index.js";
-
-// Git object storage interface
-export * from "./git-object-store.js";
 export * from "./object-store.js";
 // Staging interfaces
 export * from "./staging-edits.js";

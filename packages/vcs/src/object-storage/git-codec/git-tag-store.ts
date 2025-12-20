@@ -18,7 +18,7 @@ import {
   ObjectType,
   type TagStore,
 } from "../interfaces/index.js";
-import type { GitObjectStoreImpl } from "./git-object-store.js";
+import type { GitObjectStore } from "./git-object-store.js";
 
 /**
  * Git tag store implementation
@@ -26,7 +26,7 @@ import type { GitObjectStoreImpl } from "./git-object-store.js";
  * Handles tag serialization and delegates storage to GitObjectStore.
  */
 export class GitTagStore implements TagStore {
-  constructor(private readonly objects: GitObjectStoreImpl) {}
+  constructor(private readonly objects: GitObjectStore) {}
 
   /**
    * Store an annotated tag

@@ -6,7 +6,7 @@
  */
 
 import type { BlobStore, ObjectId } from "../interfaces/index.js";
-import type { GitObjectStoreImpl } from "./git-object-store.js";
+import type { GitObjectStore } from "./git-object-store.js";
 
 /**
  * Convert sync or async iterable to async iterable
@@ -35,7 +35,7 @@ function toAsyncIterable(
  * Delegates all operations to GitObjectStore with "blob" type.
  */
 export class GitBlobStore implements BlobStore {
-  constructor(private readonly objects: GitObjectStoreImpl) {}
+  constructor(private readonly objects: GitObjectStore) {}
 
   /**
    * Store blob with unknown size

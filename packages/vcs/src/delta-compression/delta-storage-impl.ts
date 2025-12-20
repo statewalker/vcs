@@ -8,7 +8,10 @@
 import type { Delta } from "@webrun-vcs/utils";
 import type { BinStore, DeltaInfo, DeltaStore, RawStore } from "../binary-storage/index.js";
 import type { VolatileStore } from "../binary-storage/volatile/index.js";
-import { GitObjectStoreImpl } from "../object-storage/git-codec/git-object-store.js";
+import {
+  type GitObjectStore,
+  GitObjectStoreImpl,
+} from "../object-storage/git-codec/git-object-store.js";
 import type { ObjectId, ObjectTypeString } from "../object-storage/interfaces/index.js";
 import { objectExists, resolveDeltaChainToBytes } from "./resolve-delta-chain.js";
 import type { DeltaCandidateStrategy, DeltaComputeOptions, DeltaComputeStrategy } from "./types.js";
@@ -119,7 +122,7 @@ export interface DeltaChainDetails {
  */
 export class DeltaStorageImpl {
   /** Git object store for content-addressable operations */
-  readonly gitObjects: GitObjectStoreImpl;
+  readonly gitObjects: GitObjectStore;
 
   /** Raw storage backend */
   readonly raw: RawStore;

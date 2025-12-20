@@ -9,7 +9,10 @@ import { MemoryVolatileStore } from "../../../src/binary-storage/volatile/memory
 import { collect, toArray } from "../../../src/format/stream-utils.js";
 import { GitBlobStore } from "../../../src/object-storage/git-codec/git-blob-store.js";
 import { GitCommitStore } from "../../../src/object-storage/git-codec/git-commit-store.js";
-import { GitObjectStoreImpl } from "../../../src/object-storage/git-codec/git-object-store.js";
+import {
+  type GitObjectStore,
+  GitObjectStoreImpl,
+} from "../../../src/object-storage/git-codec/git-object-store.js";
 import { GitTagStore } from "../../../src/object-storage/git-codec/git-tag-store.js";
 import { GitTreeStore } from "../../../src/object-storage/git-codec/git-tree-store.js";
 import type {
@@ -24,7 +27,7 @@ describe("git-codec stores", () => {
   const encoder = new TextEncoder();
 
   interface GitCodecStores {
-    objects: GitObjectStoreImpl;
+    objects: GitObjectStore;
     blobs: GitBlobStore;
     trees: GitTreeStore;
     commits: GitCommitStore;
