@@ -11,6 +11,7 @@ import { MemoryVolatileStore } from "@webrun-vcs/vcs/binary-storage";
 import {
   GitBlobStore,
   GitCommitStore,
+  type GitObjectStore,
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
@@ -22,7 +23,7 @@ import { MemRawStore } from "../binary-storage/index.js";
  */
 export interface MemoryObjectStores {
   /** Low-level Git object store */
-  objects: GitObjectStoreImpl;
+  objects: GitObjectStore;
   /** Blob (file content) store */
   blobs: BlobStore;
   /** Tree (directory) store */
