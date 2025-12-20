@@ -117,10 +117,18 @@ export class GitCommitStore implements CommitStore {
   }
 
   /**
-   * Check if commit exists
+   * Check if commit exists and is actually a commit object
    */
-  hasCommit(id: ObjectId): Promise<boolean> {
-    return this.objects.has(id);
+  async hasCommit(id: ObjectId): Promise<boolean> {
+    if (!(await this.objects.has(id))) {
+      return false;
+    }
+    try {
+      const header = await this.objects.getHeader(id);
+      return header.type === "commit";
+    } catch {
+      return false;
+    }
   }
 
   /**

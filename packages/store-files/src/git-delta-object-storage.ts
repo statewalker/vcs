@@ -1,6 +1,11 @@
 /**
  * Git Delta Object Storage
  *
+ * @deprecated This class implements the deprecated ObjectStore interface.
+ * Use the new architecture instead:
+ * - FileBinStore from binary-storage for raw + delta storage
+ * - createFileObjectStores() from object-storage for Git-compatible stores
+ *
  * Implements DeltaObjectStore interface for Git repositories.
  *
  * Architecture:

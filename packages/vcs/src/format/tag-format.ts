@@ -15,10 +15,41 @@
 import type { AnnotatedTag, ObjectTypeCode } from "../object-storage/interfaces/index.js";
 import { typeCodeToString, typeStringToCode } from "./object-header.js";
 import { formatPersonIdent, parsePersonIdent } from "./person-ident.js";
-import { asAsyncIterable, collect, encodeString, toArray } from "./stream-utils.js";
+import { asAsyncIterable, mapStream, toLines } from "./stream-utils.js";
 import type { TagEntry } from "./types.js";
 
 const LF = "\n";
+
+export function serializeTagEntry(entry: TagEntry): string {
+  // Build tag content
+  switch (entry.type) {
+    case "object":
+      return `object ${entry.value}\n`;
+    case "objectType":
+      return `type ${typeCodeToString(entry.value)}\n`;
+    case "tag":
+      return `tag ${entry.value}\n`;
+    case "tagger":
+      return `tagger ${formatPersonIdent(entry.value)}\n`;
+    case "encoding":
+      return `encoding ${entry.value}\n`;
+    case "gpgsig": {
+      // GPG signature with continuation lines
+      const sigLines = entry.value.split("\n");
+      const lines = [`gpgsig ${sigLines[0]}\n`];
+      for (let i = 1; i < sigLines.length; i++) {
+        lines.push(` ${sigLines[i]}\n`);
+      }
+      return lines.join("");
+    }
+    case "message":
+      // Empty line before message
+      return `\n${entry.value}`;
+    default: {
+      return "";
+    }
+  }
+}
 
 /**
  * Encode tag entries to byte stream
@@ -31,49 +62,10 @@ const LF = "\n";
 export async function* encodeTagEntries(
   entries: AsyncIterable<TagEntry> | Iterable<TagEntry>,
 ): AsyncGenerator<Uint8Array> {
-  const collected: TagEntry[] = [];
-  for await (const entry of asAsyncIterable(entries)) {
-    collected.push(entry);
-  }
-
-  // Build tag content
-  const lines: string[] = [];
-
-  for (const entry of collected) {
-    switch (entry.type) {
-      case "object":
-        lines.push(`object ${entry.value}`);
-        break;
-      case "objectType":
-        lines.push(`type ${typeCodeToString(entry.value)}`);
-        break;
-      case "tag":
-        lines.push(`tag ${entry.value}`);
-        break;
-      case "tagger":
-        lines.push(`tagger ${formatPersonIdent(entry.value)}`);
-        break;
-      case "encoding":
-        lines.push(`encoding ${entry.value}`);
-        break;
-      case "gpgsig": {
-        // GPG signature with continuation lines
-        const sigLines = entry.value.split("\n");
-        lines.push(`gpgsig ${sigLines[0]}`);
-        for (let i = 1; i < sigLines.length; i++) {
-          lines.push(` ${sigLines[i]}`);
-        }
-        break;
-      }
-      case "message":
-        // Empty line before message
-        lines.push("");
-        lines.push(entry.value);
-        break;
-    }
-  }
-
-  yield encodeString(lines.join(LF));
+  const encoder = new TextEncoder();
+  yield* mapStream(entries, (entry) => {
+    return encoder.encode(serializeTagEntry(entry));
+  });
 }
 
 /**
@@ -85,9 +77,11 @@ export async function* encodeTagEntries(
 export async function computeTagSize(
   entries: AsyncIterable<TagEntry> | Iterable<TagEntry>,
 ): Promise<number> {
-  const entryList = await toArray(asAsyncIterable(entries));
-  const chunks = await collect(encodeTagEntries(entryList));
-  return chunks.length;
+  let len = 0;
+  for await (const entry of encodeTagEntries(entries)) {
+    len += entry.length;
+  }
+  return len;
 }
 
 /**
@@ -99,30 +93,28 @@ export async function computeTagSize(
 export async function* decodeTagEntries(
   input: AsyncIterable<Uint8Array>,
 ): AsyncGenerator<TagEntry> {
-  const data = await collect(input);
-  const decoder = new TextDecoder();
-  const text = decoder.decode(data);
-
-  // Split by LF, strip CR for CRLF handling
-  const lines = text.split(LF).map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
-
   let inGpgSig = false;
+  let inMessage = false;
   const gpgSigLines: string[] = [];
-  let messageStart = -1;
+  const messageLines: string[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for await (const line of toLines(input)) {
+    // If we're in message mode, collect all remaining lines
+    if (inMessage) {
+      messageLines.push(line);
+      continue;
+    }
 
     // Empty line marks start of message
-    if (line === "" && messageStart === -1) {
+    if (line === "") {
       // Finalize any ongoing gpgsig
       if (inGpgSig) {
         yield { type: "gpgsig", value: gpgSigLines.join("\n") };
         inGpgSig = false;
         gpgSigLines.length = 0;
       }
-      messageStart = i + 1;
-      break;
+      inMessage = true;
+      continue;
     }
 
     // Continuation line for gpgsig
@@ -177,8 +169,8 @@ export async function* decodeTagEntries(
   }
 
   // Extract message
-  if (messageStart !== -1 && messageStart < lines.length) {
-    const message = lines.slice(messageStart).join(LF);
+  if (messageLines.length > 0) {
+    const message = messageLines.join(LF);
     yield { type: "message", value: message };
   }
 }

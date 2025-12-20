@@ -434,9 +434,6 @@ importers:
       '@webrun-vcs/vcs':
         specifier: workspace:*
         version: link:../vcs
-      '@webrun-vcs/worktree':
-        specifier: workspace:*
-        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

@@ -551,8 +551,8 @@ export async function createInitializedTestServer(): Promise<
   const store = createGitFormatTestStore();
   const git = Git.wrap(store);
 
-  // Create empty tree - the well-known ID
-  const emptyTreeId = store.trees.getEmptyTreeId();
+  // Create and store empty tree
+  const emptyTreeId = await store.trees.storeTree([]);
 
   // Create initial commit
   const initialCommit = {

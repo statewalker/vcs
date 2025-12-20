@@ -1,8 +1,16 @@
 /**
  * Parametrized test suite for ObjectStore implementations
  *
- * This suite tests the core ObjectStore interface contract.
- * All storage implementations must pass these tests.
+ * @deprecated This test suite is for the deprecated ObjectStore interface.
+ * Use createStreamingStoresTests from ./streaming-stores.suite.js instead,
+ * which tests the new GitStores interface (BlobStore, TreeStore, etc.).
+ *
+ * ObjectStore is being replaced by:
+ * - RawStore (binary-storage) for key-value byte storage
+ * - GitObjectStore (object-storage/git-codec) for content-addressable Git objects
+ * - Typed stores (BlobStore, TreeStore, etc.) for specific object types
+ *
+ * This file will be removed in a future version.
  */
 
 import type { ObjectStore } from "@webrun-vcs/vcs";

@@ -3,61 +3,28 @@
  */
 
 import {
-  createMemoryStorage,
-  MemoryCommitStore,
+  createMemoryObjectStores,
   MemoryRefStore,
   MemoryStagingStore,
-  MemoryTagStore,
-  MemoryTreeStore,
 } from "@webrun-vcs/store-mem";
-import type { BlobStore, ObjectId, ObjectStore, PersonIdent } from "@webrun-vcs/vcs";
+import type { ObjectId, PersonIdent } from "@webrun-vcs/vcs";
 import { FileMode } from "@webrun-vcs/vcs";
 
 import { Git, type GitStore } from "../src/index.js";
 
 /**
- * Simple BlobStore wrapper around ObjectStore for testing.
- * Stores content WITHOUT Git headers (simple key-value semantics).
- */
-class SimpleBlobStore implements BlobStore {
-  private objects: ObjectStore;
-
-  constructor(objects: ObjectStore) {
-    this.objects = objects;
-  }
-
-  async store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
-    return this.objects.store(content);
-  }
-
-  async storeWithSize(
-    _size: number,
-    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
-  ): Promise<ObjectId> {
-    return this.objects.store(content);
-  }
-
-  load(id: ObjectId): AsyncIterable<Uint8Array> {
-    return this.objects.load(id);
-  }
-
-  has(id: ObjectId): Promise<boolean> {
-    return this.objects.has(id);
-  }
-}
-
-/**
  * Create an in-memory GitStore for testing.
+ * Uses the new object-storage API with Git-compatible SHA-1 hashing.
  */
 export function createTestStore(): GitStore {
-  const objects = createMemoryStorage();
+  const stores = createMemoryObjectStores();
   return {
-    blobs: new SimpleBlobStore(objects),
-    trees: new MemoryTreeStore(),
-    commits: new MemoryCommitStore(),
+    blobs: stores.blobs,
+    trees: stores.trees,
+    commits: stores.commits,
     refs: new MemoryRefStore(),
     staging: new MemoryStagingStore(),
-    tags: new MemoryTagStore(),
+    tags: stores.tags,
   };
 }
 
@@ -76,8 +43,8 @@ export async function createInitializedGit(): Promise<{
   const store = createTestStore();
   const git = Git.wrap(store);
 
-  // Create empty tree
-  const emptyTreeId = store.trees.getEmptyTreeId();
+  // Create and store empty tree (storeTree returns the well-known empty tree ID)
+  const emptyTreeId = await store.trees.storeTree([]);
 
   // Create initial commit
   const initialCommit = {
