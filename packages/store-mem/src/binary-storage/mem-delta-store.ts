@@ -36,7 +36,7 @@ export class MemDeltaStore implements DeltaStore {
   /**
    * Store a delta relationship
    */
-  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<boolean> {
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
     // Calculate approximate ratio
     const deltaSize = delta.reduce((sum, d) => {
       switch (d.type) {
@@ -62,7 +62,7 @@ export class MemDeltaStore implements DeltaStore {
       ratio,
     });
 
-    return true;
+    return deltaSize;
   }
 
   /**

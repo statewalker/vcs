@@ -38,6 +38,7 @@ export function createStreamingKvStores(
 
   // Return GitStores-compatible interface
   return {
+    objects: stores.objects,
     commits: stores.commits,
     trees: stores.trees,
     blobs: stores.blobs,

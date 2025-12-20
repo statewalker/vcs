@@ -113,7 +113,7 @@ export class KvDeltaStore implements DeltaStore {
   /**
    * Store a delta relationship
    */
-  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<boolean> {
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
     // Calculate ratio
     const deltaSize = delta.reduce((sum, d) => {
       switch (d.type) {
@@ -133,7 +133,7 @@ export class KvDeltaStore implements DeltaStore {
     const data = this.serialize(info.baseKey, delta, ratio);
 
     await this.kv.set(this.deltaKey(info.targetKey), data);
-    return true;
+    return data.length;
   }
 
   /**

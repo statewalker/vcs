@@ -82,3 +82,6 @@ tmp
 # .eslintcache
 # stylelint-cache
 *.fossil
+
+# bv (beads viewer) local config and caches
+.bv/

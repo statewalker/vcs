@@ -12,6 +12,7 @@
 
 import type { BlobStore } from "./blob-store.js";
 import type { CommitStore } from "./commit-store.js";
+import type { GitObjectStore } from "./git-object-store.js";
 import type { TagStore } from "./tag-store.js";
 import type { TreeStore } from "./tree-store.js";
 
@@ -22,6 +23,9 @@ import type { TreeStore } from "./tree-store.js";
  * Use this when you need to work with multiple object types.
  */
 export interface GitStores {
+  /** Low-level Git object store for raw object access */
+  readonly objects: GitObjectStore;
+
   /** Commit object storage */
   readonly commits: CommitStore;
 

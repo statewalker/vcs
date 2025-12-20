@@ -119,7 +119,7 @@ export class FileDeltaStore implements DeltaStore {
   /**
    * Store a delta relationship
    */
-  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<boolean> {
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
     const path = this.getPath(info.targetKey);
     await this.ensureDir(path);
 
@@ -151,7 +151,7 @@ export class FileDeltaStore implements DeltaStore {
     const content = encoder.encode(JSON.stringify(entry));
     await this.files.write(path, [content]);
 
-    return true;
+    return content.length;
   }
 
   /**

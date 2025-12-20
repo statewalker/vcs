@@ -6,7 +6,13 @@
  */
 
 import type { Delta } from "@webrun-vcs/utils";
-import type { BinStore, DeltaInfo, DeltaStore, RawStore } from "../binary-storage/index.js";
+import type {
+  BinStore,
+  DeltaChainDetails,
+  DeltaInfo,
+  DeltaStore,
+  RawStore,
+} from "../binary-storage/index.js";
 import type { VolatileStore } from "../binary-storage/volatile/index.js";
 import {
   type GitObjectStore,
@@ -41,78 +47,6 @@ export interface DeltaStorageOptions {
 }
 
 /**
- * Repository analysis results
- */
-export interface RepositoryAnalysis {
-  /** Total objects in repository */
-  totalObjects: number;
-  /** Objects stored as loose */
-  looseObjects: number;
-  /** Objects stored as deltas */
-  deltaObjects: number;
-  /** Total uncompressed size */
-  totalSize: number;
-  /** Current compressed size */
-  compressedSize: number;
-  /** Potential additional savings from deltification */
-  potentialSavings: number;
-  /** Objects that could be deltified */
-  deltifiableCandidates: number;
-  /** Current average chain depth */
-  averageChainDepth: number;
-  /** Chains exceeding recommended depth */
-  deepChains: number;
-}
-
-/**
- * Repack options
- */
-export interface RepackOptions {
-  /** Maximum delta chain depth */
-  maxChainDepth?: number;
-  /** Sliding window size for candidate selection */
-  windowSize?: number;
-  /** Use aggressive compression (slower but better) */
-  aggressive?: boolean;
-  /** Prune loose objects after packing */
-  pruneLoose?: boolean;
-  /** Only pack objects reachable from this commit */
-  commitScope?: ObjectId;
-  /** Progress callback */
-  onProgress?: (phase: string, current: number, total: number) => void;
-}
-
-/**
- * Repack results
- */
-export interface RepackResult {
-  objectsProcessed: number;
-  deltasCreated: number;
-  deltasRemoved: number;
-  looseObjectsPruned: number;
-  spaceSaved: number;
-  duration: number;
-}
-
-/**
- * Delta chain details
- */
-export interface DeltaChainDetails {
-  /** Base object key */
-  baseKey: string;
-  /** Target object key */
-  targetKey: string;
-  /** Chain depth */
-  depth: number;
-  /** Original uncompressed size */
-  originalSize: number;
-  /** Compressed storage size */
-  compressedSize: number;
-  /** Object keys in chain order */
-  chain: string[];
-}
-
-/**
  * Delta Storage Implementation
  *
  * Provides unified delta-aware object storage using the new architecture:
@@ -120,28 +54,32 @@ export interface DeltaChainDetails {
  * - GitObjectStore for content-addressable operations
  * - Strategies for candidate selection and delta computation
  */
-export class DeltaStorageImpl {
+export class DeltaStorageImpl implements DeltaStore {
   /** Git object store for content-addressable operations */
   readonly gitObjects: GitObjectStore;
 
-  /** Raw storage backend */
-  readonly raw: RawStore;
+  // /** Parent BinStore for lifecycle operations */
+  // readonly binStore: BinStore;
 
-  /** Delta storage backend */
-  readonly delta: DeltaStore;
+  get raw(): RawStore {
+    return this.binStore.raw;
+  }
 
-  /** Parent BinStore for lifecycle operations */
-  readonly binStore: BinStore;
+  get delta(): DeltaStore {
+    return this.binStore.delta;
+  }
 
   private candidateStrategy: DeltaCandidateStrategy | undefined;
   private computeStrategy: DeltaComputeStrategy | undefined;
   private readonly maxChainDepth: number;
   private readonly maxRatio: number;
 
-  constructor(binStore: BinStore, volatile: VolatileStore, options?: DeltaStorageOptions) {
-    this.binStore = binStore;
-    this.raw = binStore.raw;
-    this.delta = binStore.delta;
+  constructor(
+    readonly binStore: BinStore,
+    volatile: VolatileStore,
+    options?: DeltaStorageOptions,
+  ) {
+    // this.binStore = binStore;
     this.gitObjects = new GitObjectStoreImpl(volatile, binStore.raw);
     this.maxChainDepth = options?.maxChainDepth ?? DEFAULT_MAX_CHAIN_DEPTH;
     this.maxRatio = options?.maxRatio ?? DEFAULT_MAX_RATIO;
@@ -389,7 +327,8 @@ export class DeltaStorageImpl {
       return false;
     }
 
-    return this.storeDelta(targetId, bestResult.baseId, bestResult.delta);
+    await this.storeDeltaFor(targetId, bestResult.baseId, bestResult.delta);
+    return true;
   }
 
   /**
@@ -444,9 +383,20 @@ export class DeltaStorageImpl {
   // ========== Direct Delta Operations ==========
 
   /**
+   * Store delta (DeltaStore interface)
+   */
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
+    return this.storeDeltaFor(info.targetKey, info.baseKey, delta);
+  }
+
+  /**
    * Store delta with known base
    */
-  async storeDelta(targetId: ObjectId, baseId: ObjectId, delta: Delta[]): Promise<boolean> {
+  private async storeDeltaFor(
+    targetId: ObjectId,
+    baseId: ObjectId,
+    delta: Delta[],
+  ): Promise<number> {
     if (!(await this.has(baseId))) {
       throw new Error(`Base object ${baseId} not found`);
     }
@@ -481,6 +431,20 @@ export class DeltaStorageImpl {
     id: ObjectId,
   ): Promise<{ baseKey: string; targetKey: string; delta: Delta[]; ratio: number } | undefined> {
     return this.delta.loadDelta(id);
+  }
+
+  /**
+   * Remove delta relationship
+   */
+  async removeDelta(targetKey: string, keepAsBase?: boolean): Promise<boolean> {
+    return this.delta.removeDelta(targetKey, keepAsBase);
+  }
+
+  /**
+   * List all delta relationships
+   */
+  async *listDeltas(): AsyncIterable<DeltaInfo> {
+    yield* this.delta.listDeltas();
   }
 
   // ========== Lifecycle ==========

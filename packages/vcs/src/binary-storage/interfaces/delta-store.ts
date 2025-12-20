@@ -58,7 +58,7 @@ export interface DeltaStore {
    * @param delta Delta instructions (format-agnostic)
    * @returns True if stored successfully
    */
-  storeDelta(info: DeltaInfo, delta: Delta[]): Promise<boolean>;
+  storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number>;
 
   /**
    * Load delta for an object
