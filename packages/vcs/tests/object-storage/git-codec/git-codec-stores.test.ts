@@ -9,7 +9,7 @@ import { MemoryVolatileStore } from "../../../src/binary-storage/volatile/memory
 import { collect, toArray } from "../../../src/format/stream-utils.js";
 import { GitBlobStore } from "../../../src/object-storage/git-codec/git-blob-store.js";
 import { GitCommitStore } from "../../../src/object-storage/git-codec/git-commit-store.js";
-import { GitObjectStore } from "../../../src/object-storage/git-codec/git-object-store.js";
+import { GitObjectStoreImpl } from "../../../src/object-storage/git-codec/git-object-store.js";
 import { GitTagStore } from "../../../src/object-storage/git-codec/git-tag-store.js";
 import { GitTreeStore } from "../../../src/object-storage/git-codec/git-tree-store.js";
 import type {
@@ -24,7 +24,7 @@ describe("git-codec stores", () => {
   const encoder = new TextEncoder();
 
   interface GitCodecStores {
-    objects: GitObjectStore;
+    objects: GitObjectStoreImpl;
     blobs: GitBlobStore;
     trees: GitTreeStore;
     commits: GitCommitStore;
@@ -34,7 +34,7 @@ describe("git-codec stores", () => {
   function createStores(): GitCodecStores {
     const volatile = new MemoryVolatileStore();
     const storage = new MemoryRawStore();
-    const objects = new GitObjectStore(volatile, storage);
+    const objects = new GitObjectStoreImpl(volatile, storage);
 
     return {
       objects,
@@ -45,7 +45,7 @@ describe("git-codec stores", () => {
     };
   }
 
-  describe("GitObjectStore", () => {
+  describe("GitObjectStoreImpl", () => {
     it("stores blob with correct header format", async () => {
       const stores = createStores();
 

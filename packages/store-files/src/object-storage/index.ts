@@ -11,7 +11,7 @@ import type { BlobStore, CommitStore, TagStore, TreeStore } from "@webrun-vcs/vc
 import {
   GitBlobStore,
   GitCommitStore,
-  GitObjectStore,
+  GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
 } from "@webrun-vcs/vcs/object-storage";
@@ -22,7 +22,7 @@ import { FileRawStore, FileVolatileStore } from "../binary-storage/index.js";
  */
 export interface FileObjectStores {
   /** Low-level Git object store */
-  objects: GitObjectStore;
+  objects: GitObjectStoreImpl;
   /** Blob (file content) store */
   blobs: BlobStore;
   /** Tree (directory) store */
@@ -75,7 +75,7 @@ export function createFileObjectStores(options: CreateFileObjectStoresOptions): 
   const rawStore = new FileRawStore(files, objectsPath);
   const volatileStore = new FileVolatileStore(files, tempPath ?? `${objectsPath}/../tmp`);
 
-  const objects = new GitObjectStore(volatileStore, rawStore);
+  const objects = new GitObjectStoreImpl(volatileStore, rawStore);
 
   return {
     objects,
@@ -90,7 +90,7 @@ export function createFileObjectStores(options: CreateFileObjectStoresOptions): 
 export {
   GitBlobStore,
   GitCommitStore,
-  GitObjectStore,
+  GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
 } from "@webrun-vcs/vcs/object-storage";

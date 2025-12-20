@@ -32,7 +32,11 @@
  */
 
 import { FileMode } from "@webrun-vcs/vcs";
-import { DeleteStagingEntry, UpdateStagingEntry, type WorkingTreeIterator } from "@webrun-vcs/worktree";
+import {
+  DeleteStagingEntry,
+  UpdateStagingEntry,
+  type WorkingTreeIterator,
+} from "@webrun-vcs/worktree";
 
 import { NoFilepatternError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";

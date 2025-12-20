@@ -12,7 +12,7 @@ import {
   encodeTreeEntries,
 } from "../../format/tree-format.js";
 import type { ObjectId, TreeEntry, TreeStore } from "../interfaces/index.js";
-import type { GitObjectStore } from "./git-object-store.js";
+import type { GitObjectStoreImpl } from "./git-object-store.js";
 
 /**
  * Git tree store implementation
@@ -21,7 +21,7 @@ import type { GitObjectStore } from "./git-object-store.js";
  * and delegates storage to GitObjectStore.
  */
 export class GitTreeStore implements TreeStore {
-  constructor(private readonly objects: GitObjectStore) {}
+  constructor(private readonly objects: GitObjectStoreImpl) {}
 
   /**
    * Store tree from entry stream

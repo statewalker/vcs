@@ -11,7 +11,7 @@ import { MemoryVolatileStore } from "@webrun-vcs/vcs/binary-storage";
 import {
   GitBlobStore,
   GitCommitStore,
-  GitObjectStore,
+  GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
 } from "@webrun-vcs/vcs/object-storage";
@@ -23,7 +23,7 @@ import type { KVStore } from "../kv-store.js";
  */
 export interface KvObjectStores {
   /** Low-level Git object store */
-  objects: GitObjectStore;
+  objects: GitObjectStoreImpl;
   /** Blob (file content) store */
   blobs: BlobStore;
   /** Tree (directory) store */
@@ -77,7 +77,7 @@ export function createKvObjectStores(options: CreateKvObjectStoresOptions): KvOb
   const rawStore = new KvRawStore(kv, prefix);
   const volatileStore = new MemoryVolatileStore();
 
-  const objects = new GitObjectStore(volatileStore, rawStore);
+  const objects = new GitObjectStoreImpl(volatileStore, rawStore);
 
   return {
     objects,
@@ -92,7 +92,7 @@ export function createKvObjectStores(options: CreateKvObjectStoresOptions): KvOb
 export {
   GitBlobStore,
   GitCommitStore,
-  GitObjectStore,
+  GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
 } from "@webrun-vcs/vcs/object-storage";
