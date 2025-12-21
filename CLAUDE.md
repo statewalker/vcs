@@ -107,3 +107,83 @@ All exploration and planning notes: `notes/src/YYYY-MM-DD/CC-[project]-subject.m
 - `notes/src/2025-11-07/03-[fsm-validation]-fixes-applied.md`
 
 **[Full Guidelines](.claude/workflows/note-organization.md)**
+
+## Beads Issue Tracking Integration
+
+This project uses **Beads** for AI-native issue tracking. Claude Code should integrate with beads throughout development sessions.
+
+### Core Workflow
+
+When starting a session, check for available work using `bd ready` to see issues with no blockers. As you work on issues, update their status to track progress. When you discover new tasks during implementation, create issues to capture them. At the end of each session, sync changes with `bd sync`.
+
+### Essential Commands
+
+**Finding work:**
+```bash
+bd ready              # Show unblocked issues ready to work
+bd show <id>          # View full issue details
+```
+
+**Tracking progress:**
+```bash
+bd update <id> --status in_progress  # Claim an issue
+bd close <id>                        # Mark complete
+bd create --title="..." --type=task --priority=2  # Create new issue
+```
+
+**Session completion:**
+```bash
+bd sync               # Commit and sync beads changes
+git push              # Always push at session end
+```
+
+### Integration Points
+
+**Session Start** - Run `bd ready` to find actionable work. Mention available issues to the user and ask which to work on.
+
+**During Work** - When you start working on an issue, update its status to `in_progress`. As you discover new tasks or follow-up work, create new issues with appropriate priority and type.
+
+**Session End** - Before completing any session, run `bd sync` to commit beads changes, then ensure all code is committed and pushed. Check `git status` to verify everything is up to date with origin.
+
+### Issue Management
+
+**Priority levels:** P0=critical, P1=high, P2=medium, P3=low, P4=backlog (use numbers 0-4, not words)
+
+**Issue types:** task, bug, feature, epic, question, docs
+
+**Dependencies:** Issues can block others. `bd ready` automatically filters to show only unblocked work.
+
+### Example Session Flow
+
+```bash
+# 1. Start - Check what's available
+bd ready
+
+# 2. Claim - Update status when starting work
+bd update webrun-vcs-123 --status in_progress
+
+# 3. Work - Implement the task
+# ... code changes ...
+
+# 4. Create - File new issues discovered during work
+bd create --title="Add tests for new delta function" --type=task --priority=2
+
+# 5. Complete - Close finished work
+bd close webrun-vcs-123
+
+# 6. Sync - Commit and push everything
+bd sync
+git add .
+git commit -m "Implement delta function"
+git push
+```
+
+### Best Practices
+
+**Always check `bd ready` at session start** to understand available work and project priorities.
+
+**Update issue status as you work** so the project state stays current. Move issues to `in_progress` when you start, close them when done.
+
+**Create issues for discovered work** rather than silently doing extra tasks. This maintains project visibility and helps with planning.
+
+**Never end a session without syncing** - run `bd sync` and `git push` to ensure all changes (both code and issues) are persisted to the remote repository.
