@@ -273,6 +273,23 @@ export function newByteSplitter(char: number): (block: Uint8Array) => number {
   };
 }
 
+export async function readBlock(
+  input: AsyncIterable<Uint8Array>,
+  len: number,
+): Promise<Uint8Array> {
+  const result: Uint8Array = new Uint8Array(len);
+  // Read data into result
+  let offset = 0;
+  for await (const chunk of input) {
+    const toCopy = Math.min(chunk.length, len - offset);
+    result.set(chunk.subarray(0, toCopy), offset);
+    offset += toCopy;
+    if (offset >= len) {
+      break;
+    }
+  }
+  return result;
+}
 /**
  * Creates a stateful splitter that can find a delimiter spanning multiple blocks.
  * The returned function maintains internal state across calls to detect delimiters
@@ -282,7 +299,7 @@ export function newByteSplitter(char: number): (block: Uint8Array) => number {
  * @returns A function that takes a block and returns the end position of the delimiter
  *          in that block if found, or -1 if not found yet
  */
-export function newSplitter(delimiter: Uint8Array): (block: Uint8Array) => number {
+export function _newSplitter(delimiter: Uint8Array): (block: Uint8Array) => number {
   // Buffer to hold the tail of previous blocks (up to delimiter.length - 1 bytes)
   // This allows detecting delimiters that span block boundaries
   let buffer = new Uint8Array(0);

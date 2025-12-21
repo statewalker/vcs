@@ -255,23 +255,9 @@ export class AddCommand implements Add {
    */
   private async storeFileContent(path: string): Promise<string> {
     // Read content from working tree
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of this.worktree.readContent(path)) {
-      chunks.push(chunk);
-    }
-
-    // Calculate total size
-    const totalSize = chunks.reduce((sum, c) => sum + c.length, 0);
-
+    const content = this.worktree.readContent(path);
     // Store using BlobStore which handles Git header automatically
-    return await this.blobs.storeWithSize(
-      totalSize,
-      (async function* () {
-        for (const chunk of chunks) {
-          yield chunk;
-        }
-      })(),
-    );
+    return await this.blobs.store(content);
   }
 }
 

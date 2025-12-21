@@ -45,16 +45,6 @@ export class GitBlobStore implements BlobStore {
   }
 
   /**
-   * Store blob with known size (optimized path)
-   */
-  storeWithSize(
-    size: number,
-    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
-  ): Promise<ObjectId> {
-    return this.objects.storeWithSize("blob", size, toAsyncIterable(content));
-  }
-
-  /**
    * Load blob content
    */
   load(id: ObjectId): AsyncIterable<Uint8Array> {

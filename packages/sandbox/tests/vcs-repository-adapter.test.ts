@@ -8,6 +8,7 @@ import type {
   AnnotatedTag,
   Commit,
   CommitStore,
+  ObjectStore,
   ObjectTypeCode,
   Ref,
   RefStore,
@@ -23,7 +24,7 @@ import {
   createVcsRepositoryAdapter,
   createVcsServerOptions,
   type VcsStores,
-} from "../src/storage-adapters/vcs-repository-adapter.js";
+} from "../src/http-server/vcs-repository-adapter.js";
 
 // Object type codes
 const OBJ_COMMIT = 1 as ObjectTypeCode;

@@ -7,12 +7,10 @@
 
 import {
   commitToEntries,
-  computeCommitSize,
   decodeCommitEntries,
   encodeCommitEntries,
   entriesToCommit,
 } from "../../format/commit-format.js";
-import { toArray } from "../../format/stream-utils.js";
 import type { AncestryOptions, Commit, CommitStore, ObjectId } from "../interfaces/index.js";
 import type { GitObjectStore } from "./git-object-store.js";
 
@@ -28,16 +26,19 @@ export class GitCommitStore implements CommitStore {
    * Store a commit object
    */
   async storeCommit(commit: Commit): Promise<ObjectId> {
-    const entries = Array.from(commitToEntries(commit));
-    const size = await computeCommitSize(entries);
-    return this.objects.storeWithSize("commit", size, encodeCommitEntries(entries));
+    const entries = commitToEntries(commit);
+    return this.objects.store("commit", encodeCommitEntries(entries));
   }
 
   /**
    * Load a commit object by ID
    */
   async loadCommit(id: ObjectId): Promise<Commit> {
-    const entries = await toArray(decodeCommitEntries(this.objects.load(id)));
+    const header = await this.objects.getHeader(id);
+    if (header.type !== "commit") {
+      throw new Error(`Object ${id} is not a commit (found type: ${header.type})`);
+    }
+    const entries = decodeCommitEntries(this.objects.load(id));
     return entriesToCommit(entries);
   }
 

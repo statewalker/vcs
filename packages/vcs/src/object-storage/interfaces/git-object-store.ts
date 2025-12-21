@@ -39,24 +39,9 @@ export interface GitObjectStore {
    * @param content Async iterable of content chunks (without header)
    * @returns ObjectId (SHA-1 hash of header + content)
    */
-  store(type: ObjectTypeString, content: AsyncIterable<Uint8Array>): Promise<ObjectId>;
-
-  /**
-   * Store content with known size (optimized path)
-   *
-   * Direct streaming without temporary storage. The caller must
-   * provide the exact size; content will be verified.
-   *
-   * @param type Object type
-   * @param size Content size in bytes
-   * @param content Async iterable of content chunks (without header)
-   * @returns ObjectId (SHA-1 hash of header + content)
-   * @throws Error if actual content size doesn't match declared size
-   */
-  storeWithSize(
+  store(
     type: ObjectTypeString,
-    size: number,
-    content: AsyncIterable<Uint8Array>,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   ): Promise<ObjectId>;
 
   /**

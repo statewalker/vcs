@@ -6,7 +6,6 @@
 
 import { toArray } from "../../format/stream-utils.js";
 import {
-  computeTagSize,
   decodeTagEntries,
   encodeTagEntries,
   entriesToTag,
@@ -32,15 +31,18 @@ export class GitTagStore implements TagStore {
    * Store an annotated tag
    */
   async storeTag(tag: AnnotatedTag): Promise<ObjectId> {
-    const entries = Array.from(tagToEntries(tag));
-    const size = await computeTagSize(entries);
-    return this.objects.storeWithSize("tag", size, encodeTagEntries(entries));
+    const entries = tagToEntries(tag);
+    return this.objects.store("tag", encodeTagEntries(entries));
   }
 
   /**
    * Load an annotated tag by ID
    */
   async loadTag(id: ObjectId): Promise<AnnotatedTag> {
+    const header = await this.objects.getHeader(id);
+    if (header.type !== "tag") {
+      throw new Error(`Object ${id} is not a tag (found type: ${header.type})`);
+    }
     const entries = await toArray(decodeTagEntries(this.objects.load(id)));
     return entriesToTag(entries);
   }

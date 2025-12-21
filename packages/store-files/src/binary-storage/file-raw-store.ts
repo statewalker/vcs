@@ -14,7 +14,7 @@ import type { RawStore } from "@webrun-vcs/vcs/binary-storage";
 /**
  * Collect async iterable to Uint8Array
  */
-async function collect(input: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
+async function _collect(input: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   let totalLength = 0;
 
@@ -75,11 +75,12 @@ export class FileRawStore implements RawStore {
     // Ensure directory exists
     await this.files.mkdir(dir);
 
-    // Collect content and write
-    const bytes = await collect(content);
-    await this.files.write(path, [bytes]);
+    // Write content to file
+    await this.files.write(path, content);
 
-    return bytes.length;
+    // Get size of stored content
+    const stats = await this.files.stats(path);
+    return stats?.size ?? 0;
   }
 
   /**
@@ -89,8 +90,7 @@ export class FileRawStore implements RawStore {
     const path = this.getPath(key);
 
     try {
-      const bytes = await this.files.readFile(path);
-      yield bytes;
+      yield* this.files.read(path);
     } catch (error) {
       if (this.isNotFoundError(error)) {
         throw new Error(`Key not found: ${key}`);

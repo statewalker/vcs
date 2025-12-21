@@ -70,7 +70,7 @@ export class GitObjectStoreImpl implements GitObjectStore {
    * Computes hash while streaming content to storage.
    * Use this when content size is known upfront (e.g., commits, trees, tags).
    */
-  async storeWithSize(
+  private async storeWithSize(
     type: ObjectTypeString,
     size: number,
     content: AsyncIterable<Uint8Array>,

@@ -39,29 +39,20 @@ export class FileVolatileStore implements VolatileStore {
     // Ensure temp directory exists
     await this.files.mkdir(this.tempDir);
 
-    // Track size while writing
-    let size = 0;
-    const chunks: Uint8Array[] = [];
-
-    for await (const chunk of content) {
-      size += chunk.length;
-      chunks.push(chunk);
-    }
-
     // Write all chunks to file
-    await this.files.write(tempPath, chunks);
+    await this.files.write(tempPath, content);
+    const stats = await this.files.stats(tempPath);
 
-    let disposed = false;
+    let disposed = !stats;
     const files = this.files;
 
     return {
-      size,
+      size: stats?.size ?? 0,
       read: async function* (): AsyncIterable<Uint8Array> {
         if (disposed) {
           throw new Error("VolatileContent already disposed");
         }
-        const bytes = await files.readFile(tempPath);
-        yield bytes;
+        yield* files.read(tempPath);
       },
       dispose: async () => {
         if (!disposed) {

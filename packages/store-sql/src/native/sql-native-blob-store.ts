@@ -70,25 +70,13 @@ export class SqlNativeBlobStoreImpl implements SqlNativeBlobStore {
    * Store blob with unknown size
    */
   async store(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
+    // FIXME: write down content in chunks - a separate table for large blobs, containing chunk, position and the length of the chunks; stores compressed chunks
+    // FIXME: add streaming SHA1 computation to avoid collecting entire content; id is stored after the content is fully written
+
     await this.ensureTable();
 
     // Collect content to determine size
     const data = await collect(content);
-    return this.storeContent(data);
-  }
-
-  /**
-   * Store blob with known size (optimized path)
-   */
-  async storeWithSize(size: number, content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
-    await this.ensureTable();
-
-    // Collect content and verify size
-    const data = await collect(content);
-    if (data.length !== size) {
-      throw new Error(`Size mismatch: expected ${size}, got ${data.length}`);
-    }
-
     return this.storeContent(data);
   }
 
