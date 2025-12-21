@@ -13,8 +13,10 @@ import type {
   BlobStore,
   Commit,
   CommitStore,
+  GitObjectHeader,
+  GitObjectStore,
   ObjectId,
-  ObjectStore,
+  ObjectTypeString,
   TreeEntry,
   TreeStore,
 } from "@webrun-vcs/vcs";
@@ -66,10 +68,38 @@ function concatBytes(arrays: Uint8Array[]): Uint8Array {
  * This store is compatible with createVcsRepositoryAdapter which expects
  * objects stored in Git format: "{type} {size}\0{content}"
  */
-class MemoryGitObjectStore implements ObjectStore {
+class MemoryGitObjectStore implements GitObjectStore {
   private objects = new Map<string, Uint8Array>();
 
-  async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
+  async store(
+    type: ObjectTypeString,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<ObjectId> {
+    const chunks: Uint8Array[] = [];
+    if (Symbol.asyncIterator in content) {
+      for await (const chunk of content as AsyncIterable<Uint8Array>) {
+        chunks.push(chunk);
+      }
+    } else {
+      for (const chunk of content as Iterable<Uint8Array>) {
+        chunks.push(chunk);
+      }
+    }
+    const rawContent = concatBytes(chunks);
+    const gitObject = createGitObject(type, rawContent);
+
+    // Hash the Git object (header + content)
+    const id = await sha1Hex(gitObject);
+    if (!this.objects.has(id)) {
+      this.objects.set(id, gitObject);
+    }
+    return id;
+  }
+
+  /**
+   * Store raw Git object (already has header)
+   */
+  async storeRaw(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
     const chunks: Uint8Array[] = [];
     if (Symbol.asyncIterator in data) {
       for await (const chunk of data as AsyncIterable<Uint8Array>) {
@@ -81,8 +111,6 @@ class MemoryGitObjectStore implements ObjectStore {
       }
     }
     const content = concatBytes(chunks);
-
-    // Hash the Git object (content already includes header)
     const id = await sha1Hex(content);
     if (!this.objects.has(id)) {
       this.objects.set(id, content);
@@ -90,22 +118,45 @@ class MemoryGitObjectStore implements ObjectStore {
     return id;
   }
 
-  async *load(
-    id: ObjectId,
-    params?: { offset?: number; length?: number },
-  ): AsyncIterable<Uint8Array> {
+  async *load(id: ObjectId): AsyncIterable<Uint8Array> {
     const data = this.objects.get(id);
     if (!data) {
       throw new Error(`Object ${id} not found`);
     }
-    const start = params?.offset ?? 0;
-    const end = params?.length ? start + params.length : data.length;
-    yield data.subarray(start, end);
+    // Strip header and return content only
+    const nullIndex = data.indexOf(0);
+    if (nullIndex === -1) {
+      throw new Error(`Invalid Git object format: ${id}`);
+    }
+    yield data.subarray(nullIndex + 1);
   }
 
-  async getSize(id: ObjectId): Promise<number> {
+  async *loadRaw(id: ObjectId): AsyncIterable<Uint8Array> {
     const data = this.objects.get(id);
-    return data ? data.length : -1;
+    if (!data) {
+      throw new Error(`Object ${id} not found`);
+    }
+    yield data;
+  }
+
+  async getHeader(id: ObjectId): Promise<GitObjectHeader> {
+    const data = this.objects.get(id);
+    if (!data) {
+      throw new Error(`Object ${id} not found`);
+    }
+    // Parse header: "type size\0"
+    const nullIndex = data.indexOf(0);
+    if (nullIndex === -1) {
+      throw new Error(`Invalid Git object format: ${id}`);
+    }
+    const headerStr = new TextDecoder().decode(data.subarray(0, nullIndex));
+    const spaceIndex = headerStr.indexOf(" ");
+    if (spaceIndex === -1) {
+      throw new Error(`Invalid Git object header: ${headerStr}`);
+    }
+    const type = headerStr.substring(0, spaceIndex) as ObjectTypeString;
+    const size = parseInt(headerStr.substring(spaceIndex + 1), 10);
+    return { type, size };
   }
 
   async has(id: ObjectId): Promise<boolean> {
@@ -116,7 +167,7 @@ class MemoryGitObjectStore implements ObjectStore {
     return this.objects.delete(id);
   }
 
-  async *listObjects(): AsyncGenerator<ObjectId> {
+  async *list(): AsyncIterable<ObjectId> {
     for (const id of this.objects.keys()) {
       yield id;
     }
@@ -155,23 +206,7 @@ class GitFormatBlobStore implements BlobStore {
   }
 
   async store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
-    const chunks = await collectChunks(content);
-    const data = concatBytes(chunks);
-    const gitObject = createGitObject("blob", data);
-    return this.objectStore.store([gitObject]);
-  }
-
-  async storeWithSize(
-    size: number,
-    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
-  ): Promise<ObjectId> {
-    const chunks = await collectChunks(content);
-    const data = concatBytes(chunks);
-    if (data.length !== size) {
-      throw new Error(`Expected ${size} bytes but got ${data.length}`);
-    }
-    const gitObject = createGitObject("blob", data);
-    return this.objectStore.store([gitObject]);
+    return this.objectStore.store("blob", content);
   }
 
   async *load(id: ObjectId): AsyncIterable<Uint8Array> {
@@ -219,10 +254,9 @@ class GitFormatCommitStore implements CommitStore {
   async storeCommit(commit: Commit): Promise<ObjectId> {
     // Serialize commit to Git format
     const content = serializeCommit(commit);
-    const gitObject = createGitObject("commit", content);
 
     // Store in object store and get Git-format SHA-1 ID
-    const id = await this.objectStore.store([gitObject]);
+    const id = await this.objectStore.store("commit", [content]);
 
     // Store structured commit data for loadCommit
     if (!this.commits.has(id)) {
@@ -386,10 +420,9 @@ class GitFormatTreeStore implements TreeStore {
 
     // Serialize tree to Git format
     const content = serializeTree(sortedEntries);
-    const gitObject = createGitObject("tree", content);
 
     // Store in object store and get Git-format SHA-1 ID
-    const id = await this.objectStore.store([gitObject]);
+    const id = await this.objectStore.store("tree", [content]);
 
     // Store structured tree data for loadTree
     if (!this.trees.has(id)) {
@@ -636,12 +669,7 @@ export async function addFileAndCommit(
   // Store blob using BlobStore (handles Git header automatically)
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
-  const blobId = await store.blobs.storeWithSize(
-    data.length,
-    (async function* () {
-      yield data;
-    })(),
-  );
+  const blobId = await store.blobs.store([data]);
 
   // Update staging
   const editor = store.staging.editor();

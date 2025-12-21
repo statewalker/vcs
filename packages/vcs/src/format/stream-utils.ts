@@ -299,7 +299,7 @@ export async function readBlock(
  * @returns A function that takes a block and returns the end position of the delimiter
  *          in that block if found, or -1 if not found yet
  */
-export function _newSplitter(delimiter: Uint8Array): (block: Uint8Array) => number {
+export function newSplitter(delimiter: Uint8Array): (block: Uint8Array) => number {
   // Buffer to hold the tail of previous blocks (up to delimiter.length - 1 bytes)
   // This allows detecting delimiters that span block boundaries
   let buffer = new Uint8Array(0);

@@ -41,8 +41,7 @@ export interface DeltaChainInfo {
   savings: number;
 }
 
-import type { IntermediateCache } from "./intermediate-cache.js";
-import type { LRUCache } from "./lru-cache.js";
+import type { IntermediateCache, LRUCache } from "@webrun-vcs/utils";
 import type { ObjectStore } from "./object-store.js";
 import type { DeltaRepository } from "./repositories/delta-repository.js";
 import type { MetadataRepository } from "./repositories/metadata-repository.js";

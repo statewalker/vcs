@@ -11,10 +11,10 @@
  */
 
 import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { DeltaChainInfo, ObjectId, ObjectStore } from "@webrun-vcs/vcs";
+import type { ObjectId, ObjectStore } from "@webrun-vcs/vcs";
 import { createGitObject } from "./format/object-header.js";
 import { type PackIndex, PackObjectType, readPackIndex } from "./pack/index.js";
-import { PackReader } from "./pack/pack-reader.js";
+import { type PackDeltaChainInfo, PackReader } from "./pack/pack-reader.js";
 
 /**
  * Pack file with its index
@@ -256,7 +256,7 @@ export class GitPackStorage implements ObjectStore {
    * @param id Object ID to query
    * @returns Delta chain info or undefined if not a delta
    */
-  async getDeltaChainInfo(id: ObjectId): Promise<DeltaChainInfo | undefined> {
+  async getDeltaChainInfo(id: ObjectId): Promise<PackDeltaChainInfo | undefined> {
     await this.ensurePacksLoaded();
 
     for (const pack of this.packFiles) {

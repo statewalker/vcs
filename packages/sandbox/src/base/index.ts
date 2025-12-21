@@ -7,9 +7,9 @@
 
 // Default implementation
 export * from "./default-object-store.js";
-export * from "./intermediate-cache.js";
-// Utility classes
-export * from "./lru-cache.js";
+
+// Re-export cache utilities from @webrun-vcs/utils
+export { IntermediateCache, LRUCache } from "@webrun-vcs/utils";
 
 // Repository type definitions
 export * from "./repositories/index.js";

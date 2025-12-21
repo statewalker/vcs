@@ -38,6 +38,11 @@ export interface DeltaChainDetails extends DeltaInfo {
 }
 
 /**
+ * Alias for backwards compatibility
+ */
+export type DeltaChainInfo = DeltaChainDetails;
+
+/**
  * Delta compression storage interface
  *
  * Implementations store delta relationships and data in various formats:

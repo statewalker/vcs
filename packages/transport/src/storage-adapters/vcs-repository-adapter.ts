@@ -1,7 +1,7 @@
 /**
  * VCS Repository Adapter
  *
- * Adapts VCS package interfaces (ObjectStore, RefStore, CommitStore, TreeStore, TagStore)
+ * Adapts VCS package interfaces (GitObjectStore, RefStore, CommitStore, TreeStore, TagStore)
  * to the RepositoryAccess interface used by HTTP protocol handlers.
  *
  * This adapter provides a clean integration layer that uses only interfaces from
@@ -12,6 +12,7 @@ import type {
   CommitStore,
   GitObjectStore,
   ObjectTypeCode,
+  ObjectTypeString,
   Ref,
   RefStore,
   SymbolicRef,
@@ -113,43 +114,33 @@ export function createVcsRepositoryAdapter(stores: VcsStores): RepositoryAccess 
 
     /**
      * Get object type and size.
-     * Determines type by parsing the stored Git object header.
+     * Uses GitObjectStore.getHeader() for efficient header access.
      */
     async getObjectInfo(id: ObjectId): Promise<ObjectInfo | null> {
-      const size = await objects.getSize(id);
-      if (size < 0) return null;
-
-      // Read first chunk to parse header
-      const chunks: Uint8Array[] = [];
-      const header = await readBlock(objects.load(id), 32);
-
-      if (chunks.length === 0) return null;
-
-      const type = parseObjectTypeFromHeader(header);
-      if (!type) return null;
-
-      return { type, size };
+      try {
+        const header = await objects.getHeader(id);
+        const type = stringToObjectType(header.type);
+        if (!type) return null;
+        return { type, size: header.size };
+      } catch {
+        return null;
+      }
     },
 
     /**
-     * Load object content.
+     * Load object content (raw with header).
      */
     async *loadObject(id: ObjectId): AsyncIterable<Uint8Array> {
-      yield* objects.load(id);
+      yield* objects.loadRaw(id);
     },
 
     /**
      * Store an object.
-     * Creates Git object with proper header: "{type} {size}\0{content}"
+     * GitObjectStore handles header creation internally.
      */
     async storeObject(type: ObjectTypeCode, content: Uint8Array): Promise<ObjectId> {
       const typeStr = objectTypeToString(type);
-      const header = new TextEncoder().encode(`${typeStr} ${content.length}\0`);
-      const fullData = new Uint8Array(header.length + content.length);
-      fullData.set(header, 0);
-      fullData.set(content, header.length);
-
-      return objects.store([fullData]);
+      return objects.store(typeStr, [content]);
     },
 
     /**
@@ -202,7 +193,7 @@ async function* walkObject(
   id: ObjectId,
   haveSet: Set<ObjectId>,
   seen: Set<ObjectId>,
-  objects: ObjectStore,
+  objects: GitObjectStore,
   commits: CommitStore,
   trees: TreeStore,
   tags?: TagStore,
@@ -210,8 +201,8 @@ async function* walkObject(
   if (seen.has(id) || haveSet.has(id)) return;
   seen.add(id);
 
-  // Load raw object
-  const content = await collectContent(objects.load(id));
+  // Load raw object with header
+  const content = await collectContent(objects.loadRaw(id));
   const { type, body } = parseGitObject(content);
 
   yield { id, type, content: body };
@@ -259,26 +250,6 @@ async function* walkObject(
 
     // BLOB (type 3) has no references to walk
   }
-}
-
-/**
- * Parse object type from Git object header.
- * Format: "{type} {size}\0{content}"
- */
-function parseObjectTypeFromHeader(data: Uint8Array): ObjectTypeCode | null {
-  let spaceIdx = -1;
-  for (let i = 0; i < Math.min(data.length, 10); i++) {
-    if (data[i] === 0x20) {
-      // space
-      spaceIdx = i;
-      break;
-    }
-  }
-
-  if (spaceIdx < 0) return null;
-
-  const typeStr = new TextDecoder().decode(data.subarray(0, spaceIdx));
-  return stringToObjectType(typeStr);
 }
 
 /**
@@ -337,7 +308,7 @@ function stringToObjectType(str: string): ObjectTypeCode | null {
 /**
  * Convert ObjectTypeCode to type string.
  */
-function objectTypeToString(type: ObjectTypeCode): string {
+function objectTypeToString(type: ObjectTypeCode): ObjectTypeString {
   switch (type) {
     case 1:
       return "commit";

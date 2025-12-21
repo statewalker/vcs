@@ -65,7 +65,7 @@ describe("GC Integration Tests", () => {
   beforeEach(() => {
     binStore = new MemBinStore();
     volatileStore = new MemoryVolatileStore();
-    deltaStorage = new DeltaStorageImpl(binStore, volatileStore);
+    deltaStorage = new DeltaStorageImpl(binStore.raw, binStore.delta, volatileStore);
     deltaStorage.setComputeStrategy(testComputeStrategy);
   });
 
@@ -164,7 +164,8 @@ describe("GC Integration Tests", () => {
 
     it("respects max chain depth", async () => {
       // Create a chain of objects
-      const storage = new DeltaStorageImpl(new MemBinStore(), new MemoryVolatileStore(), {
+      const memBin = new MemBinStore();
+      const storage = new DeltaStorageImpl(memBin.raw, memBin.delta, new MemoryVolatileStore(), {
         maxChainDepth: 3,
       });
       storage.setComputeStrategy(testComputeStrategy);
