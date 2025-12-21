@@ -183,17 +183,6 @@ describe("git-codec stores", () => {
       expect(text).toBe("Hello World");
     });
 
-    it("stores with known size", async () => {
-      const stores = createStores();
-
-      async function* content(): AsyncIterable<Uint8Array> {
-        yield encoder.encode("Test");
-      }
-
-      const id = await stores.blobs.storeWithSize(4, content());
-      expect(await stores.blobs.has(id)).toBe(true);
-    });
-
     it("checks existence", async () => {
       const stores = createStores();
 

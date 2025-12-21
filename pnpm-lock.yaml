@@ -391,6 +391,9 @@ importers:
 
   packages/store-mem:
     dependencies:
+      '@webrun-vcs/sandbox':
+        specifier: workspace:*
+        version: link:../sandbox
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
@@ -419,6 +422,9 @@ importers:
 
   packages/store-sql:
     dependencies:
+      '@webrun-vcs/sandbox':
+        specifier: workspace:*
+        version: link:../sandbox
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils

@@ -86,12 +86,7 @@ export async function addFile(store: GitStore, path: string, content: string): P
   // Store the content as a blob
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
-  const objectId = await store.blobs.storeWithSize(
-    data.length,
-    (async function* () {
-      yield data;
-    })(),
-  );
+  const objectId = await store.blobs.store([data]);
 
   // Add to staging
   const editor = store.staging.editor();

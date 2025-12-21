@@ -10,8 +10,22 @@
 
 import type { FileHandle, FilesApi } from "@statewalker/webrun-files";
 import { decompressBlock } from "@webrun-vcs/utils";
-import type { DeltaChainInfo, ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/vcs";
 import { bytesToHex } from "../utils/index.js";
+
+/**
+ * Pack-specific delta chain information
+ *
+ * Returned by PackReader.getDeltaChainInfo()
+ */
+export interface PackDeltaChainInfo {
+  /** ObjectId of the base (non-delta) object */
+  baseId: ObjectId;
+  /** Chain depth (0 = full object, 1+ = delta depth) */
+  depth: number;
+  /** Total size savings (original - current compressed) */
+  savings: number;
+}
 import type {
   PackHeader,
   PackIndex,
@@ -204,7 +218,7 @@ export class PackReader {
    * @param id Object ID to query
    * @returns Chain info or undefined if not a delta
    */
-  async getDeltaChainInfo(id: ObjectId): Promise<DeltaChainInfo | undefined> {
+  async getDeltaChainInfo(id: ObjectId): Promise<PackDeltaChainInfo | undefined> {
     const offset = this.index.findOffset(id);
     if (offset === -1) return undefined;
 
@@ -484,8 +498,6 @@ export function getDeltaResultSize(delta: Uint8Array): number {
   return resLen;
 }
 
-// Re-export DeltaChainInfo from @webrun-vcs/storage for convenience
-export type { DeltaChainInfo } from "@webrun-vcs/vcs";
 
 /**
  * Check if an object header represents a delta type

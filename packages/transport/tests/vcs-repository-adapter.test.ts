@@ -8,6 +8,7 @@ import type {
   AnnotatedTag,
   Commit,
   CommitStore,
+  GitObjectStore,
   ObjectTypeCode,
   Ref,
   RefStore,
@@ -50,9 +51,33 @@ function createGitObject(type: string, content: Uint8Array): Uint8Array {
 }
 
 /**
- * Create mock ObjectStore.
+ * Parse Git object header to extract type and content size.
  */
-function createMockObjectStore(objects?: Map<string, Uint8Array>): ObjectStore {
+function parseGitObjectHeader(data: Uint8Array): { type: string; size: number; headerLength: number } {
+  let nullIdx = -1;
+  for (let i = 0; i < Math.min(data.length, 32); i++) {
+    if (data[i] === 0x00) {
+      nullIdx = i;
+      break;
+    }
+  }
+  if (nullIdx < 0) throw new Error("Invalid Git object: no header null byte");
+
+  const header = new TextDecoder().decode(data.subarray(0, nullIdx));
+  const spaceIdx = header.indexOf(" ");
+  if (spaceIdx < 0) throw new Error("Invalid Git object header");
+
+  return {
+    type: header.substring(0, spaceIdx),
+    size: parseInt(header.substring(spaceIdx + 1), 10),
+    headerLength: nullIdx + 1,
+  };
+}
+
+/**
+ * Create mock GitObjectStore.
+ */
+function createMockObjectStore(objects?: Map<string, Uint8Array>): GitObjectStore {
   const store =
     objects ??
     new Map([
@@ -62,36 +87,44 @@ function createMockObjectStore(objects?: Map<string, Uint8Array>): ObjectStore {
     ]);
 
   return {
-    async store(data) {
+    async store(type, content) {
       const chunks: Uint8Array[] = [];
-      for await (const chunk of data) {
+      for await (const chunk of content) {
         chunks.push(chunk);
       }
       const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-      const result = new Uint8Array(totalLength);
+      const body = new Uint8Array(totalLength);
       let offset = 0;
       for (const chunk of chunks) {
-        result.set(chunk, offset);
+        body.set(chunk, offset);
         offset += chunk.length;
       }
+      // Create full git object with header
+      const fullData = createGitObject(type, body);
       // Generate simple hash-like ID
-      const id = Array.from(result.slice(0, 20))
+      const id = Array.from(fullData.slice(0, 20))
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("")
         .padEnd(40, "0");
-      store.set(id, result);
+      store.set(id, fullData);
       return id;
     },
-    async *load(id, params?) {
+    async *load(id) {
       const obj = store.get(id);
       if (!obj) throw new Error(`Object not found: ${id}`);
-      const start = params?.offset ?? 0;
-      const end = params?.length ? start + params.length : obj.length;
-      yield obj.subarray(start, end);
+      const { headerLength } = parseGitObjectHeader(obj);
+      yield obj.subarray(headerLength);
     },
-    async getSize(id) {
+    async *loadRaw(id) {
       const obj = store.get(id);
-      return obj ? obj.length : -1;
+      if (!obj) throw new Error(`Object not found: ${id}`);
+      yield obj;
+    },
+    async getHeader(id) {
+      const obj = store.get(id);
+      if (!obj) throw new Error(`Object not found: ${id}`);
+      const { type, size } = parseGitObjectHeader(obj);
+      return { type: type as "commit" | "tree" | "blob" | "tag", size };
     },
     async has(id) {
       return store.has(id);
@@ -99,7 +132,7 @@ function createMockObjectStore(objects?: Map<string, Uint8Array>): ObjectStore {
     async delete(id) {
       return store.delete(id);
     },
-    async *listObjects() {
+    async *list() {
       for (const id of store.keys()) {
         yield id;
       }

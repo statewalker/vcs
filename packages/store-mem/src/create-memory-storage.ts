@@ -2,8 +2,9 @@
  * Factory function for creating in-memory storage
  */
 
+import { DefaultObjectStore } from "@webrun-vcs/sandbox";
+import { IntermediateCache, LRUCache } from "@webrun-vcs/utils";
 import type { ObjectId } from "@webrun-vcs/vcs";
-import { DefaultObjectStore, IntermediateCache, LRUCache } from "@webrun-vcs/vcs";
 import { InMemoryDeltaRepository } from "./delta-repository.js";
 import { InMemoryMetadataRepository } from "./metadata-repository.js";
 import { InMemoryObjectRepository } from "./object-repository.js";
