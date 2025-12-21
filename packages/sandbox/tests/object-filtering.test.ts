@@ -88,7 +88,7 @@ function createPartialCloneRepository(options?: {
       const obj = objects.get(id);
       if (!obj) return null;
       return {
-        // id,
+        id,
         type: obj.type,
         size: obj.content.length,
       };

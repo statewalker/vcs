@@ -26,20 +26,6 @@ export interface BlobStore {
   store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId>;
 
   /**
-   * Store blob with known size (optimized path)
-   *
-   * Direct streaming without temporary storage.
-   *
-   * @param size Content size in bytes
-   * @param content Sync or async iterable of blob content chunks
-   * @returns ObjectId of the stored blob
-   */
-  storeWithSize(
-    size: number,
-    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
-  ): Promise<ObjectId>;
-
-  /**
    * Load blob content
    *
    * @param id ObjectId of the blob

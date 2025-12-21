@@ -4,8 +4,7 @@
  * Manages object entries with Fossil-style record IDs for efficient delta linking.
  */
 
-import type { ObjectId } from "../../object-storage/interfaces/index.js";
-import type { ObjectEntry } from "../types.js";
+import type { ObjectEntry, ObjectId } from "../types.js";
 
 /**
  * Repository for storing and retrieving object entries

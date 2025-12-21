@@ -10,7 +10,7 @@
 
 import type {
   CommitStore,
-  ObjectStore,
+  GitObjectStore,
   ObjectTypeCode,
   Ref,
   RefStore,
@@ -32,7 +32,7 @@ import type {
  */
 export interface VcsStores {
   /** Object content storage */
-  objects: ObjectStore;
+  objects: GitObjectStore;
   /** Reference storage */
   refs: RefStore;
   /** Commit parsing/storage */
@@ -121,14 +121,11 @@ export function createVcsRepositoryAdapter(stores: VcsStores): RepositoryAccess 
 
       // Read first chunk to parse header
       const chunks: Uint8Array[] = [];
-      for await (const chunk of objects.load(id, { length: 32 })) {
-        chunks.push(chunk);
-        break;
-      }
+      const header = await readBlock(objects.load(id), 32);
 
       if (chunks.length === 0) return null;
 
-      const type = parseObjectTypeFromHeader(chunks[0]);
+      const type = parseObjectTypeFromHeader(header);
       if (!type) return null;
 
       return { type, size };
@@ -415,11 +412,11 @@ export function createVcsServerOptions(
  * Base options without resolveRepository (for spreading).
  */
 type GitHttpServerOptionsBase = Omit<
-  import("./types.js").GitHttpServerOptions,
+  import("../http-server/types.js").GitHttpServerOptions,
   "resolveRepository"
 >;
 
 /**
  * Options with resolveRepository.
  */
-type GitHttpServerOptionsWithResolver = import("./types.js").GitHttpServerOptions;
+type GitHttpServerOptionsWithResolver = import("../http-server/types.js").GitHttpServerOptions;

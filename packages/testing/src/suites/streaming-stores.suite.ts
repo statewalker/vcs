@@ -93,7 +93,7 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
 
       it("stores blob with known size", async () => {
         const content = encoder.encode("Test content");
-        const id = await ctx.stores.blobs.storeWithSize(content.length, toStream(content));
+        const id = await ctx.stores.blobs.store(toStream(content));
 
         expect(id).toMatch(/^[0-9a-f]{40}$/);
         expect(await ctx.stores.blobs.has(id)).toBe(true);

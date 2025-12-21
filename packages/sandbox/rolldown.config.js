@@ -3,12 +3,6 @@ import { defineConfig } from "rolldown";
 export default defineConfig({
   input: {
     index: "src/index.ts",
-    "interfaces/index": "src/interfaces/index.ts",
-    "format/index": "src/format/index.ts",
-    "binary-storage/index": "src/binary-storage/index.ts",
-    "object-storage/index": "src/object-storage/index.ts",
-    "delta-compression/index": "src/delta-compression/index.ts",
-    "garbage-collection/index": "src/garbage-collection/index.ts",
   },
   output: [
     {
@@ -24,6 +18,5 @@ export default defineConfig({
       chunkFileNames: "[name]-[hash].cjs",
     },
   ],
-  external: ["@webrun-vcs/utils"],
   treeshake: true,
 });

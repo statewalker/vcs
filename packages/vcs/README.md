@@ -43,7 +43,6 @@ import {
 |-------------|-------------|
 | `@webrun-vcs/vcs/interfaces` | All storage interface definitions |
 | `@webrun-vcs/vcs/engine` | DeltaStorageManager, GC controller, pack strategies |
-| `@webrun-vcs/vcs/base` | DefaultObjectStore, LRU cache, repository types |
 
 ### Key Interfaces
 

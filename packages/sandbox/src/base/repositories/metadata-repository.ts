@@ -4,8 +4,7 @@
  * Manages auxiliary data for performance optimization and analytics.
  */
 
-import type { ObjectId } from "../../object-storage/interfaces/index.js";
-import type { CacheMetadata } from "../types.js";
+import type { CacheMetadata, ObjectId } from "../types.js";
 
 /**
  * Repository for managing object metadata and cache hints

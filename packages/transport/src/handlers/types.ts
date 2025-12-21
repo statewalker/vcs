@@ -7,7 +7,16 @@
  * Based on JGit's UploadPack and ReceivePack interfaces.
  */
 
-import type { ObjectTypeCode } from "@webrun-vcs/vcs";
+/**
+ * Git object type codes matching JGit Constants
+ */
+export declare const ObjectType: {
+  readonly COMMIT: 1;
+  readonly TREE: 2;
+  readonly BLOB: 3;
+  readonly TAG: 4;
+};
+export type ObjectTypeCode = (typeof ObjectType)[keyof typeof ObjectType];
 
 /**
  * Object ID type (40-character hex string for SHA-1).

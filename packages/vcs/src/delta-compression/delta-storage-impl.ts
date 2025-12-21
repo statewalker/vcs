@@ -7,7 +7,6 @@
 
 import type { Delta } from "@webrun-vcs/utils";
 import type {
-  BinStore,
   DeltaChainDetails,
   DeltaInfo,
   DeltaStore,
@@ -54,20 +53,13 @@ export interface DeltaStorageOptions {
  * - GitObjectStore for content-addressable operations
  * - Strategies for candidate selection and delta computation
  */
-export class DeltaStorageImpl implements DeltaStore {
+export class DeltaStorageImpl {
   /** Git object store for content-addressable operations */
   readonly gitObjects: GitObjectStore;
 
-  // /** Parent BinStore for lifecycle operations */
-  // readonly binStore: BinStore;
+  readonly raw: RawStore;
 
-  get raw(): RawStore {
-    return this.binStore.raw;
-  }
-
-  get delta(): DeltaStore {
-    return this.binStore.delta;
-  }
+  readonly delta: DeltaStore;
 
   private candidateStrategy: DeltaCandidateStrategy | undefined;
   private computeStrategy: DeltaComputeStrategy | undefined;
@@ -75,12 +67,14 @@ export class DeltaStorageImpl implements DeltaStore {
   private readonly maxRatio: number;
 
   constructor(
-    readonly binStore: BinStore,
-    volatile: VolatileStore,
+    raw: RawStore,
+    delta: DeltaStore,
+    readonly volatile: VolatileStore,
     options?: DeltaStorageOptions,
   ) {
-    // this.binStore = binStore;
-    this.gitObjects = new GitObjectStoreImpl(volatile, binStore.raw);
+    this.raw = raw;
+    this.delta = delta;
+    this.gitObjects = new GitObjectStoreImpl(volatile, this.raw);
     this.maxChainDepth = options?.maxChainDepth ?? DEFAULT_MAX_CHAIN_DEPTH;
     this.maxRatio = options?.maxRatio ?? DEFAULT_MAX_RATIO;
     this.candidateStrategy = options?.candidateStrategy;
@@ -100,17 +94,6 @@ export class DeltaStorageImpl implements DeltaStore {
    */
   async store(type: ObjectTypeString, content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
     return this.gitObjects.store(type, content);
-  }
-
-  /**
-   * Store object with known size (optimized path)
-   */
-  async storeWithSize(
-    type: ObjectTypeString,
-    size: number,
-    content: AsyncIterable<Uint8Array>,
-  ): Promise<ObjectId> {
-    return this.gitObjects.storeWithSize(type, size, content);
   }
 
   /**
@@ -445,20 +428,6 @@ export class DeltaStorageImpl implements DeltaStore {
    */
   async *listDeltas(): AsyncIterable<DeltaInfo> {
     yield* this.delta.listDeltas();
-  }
-
-  // ========== Lifecycle ==========
-
-  async flush(): Promise<void> {
-    await this.binStore.flush();
-  }
-
-  async close(): Promise<void> {
-    await this.binStore.close();
-  }
-
-  async refresh(): Promise<void> {
-    await this.binStore.refresh();
   }
 
   // ========== Private Helpers ==========

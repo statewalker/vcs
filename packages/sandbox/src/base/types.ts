@@ -5,7 +5,7 @@
  * content-addressable storage with delta compression.
  */
 
-import type { ObjectId } from "../object-storage/interfaces/index.js";
+export type ObjectId = string; // SHA-256 or SHA-1 hash represented as hex string
 
 /**
  * Object entry stored in the repository

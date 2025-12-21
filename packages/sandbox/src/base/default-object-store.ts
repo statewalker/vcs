@@ -16,8 +16,6 @@ import {
   encodeDeltaBlocks,
   newSha1,
 } from "@webrun-vcs/utils";
-import type { ObjectStore } from "../interfaces/index.js";
-import type { ObjectId } from "../object-storage/interfaces/index.js";
 
 /**
  * Options for delta creation
@@ -45,9 +43,11 @@ export interface DeltaChainInfo {
 
 import type { IntermediateCache } from "./intermediate-cache.js";
 import type { LRUCache } from "./lru-cache.js";
+import type { ObjectStore } from "./object-store.js";
 import type { DeltaRepository } from "./repositories/delta-repository.js";
 import type { MetadataRepository } from "./repositories/metadata-repository.js";
 import type { ObjectRepository } from "./repositories/object-repository.js";
+import type { ObjectId } from "./types.js";
 
 /**
  * Default object storage with delta compression

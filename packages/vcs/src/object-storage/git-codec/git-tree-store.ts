@@ -4,13 +4,7 @@
  * Wraps GitObjectStore with tree serialization/deserialization.
  */
 
-import { asAsyncIterable } from "../../format/stream-utils.js";
-import {
-  computeTreeSize,
-  decodeTreeEntries,
-  EMPTY_TREE_ID,
-  encodeTreeEntries,
-} from "../../format/tree-format.js";
+import { decodeTreeEntries, EMPTY_TREE_ID, encodeTreeEntries } from "../../format/tree-format.js";
 import type { ObjectId, TreeEntry, TreeStore } from "../interfaces/index.js";
 import type { GitObjectStore } from "./git-object-store.js";
 
@@ -29,20 +23,18 @@ export class GitTreeStore implements TreeStore {
    * Entries are collected, sorted canonically, and serialized.
    */
   async storeTree(entries: AsyncIterable<TreeEntry> | Iterable<TreeEntry>): Promise<ObjectId> {
-    const collected: TreeEntry[] = [];
-    for await (const entry of asAsyncIterable(entries)) {
-      collected.push(entry);
-    }
-
-    const size = await computeTreeSize(collected);
-    return this.objects.storeWithSize("tree", size, encodeTreeEntries(collected));
+    return this.objects.store("tree", encodeTreeEntries(entries));
   }
 
   /**
    * Load tree entries as stream
    */
-  loadTree(id: ObjectId): AsyncIterable<TreeEntry> {
-    return decodeTreeEntries(this.objects.load(id));
+  async *loadTree(id: ObjectId): AsyncIterable<TreeEntry> {
+    const header = await this.objects.getHeader(id);
+    if (header.type !== "tree") {
+      throw new Error(`Object ${id} is not a tree (found type: ${header.type})`);
+    }
+    yield* decodeTreeEntries(this.objects.load(id));
   }
 
   /**

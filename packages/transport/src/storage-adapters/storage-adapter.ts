@@ -5,11 +5,11 @@
  * RepositoryAccess interface used by protocol handlers.
  */
 
-import type { ObjectTypeCode } from "@webrun-vcs/vcs";
 import type {
   HeadInfo,
   ObjectId,
   ObjectInfo,
+  ObjectTypeCode,
   RefInfo,
   RepositoryAccess,
 } from "../handlers/types.js";
