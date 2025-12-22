@@ -5,16 +5,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type ConflictInfo,
   ConflictType,
-  ResolutionStrategy,
   countConflictMarkers,
   generateConflictMarkers,
   getResolutionObjectId,
   hasConflictMarkers,
   parseConflictMarkers,
+  ResolutionStrategy,
   resolveMarkersByStrategy,
   strategyToStage,
-  type ConflictInfo,
 } from "../../src/staging/conflict-utils.js";
 import { MergeStage, type StagingEntry } from "../../src/staging/staging-store.js";
 import type { ObjectId } from "../../src/types/index.js";

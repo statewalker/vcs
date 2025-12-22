@@ -150,6 +150,9 @@ bd create --title="..." --type=task --priority=2  # Create new issue
 
 **Session completion:**
 ```bash
+pnpm test             # Run all tests
+pnpm lint:fix         # Fix linting issues
+pnpm format:fix       # Fix formatting issues
 bd sync               # Commit and sync beads changes
 git push              # Always push at session end
 ```
@@ -160,7 +163,19 @@ git push              # Always push at session end
 
 **During Work** - When you start working on an issue, update its status to `in_progress`. As you discover new tasks or follow-up work, create new issues with appropriate priority and type.
 
-**Session End** - Before completing any session, run `bd sync` to commit beads changes, then ensure all code is committed and pushed. Check `git status` to verify everything is up to date with origin.
+**Session End** - Before completing any session, run quality checks, then `bd sync` to commit beads changes, and ensure all code is committed and pushed. Check `git status` to verify everything is up to date with origin.
+
+### Pre-Commit Quality Checks
+
+**Before every commit, you MUST run these commands in order:**
+
+```bash
+pnpm test             # Ensure all tests pass
+pnpm lint:fix         # Fix and verify linting
+pnpm format:fix       # Fix and verify formatting
+```
+
+These checks are mandatory. Do not commit code that fails tests or has linting/formatting issues. If any command fails, fix the issues before proceeding with the commit.
 
 ### Issue Management
 
