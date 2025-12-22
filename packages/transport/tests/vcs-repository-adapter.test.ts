@@ -18,7 +18,7 @@ import type {
   TagStore,
   TreeEntry,
   TreeStore,
-} from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";
 import { describe, expect, it } from "vitest";
 import {
   createVcsRepositoryAdapter,

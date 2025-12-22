@@ -4,7 +4,7 @@
  * Examines storage content and produces analysis reports for GC and packing.
  */
 
-import type { ObjectId } from "../object-storage/interfaces/index.js";
+import type { ObjectId } from "@webrun-vcs/vcs/object-storage";
 import type {
   AnalyzerOptions,
   PackingCandidate,

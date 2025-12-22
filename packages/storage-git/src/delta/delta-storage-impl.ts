@@ -11,13 +11,10 @@ import type {
   DeltaInfo,
   DeltaStore,
   RawStore,
-} from "../binary-storage/index.js";
-import type { VolatileStore } from "../binary-storage/volatile/index.js";
-import {
-  type GitObjectStore,
-  GitObjectStoreImpl,
-} from "../object-storage/git-codec/git-object-store.js";
-import type { ObjectId, ObjectTypeString } from "../object-storage/interfaces/index.js";
+  VolatileStore,
+} from "@webrun-vcs/vcs/binary-storage";
+import type { ObjectId, ObjectTypeString } from "@webrun-vcs/vcs/object-storage";
+import { type GitObjectStore, GitObjectStoreImpl } from "@webrun-vcs/vcs/object-storage";
 import { objectExists, resolveDeltaChainToBytes } from "./resolve-delta-chain.js";
 import type { DeltaCandidateStrategy, DeltaComputeOptions, DeltaComputeStrategy } from "./types.js";
 

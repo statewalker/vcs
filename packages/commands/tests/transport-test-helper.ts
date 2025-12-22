@@ -177,7 +177,7 @@ class MemoryGitObjectStore implements GitObjectStore {
 /**
  * Collect chunks from sync or async iterable.
  */
-async function collectChunks(
+async function _collectChunks(
   content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
 ): Promise<Uint8Array[]> {
   const chunks: Uint8Array[] = [];

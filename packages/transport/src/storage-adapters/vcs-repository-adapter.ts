@@ -5,7 +5,7 @@
  * to the RepositoryAccess interface used by HTTP protocol handlers.
  *
  * This adapter provides a clean integration layer that uses only interfaces from
- * @webrun-vcs/vcs, eliminating dependencies on implementation-specific storage types.
+ * @webrun-vcs/core, eliminating dependencies on implementation-specific storage types.
  */
 
 import type {
@@ -18,7 +18,7 @@ import type {
   SymbolicRef,
   TagStore,
   TreeStore,
-} from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";
 import type {
   HeadInfo,
   ObjectId,
@@ -29,7 +29,7 @@ import type {
 
 /**
  * VCS stores required for HTTP server operations.
- * Uses only interfaces from @webrun-vcs/vcs package.
+ * Uses only interfaces from @webrun-vcs/core package.
  */
 export interface VcsStores {
   /** Object content storage */

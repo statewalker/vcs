@@ -2,8 +2,7 @@
  * Blob (file content) storage interface
  *
  * Blobs are the simplest Git object type - just raw binary content
- * with no parsing or serialization needed. This interface provides
- * a thin wrapper over GitObjectStore for blob operations.
+ * with no parsing or serialization needed.
  */
 
 import type { ObjectId } from "../types/index.js";
@@ -11,14 +10,12 @@ import type { ObjectId } from "../types/index.js";
 /**
  * Blob storage with streaming API
  *
- * Unlike commits/trees/tags, blobs don't have structured content
- * to serialize. They're passed through directly to GitObjectStore.
+ * Blobs are raw binary content with no internal structure.
+ * Content is stored and retrieved as opaque byte streams.
  */
 export interface BlobStore {
   /**
-   * Store blob with unknown size
-   *
-   * Uses TempStore internally to determine size before storage.
+   * Store blob content
    *
    * @param content Sync or async iterable of blob content chunks
    * @returns ObjectId of the stored blob

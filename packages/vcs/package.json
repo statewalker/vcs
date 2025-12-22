@@ -31,16 +31,6 @@
       "types": "./dist/object-storage/index.d.ts",
       "import": "./dist/esm/object-storage/index.js",
       "require": "./dist/cjs/object-storage/index.cjs"
-    },
-    "./delta-compression": {
-      "types": "./dist/delta-compression/index.d.ts",
-      "import": "./dist/esm/delta-compression/index.js",
-      "require": "./dist/cjs/delta-compression/index.cjs"
-    },
-    "./garbage-collection": {
-      "types": "./dist/garbage-collection/index.d.ts",
-      "import": "./dist/esm/garbage-collection/index.js",
-      "require": "./dist/cjs/garbage-collection/index.cjs"
     }
   },
   "files": [

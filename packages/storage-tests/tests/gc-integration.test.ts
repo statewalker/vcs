@@ -5,15 +5,15 @@
  * using the new architecture (DeltaStorageImpl, GCController).
  */
 
-import { MemBinStore } from "@webrun-vcs/store-mem";
-import { createDelta, createDeltaRanges, type Delta } from "@webrun-vcs/utils";
-import { MemoryVolatileStore } from "@webrun-vcs/vcs/binary-storage";
 import {
   type DeltaComputeResult,
   type DeltaComputeStrategy,
   DeltaStorageImpl,
-} from "@webrun-vcs/vcs/delta-compression";
-import { GCController } from "@webrun-vcs/vcs/garbage-collection";
+  GCController,
+} from "@webrun-vcs/storage-git";
+import { MemBinStore } from "@webrun-vcs/store-mem";
+import { createDelta, createDeltaRanges, type Delta } from "@webrun-vcs/utils";
+import { MemoryVolatileStore } from "@webrun-vcs/vcs/binary-storage";
 import { beforeEach, describe, expect, it } from "vitest";
 
 const encoder = new TextEncoder();

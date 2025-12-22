@@ -5,8 +5,8 @@
  * for delta storage systems.
  */
 
-import type { DeltaStorageImpl } from "../delta-compression/delta-storage-impl.js";
-import type { ObjectId } from "../object-storage/interfaces/index.js";
+import type { ObjectId } from "@webrun-vcs/vcs/object-storage";
+import type { DeltaStorageImpl } from "../delta/index.js";
 import type { GCResult, GCScheduleOptions, RepackOptions, RepackResult } from "./types.js";
 
 /**

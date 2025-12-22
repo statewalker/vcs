@@ -5,9 +5,9 @@
  */
 export {
   isSymbolicRef,
-  RefStoreLocation,
   type Ref,
   type RefStore,
+  RefStoreLocation,
   type RefUpdateResult,
   type SymbolicRef,
 } from "@webrun-vcs/core/stores";
