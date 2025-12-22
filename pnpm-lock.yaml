@@ -544,6 +544,9 @@ importers:
 
   packages/vcs:
     dependencies:
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../core
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
