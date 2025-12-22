@@ -1,7 +1,5 @@
 /**
- * Re-export staging edit classes from @webrun-vcs/vcs
- *
- * These classes are defined in the vcs package to avoid circular dependencies.
+ * Re-export staging edit classes from @webrun-vcs/core
  */
 export {
   DeleteStagingEntry,
@@ -11,4 +9,4 @@ export {
   SetIntentToAdd,
   SetSkipWorktree,
   UpdateStagingEntry,
-} from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";

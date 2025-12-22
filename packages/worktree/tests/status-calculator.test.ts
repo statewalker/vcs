@@ -17,8 +17,8 @@ import type {
   SymbolicRef,
   TreeEntry,
   TreeStore,
-} from "@webrun-vcs/vcs";
-import { FileMode } from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";
+import { FileMode } from "@webrun-vcs/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import type {
   MergeStageValue,

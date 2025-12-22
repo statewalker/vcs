@@ -9,7 +9,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/StatusCommand.java
  */
 
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 
 /**
  * File status categories.
