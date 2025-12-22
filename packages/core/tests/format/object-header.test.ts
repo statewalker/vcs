@@ -2,8 +2,8 @@
  * Tests for Git object header encoding/decoding
  */
 
-import { describe, expect, it } from "vitest";
 import { collect } from "@webrun-vcs/utils/streams";
+import { describe, expect, it } from "vitest";
 import {
   createGitObject,
   encodeHeader,

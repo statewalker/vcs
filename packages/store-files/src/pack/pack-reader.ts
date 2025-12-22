@@ -26,6 +26,7 @@ export interface PackDeltaChainInfo {
   /** Total size savings (original - current compressed) */
   savings: number;
 }
+
 import type {
   PackHeader,
   PackIndex,
@@ -497,7 +498,6 @@ export function getDeltaResultSize(delta: Uint8Array): number {
 
   return resLen;
 }
-
 
 /**
  * Check if an object header represents a delta type

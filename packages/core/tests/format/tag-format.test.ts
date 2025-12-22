@@ -2,8 +2,8 @@
  * Tests for Git tag format serialization/parsing
  */
 
-import { describe, expect, it } from "vitest";
 import { collect, toArray } from "@webrun-vcs/utils/streams";
+import { describe, expect, it } from "vitest";
 import {
   computeTagSize,
   decodeTagEntries,
