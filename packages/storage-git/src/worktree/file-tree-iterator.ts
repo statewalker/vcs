@@ -46,6 +46,12 @@ export interface FileTreeIteratorOptions {
   /** Whether to auto-load .gitignore files during traversal (default: true) */
   autoLoadGitignore?: boolean;
 
+  /** Path to .git directory (for loading .git/info/exclude) */
+  gitDir?: string;
+
+  /** Path to global excludes file (from core.excludesFile config) */
+  globalExcludesFile?: string;
+
   /** Custom hash function (for testing or alternate algorithms) */
   hashFunction?: (data: Uint8Array) => Promise<Uint8Array>;
 }
@@ -93,13 +99,18 @@ export class FileTreeIterator implements WorkingTreeIterator {
   private readonly rootPath: string;
   private readonly ignoreManager: IgnoreManager;
   private readonly autoLoadGitignore: boolean;
+  private readonly gitDir?: string;
+  private readonly globalExcludesFile?: string;
   private readonly hashFunction: (data: Uint8Array) => Promise<Uint8Array>;
+  private repositoryExcludesLoaded = false;
 
   constructor(options: FileTreeIteratorOptions) {
     this.files = options.files;
     this.rootPath = options.rootPath;
     this.ignoreManager = options.ignoreManager ?? createIgnoreManager();
     this.autoLoadGitignore = options.autoLoadGitignore ?? true;
+    this.gitDir = options.gitDir;
+    this.globalExcludesFile = options.globalExcludesFile;
     this.hashFunction = options.hashFunction ?? sha1;
   }
 
@@ -113,6 +124,9 @@ export class FileTreeIterator implements WorkingTreeIterator {
     const includeIgnored = options?.includeIgnored ?? false;
     const includeDirectories = options?.includeDirectories ?? false;
     const pathPrefix = options?.pathPrefix ?? "";
+
+    // Load repository-level excludes on first walk
+    await this.loadRepositoryExcludes();
 
     // Add custom ignore patterns if provided
     if (options?.ignorePatterns?.length) {
@@ -315,6 +329,77 @@ export class FileTreeIterator implements WorkingTreeIterator {
       }
     } catch {
       // Ignore errors reading .gitignore
+    }
+  }
+
+  /**
+   * Load repository-level exclude files.
+   *
+   * This loads (in order of increasing priority):
+   * 1. core.excludesFile (global excludes from git config) - lowest priority
+   * 2. .git/info/exclude (repository-specific excludes)
+   *
+   * Note: .gitignore files have higher priority than both and are loaded
+   * during directory traversal.
+   *
+   * These are loaded once on first walk and cached.
+   */
+  private async loadRepositoryExcludes(): Promise<void> {
+    if (this.repositoryExcludesLoaded) {
+      return;
+    }
+    this.repositoryExcludesLoaded = true;
+
+    // Load global excludes file FIRST (lowest precedence)
+    if (this.globalExcludesFile) {
+      await this.tryLoadGlobalExcludes(this.globalExcludesFile);
+    }
+
+    // Load .git/info/exclude SECOND (higher precedence than global, lower than .gitignore)
+    if (this.gitDir) {
+      await this.tryLoadInfoExclude(this.gitDir);
+    }
+  }
+
+  /**
+   * Try to load .git/info/exclude file.
+   *
+   * This file contains repository-specific exclude patterns that are not
+   * shared with other repositories. It has lower priority than .gitignore
+   * files but higher priority than core.excludesFile.
+   */
+  private async tryLoadInfoExclude(gitDir: string): Promise<void> {
+    const excludePath = joinPath(gitDir, "info", "exclude");
+
+    try {
+      if (await this.files.exists(excludePath)) {
+        const content = await this.files.readFile(excludePath);
+        const text = new TextDecoder().decode(content);
+        // Add as global patterns (checked after .gitignore files)
+        const patterns = text.split("\n").filter((line) => line.trim() !== "");
+        this.ignoreManager.addGlobalPatterns(patterns);
+      }
+    } catch {
+      // Ignore errors reading exclude file
+    }
+  }
+
+  /**
+   * Try to load global excludes file (from core.excludesFile config).
+   *
+   * This file contains patterns that apply to all repositories for this user.
+   * It has the lowest precedence of all ignore sources.
+   */
+  private async tryLoadGlobalExcludes(excludesFilePath: string): Promise<void> {
+    try {
+      if (await this.files.exists(excludesFilePath)) {
+        const content = await this.files.readFile(excludesFilePath);
+        const text = new TextDecoder().decode(content);
+        // Add as global patterns (lowest precedence)
+        this.ignoreManager.addGlobalPatterns(text.split("\n").filter((line) => line.trim() !== ""));
+      }
+    } catch {
+      // Ignore errors reading global excludes file
     }
   }
 

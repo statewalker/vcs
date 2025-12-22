@@ -412,6 +412,198 @@ describe("FileTreeIterator", () => {
       expect(entries).toContain("file.txt");
       expect(entries).not.toContain("file.tmp");
     });
+
+    it("should load .git/info/exclude patterns", async () => {
+      const root = mockDir({
+        "file.txt": mockFile("Hello"),
+        "secret.key": mockFile("secret"),
+        ".git": mockDir({
+          info: mockDir({
+            exclude: mockFile("*.key"),
+          }),
+        }),
+      });
+
+      const files = createMockFilesApi(root);
+      const iterator = createFileTreeIterator({
+        files,
+        rootPath: "",
+        gitDir: ".git",
+        autoLoadGitignore: false,
+      });
+
+      const entries: string[] = [];
+      for await (const entry of iterator.walk()) {
+        entries.push(entry.path);
+      }
+
+      expect(entries).toContain("file.txt");
+      expect(entries).not.toContain("secret.key");
+    });
+
+    it("should load global excludes file", async () => {
+      const root = mockDir({
+        "file.txt": mockFile("Hello"),
+        "file.swp": mockFile("vim swap"),
+        ".global-ignore": mockFile("*.swp"),
+      });
+
+      const files = createMockFilesApi(root);
+      const iterator = createFileTreeIterator({
+        files,
+        rootPath: "",
+        globalExcludesFile: ".global-ignore",
+        autoLoadGitignore: false,
+      });
+
+      const entries: string[] = [];
+      for await (const entry of iterator.walk()) {
+        entries.push(entry.path);
+      }
+
+      expect(entries).toContain("file.txt");
+      expect(entries).toContain(".global-ignore");
+      expect(entries).not.toContain("file.swp");
+    });
+
+    it("should respect precedence: .gitignore overrides .git/info/exclude", async () => {
+      const root = mockDir({
+        "important.key": mockFile("important key"),
+        ".gitignore": mockFile("!important.key"), // Un-ignore
+        ".git": mockDir({
+          info: mockDir({
+            exclude: mockFile("*.key"), // Ignore all .key files
+          }),
+        }),
+      });
+
+      const files = createMockFilesApi(root);
+      const iterator = createFileTreeIterator({
+        files,
+        rootPath: "",
+        gitDir: ".git",
+        autoLoadGitignore: true,
+      });
+
+      const entries: string[] = [];
+      for await (const entry of iterator.walk()) {
+        entries.push(entry.path);
+      }
+
+      // .gitignore negation should override .git/info/exclude
+      expect(entries).toContain("important.key");
+      expect(entries).toContain(".gitignore");
+    });
+
+    it("should respect precedence: .git/info/exclude overrides global excludes", async () => {
+      const root = mockDir({
+        "allowed.swp": mockFile("allowed"),
+        ".global-ignore": mockFile("*.swp"),
+        ".git": mockDir({
+          info: mockDir({
+            exclude: mockFile("!allowed.swp"), // Un-ignore
+          }),
+        }),
+      });
+
+      const files = createMockFilesApi(root);
+      const iterator = createFileTreeIterator({
+        files,
+        rootPath: "",
+        gitDir: ".git",
+        globalExcludesFile: ".global-ignore",
+        autoLoadGitignore: false,
+      });
+
+      const entries: string[] = [];
+      for await (const entry of iterator.walk()) {
+        entries.push(entry.path);
+      }
+
+      // .git/info/exclude negation should override global excludes
+      expect(entries).toContain("allowed.swp");
+    });
+
+    it("should handle missing .git/info/exclude gracefully", async () => {
+      const root = mockDir({
+        "file.txt": mockFile("Hello"),
+        ".git": mockDir({
+          // info directory doesn't exist
+        }),
+      });
+
+      const files = createMockFilesApi(root);
+      const iterator = createFileTreeIterator({
+        files,
+        rootPath: "",
+        gitDir: ".git",
+        autoLoadGitignore: false,
+      });
+
+      const entries: string[] = [];
+      for await (const entry of iterator.walk()) {
+        entries.push(entry.path);
+      }
+
+      expect(entries).toContain("file.txt");
+    });
+
+    it("should handle missing global excludes file gracefully", async () => {
+      const root = mockDir({
+        "file.txt": mockFile("Hello"),
+      });
+
+      const files = createMockFilesApi(root);
+      const iterator = createFileTreeIterator({
+        files,
+        rootPath: "",
+        globalExcludesFile: "/nonexistent/.gitignore_global",
+        autoLoadGitignore: false,
+      });
+
+      const entries: string[] = [];
+      for await (const entry of iterator.walk()) {
+        entries.push(entry.path);
+      }
+
+      expect(entries).toContain("file.txt");
+    });
+
+    it("should load repository excludes only once across multiple walks", async () => {
+      const root = mockDir({
+        "file.txt": mockFile("Hello"),
+        "secret.key": mockFile("secret"),
+        ".git": mockDir({
+          info: mockDir({
+            exclude: mockFile("*.key"),
+          }),
+        }),
+      });
+
+      const files = createMockFilesApi(root);
+      const iterator = createFileTreeIterator({
+        files,
+        rootPath: "",
+        gitDir: ".git",
+        autoLoadGitignore: false,
+      });
+
+      // First walk
+      const entries1: string[] = [];
+      for await (const entry of iterator.walk()) {
+        entries1.push(entry.path);
+      }
+
+      // Second walk should still work
+      const entries2: string[] = [];
+      for await (const entry of iterator.walk()) {
+        entries2.push(entry.path);
+      }
+
+      expect(entries1).toEqual(entries2);
+      expect(entries1).toContain("file.txt");
+      expect(entries1).not.toContain("secret.key");
+    });
   });
 
   describe("entry properties", () => {
