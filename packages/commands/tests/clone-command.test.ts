@@ -2,27 +2,42 @@
  * Tests for CloneCommand
  *
  * Based on JGit's CloneCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
 import type { Ref } from "@webrun-vcs/core";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Git, TagOption } from "../src/index.js";
-import { createTestStore } from "./test-helper.js";
+import { backends } from "./test-helper.js";
 import {
   addFileAndCommit,
   createInitializedTestServer,
   createTestUrl,
 } from "./transport-test-helper.js";
 
-describe("CloneCommand", () => {
+describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createTestStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
   describe("basic operations", () => {
     it("should clone a repository", async () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create a new store for the clone
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -47,7 +62,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -71,7 +86,7 @@ describe("CloneCommand", () => {
       await addFileAndCommit(server.serverStore, "file2.txt", "content 2", "Second commit");
       await addFileAndCommit(server.serverStore, "file3.txt", "content 3", "Third commit");
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -97,7 +112,7 @@ describe("CloneCommand", () => {
       const mainRef = (await server.serverStore.refs.get("refs/heads/main")) as Ref | undefined;
       await server.serverStore.refs.set("refs/heads/feature", mainRef?.objectId ?? "");
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -116,7 +131,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -141,7 +156,7 @@ describe("CloneCommand", () => {
       await addFileAndCommit(server.serverStore, "file2.txt", "content 2", "Second commit");
       await addFileAndCommit(server.serverStore, "file3.txt", "content 3", "Third commit");
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -156,8 +171,8 @@ describe("CloneCommand", () => {
       }
     });
 
-    it("should reject invalid depth", () => {
-      const clientStore = createTestStore();
+    it("should reject invalid depth", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       expect(() => git.clone().setURI("http://example.com/repo.git").setDepth(0)).toThrow(
@@ -175,7 +190,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -197,7 +212,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -218,7 +233,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -237,7 +252,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -255,14 +270,14 @@ describe("CloneCommand", () => {
 
   describe("error handling", () => {
     it("should throw for missing URI", async () => {
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       await expect(git.clone().call()).rejects.toThrow("URI must be specified for clone");
     });
 
     it("should throw for invalid remote", async () => {
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -279,8 +294,8 @@ describe("CloneCommand", () => {
   });
 
   describe("options getters", () => {
-    it("should return correct values for getters", () => {
-      const clientStore = createTestStore();
+    it("should return correct values for getters", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git
@@ -304,7 +319,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -330,7 +345,7 @@ describe("CloneCommand", () => {
       const mainRef = (await server.serverStore.refs.get("refs/heads/main")) as Ref | undefined;
       await server.serverStore.refs.set("refs/heads/test", mainRef?.objectId ?? "");
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -365,7 +380,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -398,7 +413,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -429,7 +444,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -447,8 +462,8 @@ describe("CloneCommand", () => {
       }
     });
 
-    it("should default to auto follow tags", () => {
-      const clientStore = createTestStore();
+    it("should default to auto follow tags", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.clone().setURI("http://example.com/repo.git");
@@ -468,7 +483,7 @@ describe("CloneCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -500,8 +515,8 @@ describe("CloneCommand", () => {
     /**
      * JGit: CloneCommandTest.testCloneRepositoryWithShallowSince()
      */
-    it("should support shallow since option", () => {
-      const clientStore = createTestStore();
+    it("should support shallow since option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const date = new Date("2024-01-01");
@@ -513,8 +528,8 @@ describe("CloneCommand", () => {
     /**
      * JGit: CloneCommandTest.testCloneRepositoryWithShallowExclude()
      */
-    it("should support shallow exclude option", () => {
-      const clientStore = createTestStore();
+    it("should support shallow exclude option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git
@@ -531,8 +546,8 @@ describe("CloneCommand", () => {
    * JGit-ported tests: Extended options getters
    */
   describe("extended options getters", () => {
-    it("should return correct values for all getters", () => {
-      const clientStore = createTestStore();
+    it("should return correct values for all getters", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const date = new Date("2024-06-15");

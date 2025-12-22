@@ -1,13 +1,28 @@
 /**
  * Tests for DiffFormatter
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ChangeType, createAddEntry, createDeleteEntry, DiffFormatter } from "../src/index.js";
-import { addFile, createInitializedGit } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
 
-describe("DiffFormatter", () => {
+describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   it("should format added file", async () => {
     const { git, store } = await createInitializedGit();
 
@@ -247,7 +262,22 @@ describe("DiffFormatter", () => {
   });
 });
 
-describe("DiffFormatter with binary files", () => {
+describe.each(backends)("DiffFormatter with binary files ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   it("should detect binary content", async () => {
     const { store } = await createInitializedGit();
 

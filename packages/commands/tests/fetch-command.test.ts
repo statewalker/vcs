@@ -2,26 +2,41 @@
  * Tests for FetchCommand
  *
  * Based on JGit's FetchCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
 import type { Ref } from "@webrun-vcs/core";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Git, RefUpdateStatus, TagOption } from "../src/index.js";
-import { createTestStore } from "./test-helper.js";
+import { backends } from "./test-helper.js";
 import {
   addFileAndCommit,
   createInitializedTestServer,
   createTestUrl,
 } from "./transport-test-helper.js";
 
-describe("FetchCommand", () => {
+describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createTestStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
   describe("basic operations", () => {
     it("should fetch refs from remote repository", async () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -54,7 +69,7 @@ describe("FetchCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -101,7 +116,7 @@ describe("FetchCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -136,7 +151,7 @@ describe("FetchCommand", () => {
       await server.serverStore.refs.set("refs/heads/feature", server.initialCommitId);
       await server.serverStore.refs.set("refs/heads/develop", server.initialCommitId);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -172,7 +187,7 @@ describe("FetchCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -198,7 +213,7 @@ describe("FetchCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -221,7 +236,7 @@ describe("FetchCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -254,7 +269,7 @@ describe("FetchCommand", () => {
       // Create a tag on server using actual objectId
       await server.serverStore.refs.set("refs/tags/v1.0", mainRef?.objectId ?? "");
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -285,7 +300,7 @@ describe("FetchCommand", () => {
       // Create a tag on server
       await server.serverStore.refs.set("refs/tags/v1.0", server.initialCommitId);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -319,7 +334,7 @@ describe("FetchCommand", () => {
       // Create additional branch on server using actual objectId
       await server.serverStore.refs.set("refs/heads/feature", mainRef?.objectId ?? "");
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -369,7 +384,7 @@ describe("FetchCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -397,7 +412,7 @@ describe("FetchCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -426,7 +441,7 @@ describe("FetchCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -467,7 +482,7 @@ describe("FetchCommand", () => {
       await addFileAndCommit(server.serverStore, "file2.txt", "content 2", "Second commit");
       await addFileAndCommit(server.serverStore, "file3.txt", "content 3", "Third commit");
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -488,8 +503,8 @@ describe("FetchCommand", () => {
       }
     });
 
-    it("should reject invalid depth", () => {
-      const clientStore = createTestStore();
+    it("should reject invalid depth", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       expect(() => git.fetch().setRemote("http://example.com/repo.git").setDepth(0)).toThrow(
@@ -504,7 +519,7 @@ describe("FetchCommand", () => {
 
   describe("error handling", () => {
     it("should throw for invalid remote", async () => {
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -527,8 +542,8 @@ describe("FetchCommand", () => {
   });
 
   describe("options getters", () => {
-    it("should return correct values for getters", () => {
-      const clientStore = createTestStore();
+    it("should return correct values for getters", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git
@@ -554,8 +569,8 @@ describe("FetchCommand", () => {
     /**
      * JGit: FetchCommandTest.testCheckFetchedObjects()
      */
-    it("should support checkFetchedObjects option", () => {
-      const clientStore = createTestStore();
+    it("should support checkFetchedObjects option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.fetch().setRemote("origin").setCheckFetchedObjects(true);
@@ -566,8 +581,8 @@ describe("FetchCommand", () => {
     /**
      * JGit: FetchCommand.setInitialBranch()
      */
-    it("should support initial branch option", () => {
-      const clientStore = createTestStore();
+    it("should support initial branch option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.fetch().setRemote("origin").setInitialBranch("develop");
@@ -578,8 +593,8 @@ describe("FetchCommand", () => {
     /**
      * JGit: FetchCommandTest.testShallowSince()
      */
-    it("should support shallow since option", () => {
-      const clientStore = createTestStore();
+    it("should support shallow since option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const date = new Date("2024-01-15T10:30:00Z");
@@ -591,8 +606,8 @@ describe("FetchCommand", () => {
     /**
      * JGit: FetchCommandTest.testShallowExclude()
      */
-    it("should support shallow exclude option", () => {
-      const clientStore = createTestStore();
+    it("should support shallow exclude option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git
@@ -607,8 +622,8 @@ describe("FetchCommand", () => {
     /**
      * JGit: FetchCommandTest.testUnshallow()
      */
-    it("should support unshallow option", () => {
-      const clientStore = createTestStore();
+    it("should support unshallow option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.fetch().setRemote("origin").setUnshallow(true);
@@ -616,8 +631,8 @@ describe("FetchCommand", () => {
       expect(command.isUnshallow()).toBe(true);
     });
 
-    it("should return all extended getter values", () => {
-      const clientStore = createTestStore();
+    it("should return all extended getter values", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const date = new Date("2024-06-20");
