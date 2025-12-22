@@ -61,6 +61,11 @@
       "types": "./dist/diff/index.d.ts",
       "import": "./dist/esm/diff/index.js",
       "require": "./dist/cjs/diff/index.cjs"
+    },
+    "./streams": {
+      "types": "./dist/streams/index.d.ts",
+      "import": "./dist/esm/streams/index.js",
+      "require": "./dist/cjs/streams/index.cjs"
     }
   },
   "files": [
