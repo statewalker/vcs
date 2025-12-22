@@ -4,13 +4,8 @@
  * Types for GC operations, storage analysis, and packing.
  */
 
-import type { DeltaStorageImpl } from "../delta-compression/delta-storage-impl.js";
-import type {
-  CommitStore,
-  ObjectId,
-  TagStore,
-  TreeStore,
-} from "../object-storage/interfaces/index.js";
+import type { CommitStore, ObjectId, TagStore, TreeStore } from "@webrun-vcs/vcs/object-storage";
+import type { DeltaStorageImpl } from "../delta/index.js";
 
 /**
  * Context aggregating all storages required for packing operations

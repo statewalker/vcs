@@ -6,7 +6,7 @@
  */
 
 import { applyDelta } from "@webrun-vcs/utils";
-import type { DeltaStore, RawStore } from "../binary-storage/index.js";
+import type { DeltaStore, RawStore } from "@webrun-vcs/vcs/binary-storage";
 
 /**
  * Resolve a delta chain and stream the result

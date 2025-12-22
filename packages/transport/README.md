@@ -248,7 +248,7 @@ This package closely mirrors JGit's transport implementation:
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/vcs` - Interface definitions
+- `@webrun-vcs/core` - Interface definitions
 - `@webrun-vcs/utils` - Hashing, compression, pack utilities
 
 **Development:**

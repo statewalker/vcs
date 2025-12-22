@@ -5,7 +5,7 @@
  * Tests the server-side handling of git-receive-pack protocol for push operations.
  */
 
-import type { ObjectTypeCode } from "@webrun-vcs/vcs";
+import type { ObjectTypeCode } from "@webrun-vcs/core";
 import { describe, expect, it } from "vitest";
 import {
   createReceivePackHandler,

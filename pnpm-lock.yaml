@@ -310,6 +310,25 @@ importers:
         specifier: 'catalog:'
         version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
 
+  packages/staging:
+    dependencies:
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.1
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.51
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
+
   packages/storage-git:
     dependencies:
       '@statewalker/webrun-files':
@@ -500,12 +519,12 @@ importers:
 
   packages/transport:
     dependencies:
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../core
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

@@ -21,19 +21,16 @@ export interface GitObjectHeader {
 /**
  * Unified Git object storage interface
  *
- * Single implementation handles all object types (blob, commit, tree, tag).
- * The only difference between types is the header prefix string.
- * This eliminates the N×M implementation matrix (N types × M backends).
- *
- * Handles header format, SHA-1 hashing, and storage for all object types.
- * Uses TempStore internally for unknown-size content.
+ * Provides storage for all Git object types (blob, commit, tree, tag).
+ * Objects are stored with Git format: "type size\0content"
+ * and identified by their SHA-1 hash.
  */
 export interface GitObjectStore {
   /**
-   * Store content with unknown size
+   * Store object content
    *
-   * Uses TempStore internally to buffer content and determine size
-   * before computing the hash and writing the object.
+   * Content is provided without the Git header - the header is added
+   * automatically based on type and content size.
    *
    * @param type Object type
    * @param content Async iterable of content chunks (without header)

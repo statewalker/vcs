@@ -6,18 +6,20 @@
  * implementations that read and write standard Git repository format.
  */
 
-// Loose object handling
-export * from "./attik.loose/index.js";
 // Binary storage (new architecture)
 export * from "./binary-storage/index.js";
 // Composite storage
 export * from "./composite-object-storage.js";
 // Factory function for streaming stores
 export * from "./create-streaming-stores.js";
+// Delta compression
+export * from "./delta/index.js";
 // Low-level storage implementations
 export * from "./file-temp-store.js";
 // Format utilities (for advanced use cases)
 export * from "./format/index.js";
+// Garbage collection
+export * from "./gc/index.js";
 export * from "./git-commit-storage.js";
 export * from "./git-delta-object-storage.js";
 export * from "./git-file-tree-storage.js";
@@ -28,6 +30,8 @@ export * from "./git-ref-storage.js";
 // Main storage implementations
 export * from "./git-storage.js";
 export * from "./git-tag-storage.js";
+// Loose object handling
+export * from "./loose/index.js";
 // Object storage (new architecture)
 export * from "./object-storage/index.js";
 // Pack file handling

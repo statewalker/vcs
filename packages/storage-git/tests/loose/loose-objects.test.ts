@@ -11,8 +11,8 @@ import {
   getLooseObjectPath,
   hasLooseObject,
   readLooseObject,
-} from "../../src/attik.loose/loose-object-reader.js";
-import { writeLooseObject } from "../../src/attik.loose/loose-object-writer.js";
+} from "../../src/loose/loose-object-reader.js";
+import { writeLooseObject } from "../../src/loose/loose-object-writer.js";
 
 describe("loose-objects", () => {
   let files: FilesApi;

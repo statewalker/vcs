@@ -3,7 +3,7 @@
  */
 
 import type { Delta } from "@webrun-vcs/utils";
-import type { ObjectId } from "../object-storage/interfaces/index.js";
+import type { ObjectId } from "@webrun-vcs/vcs/object-storage";
 
 /**
  * Object storage interface for strategies

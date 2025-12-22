@@ -11,25 +11,18 @@ import type { ObjectId, TreeEntry } from "../types/index.js";
  * for memory efficiency with large directories. Trees are stored as
  * Git-compatible tree objects.
  *
- * Design rationale:
- * - Uses AsyncIterable/Iterable for entries instead of loading entire trees
- * - Consistent with ObjectStore pattern (AsyncIterable<Uint8Array>)
- * - Memory efficient for large directories
- * - Implementation buffers internally for Git serialization (sorting/hashing)
+ * Git tree format (per entry):
+ * - Mode: ASCII octal digits (e.g., "100644", "40000")
+ * - Name: UTF-8 encoded, terminated by null byte
+ * - Hash: Raw 20 bytes (SHA-1)
  *
- * Implementation notes (JGit patterns):
- * - Trees are serialized as binary: `mode name\0<20-byte-sha1>` per entry
- * - Mode is stored as ASCII octal digits without leading zeros (except for trees)
- * - Names are UTF-8 encoded, terminated by null byte
- * - Hash is stored as raw 20 bytes (not hex)
- * - Entries must be canonically sorted for consistent hashing
+ * Entries are canonically sorted by Git rules for consistent hashing.
  */
 export interface TreeStore {
   /**
    * Store a tree from a stream of entries
    *
-   * Entries are consumed, sorted canonically, serialized, and stored.
-   * The implementation buffers entries internally for sorting and hashing.
+   * Entries are consumed, sorted canonically, and stored.
    * Entries can be provided in any order - they will be sorted before storage.
    *
    * Accepts both sync and async iterables for flexibility:
@@ -54,10 +47,7 @@ export interface TreeStore {
   loadTree(id: ObjectId): AsyncIterable<TreeEntry>;
 
   /**
-   * Get a specific entry from a tree
-   *
-   * More efficient than loading entire tree when you need one entry.
-   * Implementation may use binary search on sorted entries.
+   * Get a specific entry from a tree by name
    *
    * @param treeId ObjectId of the tree
    * @param name Entry name to find

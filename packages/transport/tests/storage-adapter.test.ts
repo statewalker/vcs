@@ -4,7 +4,7 @@
  * Tests the adapter that converts storage implementations to RepositoryAccess interface.
  */
 
-import type { ObjectTypeCode } from "@webrun-vcs/vcs";
+import type { ObjectTypeCode } from "@webrun-vcs/core";
 import { describe, expect, it } from "vitest";
 import {
   createStorageAdapter,
