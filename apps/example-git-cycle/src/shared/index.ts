@@ -11,7 +11,7 @@
  */
 
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitStorage, type GitStorage } from "@webrun-vcs/store-files";
+import { createGitStorage, type GitStorage } from "@webrun-vcs/storage-git";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/vcs";
@@ -332,7 +332,7 @@ export function getModeType(mode: number): string {
   }
 }
 
-export type { GitStorage } from "@webrun-vcs/store-files";
+export type { GitStorage } from "@webrun-vcs/storage-git";
 export type { Commit, ObjectId, PersonIdent, TreeEntry } from "@webrun-vcs/vcs";
 // Re-export commonly used types
 export { FileMode, ObjectType } from "@webrun-vcs/vcs";

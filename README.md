@@ -26,7 +26,7 @@ The monorepo contains five packages organized by responsibility:
 
 ### Storage Adapters
 
-**[@webrun-vcs/store-files](packages/store-files)** implements Git-compatible file storage. It reads and writes the standard `.git` directory structure including loose objects, pack files, and refs. This adapter works with any file system API that implements the required interface.
+**[@webrun-vcs/storage-git](packages/store-files)** implements Git-compatible file storage. It reads and writes the standard `.git` directory structure including loose objects, pack files, and refs. This adapter works with any file system API that implements the required interface.
 
 **[@webrun-vcs/store-sql](packages/store-sql)** provides SQL-based storage using better-sqlite3. Objects, refs, and metadata persist in SQLite tables, making it suitable for server environments or applications preferring relational storage.
 
@@ -55,7 +55,7 @@ The example application in [apps/example-git-cycle](apps/example-git-cycle) demo
 
 ```typescript
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitStorage } from "@webrun-vcs/store-files";
+import { createGitStorage } from "@webrun-vcs/storage-git";
 
 // Initialize an in-memory repository
 const files = new FilesApi(new MemFilesApi());
@@ -95,7 +95,7 @@ For performance benchmarks and pack file operations, see [apps/example-git-perf]
 The library provides format-agnostic delta storage with utilities for pack import/export:
 
 ```typescript
-import { parsePackEntries, importPackAsDeltas } from "@webrun-vcs/store-files";
+import { parsePackEntries, importPackAsDeltas } from "@webrun-vcs/storage-git";
 import { DeltaStorageImpl } from "@webrun-vcs/vcs/engine";
 
 // Parse pack and preserve delta relationships
@@ -160,7 +160,7 @@ pnpm --filter @webrun-vcs/example-git-cycle start
 pnpm --filter @webrun-vcs/vcs build
 
 # Run tests for a specific package
-pnpm --filter @webrun-vcs/store-files test
+pnpm --filter @webrun-vcs/storage-git test
 
 # Lint and format
 pnpm lint

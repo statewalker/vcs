@@ -9,7 +9,7 @@
  */
 
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createFileObjectStores } from "@webrun-vcs/store-files";
+import { createFileObjectStores } from "@webrun-vcs/storage-git";
 import { createKvObjectStores, MemoryKVAdapter } from "@webrun-vcs/store-kv";
 import { createMemoryObjectStores } from "@webrun-vcs/store-mem";
 import { createSqlObjectStores } from "@webrun-vcs/store-sql";

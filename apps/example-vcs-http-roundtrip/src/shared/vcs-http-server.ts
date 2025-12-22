@@ -18,7 +18,7 @@ import {
   PackWriterStream,
   parseObjectHeader,
   storeTypedObject,
-} from "@webrun-vcs/store-files";
+} from "@webrun-vcs/storage-git";
 import {
   CAPABILITY_DELETE_REFS,
   CAPABILITY_OFS_DELTA,

@@ -74,9 +74,9 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/store-files':
+      '@webrun-vcs/storage-git':
         specifier: workspace:*
-        version: link:../../packages/store-files
+        version: link:../../packages/storage-git
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -99,9 +99,9 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/store-files':
+      '@webrun-vcs/storage-git':
         specifier: workspace:*
-        version: link:../../packages/store-files
+        version: link:../../packages/storage-git
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -124,9 +124,9 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/store-files':
+      '@webrun-vcs/storage-git':
         specifier: workspace:*
-        version: link:../../packages/store-files
+        version: link:../../packages/storage-git
       '@webrun-vcs/transport':
         specifier: workspace:*
         version: link:../../packages/transport
@@ -152,9 +152,9 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/store-files':
+      '@webrun-vcs/storage-git':
         specifier: workspace:*
-        version: link:../../packages/store-files
+        version: link:../../packages/storage-git
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -177,9 +177,9 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/store-files':
+      '@webrun-vcs/storage-git':
         specifier: workspace:*
-        version: link:../../packages/store-files
+        version: link:../../packages/storage-git
       '@webrun-vcs/transport':
         specifier: workspace:*
         version: link:../../packages/transport
@@ -205,9 +205,9 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/store-files':
+      '@webrun-vcs/storage-git':
         specifier: workspace:*
-        version: link:../../packages/store-files
+        version: link:../../packages/storage-git
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -253,9 +253,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
-      '@webrun-vcs/store-files':
+      '@webrun-vcs/storage-git':
         specifier: workspace:*
-        version: link:../store-files
+        version: link:../storage-git
       '@webrun-vcs/store-mem':
         specifier: workspace:*
         version: link:../store-mem
@@ -310,46 +310,7 @@ importers:
         specifier: 'catalog:'
         version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
 
-  packages/storage-tests:
-    devDependencies:
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      '@webrun-vcs/store-files':
-        specifier: workspace:*
-        version: link:../store-files
-      '@webrun-vcs/store-kv':
-        specifier: workspace:*
-        version: link:../store-kv
-      '@webrun-vcs/store-mem':
-        specifier: workspace:*
-        version: link:../store-mem
-      '@webrun-vcs/store-sql':
-        specifier: workspace:*
-        version: link:../store-sql
-      '@webrun-vcs/testing':
-        specifier: workspace:*
-        version: link:../testing
-      '@webrun-vcs/utils':
-        specifier: workspace:*
-        version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
-      sql.js:
-        specifier: ^1.12.0
-        version: 1.13.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/store-files:
+  packages/storage-git:
     dependencies:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
@@ -373,6 +334,45 @@ importers:
       rolldown:
         specifier: 'catalog:'
         version: 1.0.0-beta.51
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
+
+  packages/storage-tests:
+    devDependencies:
+      '@statewalker/webrun-files':
+        specifier: 'catalog:'
+        version: 0.5.0
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.1
+      '@webrun-vcs/storage-git':
+        specifier: workspace:*
+        version: link:../storage-git
+      '@webrun-vcs/store-kv':
+        specifier: workspace:*
+        version: link:../store-kv
+      '@webrun-vcs/store-mem':
+        specifier: workspace:*
+        version: link:../store-mem
+      '@webrun-vcs/store-sql':
+        specifier: workspace:*
+        version: link:../store-sql
+      '@webrun-vcs/testing':
+        specifier: workspace:*
+        version: link:../testing
+      '@webrun-vcs/utils':
+        specifier: workspace:*
+        version: link:../utils
+      '@webrun-vcs/vcs':
+        specifier: workspace:*
+        version: link:../vcs
+      sql.js:
+        specifier: ^1.12.0
+        version: 1.13.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

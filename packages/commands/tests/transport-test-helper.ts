@@ -5,7 +5,7 @@
  * Uses an in-memory Git HTTP server for testing with createVcsRepositoryAdapter.
  */
 
-import { serializeCommit, serializeTree } from "@webrun-vcs/store-files";
+import { serializeCommit, serializeTree } from "@webrun-vcs/storage-git";
 import { MemoryRefStore, MemoryStagingStore, MemoryTagStore } from "@webrun-vcs/store-mem";
 import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
 import type {

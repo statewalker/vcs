@@ -20,7 +20,7 @@
     "@statewalker/webrun-files": "catalog:",
     "@webrun-vcs/utils": "workspace:*",
     "@webrun-vcs/vcs": "workspace:*",
-    "@webrun-vcs/store-files": "workspace:*"
+    "@webrun-vcs/storage-git": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -1,4 +1,4 @@
-# @webrun-vcs/store-files
+# @webrun-vcs/storage-git
 
 Git-compatible file storage for reading and writing standard Git repository format.
 
@@ -13,7 +13,7 @@ The package uses `@statewalker/webrun-files` for file system access, enabling it
 ## Installation
 
 ```bash
-pnpm add @webrun-vcs/store-files
+pnpm add @webrun-vcs/storage-git
 ```
 
 ## Public API
@@ -21,7 +21,7 @@ pnpm add @webrun-vcs/store-files
 ### Main Storage Class
 
 ```typescript
-import { GitStorage } from "@webrun-vcs/store-files";
+import { GitStorage } from "@webrun-vcs/storage-git";
 
 const storage = new GitStorage(fileSystem, "/path/to/repo/.git");
 ```
@@ -57,7 +57,7 @@ The package organizes functionality into focused sub-modules:
 ### Opening an Existing Repository
 
 ```typescript
-import { GitStorage } from "@webrun-vcs/store-files";
+import { GitStorage } from "@webrun-vcs/storage-git";
 import { NodeFileSystem } from "@statewalker/webrun-files";
 
 const fs = new NodeFileSystem();
@@ -74,7 +74,7 @@ console.log(commit.message);
 ### Creating a New Repository
 
 ```typescript
-import { GitStorage } from "@webrun-vcs/store-files";
+import { GitStorage } from "@webrun-vcs/storage-git";
 
 const fs = new NodeFileSystem();
 const gitDir = "/new-project/.git";
@@ -96,7 +96,7 @@ const storage = new GitStorage(fs, gitDir);
 Pack files provide efficient storage for many objects:
 
 ```typescript
-import { GitPackStorage } from "@webrun-vcs/store-files";
+import { GitPackStorage } from "@webrun-vcs/storage-git";
 
 const packStorage = new GitPackStorage(fs, `${gitDir}/objects/pack`);
 
@@ -112,7 +112,7 @@ const content = await packStorage.load(objectHash);
 Loose objects store individual files:
 
 ```typescript
-import { GitRawObjectsStorage } from "@webrun-vcs/store-files";
+import { GitRawObjectsStorage } from "@webrun-vcs/storage-git";
 
 const looseStorage = new GitRawObjectsStorage(fs, `${gitDir}/objects`);
 
@@ -128,7 +128,7 @@ const data = await looseStorage.load(hash);
 Combine loose and pack storage for complete object access:
 
 ```typescript
-import { CompositeObjectStorage } from "@webrun-vcs/store-files";
+import { CompositeObjectStorage } from "@webrun-vcs/storage-git";
 
 const composite = new CompositeObjectStorage({
   looseStorage,
