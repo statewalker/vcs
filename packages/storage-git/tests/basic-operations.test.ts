@@ -6,9 +6,9 @@
  */
 
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
+import { FileMode, type ObjectId, ObjectType } from "@webrun-vcs/core";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
-import { FileMode, type ObjectId, ObjectType } from "@webrun-vcs/vcs";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { serializeTree } from "../src/format/tree-format.js";
 

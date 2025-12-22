@@ -8,7 +8,8 @@
  * where new objects are written to loose storage but reads can come from either.
  */
 
-import type { ObjectId, ObjectStore } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 
 /**
  * Composite object storage combining multiple backends

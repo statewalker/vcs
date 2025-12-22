@@ -4,7 +4,7 @@
  * Types for GC operations, storage analysis, and packing.
  */
 
-import type { CommitStore, ObjectId, TagStore, TreeStore } from "@webrun-vcs/vcs/object-storage";
+import type { CommitStore, ObjectId, TagStore, TreeStore } from "@webrun-vcs/core";
 import type { DeltaStorageImpl } from "../delta/index.js";
 
 /**

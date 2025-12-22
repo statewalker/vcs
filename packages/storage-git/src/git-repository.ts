@@ -10,22 +10,20 @@
 import type { FilesApi } from "@statewalker/webrun-files";
 import type {
   BlobStore,
+  CommitStore,
   GitObjectHeader,
   GitObjectStore,
   ObjectId,
+  ObjectTypeCode,
   ObjectTypeString,
+  RefStore,
   Repository,
   RepositoryConfig,
-} from "@webrun-vcs/core";
-import type {
-  CommitStore,
-  ObjectStore,
-  ObjectTypeCode,
-  RefStore,
   TagStore,
   TreeStore,
-} from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";
+import { ObjectType } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { parseObjectHeader } from "./format/object-header.js";
 import { GitStorage, type GitStorageOptions } from "./git-storage.js";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";

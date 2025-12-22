@@ -3,7 +3,7 @@
  */
 
 import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { GitRefStorage } from "../../src/git-ref-storage.js";
 import {

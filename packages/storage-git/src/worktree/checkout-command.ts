@@ -19,7 +19,7 @@ import {
   type RefStore,
   type TreeEntry,
   type TreeStore,
-} from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";
 import type { Checkout, CheckoutOptions, CheckoutResult, StagingStore } from "@webrun-vcs/worktree";
 
 /**

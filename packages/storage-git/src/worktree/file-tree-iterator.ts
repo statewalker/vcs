@@ -12,9 +12,9 @@
  */
 
 import { basename, type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
+import { FileMode, type ObjectId } from "@webrun-vcs/core";
 import { sha1 } from "@webrun-vcs/utils/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
-import { FileMode, type ObjectId } from "@webrun-vcs/vcs";
 import {
   createIgnoreManager,
   type IgnoreManager,

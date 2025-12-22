@@ -5,7 +5,7 @@
  * Tests various malformed and edge-case commit formats.
  */
 
-import type { Commit } from "@webrun-vcs/vcs";
+import type { Commit } from "@webrun-vcs/core";
 import { describe, expect, it } from "vitest";
 import { parseCommit, serializeCommit } from "../../src/format/commit-format.js";
 

@@ -8,10 +8,10 @@
  */
 
 import { dirname, type FilesApi } from "@statewalker/webrun-files";
+import type { ObjectId, ObjectTypeString } from "@webrun-vcs/core";
 import { compressBlock } from "@webrun-vcs/utils";
 import { sha1 } from "@webrun-vcs/utils/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
-import type { ObjectId, ObjectTypeString } from "@webrun-vcs/vcs";
 import { createGitObject } from "../format/object-header.js";
 import { atomicWriteFile, ensureDir } from "../utils/file-utils.js";
 import { getLooseObjectPath, hasLooseObject } from "./loose-object-reader.js";

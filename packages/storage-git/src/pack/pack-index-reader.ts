@@ -9,7 +9,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/PackIndexV2.java
  */
 
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 import { bytesToHex, hexToBytes } from "../utils/index.js";
 import type { PackIndex, PackIndexEntry } from "./types.js";
 

@@ -7,7 +7,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/SymbolicRef.java
  */
 
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 
 /**
  * Storage location of a reference

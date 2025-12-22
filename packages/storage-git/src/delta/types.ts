@@ -2,8 +2,8 @@
  * Delta compression types and strategy interfaces
  */
 
+import type { ObjectId } from "@webrun-vcs/core";
 import type { Delta } from "@webrun-vcs/utils";
-import type { ObjectId } from "@webrun-vcs/vcs/object-storage";
 
 /**
  * Object storage interface for strategies

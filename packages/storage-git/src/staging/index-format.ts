@@ -1,5 +1,5 @@
+import type { MergeStageValue, StagingEntry } from "@webrun-vcs/core";
 import { bytesToHex, hexToBytes, sha1 } from "@webrun-vcs/utils";
-import type { MergeStageValue, StagingEntry } from "@webrun-vcs/vcs";
 
 /**
  * Git index file format constants.

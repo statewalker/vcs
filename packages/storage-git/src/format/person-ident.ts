@@ -1,7 +1,7 @@
 /**
  * Person identity formatting and parsing
  *
- * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ * @deprecated This module is deprecated. Import from @webrun-vcs/core/format instead.
  *
  * Git uses a specific format for author/committer/tagger identity:
  * "Name <email> timestamp timezone"
@@ -11,7 +11,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/PersonIdent.java
  */
 
-import type { PersonIdent } from "@webrun-vcs/vcs";
+import type { PersonIdent } from "@webrun-vcs/core";
 
 /**
  * Format a PersonIdent to Git format string

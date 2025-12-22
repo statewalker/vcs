@@ -17,7 +17,7 @@ import {
   RefStoreLocation,
   type RefUpdateResult,
   type SymbolicRef,
-} from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";
 import { findPackedRef } from "./refs/packed-refs-reader.js";
 import { packRefs as packRefsInternal, removePackedRef } from "./refs/packed-refs-writer.js";
 import { hasLooseRef, readAllRefs, readRef, resolveRef } from "./refs/ref-reader.js";

@@ -9,18 +9,18 @@
  */
 
 import type { FilesApi } from "@statewalker/webrun-files";
-import type {
-  BlobStore,
-  Commit,
-  CommitStore,
-  ObjectId,
-  Ref,
-  RefStore,
-  SymbolicRef,
-  TreeEntry,
-  TreeStore,
-} from "@webrun-vcs/vcs";
-import { FileMode } from "@webrun-vcs/vcs";
+import {
+  type BlobStore,
+  type Commit,
+  type CommitStore,
+  FileMode,
+  type ObjectId,
+  type Ref,
+  type RefStore,
+  type SymbolicRef,
+  type TreeEntry,
+  type TreeStore,
+} from "@webrun-vcs/core";
 import type {
   MergeStageValue,
   StagingBuilder,

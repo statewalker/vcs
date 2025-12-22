@@ -5,7 +5,7 @@
  * Tests roundtrip serialization, version support, and Git compatibility.
  */
 
-import { FileMode, MergeStage, type StagingEntry } from "@webrun-vcs/vcs";
+import { FileMode, MergeStage, type StagingEntry } from "@webrun-vcs/core";
 import { describe, expect, it } from "vitest";
 import {
   INDEX_VERSION_2,

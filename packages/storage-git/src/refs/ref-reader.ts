@@ -9,7 +9,7 @@
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 import { findPackedRef, readPackedRefs } from "./packed-refs-reader.js";
 import {
   createRef,

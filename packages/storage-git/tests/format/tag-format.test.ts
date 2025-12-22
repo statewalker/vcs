@@ -2,8 +2,7 @@
  * Tests for Git tag format serialization/parsing
  */
 
-import type { AnnotatedTag, PersonIdent } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+import { type AnnotatedTag, ObjectType, type PersonIdent } from "@webrun-vcs/core";
 import { describe, expect, it } from "vitest";
 import { parseTag, serializeTag } from "../../src/format/tag-format.js";
 

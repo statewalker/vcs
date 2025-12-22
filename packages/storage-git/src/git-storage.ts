@@ -12,11 +12,11 @@ import {
   type CommitStore,
   isSymbolicRef,
   type ObjectId,
-  type ObjectStore,
   type RefStore,
   type TagStore,
   type TreeStore,
-} from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { GitCommitStorage } from "./git-commit-storage.js";
 import { GitDeltaObjectStorage } from "./git-delta-object-storage.js";
 import { GitFileTreeStorage } from "./git-file-tree-storage.js";

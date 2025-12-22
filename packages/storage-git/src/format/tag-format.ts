@@ -1,7 +1,7 @@
 /**
  * Git annotated tag object format serialization and parsing
  *
- * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ * @deprecated This module is deprecated. Import from @webrun-vcs/core/format instead.
  *
  * Tag format:
  *   object <object-sha1>
@@ -16,7 +16,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/TagBuilder.java
  */
 
-import type { AnnotatedTag, ObjectTypeCode } from "@webrun-vcs/vcs";
+import type { AnnotatedTag, ObjectTypeCode } from "@webrun-vcs/core";
 import { typeCodeToString, typeStringToCode } from "./object-header.js";
 import { formatPersonIdent, parsePersonIdent } from "./person-ident.js";
 

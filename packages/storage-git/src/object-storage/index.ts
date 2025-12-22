@@ -7,7 +7,7 @@
  */
 
 import type { FilesApi } from "@statewalker/webrun-files";
-import type { BlobStore, CommitStore, TagStore, TreeStore } from "@webrun-vcs/vcs";
+import type { BlobStore, CommitStore, TagStore, TreeStore } from "@webrun-vcs/core";
 import {
   GitBlobStore,
   GitCommitStore,
