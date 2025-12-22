@@ -1,7 +1,5 @@
 /**
- * Re-export staging store interfaces from @webrun-vcs/vcs
- *
- * These interfaces are defined in the vcs package to avoid circular dependencies.
+ * Re-export staging store interfaces from @webrun-vcs/core
  */
 export {
   MergeStage,
@@ -12,4 +10,4 @@ export {
   type StagingEntry,
   type StagingEntryOptions,
   type StagingStore,
-} from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";

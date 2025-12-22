@@ -10,7 +10,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/CheckoutCommand.java
  */
 
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 
 /**
  * Options for checkout operations.

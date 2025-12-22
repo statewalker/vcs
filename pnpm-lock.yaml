@@ -588,12 +588,12 @@ importers:
 
   packages/worktree:
     dependencies:
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../core
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

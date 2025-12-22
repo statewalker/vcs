@@ -9,7 +9,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/AddCommand.java
  */
 
-import { type BlobStore, FileMode } from "@webrun-vcs/vcs";
+import { type BlobStore, FileMode } from "@webrun-vcs/core";
 
 import type { Add, AddOptions, AddResult } from "./interfaces/add.js";
 import { DeleteStagingEntry, UpdateStagingEntry } from "./interfaces/staging-edits.js";

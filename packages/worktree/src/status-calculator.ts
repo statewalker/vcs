@@ -16,7 +16,7 @@ import {
   type ObjectId,
   type RefStore,
   type TreeStore,
-} from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";
 import type { StagingStore } from "./interfaces/staging-store.js";
 import {
   FileStatus,
