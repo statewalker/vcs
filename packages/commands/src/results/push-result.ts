@@ -1,4 +1,4 @@
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 
 /**
  * Status of a ref update during push.

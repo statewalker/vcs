@@ -1,5 +1,5 @@
-import type { ObjectId, Ref } from "@webrun-vcs/vcs";
-import { isSymbolicRef } from "@webrun-vcs/vcs";
+import type { ObjectId, Ref } from "@webrun-vcs/core";
+import { isSymbolicRef } from "@webrun-vcs/core";
 
 import {
   CannotDeleteCurrentBranchError,

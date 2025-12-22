@@ -31,7 +31,7 @@
  * ```
  */
 
-import { FileMode } from "@webrun-vcs/vcs";
+import { FileMode } from "@webrun-vcs/core";
 import {
   DeleteStagingEntry,
   UpdateStagingEntry,

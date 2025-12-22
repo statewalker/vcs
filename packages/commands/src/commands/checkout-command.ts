@@ -33,7 +33,7 @@
  * ```
  */
 
-import { FileMode, type ObjectId, type Ref } from "@webrun-vcs/vcs";
+import { FileMode, type ObjectId, type Ref } from "@webrun-vcs/core";
 import { DeleteStagingEntry, UpdateStagingEntry } from "@webrun-vcs/worktree";
 
 import { RefNotFoundError } from "../errors/index.js";

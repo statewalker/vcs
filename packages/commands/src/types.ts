@@ -1,4 +1,4 @@
-import type { BlobStore, CommitStore, RefStore, TagStore, TreeStore } from "@webrun-vcs/vcs";
+import type { BlobStore, CommitStore, RefStore, TagStore, TreeStore } from "@webrun-vcs/core";
 import type { StagingStore, WorkingTreeIterator } from "@webrun-vcs/worktree";
 
 /**

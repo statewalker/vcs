@@ -1,4 +1,4 @@
-import type { MergeStageValue } from "@webrun-vcs/vcs";
+import type { MergeStageValue } from "@webrun-vcs/core";
 
 import { GitCommand } from "../git-command.js";
 

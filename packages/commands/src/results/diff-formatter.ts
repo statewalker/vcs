@@ -4,8 +4,8 @@
  * Based on JGit's DiffFormatter class.
  */
 
+import type { BlobStore, ObjectId } from "@webrun-vcs/core";
 import { type EditList, MyersDiff, RawText, RawTextComparator } from "@webrun-vcs/utils";
-import type { BlobStore, ObjectId } from "@webrun-vcs/vcs";
 
 import { ChangeType, type DiffEntry } from "./diff-entry.js";
 

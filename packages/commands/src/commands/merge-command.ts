@@ -1,5 +1,5 @@
-import type { Commit, ObjectId, TreeEntry } from "@webrun-vcs/vcs";
-import { FileMode, isSymbolicRef, MergeStage } from "@webrun-vcs/vcs";
+import type { Commit, ObjectId, TreeEntry } from "@webrun-vcs/core";
+import { FileMode, isSymbolicRef, MergeStage } from "@webrun-vcs/core";
 
 import { InvalidMergeHeadsError, NotFastForwardError } from "../errors/merge-errors.js";
 import { NoHeadError } from "../errors/ref-errors.js";

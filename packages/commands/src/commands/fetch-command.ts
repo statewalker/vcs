@@ -1,7 +1,7 @@
+import type { ObjectId } from "@webrun-vcs/core";
+import { isSymbolicRef } from "@webrun-vcs/core";
 import { type FetchOptions, fetch as transportFetch } from "@webrun-vcs/transport";
 import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
-import type { ObjectId } from "@webrun-vcs/vcs";
-import { isSymbolicRef } from "@webrun-vcs/vcs";
 
 import { InvalidRemoteError } from "../errors/index.js";
 import {

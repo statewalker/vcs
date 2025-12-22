@@ -332,7 +332,7 @@ async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8A
   return result;
 }
 
-import { FileMode, type ObjectId } from "@webrun-vcs/vcs";
+import { FileMode, type ObjectId } from "@webrun-vcs/core";
 /**
  * Mock working tree for testing --all flag.
  * Simulates a filesystem with files that can be modified/deleted.

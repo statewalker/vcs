@@ -1,4 +1,4 @@
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 
 /**
  * Result of a ref update during fetch.

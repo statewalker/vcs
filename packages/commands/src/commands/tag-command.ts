@@ -1,5 +1,5 @@
-import type { AnnotatedTag, ObjectId, PersonIdent, Ref } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+import type { AnnotatedTag, ObjectId, PersonIdent, Ref } from "@webrun-vcs/core";
+import { ObjectType } from "@webrun-vcs/core";
 
 import { InvalidTagNameError, RefAlreadyExistsError, RefNotFoundError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";

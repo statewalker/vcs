@@ -1,4 +1,4 @@
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 
 import { RefNotFoundError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";

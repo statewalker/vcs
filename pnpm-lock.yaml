@@ -237,15 +237,15 @@ importers:
 
   packages/commands:
     dependencies:
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../core
       '@webrun-vcs/transport':
         specifier: workspace:*
         version: link:../transport
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
       '@webrun-vcs/worktree':
         specifier: workspace:*
         version: link:../worktree
@@ -253,9 +253,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
-      '@webrun-vcs/core':
-        specifier: workspace:*
-        version: link:../core
       '@webrun-vcs/storage-git':
         specifier: workspace:*
         version: link:../storage-git
