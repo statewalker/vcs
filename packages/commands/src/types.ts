@@ -1,4 +1,11 @@
-import type { BlobStore, CommitStore, RefStore, TagStore, TreeStore } from "@webrun-vcs/core";
+import type {
+  BlobStore,
+  CommitStore,
+  RefStore,
+  Repository,
+  TagStore,
+  TreeStore,
+} from "@webrun-vcs/core";
 import type { StagingStore, WorkingTreeIterator } from "@webrun-vcs/worktree";
 
 /**
@@ -87,4 +94,63 @@ export enum ListBranchMode {
 export interface GitStoreWithWorkTree extends GitStore {
   /** Working tree iterator for filesystem operations */
   readonly worktree: WorkingTreeIterator;
+}
+
+/**
+ * Options for creating a GitStore from a Repository.
+ */
+export interface CreateGitStoreOptions {
+  /** The repository providing object stores */
+  repository: Repository;
+
+  /** Staging area for index operations */
+  staging: StagingStore;
+
+  /** Optional working tree iterator for filesystem operations */
+  worktree?: WorkingTreeIterator;
+}
+
+/**
+ * Create a GitStore from a Repository and staging store.
+ *
+ * This factory function allows using any Repository implementation
+ * (file-based, SQL, memory, etc.) with the Git command facade.
+ *
+ * @example
+ * ```typescript
+ * import { createGitStore } from "@webrun-vcs/commands";
+ * import { createRepository } from "@webrun-vcs/storage-git";
+ * import { createStagingStore } from "@webrun-vcs/worktree";
+ *
+ * const repo = await createRepository(files, ".git");
+ * const staging = createStagingStore();
+ *
+ * const store = createGitStore({ repository: repo, staging });
+ * const git = Git.wrap(store);
+ * ```
+ *
+ * @param options Repository, staging store, and optional worktree
+ * @returns GitStore or GitStoreWithWorkTree if worktree is provided
+ */
+export function createGitStore(
+  options: CreateGitStoreOptions & { worktree: WorkingTreeIterator },
+): GitStoreWithWorkTree;
+export function createGitStore(options: CreateGitStoreOptions): GitStore;
+export function createGitStore(options: CreateGitStoreOptions): GitStore | GitStoreWithWorkTree {
+  const { repository, staging, worktree } = options;
+
+  const store: GitStore = {
+    blobs: repository.blobs,
+    trees: repository.trees,
+    commits: repository.commits,
+    refs: repository.refs,
+    staging,
+    tags: repository.tags,
+  };
+
+  if (worktree) {
+    return { ...store, worktree } as GitStoreWithWorkTree;
+  }
+
+  return store;
 }

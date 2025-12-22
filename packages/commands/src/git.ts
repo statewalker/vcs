@@ -33,7 +33,8 @@ import {
   StatusCommand,
   TagCommand,
 } from "./commands/index.js";
-import type { GitStore } from "./types.js";
+import type { CreateGitStoreOptions, GitStore } from "./types.js";
+import { createGitStore } from "./types.js";
 
 /**
  * Main entry point for high-level Git operations.
@@ -93,6 +94,33 @@ export class Git implements Disposable {
    * @returns A Git instance wrapping the store
    */
   static open(store: GitStore): Git {
+    return new Git(store);
+  }
+
+  /**
+   * Create a Git facade from a Repository and staging store.
+   *
+   * This factory method allows using any Repository implementation
+   * (file-based, SQL, memory, etc.) with the Git command facade.
+   *
+   * @example
+   * ```typescript
+   * import { Git } from "@webrun-vcs/commands";
+   * import { createRepository } from "@webrun-vcs/storage-git";
+   * import { createStagingStore } from "@webrun-vcs/worktree";
+   *
+   * const repo = await createRepository(files, ".git");
+   * const staging = createStagingStore();
+   *
+   * const git = Git.fromRepository({ repository: repo, staging });
+   * await git.commit().setMessage("Initial commit").call();
+   * ```
+   *
+   * @param options Repository, staging store, and optional worktree
+   * @returns A Git instance wrapping the created store
+   */
+  static fromRepository(options: CreateGitStoreOptions): Git {
+    const store = createGitStore(options);
     return new Git(store);
   }
 
