@@ -159,4 +159,17 @@ export interface StatusCalculator {
    * @returns True if file might be modified
    */
   isModified(path: string): Promise<boolean>;
+
+  /**
+   * Check if file content differs from index using hash comparison.
+   *
+   * This provides accurate modification detection for "racily clean" files
+   * where mtime is too recent to trust. Use this when isModified() returns
+   * true but you need certainty about whether content actually changed.
+   *
+   * @param path File path relative to repository root
+   * @param indexObjectId Expected object ID from index
+   * @returns True if content differs, false if identical
+   */
+  isContentModified(path: string, indexObjectId: ObjectId): Promise<boolean>;
 }

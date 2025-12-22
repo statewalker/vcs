@@ -983,6 +983,28 @@ describe("StatusCalculator", () => {
     });
   });
 
+  describe("isContentModified", () => {
+    it("should return false when content hash matches index", async () => {
+      // Setup: file in worktree with matching hash
+      worktreeMock.addFile("file.txt", { size: 100 });
+
+      // Mock returns "hash_placeholder" for all files
+      const modified = await calculator.isContentModified("file.txt", "hash_placeholder");
+
+      expect(modified).toBe(false);
+    });
+
+    it("should return true when content hash differs from index", async () => {
+      // Setup: file in worktree
+      worktreeMock.addFile("file.txt", { size: 100 });
+
+      // Index has different hash
+      const modified = await calculator.isContentModified("file.txt", "different_hash");
+
+      expect(modified).toBe(true);
+    });
+  });
+
   describe("createStatusCalculator factory", () => {
     it("should create a StatusCalculator instance", () => {
       const calc = createStatusCalculator({
@@ -997,6 +1019,208 @@ describe("StatusCalculator", () => {
       expect(typeof calc.calculateStatus).toBe("function");
       expect(typeof calc.getFileStatus).toBe("function");
       expect(typeof calc.isModified).toBe("function");
+    });
+  });
+
+  describe("rename detection", () => {
+    it("should detect exact rename when enabled", async () => {
+      // Setup: file "old.txt" in HEAD, removed from index
+      // File "new.txt" added to index with same content (same objectId)
+      trees.trees.set("tree1", [{ name: "old.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
+
+      commits.commits.set("commit1", {
+        tree: "tree1",
+        parents: [],
+        author: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        committer: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        message: "Initial commit",
+      });
+
+      refs.refs.set("HEAD", { objectId: "commit1" });
+
+      // Index has new.txt with same blob ID as old.txt
+      stagingMock.setEntries([
+        {
+          path: "new.txt",
+          mode: FileMode.REGULAR_FILE,
+          objectId: "blob1", // Same as old.txt
+          stage: 0,
+          size: 100,
+          mtime: OLD_TIME,
+        },
+      ]);
+
+      // Worktree has new.txt
+      worktreeMock.addFile("new.txt", { size: 100, mtime: OLD_TIME - 1000 });
+
+      const status = await calculator.calculateStatus({ detectRenames: true });
+
+      // Should have one renamed file instead of add + delete
+      expect(status.files).toHaveLength(1);
+      expect(status.files[0].path).toBe("new.txt");
+      expect(status.files[0].indexStatus).toBe(FileStatus.RENAMED);
+      expect(status.files[0].originalPath).toBe("old.txt");
+      expect(status.files[0].similarity).toBe(100);
+    });
+
+    it("should not detect rename when disabled", async () => {
+      // Same setup as above
+      trees.trees.set("tree1", [{ name: "old.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
+
+      commits.commits.set("commit1", {
+        tree: "tree1",
+        parents: [],
+        author: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        committer: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        message: "Initial commit",
+      });
+
+      refs.refs.set("HEAD", { objectId: "commit1" });
+
+      stagingMock.setEntries([
+        {
+          path: "new.txt",
+          mode: FileMode.REGULAR_FILE,
+          objectId: "blob1",
+          stage: 0,
+          size: 100,
+          mtime: OLD_TIME,
+        },
+      ]);
+
+      worktreeMock.addFile("new.txt", { size: 100, mtime: OLD_TIME - 1000 });
+
+      // detectRenames defaults to false
+      const status = await calculator.calculateStatus();
+
+      // Should have both deleted and added
+      expect(status.files).toHaveLength(2);
+      expect(status.files.find((f) => f.path === "old.txt")?.indexStatus).toBe(FileStatus.DELETED);
+      expect(status.files.find((f) => f.path === "new.txt")?.indexStatus).toBe(FileStatus.ADDED);
+    });
+
+    it("should detect multiple renames", async () => {
+      // Setup: two files renamed
+      trees.trees.set("tree1", [
+        { name: "a.txt", mode: FileMode.REGULAR_FILE, id: "blob_a" },
+        { name: "b.txt", mode: FileMode.REGULAR_FILE, id: "blob_b" },
+      ]);
+
+      commits.commits.set("commit1", {
+        tree: "tree1",
+        parents: [],
+        author: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        committer: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        message: "Initial commit",
+      });
+
+      refs.refs.set("HEAD", { objectId: "commit1" });
+
+      stagingMock.setEntries([
+        {
+          path: "x.txt",
+          mode: FileMode.REGULAR_FILE,
+          objectId: "blob_a", // Same as a.txt
+          stage: 0,
+          size: 100,
+          mtime: OLD_TIME,
+        },
+        {
+          path: "y.txt",
+          mode: FileMode.REGULAR_FILE,
+          objectId: "blob_b", // Same as b.txt
+          stage: 0,
+          size: 100,
+          mtime: OLD_TIME,
+        },
+      ]);
+
+      worktreeMock.addFile("x.txt", { size: 100, mtime: OLD_TIME - 1000 });
+      worktreeMock.addFile("y.txt", { size: 100, mtime: OLD_TIME - 1000 });
+
+      const status = await calculator.calculateStatus({ detectRenames: true });
+
+      // Should have two renamed files
+      expect(status.files).toHaveLength(2);
+
+      const xFile = status.files.find((f) => f.path === "x.txt");
+      expect(xFile?.indexStatus).toBe(FileStatus.RENAMED);
+      expect(xFile?.originalPath).toBe("a.txt");
+
+      const yFile = status.files.find((f) => f.path === "y.txt");
+      expect(yFile?.indexStatus).toBe(FileStatus.RENAMED);
+      expect(yFile?.originalPath).toBe("b.txt");
+    });
+
+    it("should not detect rename for different content", async () => {
+      // Setup: file deleted and new file added with different content
+      trees.trees.set("tree1", [{ name: "old.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
+
+      commits.commits.set("commit1", {
+        tree: "tree1",
+        parents: [],
+        author: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        committer: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        message: "Initial commit",
+      });
+
+      refs.refs.set("HEAD", { objectId: "commit1" });
+
+      stagingMock.setEntries([
+        {
+          path: "new.txt",
+          mode: FileMode.REGULAR_FILE,
+          objectId: "blob2", // Different from old.txt
+          stage: 0,
+          size: 100,
+          mtime: OLD_TIME,
+        },
+      ]);
+
+      worktreeMock.addFile("new.txt", { size: 100, mtime: OLD_TIME - 1000 });
+
+      const status = await calculator.calculateStatus({ detectRenames: true });
+
+      // Should still be add + delete (no rename)
+      expect(status.files).toHaveLength(2);
+      expect(status.files.find((f) => f.path === "old.txt")?.indexStatus).toBe(FileStatus.DELETED);
+      expect(status.files.find((f) => f.path === "new.txt")?.indexStatus).toBe(FileStatus.ADDED);
+    });
+
+    it("should handle rename with modified content", async () => {
+      // Setup: file renamed and modified (different blob ID)
+      trees.trees.set("tree1", [{ name: "old.txt", mode: FileMode.REGULAR_FILE, id: "blob1" }]);
+
+      commits.commits.set("commit1", {
+        tree: "tree1",
+        parents: [],
+        author: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        committer: { name: "Test", email: "test@test.com", timestamp: 0, tzOffset: "+0000" },
+        message: "Initial commit",
+      });
+
+      refs.refs.set("HEAD", { objectId: "commit1" });
+
+      // New file has different content (would need similarity detection)
+      stagingMock.setEntries([
+        {
+          path: "new.txt",
+          mode: FileMode.REGULAR_FILE,
+          objectId: "blob_modified", // Different content
+          stage: 0,
+          size: 120,
+          mtime: OLD_TIME,
+        },
+      ]);
+
+      worktreeMock.addFile("new.txt", { size: 120, mtime: OLD_TIME - 1000 });
+
+      // With exact matching only, this won't be detected as rename
+      const status = await calculator.calculateStatus({ detectRenames: true });
+
+      expect(status.files).toHaveLength(2);
+      expect(status.files.find((f) => f.path === "old.txt")?.indexStatus).toBe(FileStatus.DELETED);
+      expect(status.files.find((f) => f.path === "new.txt")?.indexStatus).toBe(FileStatus.ADDED);
     });
   });
 });
