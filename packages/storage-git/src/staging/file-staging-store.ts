@@ -451,20 +451,21 @@ class FileStagingEditor implements StagingEditor {
         const cmp = comparePaths(entry.path, edit.path);
 
         if (cmp < 0) {
-          // Entry before edit - check for tree deletion
+          // Entry before edit - keep entry
+          newEntries.push(entry);
+          entryIndex++;
+        } else if (cmp > 0) {
+          // Edit path comes before entry path
+          // Check if entry is under a tree being deleted
           if (isDeleteTree(edit) && entry.path.startsWith(`${edit.path}/`)) {
             // Skip entry (deleted by tree)
             entryIndex++;
           } else {
-            // Keep entry
-            newEntries.push(entry);
-            entryIndex++;
+            // Apply edit (insertion) and move to next edit
+            const result = edit.apply(undefined);
+            if (result) newEntries.push(result);
+            editIndex++;
           }
-        } else if (cmp > 0) {
-          // Edit before entry (insertion)
-          const result = edit.apply(undefined);
-          if (result) newEntries.push(result);
-          editIndex++;
         } else {
           // Edit applies to this entry
           if (isResolveConflict(edit)) {
