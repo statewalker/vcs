@@ -4,7 +4,7 @@
  * Based on JGit's FetchCommandTest.java
  */
 
-import type { Ref } from "@webrun-vcs/vcs";
+import type { Ref } from "@webrun-vcs/core";
 import { describe, expect, it } from "vitest";
 
 import { Git, RefUpdateStatus, TagOption } from "../src/index.js";

@@ -44,6 +44,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@webrun-vcs/core": "workspace:*",
     "@webrun-vcs/storage-git": "workspace:*",
     "@webrun-vcs/store-mem": "workspace:*",
     "rolldown": "catalog:",

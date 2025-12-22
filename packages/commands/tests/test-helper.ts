@@ -2,13 +2,13 @@
  * Test helpers for @webrun-vcs/commands
  */
 
+import type { ObjectId, PersonIdent } from "@webrun-vcs/core";
+import { FileMode } from "@webrun-vcs/core";
 import {
   createMemoryObjectStores,
   MemoryRefStore,
   MemoryStagingStore,
 } from "@webrun-vcs/store-mem";
-import type { ObjectId, PersonIdent } from "@webrun-vcs/vcs";
-import { FileMode } from "@webrun-vcs/vcs";
 
 import { Git, type GitStore } from "../src/index.js";
 
