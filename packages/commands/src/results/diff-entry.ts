@@ -1,4 +1,4 @@
-import type { FileModeValue, ObjectId } from "@webrun-vcs/vcs";
+import type { FileModeValue, ObjectId } from "@webrun-vcs/core";
 
 /**
  * Type of change in a diff entry.

@@ -1,4 +1,4 @@
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 
 import { GitCommand } from "../git-command.js";
 import type { StashEntry } from "../results/stash-result.js";

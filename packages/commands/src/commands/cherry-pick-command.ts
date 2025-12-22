@@ -1,5 +1,5 @@
-import type { Commit, ObjectId, PersonIdent } from "@webrun-vcs/vcs";
-import { FileMode, MergeStage } from "@webrun-vcs/vcs";
+import type { Commit, ObjectId, PersonIdent } from "@webrun-vcs/core";
+import { FileMode, MergeStage } from "@webrun-vcs/core";
 
 import { MultipleParentsNotAllowedError } from "../errors/merge-errors.js";
 import { NoHeadError, RefNotFoundError } from "../errors/ref-errors.js";

@@ -1,5 +1,5 @@
-import type { Commit, ObjectId, PersonIdent } from "@webrun-vcs/vcs";
-import { isSymbolicRef } from "@webrun-vcs/vcs";
+import type { Commit, ObjectId, PersonIdent } from "@webrun-vcs/core";
+import { isSymbolicRef } from "@webrun-vcs/core";
 import type { WorkingTreeIterator } from "@webrun-vcs/worktree";
 
 import { EmptyCommitError, NoMessageError, UnmergedPathsError } from "../errors/index.js";
