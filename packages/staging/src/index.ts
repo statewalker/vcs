@@ -6,7 +6,7 @@
  * This package provides implementations of the StagingStore interface
  * defined in @webrun-vcs/core. It includes:
  * - Memory-based staging for testing and ephemeral repositories
- * - File-based staging for Git-compatible persistent storage
+ * - File-based staging for Git-compatible persistent storage (in @webrun-vcs/storage-git)
  *
  * Re-exports core staging types for convenience.
  */
@@ -22,3 +22,5 @@ export {
   type StagingEntryOptions,
   type StagingStore,
 } from "@webrun-vcs/core/staging";
+// Memory-based staging implementation
+export * from "./memory-staging-store.js";
