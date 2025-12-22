@@ -6,8 +6,9 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/revwalk/RevWalk.java
  */
 
-import type { AncestryOptions, Commit, CommitStore, ObjectId, ObjectStore } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@webrun-vcs/core";
+import { ObjectType } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { parseCommit, serializeCommit } from "./format/commit-format.js";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 

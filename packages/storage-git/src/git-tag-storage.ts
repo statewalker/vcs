@@ -6,8 +6,9 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/TagBuilder.java
  */
 
-import type { AnnotatedTag, ObjectId, ObjectStore, TagStore } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+import type { AnnotatedTag, ObjectId, TagStore } from "@webrun-vcs/core";
+import { ObjectType } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { parseTag, serializeTag } from "./format/tag-format.js";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 

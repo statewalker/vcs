@@ -1,7 +1,7 @@
 /**
  * Git object header encoding/decoding
  *
- * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ * @deprecated This module is deprecated. Import from @webrun-vcs/core/format instead.
  *
  * Git objects are stored with a header: "type size\0content"
  * where type is "blob", "tree", "commit", or "tag" and size is decimal.
@@ -9,8 +9,8 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/Constants.java
  */
 
-import type { ObjectTypeCode, ObjectTypeString } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+import type { ObjectTypeCode, ObjectTypeString } from "@webrun-vcs/core";
+import { ObjectType } from "@webrun-vcs/core";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

@@ -21,8 +21,9 @@
  */
 
 import type { FilesApi } from "@statewalker/webrun-files";
+import type { ObjectId } from "@webrun-vcs/core";
 import { createDeltaRanges, deltaRangesToGitFormat } from "@webrun-vcs/utils";
-import type { ObjectId, ObjectStore } from "@webrun-vcs/vcs";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 
 /**
  * Options for delta creation

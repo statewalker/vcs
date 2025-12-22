@@ -2,8 +2,7 @@
  * Tests for Git tree format serialization/parsing
  */
 
-import type { TreeEntry } from "@webrun-vcs/vcs";
-import { FileMode } from "@webrun-vcs/vcs";
+import { FileMode, type TreeEntry } from "@webrun-vcs/core";
 import { describe, expect, it } from "vitest";
 import {
   compareTreeEntries,

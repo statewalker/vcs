@@ -1,6 +1,6 @@
 import type { FilesApi } from "@statewalker/webrun-files";
-import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/vcs";
-import { FileMode } from "@webrun-vcs/vcs";
+import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/core";
+import { FileMode } from "@webrun-vcs/core";
 import type {
   MergeStageValue,
   StagingBuilder,

@@ -5,7 +5,7 @@
  */
 
 import type { FilesApi } from "@statewalker/webrun-files";
-import { FileMode } from "@webrun-vcs/vcs";
+import { FileMode } from "@webrun-vcs/core";
 import { createIgnoreManager } from "@webrun-vcs/worktree";
 import { describe, expect, it } from "vitest";
 import { createFileTreeIterator } from "../../src/worktree/file-tree-iterator.js";

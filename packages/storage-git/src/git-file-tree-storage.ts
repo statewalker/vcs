@@ -6,8 +6,9 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/TreeFormatter.java
  */
 
-import type { ObjectId, ObjectStore, TreeEntry, TreeStore } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/core";
+import { ObjectType } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { EMPTY_TREE_ID, findTreeEntry, parseTree, serializeTree } from "./format/tree-format.js";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 

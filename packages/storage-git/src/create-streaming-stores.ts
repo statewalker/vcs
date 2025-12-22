@@ -6,7 +6,7 @@
  */
 
 import type { FilesApi } from "@statewalker/webrun-files";
-import type { GitStores } from "@webrun-vcs/vcs";
+import type { GitStores } from "@webrun-vcs/core";
 import { createFileObjectStores } from "./object-storage/index.js";
 
 /**

@@ -11,7 +11,8 @@
  */
 
 import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { ObjectId, ObjectStore } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { createGitObject } from "./format/object-header.js";
 import { type PackIndex, PackObjectType, readPackIndex } from "./pack/index.js";
 import { type PackDeltaChainInfo, PackReader } from "./pack/pack-reader.js";

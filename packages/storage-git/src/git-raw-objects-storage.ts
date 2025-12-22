@@ -40,10 +40,11 @@
  */
 
 import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
+import type { ObjectId } from "@webrun-vcs/core";
 import { compressBlock, decompressBlock } from "@webrun-vcs/utils";
 import { sha1 } from "@webrun-vcs/utils/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
-import type { ObjectId, ObjectStore } from "@webrun-vcs/vcs";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { getLooseObjectPath } from "./utils/file-utils.js";
 
 /**

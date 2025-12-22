@@ -6,7 +6,7 @@
  */
 
 import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
-import { isSymbolicRef } from "@webrun-vcs/vcs";
+import { isSymbolicRef } from "@webrun-vcs/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { GitRefStorage } from "../../src/git-ref-storage.js";
 import { isValidRefName, peelRef, shortenRefName } from "../../src/refs/ref-directory.js";

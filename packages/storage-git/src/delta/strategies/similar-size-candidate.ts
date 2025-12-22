@@ -5,7 +5,7 @@
  * Based on the observation that similar-sized objects often produce good deltas.
  */
 
-import type { ObjectId } from "@webrun-vcs/vcs/object-storage";
+import type { ObjectId } from "@webrun-vcs/core";
 import type { DeltaCandidateStrategy, ObjectStorage } from "../types.js";
 
 /**

@@ -9,8 +9,9 @@
  * handle Git object format (header + content) on top of raw storage.
  */
 
-import type { ObjectId, ObjectStore, ObjectTypeCode } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/core";
+import { ObjectType } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { parseObjectHeader } from "./format/object-header.js";
 
 /**

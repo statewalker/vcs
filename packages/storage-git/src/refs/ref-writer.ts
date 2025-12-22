@@ -10,7 +10,7 @@
  */
 
 import { dirname, type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-types.js";
 
 /**

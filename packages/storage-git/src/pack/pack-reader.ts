@@ -9,8 +9,8 @@
  */
 
 import type { FileHandle, FilesApi } from "@statewalker/webrun-files";
+import type { ObjectId } from "@webrun-vcs/core";
 import { decompressBlock } from "@webrun-vcs/utils";
-import type { ObjectId } from "@webrun-vcs/vcs";
 import { bytesToHex } from "../utils/index.js";
 
 /**

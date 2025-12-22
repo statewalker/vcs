@@ -1,7 +1,7 @@
 /**
  * Git commit object format serialization and parsing
  *
- * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ * @deprecated This module is deprecated. Import from @webrun-vcs/core/format instead.
  *
  * Commit format:
  *   tree <tree-sha1>
@@ -16,7 +16,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/CommitBuilder.java
  */
 
-import type { Commit } from "@webrun-vcs/vcs";
+import type { Commit } from "@webrun-vcs/core";
 import { formatPersonIdent, parsePersonIdent } from "./person-ident.js";
 
 const encoder = new TextEncoder();

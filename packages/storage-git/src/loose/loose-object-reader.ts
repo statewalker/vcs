@@ -8,8 +8,8 @@
  */
 
 import type { FilesApi } from "@statewalker/webrun-files";
+import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/core";
 import { decompressBlock } from "@webrun-vcs/utils";
-import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/vcs";
 import { type ParsedObjectHeader, parseObjectHeader } from "../format/object-header.js";
 import { getLooseObjectPath } from "../utils/file-utils.js";
 

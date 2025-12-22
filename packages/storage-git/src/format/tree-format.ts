@@ -1,7 +1,7 @@
 /**
  * Git tree object format serialization and parsing
  *
- * @deprecated This module is deprecated. Import from @webrun-vcs/vcs/format instead.
+ * @deprecated This module is deprecated. Import from @webrun-vcs/core/format instead.
  *
  * Tree format: sequence of entries, each entry is:
  *   mode SP name NUL sha1
@@ -16,9 +16,9 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/TreeFormatter.java
  */
 
+import type { TreeEntry } from "@webrun-vcs/core";
+import { FileMode, GitFormat } from "@webrun-vcs/core";
 import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
-import type { TreeEntry } from "@webrun-vcs/vcs";
-import { FileMode, GitFormat } from "@webrun-vcs/vcs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
