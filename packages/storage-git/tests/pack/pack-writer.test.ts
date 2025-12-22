@@ -4,15 +4,13 @@
  * Tests pack writer functionality and verifies packs can be read by the existing reader.
  */
 
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
+import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { crc32 } from "@webrun-vcs/utils/hash/crc32";
 import { sha1 } from "@webrun-vcs/utils/hash/sha1";
 import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   PackObjectType,
   PackReader,
@@ -22,8 +20,7 @@ import {
   writePack,
   writePackIndexV2,
 } from "../../src/pack/index.js";
-
-const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
+import { createMemFilesApi } from "../test-utils.js";
 
 // Set up Node.js compression before tests
 setCompression(createNodeCompression());
@@ -230,24 +227,13 @@ describe("pack-writer", () => {
   });
 
   describe("roundtrip: write and read pack", () => {
-    let tempDir: string;
+    const tempDir = "/test-packs";
     let files: FilesApi;
 
-    beforeAll(async () => {
-      files = new FilesApi(new NodeFilesApi({ fs }));
-
-      // Create temp directory for test packs
-      tempDir = path.join(FIXTURES_DIR, ".test-temp");
-      await fs.mkdir(tempDir, { recursive: true });
-    });
-
-    afterAll(async () => {
-      // Clean up temp directory
-      try {
-        await fs.rm(tempDir, { recursive: true });
-      } catch {
-        // Ignore cleanup errors
-      }
+    beforeEach(async () => {
+      // Use in-memory filesystem for tests
+      files = createMemFilesApi();
+      await files.mkdir(tempDir);
     });
 
     it("can read pack written by writePack", async () => {
@@ -264,16 +250,16 @@ describe("pack-writer", () => {
       const result = await writePack(objects);
 
       // Write pack file
-      const packPath = path.join(tempDir, "test1.pack");
-      await fs.writeFile(packPath, result.packData);
+      const packPath = joinPath(tempDir, "test1.pack");
+      await files.write(packPath, [result.packData]);
 
       // Write index
       const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
-      const indexPath = path.join(tempDir, "test1.idx");
-      await fs.writeFile(indexPath, indexData);
+      const indexPath = joinPath(tempDir, "test1.idx");
+      await files.write(indexPath, [indexData]);
 
       // Read pack
-      const readIndex = readPackIndex(new Uint8Array(await fs.readFile(indexPath)));
+      const readIndex = readPackIndex(await files.readFile(indexPath));
       const reader = new PackReader(files, packPath, readIndex);
       await reader.open();
 
@@ -316,15 +302,15 @@ describe("pack-writer", () => {
       const result = await writePack(objects);
 
       // Write files
-      const packPath = path.join(tempDir, "test2.pack");
-      await fs.writeFile(packPath, result.packData);
+      const packPath = joinPath(tempDir, "test2.pack");
+      await files.write(packPath, [result.packData]);
 
       const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
-      const indexPath = path.join(tempDir, "test2.idx");
-      await fs.writeFile(indexPath, indexData);
+      const indexPath = joinPath(tempDir, "test2.idx");
+      await files.write(indexPath, [indexData]);
 
       // Read and verify all objects
-      const readIndex = readPackIndex(new Uint8Array(await fs.readFile(indexPath)));
+      const readIndex = readPackIndex(await files.readFile(indexPath));
       const reader = new PackReader(files, packPath, readIndex);
       await reader.open();
 
@@ -370,14 +356,14 @@ describe("pack-writer", () => {
 
       const result = await writePack(objects);
 
-      const packPath = path.join(tempDir, "test3.pack");
-      await fs.writeFile(packPath, result.packData);
+      const packPath = joinPath(tempDir, "test3.pack");
+      await files.write(packPath, [result.packData]);
 
       const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
-      const indexPath = path.join(tempDir, "test3.idx");
-      await fs.writeFile(indexPath, indexData);
+      const indexPath = joinPath(tempDir, "test3.idx");
+      await files.write(indexPath, [indexData]);
 
-      const readIndex = readPackIndex(new Uint8Array(await fs.readFile(indexPath)));
+      const readIndex = readPackIndex(await files.readFile(indexPath));
       const reader = new PackReader(files, packPath, readIndex);
       await reader.open();
 
@@ -412,14 +398,14 @@ describe("pack-writer", () => {
 
       const result = await writer.finalize();
 
-      const packPath = path.join(tempDir, "test4.pack");
-      await fs.writeFile(packPath, result.packData);
+      const packPath = joinPath(tempDir, "test4.pack");
+      await files.write(packPath, [result.packData]);
 
       const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
-      const indexPath = path.join(tempDir, "test4.idx");
-      await fs.writeFile(indexPath, indexData);
+      const indexPath = joinPath(tempDir, "test4.idx");
+      await files.write(indexPath, [indexData]);
 
-      const readIndex = readPackIndex(new Uint8Array(await fs.readFile(indexPath)));
+      const readIndex = readPackIndex(await files.readFile(indexPath));
       const reader = new PackReader(files, packPath, readIndex);
       await reader.open();
 
@@ -474,14 +460,14 @@ describe("pack-writer", () => {
 
       const result = await writePack(objects);
 
-      const packPath = path.join(tempDir, "test-large.pack");
-      await fs.writeFile(packPath, result.packData);
+      const packPath = joinPath(tempDir, "test-large.pack");
+      await files.write(packPath, [result.packData]);
 
       const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
-      const indexPath = path.join(tempDir, "test-large.idx");
-      await fs.writeFile(indexPath, indexData);
+      const indexPath = joinPath(tempDir, "test-large.idx");
+      await files.write(indexPath, [indexData]);
 
-      const readIndex = readPackIndex(new Uint8Array(await fs.readFile(indexPath)));
+      const readIndex = readPackIndex(await files.readFile(indexPath));
       const reader = new PackReader(files, packPath, readIndex);
       await reader.open();
 

@@ -2,9 +2,7 @@
  * Tests for pack file reading
  */
 
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
+import type { FilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -16,33 +14,31 @@ import {
   PackReader,
   readPackIndex,
 } from "../../src/pack/index.js";
-
-const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
+import { createNodeFilesApi, getPackFixturePath, loadPackFixture } from "../test-utils.js";
 
 // Set up Node.js compression before tests
 setCompression(createNodeCompression());
 
 describe("pack-reader", () => {
+  let files: FilesApi;
+
+  beforeAll(() => {
+    files = createNodeFilesApi();
+  });
+
   describe("PackReader", () => {
-    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new FilesApi(new NodeFilesApi({ fs }));
-
       // Load index
-      const idxPath = path.join(
-        FIXTURES_DIR,
+      const idxData = await loadPackFixture(
+        files,
         "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      const idxData = await fs.readFile(idxPath);
-      const index = readPackIndex(new Uint8Array(idxData));
+      const index = readPackIndex(idxData);
 
       // Create reader
-      const packPath = path.join(
-        FIXTURES_DIR,
-        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack",
-      );
+      const packPath = getPackFixturePath("pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack");
       reader = new PackReader(files, packPath, index);
       await reader.open();
     });
@@ -133,25 +129,18 @@ describe("pack-reader", () => {
   });
 
   describe("dense pack with deltas", () => {
-    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new FilesApi(new NodeFilesApi({ fs }));
-
       // Load dense pack index
-      const idxPath = path.join(
-        FIXTURES_DIR,
+      const idxData = await loadPackFixture(
+        files,
         "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idxV2",
       );
-      const idxData = await fs.readFile(idxPath);
-      const index = readPackIndex(new Uint8Array(idxData));
+      const index = readPackIndex(idxData);
 
       // Create reader
-      const packPath = path.join(
-        FIXTURES_DIR,
-        "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.pack",
-      );
+      const packPath = getPackFixturePath("pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.pack");
       reader = new PackReader(files, packPath, index);
       await reader.open();
     });
@@ -170,11 +159,7 @@ describe("pack-reader", () => {
       // Load first 10 objects using the index
       // This tests that delta resolution works correctly
       const index = readPackIndex(
-        new Uint8Array(
-          await fs.readFile(
-            path.join(FIXTURES_DIR, "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idxV2"),
-          ),
-        ),
+        await loadPackFixture(files, "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idxV2"),
       );
 
       const entries = Array.from(index.entries()).slice(0, 10);
@@ -321,23 +306,16 @@ describe("pack-reader", () => {
    * Based on jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/internal/storage/file/T0004_PackReaderTest.java
    */
   describe("object type and size verification", () => {
-    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new FilesApi(new NodeFilesApi({ fs }));
-
-      const idxPath = path.join(
-        FIXTURES_DIR,
+      const idxData = await loadPackFixture(
+        files,
         "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      const idxData = await fs.readFile(idxPath);
-      const index = readPackIndex(new Uint8Array(idxData));
+      const index = readPackIndex(idxData);
 
-      const packPath = path.join(
-        FIXTURES_DIR,
-        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack",
-      );
+      const packPath = getPackFixturePath("pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack");
       reader = new PackReader(files, packPath, index);
       await reader.open();
     });
@@ -405,23 +383,16 @@ describe("pack-reader", () => {
    * Pack header validation tests
    */
   describe("pack header validation", () => {
-    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new FilesApi(new NodeFilesApi({ fs }));
-
-      const idxPath = path.join(
-        FIXTURES_DIR,
+      const idxData = await loadPackFixture(
+        files,
         "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      const idxData = await fs.readFile(idxPath);
-      const index = readPackIndex(new Uint8Array(idxData));
+      const index = readPackIndex(idxData);
 
-      const packPath = path.join(
-        FIXTURES_DIR,
-        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack",
-      );
+      const packPath = getPackFixturePath("pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack");
       reader = new PackReader(files, packPath, index);
       await reader.open();
     });
@@ -442,12 +413,11 @@ describe("pack-reader", () => {
 
     it("object count matches index count", async () => {
       const header = await reader.readPackHeader();
-      const idxPath = path.join(
-        FIXTURES_DIR,
+      const idxData = await loadPackFixture(
+        files,
         "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      const idxData = await fs.readFile(idxPath);
-      const index = readPackIndex(new Uint8Array(idxData));
+      const index = readPackIndex(idxData);
 
       expect(header.objectCount).toBe(index.objectCount);
     });
@@ -457,23 +427,16 @@ describe("pack-reader", () => {
    * Object header parsing tests
    */
   describe("object header parsing", () => {
-    let files: FilesApi;
     let reader: PackReader;
 
     beforeAll(async () => {
-      files = new FilesApi(new NodeFilesApi({ fs }));
-
-      const idxPath = path.join(
-        FIXTURES_DIR,
+      const idxData = await loadPackFixture(
+        files,
         "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      const idxData = await fs.readFile(idxPath);
-      const index = readPackIndex(new Uint8Array(idxData));
+      const index = readPackIndex(idxData);
 
-      const packPath = path.join(
-        FIXTURES_DIR,
-        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack",
-      );
+      const packPath = getPackFixturePath("pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.pack");
       reader = new PackReader(files, packPath, index);
       await reader.open();
     });
@@ -492,12 +455,11 @@ describe("pack-reader", () => {
 
     it("header type matches resolved object type", async () => {
       // Get offset from index for a known object
-      const idxPath = path.join(
-        FIXTURES_DIR,
+      const idxData = await loadPackFixture(
+        files,
         "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      const idxData = await fs.readFile(idxPath);
-      const index = readPackIndex(new Uint8Array(idxData));
+      const index = readPackIndex(idxData);
 
       // Empty tree
       const offset = index.findOffset("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
