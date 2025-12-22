@@ -4,12 +4,10 @@
  * Based on jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/internal/storage/file/PackIndexTestCase.java
  */
 
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
+import type { FilesApi } from "@statewalker/webrun-files";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type PackIndex, readPackIndex } from "../../src/pack/index.js";
-
-const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
+import { createNodeFilesApi, loadPackFixture } from "../test-utils.js";
 
 /**
  * Expected objects in the small pack (pack-34be9032)
@@ -27,19 +25,27 @@ const SMALL_PACK_OBJECTS = [
 ];
 
 describe("pack-index", () => {
+  let files: FilesApi;
+
+  beforeAll(() => {
+    files = createNodeFilesApi();
+  });
+
   describe("PackIndexV1", () => {
     let smallIdx: PackIndex;
     let denseIdx: PackIndex;
 
     beforeAll(async () => {
-      const smallIdxData = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx"),
+      const smallIdxData = await loadPackFixture(
+        files,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx",
       );
-      const denseIdxData = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idx"),
+      const denseIdxData = await loadPackFixture(
+        files,
+        "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idx",
       );
-      smallIdx = readPackIndex(new Uint8Array(smallIdxData));
-      denseIdx = readPackIndex(new Uint8Array(denseIdxData));
+      smallIdx = readPackIndex(smallIdxData);
+      denseIdx = readPackIndex(denseIdxData);
     });
 
     it("detects version 1", () => {
@@ -127,14 +133,16 @@ describe("pack-index", () => {
     let denseIdx: PackIndex;
 
     beforeAll(async () => {
-      const smallIdxData = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
+      const smallIdxData = await loadPackFixture(
+        files,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      const denseIdxData = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idxV2"),
+      const denseIdxData = await loadPackFixture(
+        files,
+        "pack-df2982f284bbabb6bdb59ee3fcc6eb0983e20371.idxV2",
       );
-      smallIdx = readPackIndex(new Uint8Array(smallIdxData));
-      denseIdx = readPackIndex(new Uint8Array(denseIdxData));
+      smallIdx = readPackIndex(smallIdxData);
+      denseIdx = readPackIndex(denseIdxData);
     });
 
     it("detects version 2", () => {
@@ -241,14 +249,16 @@ describe("pack-index", () => {
     let v2Idx: PackIndex;
 
     beforeAll(async () => {
-      const v1Data = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx"),
+      const v1Data = await loadPackFixture(
+        files,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx",
       );
-      const v2Data = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
+      const v2Data = await loadPackFixture(
+        files,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      v1Idx = readPackIndex(new Uint8Array(v1Data));
-      v2Idx = readPackIndex(new Uint8Array(v2Data));
+      v1Idx = readPackIndex(v1Data);
+      v2Idx = readPackIndex(v2Data);
     });
 
     it("both have same object count", () => {
@@ -309,10 +319,11 @@ describe("pack-index", () => {
     let idx: PackIndex;
 
     beforeAll(async () => {
-      const idxData = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
+      const idxData = await loadPackFixture(
+        files,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      idx = readPackIndex(new Uint8Array(idxData));
+      idx = readPackIndex(idxData);
     });
 
     it("returns specific CRC32 for empty tree", () => {
@@ -355,10 +366,11 @@ describe("pack-index", () => {
     let smallIdx: PackIndex;
 
     beforeAll(async () => {
-      const idxData = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
+      const idxData = await loadPackFixture(
+        files,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      smallIdx = readPackIndex(new Uint8Array(idxData));
+      smallIdx = readPackIndex(idxData);
     });
 
     it("iterator yields all entries exactly once", () => {
@@ -402,10 +414,11 @@ describe("pack-index", () => {
     let idx: PackIndex;
 
     beforeAll(async () => {
-      const idxData = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
+      const idxData = await loadPackFixture(
+        files,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      idx = readPackIndex(new Uint8Array(idxData));
+      idx = readPackIndex(idxData);
     });
 
     it("getObjectId and findPosition are inverse operations", () => {

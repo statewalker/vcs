@@ -4,8 +4,7 @@
  * Based on jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/internal/storage/file/PackIndexTestCase.java
  */
 
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
+import type { FilesApi } from "@statewalker/webrun-files";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   oldestPossibleFormat,
@@ -16,8 +15,7 @@ import {
   writePackIndexV1,
   writePackIndexV2,
 } from "../../src/pack/index.js";
-
-const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
+import { createNodeFilesApi, loadPackFixture } from "../test-utils.js";
 
 /**
  * Test entries sorted by object ID
@@ -224,18 +222,22 @@ describe("pack-index-writer", () => {
   });
 
   describe("roundtrip with existing fixtures", () => {
+    let files: FilesApi;
     let originalV1: PackIndex;
     let originalV2: PackIndex;
 
     beforeAll(async () => {
-      const v1Data = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx"),
+      files = createNodeFilesApi();
+      const v1Data = await loadPackFixture(
+        files,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idx",
       );
-      const v2Data = await fs.readFile(
-        path.join(FIXTURES_DIR, "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2"),
+      const v2Data = await loadPackFixture(
+        files,
+        "pack-34be9032ac282b11fa9babdc2b2a93ca996c9c2f.idxV2",
       );
-      originalV1 = readPackIndex(new Uint8Array(v1Data));
-      originalV2 = readPackIndex(new Uint8Array(v2Data));
+      originalV1 = readPackIndex(v1Data);
+      originalV2 = readPackIndex(v2Data);
     });
 
     it("can recreate V1 index from V2 entries", async () => {
