@@ -2,14 +2,46 @@
  * Tests for CommitCommand
  *
  * Based on JGit's CommitCommandTest.java and CommitAndLogCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { EmptyCommitError, NoMessageError } from "../src/errors/index.js";
-import { addFile, createInitializedGit, testAuthor, toArray } from "./test-helper.js";
+import { Git } from "../src/index.js";
+import {
+  addFile,
+  backends,
+  createInitializedGitFromFactory,
+  testAuthor,
+  toArray,
+} from "./test-helper.js";
 
-describe("CommitCommand", () => {
+describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
+  async function createEmptyGit() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    const store = ctx.store;
+    const git = Git.wrap(store);
+    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    return { git, store };
+  }
+
   it("should require a message", async () => {
     const { git } = await createInitializedGit();
 
@@ -26,16 +58,8 @@ describe("CommitCommand", () => {
   });
 
   it("should create initial commit with no parents", async () => {
-    await createInitializedGit();
-    const { Git } = await import("../src/index.js");
-
     // Create a new store without initial commit
-    const { createTestStore } = await import("./test-helper.js");
-    const newStore = createTestStore();
-    const git = Git.wrap(newStore);
-
-    // Set up refs
-    await newStore.refs.setSymbolic("HEAD", "refs/heads/main");
+    const { git } = await createEmptyGit();
 
     // Create initial commit
     const commit = await git.commit().setMessage("Initial commit").setAllowEmpty(true).call();
@@ -102,15 +126,8 @@ describe("CommitCommand", () => {
 
   it("should fail when amending on initial commit (no prior commit)", async () => {
     // Based on JGit's commitAmendOnInitialShouldFail
-    const { Git } = await import("../src/index.js");
-    const { createTestStore } = await import("./test-helper.js");
-
     // Create a new store without any commits
-    const newStore = createTestStore();
-    const git = Git.wrap(newStore);
-
-    // Set up refs without any commits
-    await newStore.refs.setSymbolic("HEAD", "refs/heads/main");
+    const { git } = await createEmptyGit();
 
     // Trying to amend when there's no commit should fail
     await expect(
@@ -189,7 +206,22 @@ describe("CommitCommand", () => {
   });
 });
 
-describe("CommitCommand with Log", () => {
+describe.each(backends)("CommitCommand with Log ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   it("should create commits visible in log", async () => {
     const { git } = await createInitializedGit();
 
@@ -210,7 +242,22 @@ describe("CommitCommand with Log", () => {
   });
 });
 
-describe("CommitCommand with --only flag", () => {
+describe.each(backends)("CommitCommand with --only flag ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   it("should commit only specified paths", async () => {
     const { git, store } = await createInitializedGit();
 
@@ -399,7 +446,22 @@ class MockWorkingTree implements WorkingTreeIterator {
   }
 }
 
-describe("CommitCommand with --all flag", () => {
+describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   it("should auto-stage modified tracked files", async () => {
     const { git, store } = await createInitializedGit();
 

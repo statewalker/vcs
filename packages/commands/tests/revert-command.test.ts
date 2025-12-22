@@ -2,9 +2,10 @@
  * Tests for RevertCommand
  *
  * Ported from JGit's RevertCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   ContentMergeStrategy,
@@ -12,9 +13,23 @@ import {
   MultipleParentsNotAllowedError,
   RevertStatus,
 } from "../src/index.js";
-import { addFile, createInitializedGit, removeFile } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory, removeFile } from "./test-helper.js";
 
-describe("RevertCommand", () => {
+describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   /**
    * Test basic revert operation.
    *
@@ -436,7 +451,22 @@ describe("RevertCommand", () => {
   });
 });
 
-describe("RevertCommand - Strategy and options", () => {
+describe.each(backends)("RevertCommand - Strategy and options ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test setStrategy/getStrategy.
    *
@@ -532,7 +562,22 @@ describe("RevertCommand - Strategy and options", () => {
   });
 });
 
-describe("RevertCommand - JGit additional tests", () => {
+describe.each(backends)("RevertCommand - JGit additional tests ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test that reverted commits have correct parentage.
    */

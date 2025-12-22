@@ -2,13 +2,28 @@
  * Tests for RmCommand
  *
  * Ported from JGit's RmCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { addFile, createInitializedGit } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
 
-describe("RmCommand", () => {
+describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   /**
    * Test removing a single file.
    *
@@ -182,7 +197,22 @@ describe("RmCommand", () => {
   });
 });
 
-describe("RmCommand - API options", () => {
+describe.each(backends)("RmCommand - API options ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test fluent API.
    */

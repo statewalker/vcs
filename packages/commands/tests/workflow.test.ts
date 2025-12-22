@@ -3,14 +3,29 @@
  *
  * Phase 1: commit → log → branch → reset
  * Phase 2: merge → diff
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ChangeType, FastForwardMode, MergeStatus, ResetMode } from "../src/index.js";
-import { addFile, createInitializedGit, toArray } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory, toArray } from "./test-helper.js";
 
-describe("Phase 1 Integration Workflow", () => {
+describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   it("should support complete workflow: commit → log → branch → reset", async () => {
     const { git, store } = await createInitializedGit();
 
@@ -213,7 +228,21 @@ describe("Phase 1 Integration Workflow", () => {
   });
 });
 
-describe("Phase 2 Integration Workflow", () => {
+describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   it("should support merge workflow: branch → commit → merge", async () => {
     const { git, store } = await createInitializedGit();
 

@@ -2,9 +2,10 @@
  * Tests for RebaseCommand
  *
  * Ported from JGit's RebaseCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   ContentMergeStrategy,
@@ -12,9 +13,23 @@ import {
   RebaseOperation,
   RebaseStatus,
 } from "../src/index.js";
-import { addFile, createInitializedGit } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
 
-describe("RebaseCommand", () => {
+describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   /**
    * Test rebase when already up to date.
    *
@@ -122,7 +137,22 @@ describe("RebaseCommand", () => {
   });
 });
 
-describe("RebaseCommand - API options", () => {
+describe.each(backends)("RebaseCommand - API options ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test setStrategy/getStrategy.
    */

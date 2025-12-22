@@ -2,14 +2,29 @@
  * Tests for Stash commands (StashCreateCommand, StashApplyCommand, StashDropCommand, StashListCommand)
  *
  * Ported from JGit's Stash*CommandTest.java files
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ContentMergeStrategy, MergeStrategy, StashApplyStatus } from "../src/index.js";
-import { addFile, createInitializedGit } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
 
-describe("StashListCommand", () => {
+describe.each(backends)("StashListCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   /**
    * Test listing stashes when none exist.
    */
@@ -69,7 +84,22 @@ describe("StashListCommand", () => {
   });
 });
 
-describe("StashCreateCommand", () => {
+describe.each(backends)("StashCreateCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test creating stash without working tree provider returns undefined.
    */
@@ -140,12 +170,27 @@ describe("StashCreateCommand", () => {
   });
 });
 
-describe("StashApplyCommand", () => {
+describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Helper to create a stash commit structure with a different tree.
    */
   async function createStashWithModifiedFile(
-    store: ReturnType<typeof createInitializedGit> extends Promise<infer T> ? T["store"] : never,
+    store: Awaited<ReturnType<typeof createInitializedGit>>["store"],
     filename: string,
     content: string,
   ) {
@@ -185,8 +230,8 @@ describe("StashApplyCommand", () => {
    * Helper to create a stash commit structure.
    */
   async function createStash(
-    _git: ReturnType<typeof createInitializedGit> extends Promise<infer T> ? T["git"] : never,
-    store: ReturnType<typeof createInitializedGit> extends Promise<infer T> ? T["store"] : never,
+    _git: Awaited<ReturnType<typeof createInitializedGit>>["git"],
+    store: Awaited<ReturnType<typeof createInitializedGit>>["store"],
   ) {
     const headRef = await store.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
@@ -428,7 +473,22 @@ describe("StashApplyCommand", () => {
   });
 });
 
-describe("StashDropCommand", () => {
+describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test dropping when no stash exists.
    */
@@ -606,7 +666,22 @@ describe("StashDropCommand", () => {
   });
 });
 
-describe("StashCreateCommand - additional tests", () => {
+describe.each(backends)("StashCreateCommand - additional tests ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test stash creation with working tree provider providing no changes.
    *
@@ -679,7 +754,22 @@ describe("StashCreateCommand - additional tests", () => {
   });
 });
 
-describe("StashListCommand - additional tests", () => {
+describe.each(backends)("StashListCommand - additional tests ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test listing when stash ref exists but commit is invalid.
    */
