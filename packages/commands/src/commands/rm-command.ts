@@ -1,5 +1,6 @@
 import type { MergeStageValue } from "@webrun-vcs/core";
 
+import { NoFilepatternError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 
 /**
@@ -82,7 +83,7 @@ export class RmCommand extends GitCommand<RmResult> {
     this.setCallable(false);
 
     if (this.filepatterns.length === 0) {
-      throw new Error("At least one file pattern is required");
+      throw new NoFilepatternError("At least one file pattern is required");
     }
 
     const removedPaths: string[] = [];

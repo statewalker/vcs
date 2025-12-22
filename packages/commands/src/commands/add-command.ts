@@ -38,7 +38,11 @@ import {
   type WorkingTreeIterator,
 } from "@webrun-vcs/worktree";
 
-import { NoFilepatternError } from "../errors/index.js";
+import {
+  IncompatibleOptionsError,
+  NoFilepatternError,
+  StoreNotAvailableError,
+} from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 import type { GitStoreWithWorkTree } from "../types.js";
 
@@ -282,7 +286,7 @@ export class AddCommand extends GitCommand<AddResult> {
 
     // Validate options - update and all are mutually exclusive
     if (this.update && this.all !== undefined) {
-      throw new Error("Cannot combine --update with --all/--no-all");
+      throw new IncompatibleOptionsError(["--update", "--all/--no-all"]);
     }
 
     // Determine if we're adding all files
@@ -303,7 +307,8 @@ export class AddCommand extends GitCommand<AddResult> {
     // Get working tree iterator
     const worktree = this.getWorktreeIterator();
     if (!worktree) {
-      throw new Error(
+      throw new StoreNotAvailableError(
+        "WorkingTreeIterator",
         "Working tree iterator not available. " +
           "Use GitStoreWithWorkTree or call setWorkingTreeIterator().",
       );

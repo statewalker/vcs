@@ -1,6 +1,12 @@
 import type { ObjectId, PersonIdent } from "@webrun-vcs/core";
 
-import { NoHeadError } from "../errors/index.js";
+import {
+  CommitNotFoundError,
+  InvalidArgumentError,
+  NoHeadError,
+  NoRebaseInProgressError,
+  UpstreamRequiredError,
+} from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 import { type ContentMergeStrategy, MergeStrategy } from "../results/merge-result.js";
 import type { RebaseResult, RebaseTodoLine } from "../results/rebase-result.js";
@@ -159,7 +165,11 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
   setUpstreamName(name: string): this {
     this.checkCallable();
     if (!this.upstreamCommit) {
-      throw new Error("setUpstreamName must be called after setUpstream");
+      throw new InvalidArgumentError(
+        "upstreamName",
+        name,
+        "setUpstreamName must be called after setUpstream",
+      );
     }
     this.upstreamCommitName = name;
     return this;
@@ -276,7 +286,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
    */
   private async begin(): Promise<RebaseResult> {
     if (!this.upstreamCommit) {
-      throw new Error("Upstream commit is required for rebase BEGIN operation");
+      throw new UpstreamRequiredError("Upstream commit is required for rebase BEGIN operation");
     }
 
     // Get current HEAD
@@ -376,7 +386,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
       // Find the full commit ID
       const commitId = commitsToRebase.find((c) => c.startsWith(step.commit));
       if (!commitId) {
-        throw new Error(`Cannot find commit for ${step.commit}`);
+        throw new CommitNotFoundError(step.commit);
       }
 
       // Cherry-pick the commit
@@ -707,7 +717,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
   private async continueRebase(): Promise<RebaseResult> {
     const state = RebaseCommand.rebaseStates.get(this.store);
     if (!state || !state.inProgress) {
-      throw new Error("No rebase in progress");
+      throw new NoRebaseInProgressError();
     }
 
     // Get current HEAD
@@ -734,7 +744,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
   private async skip(): Promise<RebaseResult> {
     const state = RebaseCommand.rebaseStates.get(this.store);
     if (!state || !state.inProgress) {
-      throw new Error("No rebase in progress");
+      throw new NoRebaseInProgressError();
     }
 
     // Skip first step

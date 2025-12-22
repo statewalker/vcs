@@ -3,7 +3,7 @@ import { isSymbolicRef } from "@webrun-vcs/core";
 import { type FetchOptions, fetch as transportFetch } from "@webrun-vcs/transport";
 import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
 
-import { InvalidRemoteError } from "../errors/index.js";
+import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
 import {
   type FetchResult,
   RefUpdateStatus,
@@ -175,7 +175,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   setDepth(depth: number): this {
     this.checkCallable();
     if (depth < 1) {
-      throw new Error("Depth must be at least 1");
+      throw new InvalidArgumentError("depth", depth, "Depth must be at least 1");
     }
     this.depth = depth;
     return this;

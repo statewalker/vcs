@@ -36,7 +36,13 @@
 import { FileMode, type ObjectId, type Ref } from "@webrun-vcs/core";
 import { DeleteStagingEntry, UpdateStagingEntry } from "@webrun-vcs/worktree";
 
-import { RefNotFoundError } from "../errors/index.js";
+import {
+  MissingArgumentError,
+  NotADirectoryError,
+  PathNotFoundInTreeError,
+  PathNotInIndexError,
+  RefNotFoundError,
+} from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 
 /**
@@ -314,7 +320,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
    */
   private async checkoutBranch(): Promise<CheckoutResult> {
     if (!this.name) {
-      throw new Error("Branch name is required for checkout");
+      throw new MissingArgumentError("name", "Branch name is required for checkout");
     }
 
     // Create branch if requested
@@ -409,7 +415,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     }
 
     if (!found) {
-      throw new Error(`Path not in index: ${path}`);
+      throw new PathNotInIndexError(path);
     }
   }
 
@@ -426,12 +432,12 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
       const entry = await this.store.trees.getEntry(currentTreeId, name);
 
       if (!entry) {
-        throw new Error(`Path not found in tree: ${path}`);
+        throw new PathNotFoundInTreeError(path);
       }
 
       if (i < parts.length - 1) {
         if (entry.mode !== FileMode.TREE) {
-          throw new Error(`Not a directory: ${parts.slice(0, i + 1).join("/")}`);
+          throw new NotADirectoryError(parts.slice(0, i + 1).join("/"));
         }
         currentTreeId = entry.id;
       } else {

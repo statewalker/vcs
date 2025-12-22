@@ -2,7 +2,13 @@ import type { Commit, ObjectId, PersonIdent } from "@webrun-vcs/core";
 import { isSymbolicRef } from "@webrun-vcs/core";
 import type { WorkingTreeIterator } from "@webrun-vcs/worktree";
 
-import { EmptyCommitError, NoMessageError, UnmergedPathsError } from "../errors/index.js";
+import {
+  EmptyCommitError,
+  IncompatibleOptionsError,
+  NoMessageError,
+  StoreNotAvailableError,
+  UnmergedPathsError,
+} from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 import type { GitStoreWithWorkTree } from "../types.js";
 import { AddCommand } from "./add-command.js";
@@ -208,7 +214,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
     this.checkCallable();
     // JGit: --all and --only are mutually exclusive
     if (this.all && paths.length > 0) {
-      throw new Error("Cannot combine --only with --all");
+      throw new IncompatibleOptionsError(["--only", "--all"]);
     }
     this.onlyPaths = paths;
     return this;
@@ -232,7 +238,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
     this.checkCallable();
     // JGit: --all and --only are mutually exclusive
     if (all && this.onlyPaths.length > 0) {
-      throw new Error("Cannot combine --all with --only");
+      throw new IncompatibleOptionsError(["--all", "--only"]);
     }
     this.all = all;
     return this;
@@ -487,7 +493,8 @@ export class CommitCommand extends GitCommand<CommitResult> {
     // Get working tree iterator
     const worktree = this.getWorktreeIterator();
     if (!worktree) {
-      throw new Error(
+      throw new StoreNotAvailableError(
+        "WorkingTreeIterator",
         "Working tree iterator required for --all mode. " +
           "Use GitStoreWithWorkTree or call setWorkingTreeIterator().",
       );
