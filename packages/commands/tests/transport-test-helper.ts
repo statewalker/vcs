@@ -5,9 +5,6 @@
  * Uses an in-memory Git HTTP server for testing with createVcsRepositoryAdapter.
  */
 
-import { serializeCommit, serializeTree } from "@webrun-vcs/storage-git";
-import { MemoryRefStore, MemoryStagingStore, MemoryTagStore } from "@webrun-vcs/store-mem";
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
 import type {
   AncestryOptions,
   BlobStore,
@@ -19,7 +16,10 @@ import type {
   ObjectTypeString,
   TreeEntry,
   TreeStore,
-} from "@webrun-vcs/vcs";
+} from "@webrun-vcs/core";
+import { serializeCommit, serializeTree } from "@webrun-vcs/storage-git";
+import { MemoryRefStore, MemoryStagingStore, MemoryTagStore } from "@webrun-vcs/store-mem";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
 
 import { Git, type GitStore } from "../src/index.js";
 import { testAuthor } from "./test-helper.js";

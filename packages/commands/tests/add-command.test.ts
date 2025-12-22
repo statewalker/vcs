@@ -7,7 +7,7 @@
  * Reference: tmp/jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/api/AddCommandTest.java
  */
 
-import { FileMode } from "@webrun-vcs/vcs";
+import { FileMode } from "@webrun-vcs/core";
 import type {
   WorkingTreeEntry,
   WorkingTreeIterator,
