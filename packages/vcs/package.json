@@ -52,6 +52,7 @@
     "lint": "biome lint src tests"
   },
   "dependencies": {
+    "@webrun-vcs/core": "workspace:*",
     "@webrun-vcs/utils": "workspace:*"
   },
   "devDependencies": {

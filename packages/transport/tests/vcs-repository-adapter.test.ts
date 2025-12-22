@@ -53,7 +53,11 @@ function createGitObject(type: string, content: Uint8Array): Uint8Array {
 /**
  * Parse Git object header to extract type and content size.
  */
-function parseGitObjectHeader(data: Uint8Array): { type: string; size: number; headerLength: number } {
+function parseGitObjectHeader(data: Uint8Array): {
+  type: string;
+  size: number;
+  headerLength: number;
+} {
   let nullIdx = -1;
   for (let i = 0; i < Math.min(data.length, 32); i++) {
     if (data[i] === 0x00) {
