@@ -108,6 +108,23 @@ All exploration and planning notes: `notes/src/YYYY-MM-DD/CC-[project]-subject.m
 
 **[Full Guidelines](.claude/workflows/note-organization.md)**
 
+### Planning Organization
+
+Accepted implementation plans: `planning/YYYY-MM-DD/CC-[project]-subject.md`
+
+**Format:** `planning/{YYYY-MM-DD}/{CC}-[{project}]-{subject}.md`
+- Store in `planning/` - tracked by git (unlike exploration notes)
+- Date folder `{YYYY-MM-DD}` groups by approval date
+- Counter `{CC}` resets to `01` daily
+- Optional project tag `[{project}]` in brackets (kebab-case)
+- Subject in kebab-case
+
+**Workflow:** Exploration notes in `notes/src/` are drafts. Once a plan is validated and approved, move it to `planning/` so it becomes part of the tracked codebase.
+
+**Examples:**
+- `planning/2025-12-22/01-[vcs-refactoring]-implementation-plan.md`
+- `planning/2025-12-22/02-migration-strategy.md`
+
 ## Beads Issue Tracking Integration
 
 This project uses **Beads** for AI-native issue tracking. Claude Code should integrate with beads throughout development sessions.
