@@ -188,7 +188,12 @@ bd create --title="Add tests for new delta function" --type=task --priority=2
 # 5. Complete - Close finished work
 bd close webrun-vcs-123
 
-# 6. Sync - Commit and push everything
+# 6. Verify - Run tests, linting, and formatting
+pnpm test
+pnpm lint:fix
+pnpm format:fix
+
+# 7. Sync - Commit and push everything
 bd sync
 git add .
 git commit -m "Implement delta function"
@@ -196,6 +201,8 @@ git push
 ```
 
 ### Best Practices
+
+**Run quality checks before every commit** - execute `pnpm test`, `pnpm lint:fix`, and `pnpm format:fix` to ensure code passes all tests and follows project standards.
 
 **Always check `bd ready` at session start** to understand available work and project priorities.
 
