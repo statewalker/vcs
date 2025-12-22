@@ -28,6 +28,7 @@ export * from "./git-pack-storage.js";
 export * from "./git-raw-objects-storage.js";
 export * from "./git-ref-storage.js";
 // Main storage implementations
+export * from "./git-repository.js";
 export * from "./git-storage.js";
 export * from "./git-tag-storage.js";
 // Loose object handling
