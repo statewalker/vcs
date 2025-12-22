@@ -6,7 +6,7 @@
  * Run with: pnpm step:load
  */
 
-import type { GitStorage } from "@webrun-vcs/store-files";
+import type { GitStorage } from "@webrun-vcs/storage-git";
 import {
   fixGitObjectPermissions,
   formatBytes,

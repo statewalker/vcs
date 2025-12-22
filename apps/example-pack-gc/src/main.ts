@@ -18,7 +18,7 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createGitStorage, type GitStorage } from "@webrun-vcs/store-files";
+import { createGitStorage, type GitStorage } from "@webrun-vcs/storage-git";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/vcs";

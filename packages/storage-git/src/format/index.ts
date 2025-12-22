@@ -7,7 +7,7 @@
  * all storage backends to use them without circular dependencies.
  *
  * Migration guide:
- * - Before: import { serializeCommit } from "@webrun-vcs/store-files/format";
+ * - Before: import { serializeCommit } from "@webrun-vcs/storage-git/format";
  * - After:  import { serializeCommit } from "@webrun-vcs/vcs/format";
  *
  * This module re-exports from @webrun-vcs/vcs/format for backwards compatibility.

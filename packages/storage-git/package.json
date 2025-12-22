@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/store-files",
+  "name": "@webrun-vcs/storage-git",
   "version": "0.1.0",
   "description": "Git-compatible file-based storage backend for WebRun VCS",
   "private": false,

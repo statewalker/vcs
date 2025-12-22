@@ -13,7 +13,7 @@
   "devDependencies": {
     "@statewalker/webrun-files": "catalog:",
     "@webrun-vcs/testing": "workspace:*",
-    "@webrun-vcs/store-files": "workspace:*",
+    "@webrun-vcs/storage-git": "workspace:*",
     "@webrun-vcs/store-kv": "workspace:*",
     "@webrun-vcs/store-mem": "workspace:*",
     "@webrun-vcs/store-sql": "workspace:*",

@@ -11,7 +11,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createFileObjectStores } from "@webrun-vcs/store-files";
+import { createFileObjectStores } from "@webrun-vcs/storage-git";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

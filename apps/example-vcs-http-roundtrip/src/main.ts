@@ -27,7 +27,7 @@ import {
   indexPack,
   parseObjectHeader,
   writePackIndex,
-} from "@webrun-vcs/store-files";
+} from "@webrun-vcs/storage-git";
 import { clone, type PushObject, push } from "@webrun-vcs/transport";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
@@ -267,7 +267,7 @@ async function cloneWithVcs(): Promise<void> {
     // This creates a Git-compatible pack file structure.
     //
     // Alternative approach for delta-aware storage:
-    // import { importPackAsDeltas, parsePackEntries } from "@webrun-vcs/store-files";
+    // import { importPackAsDeltas, parsePackEntries } from "@webrun-vcs/storage-git";
     // const result = await importPackAsDeltas(deltaStorageManager, cloneResult.packData);
     // This would preserve delta relationships and store via DeltaStorageManager.
     const packChecksum = bytesToHex(indexResult.packChecksum);

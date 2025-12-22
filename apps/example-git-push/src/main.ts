@@ -21,7 +21,7 @@ import {
   extractGitObjectContent,
   type GitStorage,
   parseObjectHeader,
-} from "@webrun-vcs/store-files";
+} from "@webrun-vcs/storage-git";
 import { type PushObject, push } from "@webrun-vcs/transport";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
