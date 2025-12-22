@@ -3,13 +3,29 @@
  *
  * Based on JGit's StatusCommandTest.java patterns,
  * adapted for staged-only version without working tree.
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { addFile, createInitializedGit, removeFile } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory, removeFile } from "./test-helper.js";
 
-describe("StatusCommand", () => {
+describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   describe("empty repository", () => {
     /**
      * Test status on empty repository with no commits.
@@ -368,45 +384,45 @@ describe("StatusCommand", () => {
       expect(status.changed.has("file.txt")).toBe(true);
     });
   });
-});
 
-describe("StatusCommand - convenience methods", () => {
-  /**
-   * Test isClean() method.
-   */
-  it("isClean should return true only when no changes", async () => {
-    const { git, store } = await createInitializedGit();
+  describe("convenience methods", () => {
+    /**
+     * Test isClean() method.
+     */
+    it("isClean should return true only when no changes", async () => {
+      const { git, store } = await createInitializedGit();
 
-    // Initially clean
-    let status = await git.status().call();
-    expect(status.isClean()).toBe(true);
+      // Initially clean
+      let status = await git.status().call();
+      expect(status.isClean()).toBe(true);
 
-    // Add file - not clean
-    await addFile(store, "a.txt", "content");
-    status = await git.status().call();
-    expect(status.isClean()).toBe(false);
+      // Add file - not clean
+      await addFile(store, "a.txt", "content");
+      status = await git.status().call();
+      expect(status.isClean()).toBe(false);
 
-    // Commit - clean again
-    await git.commit().setMessage("initial").call();
-    status = await git.status().call();
-    expect(status.isClean()).toBe(true);
-  });
+      // Commit - clean again
+      await git.commit().setMessage("initial").call();
+      status = await git.status().call();
+      expect(status.isClean()).toBe(true);
+    });
 
-  /**
-   * Test hasUncommittedChanges() method.
-   */
-  it("hasUncommittedChanges should mirror isClean negation", async () => {
-    const { git, store } = await createInitializedGit();
+    /**
+     * Test hasUncommittedChanges() method.
+     */
+    it("hasUncommittedChanges should mirror isClean negation", async () => {
+      const { git, store } = await createInitializedGit();
 
-    let status = await git.status().call();
-    expect(status.hasUncommittedChanges()).toBe(false);
+      let status = await git.status().call();
+      expect(status.hasUncommittedChanges()).toBe(false);
 
-    await addFile(store, "a.txt", "content");
-    status = await git.status().call();
-    expect(status.hasUncommittedChanges()).toBe(true);
+      await addFile(store, "a.txt", "content");
+      status = await git.status().call();
+      expect(status.hasUncommittedChanges()).toBe(true);
 
-    await git.commit().setMessage("initial").call();
-    status = await git.status().call();
-    expect(status.hasUncommittedChanges()).toBe(false);
+      await git.commit().setMessage("initial").call();
+      status = await git.status().call();
+      expect(status.hasUncommittedChanges()).toBe(false);
+    });
   });
 });

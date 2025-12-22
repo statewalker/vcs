@@ -1,5 +1,9 @@
 /**
  * Test helpers for @webrun-vcs/commands
+ *
+ * Provides utilities for testing Git commands with multiple storage backends.
+ * For multi-backend testing, use `createInitializedGitFromFactory()` with
+ * different backend factories.
  */
 
 import type { ObjectId, PersonIdent } from "@webrun-vcs/core";
@@ -11,10 +15,24 @@ import {
 } from "@webrun-vcs/store-mem";
 
 import { Git, type GitStore } from "../src/index.js";
+import {
+  backends,
+  defaultFactory,
+  type GitStoreFactory,
+  type GitStoreTestContext,
+  memoryFactory,
+  sqlFactory,
+} from "./backend-factories.js";
+
+// Re-export factory types and functions for convenience
+export type { GitStoreFactory, GitStoreTestContext };
+export { backends, defaultFactory, memoryFactory, sqlFactory };
 
 /**
- * Create an in-memory GitStore for testing.
- * Uses the new object-storage API with Git-compatible SHA-1 hashing.
+ * Create an in-memory GitStore for testing (synchronous).
+ * Uses the memory backend (fastest, no cleanup needed).
+ *
+ * For multi-backend testing, use `createInitializedGitFromFactory()` instead.
  */
 export function createTestStore(): GitStore {
   const stores = createMemoryObjectStores();
@@ -29,18 +47,57 @@ export function createTestStore(): GitStore {
 }
 
 /**
+ * Create a GitStore from a factory function.
+ * Use this for multi-backend testing.
+ *
+ * @param factory The factory function to use (defaults to memory)
+ * @returns Test context with store and optional cleanup
+ */
+export async function createTestStoreFromFactory(
+  factory: GitStoreFactory = defaultFactory,
+): Promise<GitStoreTestContext> {
+  return factory();
+}
+
+/**
+ * Result of creating an initialized Git instance
+ */
+export interface InitializedGitResult {
+  git: Git;
+  store: GitStore;
+  initialCommitId: ObjectId;
+  cleanup?: () => Promise<void>;
+}
+
+/**
  * Create an initialized Git instance with an initial commit.
  *
  * Sets up:
  * - HEAD -> refs/heads/main
  * - Initial empty commit on main
+ *
+ * Uses the default memory backend. For multi-backend testing,
+ * use `createInitializedGitFromFactory()` instead.
  */
-export async function createInitializedGit(): Promise<{
-  git: Git;
-  store: GitStore;
-  initialCommitId: ObjectId;
-}> {
-  const store = createTestStore();
+export async function createInitializedGit(): Promise<InitializedGitResult> {
+  return createInitializedGitFromFactory(defaultFactory);
+}
+
+/**
+ * Create an initialized Git instance from a factory.
+ *
+ * Sets up:
+ * - HEAD -> refs/heads/main
+ * - Initial empty commit on main
+ *
+ * @param factory The factory function to use
+ * @returns Initialized Git with store and cleanup function
+ */
+export async function createInitializedGitFromFactory(
+  factory: GitStoreFactory,
+): Promise<InitializedGitResult> {
+  const ctx = await factory();
+  const store = ctx.store;
   const git = Git.wrap(store);
 
   // Create and store empty tree (storeTree returns the well-known empty tree ID)
@@ -64,7 +121,7 @@ export async function createInitializedGit(): Promise<{
   // Initialize staging with empty tree
   await store.staging.readTree(store.trees, emptyTreeId);
 
-  return { git, store, initialCommitId };
+  return { git, store, initialCommitId, cleanup: ctx.cleanup };
 }
 
 /**
