@@ -14,8 +14,6 @@ export * from "./composite-object-storage.js";
 export * from "./create-streaming-stores.js";
 // Delta compression
 export * from "./delta/index.js";
-// Low-level storage implementations
-export * from "./file-temp-store.js";
 // Format utilities (for advanced use cases)
 export * from "./format/index.js";
 // Garbage collection
