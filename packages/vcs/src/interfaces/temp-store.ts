@@ -36,7 +36,7 @@ export interface TempContent {
  *
  * Implementations:
  * - MemoryTempStore: Buffers in memory (simple, for small content)
- * - FileTempStore: Writes to temp files (for large content)
+ * - FileVolatileStore: Writes to temp files (for large content)
  * - HybridTempStore: Memory until threshold, then spills to file
  */
 export interface TempStore {
