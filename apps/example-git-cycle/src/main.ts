@@ -87,19 +87,21 @@ async function main() {
   This example demonstrated:
 
     1. Repository Initialization
-       - GitStorage.init() creates .git directory structure
+       - createGitRepository() creates .git directory structure
+       - Returns Repository interface from @webrun-vcs/core
        - HEAD, refs/, objects/ directories are set up
 
-    2. Blob Storage (Files)
-       - storage.objects.store() creates content-addressable objects
+    2. Blob Storage (Files) - High-Level BlobStore API
+       - repository.blobs.store() creates content-addressable objects
        - Identical content = identical ID (deduplication)
+       - repository.objects.getHeader() for metadata
 
-    3. Tree Storage (Directories)
-       - storage.trees.storeTree() creates directory snapshots
+    3. Tree Storage (Directories) - High-Level TreeStore API
+       - repository.trees.storeTree() creates directory snapshots
        - Entries have mode (file type), name, and object ID
 
-    4. Commit Creation
-       - storage.commits.storeCommit() links tree to history
+    4. Commit Creation - High-Level CommitStore API
+       - repository.commits.storeCommit() links tree to history
        - Commits have parents, author, committer, message
 
     5. File Operations
@@ -108,14 +110,14 @@ async function main() {
        - Remove: create tree without that entry
 
     6. History Traversal
-       - storage.commits.walkAncestry() traverses commit graph
+       - repository.commits.walkAncestry() traverses commit graph
        - Options for limiting depth, stopping at commits
 
     7. Version Restoration
        - Load tree from any commit to access files
        - Create "revert" commits to restore old state
 
-    8. Branches and Tags
+    8. Branches and Tags - High-Level RefStore API
        - Branches: refs/heads/* pointing to commits
        - Tags: lightweight (ref) or annotated (object)
        - HEAD: symbolic ref to current branch

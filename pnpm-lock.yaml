@@ -74,6 +74,9 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@webrun-vcs/storage-git':
         specifier: workspace:*
         version: link:../../packages/storage-git
@@ -211,6 +214,9 @@ importers:
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      '@webrun-vcs/vcs':
+        specifier: workspace:*
+        version: link:../../packages/vcs
     devDependencies:
       tsx:
         specifier: 'catalog:'

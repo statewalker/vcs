@@ -125,7 +125,11 @@ function verifyCheckout(commitId: ObjectId): { success: boolean; diff: string; c
 
   try {
     // Get list of all files in the commit
-    const treeOutput = runGitCommand(`git ls-tree -r ${commitId}`, REPO_DIR);
+    // Use -c core.quotepath=false to get raw UTF-8 paths instead of escaped octal sequences
+    const treeOutput = runGitCommand(
+      `git -c core.quotepath=false ls-tree -r ${commitId}`,
+      REPO_DIR,
+    );
     const lines = treeOutput.split("\n").filter((l) => l.trim());
 
     for (const line of lines) {

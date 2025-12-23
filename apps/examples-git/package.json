@@ -9,12 +9,14 @@
     "example:03": "tsx src/03-streaming-ofs-delta/03-streaming-ofs-delta.ts",
     "example:04": "tsx src/04-full-verification/04-full-verification.ts",
     "example:05": "tsx src/05-index-format-comparison/05-index-format-comparison.ts",
+    "example:06": "tsx src/06-high-level-api/06-high-level-api.ts",
     "examples": "tsx src/run-all.ts"
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
     "@webrun-vcs/utils": "workspace:*",
-    "@webrun-vcs/storage-git": "workspace:*"
+    "@webrun-vcs/storage-git": "workspace:*",
+    "@webrun-vcs/vcs": "workspace:*"
   },
   "devDependencies": {
     "tsx": "catalog:",

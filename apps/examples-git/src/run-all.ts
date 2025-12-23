@@ -1,7 +1,10 @@
 /**
- * Run all Git pack file examples
+ * Run all Git examples
  *
- * Usage: tsx src/run-all.ts <pack-file>
+ * Examples 1-5: Low-level pack file operations (require input file)
+ * Example 6: High-level Repository API (self-contained)
+ *
+ * Usage: tsx src/run-all.ts <pack-file> [example-number]
  */
 
 import { spawn } from "node:child_process";
@@ -14,7 +17,7 @@ interface Example {
   name: string;
   script: string;
   description: string;
-  inputType: "pack" | "idx";
+  inputType: "pack" | "idx" | "none";
 }
 
 const EXAMPLES: Example[] = [
@@ -48,6 +51,12 @@ const EXAMPLES: Example[] = [
     description: "Compare index V1 vs V2",
     inputType: "idx",
   },
+  {
+    name: "06-high-level-api",
+    script: "06-high-level-api/06-high-level-api.ts",
+    description: "High-level Repository API (self-contained)",
+    inputType: "none",
+  },
 ];
 
 /**
@@ -68,10 +77,14 @@ function runExample(example: Example, inputFile: string): Promise<boolean> {
     console.log(`\n${"=".repeat(60)}`);
     console.log(`Running: ${example.name}`);
     console.log(`Description: ${example.description}`);
-    console.log(`Input: ${actualInput}`);
+    if (example.inputType !== "none") {
+      console.log(`Input: ${actualInput}`);
+    }
     console.log(`${"=".repeat(60)}\n`);
 
-    const child = spawn("tsx", [scriptPath, actualInput], {
+    // Self-contained examples don't need input files
+    const args = example.inputType === "none" ? [scriptPath] : [scriptPath, actualInput];
+    const child = spawn("tsx", args, {
       stdio: "inherit",
       cwd: process.cwd(),
     });
@@ -98,17 +111,18 @@ function runExample(example: Example, inputFile: string): Promise<boolean> {
  */
 function printUsage() {
   console.log(`
-Git Pack File Examples Runner
+Git Examples Runner
 
 Usage:
   tsx src/run-all.ts <pack-or-idx-file> [example-number]
+  tsx src/run-all.ts 6                  # Run self-contained example 6
 
 Arguments:
-  pack-or-idx-file   Path to a .pack or .idx file
-  example-number     Optional: run only this example (1-5)
+  pack-or-idx-file   Path to a .pack or .idx file (required for examples 1-5)
+  example-number     Optional: run only this example (1-6)
 
 Examples:
-  # Run all examples
+  # Run all pack file examples (1-5 require input, 6 is self-contained)
   tsx src/run-all.ts ./test-data/git-repo/test.pack
 
   # Run only example 1
@@ -117,8 +131,19 @@ Examples:
   # Run only example 5 (index comparison)
   tsx src/run-all.ts ./test-data/git-repo/test.idx 5
 
+  # Run only example 6 (high-level API, no input needed)
+  tsx src/run-all.ts _ 6
+
 Available Examples:
-${EXAMPLES.map((e, i) => `  ${i + 1}. ${e.name.padEnd(25)} - ${e.description}`).join("\n")}
+  Low-level pack file examples (require input file):
+${EXAMPLES.filter((e) => e.inputType !== "none")
+  .map((e, i) => `    ${i + 1}. ${e.name.padEnd(25)} - ${e.description}`)
+  .join("\n")}
+
+  High-level API example (self-contained):
+${EXAMPLES.filter((e) => e.inputType === "none")
+  .map((e) => `    ${EXAMPLES.indexOf(e) + 1}. ${e.name.padEnd(25)} - ${e.description}`)
+  .join("\n")}
 `);
 }
 
