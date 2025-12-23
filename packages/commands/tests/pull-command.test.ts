@@ -2,61 +2,76 @@
  * Tests for PullCommand
  *
  * Based on JGit's PullCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  *
  * Note: PullCommand builds refspecs using the remote name, which doesn't work
  * well with URLs directly. These tests focus on the command's configuration
  * and error handling rather than full integration testing.
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Git, TagOption } from "../src/index.js";
-import { createTestStore } from "./test-helper.js";
+import { backends } from "./test-helper.js";
 
-describe("PullCommand", () => {
+describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createTestStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
   describe("options", () => {
-    it("should default remote to origin", () => {
-      const clientStore = createTestStore();
+    it("should default remote to origin", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull();
       expect(command.getRemote()).toBe("origin");
     });
 
-    it("should set remote", () => {
-      const clientStore = createTestStore();
+    it("should set remote", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull().setRemote("upstream");
       expect(command.getRemote()).toBe("upstream");
     });
 
-    it("should set remote branch name", () => {
-      const clientStore = createTestStore();
+    it("should set remote branch name", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull().setRemoteBranchName("develop");
       expect(command.getRemoteBranchName()).toBe("develop");
     });
 
-    it("should set rebase mode", () => {
-      const clientStore = createTestStore();
+    it("should set rebase mode", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull().setRebase(true);
       expect(command.isRebase()).toBe(true);
     });
 
-    it("should support setting merge strategy", () => {
-      const clientStore = createTestStore();
+    it("should support setting merge strategy", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull().setStrategy("recursive");
       expect(command).toBeDefined();
     });
 
-    it("should support fast-forward mode", () => {
-      const clientStore = createTestStore();
+    it("should support fast-forward mode", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull().setFastForwardMode("ff-only");
@@ -66,7 +81,7 @@ describe("PullCommand", () => {
 
   describe("error handling", () => {
     it("should throw for detached HEAD", async () => {
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       // Set up detached HEAD by pointing directly to a commit
@@ -77,7 +92,7 @@ describe("PullCommand", () => {
     });
 
     it("should throw for missing HEAD", async () => {
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       // Don't set up HEAD at all
@@ -86,8 +101,8 @@ describe("PullCommand", () => {
   });
 
   describe("options getters", () => {
-    it("should return correct values for all getters", () => {
-      const clientStore = createTestStore();
+    it("should return correct values for all getters", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git
@@ -101,16 +116,16 @@ describe("PullCommand", () => {
       expect(command.isRebase()).toBe(true);
     });
 
-    it("should return undefined for unset remote branch name", () => {
-      const clientStore = createTestStore();
+    it("should return undefined for unset remote branch name", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull();
       expect(command.getRemoteBranchName()).toBeUndefined();
     });
 
-    it("should default rebase to false", () => {
-      const clientStore = createTestStore();
+    it("should default rebase to false", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull();
@@ -119,8 +134,8 @@ describe("PullCommand", () => {
   });
 
   describe("method chaining", () => {
-    it("should support fluent API", () => {
-      const clientStore = createTestStore();
+    it("should support fluent API", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git
@@ -143,8 +158,8 @@ describe("PullCommand", () => {
     /**
      * JGit: PullCommand.setTagOpt()
      */
-    it("should support tag option", () => {
-      const clientStore = createTestStore();
+    it("should support tag option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull().setTagOpt(TagOption.FETCH_TAGS);
@@ -152,8 +167,8 @@ describe("PullCommand", () => {
       expect(command.getTagOpt()).toBe(TagOption.FETCH_TAGS);
     });
 
-    it("should default tag option to undefined", () => {
-      const clientStore = createTestStore();
+    it("should default tag option to undefined", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull();
@@ -164,8 +179,8 @@ describe("PullCommand", () => {
     /**
      * JGit: PullCommand.setFastForward()
      */
-    it("should support fast-forward mode getter", () => {
-      const clientStore = createTestStore();
+    it("should support fast-forward mode getter", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.pull().setFastForwardMode("ff-only");
@@ -173,8 +188,8 @@ describe("PullCommand", () => {
       expect(command.getFastForwardMode()).toBe("ff-only");
     });
 
-    it("should return all extended getter values", () => {
-      const clientStore = createTestStore();
+    it("should return all extended getter values", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git

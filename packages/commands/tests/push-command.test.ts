@@ -2,26 +2,41 @@
  * Tests for PushCommand
  *
  * Based on JGit's PushCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Git } from "../src/index.js";
-import { createTestStore } from "./test-helper.js";
+import { backends } from "./test-helper.js";
 import {
   addFileAndCommit,
   createInitializedTestServer,
   createTestUrl,
 } from "./transport-test-helper.js";
 
-describe("PushCommand", () => {
+describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createTestStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
   describe("basic operations", () => {
     it("should push refs to remote repository", async () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create client with its own commit
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       // Create initial commit in client
@@ -58,7 +73,7 @@ describe("PushCommand", () => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create client without any refs
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -80,7 +95,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       // Create commit
@@ -107,7 +122,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       // Create commits for multiple branches
@@ -135,7 +150,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
@@ -165,7 +180,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
@@ -192,7 +207,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
@@ -221,7 +236,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       // Create multiple branches
@@ -248,7 +263,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       // Create commit and tag
@@ -274,7 +289,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
@@ -303,7 +318,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const _remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
@@ -320,7 +335,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
@@ -351,7 +366,7 @@ describe("PushCommand", () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
@@ -375,7 +390,7 @@ describe("PushCommand", () => {
 
   describe("error handling", () => {
     it("should throw for invalid remote", async () => {
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
@@ -401,8 +416,8 @@ describe("PushCommand", () => {
   });
 
   describe("options getters", () => {
-    it("should return correct values for getters", () => {
-      const clientStore = createTestStore();
+    it("should return correct values for getters", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git
@@ -428,8 +443,8 @@ describe("PushCommand", () => {
     /**
      * JGit: PushCommand.setUseBitmaps()
      */
-    it("should support useBitmaps option", () => {
-      const clientStore = createTestStore();
+    it("should support useBitmaps option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.push().setRemote("origin").setUseBitmaps(false);
@@ -437,8 +452,8 @@ describe("PushCommand", () => {
       expect(command.isUseBitmaps()).toBe(false);
     });
 
-    it("should default useBitmaps to true", () => {
-      const clientStore = createTestStore();
+    it("should default useBitmaps to true", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.push().setRemote("origin");
@@ -449,8 +464,8 @@ describe("PushCommand", () => {
     /**
      * JGit: PushCommand.setPushOptions()
      */
-    it("should support push options", () => {
-      const clientStore = createTestStore();
+    it("should support push options", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git
@@ -464,8 +479,8 @@ describe("PushCommand", () => {
     /**
      * JGit: PushCommand.setReceivePack()
      */
-    it("should support receive-pack option", () => {
-      const clientStore = createTestStore();
+    it("should support receive-pack option", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git.push().setRemote("origin").setReceivePack("/opt/git/receive-pack");
@@ -473,8 +488,8 @@ describe("PushCommand", () => {
       expect(command.getReceivePack()).toBe("/opt/git/receive-pack");
     });
 
-    it("should return all extended getter values", () => {
-      const clientStore = createTestStore();
+    it("should return all extended getter values", async () => {
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const command = git

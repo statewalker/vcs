@@ -2,12 +2,13 @@
  * Tests for LsRemoteCommand
  *
  * Based on JGit's LsRemoteCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Git } from "../src/index.js";
-import { createTestStore } from "./test-helper.js";
+import { backends } from "./test-helper.js";
 import {
   addFileAndCommit,
   createInitializedTestServer,
@@ -15,7 +16,21 @@ import {
   createTestUrl,
 } from "./transport-test-helper.js";
 
-describe("LsRemoteCommand", () => {
+describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createTestStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
   describe("basic operations", () => {
     it("should list refs from remote repository", async () => {
       // Set up remote server with commits
@@ -23,7 +38,7 @@ describe("LsRemoteCommand", () => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create local client store
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       // Override fetch to use test server
@@ -50,7 +65,7 @@ describe("LsRemoteCommand", () => {
       // Add a tag on server
       await server.serverStore.refs.set("refs/tags/v1.0", server.initialCommitId);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -77,7 +92,7 @@ describe("LsRemoteCommand", () => {
       // Add a tag on server
       await server.serverStore.refs.set("refs/tags/v1.0", server.initialCommitId);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -95,7 +110,7 @@ describe("LsRemoteCommand", () => {
     });
 
     it("should throw for invalid remote", async () => {
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       // Use a server that returns 404
@@ -113,7 +128,7 @@ describe("LsRemoteCommand", () => {
     });
 
     it("should require remote to be set", async () => {
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       await expect(git.lsRemote().call()).rejects.toThrow();
@@ -129,7 +144,7 @@ describe("LsRemoteCommand", () => {
       await server.serverStore.refs.set("refs/heads/feature", server.initialCommitId);
       await server.serverStore.refs.set("refs/heads/develop", server.initialCommitId);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -154,7 +169,7 @@ describe("LsRemoteCommand", () => {
       await server.serverStore.refs.set("refs/tags/v1.0", server.initialCommitId);
       await server.serverStore.refs.set("refs/tags/v2.0", server.initialCommitId);
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
@@ -186,7 +201,7 @@ describe("LsRemoteCommand", () => {
         "Add README",
       );
 
-      const clientStore = createTestStore();
+      const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
 
       const originalFetch = globalThis.fetch;
