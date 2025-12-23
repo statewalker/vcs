@@ -1,3 +1,8 @@
+import {
+  MissingArgumentError,
+  RemoteAlreadyExistsError,
+  RemoteNotFoundError,
+} from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 
 /**
@@ -101,16 +106,16 @@ export class RemoteAddCommand extends GitCommand<RemoteConfig> {
     this.setCallable(false);
 
     if (!this.name) {
-      throw new Error("Remote name must be specified");
+      throw new MissingArgumentError("name", "Remote name must be specified");
     }
     if (!this.uri) {
-      throw new Error("Remote URI must be specified");
+      throw new MissingArgumentError("uri", "Remote URI must be specified");
     }
 
     // Check if remote already exists
     const existingRemote = await this.getRemoteConfig(this.name);
     if (existingRemote) {
-      throw new Error(`Remote '${this.name}' already exists`);
+      throw new RemoteAlreadyExistsError(this.name);
     }
 
     // Default fetch refspec
@@ -210,7 +215,7 @@ export class RemoteRemoveCommand extends GitCommand<RemoteConfig | undefined> {
     this.setCallable(false);
 
     if (!this.remoteName) {
-      throw new Error("Remote name must be specified");
+      throw new MissingArgumentError("remoteName", "Remote name must be specified");
     }
 
     // Get refs to delete
@@ -387,10 +392,10 @@ export class RemoteSetUrlCommand extends GitCommand<RemoteConfig> {
     this.setCallable(false);
 
     if (!this.remoteName) {
-      throw new Error("Remote name must be specified");
+      throw new MissingArgumentError("remoteName", "Remote name must be specified");
     }
     if (!this.remoteUri) {
-      throw new Error("Remote URI must be specified");
+      throw new MissingArgumentError("remoteUri", "Remote URI must be specified");
     }
 
     // Check if remote exists
@@ -401,7 +406,7 @@ export class RemoteSetUrlCommand extends GitCommand<RemoteConfig> {
     }
 
     if (!hasRefs) {
-      throw new Error(`Remote '${this.remoteName}' does not exist`);
+      throw new RemoteNotFoundError(this.remoteName);
     }
 
     // In a full implementation, this would update git config

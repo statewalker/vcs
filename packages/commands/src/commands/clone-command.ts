@@ -5,7 +5,7 @@ import {
 } from "@webrun-vcs/transport";
 import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
 
-import { InvalidRemoteError } from "../errors/index.js";
+import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
 import type { CloneResult } from "../results/clone-result.js";
 import {
   type FetchResult,
@@ -113,7 +113,7 @@ export class CloneCommand extends TransportCommand<CloneResult> {
   setDepth(depth: number): this {
     this.checkCallable();
     if (depth < 1) {
-      throw new Error("Depth must be at least 1");
+      throw new InvalidArgumentError("depth", depth, "Depth must be at least 1");
     }
     this.depth = depth;
     return this;

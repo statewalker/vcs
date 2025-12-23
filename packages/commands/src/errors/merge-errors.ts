@@ -64,3 +64,31 @@ export enum MergeFailureReason {
   /** Index had uncommitted changes */
   DIRTY_INDEX = "dirty-index",
 }
+
+/**
+ * Thrown when no merge base can be found between commits.
+ */
+export class NoMergeBaseError extends GitApiError {
+  readonly commits: string[];
+
+  constructor(commits: string[] = [], message?: string) {
+    super(message ?? "No merge base found");
+    this.name = "NoMergeBaseError";
+    this.commits = commits;
+  }
+}
+
+/**
+ * Thrown when mainline parent is invalid for cherry-pick or revert.
+ */
+export class InvalidMainlineParentError extends GitApiError {
+  readonly parent: number;
+  readonly maxParents: number;
+
+  constructor(parent: number, maxParents: number, message?: string) {
+    super(message ?? `Invalid mainline parent: ${parent} (commit has ${maxParents} parent(s))`);
+    this.name = "InvalidMainlineParentError";
+    this.parent = parent;
+    this.maxParents = maxParents;
+  }
+}

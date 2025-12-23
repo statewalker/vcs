@@ -1,4 +1,4 @@
-import { NoHeadError } from "../errors/index.js";
+import { NoHeadError, NotImplementedError } from "../errors/index.js";
 import {
   type FastForwardMode,
   isMergeSuccessful,
@@ -231,7 +231,7 @@ export class PullCommand extends TransportCommand<PullResult> {
     // Check if rebase was requested
     if (this.rebase) {
       // Rebase is not yet implemented
-      throw new Error("Pull with rebase is not yet implemented");
+      throw new NotImplementedError("Pull with rebase");
     }
 
     // Execute merge

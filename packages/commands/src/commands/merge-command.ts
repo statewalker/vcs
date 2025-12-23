@@ -1,7 +1,11 @@
 import type { Commit, ObjectId, TreeEntry } from "@webrun-vcs/core";
 import { FileMode, isSymbolicRef, MergeStage } from "@webrun-vcs/core";
 
-import { InvalidMergeHeadsError, NotFastForwardError } from "../errors/merge-errors.js";
+import {
+  InvalidMergeHeadsError,
+  NoMergeBaseError,
+  NotFastForwardError,
+} from "../errors/merge-errors.js";
 import { NoHeadError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
 import {
@@ -247,7 +251,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
     const mergeBases = await this.store.commits.findMergeBase(headId, srcId);
     if (mergeBases.length === 0) {
       // No common ancestor - shouldn't happen with connected histories
-      throw new Error("No merge base found");
+      throw new NoMergeBaseError([headId, srcId]);
     }
 
     const baseId = mergeBases[0]; // Use first merge base

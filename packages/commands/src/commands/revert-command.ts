@@ -1,7 +1,10 @@
 import type { Commit, ObjectId, PersonIdent } from "@webrun-vcs/core";
 import { FileMode, MergeStage } from "@webrun-vcs/core";
 
-import { MultipleParentsNotAllowedError } from "../errors/merge-errors.js";
+import {
+  InvalidMainlineParentError,
+  MultipleParentsNotAllowedError,
+} from "../errors/merge-errors.js";
 import { NoHeadError, RefNotFoundError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
 import { type ContentMergeStrategy, MergeStrategy } from "../results/merge-result.js";
@@ -253,7 +256,7 @@ export class RevertCommand extends GitCommand<RevertResult> {
         );
       }
       if (this.mainlineParent < 1 || this.mainlineParent > commit.parents.length) {
-        throw new Error(`Invalid mainline parent: ${this.mainlineParent}`);
+        throw new InvalidMainlineParentError(this.mainlineParent, commit.parents.length);
       }
       parentId = commit.parents[this.mainlineParent - 1];
     }

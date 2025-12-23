@@ -1,5 +1,6 @@
 import type { ObjectId } from "@webrun-vcs/core";
 
+import { InvalidStashIndexError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 import { STASH_REF } from "./stash-list-command.js";
 
@@ -45,7 +46,7 @@ export class StashDropCommand extends GitCommand<ObjectId | undefined> {
   setStashRef(stashRef: number): this {
     this.checkCallable();
     if (stashRef < 0) {
-      throw new Error("Stash index must be >= 0");
+      throw new InvalidStashIndexError(stashRef, "Stash index must be >= 0");
     }
     this.stashRefEntry = stashRef;
     return this;
@@ -100,7 +101,8 @@ export class StashDropCommand extends GitCommand<ObjectId | undefined> {
     // Without reflog support, we can only drop the most recent stash (index 0)
     // For index > 0, we would need reflog support to access older stashes
     if (this.stashRefEntry > 0) {
-      throw new Error(
+      throw new InvalidStashIndexError(
+        this.stashRefEntry,
         `Stash entry ${this.stashRefEntry} cannot be dropped without reflog support. ` +
           `Only stash@{0} can be dropped.`,
       );

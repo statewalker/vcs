@@ -1,6 +1,6 @@
 import type { ObjectId } from "@webrun-vcs/core";
 
-import { NoHeadError, RefNotFoundError } from "../errors/index.js";
+import { InvalidArgumentError, NoHeadError, RefNotFoundError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 import { type ContentMergeStrategy, MergeStrategy } from "../results/merge-result.js";
 import type { StashApplyResult } from "../results/stash-result.js";
@@ -163,7 +163,9 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
 
     // Validate stash commit structure
     if (stashCommit.parents.length < 2 || stashCommit.parents.length > 3) {
-      throw new Error(
+      throw new InvalidArgumentError(
+        "stashRef",
+        stashId,
         `Stash commit ${stashId} has invalid number of parents: ${stashCommit.parents.length}`,
       );
     }

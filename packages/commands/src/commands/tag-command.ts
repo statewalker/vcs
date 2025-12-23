@@ -1,7 +1,12 @@
 import type { AnnotatedTag, ObjectId, PersonIdent, Ref } from "@webrun-vcs/core";
 import { ObjectType } from "@webrun-vcs/core";
 
-import { InvalidTagNameError, RefAlreadyExistsError, RefNotFoundError } from "../errors/index.js";
+import {
+  InvalidTagNameError,
+  RefAlreadyExistsError,
+  RefNotFoundError,
+  StoreNotAvailableError,
+} from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 
 /**
@@ -248,7 +253,10 @@ export class TagCommand extends GitCommand<Ref> {
     if (createAnnotated) {
       // Create annotated tag object
       if (!this.store.tags) {
-        throw new Error("Tag store is not available for annotated tags");
+        throw new StoreNotAvailableError(
+          "TagStore",
+          "Tag store is not available for annotated tags",
+        );
       }
 
       const tagger = this.tagger ?? {
