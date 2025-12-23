@@ -307,6 +307,9 @@ async function cloneWithVcs(): Promise<void> {
   // Create working tree (checkout)
   await checkoutHead(storage);
 
+  // Close storage to release file handles
+  await storage.close();
+
   printSuccess(`Repository cloned to ${LOCAL_REPO_DIR}`);
 }
 

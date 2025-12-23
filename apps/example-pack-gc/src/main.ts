@@ -18,7 +18,7 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createGitStorage, type GitStorage } from "@webrun-vcs/storage-git";
+import { createGitRepository, createGitStorage, type GitRepository } from "@webrun-vcs/storage-git";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/vcs";
@@ -57,14 +57,20 @@ function createAuthor(
   };
 }
 
-async function storeBlob(storage: GitStorage, content: string): Promise<ObjectId> {
+/**
+ * Store blob using high-level BlobStore API: repository.blobs.store()
+ */
+async function storeBlob(repository: GitRepository, content: string): Promise<ObjectId> {
   const bytes = new TextEncoder().encode(content);
-  return storage.objects.store([bytes]);
+  return repository.blobs.store([bytes]);
 }
 
-async function readBlob(storage: GitStorage, id: ObjectId): Promise<string> {
+/**
+ * Read blob using high-level BlobStore API: repository.blobs.load()
+ */
+async function readBlob(repository: GitRepository, id: ObjectId): Promise<string> {
   const chunks: Uint8Array[] = [];
-  for await (const chunk of storage.objects.load(id)) {
+  for await (const chunk of repository.blobs.load(id)) {
     chunks.push(chunk);
   }
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
@@ -180,10 +186,11 @@ async function main() {
   await fs.mkdir(REPO_DIR, { recursive: true });
 
   const files = createFilesApi();
-  const storage = await createGitStorage(files, GIT_DIR, {
+  // Use high-level Repository API via createGitRepository()
+  const repository = (await createGitRepository(files, GIT_DIR, {
     create: true,
     defaultBranch: "main",
-  });
+  })) as GitRepository;
 
   printInfo("Repository created at", REPO_DIR);
   printInfo("Git directory", path.join(REPO_DIR, GIT_DIR));
@@ -204,13 +211,15 @@ This is a test repository created by webrun-vcs.
 
 Demonstrating pack file creation and native git compatibility.
 `;
-    const readmeId = await storeBlob(storage, readmeContent);
-    const treeId = await storage.trees.storeTree([
+    const readmeId = await storeBlob(repository, readmeContent);
+    // Use high-level TreeStore API: repository.trees.storeTree()
+    const treeId = await repository.trees.storeTree([
       { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
     ]);
 
     const author = createAuthor("Demo User", "demo@example.com", baseTimestamp);
-    const commitId = await storage.commits.storeCommit({
+    // Use high-level CommitStore API: repository.commits.storeCommit()
+    const commitId = await repository.commits.storeCommit({
       tree: treeId,
       parents: [],
       author,
@@ -218,7 +227,8 @@ Demonstrating pack file creation and native git compatibility.
       message: "Initial commit\n\nAdd README file",
     });
 
-    await storage.refs.set("refs/heads/main", commitId);
+    // Use high-level RefStore API: repository.refs.set()
+    await repository.refs.set("refs/heads/main", commitId);
     commits.push({
       id: commitId,
       message: "Initial commit",
@@ -238,21 +248,21 @@ export function add(a: number, b: number): number {
   return a + b;
 }
 `;
-    const srcId = await storeBlob(storage, srcContent);
+    const srcId = await storeBlob(repository, srcContent);
 
     // Get README from previous commit
-    const prevCommit = await storage.commits.loadCommit(commits[0].id);
-    const prevTree = await collectTreeEntries(storage, prevCommit.tree);
+    const prevCommit = await repository.commits.loadCommit(commits[0].id);
+    const prevTree = await collectTreeEntries(repository, prevCommit.tree);
     const readmeEntry = prevTree.find((e) => e.name === "README.md");
     if (!readmeEntry) throw new Error("README.md not found in tree");
 
-    const treeId = await storage.trees.storeTree([
+    const treeId = await repository.trees.storeTree([
       { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeEntry.id },
       { mode: FileMode.REGULAR_FILE, name: "index.ts", id: srcId },
     ]);
 
     const author = createAuthor("Demo User", "demo@example.com", baseTimestamp);
-    const commitId = await storage.commits.storeCommit({
+    const commitId = await repository.commits.storeCommit({
       tree: treeId,
       parents: [commits[0].id],
       author,
@@ -260,7 +270,7 @@ export function add(a: number, b: number): number {
       message: "Add source file\n\nImplement hello and add functions",
     });
 
-    await storage.refs.set("refs/heads/main", commitId);
+    await repository.refs.set("refs/heads/main", commitId);
     commits.push({
       id: commitId,
       message: "Add source file",
@@ -291,20 +301,20 @@ export function subtract(a: number, b: number): number {
   return a - b;
 }
 `;
-    const srcId = await storeBlob(storage, srcContent);
+    const srcId = await storeBlob(repository, srcContent);
 
-    const prevCommit = await storage.commits.loadCommit(commits[1].id);
-    const prevTree = await collectTreeEntries(storage, prevCommit.tree);
+    const prevCommit = await repository.commits.loadCommit(commits[1].id);
+    const prevTree = await collectTreeEntries(repository, prevCommit.tree);
     const readmeEntry = prevTree.find((e) => e.name === "README.md");
     if (!readmeEntry) throw new Error("README.md not found in tree");
 
-    const treeId = await storage.trees.storeTree([
+    const treeId = await repository.trees.storeTree([
       { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeEntry.id },
       { mode: FileMode.REGULAR_FILE, name: "index.ts", id: srcId },
     ]);
 
     const author = createAuthor("Demo User", "demo@example.com", baseTimestamp);
-    const commitId = await storage.commits.storeCommit({
+    const commitId = await repository.commits.storeCommit({
       tree: treeId,
       parents: [commits[1].id],
       author,
@@ -312,7 +322,7 @@ export function subtract(a: number, b: number): number {
       message: "Add more functions\n\nImplement multiply and subtract",
     });
 
-    await storage.refs.set("refs/heads/main", commitId);
+    await repository.refs.set("refs/heads/main", commitId);
     commits.push({
       id: commitId,
       message: "Add more functions",
@@ -333,18 +343,18 @@ export function subtract(a: number, b: number): number {
   "main": "index.ts"
 }
 `;
-    const configId = await storeBlob(storage, configContent);
+    const configId = await storeBlob(repository, configContent);
 
-    const prevCommit = await storage.commits.loadCommit(commits[2].id);
-    const prevTree = await collectTreeEntries(storage, prevCommit.tree);
+    const prevCommit = await repository.commits.loadCommit(commits[2].id);
+    const prevTree = await collectTreeEntries(repository, prevCommit.tree);
 
-    const treeId = await storage.trees.storeTree([
+    const treeId = await repository.trees.storeTree([
       ...prevTree.map((e) => ({ mode: e.mode, name: e.name, id: e.id })),
       { mode: FileMode.REGULAR_FILE, name: "package.json", id: configId },
     ]);
 
     const author = createAuthor("Demo User", "demo@example.com", baseTimestamp);
-    const commitId = await storage.commits.storeCommit({
+    const commitId = await repository.commits.storeCommit({
       tree: treeId,
       parents: [commits[2].id],
       author,
@@ -352,7 +362,7 @@ export function subtract(a: number, b: number): number {
       message: "Add package.json",
     });
 
-    await storage.refs.set("refs/heads/main", commitId);
+    await repository.refs.set("refs/heads/main", commitId);
     commits.push({
       id: commitId,
       message: "Add package.json",
@@ -383,9 +393,23 @@ export function subtract(a: number, b: number): number {
   // ========== Step 4: Pack all objects (gc) ==========
   printSection("Step 4: Pack All Objects (GC)");
 
-  console.log("  Running repack operation...");
-  await storage.rawStorage.repack({ windowSize: 10 });
-  await storage.refresh();
+  // NOTE: Pack/gc operations are storage-implementation specific.
+  // The high-level Repository API doesn't expose pack operations.
+  // For pack operations, use GitStorage which exposes rawStorage.repack():
+  console.log("  Running VCS repack operation...");
+
+  // Close high-level repository, open low-level storage for pack operations
+  await repository.close();
+
+  // Use GitStorage for pack-specific operations (implementation-specific API)
+  const storageForPack = await createGitStorage(files, GIT_DIR, { create: false });
+  await storageForPack.rawStorage.repack({ windowSize: 10 });
+  await storageForPack.close();
+
+  // Reopen with high-level Repository API for verification
+  const repositoryAfterGc = (await createGitRepository(files, GIT_DIR, {
+    create: false,
+  })) as GitRepository;
 
   const packsAfterRepack = await listPackFiles();
   printInfo("Pack files created", packsAfterRepack.length);
@@ -430,20 +454,20 @@ export function subtract(a: number, b: number): number {
   // ========== Step 7: Verify all commits can be restored ==========
   printSection("Step 7: Verify All Commits Can Be Restored");
 
-  // Refresh storage to read from pack files
-  await storage.refresh();
+  // Repository was reopened after gc, use repositoryAfterGc
 
   let allCommitsValid = true;
   for (const commitInfo of commits) {
     try {
-      const commit = await storage.commits.loadCommit(commitInfo.id);
-      const tree = await collectTreeEntries(storage, commit.tree);
+      // Use high-level CommitStore API with reopened repository
+      const commit = await repositoryAfterGc.commits.loadCommit(commitInfo.id);
+      const tree = await collectTreeEntries(repositoryAfterGc, commit.tree);
 
-      // Verify we can read all files
+      // Verify we can read all files using high-level BlobStore API
       const actualFiles = new Map<string, string>();
       for (const entry of tree) {
         if (entry.mode === FileMode.REGULAR_FILE) {
-          const content = await readBlob(storage, entry.id);
+          const content = await readBlob(repositoryAfterGc, entry.id);
           actualFiles.set(entry.name, content);
         }
       }
@@ -588,16 +612,18 @@ export function subtract(a: number, b: number): number {
   You can explore it with native git commands!
 `);
 
-  await storage.close();
+  await repositoryAfterGc.close();
 }
 
-// Helper to collect tree entries
+/**
+ * Helper to collect tree entries using high-level TreeStore API
+ */
 async function collectTreeEntries(
-  storage: GitStorage,
+  repository: GitRepository,
   treeId: ObjectId,
 ): Promise<{ mode: number; name: string; id: ObjectId }[]> {
   const entries: { mode: number; name: string; id: ObjectId }[] = [];
-  for await (const entry of storage.trees.loadTree(treeId)) {
+  for await (const entry of repository.trees.loadTree(treeId)) {
     entries.push({ mode: entry.mode, name: entry.name, id: entry.id });
   }
   return entries;

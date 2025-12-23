@@ -11,7 +11,7 @@
  */
 
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitStorage, type GitStorage } from "@webrun-vcs/storage-git";
+import { createGitRepository, type GitRepository } from "@webrun-vcs/storage-git";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/vcs";
@@ -69,46 +69,48 @@ export function getFilesApi(): FilesApi {
 export const GIT_DIR = "/demo-repo/.git";
 
 /**
- * Shared storage instance
+ * Shared repository instance
+ *
+ * Uses the high-level Repository interface from @webrun-vcs/core.
  */
-let sharedStorage: GitStorage | null = null;
+let sharedRepository: GitRepository | null = null;
 
 /**
- * Get or create the shared storage instance
+ * Get or create the shared repository instance
  *
- * Uses createGitStorage factory function which handles both
- * initialization and opening of repositories.
+ * Uses createGitRepository factory function which returns the
+ * high-level Repository interface with typed stores.
  *
- * @see packages/storage-git/src/git-storage.ts - createGitStorage()
+ * @see packages/storage-git/src/git-repository.ts - createGitRepository()
  */
-export async function getStorage(): Promise<GitStorage> {
+export async function getStorage(): Promise<GitRepository> {
   initCompression();
 
-  if (!sharedStorage) {
+  if (!sharedRepository) {
     const files = getFilesApi();
-    sharedStorage = await createGitStorage(files, GIT_DIR, {
+    sharedRepository = (await createGitRepository(files, GIT_DIR, {
       create: true,
       defaultBranch: "main",
-    });
+    })) as GitRepository;
   }
-  return sharedStorage;
+  return sharedRepository;
 }
 
 /**
- * Close the shared storage
+ * Close the shared repository
  */
 export async function closeStorage(): Promise<void> {
-  if (sharedStorage) {
-    await sharedStorage.close();
-    sharedStorage = null;
+  if (sharedRepository) {
+    await sharedRepository.close();
+    sharedRepository = null;
   }
 }
 
 /**
- * Reset storage (for fresh start in examples)
+ * Reset repository (for fresh start in examples)
  */
 export function resetStorage(): void {
-  sharedStorage = null;
+  sharedRepository = null;
   sharedFiles = null;
 }
 
@@ -151,38 +153,42 @@ export function createAuthor(
 // ============================================================================
 
 /**
- * Store text content as a blob
+ * Store text content as a blob using the high-level BlobStore
  *
  * Blobs are content-addressable: identical content produces identical IDs.
  * Content is hashed (SHA-1) to produce the ObjectId.
  *
- * @see packages/storage/src/object-storage.ts - ObjectStore.store()
- * @see packages/storage-git/src/git-object-storage.ts - GitObjectStorage
+ * Uses the typed BlobStore interface: repository.blobs.store()
  *
- * @param storage - Git storage instance
+ * @see packages/core/src/stores/blob-store.ts - BlobStore interface
+ * @see packages/storage-git/src/git-repository.ts - GitBlobStoreAdapter
+ *
+ * @param repository - Git repository instance
  * @param content - Text content to store
  * @returns ObjectId (SHA-1 hash as hex string)
  */
-export async function storeBlob(storage: GitStorage, content: string): Promise<ObjectId> {
+export async function storeBlob(repository: GitRepository, content: string): Promise<ObjectId> {
   const bytes = new TextEncoder().encode(content);
-  return storage.objects.store([bytes]);
+  return repository.blobs.store([bytes]);
 }
 
 /**
- * Read blob content as text
+ * Read blob content as text using the high-level BlobStore
  *
  * Content is loaded as an AsyncIterable of chunks for memory efficiency.
  * For small files, chunks are combined into a single string.
  *
- * @see packages/storage/src/object-storage.ts - ObjectStore.load()
+ * Uses the typed BlobStore interface: repository.blobs.load()
  *
- * @param storage - Git storage instance
+ * @see packages/core/src/stores/blob-store.ts - BlobStore interface
+ *
+ * @param repository - Git repository instance
  * @param id - Blob ObjectId
  * @returns Text content
  */
-export async function readBlob(storage: GitStorage, id: ObjectId): Promise<string> {
+export async function readBlob(repository: GitRepository, id: ObjectId): Promise<string> {
   const chunks: Uint8Array[] = [];
-  for await (const chunk of storage.objects.load(id)) {
+  for await (const chunk of repository.blobs.load(id)) {
     chunks.push(chunk);
   }
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
@@ -205,25 +211,27 @@ export async function readBlob(storage: GitStorage, id: ObjectId): Promise<strin
  * Trees are directory snapshots containing entries with mode, name, and id.
  * Subdirectories (mode=TREE) are traversed recursively.
  *
- * @see packages/storage/src/file-tree-storage.ts - TreeStore.loadTree()
+ * Uses the typed TreeStore interface: repository.trees.loadTree()
  *
- * @param storage - Git storage instance
+ * @see packages/core/src/stores/tree-store.ts - TreeStore interface
+ *
+ * @param repository - Git repository instance
  * @param treeId - Tree ObjectId
  * @param prefix - Path prefix for nested files
  * @returns Map of path -> ObjectId
  */
 export async function listFilesRecursive(
-  storage: GitStorage,
+  repository: GitRepository,
   treeId: ObjectId,
   prefix = "",
 ): Promise<Map<string, ObjectId>> {
   const files = new Map<string, ObjectId>();
 
-  for await (const entry of storage.trees.loadTree(treeId)) {
+  for await (const entry of repository.trees.loadTree(treeId)) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
     if (entry.mode === FileMode.TREE) {
-      const subFiles = await listFilesRecursive(storage, entry.id, path);
+      const subFiles = await listFilesRecursive(repository, entry.id, path);
       for (const [subPath, subId] of subFiles) {
         files.set(subPath, subId);
       }
@@ -332,7 +340,8 @@ export function getModeType(mode: number): string {
   }
 }
 
-export type { GitStorage } from "@webrun-vcs/storage-git";
-export type { Commit, ObjectId, PersonIdent, TreeEntry } from "@webrun-vcs/vcs";
 // Re-export commonly used types
+export type { Repository } from "@webrun-vcs/core";
+export type { GitRepository } from "@webrun-vcs/storage-git";
+export type { Commit, ObjectId, PersonIdent, TreeEntry } from "@webrun-vcs/vcs";
 export { FileMode, ObjectType } from "@webrun-vcs/vcs";
