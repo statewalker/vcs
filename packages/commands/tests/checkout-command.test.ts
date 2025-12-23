@@ -3,15 +3,16 @@
  *
  * Based on JGit's CheckoutCommandTest.java patterns.
  * Adapted for staging-only operations (no working tree).
+ * Tests run against all storage backends (Memory, SQL).
  *
  * Reference: tmp/jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/api/CheckoutCommandTest.java
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { CheckoutStatus } from "../src/commands/checkout-command.js";
 import { RefNotFoundError } from "../src/errors/index.js";
-import { addFile, createInitializedGit } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
 
 /**
  * Collect async iterable bytes into single Uint8Array.
@@ -31,7 +32,22 @@ async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8A
   return result;
 }
 
-describe("CheckoutCommand", () => {
+describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   describe("branch checkout", () => {
     /**
      * JGit: testSimpleCheckout

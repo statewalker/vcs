@@ -259,6 +259,9 @@ importers:
       '@webrun-vcs/store-mem':
         specifier: workspace:*
         version: link:../store-mem
+      '@webrun-vcs/store-sql':
+        specifier: workspace:*
+        version: link:../store-sql
       rolldown:
         specifier: 'catalog:'
         version: 1.0.0-beta.51

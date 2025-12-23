@@ -46,6 +46,7 @@
     "@types/node": "catalog:",
     "@webrun-vcs/storage-git": "workspace:*",
     "@webrun-vcs/store-mem": "workspace:*",
+    "@webrun-vcs/store-sql": "workspace:*",
     "rolldown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
