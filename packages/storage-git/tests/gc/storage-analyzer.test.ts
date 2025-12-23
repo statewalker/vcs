@@ -128,7 +128,7 @@ class MockDeltaStore implements DeltaStore {
 }
 
 /**
- * Mock VolatileStore (TempStore) implementation
+ * Mock VolatileStore implementation
  */
 class MockVolatileStore {
   async store(

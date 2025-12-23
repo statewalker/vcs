@@ -1,8 +1,8 @@
 /**
- * Temporary content storage for two-phase streaming
+ * Volatile content storage for two-phase streaming
  *
  * When storing Git objects with unknown size, content must be buffered
- * to determine the size before the header can be written. TempStore
+ * to determine the size before the header can be written. VolatileStore
  * provides an abstraction for this buffering that can be implemented
  * with memory, files, or a hybrid approach.
  */
@@ -10,7 +10,7 @@
 /**
  * Handle to temporarily stored content
  */
-export interface TempContent {
+export interface VolatileContent {
   /** Total size of stored content in bytes */
   readonly size: number;
 
@@ -32,14 +32,14 @@ export interface TempContent {
 }
 
 /**
- * Temporary content storage interface
+ * Volatile content storage interface
  *
  * Implementations:
- * - MemoryTempStore: Buffers in memory (simple, for small content)
+ * - MemoryVolatileStore: Buffers in memory (simple, for small content)
  * - FileVolatileStore: Writes to temp files (for large content)
- * - HybridTempStore: Memory until threshold, then spills to file
+ * - HybridVolatileStore: Memory until threshold, then spills to file
  */
-export interface TempStore {
+export interface VolatileStore {
   /**
    * Store content stream temporarily
    *
@@ -49,5 +49,5 @@ export interface TempStore {
    * @param content Async iterable of content chunks
    * @returns Handle with size and ability to re-read content
    */
-  store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<TempContent>;
+  store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<VolatileContent>;
 }

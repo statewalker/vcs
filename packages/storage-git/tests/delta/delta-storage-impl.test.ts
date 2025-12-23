@@ -132,7 +132,7 @@ class MockDeltaStore implements DeltaStore {
 }
 
 /**
- * Mock VolatileStore (TempStore) implementation
+ * Mock VolatileStore implementation
  *
  * The VolatileStore interface stores content temporarily and returns
  * a handle with size and ability to re-read the content.
