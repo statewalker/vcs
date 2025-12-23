@@ -2,13 +2,28 @@
  * Tests for DescribeCommand
  *
  * Ported from JGit's DescribeCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { addFile, createInitializedGit } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
 
-describe("DescribeCommand", () => {
+describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   /**
    * Test describe when commit matches a tag exactly.
    *
@@ -247,7 +262,22 @@ describe("DescribeCommand", () => {
   });
 });
 
-describe("DescribeCommand - API options", () => {
+describe.each(backends)("DescribeCommand - API options ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test getAbbrev returns set value.
    */

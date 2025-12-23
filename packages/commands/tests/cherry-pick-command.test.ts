@@ -2,9 +2,10 @@
  * Tests for CherryPickCommand
  *
  * Ported from JGit's CherryPickCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   CherryPickStatus,
@@ -12,9 +13,23 @@ import {
   MergeStrategy,
   MultipleParentsNotAllowedError,
 } from "../src/index.js";
-import { addFile, createInitializedGit, removeFile } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory, removeFile } from "./test-helper.js";
 
-describe("CherryPickCommand", () => {
+describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   /**
    * Test basic cherry-pick operation with conflict.
    *
@@ -503,7 +518,24 @@ describe("CherryPickCommand", () => {
   });
 });
 
-describe("CherryPickCommand - Strategy and options", () => {
+describe.each(backends)("CherryPickCommand - Strategy and options ($name backend)", ({
+  factory,
+}) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test setStrategy/getStrategy.
    *
@@ -611,7 +643,24 @@ describe("CherryPickCommand - Strategy and options", () => {
   });
 });
 
-describe("CherryPickCommand - JGit additional tests", () => {
+describe.each(backends)("CherryPickCommand - JGit additional tests ($name backend)", ({
+  factory,
+}) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * Test cherry-picking preserves original author.
    */

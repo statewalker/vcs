@@ -3,6 +3,7 @@
  *
  * Based on JGit's AddCommandTest.java patterns.
  * Ports key test cases for staging files from working tree.
+ * Tests run against all storage backends (Memory, SQL).
  *
  * Reference: tmp/jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/api/AddCommandTest.java
  */
@@ -13,12 +14,12 @@ import type {
   WorkingTreeIterator,
   WorkingTreeIteratorOptions,
 } from "@webrun-vcs/worktree";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { NoFilepatternError } from "../src/errors/index.js";
 import { Git } from "../src/git.js";
 import type { GitStoreWithWorkTree } from "../src/types.js";
-import { createTestStore } from "./test-helper.js";
+import { backends, type GitStoreFactory } from "./test-helper.js";
 
 /**
  * Mock working tree for testing AddCommand.
@@ -122,13 +123,17 @@ class MockWorkingTree implements WorkingTreeIterator {
 }
 
 /**
- * Create a GitStoreWithWorkTree for testing.
+ * Create an initialized Git instance with working tree support using a factory.
  */
-function createTestStoreWithWorkTree(): {
+async function createInitializedGitWithWorkTreeFromFactory(factory: GitStoreFactory): Promise<{
+  git: Git;
   store: GitStoreWithWorkTree;
   worktree: MockWorkingTree;
-} {
-  const baseStore = createTestStore();
+  initialCommitId: string;
+  cleanup?: () => Promise<void>;
+}> {
+  const ctx = await factory();
+  const baseStore = ctx.store;
   const worktree = new MockWorkingTree();
 
   const store: GitStoreWithWorkTree = {
@@ -136,19 +141,6 @@ function createTestStoreWithWorkTree(): {
     worktree,
   };
 
-  return { store, worktree };
-}
-
-/**
- * Create an initialized Git instance with working tree support.
- */
-async function createInitializedGitWithWorkTree(): Promise<{
-  git: Git;
-  store: GitStoreWithWorkTree;
-  worktree: MockWorkingTree;
-  initialCommitId: string;
-}> {
-  const { store, worktree } = createTestStoreWithWorkTree();
   const git = Git.wrap(store);
 
   // Create and store empty tree
@@ -182,10 +174,30 @@ async function createInitializedGitWithWorkTree(): Promise<{
   // Initialize staging with empty tree
   await store.staging.readTree(store.trees, emptyTreeId);
 
-  return { git, store, worktree, initialCommitId };
+  return { git, store, worktree, initialCommitId, cleanup: ctx.cleanup };
 }
 
-describe("AddCommand", () => {
+describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGitWithWorkTree() {
+    const result = await createInitializedGitWithWorkTreeFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
+  async function createEmptyStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
   describe("validation", () => {
     /**
      * JGit: testAddNothing
@@ -592,7 +604,7 @@ describe("AddCommand", () => {
      */
     it("should use custom iterator when set", async () => {
       // Create standard store without worktree
-      const baseStore = createTestStore();
+      const baseStore = await createEmptyStore();
       const git = Git.wrap(baseStore);
 
       // Initialize store - store the empty tree first

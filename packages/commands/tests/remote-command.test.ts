@@ -3,17 +3,33 @@
  * RemoteListCommand, RemoteSetUrlCommand)
  *
  * Based on JGit's RemoteConfigTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Git } from "../src/index.js";
-import { createTestStore } from "./test-helper.js";
+import { backends } from "./test-helper.js";
 
-describe("RemoteAddCommand", () => {
+describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createTestStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
+
   describe("basic operations", () => {
     it("should add a remote", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       const result = await git
@@ -28,7 +44,7 @@ describe("RemoteAddCommand", () => {
     });
 
     it("should use custom fetch refspec", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       const result = await git
@@ -42,7 +58,7 @@ describe("RemoteAddCommand", () => {
     });
 
     it("should throw for duplicate remote", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       // Add first remote
@@ -58,7 +74,7 @@ describe("RemoteAddCommand", () => {
     });
 
     it("should throw for missing name", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       await expect(git.remoteAdd().setUri("https://github.com/user/repo").call()).rejects.toThrow(
@@ -67,7 +83,7 @@ describe("RemoteAddCommand", () => {
     });
 
     it("should throw for missing URI", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       await expect(git.remoteAdd().setName("origin").call()).rejects.toThrow(
@@ -77,8 +93,8 @@ describe("RemoteAddCommand", () => {
   });
 
   describe("getters", () => {
-    it("should return correct values", () => {
-      const store = createTestStore();
+    it("should return correct values", async () => {
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       const command = git.remoteAdd().setName("origin").setUri("https://github.com/user/repo");
@@ -89,10 +105,25 @@ describe("RemoteAddCommand", () => {
   });
 });
 
-describe("RemoteRemoveCommand", () => {
+describe.each(backends)("RemoteRemoveCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createTestStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
+
   describe("basic operations", () => {
     it("should remove a remote", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       // Create remote tracking refs
@@ -112,7 +143,7 @@ describe("RemoteRemoveCommand", () => {
     });
 
     it("should return undefined for non-existent remote", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       const result = await git.remoteRemove().setRemoteName("nonexistent").call();
@@ -121,7 +152,7 @@ describe("RemoteRemoveCommand", () => {
     });
 
     it("should throw for missing name", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       await expect(git.remoteRemove().call()).rejects.toThrow("Remote name must be specified");
@@ -129,8 +160,8 @@ describe("RemoteRemoveCommand", () => {
   });
 
   describe("getters", () => {
-    it("should return correct values", () => {
-      const store = createTestStore();
+    it("should return correct values", async () => {
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       const command = git.remoteRemove().setRemoteName("origin");
@@ -139,10 +170,25 @@ describe("RemoteRemoveCommand", () => {
   });
 });
 
-describe("RemoteListCommand", () => {
+describe.each(backends)("RemoteListCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createTestStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
+
   describe("basic operations", () => {
     it("should list remotes", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       // Create remote tracking refs for multiple remotes
@@ -157,7 +203,7 @@ describe("RemoteListCommand", () => {
     });
 
     it("should return empty array when no remotes", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       const result = await git.remoteList().call();
@@ -166,7 +212,7 @@ describe("RemoteListCommand", () => {
     });
 
     it("should include default fetch refspec", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       await store.refs.set("refs/remotes/origin/main", "a".repeat(40));
@@ -179,10 +225,25 @@ describe("RemoteListCommand", () => {
   });
 });
 
-describe("RemoteSetUrlCommand", () => {
+describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createTestStore() {
+    const ctx = await factory();
+    cleanup = ctx.cleanup;
+    return ctx.store;
+  }
+
   describe("basic operations", () => {
     it("should set URL for existing remote", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       // Create remote tracking refs
@@ -199,7 +260,7 @@ describe("RemoteSetUrlCommand", () => {
     });
 
     it("should set push URL", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       // Create remote tracking refs
@@ -217,7 +278,7 @@ describe("RemoteSetUrlCommand", () => {
     });
 
     it("should throw for non-existent remote", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       await expect(
@@ -230,7 +291,7 @@ describe("RemoteSetUrlCommand", () => {
     });
 
     it("should throw for missing name", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       await expect(
@@ -239,7 +300,7 @@ describe("RemoteSetUrlCommand", () => {
     });
 
     it("should throw for missing URI", async () => {
-      const store = createTestStore();
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       await expect(git.remoteSetUrl().setRemoteName("origin").call()).rejects.toThrow(
@@ -249,8 +310,8 @@ describe("RemoteSetUrlCommand", () => {
   });
 
   describe("getters", () => {
-    it("should return correct values", () => {
-      const store = createTestStore();
+    it("should return correct values", async () => {
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       const command = git
@@ -266,8 +327,8 @@ describe("RemoteSetUrlCommand", () => {
   });
 
   describe("setOldUri", () => {
-    it("should accept old URI parameter", () => {
-      const store = createTestStore();
+    it("should accept old URI parameter", async () => {
+      const store = await createTestStore();
       const git = Git.wrap(store);
 
       // Just verify the method exists and is chainable

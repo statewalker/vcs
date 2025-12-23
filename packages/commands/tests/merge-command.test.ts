@@ -2,9 +2,10 @@
  * Tests for MergeCommand
  *
  * Based on JGit's MergeCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   FastForwardMode,
@@ -13,9 +14,29 @@ import {
   MergeStrategy,
   NotFastForwardError,
 } from "../src/index.js";
-import { addFile, createInitializedGit, removeFile, toArray } from "./test-helper.js";
+import {
+  addFile,
+  backends,
+  createInitializedGitFromFactory,
+  removeFile,
+  toArray,
+} from "./test-helper.js";
 
-describe("MergeCommand", () => {
+describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   // ===== Already Up To Date =====
 
   describe("already up to date", () => {
@@ -440,7 +461,22 @@ describe("MergeCommand", () => {
   });
 });
 
-describe("MergeCommand with log verification", () => {
+describe.each(backends)("MergeCommand with log verification ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   it("should show merge commit in log with correct parents", async () => {
     const { git, store } = await createInitializedGit();
 
@@ -473,7 +509,22 @@ describe("MergeCommand with log verification", () => {
 
 // ===== JGit Ported Tests =====
 
-describe("MergeCommand - JGit deletion tests", () => {
+describe.each(backends)("MergeCommand - JGit deletion tests ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * JGit: testSingleDeletion
    * Tests merging a deletion from one branch into another.
@@ -690,7 +741,22 @@ describe("MergeCommand - JGit deletion tests", () => {
   });
 });
 
-describe("MergeCommand - JGit creation tests", () => {
+describe.each(backends)("MergeCommand - JGit creation tests ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * JGit: testMultipleCreations
    * Both sides create same file with different content - should conflict.
@@ -775,7 +841,22 @@ describe("MergeCommand - JGit creation tests", () => {
   });
 });
 
-describe("MergeCommand - JGit squash tests", () => {
+describe.each(backends)("MergeCommand - JGit squash tests ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * JGit: testSquashFastForward
    * Squash merge when fast-forward is possible.
@@ -905,7 +986,22 @@ describe("MergeCommand - JGit squash tests", () => {
   });
 });
 
-describe("MergeCommand - JGit fast-forward tests", () => {
+describe.each(backends)("MergeCommand - JGit fast-forward tests ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * JGit: testFastForwardNoCommit
    * Fast-forward with setCommit(false) - should still fast-forward.
@@ -1078,7 +1174,24 @@ describe("MergeCommand - JGit fast-forward tests", () => {
   });
 });
 
-describe("MergeCommand - JGit content merge tests", () => {
+describe.each(backends)("MergeCommand - JGit content merge tests ($name backend)", ({
+  factory,
+}) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * JGit: testSuccessfulContentMerge (adapted)
    *
@@ -1251,7 +1364,22 @@ describe("MergeCommand - JGit content merge tests", () => {
   });
 });
 
-describe("MergeCommand - Merge strategies", () => {
+describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   /**
    * JGit: testMergeStrategyOurs
    * OURS strategy keeps our tree unchanged, ignoring their changes.

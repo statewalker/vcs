@@ -2,14 +2,29 @@
  * Tests for DiffCommand
  *
  * Based on JGit's DiffCommandTest.java
+ * Tests run against all storage backends (Memory, SQL).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ChangeType } from "../src/index.js";
-import { addFile, createInitializedGit } from "./test-helper.js";
+import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
 
-describe("DiffCommand", () => {
+describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
   it("should return empty diff for same tree", async () => {
     const { git, initialCommitId } = await createInitializedGit();
 
@@ -262,7 +277,22 @@ describe("DiffCommand", () => {
   });
 });
 
-describe("DiffEntry helpers", () => {
+describe.each(backends)("DiffEntry helpers ($name backend)", ({ factory }) => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  async function createInitializedGit() {
+    const result = await createInitializedGitFromFactory(factory);
+    cleanup = result.cleanup;
+    return result;
+  }
+
   it("should include object IDs for modifications", async () => {
     const { git, store } = await createInitializedGit();
 
