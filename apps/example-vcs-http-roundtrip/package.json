@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Example demonstrating complete Git HTTP roundtrip using VCS exclusively (server and client)",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "test": "pnpm start"
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",

@@ -6,7 +6,7 @@
  * Run with: pnpm step:traverse
  */
 
-import type { GitStorage } from "@webrun-vcs/storage-git";
+import type { GitRepository } from "@webrun-vcs/storage-git";
 import type { ObjectId } from "@webrun-vcs/vcs";
 import {
   COMMIT_LIMIT,
@@ -20,7 +20,7 @@ import {
 } from "../shared/index.js";
 
 export async function traverseCommits(
-  storage: GitStorage,
+  repository: GitRepository,
   tracker?: PerformanceTracker,
 ): Promise<CommitInfo[]> {
   const perf = tracker ?? new PerformanceTracker();
@@ -28,7 +28,7 @@ export async function traverseCommits(
   printSection("Step 4: Traverse Commit History");
 
   // Get HEAD reference - resolve follows symbolic refs to the commit
-  const resolved = await storage.refs.resolve("HEAD");
+  const resolved = await repository.refs.resolve("HEAD");
   if (!resolved?.objectId) {
     throw new Error("HEAD reference not found or could not be resolved");
   }
@@ -44,10 +44,10 @@ export async function traverseCommits(
     "commit_traversal",
     async () => {
       let count = 0;
-      for await (const commitId of storage.commits.walkAncestry([headId], {
+      for await (const commitId of repository.commits.walkAncestry([headId], {
         limit: COMMIT_LIMIT,
       })) {
-        const commit = await storage.commits.loadCommit(commitId);
+        const commit = await repository.commits.loadCommit(commitId);
 
         const firstLine = commit.message.split("\n")[0].substring(0, 60);
         const displayMessage =

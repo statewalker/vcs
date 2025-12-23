@@ -7,7 +7,7 @@
  * Run with: pnpm step:measure
  */
 
-import type { GitStorage } from "@webrun-vcs/storage-git";
+import type { GitRepository } from "@webrun-vcs/storage-git";
 import {
   type CommitInfo,
   openStorage,
@@ -25,7 +25,7 @@ export interface AccessMeasurementResult {
 }
 
 export async function measureObjectAccess(
-  storage: GitStorage,
+  repository: GitRepository,
   commits: CommitInfo[],
   tracker?: PerformanceTracker,
 ): Promise<AccessMeasurementResult> {
@@ -48,11 +48,12 @@ export async function measureObjectAccess(
     async () => {
       for (const idx of sampleIndices) {
         const commitInfo = commits[idx];
-        const commit = await storage.commits.loadCommit(commitInfo.id);
+        // Use high-level CommitStore API
+        const commit = await repository.commits.loadCommit(commitInfo.id);
         objectCount++;
 
-        // Load tree entries
-        for await (const entry of storage.trees.loadTree(commit.tree)) {
+        // Load tree entries using high-level TreeStore API
+        for await (const entry of repository.trees.loadTree(commit.tree)) {
           treeCount++;
           // Just count entries, don't load blob content
           if (entry.mode !== 0o040000) {
@@ -75,13 +76,13 @@ export async function measureObjectAccess(
 if (import.meta.url === `file://${process.argv[1]}`) {
   printBanner("webrun-vcs: Measure Object Access", "Step 5 of 6");
   openStorage()
-    .then(async (storage) => {
+    .then(async (repository) => {
       console.log("  First, traversing commits to get sample data...\n");
-      const commits = await traverseCommits(storage);
-      const result = await measureObjectAccess(storage, commits);
+      const commits = await traverseCommits(repository);
+      const result = await measureObjectAccess(repository, commits);
       console.log(`\n  Step 5 completed successfully!`);
       console.log(`  Accessed ${result.objectCount + result.treeCount} objects total.\n`);
-      await storage.close();
+      await repository.close();
     })
     .catch((error) => {
       console.error("\nError:", error);

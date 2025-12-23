@@ -6,6 +6,7 @@
   "description": "Example application demonstrating the complete Git workflow with webrun-vcs",
   "scripts": {
     "start": "tsx src/main.ts",
+    "test": "pnpm start",
     "step:01": "tsx src/steps/01-init-repository.ts",
     "step:02": "tsx src/steps/02-create-files.ts",
     "step:03": "tsx src/steps/03-build-trees.ts",
