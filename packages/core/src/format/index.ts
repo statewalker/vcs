@@ -6,6 +6,7 @@
  */
 
 export * from "./commit-format.js";
+export * from "./load-with-header.js";
 export * from "./object-header.js";
 export * from "./person-ident.js";
 export * from "./tag-format.js";

@@ -42,22 +42,30 @@ export interface GitObjectStore {
   ): Promise<ObjectId>;
 
   /**
-   * Load object content (header stripped)
-   *
-   * @param id ObjectId of the object
-   * @returns Async iterable of content chunks (without header)
-   * @throws Error if object not found
-   */
-  load(id: ObjectId): AsyncIterable<Uint8Array>;
-
-  /**
    * Load raw object including header
    *
    * @param id ObjectId of the object
    * @returns Async iterable of raw object chunks (with header)
    * @throws Error if object not found
    */
-  loadRaw(id: ObjectId): AsyncIterable<Uint8Array>;
+  loadRaw(id: ObjectId): AsyncGenerator<Uint8Array>;
+
+  /**
+   * Get object header and content stream
+   * @param id ObjectId of the object
+   * @returns Tuple of object header and async iterable of content chunks
+   * @throws Error if object not found
+   */
+  loadWithHeader(id: ObjectId): Promise<[GitObjectHeader, AsyncGenerator<Uint8Array>]>;
+
+  /**
+   * Load object content (header stripped)
+   *
+   * @param id ObjectId of the object
+   * @returns Async iterable of content chunks (without header)
+   * @throws Error if object not found
+   */
+  load(id: ObjectId): AsyncGenerator<Uint8Array>;
 
   /**
    * Get object header without loading content
