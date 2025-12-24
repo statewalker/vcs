@@ -48,20 +48,20 @@ async function main() {
     // // Step 2: Run garbage collection
     // await runGarbageCollection(tracker);
 
-    // Step 3: Load pack files with webrun-vcs
-    const storage = await loadPackFiles(tracker);
+    // Step 3: Load pack files with webrun-vcs using high-level Repository API
+    const repository = await loadPackFiles(tracker);
 
-    // Step 4: Traverse commit history
-    const commits = await traverseCommits(storage, tracker);
+    // Step 4: Traverse commit history using high-level CommitStore API
+    const commits = await traverseCommits(repository, tracker);
 
-    // Step 5: Measure object access performance
-    const result = await measureObjectAccess(storage, commits, tracker);
+    // Step 5: Measure object access performance using high-level APIs
+    const result = await measureObjectAccess(repository, commits, tracker);
 
     // Step 6: Write performance results to file
     await writePerformanceResults(tracker, commits, result.objectCount + result.treeCount);
 
-    // Step 7: Checkout 3rd commit to local folder
-    await checkoutCommit(storage, tracker);
+    // Step 7: Checkout 3rd commit to local folder using high-level APIs
+    await checkoutCommit(repository, tracker);
 
     // Print summary
     printSummary(tracker, commits);
@@ -74,7 +74,7 @@ async function main() {
   The repository will be reused (fetch only) on subsequent runs.
 `);
 
-    await storage.close();
+    await repository.close();
   } catch (error) {
     console.error("\nError:", error);
     process.exit(1);

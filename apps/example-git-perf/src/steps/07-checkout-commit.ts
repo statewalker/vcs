@@ -11,7 +11,7 @@ import * as fsSync from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { GitStorage } from "@webrun-vcs/storage-git";
+import type { GitRepository } from "@webrun-vcs/storage-git";
 import type { ObjectId } from "@webrun-vcs/vcs";
 import { FileMode } from "@webrun-vcs/vcs";
 import {
@@ -62,10 +62,10 @@ async function cleanWorkingDirectory(): Promise<void> {
 }
 
 /**
- * Recursively extract a tree to a directory
+ * Recursively extract a tree to a directory using high-level Repository API.
  */
 async function extractTree(
-  storage: GitStorage,
+  repository: GitRepository,
   treeId: ObjectId,
   targetDir: string,
   stats: { files: number; directories: number; totalBytes: number },
@@ -73,18 +73,18 @@ async function extractTree(
   // Create target directory
   await fs.mkdir(targetDir, { recursive: true });
 
-  // Load and iterate tree entries
-  for await (const entry of storage.trees.loadTree(treeId)) {
+  // Load and iterate tree entries using high-level TreeStore API
+  for await (const entry of repository.trees.loadTree(treeId)) {
     const entryPath = path.join(targetDir, entry.name);
 
     if (isTreeMode(entry.mode)) {
       // Recurse into subdirectory
       stats.directories++;
-      await extractTree(storage, entry.id, entryPath, stats);
+      await extractTree(repository, entry.id, entryPath, stats);
     } else if (entry.mode === FileMode.SYMLINK) {
-      // Handle symlinks - read target and create symlink
+      // Handle symlinks - read target and create symlink using high-level BlobStore API
       const chunks: Uint8Array[] = [];
-      for await (const chunk of storage.objects.load(entry.id)) {
+      for await (const chunk of repository.blobs.load(entry.id)) {
         chunks.push(chunk);
       }
       const target = new TextDecoder().decode(concatChunks(chunks));
@@ -95,9 +95,9 @@ async function extractTree(
         // Skip symlinks that fail (e.g., on Windows)
       }
     } else if (entry.mode !== FileMode.GITLINK) {
-      // Regular file or executable - extract blob content
+      // Regular file or executable - extract blob content using high-level BlobStore API
       const chunks: Uint8Array[] = [];
-      for await (const chunk of storage.objects.load(entry.id)) {
+      for await (const chunk of repository.blobs.load(entry.id)) {
         chunks.push(chunk);
       }
       const content = concatChunks(chunks);
@@ -183,15 +183,15 @@ export interface CheckoutResult {
 }
 
 export async function checkoutCommit(
-  storage: GitStorage,
+  repository: GitRepository,
   tracker?: PerformanceTracker,
 ): Promise<CheckoutResult> {
   const perf = tracker ?? new PerformanceTracker();
 
   printSection(`Step 7: Checkout Commit #${COMMIT_INDEX} to Working Directory`);
 
-  // Get HEAD and find the 3rd commit
-  const resolved = await storage.refs.resolve("HEAD");
+  // Get HEAD and find the 3rd commit using high-level RefStore API
+  const resolved = await repository.refs.resolve("HEAD");
   if (!resolved?.objectId) {
     throw new Error("HEAD reference not found");
   }
@@ -201,7 +201,8 @@ export async function checkoutCommit(
   let targetCommitId: ObjectId | null = null;
   let count = 0;
 
-  for await (const commitId of storage.commits.walkAncestry([resolved.objectId])) {
+  // Use high-level CommitStore API for ancestry traversal
+  for await (const commitId of repository.commits.walkAncestry([resolved.objectId])) {
     count++;
     if (count === COMMIT_INDEX) {
       targetCommitId = commitId;
@@ -213,7 +214,7 @@ export async function checkoutCommit(
     throw new Error(`Repository has fewer than ${COMMIT_INDEX} commits`);
   }
 
-  const commit = await storage.commits.loadCommit(targetCommitId);
+  const commit = await repository.commits.loadCommit(targetCommitId);
   const firstLine = commit.message.split("\n")[0].substring(0, 60);
 
   console.log(`  Target commit: ${shortId(targetCommitId)}`);
@@ -229,8 +230,8 @@ export async function checkoutCommit(
   const stats = { files: 0, directories: 0, totalBytes: 0 };
 
   await perf.measureAsync("checkout_extract", async () => {
-    console.log("  Extracting files using webrun-vcs API...");
-    await extractTree(storage, commit.tree, REPO_DIR, stats);
+    console.log("  Extracting files using webrun-vcs high-level API...");
+    await extractTree(repository, commit.tree, REPO_DIR, stats);
   });
 
   printInfo("\n  Files extracted", stats.files);
@@ -270,14 +271,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   printBanner("webrun-vcs: Checkout Commit", "Step 7 of 7");
 
   openStorage()
-    .then(async (storage) => {
-      const result = await checkoutCommit(storage);
+    .then(async (repository) => {
+      const result = await checkoutCommit(repository);
       if (result.verified) {
         console.log("\n  Step 7 completed successfully!\n");
       } else {
         console.log("\n  Step 7 completed with verification errors.\n");
       }
-      await storage.close();
+      await repository.close();
     })
     .catch((error) => {
       console.error("\nError:", error);

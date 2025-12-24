@@ -1,10 +1,10 @@
 /**
- * Storage initialization utilities
+ * Storage initialization utilities using high-level Repository API
  */
 
 import * as fs from "node:fs/promises";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createGitStorage, type GitStorage } from "@webrun-vcs/storage-git";
+import { createGitRepository, type GitRepository } from "@webrun-vcs/storage-git";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { GIT_DIR, REPO_DIR } from "./config.js";
@@ -23,8 +23,12 @@ export function createFilesApi(): FilesApi {
   return new FilesApi(nodeFs);
 }
 
-export async function openStorage(): Promise<GitStorage> {
+/**
+ * Open storage using high-level Repository API.
+ */
+export async function openStorage(): Promise<GitRepository> {
   initCompression();
   const files = createFilesApi();
-  return createGitStorage(files, GIT_DIR, { create: false });
+  // Use high-level Repository API via createGitRepository()
+  return (await createGitRepository(files, GIT_DIR, { create: false })) as GitRepository;
 }

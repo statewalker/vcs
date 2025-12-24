@@ -6,7 +6,7 @@
  * Run with: pnpm step:load
  */
 
-import type { GitStorage } from "@webrun-vcs/storage-git";
+import type { GitRepository } from "@webrun-vcs/storage-git";
 import {
   fixGitObjectPermissions,
   formatBytes,
@@ -18,7 +18,7 @@ import {
   printSection,
 } from "../shared/index.js";
 
-export async function loadPackFiles(tracker?: PerformanceTracker): Promise<GitStorage> {
+export async function loadPackFiles(tracker?: PerformanceTracker): Promise<GitRepository> {
   const perf = tracker ?? new PerformanceTracker();
 
   printSection("Step 3: Load Pack Files with webrun-vcs");

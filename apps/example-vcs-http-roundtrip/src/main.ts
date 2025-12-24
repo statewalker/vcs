@@ -20,12 +20,12 @@ import * as path from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import {
   atomicWriteFile,
+  createGitRepository,
   createGitStorage,
   ensureDir,
-  extractGitObjectContent,
+  type GitRepository,
   type GitStorage,
   indexPack,
-  parseObjectHeader,
   writePackIndex,
 } from "@webrun-vcs/storage-git";
 import { clone, type PushObject, push } from "@webrun-vcs/transport";
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
 
   let server: VcsHttpServer | null = null;
   let remoteStorage: GitStorage | null = null;
-  let localStorage: GitStorage | null = null;
+  let localStorage: GitRepository | null = null;
 
   try {
     // Step 1: Setup - Create remote repository with VCS
@@ -249,11 +249,11 @@ async function cloneWithVcs(): Promise<void> {
   // Create files API for local repository
   const files = new FilesApi(new NodeFilesApi({ fs, rootDir: LOCAL_REPO_DIR }));
 
-  // Initialize local storage
-  const storage = await createGitStorage(files, ".git", {
+  // Initialize local repository using high-level Repository API
+  const repository = (await createGitRepository(files, ".git", {
     create: true,
     defaultBranch: cloneResult.defaultBranch,
-  });
+  })) as GitRepository;
 
   // Process pack data if we received any
   if (cloneResult.packData.length > 0) {
@@ -287,65 +287,68 @@ async function cloneWithVcs(): Promise<void> {
     printInfo(`Stored pack: ${packFileName}`);
   }
 
-  // Set up refs
+  // Set up refs using high-level RefStore API
   const remoteName = "origin";
   for (const [refName, objectId] of cloneResult.refs) {
     const localRefName = refName;
-    await storage.refs.set(localRefName, bytesToHex(objectId));
+    await repository.refs.set(localRefName, bytesToHex(objectId));
     printInfo(`Set ref: ${localRefName} -> ${shortId(bytesToHex(objectId))}`);
   }
 
   // Set up local main branch
   const mainRef = cloneResult.refs.get(`refs/remotes/${remoteName}/${cloneResult.defaultBranch}`);
   if (mainRef) {
-    await storage.refs.set(`refs/heads/${cloneResult.defaultBranch}`, bytesToHex(mainRef));
+    await repository.refs.set(`refs/heads/${cloneResult.defaultBranch}`, bytesToHex(mainRef));
   }
 
   // Set HEAD
-  await storage.refs.setSymbolic("HEAD", `refs/heads/${cloneResult.defaultBranch}`);
+  await repository.refs.setSymbolic("HEAD", `refs/heads/${cloneResult.defaultBranch}`);
 
-  // Create working tree (checkout)
-  await checkoutHead(storage);
+  // Create working tree (checkout) using high-level Repository API
+  await checkoutHead(repository);
 
-  // Close storage to release file handles
-  await storage.close();
+  // Close repository to release file handles
+  await repository.close();
 
   printSuccess(`Repository cloned to ${LOCAL_REPO_DIR}`);
 }
 
 /**
- * Checkout HEAD to working tree.
+ * Checkout HEAD to working tree using high-level Repository API.
  */
-async function checkoutHead(storage: GitStorage): Promise<void> {
-  const headCommit = await storage.getHead();
+async function checkoutHead(repository: GitRepository): Promise<void> {
+  const headCommit = await repository.getHead();
   if (!headCommit) {
     throw new Error("No HEAD commit found");
   }
 
-  const commit = await storage.commits.loadCommit(headCommit);
+  const commit = await repository.commits.loadCommit(headCommit);
 
   // Recursively extract tree to working directory
-  await extractTree(storage, commit.tree, LOCAL_REPO_DIR);
+  await extractTree(repository, commit.tree, LOCAL_REPO_DIR);
 }
 
 /**
- * Extract a tree to a directory.
+ * Extract a tree to a directory using high-level Repository API.
  */
-async function extractTree(storage: GitStorage, treeId: string, dirPath: string): Promise<void> {
-  for await (const entry of storage.trees.loadTree(treeId)) {
+async function extractTree(
+  repository: GitRepository,
+  treeId: string,
+  dirPath: string,
+): Promise<void> {
+  for await (const entry of repository.trees.loadTree(treeId)) {
     const entryPath = path.join(dirPath, entry.name);
 
     if (entry.mode === FileMode.TREE) {
       await ensureDirectory(entryPath);
-      await extractTree(storage, entry.id, entryPath);
+      await extractTree(repository, entry.id, entryPath);
     } else {
-      // Load blob content
+      // Load blob content using high-level BlobStore API
       const chunks: Uint8Array[] = [];
-      for await (const chunk of storage.rawStorage.load(entry.id)) {
+      for await (const chunk of repository.blobs.load(entry.id)) {
         chunks.push(chunk);
       }
-      const rawData = concatBytes(...chunks);
-      const content = extractGitObjectContent(rawData);
+      const content = concatBytes(...chunks);
 
       await fs.writeFile(entryPath, content);
     }
@@ -388,40 +391,41 @@ async function verifyCloneWithNativeGit(): Promise<void> {
 }
 
 /**
- * Open local repository with VCS.
+ * Open local repository with VCS using high-level Repository API.
  */
-async function openLocalRepository(): Promise<GitStorage> {
+async function openLocalRepository(): Promise<GitRepository> {
   printInfo(`Opening repository at ${LOCAL_REPO_DIR}`);
 
   const files = new FilesApi(new NodeFilesApi({ fs, rootDir: LOCAL_REPO_DIR }));
 
-  const storage = await createGitStorage(files, ".git", {
+  // Use high-level Repository API via createGitRepository()
+  const repository = (await createGitRepository(files, ".git", {
     create: false,
-  });
+  })) as GitRepository;
 
-  const headCommit = await storage.getHead();
+  const headCommit = await repository.getHead();
   printSuccess(`Repository opened, HEAD at ${shortId(headCommit || "unknown")}`);
 
-  return storage;
+  return repository;
 }
 
 /**
- * Step 5: Modify content with VCS.
+ * Step 5: Modify content with VCS using high-level Repository API.
  */
 async function modifyContent(
-  storage: GitStorage,
+  repository: GitRepository,
 ): Promise<{ newBlobId: string; newTreeId: string }> {
   // Get current tree
-  const headCommit = await storage.getHead();
+  const headCommit = await repository.getHead();
   if (!headCommit) {
     throw new Error("No HEAD commit found");
   }
 
-  const commit = await storage.commits.loadCommit(headCommit);
+  const commit = await repository.commits.loadCommit(headCommit);
 
   // Load existing tree entries
   const existingEntries: Array<{ mode: number; name: string; id: string }> = [];
-  for await (const entry of storage.trees.loadTree(commit.tree)) {
+  for await (const entry of repository.trees.loadTree(commit.tree)) {
     existingEntries.push({
       mode: entry.mode,
       name: entry.name,
@@ -441,17 +445,17 @@ It demonstrates that VCS can:
 Timestamp: ${new Date().toISOString()}
 `;
 
-  // Store blob
-  const newBlobId = await storage.objects.store([textEncoder.encode(newFileContent)]);
+  // Store blob using high-level BlobStore API: repository.blobs.store()
+  const newBlobId = await repository.blobs.store([textEncoder.encode(newFileContent)]);
   printInfo(`Created blob: ${shortId(newBlobId)}`);
 
-  // Create new tree with the new file
+  // Create new tree with the new file using high-level TreeStore API
   const newEntries = [
     ...existingEntries.filter((e) => e.name !== "ROUNDTRIP.md"),
     { mode: FileMode.REGULAR_FILE, name: "ROUNDTRIP.md", id: newBlobId },
   ];
 
-  const newTreeId = await storage.trees.storeTree(newEntries);
+  const newTreeId = await repository.trees.storeTree(newEntries);
   printInfo(`Created tree: ${shortId(newTreeId)}`);
 
   // Also write the file to the working directory
@@ -463,21 +467,21 @@ Timestamp: ${new Date().toISOString()}
 }
 
 /**
- * Step 6: Create branch and commit.
+ * Step 6: Create branch and commit using high-level Repository API.
  */
-async function createBranchAndCommit(storage: GitStorage, treeId: string): Promise<string> {
-  const headCommit = await storage.getHead();
+async function createBranchAndCommit(repository: GitRepository, treeId: string): Promise<string> {
+  const headCommit = await repository.getHead();
   if (!headCommit) {
     throw new Error("No HEAD commit found");
   }
 
-  // Create branch pointing to HEAD
-  await storage.refs.set(`refs/heads/${TEST_BRANCH}`, headCommit);
+  // Create branch pointing to HEAD using high-level RefStore API
+  await repository.refs.set(`refs/heads/${TEST_BRANCH}`, headCommit);
   printInfo(`Created branch '${TEST_BRANCH}'`);
 
-  // Create commit
+  // Create commit using high-level CommitStore API
   const author = createAuthor();
-  const commitId = await storage.commits.storeCommit({
+  const commitId = await repository.commits.storeCommit({
     tree: treeId,
     parents: [headCommit],
     author,
@@ -493,10 +497,10 @@ VCS HTTP roundtrip example. It demonstrates the ability to:
   printInfo(`Created commit: ${shortId(commitId)}`);
 
   // Update branch ref
-  await storage.refs.set(`refs/heads/${TEST_BRANCH}`, commitId);
+  await repository.refs.set(`refs/heads/${TEST_BRANCH}`, commitId);
 
   // Switch to new branch
-  await storage.refs.setSymbolic("HEAD", `refs/heads/${TEST_BRANCH}`);
+  await repository.refs.setSymbolic("HEAD", `refs/heads/${TEST_BRANCH}`);
 
   printSuccess(`Commit ${shortId(commitId)} created on branch '${TEST_BRANCH}'`);
 
@@ -504,13 +508,13 @@ VCS HTTP roundtrip example. It demonstrates the ability to:
 }
 
 /**
- * Step 7: Push changes using VCS transport.
+ * Step 7: Push changes using VCS transport and high-level Repository API.
  */
-async function pushChanges(storage: GitStorage, commitId: string): Promise<void> {
+async function pushChanges(repository: GitRepository, commitId: string): Promise<void> {
   printInfo(`Pushing ${TEST_BRANCH} to remote...`);
 
   // Get all objects that need to be pushed
-  const objectsToPush = await collectObjectsForPush(storage, commitId);
+  const objectsToPush = await collectObjectsForPush(repository, commitId);
 
   printInfo(`Collected ${objectsToPush.length} objects to push`);
 
@@ -519,7 +523,7 @@ async function pushChanges(storage: GitStorage, commitId: string): Promise<void>
     refspecs: [`refs/heads/${TEST_BRANCH}:refs/heads/${TEST_BRANCH}`],
     force: true,
     getLocalRef: async (refName: string) => {
-      const ref = await storage.refs.resolve(refName);
+      const ref = await repository.refs.resolve(refName);
       return ref?.objectId;
     },
     getObjectsToPush: async function* () {
@@ -550,34 +554,45 @@ async function pushChanges(storage: GitStorage, commitId: string): Promise<void>
 }
 
 /**
- * Collect objects needed for push.
+ * Collect objects needed for push using high-level Repository API.
  */
-async function collectObjectsForPush(storage: GitStorage, commitId: string): Promise<PushObject[]> {
+async function collectObjectsForPush(
+  repository: GitRepository,
+  commitId: string,
+): Promise<PushObject[]> {
   const objects: PushObject[] = [];
   const seen = new Set<string>();
+
+  // Map type string to type code for pack protocol
+  const typeStringToCode: Record<string, number> = {
+    commit: 1,
+    tree: 2,
+    blob: 3,
+    tag: 4,
+  };
 
   async function collectObject(id: string): Promise<void> {
     if (seen.has(id)) return;
     seen.add(id);
 
-    // Load raw object
+    // Use high-level GitObjectStore API to get header and content
+    const header = await repository.objects.getHeader(id);
+    const typeCode = typeStringToCode[header.type];
+
+    // Load object content (without git header)
     const chunks: Uint8Array[] = [];
-    for await (const chunk of storage.rawStorage.load(id)) {
+    for await (const chunk of repository.objects.load(id)) {
       chunks.push(chunk);
     }
-    const rawData = concatBytes(...chunks);
+    const content = concatBytes(...chunks);
 
-    // Parse header to get type
-    const header = parseObjectHeader(rawData);
-    const content = extractGitObjectContent(rawData);
-
-    objects.push({ id, type: header.typeCode, content });
+    objects.push({ id, type: typeCode, content });
   }
 
   async function collectTree(treeId: string): Promise<void> {
     await collectObject(treeId);
 
-    for await (const entry of storage.trees.loadTree(treeId)) {
+    for await (const entry of repository.trees.loadTree(treeId)) {
       if (entry.mode === FileMode.TREE) {
         await collectTree(entry.id);
       } else {
@@ -589,8 +604,8 @@ async function collectObjectsForPush(storage: GitStorage, commitId: string): Pro
   // Collect the commit
   await collectObject(commitId);
 
-  // Load commit to get tree
-  const commit = await storage.commits.loadCommit(commitId);
+  // Load commit to get tree using high-level CommitStore API
+  const commit = await repository.commits.loadCommit(commitId);
   await collectTree(commit.tree);
 
   return objects;

@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Example demonstrating Git repository creation, commits, packing (gc), and native git compatibility",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "test": "pnpm start"
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
