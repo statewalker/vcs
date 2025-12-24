@@ -2,17 +2,17 @@
  * Typed object utilities
  *
  * Provides functions for storing and loading Git objects with type information.
- * These utilities work with ObjectStore, allowing higher-level storage
+ * These utilities work with LooseObjectStorage, allowing higher-level storage
  * classes to be independent of specific storage implementations.
  *
- * The ObjectStore interface stores and loads raw bytes. These utilities
+ * The storage interface stores and loads raw Git objects. These utilities
  * handle Git object format (header + content) on top of raw storage.
  */
 
 import type { ObjectId, ObjectTypeCode } from "@webrun-vcs/core";
 import { ObjectType } from "@webrun-vcs/core";
-import type { ObjectStore } from "@webrun-vcs/vcs";
 import { parseObjectHeader } from "./format/object-header.js";
+import type { LooseObjectStorage } from "./git-delta-object-storage.js";
 
 /**
  * Typed object data with type information
@@ -29,15 +29,15 @@ export interface TypedObject {
 /**
  * Store object with explicit type
  *
- * Creates proper Git object format with header and stores via ObjectStore.
+ * Creates proper Git object format with header and stores via storage.
  *
- * @param storage ObjectStore instance (stores raw bytes)
+ * @param storage Storage instance (stores raw Git objects)
  * @param type Object type code
  * @param content Object content (without header)
  * @returns Object ID
  */
 export async function storeTypedObject(
-  storage: ObjectStore,
+  storage: LooseObjectStorage,
   type: ObjectTypeCode,
   content: Uint8Array,
 ): Promise<ObjectId> {
@@ -56,13 +56,16 @@ export async function storeTypedObject(
 /**
  * Load object with type information
  *
- * Loads raw object via ObjectStore and parses type from Git object header.
+ * Loads raw object via storage and parses type from Git object header.
  *
- * @param storage ObjectStore instance (loads raw bytes)
+ * @param storage Storage instance (loads raw Git objects)
  * @param id Object ID
  * @returns Typed object data
  */
-export async function loadTypedObject(storage: ObjectStore, id: ObjectId): Promise<TypedObject> {
+export async function loadTypedObject(
+  storage: LooseObjectStorage,
+  id: ObjectId,
+): Promise<TypedObject> {
   // Collect all chunks from the async iterable
   const chunks: Uint8Array[] = [];
   for await (const chunk of storage.load(id)) {
@@ -87,28 +90,40 @@ export async function loadTypedObject(storage: ObjectStore, id: ObjectId): Promi
 /**
  * Store a commit object
  */
-export async function storeCommit(storage: ObjectStore, content: Uint8Array): Promise<ObjectId> {
+export async function storeCommit(
+  storage: LooseObjectStorage,
+  content: Uint8Array,
+): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.COMMIT, content);
 }
 
 /**
  * Store a tree object
  */
-export async function storeTree(storage: ObjectStore, content: Uint8Array): Promise<ObjectId> {
+export async function storeTree(
+  storage: LooseObjectStorage,
+  content: Uint8Array,
+): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.TREE, content);
 }
 
 /**
  * Store a blob object
  */
-export async function storeBlob(storage: ObjectStore, content: Uint8Array): Promise<ObjectId> {
+export async function storeBlob(
+  storage: LooseObjectStorage,
+  content: Uint8Array,
+): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.BLOB, content);
 }
 
 /**
  * Store a tag object
  */
-export async function storeTag(storage: ObjectStore, content: Uint8Array): Promise<ObjectId> {
+export async function storeTag(
+  storage: LooseObjectStorage,
+  content: Uint8Array,
+): Promise<ObjectId> {
   return storeTypedObject(storage, ObjectType.TAG, content);
 }
 

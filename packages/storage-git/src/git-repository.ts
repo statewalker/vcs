@@ -23,19 +23,19 @@ import type {
   TreeStore,
 } from "@webrun-vcs/core";
 import { ObjectType } from "@webrun-vcs/core";
-import type { ObjectStore } from "@webrun-vcs/vcs";
 import { parseObjectHeader } from "./format/object-header.js";
+import type { LooseObjectStorage } from "./git-delta-object-storage.js";
 import { GitStorage, type GitStorageOptions } from "./git-storage.js";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 
 /**
- * Adapter from raw ObjectStore to GitObjectStore interface.
+ * Adapter from raw storage to GitObjectStore interface.
  *
- * The raw ObjectStore stores objects with Git format (header + content).
+ * The raw storage stores objects with Git format (header + content).
  * This adapter provides the typed GitObjectStore interface on top of it.
  */
 class GitObjectStoreAdapter implements GitObjectStore {
-  constructor(private readonly rawStorage: ObjectStore) {}
+  constructor(private readonly rawStorage: LooseObjectStorage) {}
 
   async store(
     type: ObjectTypeString,

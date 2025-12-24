@@ -1,35 +1,34 @@
 /**
  * Git object storage implementation
  *
- * Provides typed object storage on top of a raw ObjectStore.
+ * Provides typed object storage on top of a raw storage.
  * Uses utility functions for Git object format handling.
  *
- * This class wraps a raw ObjectStore (which stores raw bytes) and provides
- * typed blob storage semantics. For full Git repository access including
- * pack files, use GitRawObjectStorage or a composite storage.
+ * This class wraps raw storage (which stores raw Git objects) and provides
+ * typed blob storage semantics.
  *
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
 import type { ObjectId } from "@webrun-vcs/core";
 import { ObjectType } from "@webrun-vcs/core";
-import type { ObjectStore } from "@webrun-vcs/vcs";
+import type { LooseObjectStorage } from "./git-delta-object-storage.js";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 
 /**
- * Git object storage wrapping a raw ObjectStore
+ * Git object storage wrapping raw storage
  *
- * Implements the ObjectStore interface for content-addressable storage.
+ * Provides content-addressable storage with blob semantics.
  * The store() method stores content as blob objects.
  * The load() method returns content without Git headers.
  *
  * For typed object operations (commit, tree, tag), use the utility
  * functions from typed-object-utils.ts with this storage's rawStorage.
  */
-export class GitObjectStorage implements ObjectStore {
-  private readonly rawStorage: ObjectStore;
+export class GitObjectStorage {
+  private readonly rawStorage: LooseObjectStorage;
 
-  constructor(rawStorage: ObjectStore) {
+  constructor(rawStorage: LooseObjectStorage) {
     this.rawStorage = rawStorage;
   }
 
@@ -39,7 +38,7 @@ export class GitObjectStorage implements ObjectStore {
    * Use this with utility functions like storeTypedObject() and loadTypedObject()
    * for storing non-blob objects.
    */
-  getRawStorage(): ObjectStore {
+  getRawStorage(): LooseObjectStorage {
     return this.rawStorage;
   }
 
