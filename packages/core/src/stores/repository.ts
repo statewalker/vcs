@@ -8,8 +8,11 @@
  * - Memory: in-memory for testing
  */
 
-import type { GitStores } from "./git-stores.js";
+import type { BlobStore } from "./blob-store.js";
+import type { CommitStore } from "./commit-store.js";
 import type { RefStore } from "./ref-store.js";
+import type { TagStore } from "./tag-store.js";
+import type { TreeStore } from "./tree-store.js";
 
 /**
  * Repository configuration
@@ -29,7 +32,19 @@ export interface RepositoryConfig {
  * Combines all stores into a unified repository interface.
  * This is the main entry point for VCS operations.
  */
-export interface Repository extends GitStores {
+export interface Repository {
+  /** Commit object storage */
+  readonly commits: CommitStore;
+
+  /** Tree object storage */
+  readonly trees: TreeStore;
+
+  /** Blob object storage */
+  readonly blobs: BlobStore;
+
+  /** Tag object storage */
+  readonly tags: TagStore;
+
   /** Reference storage for branches, tags, HEAD */
   readonly refs: RefStore;
 

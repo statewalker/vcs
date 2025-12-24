@@ -218,7 +218,7 @@ export async function entriesToCommit(
   let gpgSignature: string | undefined;
   let message = "";
 
-  for await (const entry of asAsyncIterable(entries)) {
+  for await (const entry of entries) {
     switch (entry.type) {
       case "tree":
         tree = entry.value;
