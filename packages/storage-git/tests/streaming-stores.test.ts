@@ -7,7 +7,7 @@ import { createStreamingStoresTests } from "@webrun-vcs/testing";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { beforeAll } from "vitest";
-import { createStreamingFileStores } from "../src/create-streaming-stores.js";
+import { createFileObjectStores } from "../src/object-storage/index.js";
 
 beforeAll(() => {
   setCompression(createNodeCompression());
@@ -18,7 +18,11 @@ createStreamingStoresTests("File", async () => {
   const files = new FilesApi(new MemFilesApi());
   const objectsDir = "/test-repo/objects";
 
-  const stores = createStreamingFileStores(files, objectsDir);
+  const stores = createFileObjectStores({
+    files,
+    objectsPath: objectsDir,
+    tempPath: `${objectsDir}/../tmp`,
+  });
 
   return {
     stores,

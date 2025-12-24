@@ -8,8 +8,8 @@
 
 import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@webrun-vcs/core";
 import { ObjectType } from "@webrun-vcs/core";
-import type { ObjectStore } from "@webrun-vcs/vcs";
 import { parseCommit, serializeCommit } from "./format/commit-format.js";
+import type { LooseObjectStorage } from "./git-delta-object-storage.js";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 
 /**
@@ -26,9 +26,9 @@ interface CommitEntry {
  * Implements CommitStore with graph traversal capabilities.
  */
 export class GitCommitStorage implements CommitStore {
-  private readonly rawStorage: ObjectStore;
+  private readonly rawStorage: LooseObjectStorage;
 
-  constructor(rawStorage: ObjectStore) {
+  constructor(rawStorage: LooseObjectStorage) {
     this.rawStorage = rawStorage;
   }
 

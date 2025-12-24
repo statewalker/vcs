@@ -1,18 +1,18 @@
 /**
  * Git pack storage implementation
  *
- * Provides read-only ObjectStore interface for Git pack files.
+ * Provides read-only access to Git pack files.
  * Scans the objects/pack directory for pack files and their indexes,
  * and provides unified access to all packed objects.
  *
- * This is a read-only storage - store() and delete() are not supported.
+ * This storage does not implement ObjectStore - it's a specialized
+ * read-only interface for pack file access.
  *
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
 import { type FileInfo, type FilesApi, joinPath } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/core";
-import type { ObjectStore } from "@webrun-vcs/vcs";
 import { createGitObject } from "./format/object-header.js";
 import { type PackIndex, PackObjectType, readPackIndex } from "./pack/index.js";
 import { type PackDeltaChainInfo, PackReader } from "./pack/pack-reader.js";
@@ -32,10 +32,10 @@ interface PackFile {
 /**
  * Git pack storage implementation
  *
- * Implements ObjectStore for reading from pack files.
- * This is read-only storage - all write operations throw errors.
+ * Read-only storage for accessing objects in Git pack files.
+ * Manages multiple pack files and provides a unified interface.
  */
-export class GitPackStorage implements ObjectStore {
+export class GitPackStorage {
   private readonly files: FilesApi;
   private readonly objectsDir: string;
   private packFiles: PackFile[] = [];
@@ -44,13 +44,6 @@ export class GitPackStorage implements ObjectStore {
   constructor(files: FilesApi, gitDir: string) {
     this.files = files;
     this.objectsDir = joinPath(gitDir, "objects");
-  }
-
-  /**
-   * Store is not supported for pack storage
-   */
-  async store(_data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
-    throw new Error("GitPackStorage is read-only. Use GitRawObjectStorage for writing.");
   }
 
   /**
@@ -123,13 +116,6 @@ export class GitPackStorage implements ObjectStore {
     }
 
     return false;
-  }
-
-  /**
-   * Delete is not supported for pack storage
-   */
-  async delete(_id: ObjectId): Promise<boolean> {
-    throw new Error("GitPackStorage is read-only. Cannot delete objects from pack files.");
   }
 
   /**

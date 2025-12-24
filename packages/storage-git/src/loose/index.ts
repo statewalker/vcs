@@ -5,5 +5,6 @@
  * in .git/objects/XX/YYYYYY... format.
  */
 
+export * from "./file-loose-object-storage.js";
 export * from "./loose-object-reader.js";
 export * from "./loose-object-writer.js";
