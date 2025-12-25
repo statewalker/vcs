@@ -10,6 +10,7 @@
 
 import type { BlobStore } from "./blob/blob-store.js";
 import type { CommitStore } from "./commits/commit-store.js";
+import type { GitObjectStore } from "./objects/object-store.js";
 import type { RefStore } from "./refs/ref-store.js";
 import type { TagStore } from "./tags/tag-store.js";
 import type { TreeStore } from "./trees/tree-store.js";
@@ -33,6 +34,9 @@ export interface RepositoryConfig {
  * This is the main entry point for VCS operations.
  */
 export interface Repository {
+  /** Unified Git object storage (raw objects with headers) */
+  readonly objects: GitObjectStore;
+
   /** Commit object storage */
   readonly commits: CommitStore;
 

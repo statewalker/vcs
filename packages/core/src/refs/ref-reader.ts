@@ -8,8 +8,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
 import { type FilesApi, joinPath } from "../files/index.js";
+import type { ObjectId } from "../id/index.js";
 import { findPackedRef, readPackedRefs } from "./packed-refs-reader.js";
 import {
   createRef,
@@ -19,7 +19,7 @@ import {
   OBJECT_ID_STRING_LENGTH,
   R_REFS,
   type Ref,
-  RefStore,
+  RefStorage,
   SYMREF_PREFIX,
   type SymbolicRef,
 } from "./ref-types.js";
@@ -92,7 +92,7 @@ export function parseRefContent(refName: string, content: Uint8Array): Ref | Sym
     // Decode and extract target
     const str = new TextDecoder().decode(content);
     const target = str.substring(SYMREF_PREFIX.length).trim();
-    return createSymbolicRef(refName, target, RefStore.LOOSE);
+    return createSymbolicRef(refName, target, RefStorage.LOOSE);
   }
 
   // Parse as object ID
@@ -103,7 +103,7 @@ export function parseRefContent(refName: string, content: Uint8Array): Ref | Sym
     throw new Error(`Invalid ref content in ${refName}: too short`);
   }
 
-  return createRef(refName, objectId.substring(0, 40) as ObjectId, RefStore.LOOSE);
+  return createRef(refName, objectId.substring(0, 40) as ObjectId, RefStorage.LOOSE);
 }
 
 /**

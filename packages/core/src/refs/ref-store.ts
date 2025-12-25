@@ -1,47 +1,15 @@
 /**
  * Reference storage interface
+ *
+ * Defines the abstract RefStore interface for managing Git refs.
+ * The concrete Ref and SymbolicRef types are defined in ref-types.ts.
  */
 
 import type { ObjectId } from "../id/index.js";
+import type { Ref, SymbolicRef } from "./ref-types.js";
 
-/**
- * Storage location of a reference (informational only)
- */
-export enum RefStoreLocation {
-  /** The ref does not exist yet */
-  NEW = "new",
-  /** Primary storage location */
-  PRIMARY = "primary",
-  /** Secondary/packed storage location */
-  PACKED = "packed",
-}
-
-/**
- * A Git reference pointing to an object
- */
-export interface Ref {
-  readonly name: string;
-  readonly objectId: ObjectId | undefined;
-  readonly storage: RefStoreLocation;
-  readonly peeled: boolean;
-  readonly peeledObjectId?: ObjectId;
-}
-
-/**
- * A symbolic reference pointing to another ref
- */
-export interface SymbolicRef {
-  readonly name: string;
-  readonly target: string;
-  readonly storage: RefStoreLocation;
-}
-
-/**
- * Check if a reference is symbolic
- */
-export function isSymbolicRef(ref: Ref | SymbolicRef): ref is SymbolicRef {
-  return "target" in ref && typeof ref.target === "string";
-}
+// Re-export RefStorage enum as RefStoreLocation for backwards compatibility
+export { RefStorage as RefStoreLocation } from "./ref-types.js";
 
 /**
  * Result of a compare-and-swap update operation
