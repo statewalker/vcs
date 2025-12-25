@@ -1,13 +1,12 @@
 /**
  * Git Delta Object Storage
  *
- * Combines loose object storage with pack file storage, adding delta
- * compression capabilities. This is the main storage implementation for
- * Git repositories that supports:
+ * @deprecated This class implements the deprecated ObjectStore interface.
+ * Use the new architecture instead:
+ * - FileBinStore from binary-storage for raw + delta storage
+ * - createFileObjectStores() from object-storage for Git-compatible stores
  *
- * - Reading from both loose objects and pack files
- * - Writing to loose objects
- * - Delta compression (deltify/undeltify/repack)
+ * Implements DeltaObjectStore interface for Git repositories.
  *
  * Architecture:
  * - Pack files are immutable (read-only)
@@ -24,6 +23,7 @@
 import type { FilesApi } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/core";
 import { createDeltaRanges, deltaRangesToGitFormat } from "@webrun-vcs/utils";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 
 /**
  * Options for delta creation
@@ -49,33 +49,12 @@ export interface GitDeltaChainInfo {
   savings: number;
 }
 
+import { CompositeObjectStorage } from "./composite-object-storage.js";
 import { parseObjectHeader } from "./format/object-header.js";
 import { GitPackStorage } from "./git-pack-storage.js";
 import { PackWriterStream, writePackIndex } from "./pack/index.js";
 import { PackObjectType } from "./pack/types.js";
 import { atomicWriteFile, bytesToHex, concatBytes, ensureDir } from "./utils/index.js";
-
-/**
- * Loose object storage interface
- *
- * This defines the minimal interface needed for loose object storage.
- * Implementations include GitRawObjectStorage (legacy) and can be
- * extended to use the new RawStore-based implementations.
- */
-export interface LooseObjectStorage {
-  /** Store content and return object ID */
-  store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId>;
-  /** Load content by ID */
-  load(id: ObjectId, params?: { offset?: number; length?: number }): AsyncIterable<Uint8Array>;
-  /** Check if object exists */
-  has(id: ObjectId): Promise<boolean>;
-  /** Delete object */
-  delete(id: ObjectId): Promise<boolean>;
-  /** List all object IDs */
-  listObjects(): AsyncIterable<ObjectId>;
-  /** Get object size */
-  getSize(id: ObjectId): Promise<number>;
-}
 
 /** Default minimum size for deltification */
 const DEFAULT_MIN_SIZE = 50;
@@ -107,111 +86,52 @@ function typeStringToPackType(type: string): PackObjectType {
 /**
  * Git-compatible delta object storage
  *
- * Combines loose object storage with pack file storage, providing:
- * - Unified read access (loose objects shadow packed versions)
- * - Write access (always to loose storage)
- * - Delta compression operations (deltify/undeltify/repack)
+ * Provides deltify/undeltify operations by creating new storage artifacts
+ * (pack files for deltas, loose objects for undeltified content).
  */
-export class GitDeltaObjectStorage {
+export class GitDeltaObjectStorage implements ObjectStore {
   private readonly files: FilesApi;
   private readonly gitDir: string;
-  private readonly looseStorage: LooseObjectStorage;
+  private readonly looseStorage: ObjectStore;
   private readonly packStorage: GitPackStorage;
+  private readonly composite: CompositeObjectStorage;
 
-  constructor(files: FilesApi, gitDir: string, looseStorage: LooseObjectStorage) {
+  constructor(files: FilesApi, gitDir: string, looseStorage: ObjectStore) {
     this.files = files;
     this.gitDir = gitDir;
     this.looseStorage = looseStorage;
     this.packStorage = new GitPackStorage(files, gitDir);
+    // Loose objects take priority (they shadow packed versions)
+    this.composite = new CompositeObjectStorage(this.packStorage, [this.looseStorage]);
   }
 
-  // ========== Storage Methods (loose first, then pack) ==========
+  // ========== ObjectStore Methods (delegate to composite) ==========
 
-  /**
-   * Store content as a loose object
-   */
   async store(data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
     return this.looseStorage.store(data);
   }
 
-  /**
-   * Load object content by ID
-   *
-   * Checks loose storage first (loose objects shadow packed versions),
-   * then falls back to pack storage.
-   */
   async *load(
     id: ObjectId,
     params?: { offset?: number; length?: number },
   ): AsyncIterable<Uint8Array> {
-    // Loose objects take priority (shadow packed versions)
-    if (await this.looseStorage.has(id)) {
-      yield* this.looseStorage.load(id, params);
-      return;
-    }
-
-    // Fall back to pack storage
-    if (await this.packStorage.has(id)) {
-      yield* this.packStorage.load(id, params);
-      return;
-    }
-
-    throw new Error(`Object not found: ${id}`);
+    yield* this.composite.load(id, params);
   }
 
-  /**
-   * Get object size
-   */
   async getSize(id: ObjectId): Promise<number> {
-    // Try loose storage first
-    const looseSize = await this.looseStorage.getSize(id);
-    if (looseSize >= 0) {
-      return looseSize;
-    }
-
-    // Try pack storage
-    return this.packStorage.getSize(id);
+    return this.composite.getSize(id);
   }
 
-  /**
-   * Check if object exists
-   */
   async has(id: ObjectId): Promise<boolean> {
-    if (await this.looseStorage.has(id)) {
-      return true;
-    }
-    return this.packStorage.has(id);
+    return this.composite.has(id);
   }
 
-  /**
-   * Delete object from loose storage
-   *
-   * Only affects loose storage. Pack file objects cannot be deleted
-   * without repacking.
-   */
   async delete(id: ObjectId): Promise<boolean> {
-    return this.looseStorage.delete(id);
+    return this.composite.delete(id);
   }
 
-  /**
-   * List all object IDs from both loose and pack storage
-   */
   async *listObjects(): AsyncGenerator<ObjectId> {
-    const seen = new Set<ObjectId>();
-
-    // Enumerate loose objects first
-    for await (const id of this.looseStorage.listObjects()) {
-      seen.add(id);
-      yield id;
-    }
-
-    // Enumerate pack objects (skip duplicates)
-    for await (const id of this.packStorage.listObjects()) {
-      if (!seen.has(id)) {
-        seen.add(id);
-        yield id;
-      }
-    }
+    yield* this.composite.listObjects();
   }
 
   // ========== DeltaObjectStore Methods ==========
@@ -551,6 +471,6 @@ export class GitDeltaObjectStorage {
    * Close storage
    */
   async close(): Promise<void> {
-    await this.packStorage.close();
+    await this.composite.close();
   }
 }
