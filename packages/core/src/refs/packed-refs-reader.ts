@@ -12,8 +12,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import { type FilesApi, joinPath } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/core";
+import { type FilesApi, joinPath } from "../files/index.js";
 import {
   createPeeledRef,
   createPeeledTagRef,

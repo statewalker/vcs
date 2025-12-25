@@ -2,7 +2,7 @@
  * File utility functions for Git storage
  */
 
-import { basename, dirname, type FilesApi, joinPath } from "@statewalker/webrun-files";
+import { basename, dirname, type FilesApi, joinPath } from "../files/index.js";
 
 /**
  * Write a file atomically (via temp file + rename)

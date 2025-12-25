@@ -1,5 +1,7 @@
-import { FileMode, type ObjectId, type TreeEntry } from "../id/index.js";
-import type { TreeStore } from "../stores/index.js";
+import { FileMode } from "../files/file-mode.js";
+import type { FilesApi } from "../files/index.js";
+import type { ObjectId } from "../id/index.js";
+import type { TreeEntry, TreeStore } from "../trees/index.js";
 import {
   INDEX_VERSION_2,
   type IndexVersion,
