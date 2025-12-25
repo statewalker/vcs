@@ -2,6 +2,8 @@
 export * from "./binary/index.js";
 // Stores
 export * from "./commits/index.js";
+// Delta storage
+export * from "./delta/index.js";
 // Files and file modes
 export * from "./files/index.js";
 // Format types (CommitEntry, TagEntry) and formatting functions

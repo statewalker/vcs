@@ -7,15 +7,18 @@
  */
 
 import type { FilesApi } from "@statewalker/webrun-files";
-import type { BlobStore, CommitStore, TagStore, TreeStore } from "@webrun-vcs/core";
 import {
+  type BlobStore,
+  type CommitStore,
   GitBlobStore,
   GitCommitStore,
   type GitObjectStore,
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
-} from "@webrun-vcs/vcs/object-storage";
+  type TagStore,
+  type TreeStore,
+} from "@webrun-vcs/core";
 import { FileRawStore, FileVolatileStore } from "../binary-storage/index.js";
 
 /**
@@ -95,4 +98,4 @@ export {
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
-} from "@webrun-vcs/vcs/object-storage";
+} from "@webrun-vcs/core";

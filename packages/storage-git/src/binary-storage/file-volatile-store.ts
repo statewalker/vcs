@@ -8,7 +8,7 @@
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { VolatileContent, VolatileStore } from "@webrun-vcs/vcs/binary-storage";
+import type { VolatileContent, VolatileStore } from "@webrun-vcs/core";
 
 /**
  * File-based volatile storage

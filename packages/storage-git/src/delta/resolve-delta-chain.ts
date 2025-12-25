@@ -5,8 +5,8 @@
  * Handles both streaming and buffered modes.
  */
 
+import type { DeltaStore, RawStore } from "@webrun-vcs/core";
 import { applyDelta } from "@webrun-vcs/utils";
-import type { DeltaStore, RawStore } from "@webrun-vcs/vcs/binary-storage";
 
 /**
  * Resolve a delta chain and stream the result

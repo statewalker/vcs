@@ -11,26 +11,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs"
-    },
-    "./interfaces": {
-      "types": "./dist/interfaces/index.d.ts",
-      "import": "./dist/esm/interfaces/index.js",
-      "require": "./dist/cjs/interfaces/index.cjs"
-    },
-    "./format": {
-      "types": "./dist/format/index.d.ts",
-      "import": "./dist/esm/format/index.js",
-      "require": "./dist/cjs/format/index.cjs"
-    },
-    "./binary-storage": {
-      "types": "./dist/binary-storage/index.d.ts",
-      "import": "./dist/esm/binary-storage/index.js",
-      "require": "./dist/cjs/binary-storage/index.cjs"
-    },
-    "./object-storage": {
-      "types": "./dist/object-storage/index.d.ts",
-      "import": "./dist/esm/object-storage/index.js",
-      "require": "./dist/cjs/object-storage/index.cjs"
     }
   },
   "files": [

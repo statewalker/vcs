@@ -8,13 +8,8 @@
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
+import type { DeltaChainDetails, DeltaInfo, DeltaStore, StoredDelta } from "@webrun-vcs/core";
 import type { Delta } from "@webrun-vcs/utils";
-import type {
-  DeltaChainDetails,
-  DeltaInfo,
-  DeltaStore,
-  StoredDelta,
-} from "@webrun-vcs/vcs/binary-storage";
 
 /**
  * Serialized delta entry format
