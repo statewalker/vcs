@@ -2,7 +2,7 @@
  * In-memory RawStore implementation for testing
  */
 
-import { slice } from "@/packages/utils/dist/index.js";
+import { slice } from "@webrun-vcs/utils";
 import type { RawStore } from "../raw-store.js";
 
 /**

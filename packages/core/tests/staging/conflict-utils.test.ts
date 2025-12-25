@@ -17,8 +17,8 @@ import {
   strategyToStage,
 } from "../../src/staging/conflict-utils.js";
 import { MergeStage, type StagingEntry } from "../../src/staging/staging-store.js";
-import type { ObjectId } from "../../src/types/index.js";
-import { FileMode } from "../../src/types/index.js";
+import type { ObjectId } from "../../src/id/index.js";
+import { FileMode } from "../../src/files/file-mode.js";
 
 const sampleObjectId = "0".repeat(40) as ObjectId;
 const anotherObjectId = "a".repeat(40) as ObjectId;
