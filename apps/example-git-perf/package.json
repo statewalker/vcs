@@ -6,7 +6,7 @@
   "description": "Performance benchmark: Clone git source repository, run gc, load pack files with webrun-vcs, traverse commit history",
   "scripts": {
     "start": "tsx src/main.ts",
-    "test": "echo 'Skipped: requires network and long runtime (use pnpm start to run full benchmark)'",
+    "test": "echo \"No tests specified\" && exit 0",
     "step:clone": "tsx src/steps/01-clone-repository.ts",
     "step:gc": "tsx src/steps/02-garbage-collection.ts",
     "step:load": "tsx src/steps/03-load-pack-files.ts",
