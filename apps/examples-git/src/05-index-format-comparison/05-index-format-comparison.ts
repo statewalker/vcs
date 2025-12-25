@@ -9,7 +9,7 @@ import {
   readPackIndex,
   writePackIndexV1,
   writePackIndexV2,
-} from "@webrun-vcs/storage-git";
+} from "@webrun-vcs/core";
 import {
   createFilesApi,
   formatId,

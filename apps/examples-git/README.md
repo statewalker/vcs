@@ -97,7 +97,7 @@ pnpm example:01 ./test-data/git-repo/pack-*.pack
 import {
   readPackIndex,
   PackReader,
-} from "@webrun-vcs/storage-git";
+} from "@webrun-vcs/core";
 
 // Read index file
 const idxData = await files.read("pack.idx");
@@ -123,7 +123,7 @@ import {
   writePack,
   writePackIndexV2,
   PackObjectType,
-} from "@webrun-vcs/storage-git";
+} from "@webrun-vcs/core";
 
 // Prepare objects
 const objects = [
@@ -145,7 +145,7 @@ await files.write("new.idx", idxData);
 ### Streaming Writer
 
 ```typescript
-import { PackWriterStream } from "@webrun-vcs/storage-git";
+import { PackWriterStream } from "@webrun-vcs/core";
 
 const writer = new PackWriterStream();
 

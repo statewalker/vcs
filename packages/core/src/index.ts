@@ -13,6 +13,8 @@ export * from "./id/index.js";
 // Object types and formatting
 export * from "./objects/object-header.js";
 export * from "./objects/object-types.js";
+// Pack file utilities
+export * from "./pack/index.js";
 // Person identity interface
 export * from "./person/index.js";
 // References
@@ -23,6 +25,5 @@ export * from "./repository.js";
 export * from "./staging/index.js";
 export * from "./tags/index.js";
 export * from "./trees/index.js";
-
 // Working tree interface
 export * from "./worktree/index.js";

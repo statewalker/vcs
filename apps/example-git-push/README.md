@@ -52,7 +52,7 @@ pnpm --filter @webrun-vcs/example-git-push start
 ### Opening Repository with High-Level API
 
 ```typescript
-import { createGitRepository, type GitRepository } from "@webrun-vcs/storage-git";
+import { createGitRepository, type GitRepository } from "@webrun-vcs/commands";
 
 const repository = await createGitRepository(files, ".git", {
   create: false,

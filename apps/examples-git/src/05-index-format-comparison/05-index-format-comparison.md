@@ -102,7 +102,7 @@ V2 is ~16% larger due to CRC32 values.
 ### Reading Index
 
 ```typescript
-import { readPackIndex } from "@webrun-vcs/storage-git";
+import { readPackIndex } from "@webrun-vcs/core";
 
 const idxData = await files.read(indexPath);
 const index = readPackIndex(idxData);
@@ -116,7 +116,7 @@ console.log(index.hasCRC32Support()); // V2 only
 ### Writing V1 Index
 
 ```typescript
-import { writePackIndexV1 } from "@webrun-vcs/storage-git";
+import { writePackIndexV1 } from "@webrun-vcs/core";
 
 const entries: PackIndexWriterEntry[] = [
   { id: "abc123...", offset: 12, crc32: 0 },
@@ -129,7 +129,7 @@ const v1Data = await writePackIndexV1(entries, packChecksum);
 ### Writing V2 Index
 
 ```typescript
-import { writePackIndexV2 } from "@webrun-vcs/storage-git";
+import { writePackIndexV2 } from "@webrun-vcs/core";
 
 const entries: PackIndexWriterEntry[] = [
   { id: "abc123...", offset: 12, crc32: 0x1a2b3c4d },
@@ -142,7 +142,7 @@ const v2Data = await writePackIndexV2(entries, packChecksum);
 ### Choosing Format Automatically
 
 ```typescript
-import { writePackIndex, oldestPossibleFormat } from "@webrun-vcs/storage-git";
+import { writePackIndex, oldestPossibleFormat } from "@webrun-vcs/core";
 
 // Returns 1 if all offsets fit in 32-bit, else 2
 const version = oldestPossibleFormat(entries);

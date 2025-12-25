@@ -26,10 +26,10 @@
  */
 
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository, type GitRepository } from "@webrun-vcs/storage-git";
+import { createGitRepository, type GitRepository } from "@webrun-vcs/commands";
+import { FileMode, type PersonIdent } from "@webrun-vcs/core";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
-import { FileMode, type PersonIdent } from "@webrun-vcs/vcs";
 
 // Initialize compression
 setCompression(createNodeCompression());
