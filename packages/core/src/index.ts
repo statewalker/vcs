@@ -4,13 +4,14 @@ export * from "./binary/index.js";
 export * from "./commits/index.js";
 // Files and file modes
 export * from "./files/index.js";
-// Format types (PersonIdent, CommitEntry, TagEntry)
+// Format types (CommitEntry, TagEntry) and formatting functions
 export * from "./format/index.js";
 // Object IDs
 export * from "./id/index.js";
-
 // Object types
 export * from "./objects/object-types.js";
+// Person identity interface
+export * from "./person/index.js";
 // References
 export * from "./refs/index.js";
 // Repository interface

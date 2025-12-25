@@ -1,4 +1,6 @@
-export * from "./binary-storage/index.js";
-export * from "./format/index.js";
+// Re-export all core types for backwards compatibility
+export * from "@webrun-vcs/core";
+
+// VCS-specific interfaces and object storage
 export * from "./interfaces/index.js";
 export * from "./object-storage/index.js";

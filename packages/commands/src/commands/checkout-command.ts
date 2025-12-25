@@ -33,8 +33,13 @@
  * ```
  */
 
-import { FileMode, type ObjectId, type Ref } from "@webrun-vcs/core";
-import { DeleteStagingEntry, UpdateStagingEntry } from "@webrun-vcs/worktree";
+import {
+  DeleteStagingEntry,
+  FileMode,
+  type ObjectId,
+  type Ref,
+  UpdateStagingEntry,
+} from "@webrun-vcs/core";
 
 import {
   MissingArgumentError,

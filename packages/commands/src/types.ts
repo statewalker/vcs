@@ -3,10 +3,11 @@ import type {
   CommitStore,
   RefStore,
   Repository,
+  StagingStore,
   TagStore,
   TreeStore,
+  WorkingTreeIterator,
 } from "@webrun-vcs/core";
-import type { StagingStore, WorkingTreeIterator } from "@webrun-vcs/worktree";
 
 /**
  * Core storage interface for Git operations.
