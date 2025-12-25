@@ -6,8 +6,8 @@
  * for entry ordering.
  */
 
-import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/vcs";
-import { FileMode } from "@webrun-vcs/vcs";
+import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/core";
+import { FileMode } from "@webrun-vcs/core";
 import type { DatabaseClient } from "./database-client.js";
 
 /**

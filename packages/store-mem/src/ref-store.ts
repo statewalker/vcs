@@ -5,8 +5,8 @@
  * No persistence - data is lost when the instance is garbage collected.
  */
 
-import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@webrun-vcs/vcs";
-import { RefStoreLocation } from "@webrun-vcs/vcs";
+import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@webrun-vcs/core";
+import { RefStorage } from "@webrun-vcs/core";
 
 /**
  * Maximum depth for following symbolic refs to prevent infinite loops.
@@ -39,14 +39,14 @@ export class MemoryRefStore implements RefStore {
       return {
         name: refName,
         target: entry.target,
-        storage: RefStoreLocation.PRIMARY,
+        storage: RefStorage.LOOSE,
       } as SymbolicRef;
     }
 
     return {
       name: refName,
       objectId: entry.objectId,
-      storage: RefStoreLocation.PRIMARY,
+      storage: RefStorage.LOOSE,
       peeled: entry.peeledObjectId !== undefined,
       peeledObjectId: entry.peeledObjectId,
     } as Ref;
@@ -69,7 +69,7 @@ export class MemoryRefStore implements RefStore {
         return {
           name: current,
           objectId: entry.objectId,
-          storage: RefStoreLocation.PRIMARY,
+          storage: RefStorage.LOOSE,
           peeled: entry.peeledObjectId !== undefined,
           peeledObjectId: entry.peeledObjectId,
         } as Ref;
@@ -103,13 +103,13 @@ export class MemoryRefStore implements RefStore {
         yield {
           name,
           target: entry.target,
-          storage: RefStoreLocation.PRIMARY,
+          storage: RefStorage.LOOSE,
         } as SymbolicRef;
       } else {
         yield {
           name,
           objectId: entry.objectId,
-          storage: RefStoreLocation.PRIMARY,
+          storage: RefStorage.LOOSE,
           peeled: entry.peeledObjectId !== undefined,
           peeledObjectId: entry.peeledObjectId,
         } as Ref;

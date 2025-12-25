@@ -252,9 +252,6 @@ importers:
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
-      '@webrun-vcs/worktree':
-        specifier: workspace:*
-        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -383,6 +380,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../core
       '@webrun-vcs/storage-git':
         specifier: workspace:*
         version: link:../storage-git
@@ -401,9 +401,6 @@ importers:
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
       sql.js:
         specifier: ^1.12.0
         version: 1.13.0
@@ -416,15 +413,12 @@ importers:
 
   packages/store-kv:
     dependencies:
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../core
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
-      '@webrun-vcs/worktree':
-        specifier: workspace:*
-        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -444,18 +438,15 @@ importers:
 
   packages/store-mem:
     dependencies:
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../core
       '@webrun-vcs/sandbox':
         specifier: workspace:*
         version: link:../sandbox
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
-      '@webrun-vcs/worktree':
-        specifier: workspace:*
-        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -475,18 +466,15 @@ importers:
 
   packages/store-sql:
     dependencies:
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../core
       '@webrun-vcs/sandbox':
         specifier: workspace:*
         version: link:../sandbox
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
-      '@webrun-vcs/worktree':
-        specifier: workspace:*
-        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -512,12 +500,9 @@ importers:
 
   packages/testing:
     dependencies:
-      '@webrun-vcs/vcs':
+      '@webrun-vcs/core':
         specifier: workspace:*
-        version: link:../vcs
-      '@webrun-vcs/worktree':
-        specifier: workspace:*
-        version: link:../worktree
+        version: link:../core
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

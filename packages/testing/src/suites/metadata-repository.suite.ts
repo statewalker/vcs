@@ -2,7 +2,7 @@
  * Parametrized test suite for MetadataRepository implementations
  */
 
-import type { MetadataRepository } from "@webrun-vcs/vcs";
+import type { MetadataRepository } from "@webrun-vcs/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

@@ -5,9 +5,9 @@
  * suitable for persistent storage in browsers and Node.js.
  */
 
+import type { ObjectId } from "@webrun-vcs/core";
 import { DefaultObjectStore } from "@webrun-vcs/sandbox";
 import { IntermediateCache, LRUCache } from "@webrun-vcs/utils";
-import type { ObjectId } from "@webrun-vcs/vcs";
 import type { DatabaseClient } from "./database-client.js";
 import { SQLDeltaRepository } from "./delta-repository.js";
 import { SQLMetadataRepository } from "./metadata-repository.js";

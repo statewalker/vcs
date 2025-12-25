@@ -10,7 +10,8 @@ export * from "./files/index.js";
 export * from "./format/index.js";
 // Object IDs
 export * from "./id/index.js";
-// Object types
+// Object types and formatting
+export * from "./objects/object-header.js";
 export * from "./objects/object-types.js";
 // Person identity interface
 export * from "./person/index.js";

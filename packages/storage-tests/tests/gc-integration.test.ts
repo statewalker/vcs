@@ -5,6 +5,7 @@
  * using the new architecture (DeltaStorageImpl, GCController).
  */
 
+import { MemoryVolatileStore } from "@webrun-vcs/core";
 import {
   type DeltaComputeResult,
   type DeltaComputeStrategy,
@@ -13,7 +14,6 @@ import {
 } from "@webrun-vcs/storage-git";
 import { MemBinStore } from "@webrun-vcs/store-mem";
 import { createDelta, createDeltaRanges, type Delta } from "@webrun-vcs/utils";
-import { MemoryVolatileStore } from "@webrun-vcs/vcs/binary-storage";
 import { beforeEach, describe, expect, it } from "vitest";
 
 const encoder = new TextEncoder();

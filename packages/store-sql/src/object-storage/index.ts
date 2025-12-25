@@ -5,16 +5,19 @@
  * that use Git-compatible serialization and SHA-1 hashing.
  */
 
-import type { BlobStore, CommitStore, TagStore, TreeStore } from "@webrun-vcs/vcs";
-import { MemoryVolatileStore } from "@webrun-vcs/vcs/binary-storage";
 import {
+  type BlobStore,
+  type CommitStore,
   GitBlobStore,
   GitCommitStore,
   type GitObjectStore,
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
-} from "@webrun-vcs/vcs/object-storage";
+  MemoryVolatileStore,
+  type TagStore,
+  type TreeStore,
+} from "@webrun-vcs/core";
 import { SqlRawStore } from "../binary-storage/sql-raw-store.js";
 import type { DatabaseClient } from "../database-client.js";
 
@@ -89,4 +92,4 @@ export {
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
-} from "@webrun-vcs/vcs/object-storage";
+} from "@webrun-vcs/core";

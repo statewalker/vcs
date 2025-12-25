@@ -353,7 +353,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      */
     it("should update staging on branch checkout", async () => {
       const { git, store } = await createInitializedGit();
-      const { DeleteStagingEntry } = await import("@webrun-vcs/worktree");
+      const { DeleteStagingEntry } = await import("@webrun-vcs/core");
 
       // Create initial state on main
       await addFile(store, "a.txt", "main-a");

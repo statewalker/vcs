@@ -6,16 +6,17 @@
  * efficient lookups by name pattern.
  */
 
-import { Sha1 } from "@webrun-vcs/utils/hash/sha1";
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
-import type { AnnotatedTag, ObjectId, ObjectTypeCode } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
 import {
+  type AnnotatedTag,
   computeTagSize,
   encodeObjectHeader,
   encodeTagEntries,
+  type ObjectId,
+  ObjectType,
+  type ObjectTypeCode,
   tagToEntries,
-} from "@webrun-vcs/vcs/format";
+} from "@webrun-vcs/core";
+import { bytesToHex, Sha1 } from "@webrun-vcs/utils";
 import type { DatabaseClient } from "../database-client.js";
 import type { SqlNativeTagStore } from "./types.js";
 

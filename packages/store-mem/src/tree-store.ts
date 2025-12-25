@@ -8,8 +8,8 @@
  * Trees are stored directly as JavaScript arrays for simplicity and performance.
  */
 
-import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/vcs";
-import { FileMode } from "@webrun-vcs/vcs";
+import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/core";
+import { FileMode } from "@webrun-vcs/core";
 
 /**
  * Well-known empty tree SHA-1 hash

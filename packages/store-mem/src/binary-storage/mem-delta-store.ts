@@ -5,13 +5,8 @@
  * Implements the new DeltaStore interface from binary-storage.
  */
 
+import type { DeltaChainDetails, DeltaInfo, DeltaStore, StoredDelta } from "@webrun-vcs/core";
 import type { Delta } from "@webrun-vcs/utils";
-import type {
-  DeltaChainDetails,
-  DeltaInfo,
-  DeltaStore,
-  StoredDelta,
-} from "@webrun-vcs/vcs/binary-storage";
 
 /**
  * Internal delta entry storage

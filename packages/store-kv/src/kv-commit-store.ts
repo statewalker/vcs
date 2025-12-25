@@ -4,7 +4,7 @@
  * Stores commit objects using a key-value backend with JSON serialization.
  */
 
-import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@webrun-vcs/vcs";
+import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@webrun-vcs/core";
 import type { KVStore } from "./kv-store.js";
 
 /**

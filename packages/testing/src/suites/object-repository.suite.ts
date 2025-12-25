@@ -2,7 +2,7 @@
  * Parametrized test suite for ObjectRepository implementations
  */
 
-import type { ObjectRepository } from "@webrun-vcs/vcs";
+import type { ObjectRepository } from "@webrun-vcs/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

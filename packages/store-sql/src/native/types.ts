@@ -5,7 +5,7 @@
  * while still computing Git-compatible SHA-1 object IDs for interoperability.
  */
 
-import type { BlobStore, CommitStore, ObjectId, TagStore, TreeStore } from "@webrun-vcs/vcs";
+import type { BlobStore, CommitStore, ObjectId, TagStore, TreeStore } from "@webrun-vcs/core";
 
 /**
  * Extended CommitStore with SQL query capabilities

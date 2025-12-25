@@ -5,7 +5,7 @@
  * Implements the new RawStore interface from binary-storage.
  */
 
-import type { RawStore } from "@webrun-vcs/vcs/binary-storage";
+import type { RawStore } from "@webrun-vcs/core";
 
 /**
  * Collect async iterable to Uint8Array
@@ -49,14 +49,26 @@ export class MemRawStore implements RawStore {
   }
 
   /**
-   * Load byte stream by key
+   * Load byte stream by key with optional range
    */
-  async *load(key: string): AsyncIterable<Uint8Array> {
+  async *load(
+    key: string,
+    options?: { offset?: number; length?: number },
+  ): AsyncGenerator<Uint8Array> {
     const bytes = this.data.get(key);
     if (!bytes) {
       throw new Error(`Key not found: ${key}`);
     }
-    yield bytes;
+
+    const offset = options?.offset ?? 0;
+    const length = options?.length ?? bytes.length - offset;
+
+    if (offset >= bytes.length) {
+      return;
+    }
+
+    const end = Math.min(offset + length, bytes.length);
+    yield bytes.slice(offset, end);
   }
 
   /**
@@ -84,10 +96,11 @@ export class MemRawStore implements RawStore {
 
   /**
    * Get content size for a key
+   * Returns -1 if key not found
    */
-  async size(key: string): Promise<number | undefined> {
+  async size(key: string): Promise<number> {
     const bytes = this.data.get(key);
-    return bytes?.length;
+    return bytes?.length ?? -1;
   }
 
   /**

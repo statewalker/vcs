@@ -4,8 +4,8 @@
  * Stores Git references using a key-value backend with JSON serialization.
  */
 
-import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@webrun-vcs/vcs";
-import { RefStoreLocation } from "@webrun-vcs/vcs";
+import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@webrun-vcs/core";
+import { RefStorage } from "@webrun-vcs/core";
 import type { KVStore } from "./kv-store.js";
 
 /**
@@ -56,14 +56,14 @@ export class KVRefStore implements RefStore {
       return {
         name: refName,
         target: s.t,
-        storage: RefStoreLocation.PRIMARY,
+        storage: RefStorage.LOOSE,
       } as SymbolicRef;
     }
 
     return {
       name: refName,
       objectId: s.oid,
-      storage: RefStoreLocation.PRIMARY,
+      storage: RefStorage.LOOSE,
       peeled: s.p != null,
       peeledObjectId: s.p,
     } as Ref;
@@ -89,7 +89,7 @@ export class KVRefStore implements RefStore {
         return {
           name: current,
           objectId: s.oid,
-          storage: RefStoreLocation.PRIMARY,
+          storage: RefStorage.LOOSE,
           peeled: s.p != null,
           peeledObjectId: s.p,
         } as Ref;

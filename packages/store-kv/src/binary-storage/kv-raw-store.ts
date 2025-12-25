@@ -5,7 +5,7 @@
  * Implements the new RawStore interface from binary-storage.
  */
 
-import type { RawStore } from "@webrun-vcs/vcs/binary-storage";
+import type { RawStore } from "@webrun-vcs/core";
 import type { KVStore } from "../kv-store.js";
 
 /**
@@ -109,14 +109,26 @@ export class KvRawStore implements RawStore {
   /**
    * Load byte stream by key
    */
-  async *load(key: string): AsyncIterable<Uint8Array> {
+  async *load(
+    key: string,
+    options?: { offset?: number; length?: number },
+  ): AsyncGenerator<Uint8Array> {
     const bytes = await this.kv.get(this.dataKey(key));
 
     if (!bytes) {
       throw new Error(`Key not found: ${key}`);
     }
 
-    yield bytes;
+    const offset = options?.offset ?? 0;
+    const length = options?.length ?? bytes.length - offset;
+
+    // Handle offset and length
+    if (offset > 0 || length < bytes.length - offset) {
+      const end = Math.min(offset + length, bytes.length);
+      yield bytes.slice(offset, end);
+    } else {
+      yield bytes;
+    }
   }
 
   /**
@@ -151,10 +163,10 @@ export class KvRawStore implements RawStore {
   /**
    * Get content size for a key
    */
-  async size(key: string): Promise<number | undefined> {
+  async size(key: string): Promise<number> {
     const sizeData = await this.kv.get(this.sizeKey(key));
     if (!sizeData) {
-      return undefined;
+      return -1;
     }
     return decodeSize(sizeData);
   }
