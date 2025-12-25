@@ -31,12 +31,12 @@
  * ```
  */
 
-import { FileMode } from "@webrun-vcs/core";
 import {
   DeleteStagingEntry,
+  FileMode,
   UpdateStagingEntry,
   type WorkingTreeIterator,
-} from "@webrun-vcs/worktree";
+} from "@webrun-vcs/core";
 
 import {
   IncompatibleOptionsError,
