@@ -20,7 +20,7 @@ import {
   R_REFS,
   R_REMOTES,
   R_TAGS,
-  RefStore,
+  RefStorage,
   SYMREF_PREFIX,
 } from "../../src/refs/ref-types.js";
 
@@ -31,7 +31,7 @@ describe("ref-types", () => {
 
       expect(ref.name).toBe("refs/heads/main");
       expect(ref.objectId).toBe("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-      expect(ref.storage).toBe(RefStore.LOOSE);
+      expect(ref.storage).toBe(RefStorage.LOOSE);
       expect(ref.peeled).toBe(false);
     });
 
@@ -39,10 +39,10 @@ describe("ref-types", () => {
       const ref = createRef(
         "refs/heads/main",
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        RefStore.PACKED,
+        RefStorage.PACKED,
       );
 
-      expect(ref.storage).toBe(RefStore.PACKED);
+      expect(ref.storage).toBe(RefStorage.PACKED);
     });
 
     it("creates ref with undefined objectId (unborn)", () => {
@@ -84,7 +84,7 @@ describe("ref-types", () => {
 
       expect(ref.name).toBe("HEAD");
       expect(ref.target).toBe("refs/heads/main");
-      expect(ref.storage).toBe(RefStore.LOOSE);
+      expect(ref.storage).toBe(RefStorage.LOOSE);
     });
   });
 
@@ -122,10 +122,10 @@ describe("ref-types", () => {
 
   describe("RefStore enum", () => {
     it("has expected values", () => {
-      expect(RefStore.NEW).toBe("new");
-      expect(RefStore.LOOSE).toBe("loose");
-      expect(RefStore.PACKED).toBe("packed");
-      expect(RefStore.LOOSE_PACKED).toBe("loose_packed");
+      expect(RefStorage.NEW).toBe("new");
+      expect(RefStorage.LOOSE).toBe("loose");
+      expect(RefStorage.PACKED).toBe("packed");
+      expect(RefStorage.LOOSE_PACKED).toBe("loose_packed");
     });
   });
 });

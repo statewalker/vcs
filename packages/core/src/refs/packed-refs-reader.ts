@@ -12,8 +12,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
 import { type FilesApi, joinPath } from "../files/index.js";
+import type { ObjectId } from "../id/index.js";
 import {
   createPeeledRef,
   createPeeledTagRef,
@@ -23,7 +23,7 @@ import {
   PACKED_REFS_HEADER,
   PACKED_REFS_PEELED,
   type Ref,
-  RefStore,
+  RefStorage,
 } from "./ref-types.js";
 
 /**
@@ -103,7 +103,7 @@ export function parsePackedRefs(content: string): PackedRefs {
         lastRef.name,
         lastRef.objectId,
         peeledId,
-        RefStore.PACKED,
+        RefStorage.PACKED,
       );
       continue;
     }
@@ -126,8 +126,8 @@ export function parsePackedRefs(content: string): PackedRefs {
 
     // If the file is marked as peeled, refs without ^ lines are non-tags
     const ref = peeled
-      ? createPeeledRef(name, objectId, RefStore.PACKED)
-      : createRef(name, objectId, RefStore.PACKED);
+      ? createPeeledRef(name, objectId, RefStorage.PACKED)
+      : createRef(name, objectId, RefStorage.PACKED);
 
     refs.push(ref);
     lastRef = ref;

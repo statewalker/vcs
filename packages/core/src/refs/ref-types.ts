@@ -7,12 +7,12 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/SymbolicRef.java
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectId } from "../id/index.js";
 
 /**
  * Storage location of a reference
  */
-export enum RefStore {
+export enum RefStorage {
   /** The ref does not exist yet */
   NEW = "new",
   /** Stored as a loose file in refs/ */
@@ -32,7 +32,7 @@ export interface Ref {
   /** ObjectId the ref points to, or undefined for unborn refs */
   readonly objectId: ObjectId | undefined;
   /** Storage location */
-  readonly storage: RefStore;
+  readonly storage: RefStorage;
   /** Is this reference peeled? */
   readonly peeled: boolean;
   /** For annotated tags, the commit/tree/blob the tag points to */
@@ -48,7 +48,7 @@ export interface SymbolicRef {
   /** Target ref name (e.g., "refs/heads/main") */
   readonly target: string;
   /** Storage location */
-  readonly storage: RefStore;
+  readonly storage: RefStorage;
 }
 
 /**
@@ -64,7 +64,7 @@ export function isSymbolicRef(ref: Ref | SymbolicRef): ref is SymbolicRef {
 export function createRef(
   name: string,
   objectId: ObjectId | undefined,
-  storage: RefStore = RefStore.LOOSE,
+  storage: RefStorage = RefStorage.LOOSE,
 ): Ref {
   return {
     name,
@@ -80,7 +80,7 @@ export function createRef(
 export function createPeeledRef(
   name: string,
   objectId: ObjectId,
-  storage: RefStore = RefStore.LOOSE,
+  storage: RefStorage = RefStorage.LOOSE,
 ): Ref {
   return {
     name,
@@ -97,7 +97,7 @@ export function createPeeledTagRef(
   name: string,
   objectId: ObjectId,
   peeledObjectId: ObjectId,
-  storage: RefStore = RefStore.PACKED,
+  storage: RefStorage = RefStorage.PACKED,
 ): Ref {
   return {
     name,
@@ -114,7 +114,7 @@ export function createPeeledTagRef(
 export function createSymbolicRef(
   name: string,
   target: string,
-  storage: RefStore = RefStore.LOOSE,
+  storage: RefStorage = RefStorage.LOOSE,
 ): SymbolicRef {
   return {
     name,
