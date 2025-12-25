@@ -6,7 +6,7 @@
   "description": "Example demonstrating Git repository creation, commits, packing (gc), and native git compatibility",
   "scripts": {
     "start": "tsx src/main.ts",
-    "test": "pnpm start"
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",

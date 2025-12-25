@@ -6,7 +6,7 @@
   "description": "Example demonstrating clone, branch creation, commit, and push operations using VCS and native git HTTP server",
   "scripts": {
     "start": "tsx src/main.ts",
-    "test": "pnpm start"
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",

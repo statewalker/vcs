@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "echo \"No tests specified\" && exit 0",
     "start": "tsx src/index.ts",
     "lint": "biome lint src"
   },
