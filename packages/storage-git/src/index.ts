@@ -8,6 +8,10 @@
 
 // Binary storage (new architecture)
 export * from "./binary-storage/index.js";
+// Composite storage
+export * from "./composite-object-storage.js";
+// Factory function for streaming stores
+export * from "./create-streaming-stores.js";
 // Delta compression
 export * from "./delta/index.js";
 // Format utilities (for advanced use cases)
@@ -19,6 +23,7 @@ export * from "./git-delta-object-storage.js";
 export * from "./git-file-tree-storage.js";
 export * from "./git-object-storage.js";
 export * from "./git-pack-storage.js";
+export * from "./git-raw-objects-storage.js";
 export * from "./git-ref-storage.js";
 // Main storage implementations
 export * from "./git-repository.js";

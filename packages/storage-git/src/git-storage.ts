@@ -16,13 +16,14 @@ import {
   type TagStore,
   type TreeStore,
 } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { GitCommitStorage } from "./git-commit-storage.js";
 import { GitDeltaObjectStorage } from "./git-delta-object-storage.js";
 import { GitFileTreeStorage } from "./git-file-tree-storage.js";
 import { GitObjectStorage } from "./git-object-storage.js";
+import { GitRawObjectStorage } from "./git-raw-objects-storage.js";
 import { GitRefStorage } from "./git-ref-storage.js";
 import { GitTagStorage } from "./git-tag-storage.js";
-import { FileLooseObjectStorage } from "./loose/index.js";
 import { R_HEADS } from "./refs/ref-types.js";
 
 /**
@@ -42,7 +43,7 @@ export interface GitStorageOptions {
  */
 export interface GitStorageApi {
   /** Raw object storage with delta support (stores/loads raw bytes, combines loose + pack) */
-  rawStorage: GitDeltaObjectStorage;
+  rawStorage: ObjectStore;
   /** Object storage (blob-centric interface) */
   objects: GitObjectStorage;
   /** File tree storage */
@@ -85,7 +86,7 @@ export class GitStorage implements GitStorageApi {
     this.gitDir = gitDir;
     // --------------------------------------------
     // Delta object storage combines loose + pack with delta support
-    const looseStorage = new FileLooseObjectStorage(files, gitDir);
+    const looseStorage = new GitRawObjectStorage(files, gitDir);
     this.rawStorage = new GitDeltaObjectStorage(files, gitDir, looseStorage);
     // Refs storage
     this.refs = new GitRefStorage(files, gitDir);

@@ -1,34 +1,35 @@
 /**
  * Git object storage implementation
  *
- * Provides typed object storage on top of a raw storage.
+ * Provides typed object storage on top of a raw ObjectStore.
  * Uses utility functions for Git object format handling.
  *
- * This class wraps raw storage (which stores raw Git objects) and provides
- * typed blob storage semantics.
+ * This class wraps a raw ObjectStore (which stores raw bytes) and provides
+ * typed blob storage semantics. For full Git repository access including
+ * pack files, use GitRawObjectStorage or a composite storage.
  *
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
 import type { ObjectId } from "@webrun-vcs/core";
 import { ObjectType } from "@webrun-vcs/core";
-import type { LooseObjectStorage } from "./git-delta-object-storage.js";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 
 /**
- * Git object storage wrapping raw storage
+ * Git object storage wrapping a raw ObjectStore
  *
- * Provides content-addressable storage with blob semantics.
+ * Implements the ObjectStore interface for content-addressable storage.
  * The store() method stores content as blob objects.
  * The load() method returns content without Git headers.
  *
  * For typed object operations (commit, tree, tag), use the utility
  * functions from typed-object-utils.ts with this storage's rawStorage.
  */
-export class GitObjectStorage {
-  private readonly rawStorage: LooseObjectStorage;
+export class GitObjectStorage implements ObjectStore {
+  private readonly rawStorage: ObjectStore;
 
-  constructor(rawStorage: LooseObjectStorage) {
+  constructor(rawStorage: ObjectStore) {
     this.rawStorage = rawStorage;
   }
 
@@ -38,7 +39,7 @@ export class GitObjectStorage {
    * Use this with utility functions like storeTypedObject() and loadTypedObject()
    * for storing non-blob objects.
    */
-  getRawStorage(): LooseObjectStorage {
+  getRawStorage(): ObjectStore {
     return this.rawStorage;
   }
 

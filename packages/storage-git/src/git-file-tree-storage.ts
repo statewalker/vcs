@@ -8,8 +8,8 @@
 
 import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/core";
 import { ObjectType } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { EMPTY_TREE_ID, findTreeEntry, parseTree, serializeTree } from "./format/tree-format.js";
-import type { LooseObjectStorage } from "./git-delta-object-storage.js";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 
 /**
@@ -18,9 +18,9 @@ import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
  * Implements TreeStore using Git's tree object format.
  */
 export class GitFileTreeStorage implements TreeStore {
-  private readonly rawStorage: LooseObjectStorage;
+  private readonly rawStorage: ObjectStore;
 
-  constructor(rawStorage: LooseObjectStorage) {
+  constructor(rawStorage: ObjectStore) {
     this.rawStorage = rawStorage;
   }
 

@@ -8,8 +8,8 @@
 
 import type { AnnotatedTag, ObjectId, TagStore } from "@webrun-vcs/core";
 import { ObjectType } from "@webrun-vcs/core";
+import type { ObjectStore } from "@webrun-vcs/vcs";
 import { parseTag, serializeTag } from "./format/tag-format.js";
-import type { LooseObjectStorage } from "./git-delta-object-storage.js";
 import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
 
 /**
@@ -19,9 +19,9 @@ import { loadTypedObject, storeTypedObject } from "./typed-object-utils.js";
  * Lightweight tags are just refs and are not handled here.
  */
 export class GitTagStorage implements TagStore {
-  private readonly rawStorage: LooseObjectStorage;
+  private readonly rawStorage: ObjectStore;
 
-  constructor(rawStorage: LooseObjectStorage) {
+  constructor(rawStorage: ObjectStore) {
     this.rawStorage = rawStorage;
   }
 
