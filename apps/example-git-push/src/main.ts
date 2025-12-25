@@ -16,13 +16,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import {
-  createGitRepository,
-  extractGitObjectContent,
-  type GitRepository,
-  parseObjectHeader,
-} from "@webrun-vcs/commands";
-import { FileMode } from "@webrun-vcs/core";
+import { createGitRepository, type GitRepository } from "@webrun-vcs/commands";
+import { extractGitObjectContent, FileMode, parseHeader } from "@webrun-vcs/core";
 import { type PushObject, push } from "@webrun-vcs/transport";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
@@ -370,7 +365,7 @@ async function collectObjectsForPush(
     const rawData = concatBytes(chunks);
 
     // Parse header to get type, extract just the content for the pack
-    const header = parseObjectHeader(rawData);
+    const header = parseHeader(rawData);
     const content = extractGitObjectContent(rawData);
 
     objects.push({ id, type: header.typeCode, content });
