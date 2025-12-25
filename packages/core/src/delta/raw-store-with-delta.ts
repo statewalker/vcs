@@ -344,7 +344,7 @@ export async function defaultComputeDelta(
   const targetBuffer = await collectBytes(target());
 
   // Skip small objects
-  if (target.length < minSize) {
+  if (targetBuffer.length < minSize) {
     return undefined;
   }
 
@@ -356,7 +356,7 @@ export async function defaultComputeDelta(
 
   // Estimate size and check if delta is beneficial
   const estimatedSize = estimateDeltaSize(delta);
-  const ratio = estimatedSize / target.length;
+  const ratio = estimatedSize / targetBuffer.length;
 
   if (ratio >= maxRatio) {
     return undefined;
