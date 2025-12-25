@@ -303,7 +303,7 @@ describe("PendingPack", () => {
       const targetEntry = result.entries.find((e) => e.id === targetId);
       expect(baseEntry).toBeDefined();
       expect(targetEntry).toBeDefined();
-      expect(baseEntry!.offset).toBeLessThan(targetEntry!.offset);
+      expect(baseEntry?.offset).toBeLessThan(targetEntry?.offset);
     });
   });
 

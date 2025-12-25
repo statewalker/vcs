@@ -8,7 +8,7 @@
  */
 
 import type { Delta } from "@webrun-vcs/utils";
-import { type FilesApi, joinPath } from "../files/index.js";
+import type { FilesApi } from "../files/index.js";
 import { type FlushResult, PackDirectory, PackObjectType, PendingPack } from "../pack/index.js";
 import { parseBinaryDelta, serializeDelta } from "./delta-binary-format.js";
 import { type DeltaMetadata, DeltaMetadataIndex } from "./delta-metadata-index.js";

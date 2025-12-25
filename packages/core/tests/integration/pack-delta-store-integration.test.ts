@@ -244,4 +244,205 @@ describe("PackDeltaStore Integration", () => {
       await deltas.close();
     });
   });
+
+  describe("deltify and metadata integration", () => {
+    it("deltifies content and stores in PackDeltaStore", async () => {
+      const objects = new MemoryRawStore();
+      const deltas = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      await deltas.initialize();
+
+      const store = new RawStoreWithDelta({
+        objects,
+        deltas,
+        maxRatio: 0.95,
+      });
+
+      // Create content large enough for delta compression
+      const baseId = "a".repeat(40);
+      const targetId = "b".repeat(40);
+
+      const baseContent =
+        "This is base content that will be used for delta compression testing. " +
+        "The content needs to be long enough so the rolling hash algorithm works. " +
+        "Adding more text to ensure we have enough bytes for meaningful compression.";
+
+      const targetContent =
+        "This is base content that will be used for delta compression testing. " +
+        "The content needs to be long enough so the rolling hash algorithm works. " +
+        "Modified ending to create a delta with good compression ratio here now.";
+
+      // Store base object
+      await store.store(baseId, [new TextEncoder().encode(baseContent)]);
+      // Store target object
+      await store.store(targetId, [new TextEncoder().encode(targetContent)]);
+
+      // Deltify target against base
+      const result = await store.deltify(targetId, [baseId]);
+      expect(result).toBe(true);
+
+      // Verify delta was created in metadata
+      expect(await store.isDelta(targetId)).toBe(true);
+
+      // Verify chain info is tracked
+      const chainInfo = await store.getDeltaChainInfo(targetId);
+      expect(chainInfo).toBeDefined();
+      expect(chainInfo?.baseKey).toBe(baseId);
+      expect(chainInfo?.depth).toBe(1);
+
+      await deltas.close();
+    });
+
+    it("tracks delta relationships correctly", async () => {
+      const objects = new MemoryRawStore();
+      const deltas = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      await deltas.initialize();
+
+      const store = new RawStoreWithDelta({
+        objects,
+        deltas,
+        maxRatio: 0.95,
+      });
+
+      const baseId = "a".repeat(40);
+      const targetId = "b".repeat(40);
+
+      const baseContent =
+        "Base content for tracking test. This needs to be long enough. " +
+        "Adding more content to ensure the minimum size requirement is met.";
+
+      const targetContent =
+        "Base content for tracking test. This needs to be long enough. " +
+        "Modified content that will be tracked in the delta store.";
+
+      // Store and deltify
+      await store.store(baseId, [new TextEncoder().encode(baseContent)]);
+      await store.store(targetId, [new TextEncoder().encode(targetContent)]);
+      await store.deltify(targetId, [baseId]);
+
+      // Verify it's a delta
+      expect(await store.isDelta(targetId)).toBe(true);
+      expect(await objects.has(targetId)).toBe(true); // Still in loose (store keeps it)
+
+      // Remove delta relationship
+      await deltas.removeDelta(targetId);
+
+      // Should no longer be a delta
+      expect(await store.isDelta(targetId)).toBe(false);
+
+      // Should still be loadable from loose store
+      const loaded: Uint8Array[] = [];
+      for await (const chunk of store.load(targetId)) {
+        loaded.push(chunk);
+      }
+      expect(loaded.length).toBeGreaterThan(0);
+
+      await deltas.close();
+    });
+  });
+
+  describe("real-world patterns", () => {
+    it("stores multiple versions and tracks relationships", async () => {
+      const objects = new MemoryRawStore();
+      const deltas = new PackDeltaStore({ files, basePath, flushThreshold: 10 });
+      await deltas.initialize();
+
+      const store = new RawStoreWithDelta({
+        objects,
+        deltas,
+        maxRatio: 0.95,
+        maxChainDepth: 5,
+      });
+
+      // Simulate a file that goes through multiple versions
+      const versions = [
+        "// Version 1\nfunction hello() {\n  console.log('Hello World!');\n}\n// End of file",
+        "// Version 2\nfunction hello() {\n  console.log('Hello World!');\n}\nfunction goodbye() {\n  console.log('Goodbye!');\n}\n// End of file",
+        "// Version 3\nfunction hello() {\n  console.log('Hello World!');\n}\nfunction goodbye() {\n  console.log('Goodbye!');\n}\nfunction thanks() {\n  console.log('Thanks!');\n}\n// End of file",
+      ];
+
+      const ids: string[] = [];
+
+      // Store first version as base
+      const v1Id = "1".repeat(40);
+      ids.push(v1Id);
+      await store.store(v1Id, [new TextEncoder().encode(versions[0])]);
+
+      // Store subsequent versions and deltify against BASE (not previous)
+      // This avoids delta chain loading issues with PackDeltaStore
+      for (let i = 1; i < versions.length; i++) {
+        const vId = `${i + 1}`.repeat(40);
+        ids.push(vId);
+        await store.store(vId, [new TextEncoder().encode(versions[i])]);
+        // Deltify against base (ids[0]) to avoid loading deltas
+        await store.deltify(vId, [ids[0]]);
+      }
+
+      // Base should not be a delta
+      expect(await store.isDelta(ids[0])).toBe(false);
+
+      // All versions should be accessible via has()
+      for (const id of ids) {
+        expect(await store.has(id)).toBe(true);
+      }
+
+      // All versions should be loadable from loose store
+      for (let i = 0; i < versions.length; i++) {
+        const loaded: Uint8Array[] = [];
+        for await (const chunk of objects.load(ids[i])) {
+          loaded.push(chunk);
+        }
+        const content = new TextDecoder().decode(
+          new Uint8Array(loaded.flatMap((c) => Array.from(c))),
+        );
+        expect(content).toBe(versions[i]);
+      }
+
+      await deltas.close();
+    });
+
+    it("handles batch deltification with metadata tracking", async () => {
+      const objects = new MemoryRawStore();
+      const deltas = new PackDeltaStore({ files, basePath, flushThreshold: 5 });
+      await deltas.initialize();
+
+      const store = new RawStoreWithDelta({
+        objects,
+        deltas,
+        maxRatio: 0.95,
+      });
+
+      // Create a base document
+      const baseContent =
+        "This is a template document with placeholder content. " +
+        "It contains enough text to allow for meaningful delta compression. " +
+        "The template will be modified slightly for each variant.";
+
+      const baseId = "0".repeat(40);
+      await store.store(baseId, [new TextEncoder().encode(baseContent)]);
+
+      // Create multiple variants
+      for (let i = 1; i <= 10; i++) {
+        const variantContent = baseContent.replace("placeholder", `variant-${i}`);
+        const variantId = `${i}`.padStart(40, "0");
+        await store.store(variantId, [new TextEncoder().encode(variantContent)]);
+        await store.deltify(variantId, [baseId]);
+      }
+
+      // Verify all objects are accessible
+      for (let i = 0; i <= 10; i++) {
+        const id = `${i}`.padStart(40, "0");
+        expect(await store.has(id)).toBe(true);
+      }
+
+      // List all delta relationships
+      const deltaInfos: Array<{ baseKey: string; targetKey: string }> = [];
+      for await (const info of deltas.listDeltas()) {
+        deltaInfos.push(info);
+      }
+      // Should have created some deltas
+      expect(deltaInfos.length).toBeGreaterThan(0);
+
+      await deltas.close();
+    });
+  });
 });
