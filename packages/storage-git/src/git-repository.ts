@@ -59,13 +59,25 @@ class GitObjectStoreAdapter implements GitObjectStore {
     return storeTypedObject(this.rawStorage, typeCode, data);
   }
 
-  async *load(id: ObjectId): AsyncIterable<Uint8Array> {
+  async *load(id: ObjectId): AsyncGenerator<Uint8Array> {
     const obj = await loadTypedObject(this.rawStorage, id);
     yield obj.content;
   }
 
-  async *loadRaw(id: ObjectId): AsyncIterable<Uint8Array> {
+  async *loadRaw(id: ObjectId): AsyncGenerator<Uint8Array> {
     yield* this.rawStorage.load(id);
+  }
+
+  async loadWithHeader(id: ObjectId): Promise<[GitObjectHeader, AsyncGenerator<Uint8Array>]> {
+    const obj = await loadTypedObject(this.rawStorage, id);
+    const header: GitObjectHeader = {
+      type: typeCodeToString(obj.type),
+      size: obj.content.length,
+    };
+    async function* contentGenerator(): AsyncGenerator<Uint8Array> {
+      yield obj.content;
+    }
+    return [header, contentGenerator()];
   }
 
   async getHeader(id: ObjectId): Promise<GitObjectHeader> {

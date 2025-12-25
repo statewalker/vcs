@@ -4,8 +4,14 @@
  * Stores Git references in a SQL database.
  */
 
-import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@webrun-vcs/vcs";
-import { RefStoreLocation } from "@webrun-vcs/vcs";
+import {
+  type ObjectId,
+  type Ref,
+  RefStorage,
+  type RefStore,
+  type RefUpdateResult,
+  type SymbolicRef,
+} from "@webrun-vcs/core";
 import type { DatabaseClient } from "./database-client.js";
 
 /**
@@ -41,7 +47,7 @@ export class SQLRefStore implements RefStore {
     }
 
     const row = refs[0];
-    const storage = (row.storage as RefStoreLocation) || RefStoreLocation.PRIMARY;
+    const storage = (row.storage as RefStorage) || RefStorage.LOOSE;
 
     if (row.target != null) {
       return {
@@ -81,7 +87,7 @@ export class SQLRefStore implements RefStore {
         return {
           name: current,
           objectId: row.object_id || undefined,
-          storage: (row.storage as RefStoreLocation) || RefStoreLocation.PRIMARY,
+          storage: (row.storage as RefStorage) || RefStorage.LOOSE,
           peeled: row.peeled_object_id != null,
           peeledObjectId: row.peeled_object_id || undefined,
         } as Ref;
@@ -121,7 +127,7 @@ export class SQLRefStore implements RefStore {
     }
 
     for (const row of rows) {
-      const storage = (row.storage as RefStoreLocation) || RefStoreLocation.PRIMARY;
+      const storage = (row.storage as RefStorage) || RefStorage.LOOSE;
 
       if (row.target != null) {
         yield {
@@ -153,7 +159,7 @@ export class SQLRefStore implements RefStore {
          object_id = excluded.object_id,
          target = NULL,
          updated_at = excluded.updated_at`,
-      [refName, objectId, RefStoreLocation.PRIMARY, now],
+      [refName, objectId, RefStorage.LOOSE, now],
     );
   }
 
@@ -169,7 +175,7 @@ export class SQLRefStore implements RefStore {
          object_id = NULL,
          target = excluded.target,
          updated_at = excluded.updated_at`,
-      [refName, target, RefStoreLocation.PRIMARY, now],
+      [refName, target, RefStorage.LOOSE, now],
     );
   }
 

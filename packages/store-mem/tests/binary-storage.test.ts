@@ -192,12 +192,12 @@ describe("MemRawStore", () => {
       expect(size).toBe(11);
     });
 
-    it("returns undefined for non-existing key", async () => {
+    it("returns -1 for non-existing key", async () => {
       const store = new MemRawStore();
 
       const size = await store.size("missing");
 
-      expect(size).toBeUndefined();
+      expect(size).toBe(-1);
     });
   });
 

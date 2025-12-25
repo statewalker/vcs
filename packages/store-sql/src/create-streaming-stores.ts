@@ -5,7 +5,7 @@
  * This file is kept for backwards compatibility.
  */
 
-import type { GitStores } from "@webrun-vcs/vcs";
+import type { GitStores } from "@webrun-vcs/core";
 import type { DatabaseClient } from "./database-client.js";
 import { createSqlObjectStores } from "./object-storage/index.js";
 

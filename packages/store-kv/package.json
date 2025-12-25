@@ -25,9 +25,8 @@
     "format:fix": "biome check --write --unsafe ."
   },
   "dependencies": {
-    "@webrun-vcs/vcs": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*",
-    "@webrun-vcs/worktree": "workspace:*"
+    "@webrun-vcs/core": "workspace:*",
+    "@webrun-vcs/utils": "workspace:*"
   },
   "devDependencies": {
     "@webrun-vcs/testing": "workspace:*",

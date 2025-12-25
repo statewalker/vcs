@@ -71,3 +71,24 @@ export interface RawStore {
    */
   size(key: string): Promise<number>;
 }
+
+/**
+ * Binary storage combining raw and delta stores
+ *
+ * This is the main abstraction for binary object storage.
+ * It combines raw byte storage with delta compression support.
+ */
+export interface BinStore {
+  /** Store name identifier */
+  readonly name: string;
+  /** Raw byte storage */
+  readonly raw: RawStore;
+  /** Delta-compressed storage */
+  readonly delta: import("../delta/delta-store.js").DeltaStore;
+  /** Flush pending writes to persistent storage */
+  flush(): Promise<void>;
+  /** Close backend and release resources */
+  close(): Promise<void>;
+  /** Refresh backend state (clear caches, etc.) */
+  refresh(): Promise<void>;
+}

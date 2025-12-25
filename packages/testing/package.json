@@ -18,8 +18,7 @@
     "lint": "biome lint src"
   },
   "dependencies": {
-    "@webrun-vcs/vcs": "workspace:*",
-    "@webrun-vcs/worktree": "workspace:*"
+    "@webrun-vcs/core": "workspace:*"
   },
   "peerDependencies": {
     "vitest": "^4.0.0"

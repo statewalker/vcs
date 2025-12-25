@@ -2,7 +2,7 @@
  * Parametrized test suite for DeltaRepository implementations
  */
 
-import type { DeltaRepository } from "@webrun-vcs/vcs";
+import type { DeltaRepository } from "@webrun-vcs/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

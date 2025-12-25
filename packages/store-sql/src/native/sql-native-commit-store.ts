@@ -6,15 +6,17 @@
  * lookups by author, date range, and ancestry.
  */
 
-import { Sha1 } from "@webrun-vcs/utils/hash/sha1";
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
-import type { AncestryOptions, Commit, ObjectId, PersonIdent } from "@webrun-vcs/vcs";
 import {
+  type AncestryOptions,
+  type Commit,
   commitToEntries,
   computeCommitSize,
   encodeCommitEntries,
   encodeObjectHeader,
-} from "@webrun-vcs/vcs/format";
+  type ObjectId,
+  type PersonIdent,
+} from "@webrun-vcs/core";
+import { bytesToHex, Sha1 } from "@webrun-vcs/utils";
 import type { DatabaseClient } from "../database-client.js";
 import type { SqlNativeCommitStore } from "./types.js";
 

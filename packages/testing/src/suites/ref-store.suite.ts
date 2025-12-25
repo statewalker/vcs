@@ -5,8 +5,8 @@
  * All storage implementations must pass these tests.
  */
 
-import type { Ref, RefStore, SymbolicRef } from "@webrun-vcs/vcs";
-import { isSymbolicRef, RefStoreLocation } from "@webrun-vcs/vcs";
+import type { Ref, RefStore, SymbolicRef } from "@webrun-vcs/core";
+import { isSymbolicRef, RefStoreLocation } from "@webrun-vcs/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**
@@ -296,7 +296,7 @@ export function createRefStoreTests(name: string, factory: RefStoreFactory): voi
         expect(ref).toBeDefined();
         expect((ref as Ref).storage).toBeDefined();
         expect(
-          [RefStoreLocation.PRIMARY, RefStoreLocation.PACKED, RefStoreLocation.NEW].includes(
+          [RefStoreLocation.LOOSE, RefStoreLocation.PACKED, RefStoreLocation.NEW].includes(
             (ref as Ref).storage,
           ),
         ).toBe(true);

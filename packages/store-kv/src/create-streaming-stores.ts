@@ -5,7 +5,7 @@
  * This file is kept for backwards compatibility.
  */
 
-import type { GitStores } from "@webrun-vcs/vcs";
+import type { GitStores } from "@webrun-vcs/core";
 import type { KVStore } from "./kv-store.js";
 import { createKvObjectStores } from "./object-storage/index.js";
 

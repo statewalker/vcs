@@ -4,8 +4,8 @@
  * Stores annotated tag objects in a SQL database.
  */
 
-import type { AnnotatedTag, ObjectId, ObjectTypeCode, TagStore } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+import type { AnnotatedTag, ObjectId, ObjectTypeCode, TagStore } from "@webrun-vcs/core";
+import { ObjectType } from "@webrun-vcs/core";
 import type { DatabaseClient } from "./database-client.js";
 
 /**

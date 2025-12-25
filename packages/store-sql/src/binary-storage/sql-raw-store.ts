@@ -5,7 +5,7 @@
  * Implements the new RawStore interface from binary-storage.
  */
 
-import type { RawStore } from "@webrun-vcs/vcs/binary-storage";
+import type { RawStore } from "@webrun-vcs/core";
 import type { DatabaseClient } from "../database-client.js";
 
 /**
@@ -90,7 +90,10 @@ export class SqlRawStore implements RawStore {
   /**
    * Load byte stream by key
    */
-  async *load(key: string): AsyncIterable<Uint8Array> {
+  async *load(
+    key: string,
+    options?: { offset?: number; length?: number },
+  ): AsyncGenerator<Uint8Array> {
     await this.ensureInitialized();
 
     const rows = await this.db.query<{ data: Uint8Array }>(
@@ -102,7 +105,16 @@ export class SqlRawStore implements RawStore {
       throw new Error(`Key not found: ${key}`);
     }
 
-    yield rows[0].data;
+    let data = rows[0].data;
+
+    // Apply offset and length if specified
+    if (options?.offset !== undefined || options?.length !== undefined) {
+      const offset = options?.offset ?? 0;
+      const length = options?.length ?? data.length - offset;
+      data = data.subarray(offset, offset + length);
+    }
+
+    yield data;
   }
 
   /**
@@ -145,8 +157,10 @@ export class SqlRawStore implements RawStore {
 
   /**
    * Get content size for a key
+   *
+   * @returns Content size in bytes, or -1 if key not found
    */
-  async size(key: string): Promise<number | undefined> {
+  async size(key: string): Promise<number> {
     await this.ensureInitialized();
 
     const rows = await this.db.query<{ size: number }>(
@@ -155,7 +169,7 @@ export class SqlRawStore implements RawStore {
     );
 
     if (rows.length === 0) {
-      return undefined;
+      return -1;
     }
 
     return rows[0].size;

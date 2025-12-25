@@ -5,21 +5,12 @@
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { DeltaStore, RawStore } from "@webrun-vcs/core";
+import type { BinStore, DeltaStore, RawStore } from "@webrun-vcs/core";
 import { FileDeltaStore } from "./file-delta-store.js";
 import { FileRawStore } from "./file-raw-store.js";
 
-/**
- * Binary storage combining raw and delta stores
- */
-export interface BinStore {
-  readonly name: string;
-  readonly raw: RawStore;
-  readonly delta: DeltaStore;
-  flush(): Promise<void>;
-  close(): Promise<void>;
-  refresh(): Promise<void>;
-}
+// Re-export BinStore for backwards compatibility
+export type { BinStore };
 
 /**
  * File-based composite binary storage

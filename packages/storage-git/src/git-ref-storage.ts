@@ -45,13 +45,13 @@ function toRefStorageLocation(storage: GitRefStorageLocation): RefStoreLocation 
     case GitRefStorageLocation.NEW:
       return RefStoreLocation.NEW;
     case GitRefStorageLocation.LOOSE:
-      return RefStoreLocation.PRIMARY;
+      return RefStoreLocation.LOOSE;
     case GitRefStorageLocation.PACKED:
       return RefStoreLocation.PACKED;
     case GitRefStorageLocation.LOOSE_PACKED:
-      return RefStoreLocation.PRIMARY;
+      return RefStoreLocation.LOOSE;
     default:
-      return RefStoreLocation.PRIMARY;
+      return RefStoreLocation.LOOSE;
   }
 }
 

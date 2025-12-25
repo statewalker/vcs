@@ -5,8 +5,8 @@
  * to verify Git-compatible object ID generation.
  */
 
-import type { GitStores } from "@webrun-vcs/vcs";
-import { ObjectType } from "@webrun-vcs/vcs";
+import type { GitStores } from "@webrun-vcs/core";
+import { ObjectType } from "@webrun-vcs/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

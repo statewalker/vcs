@@ -78,3 +78,27 @@ export interface Repository {
    */
   isInitialized(): Promise<boolean>;
 }
+
+/**
+ * GitStores - Collection of Git object stores
+ *
+ * A subset of Repository containing only the object stores
+ * (without refs, config, or lifecycle methods).
+ * Useful for transport and storage operations.
+ */
+export interface GitStores {
+  /** Unified Git object storage (raw objects with headers) */
+  readonly objects: GitObjectStore;
+
+  /** Commit object storage */
+  readonly commits: CommitStore;
+
+  /** Tree object storage */
+  readonly trees: TreeStore;
+
+  /** Blob object storage */
+  readonly blobs: BlobStore;
+
+  /** Tag object storage */
+  readonly tags: TagStore;
+}

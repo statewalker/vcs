@@ -5,8 +5,8 @@
  * All storage implementations must pass these tests.
  */
 
-import type { TreeEntry, TreeStore } from "@webrun-vcs/vcs";
-import { FileMode } from "@webrun-vcs/vcs";
+import type { TreeEntry, TreeStore } from "@webrun-vcs/core";
+import { FileMode } from "@webrun-vcs/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**
