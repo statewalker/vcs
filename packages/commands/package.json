@@ -39,8 +39,7 @@
   "dependencies": {
     "@webrun-vcs/core": "workspace:*",
     "@webrun-vcs/transport": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*",
-    "@webrun-vcs/worktree": "workspace:*"
+    "@webrun-vcs/utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
