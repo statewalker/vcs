@@ -2,19 +2,17 @@
  * Assertion helpers for testing Git operations
  */
 
-import { expect } from "vitest";
-import type { ObjectId } from "../../src/id/index.js";
-import type { RawStore } from "../../src/binary/raw-store.js";
-import type { RefStore } from "../../src/refs/ref-store.js";
 import type { Delta } from "@webrun-vcs/utils";
 import { applyDelta } from "@webrun-vcs/utils";
+import { expect } from "vitest";
+import type { RawStore } from "../../src/binary/raw-store.js";
+import type { ObjectId } from "../../src/id/index.js";
+import type { RefStore } from "../../src/refs/ref-store.js";
 
 /**
  * Collect all chunks from an async iterable into a single Uint8Array
  */
-export async function collectBytes(
-  iterable: AsyncIterable<Uint8Array>,
-): Promise<Uint8Array> {
+export async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   for await (const chunk of iterable) {
     chunks.push(chunk);
@@ -32,11 +30,7 @@ export async function collectBytes(
 /**
  * Assert that applying delta to base produces expected result
  */
-export function assertDeltaApplies(
-  base: Uint8Array,
-  delta: Delta[],
-  expected: Uint8Array,
-): void {
+export function assertDeltaApplies(base: Uint8Array, delta: Delta[], expected: Uint8Array): void {
   const chunks: Uint8Array[] = [];
   for (const chunk of applyDelta(base, delta)) {
     chunks.push(chunk);
@@ -74,11 +68,7 @@ export async function assertRefResolution(
 /**
  * Assert that two byte arrays are equal
  */
-export function assertBytesEqual(
-  actual: Uint8Array,
-  expected: Uint8Array,
-  message?: string,
-): void {
+export function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, message?: string): void {
   expect(actual.length).toBe(expected.length);
   for (let i = 0; i < actual.length; i++) {
     if (actual[i] !== expected[i]) {
@@ -92,10 +82,7 @@ export function assertBytesEqual(
 /**
  * Assert that store contains expected keys
  */
-export async function assertStoreContains(
-  store: RawStore,
-  keys: string[],
-): Promise<void> {
+export async function assertStoreContains(store: RawStore, keys: string[]): Promise<void> {
   for (const key of keys) {
     const hasKey = await store.has(key);
     expect(hasKey).toBe(true);
@@ -105,10 +92,7 @@ export async function assertStoreContains(
 /**
  * Assert that store does not contain keys
  */
-export async function assertStoreNotContains(
-  store: RawStore,
-  keys: string[],
-): Promise<void> {
+export async function assertStoreNotContains(store: RawStore, keys: string[]): Promise<void> {
   for (const key of keys) {
     const hasKey = await store.has(key);
     expect(hasKey).toBe(false);

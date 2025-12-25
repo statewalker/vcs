@@ -3,8 +3,6 @@ import { defineConfig } from "rolldown";
 export default defineConfig({
   input: {
     index: "src/index.ts",
-    "types/index": "src/types/index.ts",
-    "stores/index": "src/stores/index.ts",
     "staging/index": "src/staging/index.ts",
     "format/index": "src/format/index.ts",
   },

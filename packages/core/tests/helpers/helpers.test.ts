@@ -4,6 +4,13 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  assertBytesEqual,
+  assertThrowsAsync,
+  collectAll,
+  collectBytes,
+  concatBytes,
+} from "./assertion-helpers.js";
+import {
   bytesToText,
   createBlobContent,
   createSimilarContent,
@@ -18,13 +25,6 @@ import {
   TestRng,
   textToBytes,
 } from "./test-data-generators.js";
-import {
-  assertBytesEqual,
-  assertThrowsAsync,
-  collectAll,
-  collectBytes,
-  concatBytes,
-} from "./assertion-helpers.js";
 
 describe("TestRng", () => {
   it("should produce reproducible results with same seed", () => {
@@ -225,10 +225,7 @@ describe("collectBytes", () => {
 
 describe("concatBytes", () => {
   it("should concatenate arrays", () => {
-    const result = concatBytes([
-      new Uint8Array([1, 2]),
-      new Uint8Array([3, 4, 5]),
-    ]);
+    const result = concatBytes([new Uint8Array([1, 2]), new Uint8Array([3, 4, 5])]);
     expect(result).toEqual(new Uint8Array([1, 2, 3, 4, 5]));
   });
 });
@@ -239,9 +236,7 @@ describe("assertBytesEqual", () => {
   });
 
   it("should throw for different arrays", () => {
-    expect(() =>
-      assertBytesEqual(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2, 4])),
-    ).toThrow();
+    expect(() => assertBytesEqual(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2, 4]))).toThrow();
   });
 });
 

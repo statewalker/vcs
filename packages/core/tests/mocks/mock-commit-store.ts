@@ -2,12 +2,8 @@
  * Mock CommitStore implementation for testing
  */
 
+import type { AncestryOptions, Commit, CommitStore } from "../../src/commits/commit-store.js";
 import type { ObjectId, PersonIdent } from "../../src/id/index.js";
-import type {
-  AncestryOptions,
-  Commit,
-  CommitStore,
-} from "../../src/commits/commit-store.js";
 
 /**
  * In-memory CommitStore implementation for testing

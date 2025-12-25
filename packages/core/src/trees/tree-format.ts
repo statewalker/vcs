@@ -14,7 +14,9 @@
 
 import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
 import { asAsyncIterable, concat, encodeString } from "@webrun-vcs/utils/streams";
-import { FileMode, GitFormat, type TreeEntry } from "../id/index.js";
+import { FileMode } from "../files/file-mode.js";
+import { GitFormat } from "../id/object-id.js";
+import type { TreeEntry } from "./tree-entry.js";
 
 const SPACE = 0x20;
 const NULL = 0x00;

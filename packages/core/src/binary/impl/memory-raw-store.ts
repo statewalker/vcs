@@ -52,8 +52,9 @@ export class MemoryRawStore implements RawStore {
   }
 
   async size(key: string): Promise<number> {
-    const bytes = this.data.get(key);
-    return bytes?.length ?? -1;
+    const chunks = this.data.get(key);
+    if (!chunks) return -1;
+    return chunks.reduce((total, chunk) => total + chunk.length, 0);
   }
 
   /** Get stored data for inspection */

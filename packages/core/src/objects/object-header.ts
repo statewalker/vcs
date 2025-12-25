@@ -6,7 +6,7 @@
  */
 
 import { concat, encodeString } from "@webrun-vcs/utils/streams";
-import { ObjectType, type ObjectTypeCode, type ObjectTypeString } from "../id/index.js";
+import { ObjectType, type ObjectTypeCode, type ObjectTypeString } from "./object-types.js";
 
 /** Null byte for header termination */
 const NULL_BYTE = 0;

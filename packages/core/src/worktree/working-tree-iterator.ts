@@ -1,4 +1,5 @@
-import type { FileModeValue, ObjectId } from "../id/index.js";
+import type { FileModeValue } from "../files/file-mode.js";
+import type { ObjectId } from "../id/index.js";
 
 /**
  * Represents a file or directory in the working tree.

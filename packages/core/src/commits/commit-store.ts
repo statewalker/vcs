@@ -2,7 +2,8 @@
  * Commit storage interface
  */
 
-import type { ObjectId, PersonIdent } from "../id/index.js";
+import type { ObjectId } from "../id/index.js";
+import type { PersonIdent } from "../person/person-ident.js";
 
 /**
  * Commit object
