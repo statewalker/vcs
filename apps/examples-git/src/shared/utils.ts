@@ -5,7 +5,7 @@
 import * as fs from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { PackObjectType } from "@webrun-vcs/storage-git";
+import { PackObjectType } from "@webrun-vcs/core";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 

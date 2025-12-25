@@ -6,8 +6,8 @@
  * Run with: pnpm step:traverse
  */
 
-import type { GitRepository } from "@webrun-vcs/storage-git";
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { GitRepository } from "@webrun-vcs/commands";
+import type { ObjectId } from "@webrun-vcs/core";
 import {
   COMMIT_LIMIT,
   type CommitInfo,

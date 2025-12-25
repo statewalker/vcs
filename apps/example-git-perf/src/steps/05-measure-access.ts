@@ -7,7 +7,7 @@
  * Run with: pnpm step:measure
  */
 
-import type { GitRepository } from "@webrun-vcs/storage-git";
+import type { GitRepository } from "@webrun-vcs/commands";
 import {
   type CommitInfo,
   openStorage,

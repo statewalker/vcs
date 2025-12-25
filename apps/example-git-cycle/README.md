@@ -35,7 +35,7 @@ Creates a new Git repository with the standard directory structure.
 
 ```typescript
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitStorage } from "@webrun-vcs/storage-git";
+import { createGitStorage } from "@webrun-vcs/commands";
 
 // Create file system (in-memory for this example)
 const files = new FilesApi(new MemFilesApi());

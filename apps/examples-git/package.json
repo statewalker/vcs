@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
-    "@webrun-vcs/utils": "workspace:*",
-    "@webrun-vcs/storage-git": "workspace:*",
-    "@webrun-vcs/vcs": "workspace:*"
+    "@webrun-vcs/commands": "workspace:*",
+    "@webrun-vcs/core": "workspace:*",
+    "@webrun-vcs/utils": "workspace:*"
   },
   "devDependencies": {
     "tsx": "catalog:",

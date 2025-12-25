@@ -11,10 +11,10 @@
  */
 
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository, type GitRepository } from "@webrun-vcs/storage-git";
+import { createGitRepository, type GitRepository } from "@webrun-vcs/commands";
+import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/core";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
-import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/vcs";
 
 // ============================================================================
 // Compression Setup
@@ -340,8 +340,7 @@ export function getModeType(mode: number): string {
   }
 }
 
+export type { GitRepository } from "@webrun-vcs/commands";
 // Re-export commonly used types
-export type { Repository } from "@webrun-vcs/core";
-export type { GitRepository } from "@webrun-vcs/storage-git";
-export type { Commit, ObjectId, PersonIdent, TreeEntry } from "@webrun-vcs/vcs";
-export { FileMode, ObjectType } from "@webrun-vcs/vcs";
+export type { Commit, ObjectId, PersonIdent, Repository, TreeEntry } from "@webrun-vcs/core";
+export { FileMode, ObjectType } from "@webrun-vcs/core";

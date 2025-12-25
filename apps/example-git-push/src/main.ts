@@ -21,11 +21,11 @@ import {
   extractGitObjectContent,
   type GitRepository,
   parseObjectHeader,
-} from "@webrun-vcs/storage-git";
+} from "@webrun-vcs/commands";
+import { FileMode } from "@webrun-vcs/core";
 import { type PushObject, push } from "@webrun-vcs/transport";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
-import { FileMode } from "@webrun-vcs/vcs";
 
 import {
   BASE_DIR,

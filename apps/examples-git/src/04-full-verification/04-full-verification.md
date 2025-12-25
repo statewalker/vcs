@@ -126,7 +126,7 @@ const header = await reader.readObjectHeader(offset);
 ### Content Formatting
 
 ```typescript
-import { parseTree } from "@webrun-vcs/storage-git";
+import { parseTree } from "@webrun-vcs/core";
 
 // Parse tree content
 const entries = parseTree(content);

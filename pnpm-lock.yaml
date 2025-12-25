@@ -74,18 +74,15 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
+      '@webrun-vcs/commands':
+        specifier: workspace:*
+        version: link:../../packages/commands
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@webrun-vcs/storage-git':
-        specifier: workspace:*
-        version: link:../../packages/storage-git
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../../packages/vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -102,15 +99,15 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/storage-git':
+      '@webrun-vcs/commands':
         specifier: workspace:*
-        version: link:../../packages/storage-git
+        version: link:../../packages/commands
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../../packages/vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -127,18 +124,18 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/storage-git':
+      '@webrun-vcs/commands':
         specifier: workspace:*
-        version: link:../../packages/storage-git
+        version: link:../../packages/commands
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@webrun-vcs/transport':
         specifier: workspace:*
         version: link:../../packages/transport
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../../packages/vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -155,15 +152,15 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/storage-git':
+      '@webrun-vcs/commands':
         specifier: workspace:*
-        version: link:../../packages/storage-git
+        version: link:../../packages/commands
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../../packages/vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -180,18 +177,18 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/storage-git':
+      '@webrun-vcs/commands':
         specifier: workspace:*
-        version: link:../../packages/storage-git
+        version: link:../../packages/commands
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@webrun-vcs/transport':
         specifier: workspace:*
         version: link:../../packages/transport
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../../packages/vcs
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -208,15 +205,15 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/storage-git':
+      '@webrun-vcs/commands':
         specifier: workspace:*
-        version: link:../../packages/storage-git
+        version: link:../../packages/commands
+      '@webrun-vcs/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../../packages/vcs
     devDependencies:
       tsx:
         specifier: 'catalog:'
@@ -246,6 +243,9 @@ importers:
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../core
+      '@webrun-vcs/storage-git':
+        specifier: workspace:*
+        version: link:../storage-git
       '@webrun-vcs/transport':
         specifier: workspace:*
         version: link:../transport
@@ -256,9 +256,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
-      '@webrun-vcs/storage-git':
-        specifier: workspace:*
-        version: link:../storage-git
       '@webrun-vcs/store-mem':
         specifier: workspace:*
         version: link:../store-mem

@@ -11,7 +11,7 @@ import {
   PackWriterStream,
   readPackIndex,
   writePackIndexV2,
-} from "@webrun-vcs/storage-git";
+} from "@webrun-vcs/core";
 import {
   createFilesApi,
   formatId,

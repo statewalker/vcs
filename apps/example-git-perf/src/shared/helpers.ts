@@ -4,7 +4,7 @@
 
 import { execSync, spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
-import type { ObjectId } from "@webrun-vcs/vcs";
+import type { ObjectId } from "@webrun-vcs/core";
 import { PACK_DIR, REPO_DIR } from "./config.js";
 
 export function shortId(id: ObjectId): string {
