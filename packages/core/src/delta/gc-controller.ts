@@ -6,6 +6,7 @@
  */
 
 import type { ObjectId } from "@webrun-vcs/core";
+import type { PackConsolidator } from "../pack/pack-consolidator.js";
 import type { RawStoreWithDelta } from "./raw-store-with-delta.js";
 import { SimilarSizeCandidateStrategy } from "./strategies/similar-size-candidate.js";
 import type { DeltaCandidateStrategy, RepackOptions, RepackResult } from "./types.js";
@@ -24,6 +25,8 @@ export interface GCScheduleOptions {
   minInterval?: number;
   /** Number of pending commits before quick pack */
   quickPackThreshold?: number;
+  /** Optional pack consolidator for consolidating pack files */
+  consolidator?: PackConsolidator;
 }
 
 /**
@@ -39,14 +42,22 @@ export interface GCResult {
 }
 
 /**
+ * Resolved GC options (with defaults applied)
+ */
+type ResolvedGCOptions = Omit<Required<GCScheduleOptions>, "consolidator"> & {
+  consolidator?: PackConsolidator;
+};
+
+/**
  * Default GC options
  */
-const DEFAULT_GC_OPTIONS: Required<GCScheduleOptions> = {
+const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
   deltaCandidateStrategy: new SimilarSizeCandidateStrategy(),
   looseObjectThreshold: 100,
   chainDepthThreshold: 50,
   minInterval: 60000, // 1 minute
   quickPackThreshold: 5,
+  consolidator: undefined,
 };
 
 /**
@@ -71,7 +82,7 @@ const DEFAULT_GC_OPTIONS: Required<GCScheduleOptions> = {
  */
 export class GCController {
   private readonly storage: RawStoreWithDelta;
-  private readonly options: Required<GCScheduleOptions>;
+  private readonly options: ResolvedGCOptions;
   private lastGC = 0;
   private pendingCommits: ObjectId[] = [];
 
@@ -301,6 +312,24 @@ export class GCController {
       }
     }
 
+    // Consolidate packs if consolidator is configured
+    let packsConsolidated = 0;
+    if (this.options.consolidator) {
+      if (progressCallback) {
+        progressCallback({
+          phase: "consolidating",
+          totalObjects: total,
+          processedObjects: objectsProcessed,
+          deltifiedObjects: deltasCreated,
+          bytesSaved: spaceSaved,
+        });
+      }
+
+      const consolidateResult = await this.options.consolidator.consolidate();
+      packsConsolidated = consolidateResult.packsRemoved;
+      spaceSaved += consolidateResult.bytesReclaimed;
+    }
+
     if (progressCallback) {
       progressCallback({
         phase: "complete",
@@ -317,6 +346,7 @@ export class GCController {
       deltasRemoved,
       looseObjectsPruned,
       spaceSaved,
+      packsConsolidated,
       duration: 0, // Set by caller
     };
   }
@@ -374,7 +404,7 @@ export class GCController {
    *
    * @returns The GC scheduling options
    */
-  getOptions(): Readonly<Required<GCScheduleOptions>> {
+  getOptions(): Readonly<ResolvedGCOptions> {
     return { ...this.options };
   }
 }
