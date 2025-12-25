@@ -9,7 +9,7 @@
  */
 
 import { dirname, type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { RawStore } from "@webrun-vcs/vcs/binary-storage";
+import type { RawStore } from "@webrun-vcs/core";
 
 /**
  * Collect async iterable to Uint8Array
@@ -86,7 +86,7 @@ export class FileRawStore implements RawStore {
   /**
    * Load byte stream by key
    */
-  async *load(key: string): AsyncIterable<Uint8Array> {
+  async *load(key: string): AsyncGenerator<Uint8Array> {
     const path = this.getPath(key);
 
     try {
@@ -164,15 +164,15 @@ export class FileRawStore implements RawStore {
   /**
    * Get content size for a key
    */
-  async size(key: string): Promise<number | undefined> {
+  async size(key: string): Promise<number> {
     const path = this.getPath(key);
 
     try {
       const stats = await this.files.stats(path);
-      return stats?.size;
+      return stats?.size ?? -1;
     } catch (error) {
       if (this.isNotFoundError(error)) {
-        return undefined;
+        return -1;
       }
       throw error;
     }

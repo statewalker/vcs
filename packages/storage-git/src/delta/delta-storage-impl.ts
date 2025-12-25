@@ -5,16 +5,18 @@
  * and delta compression strategies.
  */
 
-import type { Delta } from "@webrun-vcs/utils";
 import type {
   DeltaChainDetails,
   DeltaInfo,
   DeltaStore,
+  GitObjectStore,
+  ObjectId,
+  ObjectTypeString,
   RawStore,
   VolatileStore,
-} from "@webrun-vcs/vcs/binary-storage";
-import type { ObjectId, ObjectTypeString } from "@webrun-vcs/vcs/object-storage";
-import { type GitObjectStore, GitObjectStoreImpl } from "@webrun-vcs/vcs/object-storage";
+} from "@webrun-vcs/core";
+import { GitObjectStoreImpl } from "@webrun-vcs/core";
+import type { Delta } from "@webrun-vcs/utils";
 import { objectExists, resolveDeltaChainToBytes } from "./resolve-delta-chain.js";
 import type { DeltaCandidateStrategy, DeltaComputeOptions, DeltaComputeStrategy } from "./types.js";
 

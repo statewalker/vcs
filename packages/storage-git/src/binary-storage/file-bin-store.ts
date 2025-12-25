@@ -2,13 +2,24 @@
  * File-based BinStore implementation
  *
  * Composite storage that combines FileRawStore and FileDeltaStore.
- * Implements the BinStore interface from binary-storage.
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { BinStore, DeltaStore, RawStore } from "@webrun-vcs/vcs/binary-storage";
+import type { DeltaStore, RawStore } from "@webrun-vcs/core";
 import { FileDeltaStore } from "./file-delta-store.js";
 import { FileRawStore } from "./file-raw-store.js";
+
+/**
+ * Binary storage combining raw and delta stores
+ */
+export interface BinStore {
+  readonly name: string;
+  readonly raw: RawStore;
+  readonly delta: DeltaStore;
+  flush(): Promise<void>;
+  close(): Promise<void>;
+  refresh(): Promise<void>;
+}
 
 /**
  * File-based composite binary storage
