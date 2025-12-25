@@ -4,5 +4,6 @@ export * from "./concat.js";
 export * from "./encoding.js";
 export * from "./map-stream.js";
 export * from "./read-header.js";
+export * from "./slice.js";
 export * from "./split-stream.js";
 export * from "./to-lines.js";
