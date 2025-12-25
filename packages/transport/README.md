@@ -154,6 +154,62 @@ const response = await server.fetch(request);
 
 The `createVcsRepositoryAdapter` function adapts VCS store interfaces to the `RepositoryAccess` interface used by protocol handlers. This approach keeps storage implementation details separate from protocol handling.
 
+#### Platform Integration Examples
+
+The server uses Web Standard APIs (`Request`/`Response`), making it portable across different runtimes:
+
+**Cloudflare Workers:**
+
+```typescript
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const server = createGitHttpServer({
+      async resolveRepository(req, repoPath) {
+        const stores = await getRepositoryStores(repoPath);
+        return createVcsRepositoryAdapter(stores);
+      },
+    });
+    return server.fetch(request);
+  },
+};
+```
+
+**Deno:**
+
+```typescript
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+
+const server = createGitHttpServer({ /* ... */ });
+Deno.serve((request) => server.fetch(request));
+```
+
+**Node.js:**
+
+```typescript
+import { createServer } from "node:http";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+
+const gitServer = createGitHttpServer({ /* ... */ });
+
+createServer(async (req, res) => {
+  const request = new Request(`http://localhost${req.url}`, {
+    method: req.method,
+    headers: req.headers as HeadersInit,
+    body: req.method !== "GET" ? req : undefined,
+  });
+
+  const response = await gitServer.fetch(request);
+
+  res.statusCode = response.status;
+  for (const [key, value] of response.headers) {
+    res.setHeader(key, value);
+  }
+  res.end(Buffer.from(await response.arrayBuffer()));
+}).listen(3000);
+```
+
 For convenience, you can also use `createVcsServerOptions` to configure the server:
 
 ```typescript
@@ -171,6 +227,47 @@ const server = createGitHttpServer(
   )
 );
 ```
+
+#### Authentication Patterns
+
+The server supports flexible authentication through callback hooks:
+
+```typescript
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+
+const server = createGitHttpServer({
+  async resolveRepository(request, repoPath) {
+    return createVcsRepositoryAdapter(await loadRepository(repoPath));
+  },
+
+  // Authenticate the request (called before any operation)
+  async authenticate(request) {
+    const auth = request.headers.get("Authorization");
+    if (!auth?.startsWith("Basic ")) {
+      return false;
+    }
+
+    const [username, password] = atob(auth.slice(6)).split(":");
+    return await validateCredentials(username, password);
+  },
+
+  // Authorize specific operations (called after authentication)
+  async authorize(request, repository, operation) {
+    // operation is "fetch" or "push"
+    const user = await getUserFromRequest(request);
+
+    if (operation === "push") {
+      // Only allow push for repository owners
+      return user.canPushTo(repository);
+    }
+
+    // Allow fetch for all authenticated users
+    return true;
+  },
+});
+```
+
+When authentication fails, the server returns a 401 status with a `WWW-Authenticate` header prompting for credentials.
 
 ### Working with Pkt-lines
 
