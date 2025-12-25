@@ -1,0 +1,237 @@
+/**
+ * Pending pack buffer
+ *
+ * Buffers objects before writing a complete pack file.
+ * Provides threshold-based flushing to control pack sizes.
+ *
+ * Based on jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/GC.java
+ */
+
+import type { ObjectId } from "../id/index.js";
+import { writePackIndexV2 } from "./pack-index-writer.js";
+import { PackWriterStream } from "./pack-writer.js";
+import type { PackObjectType } from "./types.js";
+
+/** Default maximum number of objects before auto-flush */
+const DEFAULT_MAX_OBJECTS = 100;
+
+/** Default maximum bytes before auto-flush (10MB) */
+const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Options for PendingPack
+ */
+export interface PendingPackOptions {
+  /** Maximum objects before auto-flush (default: 100) */
+  maxObjects?: number;
+  /** Maximum bytes before auto-flush (default: 10MB) */
+  maxBytes?: number;
+}
+
+/**
+ * Entry type for pending objects
+ */
+type PendingEntry =
+  | {
+      type: "full";
+      id: ObjectId;
+      objectType: PackObjectType;
+      content: Uint8Array;
+    }
+  | {
+      type: "delta";
+      id: ObjectId;
+      baseId: ObjectId;
+      delta: Uint8Array;
+    };
+
+/**
+ * Result of flushing pending objects to a pack
+ */
+export interface FlushResult {
+  /** Generated pack name (without extension) */
+  packName: string;
+  /** Complete pack file data */
+  packData: Uint8Array;
+  /** Pack index data (V2 format) */
+  indexData: Uint8Array;
+  /** Index entries for each object */
+  entries: Array<{ id: ObjectId; offset: number; crc32: number }>;
+}
+
+/**
+ * Generate unique pack name based on timestamp + random suffix
+ */
+function generatePackName(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `pack-${timestamp}${random}`;
+}
+
+/**
+ * Pending pack buffer
+ *
+ * Collects objects until a threshold is reached, then flushes
+ * to a complete pack file with index.
+ */
+export class PendingPack {
+  private readonly maxObjects: number;
+  private readonly maxBytes: number;
+  private entries: PendingEntry[] = [];
+  private totalSize = 0;
+
+  constructor(options: PendingPackOptions = {}) {
+    this.maxObjects = options.maxObjects ?? DEFAULT_MAX_OBJECTS;
+    this.maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  }
+
+  /**
+   * Add a full object to the pending pack
+   *
+   * @param id Object ID
+   * @param type Object type (COMMIT, TREE, BLOB, TAG)
+   * @param content Uncompressed object content
+   */
+  addObject(id: ObjectId, type: PackObjectType, content: Uint8Array): void {
+    this.entries.push({
+      type: "full",
+      id,
+      objectType: type,
+      content,
+    });
+    this.totalSize += content.length;
+  }
+
+  /**
+   * Add a delta object to the pending pack
+   *
+   * @param id Object ID of the deltified object
+   * @param baseId Object ID of the base object
+   * @param delta Delta data (Git binary delta format)
+   */
+  addDelta(id: ObjectId, baseId: ObjectId, delta: Uint8Array): void {
+    this.entries.push({
+      type: "delta",
+      id,
+      baseId,
+      delta,
+    });
+    this.totalSize += delta.length;
+  }
+
+  /**
+   * Number of pending objects
+   */
+  get objectCount(): number {
+    return this.entries.length;
+  }
+
+  /**
+   * Total pending data size (approximate, uncompressed)
+   */
+  get size(): number {
+    return this.totalSize;
+  }
+
+  /**
+   * Check if flush threshold has been reached
+   */
+  shouldFlush(): boolean {
+    return this.entries.length >= this.maxObjects || this.totalSize >= this.maxBytes;
+  }
+
+  /**
+   * Check if there are any pending entries
+   */
+  isEmpty(): boolean {
+    return this.entries.length === 0;
+  }
+
+  /**
+   * Generate pack file from pending entries
+   *
+   * Objects are written in the order they were added. Full objects
+   * are written first, followed by delta objects.
+   *
+   * @returns Flush result with pack data and index
+   */
+  async flush(): Promise<FlushResult> {
+    if (this.entries.length === 0) {
+      // Generate empty pack
+      const writer = new PackWriterStream();
+      const result = await writer.finalize();
+      const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
+
+      return {
+        packName: generatePackName(),
+        packData: result.packData,
+        indexData,
+        entries: result.indexEntries,
+      };
+    }
+
+    // Separate full objects and deltas
+    const fullObjects = this.entries.filter((e) => e.type === "full");
+    const deltaObjects = this.entries.filter((e) => e.type === "delta");
+
+    const writer = new PackWriterStream();
+
+    // Write full objects first (they may be bases for deltas)
+    for (const entry of fullObjects) {
+      if (entry.type === "full") {
+        await writer.addObject(entry.id, entry.objectType, entry.content);
+      }
+    }
+
+    // Write delta objects
+    // Try to use OFS_DELTA if base is in this pack, otherwise use REF_DELTA
+    for (const entry of deltaObjects) {
+      if (entry.type === "delta") {
+        const baseOffset = writer.getObjectOffset(entry.baseId);
+        if (baseOffset !== undefined) {
+          // Base is in this pack, use OFS_DELTA
+          await writer.addOfsDelta(entry.id, entry.baseId, entry.delta);
+        } else {
+          // Base is not in this pack, use REF_DELTA
+          await writer.addRefDelta(entry.id, entry.baseId, entry.delta);
+        }
+      }
+    }
+
+    const result = await writer.finalize();
+    const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
+
+    // Clear entries after flush
+    this.entries = [];
+    this.totalSize = 0;
+
+    return {
+      packName: generatePackName(),
+      packData: result.packData,
+      indexData,
+      entries: result.indexEntries,
+    };
+  }
+
+  /**
+   * Discard all pending data without flushing
+   */
+  clear(): void {
+    this.entries = [];
+    this.totalSize = 0;
+  }
+
+  /**
+   * Get IDs of all pending objects
+   */
+  getPendingIds(): ObjectId[] {
+    return this.entries.map((e) => e.id);
+  }
+
+  /**
+   * Check if an object is pending
+   */
+  hasPending(id: ObjectId): boolean {
+    return this.entries.some((e) => e.id === id);
+  }
+}

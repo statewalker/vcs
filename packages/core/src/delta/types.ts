@@ -27,7 +27,7 @@ export interface DeltaCandidateStrategy {
  */
 export interface PackingProgress {
   /** Current phase of packing */
-  phase: "analyzing" | "selecting" | "deltifying" | "optimizing" | "complete";
+  phase: "analyzing" | "selecting" | "deltifying" | "optimizing" | "consolidating" | "complete";
   /** Total objects to process */
   totalObjects: number;
   /** Objects processed so far */
@@ -97,6 +97,7 @@ export interface RepackResult {
   deltasRemoved: number;
   looseObjectsPruned: number;
   spaceSaved: number;
+  packsConsolidated: number;
   duration: number;
 }
 
