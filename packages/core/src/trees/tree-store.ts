@@ -2,7 +2,8 @@
  * Tree storage interface
  */
 
-import type { ObjectId, TreeEntry } from "../id/index.js";
+import type { ObjectId } from "../id/index.js";
+import type { TreeEntry } from "./tree-entry.js";
 
 /**
  * File tree storage interface (streaming-first design)

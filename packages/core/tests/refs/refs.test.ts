@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { parsePackedRefs } from "../../src/refs/packed-refs-reader.js";
 import {
   createPeeledRef,
   createPeeledTagRef,
@@ -16,13 +17,12 @@ import {
   MERGE_HEAD,
   ORIG_HEAD,
   R_HEADS,
-  R_REMOTES,
   R_REFS,
+  R_REMOTES,
   R_TAGS,
   RefStore,
   SYMREF_PREFIX,
 } from "../../src/refs/ref-types.js";
-import { parsePackedRefs } from "../../src/refs/packed-refs-reader.js";
 
 describe("ref-types", () => {
   describe("createRef", () => {
@@ -54,10 +54,7 @@ describe("ref-types", () => {
 
   describe("createPeeledRef", () => {
     it("creates a peeled non-tag ref", () => {
-      const ref = createPeeledRef(
-        "refs/heads/main",
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      );
+      const ref = createPeeledRef("refs/heads/main", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
       expect(ref.name).toBe("refs/heads/main");
       expect(ref.objectId).toBe("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");

@@ -2,7 +2,9 @@
  * Tag storage interface
  */
 
-import type { ObjectId, ObjectTypeCode, PersonIdent } from "../id/index.js";
+import type { ObjectId } from "../id/index.js";
+import type { ObjectTypeCode } from "../objects/object-types.js";
+import type { PersonIdent } from "../person/person-ident.js";
 
 /**
  * Annotated tag object

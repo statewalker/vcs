@@ -2,10 +2,10 @@
  * Test data generators for creating valid Git objects
  */
 
-import type { ObjectId, PersonIdent } from "../../src/id/index.js";
-import type { Commit } from "../../src/commits/commit-store.js";
-import type { TreeEntry } from "../../src/trees/tree-entry.js";
 import type { Delta } from "@webrun-vcs/utils";
+import type { Commit } from "../../src/commits/commit-store.js";
+import type { ObjectId, PersonIdent } from "../../src/id/index.js";
+import type { TreeEntry } from "../../src/trees/tree-entry.js";
 
 /**
  * Seeded random number generator for reproducible tests

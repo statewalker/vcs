@@ -3,9 +3,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MockDeltaStore } from "./mock-delta-store.js";
-import { CommitGraphBuilder, MockCommitStore } from "./mock-commit-store.js";
 import { MemoryRawStore } from "../../src/binary/impl/memory-raw-store.js";
+import { CommitGraphBuilder, MockCommitStore } from "./mock-commit-store.js";
+import { MockDeltaStore } from "./mock-delta-store.js";
 
 describe("MockDeltaStore", () => {
   it("should store and load deltas", async () => {
@@ -27,10 +27,10 @@ describe("MockDeltaStore", () => {
 
   it("should check if object is a delta", async () => {
     const store = new MockDeltaStore();
-    await store.storeDelta(
-      { baseKey: "base", targetKey: "target" },
-      [{ type: "start", targetLen: 10 }, { type: "finish", checksum: 0 }],
-    );
+    await store.storeDelta({ baseKey: "base", targetKey: "target" }, [
+      { type: "start", targetLen: 10 },
+      { type: "finish", checksum: 0 },
+    ]);
 
     expect(await store.isDelta("target")).toBe(true);
     expect(await store.isDelta("nonexistent")).toBe(false);
@@ -38,10 +38,10 @@ describe("MockDeltaStore", () => {
 
   it("should remove deltas", async () => {
     const store = new MockDeltaStore();
-    await store.storeDelta(
-      { baseKey: "base", targetKey: "target" },
-      [{ type: "start", targetLen: 10 }, { type: "finish", checksum: 0 }],
-    );
+    await store.storeDelta({ baseKey: "base", targetKey: "target" }, [
+      { type: "start", targetLen: 10 },
+      { type: "finish", checksum: 0 },
+    ]);
 
     expect(await store.removeDelta("target")).toBe(true);
     expect(await store.isDelta("target")).toBe(false);
@@ -51,18 +51,18 @@ describe("MockDeltaStore", () => {
     const store = new MockDeltaStore();
 
     // Create a chain: target3 -> target2 -> target1 -> base
-    await store.storeDelta(
-      { baseKey: "base", targetKey: "target1" },
-      [{ type: "start", targetLen: 10 }, { type: "finish", checksum: 0 }],
-    );
-    await store.storeDelta(
-      { baseKey: "target1", targetKey: "target2" },
-      [{ type: "start", targetLen: 10 }, { type: "finish", checksum: 0 }],
-    );
-    await store.storeDelta(
-      { baseKey: "target2", targetKey: "target3" },
-      [{ type: "start", targetLen: 10 }, { type: "finish", checksum: 0 }],
-    );
+    await store.storeDelta({ baseKey: "base", targetKey: "target1" }, [
+      { type: "start", targetLen: 10 },
+      { type: "finish", checksum: 0 },
+    ]);
+    await store.storeDelta({ baseKey: "target1", targetKey: "target2" }, [
+      { type: "start", targetLen: 10 },
+      { type: "finish", checksum: 0 },
+    ]);
+    await store.storeDelta({ baseKey: "target2", targetKey: "target3" }, [
+      { type: "start", targetLen: 10 },
+      { type: "finish", checksum: 0 },
+    ]);
 
     const chainInfo = await store.getDeltaChainInfo("target3");
     expect(chainInfo).toBeDefined();
@@ -72,14 +72,14 @@ describe("MockDeltaStore", () => {
 
   it("should list all deltas", async () => {
     const store = new MockDeltaStore();
-    await store.storeDelta(
-      { baseKey: "base1", targetKey: "target1" },
-      [{ type: "start", targetLen: 10 }, { type: "finish", checksum: 0 }],
-    );
-    await store.storeDelta(
-      { baseKey: "base2", targetKey: "target2" },
-      [{ type: "start", targetLen: 10 }, { type: "finish", checksum: 0 }],
-    );
+    await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, [
+      { type: "start", targetLen: 10 },
+      { type: "finish", checksum: 0 },
+    ]);
+    await store.storeDelta({ baseKey: "base2", targetKey: "target2" }, [
+      { type: "start", targetLen: 10 },
+      { type: "finish", checksum: 0 },
+    ]);
 
     const deltas: Array<{ baseKey: string; targetKey: string }> = [];
     for await (const delta of store.listDeltas()) {
@@ -225,9 +225,7 @@ describe("MemoryRawStore", () => {
       chunks.push(chunk);
     }
 
-    const loaded = new Uint8Array(
-      chunks.reduce((sum, c) => sum + c.length, 0),
-    );
+    const loaded = new Uint8Array(chunks.reduce((sum, c) => sum + c.length, 0));
     let offset = 0;
     for (const chunk of chunks) {
       loaded.set(chunk, offset);

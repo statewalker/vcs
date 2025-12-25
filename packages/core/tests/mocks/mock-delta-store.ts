@@ -16,10 +16,7 @@ import type {
  * Stores deltas in a Map for fast lookup and easy inspection.
  */
 export class MockDeltaStore implements DeltaStore {
-  private readonly deltas = new Map<
-    string,
-    { info: DeltaInfo; delta: Delta[]; ratio: number }
-  >();
+  private readonly deltas = new Map<string, { info: DeltaInfo; delta: Delta[]; ratio: number }>();
 
   async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
     const estimatedSize = this.estimateDeltaSize(delta);
@@ -50,9 +47,7 @@ export class MockDeltaStore implements DeltaStore {
     return this.deltas.delete(targetKey);
   }
 
-  async getDeltaChainInfo(
-    targetKey: string,
-  ): Promise<DeltaChainDetails | undefined> {
+  async getDeltaChainInfo(targetKey: string): Promise<DeltaChainDetails | undefined> {
     const entry = this.deltas.get(targetKey);
     if (!entry) return undefined;
 
@@ -89,10 +84,7 @@ export class MockDeltaStore implements DeltaStore {
   /**
    * Get all stored deltas for inspection
    */
-  getStoredDeltas(): Map<
-    string,
-    { info: DeltaInfo; delta: Delta[]; ratio: number }
-  > {
+  getStoredDeltas(): Map<string, { info: DeltaInfo; delta: Delta[]; ratio: number }> {
     return new Map(this.deltas);
   }
 
