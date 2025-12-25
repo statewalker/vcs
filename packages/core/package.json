@@ -42,6 +42,7 @@
     "lint": "biome lint src tests"
   },
   "dependencies": {
+    "@statewalker/webrun-files": "catalog:",
     "@webrun-vcs/utils": "workspace:*"
   },
   "devDependencies": {

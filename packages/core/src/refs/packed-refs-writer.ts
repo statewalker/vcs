@@ -8,7 +8,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import { type FilesApi, joinPath } from "@statewalker/webrun-files";
+import { type FilesApi, joinPath } from "../files/index.js";
 import { PACKED_REFS, PACKED_REFS_HEADER, PACKED_REFS_PEELED, type Ref } from "./ref-types.js";
 
 /**

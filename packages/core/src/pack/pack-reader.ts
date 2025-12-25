@@ -8,8 +8,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
-import type { FileHandle, FilesApi } from "@statewalker/webrun-files";
 import { decompressBlock } from "@webrun-vcs/utils";
+import type { FileHandle, FilesApi } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import { bytesToHex } from "../utils/index.js";
 

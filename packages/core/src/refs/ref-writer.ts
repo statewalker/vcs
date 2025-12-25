@@ -9,8 +9,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectoryUpdate.java
  */
 
-import { dirname, type FilesApi, joinPath } from "@statewalker/webrun-files";
 import type { ObjectId } from "@webrun-vcs/core";
+import { dirname, type FilesApi, joinPath } from "../files/index.js";
 import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-types.js";
 
 /**
