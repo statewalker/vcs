@@ -4,7 +4,7 @@
 
 import { collect } from "@webrun-vcs/utils";
 import { describe, expect, it } from "vitest";
-import { MemoryVolatileStore } from "../../src/binary-storage/impl/memory-volatile-store.js";
+import { MemoryVolatileStore } from "../../src/binary/impl/memory-volatile-store.js";
 
 describe("MemoryVolatileStore", () => {
   const encoder = new TextEncoder();

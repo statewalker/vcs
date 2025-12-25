@@ -11,6 +11,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { createIgnoreManager } from "../../src/ignore/ignore-manager.impl.js";
 import { MatchResult } from "../../src/ignore/ignore-manager.js";
 import { createIgnoreNode } from "../../src/ignore/ignore-node.js";
 import { createIgnoreRule } from "../../src/ignore/ignore-rule.js";
@@ -647,8 +648,7 @@ describe("IgnoreManager", () => {
     expect(manager.isIgnored("test/utils.test.ts", false)).toBe(false);
   });
 
-  it("respects priority of deeper gitignore files", async () => {
-    const { createIgnoreManager } = await import("../../src/ignore/ignore-manager.js");
+  it("respects priority of deeper gitignore files", () => {
     const manager = createIgnoreManager();
 
     // Root ignores all .log files
