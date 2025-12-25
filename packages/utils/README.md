@@ -40,6 +40,11 @@ import { sha1, compress, decompress, createDelta, applyDelta } from "@webrun-vcs
 | `@webrun-vcs/utils/hash/strong-checksum` | Strong checksum verification |
 | `@webrun-vcs/utils/hash/utils` | Hash conversion utilities |
 | `@webrun-vcs/utils/diff` | Delta encoding/decoding and text diff |
+| `@webrun-vcs/utils/diff/text-diff` | Myers diff algorithm for text comparison |
+| `@webrun-vcs/utils/diff/delta` | Binary delta creation and application |
+| `@webrun-vcs/utils/diff/patch` | Git patch format parsing and formatting |
+| `@webrun-vcs/utils/cache` | LRU cache and intermediate caching utilities |
+| `@webrun-vcs/utils/streams` | Async iterable utilities for streaming data |
 
 ## Usage Examples
 
@@ -108,6 +113,65 @@ import { crc32 } from "@webrun-vcs/utils/hash/crc32";
 
 const data = new Uint8Array([1, 2, 3, 4, 5]);
 const checksum = crc32(data);
+```
+
+### Text Diff with Myers Algorithm
+
+The Myers diff algorithm finds the minimal edit sequence between two text contents:
+
+```typescript
+import { RawText, RawTextComparator, myersDiff } from "@webrun-vcs/utils/diff/text-diff";
+
+const oldText = new RawText(new TextEncoder().encode("line1\nline2\nline3"));
+const newText = new RawText(new TextEncoder().encode("line1\nmodified\nline3"));
+
+const comparator = new RawTextComparator();
+const edits = myersDiff(oldText, newText, comparator);
+
+for (const edit of edits) {
+  console.log(`${edit.type}: lines ${edit.beginA}-${edit.endA} → ${edit.beginB}-${edit.endB}`);
+}
+```
+
+### LRU Cache
+
+Efficiently cache computed values with automatic eviction of least-recently-used entries:
+
+```typescript
+import { LruCache } from "@webrun-vcs/utils/cache";
+
+const cache = new LruCache<string, Uint8Array>(100); // Max 100 entries
+
+// Store and retrieve
+cache.set("key1", someData);
+const data = cache.get("key1");
+
+// Check existence
+if (cache.has("key1")) {
+  // ...
+}
+```
+
+### Stream Utilities
+
+Process data streams efficiently without loading everything into memory:
+
+```typescript
+import { collect, concat, toLines, mapStream } from "@webrun-vcs/utils/streams";
+
+// Collect async iterable into single Uint8Array
+const allData = await collect(asyncDataSource);
+
+// Concatenate multiple byte arrays
+const combined = concat([chunk1, chunk2, chunk3]);
+
+// Split stream into lines
+for await (const line of toLines(byteStream)) {
+  console.log(new TextDecoder().decode(line));
+}
+
+// Transform stream elements
+const transformed = mapStream(source, (chunk) => processChunk(chunk));
 ```
 
 ## Architecture
