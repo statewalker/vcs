@@ -39,10 +39,7 @@ import { sha1, compress, decompress, createDelta, applyDelta } from "@webrun-vcs
 | `@webrun-vcs/utils/hash/rolling-checksum` | Rolling hash for rsync-style delta |
 | `@webrun-vcs/utils/hash/strong-checksum` | Strong checksum verification |
 | `@webrun-vcs/utils/hash/utils` | Hash conversion utilities |
-| `@webrun-vcs/utils/diff` | Delta encoding/decoding and text diff |
-| `@webrun-vcs/utils/diff/text-diff` | Myers diff algorithm for text comparison |
-| `@webrun-vcs/utils/diff/delta` | Binary delta creation and application |
-| `@webrun-vcs/utils/diff/patch` | Git patch format parsing and formatting |
+| `@webrun-vcs/utils/diff` | Delta encoding/decoding, text diff (Myers), and Git patch format |
 | `@webrun-vcs/utils/cache` | LRU cache and intermediate caching utilities |
 | `@webrun-vcs/utils/streams` | Async iterable utilities for streaming data |
 
@@ -120,7 +117,7 @@ const checksum = crc32(data);
 The Myers diff algorithm finds the minimal edit sequence between two text contents:
 
 ```typescript
-import { RawText, RawTextComparator, myersDiff } from "@webrun-vcs/utils/diff/text-diff";
+import { RawText, RawTextComparator, myersDiff } from "@webrun-vcs/utils/diff";
 
 const oldText = new RawText(new TextEncoder().encode("line1\nline2\nline3"));
 const newText = new RawText(new TextEncoder().encode("line1\nmodified\nline3"));
