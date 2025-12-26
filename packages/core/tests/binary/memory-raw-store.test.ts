@@ -4,7 +4,7 @@
 
 import { collect } from "@webrun-vcs/utils";
 import { describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/binary/impl/memory-raw-store.js";
+import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 
 describe("MemoryRawStore", () => {
   const encoder = new TextEncoder();

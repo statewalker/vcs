@@ -8,7 +8,7 @@
 import type { Delta } from "@webrun-vcs/utils";
 import { FossilChecksum } from "@webrun-vcs/utils";
 import { beforeEach, describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/binary/impl/memory-raw-store.js";
+import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 import { defaultComputeDelta, RawStoreWithDelta } from "../../src/delta/raw-store-with-delta.js";
 import { collectBytes } from "../helpers/assertion-helpers.js";
 import { MockDeltaStore } from "../mocks/mock-delta-store.js";

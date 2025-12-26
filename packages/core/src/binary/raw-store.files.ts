@@ -4,34 +4,10 @@
  * Stores content as files using Git's loose object directory structure.
  * Each key (object ID) is stored as a file with path: prefix/suffix
  * where prefix = first 2 chars, suffix = remaining chars.
- *
- * Implements the new RawStore interface from binary-storage.
  */
 
 import { dirname, type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { RawStore } from "@webrun-vcs/core";
-
-/**
- * Collect async iterable to Uint8Array
- */
-async function _collect(input: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
-  let totalLength = 0;
-
-  for await (const chunk of input) {
-    chunks.push(chunk);
-    totalLength += chunk.length;
-  }
-
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return result;
-}
+import type { RawStore } from "./raw-store.js";
 
 /**
  * File-based storage with Git loose object structure
@@ -89,6 +65,12 @@ export class FileRawStore implements RawStore {
   async *load(key: string): AsyncGenerator<Uint8Array> {
     const path = this.getPath(key);
 
+    // Check if file exists first (MemFilesApi doesn't throw for missing files)
+    const stats = await this.files.stats(path);
+    if (!stats) {
+      throw new Error(`Key not found: ${key}`);
+    }
+
     try {
       yield* this.files.read(path);
     } catch (error) {
@@ -106,8 +88,8 @@ export class FileRawStore implements RawStore {
     const path = this.getPath(key);
 
     try {
-      await this.files.stats(path);
-      return true;
+      const stats = await this.files.stats(path);
+      return stats !== undefined && stats !== null;
     } catch (error) {
       if (this.isNotFoundError(error)) {
         return false;
@@ -121,6 +103,12 @@ export class FileRawStore implements RawStore {
    */
   async delete(key: string): Promise<boolean> {
     const path = this.getPath(key);
+
+    // Check if file exists first (MemFilesApi doesn't throw for missing files)
+    const stats = await this.files.stats(path);
+    if (!stats) {
+      return false;
+    }
 
     try {
       await this.files.remove(path);

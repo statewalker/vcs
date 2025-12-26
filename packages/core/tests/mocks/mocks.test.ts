@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/binary/impl/memory-raw-store.js";
+import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 import { CommitGraphBuilder, MockCommitStore } from "./mock-commit-store.js";
 import { MockDeltaStore } from "./mock-delta-store.js";
 

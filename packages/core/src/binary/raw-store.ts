@@ -1,3 +1,5 @@
+import type { DeltaStore } from "../delta/index.js";
+
 /**
  * Raw byte storage interface
  *
@@ -84,7 +86,7 @@ export interface BinStore {
   /** Raw byte storage */
   readonly raw: RawStore;
   /** Delta-compressed storage */
-  readonly delta: import("../delta/delta-store.js").DeltaStore;
+  readonly delta: DeltaStore;
   /** Flush pending writes to persistent storage */
   flush(): Promise<void>;
   /** Close backend and release resources */

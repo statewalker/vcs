@@ -9,7 +9,7 @@ import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/binary/impl/memory-raw-store.js";
+import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 import { GCController } from "../../src/delta/gc-controller.js";
 import { PackDeltaStore } from "../../src/delta/pack-delta-store.js";
 import { RawStoreWithDelta } from "../../src/delta/raw-store-with-delta.js";

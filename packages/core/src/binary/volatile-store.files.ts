@@ -3,12 +3,10 @@
  *
  * Stores temporary content in files, allowing for memory-efficient
  * handling of large content that exceeds available memory.
- *
- * Implements the new VolatileStore interface from binary-storage.
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { VolatileContent, VolatileStore } from "@webrun-vcs/core";
+import type { VolatileContent, VolatileStore } from "./volatile-store.js";
 
 /**
  * File-based volatile storage

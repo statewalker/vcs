@@ -10,6 +10,8 @@ import type { FilesApi } from "@statewalker/webrun-files";
 import {
   type BlobStore,
   type CommitStore,
+  FileRawStore,
+  FileVolatileStore,
   GitBlobStore,
   GitCommitStore,
   type GitObjectStore,
@@ -19,7 +21,6 @@ import {
   type TagStore,
   type TreeStore,
 } from "@webrun-vcs/core";
-import { FileRawStore, FileVolatileStore } from "../binary-storage/index.js";
 
 /**
  * Collection of file-backed object stores
