@@ -8,7 +8,7 @@
  * objects are stored compressed on disk.
  */
 
-import { collect, deflate, inflate } from "@webrun-vcs/utils";
+import { deflate, inflate, slice } from "@webrun-vcs/utils";
 import type { RawStore } from "./raw-store.js";
 
 /**
@@ -86,11 +86,7 @@ export class CompressedRawStore implements RawStore {
 
     // Apply range if specified
     if (options?.offset || options?.length) {
-      // Collect and slice for range support
-      const bytes = await collect(decompressed);
-      const start = options.offset ?? 0;
-      const end = options.length ? start + options.length : bytes.length;
-      yield bytes.subarray(start, end);
+      yield* slice(decompressed, options.offset ?? 0, options.length);
     } else {
       yield* decompressed;
     }
@@ -131,13 +127,14 @@ export class CompressedRawStore implements RawStore {
     if (!(await this.inner.has(key))) {
       return -1;
     }
-
     // Must decompress to get actual size
     try {
-      const compressed = this.inner.load(key);
-      const decompressed = inflate(compressed, { raw: this.raw });
-      const bytes = await collect(decompressed);
-      return bytes.length;
+      const content = this.load(key);
+      let length = 0;
+      for await (const chunk of content) {
+        length += chunk.length;
+      }
+      return length;
     } catch {
       return -1;
     }

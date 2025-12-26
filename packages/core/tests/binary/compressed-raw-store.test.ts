@@ -170,8 +170,57 @@ describe("CompressedRawStore", () => {
       const size = await store.size("nonexistent");
       expect(size).toBe(-1);
     });
-  });
 
+    it("returns correct size for large content", async () => {
+      const chunk = "AAAAAAAAAA".repeat(1000);
+      await store.store("key1", chunks(chunk));
+
+      const size = await store.size("key1");
+      expect(size).toBe(chunk.length);
+    });
+
+    it("returns 0 for empty content", async () => {
+      await store.store("key1", chunks());
+
+      const size = await store.size("key1");
+      expect(size).toBe(0);
+    });
+
+    it("returns correct size for multi-chunk content", async () => {
+      await store.store("key1", chunks("Hello", " ", "World", "!"));
+
+      const size = await store.size("key1");
+      expect(size).toBe(12); // "Hello World!".length = 5+1+5+1
+    });
+
+    it("returns correct size for binary content", async () => {
+      const binary = new Uint8Array([0, 1, 2, 0, 255, 0, 128, 0]);
+
+      async function* binaryContent(): AsyncIterable<Uint8Array> {
+        yield binary;
+      }
+
+      await store.store("key1", binaryContent());
+      const size = await store.size("key1");
+
+      expect(size).toBe(8);
+    });
+
+    it("returns correct size regardless of compression ratio", async () => {
+      // Highly compressible content
+      const repetitive = "A".repeat(1000);
+      await store.store("key1", chunks(repetitive));
+
+      // Random-like content (poor compression) - use ASCII only (32-126) to avoid multi-byte UTF-8
+      const randomLike = Array.from({ length: 1000 }, (_, i) =>
+        String.fromCharCode(32 + ((i * 7) % 95)),
+      ).join("");
+      await store.store("key2", chunks(randomLike));
+
+      expect(await store.size("key1")).toBe(1000);
+      expect(await store.size("key2")).toBe(1000);
+    });
+  });
   describe("raw mode", () => {
     it("uses raw deflate when specified", async () => {
       const rawStore = new CompressedRawStore(innerStore, { raw: true });
