@@ -5,9 +5,8 @@
  */
 
 import { type FilesApi, joinPath } from "@statewalker/webrun-files";
-import type { BinStore, DeltaStore, RawStore } from "@webrun-vcs/core";
+import { type BinStore, type DeltaStore, FileRawStore, type RawStore } from "@webrun-vcs/core";
 import { FileDeltaStore } from "./file-delta-store.js";
-import { FileRawStore } from "./file-raw-store.js";
 
 // Re-export BinStore for backwards compatibility
 export type { BinStore };

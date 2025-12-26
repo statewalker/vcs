@@ -2,9 +2,25 @@
 
 This plan migrates useful code from `packages/storage-git` to `packages/core` before removing storage-git entirely.
 
+## Implementation Status
+
+**Completed**: Phase 1 and Phase 2 binary storage migration
+- [x] Renamed `MemoryRawStore` and `MemoryVolatileStore` to follow naming convention
+- [x] Migrated `FileRawStore` to `core/src/binary/raw-store.files.ts`
+- [x] Migrated `FileVolatileStore` to `core/src/binary/volatile-store.files.ts`
+- [x] Created `CompressedRawStore` at `core/src/binary/raw-store.compressed.ts`
+- [x] Added comprehensive tests for all storage implementations
+- [x] Updated `storage-git` to re-export from core (backwards compatible)
+
+**Note**: The `storage-git` package cannot be fully removed yet because:
+- `@webrun-vcs/commands` depends on `GitRepository`, `createGitStorage`, `serializeCommit/Tree`
+- `@webrun-vcs/storage-tests` depends on `createFileObjectStores`
+
+These are higher-level abstractions that remain in storage-git. The binary storage layer has been successfully migrated to core.
+
 ## Overview
 
-The `packages/storage-git` package will be **completely removed**. After careful analysis, most functionality already exists in core. Only file-based storage implementations need migration.
+The `packages/storage-git` package will be **reduced in scope**. After careful analysis, most functionality already exists in core. The binary storage implementations have been migrated.
 
 ---
 
@@ -23,6 +39,7 @@ The `packages/storage-git` package will be **completely removed**. After careful
 | Delta storage | `src/delta/*` | `core/src/delta/*` |
 | GC | `src/gc/*` | `core/src/delta/gc-controller.ts` |
 | Typed storage | `src/git-*-storage.ts` | `core/src/*-store.impl.ts` |
+| Loose objects | `src/loose/*` | Replaced by `GitObjectStoreImpl` + `CompressedRawStore` + `FileRawStore` |
 
 ---
 
@@ -34,38 +51,44 @@ Core only has memory implementations (`MemoryRawStore`, `MemoryVolatileStore`). 
 
 | Source | Target | Description |
 |--------|--------|-------------|
-| `src/binary-storage/file-raw-store.ts` | `core/src/binary/impl/file-raw-store.ts` | `FileRawStore implements RawStore` |
-| `src/binary-storage/file-volatile-store.ts` | `core/src/binary/impl/file-volatile-store.ts` | `FileVolatileStore implements VolatileStore` |
-| `src/binary-storage/file-delta-store.ts` | `core/src/binary/impl/file-delta-store.ts` | `FileDeltaStore implements DeltaStore` |
-| `src/binary-storage/file-bin-store.ts` | `core/src/binary/impl/file-bin-store.ts` | `FileBinStore implements BinStore` |
+| `src/binary-storage/file-raw-store.ts` | `core/src/binary/raw-store.files.ts` | `FileRawStore implements RawStore` |
+| `src/binary-storage/file-volatile-store.ts` | `core/src/binary/volatile-store.files.ts` | `FileVolatileStore implements VolatileStore` |
 
 ### Tasks
 
-1. Copy files to `packages/core/src/binary/impl/`
+1. Copy files to `packages/core/src/binary/`
 2. Update imports to use `@webrun-vcs/core` internal paths
-3. Export from `packages/core/src/binary/impl/index.ts`
+3. Export from `packages/core/src/binary/index.ts`
 4. Add tests from `packages/storage-git/tests/binary-storage/`
 
 ---
 
-## Phase 2: Loose Object Storage
+## Phase 2: Create CompressedRawStore
 
-Loose object functions for reading/writing compressed Git objects in `.git/objects/XX/YYY...` format.
+Instead of migrating loose object code, create a new `CompressedRawStore` that wraps any `RawStore` with zlib deflate/inflate.
 
-### Files to Migrate
+### New File to Create
 
-| Source | Target | Description |
-|--------|--------|-------------|
-| `src/loose/loose-object-reader.ts` | `core/src/binary/impl/loose-object-reader.ts` | `hasLooseObject`, `readLooseObject`, `readRawLooseObject` |
-| `src/loose/loose-object-writer.ts` | `core/src/binary/impl/loose-object-writer.ts` | `writeLooseObject`, `writeRawLooseObject` |
-| `src/loose/file-loose-object-storage.ts` | `core/src/binary/impl/file-loose-object-storage.ts` | `FileLooseObjectStorage` class |
+| Target | Description |
+|--------|-------------|
+| `core/src/binary/raw-store.compressed.ts` | `CompressedRawStore implements RawStore` - wraps RawStore with zlib compression |
+
+### Architecture
+
+```
+GitObjectStoreImpl (typed objects with headers)
+  └── RawStoreWithDelta (optional delta compression)
+        └── CompressedRawStore (zlib deflate/inflate)
+              └── FileRawStore (file storage in .git/objects/XX/YYY...)
+```
 
 ### Tasks
 
-1. Copy files to `packages/core/src/binary/impl/`
-2. Update imports (use core's `getLooseObjectPath` from `utils/file-utils.ts`)
-3. Export from `packages/core/src/binary/impl/index.ts`
-4. Add tests from `packages/storage-git/tests/loose/`
+1. Create `CompressedRawStore` class that wraps `RawStore`
+2. Implement `store()` - deflate content before delegating
+3. Implement `load()` - inflate content after loading
+4. Export from `packages/core/src/binary/index.ts`
+5. Add tests for compression/decompression
 
 ---
 
@@ -87,16 +110,16 @@ Loose object functions for reading/writing compressed Git objects in `.git/objec
 
 | Category | Files | Description |
 |----------|-------|-------------|
-| File binary storage | 4 files | `FileRawStore`, `FileVolatileStore`, `FileDeltaStore`, `FileBinStore` |
-| Loose objects | 3 files | Reader, writer, and storage class |
-| **Total** | **7 files** | File-based implementations of core interfaces |
+| File binary storage | 2 files (migrate) | `FileRawStore`, `FileVolatileStore` |
+| Compressed storage | 1 file (create) | `CompressedRawStore` - zlib wrapper |
+| **Total** | **3 files** | |
 
 ---
 
 ## Execution Order
 
-1. **Phase 1** (File binary storage) - Core interface implementations
-2. **Phase 2** (Loose objects) - Depends on file-utils already in core
+1. **Phase 1** (File binary storage) - Migrate `FileRawStore`, `FileVolatileStore`
+2. **Phase 2** (CompressedRawStore) - Create new zlib wrapper
 3. **Phase 3** (Cleanup) - Verification and removal
 
 ---

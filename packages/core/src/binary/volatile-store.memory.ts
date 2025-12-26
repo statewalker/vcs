@@ -5,7 +5,7 @@
  * Best for small content or when memory is not constrained.
  */
 
-import type { VolatileContent, VolatileStore } from "../volatile-store.js";
+import type { VolatileContent, VolatileStore } from "./volatile-store.js";
 
 /**
  * Memory-based volatile storage

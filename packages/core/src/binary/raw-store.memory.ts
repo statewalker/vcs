@@ -3,7 +3,7 @@
  */
 
 import { slice } from "@webrun-vcs/utils";
-import type { RawStore } from "../raw-store.js";
+import type { RawStore } from "./raw-store.js";
 
 /**
  * Simple in-memory storage for testing the new RawStore interface

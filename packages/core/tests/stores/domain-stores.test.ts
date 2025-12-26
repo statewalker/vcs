@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/binary/impl/memory-raw-store.js";
-import { MemoryVolatileStore } from "../../src/binary/impl/memory-volatile-store.js";
+import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
+import { MemoryVolatileStore } from "../../src/binary/volatile-store.memory.js";
 import { GitBlobStore } from "../../src/blob/blob-store.impl.js";
 import { GitCommitStore } from "../../src/commits/commit-store.impl.js";
 import { FileMode } from "../../src/files/file-mode.js";

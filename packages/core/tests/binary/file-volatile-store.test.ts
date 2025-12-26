@@ -1,13 +1,23 @@
 /**
- * Tests for MemoryVolatileStore
+ * Tests for FileVolatileStore
  */
 
+import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { collect } from "@webrun-vcs/utils";
-import { describe, expect, it } from "vitest";
-import { MemoryVolatileStore } from "../../src/binary/volatile-store.memory.js";
+import { beforeEach, describe, expect, it } from "vitest";
+import { FileVolatileStore } from "../../src/binary/volatile-store.files.js";
 
-describe("MemoryVolatileStore", () => {
+describe("FileVolatileStore", () => {
+  let files: FilesApi;
+  let store: FileVolatileStore;
+  const tempDir = "/tmp/volatile";
+
   const encoder = new TextEncoder();
+
+  beforeEach(() => {
+    files = new FilesApi(new MemFilesApi());
+    store = new FileVolatileStore(files, tempDir);
+  });
 
   async function* chunks(...strings: string[]): AsyncIterable<Uint8Array> {
     for (const s of strings) {
@@ -17,21 +27,16 @@ describe("MemoryVolatileStore", () => {
 
   describe("store", () => {
     it("stores content and reports correct size", async () => {
-      const store = new MemoryVolatileStore();
       const content = await store.store(chunks("Hello", " ", "World"));
-
       expect(content.size).toBe(11);
     });
 
     it("stores empty content", async () => {
-      const store = new MemoryVolatileStore();
       const content = await store.store(chunks());
-
       expect(content.size).toBe(0);
     });
 
     it("stores large content", async () => {
-      const store = new MemoryVolatileStore();
       const largeChunk = new Uint8Array(1024 * 1024).fill(42);
 
       async function* largeContent(): AsyncIterable<Uint8Array> {
@@ -43,16 +48,13 @@ describe("MemoryVolatileStore", () => {
     });
 
     it("computes size correctly for multiple chunks", async () => {
-      const store = new MemoryVolatileStore();
       const content = await store.store(chunks("a", "bb", "ccc", "dddd"));
-
       expect(content.size).toBe(10); // 1 + 2 + 3 + 4
     });
   });
 
   describe("read", () => {
     it("reads stored content back", async () => {
-      const store = new MemoryVolatileStore();
       const content = await store.store(chunks("Hello", " ", "World"));
 
       const result = await collect(content.read());
@@ -62,7 +64,6 @@ describe("MemoryVolatileStore", () => {
     });
 
     it("allows multiple reads", async () => {
-      const store = new MemoryVolatileStore();
       const content = await store.store(chunks("Test"));
 
       const read1 = await collect(content.read());
@@ -75,7 +76,6 @@ describe("MemoryVolatileStore", () => {
     });
 
     it("preserves binary data", async () => {
-      const store = new MemoryVolatileStore();
       const binaryData = new Uint8Array([0x00, 0x01, 0xff, 0xfe, 0x42]);
 
       async function* binaryContent(): AsyncIterable<Uint8Array> {
@@ -89,45 +89,49 @@ describe("MemoryVolatileStore", () => {
     });
 
     it("throws after dispose", async () => {
-      const store = new MemoryVolatileStore();
       const content = await store.store(chunks("Test"));
 
       await content.dispose();
 
-      expect(() => content.read()).toThrow("VolatileContent already disposed");
+      await expect(async () => {
+        await collect(content.read());
+      }).rejects.toThrow("VolatileContent already disposed");
     });
   });
 
   describe("dispose", () => {
     it("can be called multiple times", async () => {
-      const store = new MemoryVolatileStore();
       const content = await store.store(chunks("Test"));
 
       await content.dispose();
       await content.dispose(); // Should not throw
     });
 
-    it("releases memory on dispose", async () => {
-      const store = new MemoryVolatileStore();
-      const largeChunk = new Uint8Array(1024 * 1024).fill(42);
+    it("removes temp file on dispose", async () => {
+      const content = await store.store(chunks("Test"));
 
-      async function* largeContent(): AsyncIterable<Uint8Array> {
-        yield largeChunk;
+      // Find temp file
+      let tempFilePath: string | undefined;
+      for await (const entry of files.list(tempDir)) {
+        tempFilePath = `${tempDir}/${entry.name}`;
+        break;
       }
+      expect(tempFilePath).toBeDefined();
 
-      const content = await store.store(largeContent());
-      expect(content.size).toBe(1024 * 1024);
+      // Verify file exists before dispose
+      const statsBefore = await files.stats(tempFilePath!);
+      expect(statsBefore).toBeDefined();
 
       await content.dispose();
-      // After dispose, read() should throw
-      expect(() => content.read()).toThrow();
+
+      // Verify file is removed after dispose
+      const statsAfter = await files.stats(tempFilePath!);
+      expect(statsAfter).toBeUndefined();
     });
   });
 
   describe("multiple stores", () => {
     it("handles multiple independent stores", async () => {
-      const store = new MemoryVolatileStore();
-
       const content1 = await store.store(chunks("First"));
       const content2 = await store.store(chunks("Second"));
       const content3 = await store.store(chunks("Third"));
@@ -146,8 +150,6 @@ describe("MemoryVolatileStore", () => {
     });
 
     it("disposing one does not affect others", async () => {
-      const store = new MemoryVolatileStore();
-
       const content1 = await store.store(chunks("First"));
       const content2 = await store.store(chunks("Second"));
 
@@ -158,7 +160,34 @@ describe("MemoryVolatileStore", () => {
       expect(text2).toBe("Second");
 
       // content1 should throw
-      expect(() => content1.read()).toThrow();
+      await expect(async () => {
+        await collect(content1.read());
+      }).rejects.toThrow();
+    });
+  });
+
+  describe("temp directory", () => {
+    it("creates temp directory if it does not exist", async () => {
+      const newTempDir = "/new/temp/dir";
+      const newStore = new FileVolatileStore(files, newTempDir);
+
+      await newStore.store(chunks("content"));
+
+      const stats = await files.stats(newTempDir);
+      expect(stats?.kind).toBe("directory");
+    });
+
+    it("uses unique filenames for each store", async () => {
+      await store.store(chunks("First"));
+      await store.store(chunks("Second"));
+
+      const entries: string[] = [];
+      for await (const entry of files.list(tempDir)) {
+        entries.push(entry.name);
+      }
+
+      expect(entries).toHaveLength(2);
+      expect(new Set(entries).size).toBe(2); // All unique
     });
   });
 });
