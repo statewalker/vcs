@@ -9,7 +9,16 @@
  */
 
 import { type FilesApi, joinPath } from "../files/index.js";
-import { PACKED_REFS, PACKED_REFS_HEADER, PACKED_REFS_PEELED, type Ref } from "./ref-types.js";
+import { readPackedRefs } from "./packed-refs-reader.js";
+import { readLooseRef } from "./ref-reader.js";
+import {
+  isSymbolicRef,
+  PACKED_REFS,
+  PACKED_REFS_HEADER,
+  PACKED_REFS_PEELED,
+  type Ref,
+} from "./ref-types.js";
+import { deleteRef } from "./ref-writer.js";
 
 /**
  * Write packed-refs file
@@ -79,9 +88,6 @@ export function formatPackedRefs(refs: Ref[], peeled = true): string {
  * @param ref Ref to add
  */
 export async function addPackedRef(files: FilesApi, gitDir: string, ref: Ref): Promise<void> {
-  // Import here to avoid circular dependency
-  const { readPackedRefs } = await import("./packed-refs-reader.js");
-
   const { refs, peeled } = await readPackedRefs(files, gitDir);
 
   // Find and update or add
@@ -108,9 +114,6 @@ export async function removePackedRef(
   gitDir: string,
   refName: string,
 ): Promise<boolean> {
-  // Import here to avoid circular dependency
-  const { readPackedRefs } = await import("./packed-refs-reader.js");
-
   const { refs, peeled } = await readPackedRefs(files, gitDir);
 
   const index = refs.findIndex((r) => r.name === refName);
@@ -151,12 +154,6 @@ export async function packRefs(
   refNames: string[],
   deleteLoose = true,
 ): Promise<void> {
-  // Import here to avoid circular dependency
-  const { readPackedRefs } = await import("./packed-refs-reader.js");
-  const { readLooseRef } = await import("./ref-reader.js");
-  const { deleteRef } = await import("./ref-writer.js");
-  const { isSymbolicRef } = await import("./ref-types.js");
-
   const { refs: existingRefs, peeled } = await readPackedRefs(files, gitDir);
   const refsMap = new Map(existingRefs.map((r) => [r.name, r]));
 

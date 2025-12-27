@@ -1,5 +1,8 @@
 // Binary storage
 export * from "./binary/index.js";
+export * from "./blob/blob-store.impl.js";
+// Blob store
+export * from "./blob/blob-store.js";
 // Stores
 export * from "./commits/index.js";
 // Delta storage
@@ -12,6 +15,8 @@ export * from "./format/index.js";
 export * from "./id/index.js";
 // Object types and formatting
 export * from "./objects/object-header.js";
+export * from "./objects/object-store.impl.js";
+export * from "./objects/object-store.js";
 export * from "./objects/object-types.js";
 // Pack file utilities
 export * from "./pack/index.js";
@@ -23,6 +28,8 @@ export * from "./refs/index.js";
 export * from "./repository.js";
 // Staging area
 export * from "./staging/index.js";
+// Repository factory functions
+export * from "./stores/index.js";
 export * from "./tags/index.js";
 export * from "./trees/index.js";
 // Working tree interface
