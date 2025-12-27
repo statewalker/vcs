@@ -52,6 +52,34 @@ Repository (unified entry point)
 
 Lower layers handle raw storage and compression, while higher layers provide semantic operations like commit ancestry traversal or reference resolution.
 
+### Repository vs WorkingCopy
+
+The package separates shared history storage from local checkout state:
+
+| Concept | Purpose | Examples |
+|---------|---------|----------|
+| **Repository** | Immutable shared history | Commits, trees, blobs, tags, branches |
+| **WorkingCopy** | Local checkout state | HEAD, staging area, merge state, stash |
+
+Multiple WorkingCopies can share a single Repository, similar to `git worktree`. This separation enables:
+
+- Clean architectural boundaries
+- Multiple parallel checkouts
+- Clear ownership of state
+
+```
+WorkingCopy (local checkout state)
+├── HEAD (current branch or detached commit)
+├── staging (index)
+├── worktree (filesystem)
+├── stash
+├── config (per-worktree settings)
+└── Repository (shared history)
+        ├── objects (commits, trees, blobs, tags)
+        ├── refs (branches, tags, remotes)
+        └── config (shared settings)
+```
+
 ## Public API
 
 ### Main Export
@@ -110,7 +138,8 @@ import {
 
 | Interface | Purpose |
 |-----------|---------|
-| `Repository` | Unified entry point combining all stores |
+| `Repository` | Shared history storage (objects + refs) |
+| `WorkingCopy` | Local checkout state (HEAD, staging, stash) |
 | `GitObjectStore` | Store/load any Git object by type |
 | `BlobStore` | Binary file content storage |
 | `TreeStore` | Directory structure snapshots |
@@ -118,6 +147,7 @@ import {
 | `TagStore` | Annotated tag objects |
 | `RefStore` | Branches, tags, HEAD management |
 | `StagingStore` | Index with conflict support |
+| `StashStore` | Stash operations (push, pop, list) |
 | `StatusCalculator` | Three-way diff (HEAD/index/worktree) |
 | `WorkingTreeIterator` | Filesystem traversal |
 
@@ -162,6 +192,53 @@ async function createCommit(repo: Repository, message: string): Promise<ObjectId
   await repo.refs.set("refs/heads/main", commitId);
 
   return commitId;
+}
+```
+
+### Working with WorkingCopy
+
+The `WorkingCopy` interface provides access to local checkout state:
+
+```typescript
+import type { WorkingCopy } from "@webrun-vcs/core";
+
+async function checkWorkingCopyStatus(wc: WorkingCopy): Promise<void> {
+  // Get current branch
+  const branch = await wc.getCurrentBranch();
+  console.log(`On branch: ${branch ?? "detached HEAD"}`);
+
+  // Check for in-progress operations
+  if (await wc.hasOperationInProgress()) {
+    const mergeState = await wc.getMergeState();
+    if (mergeState) {
+      console.log(`Merge in progress: ${mergeState.mergeHead}`);
+    }
+
+    const rebaseState = await wc.getRebaseState();
+    if (rebaseState) {
+      console.log(`Rebase: step ${rebaseState.current}/${rebaseState.total}`);
+    }
+  }
+
+  // Get status
+  const status = await wc.getStatus();
+  if (!status.isClean) {
+    console.log("Working tree has uncommitted changes");
+  }
+}
+
+// Using stash
+async function stashChanges(wc: WorkingCopy, message: string): Promise<void> {
+  const stashId = await wc.stash.push(message);
+  console.log(`Created stash: ${stashId}`);
+
+  // List stashes
+  for await (const entry of wc.stash.list()) {
+    console.log(`stash@{${entry.index}}: ${entry.message}`);
+  }
+
+  // Pop most recent
+  await wc.stash.pop();
 }
 ```
 
