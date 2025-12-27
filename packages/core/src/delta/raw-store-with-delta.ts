@@ -132,7 +132,10 @@ export class RawStoreWithDelta implements RawStore {
     return this.objects.has(id);
   }
 
-  async store(key: string, content: AsyncIterable<Uint8Array>): Promise<number> {
+  async store(
+    key: string,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<number> {
     return this.objects.store(key, content);
   }
 

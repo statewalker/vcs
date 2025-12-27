@@ -379,16 +379,13 @@ async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8A
   return result;
 }
 
-import { FileMode, type ObjectId } from "@webrun-vcs/core";
-/**
- * Mock working tree for testing --all flag.
- * Simulates a filesystem with files that can be modified/deleted.
- */
-import type {
-  WorkingTreeEntry,
-  WorkingTreeIterator,
-  WorkingTreeIteratorOptions,
-} from "@webrun-vcs/worktree";
+import {
+  FileMode,
+  type ObjectId,
+  type WorkingTreeEntry,
+  type WorkingTreeIterator,
+  type WorkingTreeIteratorOptions,
+} from "@webrun-vcs/core";
 
 class MockWorkingTree implements WorkingTreeIterator {
   private files: Map<string, { content: Uint8Array; mode: number; mtime: number }> = new Map();
