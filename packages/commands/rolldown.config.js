@@ -21,6 +21,6 @@ export default defineConfig({
       chunkFileNames: "[name]-[hash].cjs",
     },
   ],
-  external: ["@webrun-vcs/vcs"],
+  external: [],
   treeshake: true,
 });

@@ -74,17 +74,12 @@ export interface PackDeltaStoreOptions {
  * ```
  */
 export class PackDeltaStore implements DeltaStore {
-  private readonly files: FilesApi;
-  private readonly basePath: string;
   private readonly packDir: PackDirectory;
   private pending: PendingPack;
   private reverseIndex: DeltaReverseIndex | null = null;
   private initialized = false;
 
   constructor(options: PackDeltaStoreOptions) {
-    this.files = options.files;
-    this.basePath = options.basePath;
-
     this.packDir = new PackDirectory({
       files: options.files,
       basePath: options.basePath,

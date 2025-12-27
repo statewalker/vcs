@@ -243,9 +243,6 @@ importers:
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../core
-      '@webrun-vcs/storage-git':
-        specifier: workspace:*
-        version: link:../storage-git
       '@webrun-vcs/transport':
         specifier: workspace:*
         version: link:../transport
@@ -296,69 +293,16 @@ importers:
 
   packages/sandbox:
     dependencies:
-      '@webrun-vcs/utils':
-        specifier: workspace:*
-        version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/staging:
-    dependencies:
-      '@webrun-vcs/core':
-        specifier: workspace:*
-        version: link:../core
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/storage-git:
-    dependencies:
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../core
       '@webrun-vcs/utils':
         specifier: workspace:*
         version: link:../utils
-      '@webrun-vcs/vcs':
-        specifier: workspace:*
-        version: link:../vcs
-      '@webrun-vcs/worktree':
-        specifier: workspace:*
-        version: link:../worktree
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
-      '@webrun-vcs/testing':
-        specifier: workspace:*
-        version: link:../testing
       rolldown:
         specifier: 'catalog:'
         version: 1.0.0-beta.51
@@ -371,18 +315,12 @@ importers:
 
   packages/storage-tests:
     devDependencies:
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../core
-      '@webrun-vcs/storage-git':
-        specifier: workspace:*
-        version: link:../storage-git
       '@webrun-vcs/store-kv':
         specifier: workspace:*
         version: link:../store-kv
@@ -548,50 +486,6 @@ importers:
       '@types/pako':
         specifier: ^2.0.4
         version: 2.0.4
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/vcs:
-    dependencies:
-      '@webrun-vcs/core':
-        specifier: workspace:*
-        version: link:../core
-      '@webrun-vcs/utils':
-        specifier: workspace:*
-        version: link:../utils
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.51
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.12(@types/node@24.10.1)(jsdom@23.2.0)(tsx@4.20.6)
-
-  packages/worktree:
-    dependencies:
-      '@webrun-vcs/core':
-        specifier: workspace:*
-        version: link:../core
-      '@webrun-vcs/utils':
-        specifier: workspace:*
-        version: link:../utils
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
       rolldown:
         specifier: 'catalog:'
         version: 1.0.0-beta.51

@@ -6,65 +6,20 @@
 
 ## Overview
 
-Unify the storage interfaces around `Repository` as the central abstraction. Currently, the codebase has parallel hierarchies (`Repository`/`GitStores` for typed storage and `BinStore`/`RawStore` for binary storage) that don't connect cleanly.
+Unify the storage interfaces around `Repository` as the single entry point for all VCS operations. Remove GitStores interface entirely.
 
-## Goals
-
-1. **Repository as single entry point** - All VCS operations go through Repository
-2. **Consistent factory pattern** - One pattern to create repositories across all backends
-3. **Expose low-level storage when needed** - Access to BinStore for advanced operations
-4. **Unified lifecycle** - flush/refresh/close at Repository level
-5. **GitStores becomes implementation detail** - Transport uses Repository directly
-
-## Current Architecture
+## Target Architecture
 
 ```
                     ┌────────────────────────────────────────────┐
                     │              Repository                     │
-                    │  objects, commits, trees, blobs, tags, refs │
-                    │  config, initialize(), close()              │
-                    └─────────────────┬──────────────────────────┘
-                                      │ (only GitRepository)
-                    ┌─────────────────┴──────────────────────────┐
-                    │              GitStores                      │
-                    │  objects, commits, trees, blobs, tags       │
-                    └─────────────────┬──────────────────────────┘
-                                      │
-    ┌─────────────────────────────────┼─────────────────────────────┐
-    │                                 │                              │
-    ▼                                 ▼                              ▼
-┌───────────────┐           ┌───────────────┐              ┌───────────────┐
-│ FileObjectStores │         │ MemObjectStores │            │ SqlObjectStores │
-│ (storage-git) │           │ (store-mem)   │              │ (store-sql)   │
-└───────┬───────┘           └───────┬───────┘              └───────┬───────┘
-        │                           │                              │
-        ▼                           ▼                              ▼
-   FileBinStore               MemBinStore                    SqlBinStore
-        │                           │                              │
-        ├── FileRawStore            ├── MemRawStore                ├── SqlRawStore
-        └── FileDeltaStore          └── MemDeltaStore              └── SqlDeltaStore
-```
-
-**Problems:**
-- GitStores is separate from Repository (only GitRepository implements both)
-- No way to create Repository from BinStore generically
-- Memory/SQL/KV backends create GitStores, not Repository
-- Transport uses GitStores, should use Repository
-
-## Proposed Architecture
-
-```
-                    ┌────────────────────────────────────────────┐
-                    │              Repository                     │
-                    │  (EXTENDED with storage property)           │
                     │                                             │
                     │  objects, commits, trees, blobs, tags, refs │
                     │  config                                     │
-                    │  storage: BinStore (optional)               │
+                    │  storage: BinStore                          │
                     │                                             │
                     │  initialize(), close(), isInitialized()     │
-                    │  flush()                                    │
-                    │  refresh()                                  │
+                    │  flush(), refresh()                         │
                     └─────────────────┬──────────────────────────┘
                                       │
     ┌─────────────────────────────────┼─────────────────────────────┐
@@ -77,120 +32,73 @@ FileRepository              MemoryRepository               SqlRepository
 FileBinStore               MemBinStore                    SqlBinStore
 ```
 
-## Implementation Plan
-
-### Phase 1: Extend Repository Interface
-
-Add optional low-level access and lifecycle methods to Repository.
+## Repository Interface (Final)
 
 **File:** `packages/core/src/repository.ts`
 
 ```typescript
+import type { BlobStore } from "./blob/blob-store.js";
+import type { CommitStore } from "./commits/commit-store.js";
+import type { GitObjectStore } from "./objects/object-store.js";
+import type { RefStore } from "./refs/ref-store.js";
+import type { TagStore } from "./tags/tag-store.js";
+import type { TreeStore } from "./trees/tree-store.js";
+import type { BinStore } from "./binary/raw-store.js";
+
+export interface RepositoryConfig {
+  name?: string;
+  bare?: boolean;
+  [key: string]: unknown;
+}
+
 export interface Repository {
-  // Existing stores
+  // Object stores
   readonly objects: GitObjectStore;
   readonly commits: CommitStore;
   readonly trees: TreeStore;
   readonly blobs: BlobStore;
   readonly tags: TagStore;
+
+  // References
   readonly refs: RefStore;
+
+  // Configuration
   readonly config: RepositoryConfig;
 
-  // NEW: Optional low-level storage access
-  readonly storage?: BinStore;
+  // Low-level storage access
+  readonly storage: BinStore;
 
-  // Existing lifecycle
+  // Lifecycle
   initialize(): Promise<void>;
   close(): Promise<void>;
   isInitialized(): Promise<boolean>;
-
-  // NEW: Extended lifecycle
   flush(): Promise<void>;
   refresh(): Promise<void>;
 }
 ```
 
-**Tasks:**
-1. Add `storage?: BinStore` property
-2. Add `flush(): Promise<void>` method
-3. Add `refresh(): Promise<void>` method
-4. Update JSDoc comments
-
-### Phase 2: Deprecate GitStores
-
-GitStores becomes an alias for a subset of Repository properties.
+## Factory Pattern
 
 **File:** `packages/core/src/repository.ts`
 
 ```typescript
-/**
- * GitStores - Collection of Git object stores
- *
- * @deprecated Use Repository interface directly. GitStores will be removed
- * in a future version. Transport and storage operations should accept
- * Repository and only use the stores they need.
- */
-export interface GitStores {
-  readonly objects: GitObjectStore;
-  readonly commits: CommitStore;
-  readonly trees: TreeStore;
-  readonly blobs: BlobStore;
-  readonly tags: TagStore;
-}
-
-/**
- * Extract GitStores from a Repository
- *
- * @deprecated Use Repository directly instead
- */
-export function asGitStores(repo: Repository): GitStores {
-  return {
-    objects: repo.objects,
-    commits: repo.commits,
-    trees: repo.trees,
-    blobs: repo.blobs,
-    tags: repo.tags,
-  };
-}
-```
-
-**Tasks:**
-1. Mark GitStores as @deprecated
-2. Add asGitStores helper for migration
-3. Update transport package to accept Repository
-
-### Phase 3: Create Repository Factory Pattern
-
-Standardize repository creation across all backends.
-
-**File:** `packages/core/src/repository.ts` (new types)
-
-```typescript
-/**
- * Options for creating a repository
- */
 export interface RepositoryOptions {
-  /** Whether to create if it doesn't exist */
   create?: boolean;
-  /** Repository configuration */
   config?: RepositoryConfig;
 }
 
-/**
- * Factory function signature for creating repositories
- */
 export type RepositoryFactory<TOptions extends RepositoryOptions = RepositoryOptions> = (
   options?: TOptions,
 ) => Promise<Repository>;
 ```
 
-**Backend implementations:**
+**Backend factories:**
 
 ```typescript
-// packages/store-mem/src/repository.ts
+// packages/store-mem/src/index.ts
 export function createMemoryRepository(options?: RepositoryOptions): Promise<Repository>;
 
-// packages/storage-git/src/repository.ts
+// packages/storage-git/src/index.ts
 export interface FileRepositoryOptions extends RepositoryOptions {
   files: FilesApi;
   gitDir?: string;
@@ -198,46 +106,40 @@ export interface FileRepositoryOptions extends RepositoryOptions {
 }
 export function createFileRepository(options: FileRepositoryOptions): Promise<Repository>;
 
-// packages/store-sql/src/repository.ts
+// packages/store-sql/src/index.ts
 export interface SqlRepositoryOptions extends RepositoryOptions {
   db: Database;
 }
 export function createSqlRepository(options: SqlRepositoryOptions): Promise<Repository>;
 
-// packages/store-kv/src/repository.ts
+// packages/store-kv/src/index.ts
 export interface KvRepositoryOptions extends RepositoryOptions {
   store: KVStore;
 }
 export function createKvRepository(options: KvRepositoryOptions): Promise<Repository>;
 ```
 
-**Tasks:**
-1. Define RepositoryOptions in core
-2. Add createMemoryRepository to store-mem
-3. Rename GitRepository.open/init to createFileRepository in storage-git
-4. Add createSqlRepository to store-sql
-5. Add createKvRepository to store-kv
+## Implementation Plan
 
-### Phase 4: Implement Repository for All Backends
+### Phase 1: Update Core Interface
 
-Currently only storage-git has a full Repository implementation. Add implementations to other backends.
+1. Add `storage: BinStore` property to Repository (required, not optional)
+2. Add `flush(): Promise<void>` method
+3. Add `refresh(): Promise<void>` method
+4. Remove GitStores interface entirely
+5. Add RepositoryOptions and RepositoryFactory types
 
-#### store-mem Implementation
+### Phase 2: Implement Repository for All Backends
 
-**File:** `packages/store-mem/src/memory-repository.ts`
+#### MemoryRepository (store-mem)
 
 ```typescript
-import type { Repository, RepositoryConfig, RefStore } from "@webrun-vcs/core";
-import { createMemoryObjectStores } from "./object-storage/index.js";
-import { MemRefStore } from "./ref-store.js";
-import { MemBinStore } from "./binary-storage/index.js";
-
 export class MemoryRepository implements Repository {
-  readonly objects;
-  readonly commits;
-  readonly trees;
-  readonly blobs;
-  readonly tags;
+  readonly objects: GitObjectStore;
+  readonly commits: CommitStore;
+  readonly trees: TreeStore;
+  readonly blobs: BlobStore;
+  readonly tags: TagStore;
   readonly refs: RefStore;
   readonly config: RepositoryConfig;
   readonly storage: MemBinStore;
@@ -276,108 +178,65 @@ export class MemoryRepository implements Repository {
     await this.storage.refresh();
   }
 }
-
-export function createMemoryRepository(options?: RepositoryOptions): Promise<Repository> {
-  const repo = new MemoryRepository(options?.config);
-  if (options?.create) {
-    return repo.initialize().then(() => repo);
-  }
-  return Promise.resolve(repo);
-}
 ```
 
-**Tasks:**
-1. Create MemoryRepository class
-2. Export createMemoryRepository factory
-3. Update tests to use Repository
+#### FileRepository (storage-git)
 
-#### store-sql Implementation
+Update existing GitRepository to match new interface.
 
-Similar pattern using SqlBinStore and existing SQL stores.
+#### SqlRepository (store-sql)
 
-**Tasks:**
-1. Create SqlRepository class
-2. Export createSqlRepository factory
-3. Update tests to use Repository
+Similar pattern using SqlBinStore.
 
-#### store-kv Implementation
+#### KvRepository (store-kv)
 
-Similar pattern using KvBinStore and existing KV stores.
+Similar pattern using KvBinStore.
 
-**Tasks:**
-1. Create KvRepository class
-2. Export createKvRepository factory
-3. Update tests to use Repository
+### Phase 3: Update Consumer Packages
 
-### Phase 5: Update Transport Package
-
-Transport should work with Repository instead of GitStores.
-
-**File:** `packages/transport/src/storage-adapters/vcs-repository-adapter.ts`
+#### Transport Package
 
 ```typescript
-// Before
+// packages/transport/src/storage-adapters/vcs-repository-adapter.ts
 export class VcsRepositoryAdapter {
-  constructor(private stores: GitStores) {}
-}
-
-// After
-export class VcsRepositoryAdapter {
-  constructor(private repository: Repository) {}
+  constructor(private readonly repository: Repository) {}
 
   get objects() { return this.repository.objects; }
   get commits() { return this.repository.commits; }
-  // etc.
+  get trees() { return this.repository.trees; }
+  get blobs() { return this.repository.blobs; }
+  get tags() { return this.repository.tags; }
 }
 ```
 
-**Tasks:**
-1. Update VcsRepositoryAdapter to accept Repository
-2. Update all transport operations to use Repository
-3. Update transport tests
-
-### Phase 6: Update Commands Package
-
-Commands should create/use Repository instances.
-
-**File:** `packages/commands/src/git.ts`
+#### Commands Package
 
 ```typescript
-// Before
-export class Git {
-  constructor(
-    private readonly files: FilesApi,
-    private readonly gitDir: string = ".git",
-  ) {}
-}
-
-// After
+// packages/commands/src/git.ts
 export class Git {
   constructor(
     private readonly repository: Repository,
-    private readonly files?: FilesApi,  // Optional, for worktree operations
+    private readonly files?: FilesApi,
   ) {}
 
   static async open(files: FilesApi, gitDir?: string): Promise<Git> {
     const repository = await createFileRepository({ files, gitDir });
     return new Git(repository, files);
   }
+
+  static async memory(): Promise<Git> {
+    const repository = await createMemoryRepository({ create: true });
+    return new Git(repository);
+  }
 }
 ```
 
-**Tasks:**
-1. Update Git class to accept Repository
-2. Add static factory methods
-3. Update commands to use Repository
-4. Update tests
+### Phase 4: Update Testing Package
 
-### Phase 7: Update Testing Package
-
-Shared test suites should test Repository interface.
-
-**File:** `packages/testing/src/suites/repository.suite.ts` (new)
+Create repository test suite:
 
 ```typescript
+// packages/testing/src/suites/repository.suite.ts
 export function createRepositoryTests(
   name: string,
   createRepository: () => Promise<Repository>,
@@ -390,9 +249,7 @@ export function createRepositoryTests(
         expect(await repo.isInitialized()).toBe(true);
         await repo.close();
       });
-    });
 
-    describe("refs", () => {
       it("has HEAD after initialization", async () => {
         const repo = await createRepository();
         await repo.initialize();
@@ -401,71 +258,68 @@ export function createRepositoryTests(
       });
     });
 
-    // Include all existing store tests...
+    describe("stores", () => {
+      // All typed store tests...
+    });
+
+    describe("storage", () => {
+      it("exposes BinStore", async () => {
+        const repo = await createRepository();
+        expect(repo.storage).toBeDefined();
+        expect(repo.storage.raw).toBeDefined();
+        expect(repo.storage.delta).toBeDefined();
+        await repo.close();
+      });
+    });
   });
 }
 ```
 
-**Tasks:**
-1. Create repository.suite.ts
-2. Migrate streaming-stores.suite.ts tests to repository.suite.ts
-3. Add lifecycle tests
-4. Add ref tests
-5. Update all backend test files
-
-## Migration Checklist
+## Files to Modify
 
 ### Core Package
-- [ ] Add `storage?: BinStore` to Repository
-- [ ] Add `flush()` to Repository
-- [ ] Add `refresh()` to Repository
-- [ ] Mark GitStores as @deprecated
-- [ ] Add asGitStores helper
-- [ ] Define RepositoryOptions type
-- [ ] Define RepositoryFactory type
+- `packages/core/src/repository.ts` - Update interface, remove GitStores
 
 ### Storage Backends
-- [ ] store-mem: Add MemoryRepository class
-- [ ] store-mem: Add createMemoryRepository factory
-- [ ] store-sql: Add SqlRepository class
-- [ ] store-sql: Add createSqlRepository factory
-- [ ] store-kv: Add KvRepository class
-- [ ] store-kv: Add createKvRepository factory
-- [ ] storage-git: Rename to createFileRepository
+- `packages/store-mem/src/memory-repository.ts` - Create new file
+- `packages/store-mem/src/index.ts` - Export createMemoryRepository
+- `packages/storage-git/src/git-repository.ts` - Update to match interface
+- `packages/storage-git/src/index.ts` - Export createFileRepository
+- `packages/store-sql/src/sql-repository.ts` - Create new file
+- `packages/store-sql/src/index.ts` - Export createSqlRepository
+- `packages/store-kv/src/kv-repository.ts` - Create new file
+- `packages/store-kv/src/index.ts` - Export createKvRepository
 
 ### Consumer Packages
-- [ ] transport: Update VcsRepositoryAdapter
-- [ ] transport: Update operations
-- [ ] commands: Update Git class
-- [ ] commands: Add factory methods
-- [ ] worktree: Update to use Repository
+- `packages/transport/src/storage-adapters/vcs-repository-adapter.ts` - Update
+- `packages/commands/src/git.ts` - Update
 
 ### Testing
-- [ ] Create repository.suite.ts
-- [ ] Update backend tests
-- [ ] Verify all tests pass
+- `packages/testing/src/suites/repository.suite.ts` - Create new file
+- Delete `packages/testing/src/suites/streaming-stores.suite.ts`
 
-## Verification Steps
+## Files to Delete
 
-1. **Build check:** `pnpm build`
-2. **Type check:** `pnpm exec tsc --noEmit`
-3. **Test suite:** `pnpm test`
-4. **Lint/format:** `pnpm lint:fix && pnpm format:fix`
+- Remove GitStores from `packages/core/src/repository.ts`
+- Delete `packages/store-mem/src/create-streaming-stores.ts`
+- Delete `packages/store-sql/src/create-streaming-stores.ts`
+- Delete `packages/store-kv/src/create-streaming-stores.ts`
+- Delete `packages/storage-git/src/create-streaming-stores.ts`
 
-## Risks and Mitigations
+## Verification
 
-| Risk | Mitigation |
-|------|------------|
-| Breaking transport package | Add asGitStores helper for gradual migration |
-| Breaking commands package | Add Git.open() factory alongside constructor |
-| Large number of changes | Phase the implementation, verify after each phase |
-| GitStores still needed in tests | Keep deprecated but functional until Phase 7 |
+```bash
+pnpm build
+pnpm test
+pnpm lint:fix
+pnpm format:fix
+```
 
 ## Success Criteria
 
-1. All backends implement full Repository interface
-2. Repository has consistent factory pattern across backends
-3. Transport and commands use Repository, not GitStores
-4. GitStores is deprecated with migration path
-5. All tests pass with new architecture
-6. BinStore accessible through Repository.storage when needed
+1. Repository is the only interface for VCS operations
+2. All backends implement full Repository interface
+3. GitStores interface removed entirely
+4. Consistent factory pattern across all backends
+5. Transport and commands use Repository directly
+6. All tests pass

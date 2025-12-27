@@ -11,10 +11,8 @@
     "format": "biome format --write ."
   },
   "devDependencies": {
-    "@statewalker/webrun-files": "catalog:",
     "@webrun-vcs/core": "workspace:*",
     "@webrun-vcs/testing": "workspace:*",
-    "@webrun-vcs/storage-git": "workspace:*",
     "@webrun-vcs/store-kv": "workspace:*",
     "@webrun-vcs/store-mem": "workspace:*",
     "@webrun-vcs/store-sql": "workspace:*",

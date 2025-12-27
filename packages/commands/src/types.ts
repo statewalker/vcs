@@ -120,12 +120,10 @@ export interface CreateGitStoreOptions {
  * @example
  * ```typescript
  * import { createGitStore } from "@webrun-vcs/commands";
- * import { createRepository } from "@webrun-vcs/storage-git";
- * import { createStagingStore } from "@webrun-vcs/worktree";
+ * import { MemoryStagingStore } from "@webrun-vcs/store-mem";
  *
- * const repo = await createRepository(files, ".git");
- * const staging = createStagingStore();
- *
+ * // Use with any Repository implementation
+ * const staging = new MemoryStagingStore();
  * const store = createGitStore({ repository: repo, staging });
  * const git = Git.wrap(store);
  * ```

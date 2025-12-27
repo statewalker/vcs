@@ -8,8 +8,6 @@
  * approach for the new architecture.
  */
 
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createFileObjectStores } from "@webrun-vcs/storage-git";
 import { createKvObjectStores, MemoryKVAdapter } from "@webrun-vcs/store-kv";
 import { createMemoryObjectStores } from "@webrun-vcs/store-mem";
 import { createSqlObjectStores } from "@webrun-vcs/store-sql";
@@ -19,13 +17,7 @@ import {
   createStreamingStoresTests,
   type StreamingStoresFactory,
 } from "@webrun-vcs/testing";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
-import { beforeAll, describe, expect, it } from "vitest";
-
-beforeAll(() => {
-  setCompression(createNodeCompression());
-});
+import { describe, expect, it } from "vitest";
 
 // Factory for memory backend using new object-storage API
 const memoryFactory: StreamingStoresFactory = async () => {
@@ -52,27 +44,17 @@ const sqlFactory: StreamingStoresFactory = async () => {
   };
 };
 
-// Factory for file backend using new object-storage API (uses in-memory FilesApi)
-const fileFactory: StreamingStoresFactory = async () => {
-  const files = new FilesApi(new MemFilesApi());
-  const objectsPath = "/test-repo/objects";
-  const stores = createFileObjectStores({ files, objectsPath });
-  return { stores };
-};
-
 // Define all backends for cross-backend testing
 const backends = [
   { name: "Memory", factory: memoryFactory },
   { name: "KV", factory: kvFactory },
   { name: "SQL", factory: sqlFactory },
-  { name: "File", factory: fileFactory },
 ];
 
 // Run individual backend tests to verify each one works
 createStreamingStoresTests("Memory", memoryFactory);
 createStreamingStoresTests("KV", kvFactory);
 createStreamingStoresTests("SQL", sqlFactory);
-createStreamingStoresTests("File", fileFactory);
 
 // Run cross-backend roundtrip tests
 createCrossBackendTests(backends);
