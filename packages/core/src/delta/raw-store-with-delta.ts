@@ -1,7 +1,18 @@
 import type { Delta } from "@webrun-vcs/utils";
 import { applyDelta, createDelta, createDeltaRanges, slice } from "@webrun-vcs/utils";
 import type { RawStore } from "../binary/raw-store.js";
+import { encodeObjectHeader } from "../objects/object-header.js";
+import { EMPTY_TREE_ID } from "../trees/tree-format.js";
 import type { DeltaChainDetails, DeltaStore } from "./delta-store.js";
+
+/**
+ * Empty tree content (Git header with zero content)
+ *
+ * The empty tree is a well-known Git constant that represents a tree
+ * with no entries. Its SHA-1 hash is 4b825dc642cb6eb9a060e54bf8d69288fbee4904.
+ * This is a virtual object that doesn't need to be stored.
+ */
+const EMPTY_TREE_CONTENT = encodeObjectHeader("tree", 0);
 
 /**
  * Random access data source
@@ -118,6 +129,11 @@ export class RawStoreWithDelta implements RawStore {
   }
 
   async size(id: string): Promise<number> {
+    // Handle well-known empty tree (virtual object)
+    if (id === EMPTY_TREE_ID) {
+      return 0;
+    }
+
     // Check deltas first (returns originalSize for resolved content)
     const chainInfo = await this.deltas.getDeltaChainInfo(id);
     if (chainInfo) {
@@ -141,6 +157,11 @@ export class RawStoreWithDelta implements RawStore {
   }
 
   async has(id: string): Promise<boolean> {
+    // Handle well-known empty tree (virtual object)
+    if (id === EMPTY_TREE_ID) {
+      return true;
+    }
+
     if (await this.deltas.isDelta(id)) {
       return true;
     }
@@ -175,6 +196,19 @@ export class RawStoreWithDelta implements RawStore {
     id: string,
     options?: { offset?: number; length?: number },
   ): AsyncGenerator<Uint8Array> {
+    // Handle well-known empty tree (virtual object)
+    if (id === EMPTY_TREE_ID) {
+      // Return the empty tree header "tree 0\0"
+      if (options?.offset !== undefined || options?.length !== undefined) {
+        const offset = options.offset ?? 0;
+        const length = options.length ?? EMPTY_TREE_CONTENT.length - offset;
+        yield EMPTY_TREE_CONTENT.subarray(offset, offset + length);
+      } else {
+        yield EMPTY_TREE_CONTENT;
+      }
+      return;
+    }
+
     // Check if it's a delta in pack
     if (await this.deltas.isDelta(id)) {
       // Resolve delta chain (strips header internally)
