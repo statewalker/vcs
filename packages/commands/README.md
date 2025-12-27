@@ -17,26 +17,29 @@ pnpm add @webrun-vcs/commands
 ```
 
 **Dependencies:**
-- `@webrun-vcs/core` - Core types and store interfaces
+- `@webrun-vcs/core` - Core types, store interfaces, and repository factories
 - `@webrun-vcs/transport` - Remote protocol implementation
-- `@webrun-vcs/storage-git` - Git-compatible storage
+- `@webrun-vcs/utils` - Utility functions
 
 ## Quick Start
 
 ```typescript
-import { Git, createGitRepository } from "@webrun-vcs/commands";
-import { createFilesApi } from "@statewalker/webrun-files";
+import { Git, createGitStore } from "@webrun-vcs/commands";
+import { createGitRepository } from "@webrun-vcs/core";
+import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
+import * as fs from "node:fs/promises";
 
 // Create a Git-compatible repository
-const files = createFilesApi("/path/to/repo");
-const repository = await createGitRepository({ files });
-await repository.initialize();
+const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "/path/to/repo" }));
+const repository = await createGitRepository(files, ".git");
+
+// Create a staging store (or use one from store-mem/store-sql)
+import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+const staging = new MemoryStagingStore();
 
 // Create the Git command interface
-const git = Git.fromRepository({
-  repository,
-  staging: repository.staging,
-});
+const store = createGitStore({ repository, staging });
+const git = Git.wrap(store);
 
 // Stage and commit changes
 await git.add().addFilepattern(".").call();
@@ -61,13 +64,13 @@ import {
   GitCommand,
   TransportCommand,
 
-  // Repository creation
-  createGitRepository,
-  createGitStorage,
+  // Store creation
+  createGitStore,
 
   // Types
   type GitStore,
   type GitStoreWithWorkTree,
+  type CreateGitStoreOptions,
 
   // Enums
   ResetMode,
@@ -295,17 +298,19 @@ await git.pull()
 ### Cloning Repositories
 
 ```typescript
-import { Git, createGitStorage } from "@webrun-vcs/commands";
-import { createFilesApi } from "@statewalker/webrun-files";
+import { Git, createGitStore } from "@webrun-vcs/commands";
+import { createGitRepository } from "@webrun-vcs/core";
+import { MemoryStagingStore } from "@webrun-vcs/store-mem";
 
-// Create storage for the clone
-const files = createFilesApi("/path/to/clone");
-const storage = await createGitStorage({ files });
+// Create an in-memory repository for the clone
+const repository = await createGitRepository();
+const staging = new MemoryStagingStore();
+const store = createGitStore({ repository, staging });
 
 // Clone a repository
 const result = await Git.clone()
   .setUri("https://github.com/user/repo.git")
-  .setStorage(storage)
+  .setStore(store)
   .setCredentials({ token: "github_pat_xxx" })
   .setProgressCallback((progress) => {
     console.log(`${progress.phase}: ${progress.message}`);
@@ -507,11 +512,11 @@ await git.clone()
 
 | Package | Description |
 |---------|-------------|
-| `@webrun-vcs/core` | Core types and store interfaces |
+| `@webrun-vcs/core` | Core types, store interfaces, and repository factories |
 | `@webrun-vcs/transport` | Git protocol implementation |
-| `@webrun-vcs/storage-git` | Git-compatible filesystem storage |
 | `@webrun-vcs/store-sql` | SQLite storage backend |
 | `@webrun-vcs/store-mem` | In-memory storage for testing |
+| `@webrun-vcs/store-kv` | Key-value storage abstraction |
 
 ## License
 

@@ -182,7 +182,7 @@ The approach mirrors how JGit tests its DFS implementations, ensuring all backen
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/vcs` - Interface definitions
+- `@webrun-vcs/core` - Interface definitions
 
 **Peer Dependencies:**
 - `vitest` - Test framework

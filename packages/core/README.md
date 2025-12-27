@@ -374,11 +374,12 @@ Type definitions and constants align with Eclipse JGit for proven Git compatibil
 
 | Package | Description |
 |---------|-------------|
-| `@webrun-vcs/storage-git` | Git-compatible filesystem storage |
-| `@webrun-vcs/store-sql` | SQLite-based storage |
+| `@webrun-vcs/store-sql` | SQLite-based storage backend |
 | `@webrun-vcs/store-mem` | In-memory storage for testing |
+| `@webrun-vcs/store-kv` | Key-value storage abstraction |
 | `@webrun-vcs/transport` | Git protocol and HTTP transport |
 | `@webrun-vcs/commands` | High-level Git commands |
+| `@webrun-vcs/testing` | Test utilities and fixtures |
 
 ## License
 

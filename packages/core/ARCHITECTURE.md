@@ -23,7 +23,7 @@ Application Code
        ↓
    Core Interfaces (this package)
        ↓
-   Storage Backend (@webrun-vcs/storage-*, @webrun-vcs/store-*)
+   Storage Backend (@webrun-vcs/store-*)
        ↓
    Actual Storage (filesystem, SQLite, IndexedDB, etc.)
 ```
@@ -188,8 +188,12 @@ Low-level byte storage abstractions.
 | File | Purpose |
 |------|---------|
 | `raw-store.ts` | `RawStore` interface for key-value byte storage |
-| `volatile-store.ts` | `VolatileStore` for transient data |
-| `impl/` | Reference implementations |
+| `raw-store.files.ts` | File-based RawStore implementation |
+| `raw-store.memory.ts` | In-memory RawStore implementation |
+| `raw-store.compressed.ts` | Zlib-compressed RawStore wrapper |
+| `volatile-store.ts` | `VolatileStore` interface for transient data |
+| `volatile-store.files.ts` | File-based VolatileStore implementation |
+| `volatile-store.memory.ts` | In-memory VolatileStore implementation |
 
 The `RawStore` interface is implemented by each storage backend. All higher layers build on this abstraction.
 
@@ -242,12 +246,11 @@ Sophisticated delta compression system.
 |------|---------|
 | `delta-store.ts` | `DeltaStore` interface |
 | `delta-binary-format.ts` | Delta instruction encoding |
-| `delta-metadata-index.ts` | Index for delta relationships |
 | `gc-controller.ts` | Garbage collection coordination |
-| `pack-delta-store.ts` | Pack-file based delta storage |
 | `packing-orchestrator.ts` | Batch delta computation |
 | `raw-store-with-delta.ts` | Raw store with delta resolution |
 | `storage-analyzer.ts` | Analyze storage for optimization |
+| `types.ts` | Delta-related type definitions |
 | `strategies/` | Delta candidate selection strategies |
 
 Delta compression stores objects as differences from similar objects. The system manages:
@@ -349,6 +352,7 @@ Pack file format support.
 | File | Purpose |
 |------|---------|
 | `pack-consolidator.ts` | Merge multiple packs |
+| `pack-delta-store.ts` | Pack-file based delta storage |
 | `pack-directory.ts` | Pack directory management |
 | `pack-entries-parser.ts` | Parse pack entries |
 | `pack-indexer.ts` | Build .idx files |
@@ -357,6 +361,7 @@ Pack file format support.
 | `pack-reader.ts` | Read .pack files |
 | `pack-writer.ts` | Write .pack files |
 | `pending-pack.ts` | In-progress pack tracking |
+| `delta-reverse-index.ts` | Reverse index for delta lookups |
 | `types.ts` | Pack-related types |
 
 Pack files bundle multiple objects efficiently for storage and transfer. The .idx file provides random access by object ID.
@@ -387,6 +392,8 @@ Reference management (branches, tags, HEAD).
 | File | Purpose |
 |------|---------|
 | `ref-store.ts` | `RefStore` interface |
+| `ref-store.files.ts` | File-based RefStore implementation |
+| `ref-store.memory.ts` | In-memory RefStore implementation |
 | `ref-types.ts` | `Ref`, `SymbolicRef`, `RefStorage` |
 | `ref-reader.ts` | Read loose refs |
 | `ref-writer.ts` | Write loose refs |
@@ -547,6 +554,28 @@ interface Repository {
 
 The `GitStores` type provides just object stores without refs/config for transport operations.
 
+### stores/
+
+Repository factory functions.
+
+| File | Purpose |
+|------|---------|
+| `create-repository.ts` | Factory for creating Git-compatible repositories |
+
+The `createGitRepository()` function creates a fully configured repository with all stores:
+
+```typescript
+import { createGitRepository } from "@webrun-vcs/core";
+
+// In-memory repository (default)
+const memRepo = await createGitRepository();
+
+// File-based repository
+import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
+const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "/path/to/project" }));
+const fileRepo = await createGitRepository(files, ".git");
+```
+
 ## Key Algorithms
 
 ### Commit Ancestry Traversal
@@ -665,10 +694,13 @@ Call `refs.optimize?.()` periodically to pack loose refs. Many loose ref files s
 
 ### In-Memory Backend
 
-Use `@webrun-vcs/store-mem` for unit tests:
+Use `createGitRepository()` without arguments for in-memory tests:
 
 ```typescript
-const repo = createMemoryRepository();
+import { createGitRepository } from "@webrun-vcs/core";
+
+// Creates an in-memory repository (uses MemFilesApi by default)
+const repo = await createGitRepository();
 // Tests run fast with no filesystem I/O
 ```
 
@@ -689,5 +721,17 @@ const mockCommitStore: CommitStore = {
 The `@webrun-vcs/testing` package provides test suites that verify any backend:
 
 ```typescript
-runStorageTestSuite(MyStorageBackend);
+import { describe } from "vitest";
+import { objectStorageSuite, commitStoreSuite, refStoreSuite } from "@webrun-vcs/testing";
+
+describe("MyCustomStorage", () => {
+  objectStorageSuite({
+    createStore: () => new MyCustomObjectStore(),
+    cleanup: async (store) => await store.close(),
+  });
+
+  commitStoreSuite({
+    createStore: () => new MyCustomCommitStore(),
+  });
+});
 ```
