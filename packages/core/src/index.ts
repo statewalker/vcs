@@ -34,6 +34,8 @@ export * from "./status/index.js";
 export * from "./stores/index.js";
 export * from "./tags/index.js";
 export * from "./trees/index.js";
+// Working copy implementations
+export * from "./working-copy/index.js";
 // Working copy interface
 export * from "./working-copy.js";
 // Working tree interface
