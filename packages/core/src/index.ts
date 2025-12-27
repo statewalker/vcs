@@ -28,9 +28,13 @@ export * from "./refs/index.js";
 export * from "./repository.js";
 // Staging area
 export * from "./staging/index.js";
+// Status calculation
+export * from "./status/index.js";
 // Repository factory functions
 export * from "./stores/index.js";
 export * from "./tags/index.js";
 export * from "./trees/index.js";
+// Working copy interface
+export * from "./working-copy.js";
 // Working tree interface
 export * from "./worktree/index.js";
