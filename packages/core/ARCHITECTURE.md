@@ -123,6 +123,16 @@ The package organizes stores in layers, each building on the one below:
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Two-Tier API Design
+
+The Repository exposes both `GitObjectStore` and typed stores (`blobs`, `trees`, `commits`, `tags`) because they serve different purposes:
+
+**GitObjectStore** provides low-level, type-agnostic, format-aware access. It works with raw Git objects including their headers (`"blob 123\0content"`), enabling operations that need the wire format: transport protocols, pack file generation, and object introspection.
+
+**Typed stores** provide high-level, type-specific, parsed interfaces. They parse object content into structured data (`Commit`, `TreeEntry[]`, etc.) and handle serialization automatically. Application code typically uses these for everyday VCS operations.
+
+Both layers are necessary. Transport code needs raw bytes with headers to build pack files. Application code needs parsed commits to display history. The architecture exposes both rather than forcing one abstraction for all use cases.
+
 ### RawStore - Foundation Layer
 
 The lowest layer stores raw bytes by string key:
@@ -161,12 +171,17 @@ Adds Git object semantics (type headers, content hashing):
 ```typescript
 interface GitObjectStore {
   store(type: ObjectTypeString, content: AsyncIterable<Uint8Array>): Promise<ObjectId>;
-  loadRaw(id: ObjectId): AsyncIterable<Uint8Array>; // With header
-  load(id: ObjectId): AsyncIterable<Uint8Array>;    // Without header
+  loadRaw(id: ObjectId): AsyncIterable<Uint8Array>;  // With header
+  load(id: ObjectId): AsyncIterable<Uint8Array>;     // Without header
+  loadWithHeader(id: ObjectId): Promise<[GitObjectHeader, AsyncGenerator<Uint8Array>]>;
   getHeader(id: ObjectId): Promise<GitObjectHeader>;
   has(id: ObjectId): Promise<boolean>;
+  delete(id: ObjectId): Promise<boolean>;
+  list(): AsyncIterable<ObjectId>;                   // All object IDs
 }
 ```
+
+The distinction between `loadRaw()` and `load()` matters for different use cases. Transport protocols need `loadRaw()` to get the complete Git object with header for pack file generation. Application code uses `load()` to get just the content, or works through typed stores that handle parsing.
 
 ### Semantic Stores
 
@@ -178,6 +193,63 @@ Built on GitObjectStore, these provide domain-specific operations:
 | `TreeStore` | `storeTree(entries)`, `loadTree(id)`, `getEntry(treeId, name)` |
 | `CommitStore` | `storeCommit()`, `loadCommit()`, `walkAncestry()`, `findMergeBase()` |
 | `TagStore` | `storeTag()`, `loadTag()`, `getTarget(id, peel?)` |
+
+### Why `objects` is Exposed in the Public API
+
+The `Repository` and `GitStores` interfaces expose `objects: GitObjectStore` alongside the typed stores. This design choice enables several important use cases:
+
+**Transport and Protocol Operations**
+
+Git's HTTP and SSH protocols transfer objects in pack files, which contain raw objects with their Git headers. The transport layer needs direct access to `objects` for building pack files during push and receiving objects during fetch. The `@webrun-vcs/transport` package's `createVcsRepositoryAdapter()` requires `objects` to implement protocol handlers:
+
+```typescript
+// From transport package - needs objects for protocol handling
+const repositoryAccess = createVcsRepositoryAdapter({
+  objects: store.objects,  // Required for loadObject, storeObject, hasObject
+  refs: store.refs,
+  commits: store.commits,
+  trees: store.trees,
+  tags: store.tags,
+});
+```
+
+**Object Introspection**
+
+Sometimes you need to query an object's type and size without parsing its content. The `getHeader()` method provides this efficiently:
+
+```typescript
+const header = await repository.objects.getHeader(unknownId);
+console.log(`Type: ${header.type}, Size: ${header.size} bytes`);
+```
+
+**Raw Object Streaming**
+
+The `loadRaw()` method streams objects with their Git headers intact, essential for network transfer and pack file generation:
+
+```typescript
+// Collect raw object for push operation
+for await (const chunk of repository.objects.loadRaw(id)) {
+  chunks.push(chunk);
+}
+const rawData = concatBytes(chunks);
+const header = parseHeader(rawData);
+const content = extractGitObjectContent(rawData);
+```
+
+**Unified Object Iteration**
+
+The `list()` method returns all object IDs regardless of type, useful for garbage collection, repository analysis, and migration tools:
+
+```typescript
+for await (const id of repository.objects.list()) {
+  const header = await repository.objects.getHeader(id);
+  console.log(`${id}: ${header.type}`);
+}
+```
+
+**Internal Composition**
+
+The typed stores are thin wrappers that delegate to `GitObjectStore`. For example, `BlobStore.store()` simply calls `objects.store("blob", content)`. Exposing `objects` allows advanced users to bypass the typed layer when needed while keeping the common case simple.
 
 ## Directory Structure Deep Dive
 
