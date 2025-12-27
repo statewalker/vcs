@@ -35,22 +35,17 @@ Creates a new Git repository with the standard directory structure.
 
 ```typescript
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitStorage } from "@webrun-vcs/commands";
+import { createGitRepository } from "@webrun-vcs/core";
 
 // Create file system (in-memory for this example)
 const files = new FilesApi(new MemFilesApi());
 
 // Initialize repository
-const storage = await createGitStorage(files, "/repo/.git", {
-  create: true,
-  defaultBranch: "main"
-});
+const repository = await createGitRepository(files, ".git");
 ```
 
 **Key APIs:**
-- [`createGitStorage()`](../../packages/storage-git/src/git-storage.ts#L187) - Factory function for creating/opening repos
-- [`GitStorage.init()`](../../packages/storage-git/src/git-storage.ts#L111) - Initialize a new repository
-- [`GitStorage.open()`](../../packages/storage-git/src/git-storage.ts#L93) - Open existing repository
+- [`createGitRepository()`](../../packages/core/src/stores/create-repository.ts) - Factory function for creating/opening repos
 
 **Created Structure:**
 ```
@@ -89,10 +84,10 @@ const exists = await storage.objects.has(id);
 ```
 
 **Key APIs:**
-- [`ObjectStorage.store()`](../../packages/storage/src/object-storage.ts) - Store content chunks, returns ObjectId
-- [`ObjectStorage.load()`](../../packages/storage/src/object-storage.ts) - Load content as async iterable
-- [`ObjectStorage.getSize()`](../../packages/storage/src/object-storage.ts) - Get object size (-1 if not found)
-- [`ObjectStorage.has()`](../../packages/storage/src/object-storage.ts) - Check if object exists
+- `ObjectStore.store()` - Store content chunks, returns ObjectId
+- `ObjectStore.load()` - Load content as async iterable
+- `ObjectStore.getSize()` - Get object size
+- `ObjectStore.has()` - Check if object exists
 
 **Key Concepts:**
 - Content is hashed (SHA-1) to produce the ObjectId
@@ -108,7 +103,7 @@ const exists = await storage.objects.has(id);
 Creates Git tree objects representing directories. Trees contain entries with mode, name, and object ID.
 
 ```typescript
-import { FileMode } from "@webrun-vcs/storage";
+import { FileMode } from "@webrun-vcs/core";
 
 // Create a tree with files
 const treeId = await storage.trees.storeTree([
@@ -124,9 +119,9 @@ for await (const entry of storage.trees.loadTree(treeId)) {
 ```
 
 **Key APIs:**
-- [`FileTreeStorage.storeTree()`](../../packages/storage/src/file-tree-storage.ts#L58) - Create tree from entries
-- [`FileTreeStorage.loadTree()`](../../packages/storage/src/file-tree-storage.ts#L70) - Load entries as stream
-- [`FileTreeStorage.getEntry()`](../../packages/storage/src/file-tree-storage.ts#L82) - Get single entry by name
+- `TreeStore.storeTree()` - Create tree from entries
+- `TreeStore.loadTree()` - Load entries as stream
+- `TreeStore.getEntry()` - Get single entry by name
 
 **File Modes:**
 | Mode | Constant | Description |
@@ -170,9 +165,9 @@ await storage.refs.setRef("refs/heads/main", commitId);
 ```
 
 **Key APIs:**
-- [`CommitStorage.storeCommit()`](../../packages/storage/src/commit-storage.ts#L65) - Create commit object
-- [`CommitStorage.loadCommit()`](../../packages/storage/src/commit-storage.ts#L74) - Load commit by ID
-- [`RefDirectory.setRef()`](../../packages/storage-git/src/refs/ref-directory.ts#L105) - Update branch reference
+- `CommitStore.storeCommit()` - Create commit object
+- `CommitStore.loadCommit()` - Load commit by ID
+- `RefStore.setRef()` - Update branch reference
 
 **Commit Structure:**
 ```
@@ -257,9 +252,9 @@ const isAncestor = await storage.commits.isAncestor(commit1, commit2);
 ```
 
 **Key APIs:**
-- [`CommitStorage.walkAncestry()`](../../packages/storage/src/commit-storage.ts#L102) - Traverse commit graph
-- [`CommitStorage.getParents()`](../../packages/storage/src/commit-storage.ts#L82) - Get parent commits
-- [`CommitStorage.isAncestor()`](../../packages/storage/src/commit-storage.ts#L130) - Check relationships
+- `CommitStore.walkAncestry()` - Traverse commit graph
+- `CommitStore.getParents()` - Get parent commits
+- `CommitStore.isAncestor()` - Check relationships
 
 **Traversal Options:**
 ```typescript
@@ -336,7 +331,7 @@ await storage.refs.setRef("refs/tags/v1.0.0", commitId);
 
 **Annotated Tags:**
 ```typescript
-import { ObjectType } from "@webrun-vcs/storage";
+import { ObjectType } from "@webrun-vcs/core";
 
 // Create tag object
 const tagId = await storage.tags.storeTag({
@@ -352,11 +347,11 @@ await storage.refs.setRef("refs/tags/v2.0.0", tagId);
 ```
 
 **Key APIs:**
-- [`RefDirectory.setRef()`](../../packages/storage-git/src/refs/ref-directory.ts#L105) - Create/update ref
-- [`RefDirectory.setHead()`](../../packages/storage-git/src/refs/ref-directory.ts#L112) - Change HEAD
-- [`RefDirectory.getBranches()`](../../packages/storage-git/src/refs/ref-directory.ts#L83) - List branches
-- [`RefDirectory.getTags()`](../../packages/storage-git/src/refs/ref-directory.ts#L88) - List tags
-- [`TagStorage.storeTag()`](../../packages/storage/src/tag-storage.ts#L51) - Create annotated tag
+- `RefStore.setRef()` - Create/update ref
+- `RefStore.setHead()` - Change HEAD
+- `RefStore.getBranches()` - List branches
+- `RefStore.getTags()` - List tags
+- `TagStore.storeTag()` - Create annotated tag
 
 ---
 
@@ -384,32 +379,26 @@ apps/example-git-cycle/
 
 ## API Reference Links
 
-### Core Interfaces (packages/storage)
+### Core Package (packages/core)
 
-| Interface | File | Purpose |
-|-----------|------|---------|
-| `ObjectStorage` | [object-storage.ts](../../packages/storage/src/object-storage.ts) | Content-addressable blob storage |
-| `FileTreeStorage` | [file-tree-storage.ts](../../packages/storage/src/file-tree-storage.ts) | Directory snapshot management |
-| `CommitStorage` | [commit-storage.ts](../../packages/storage/src/commit-storage.ts) | Commit creation and traversal |
-| `TagStorage` | [tag-storage.ts](../../packages/storage/src/tag-storage.ts) | Annotated tag management |
+| Interface/Class | Location | Purpose |
+|-----------------|----------|---------|
+| `Repository` | [repository.ts](../../packages/core/src/repository.ts) | Main repository interface |
+| `createGitRepository()` | [create-repository.ts](../../packages/core/src/stores/create-repository.ts) | Repository factory function |
+| `ObjectStore` | [stores/](../../packages/core/src/stores/) | Content-addressable storage |
+| `RefStore` | [refs/](../../packages/core/src/refs/) | Branch and tag references |
+| `CommitStore` | [commits/](../../packages/core/src/commits/) | Commit creation and traversal |
+| `TreeStore` | [trees/](../../packages/core/src/trees/) | Directory structure management |
 
-### Git Implementation (packages/storage-git)
+### Types (packages/core)
 
-| Class/Interface | File | Purpose |
-|-----------------|------|---------|
-| `GitStorage` | [git-storage.ts](../../packages/storage-git/src/git-storage.ts) | Main repository entry point |
-| `RefDirectory` | [ref-directory.ts](../../packages/storage-git/src/refs/ref-directory.ts) | Branch and tag references |
-| `GitObjectStorage` | [git-object-storage.ts](../../packages/storage-git/src/git-object-storage.ts) | Loose + pack object access |
-
-### Types (packages/storage)
-
-| Type | File | Description |
-|------|------|-------------|
-| `ObjectId` | [types.ts](../../packages/storage/src/types.ts#L7) | SHA-1 hash as hex string |
-| `PersonIdent` | [types.ts](../../packages/storage/src/types.ts#L67) | Author/committer identity |
-| `FileMode` | [types.ts](../../packages/storage/src/types.ts#L45) | File type constants |
-| `Commit` | [commit-storage.ts](../../packages/storage/src/commit-storage.ts#L17) | Commit object structure |
-| `TreeEntry` | [file-tree-storage.ts](../../packages/storage/src/file-tree-storage.ts#L14) | Tree entry structure |
+| Type | Description |
+|------|-------------|
+| `ObjectId` | SHA-1 hash as Uint8Array |
+| `PersonIdent` | Author/committer identity |
+| `FileMode` | File type constants |
+| `Commit` | Commit object structure |
+| `TreeEntry` | Tree entry structure |
 
 ## Related Examples
 
