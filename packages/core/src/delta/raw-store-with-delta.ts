@@ -209,9 +209,32 @@ export class RawStoreWithDelta implements RawStore {
       return;
     }
 
-    // Check if it's a delta in pack
+    // Check pack files first (handles both full objects AND deltas)
+    // The pack reader resolves deltas internally using Git's binary format
+    // This takes precedence because pack delta resolution is more efficient
+    // If loading fails (e.g., REF_DELTA with base in loose storage), fall back to other methods
+    if (this.deltas.loadObject) {
+      try {
+        const content = await this.deltas.loadObject(id);
+        if (content) {
+          if (options?.offset !== undefined || options?.length !== undefined) {
+            const offset = options.offset ?? 0;
+            const length = options.length ?? content.length - offset;
+            yield content.subarray(offset, offset + length);
+          } else {
+            yield content;
+          }
+          return;
+        }
+      } catch {
+        // Pack loading failed (e.g., REF_DELTA base not in pack)
+        // Fall through to try other loading methods
+      }
+    }
+
+    // Check if it's a delta (internal format, not pack)
+    // This handles non-pack delta stores (e.g., SQL-based, mock stores)
     if (await this.deltas.isDelta(id)) {
-      // Resolve delta chain (strips header internally)
       const content = this.resolveDeltaChain(id);
       if (options?.offset !== undefined || options?.length !== undefined) {
         yield* slice(content, options.offset, options.length);
@@ -221,25 +244,10 @@ export class RawStoreWithDelta implements RawStore {
       return;
     }
 
-    // Check loose objects first
+    // Check loose objects
     if (await this.objects.has(id)) {
       yield* this.objects.load(id, options);
       return;
-    }
-
-    // Check pack files for full objects (not deltas)
-    if (this.deltas.loadObject) {
-      const content = await this.deltas.loadObject(id);
-      if (content) {
-        if (options?.offset !== undefined || options?.length !== undefined) {
-          const offset = options.offset ?? 0;
-          const length = options.length ?? content.length - offset;
-          yield content.subarray(offset, offset + length);
-        } else {
-          yield content;
-        }
-        return;
-      }
     }
 
     // Object not found anywhere
@@ -392,12 +400,22 @@ export class RawStoreWithDelta implements RawStore {
     const storedDelta = await this.deltas.loadDelta(objectId);
 
     if (!storedDelta) {
-      // Not a delta - stream directly from raw storage
-      if (!(await this.objects.has(objectId))) {
-        throw new Error(`Object not found: ${objectId}`);
+      // Not a delta - stream directly from raw storage or pack files
+      if (await this.objects.has(objectId)) {
+        yield* this.objects.load(objectId);
+        return;
       }
-      yield* this.objects.load(objectId);
-      return;
+
+      // Check pack files for full objects (not deltas)
+      if (this.deltas.loadObject) {
+        const content = await this.deltas.loadObject(objectId);
+        if (content) {
+          yield content;
+          return;
+        }
+      }
+
+      throw new Error(`Object not found: ${objectId}`);
     }
 
     // Resolve base content recursively
