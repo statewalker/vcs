@@ -9,7 +9,13 @@ import type { Delta } from "@webrun-vcs/utils";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { PackDeltaStore } from "../../src/pack/pack-delta-store.js";
+import {
+  PackDeltaStore,
+  PackDirectory,
+  PackObjectType,
+  writePack,
+  writePackIndexV2,
+} from "../../src/pack/index.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {
@@ -300,4 +306,216 @@ describe("PackDeltaStore", () => {
       await store.close();
     });
   });
+
+  /**
+   * Duplicate handling tests
+   *
+   * Ported from JGit PackInserterTest.java#checkExisting
+   * Tests behavior when storing the same delta multiple times.
+   *
+   * Beads issue: webrun-vcs-n0ob
+   */
+  describe("duplicate handling", () => {
+    it("stores delta even if already exists (default behavior)", async () => {
+      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      await store.initialize();
+
+      const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+      const delta = createSimpleDelta(100);
+
+      // Store first delta
+      await store.storeDelta({ baseKey, targetKey }, delta);
+
+      const stats1 = await store.getPackDirectory().getStats();
+      expect(stats1.packCount).toBe(1);
+
+      // Store same delta again - creates new pack (no dedup by default)
+      await store.storeDelta({ baseKey, targetKey }, delta);
+
+      const stats2 = await store.getPackDirectory().getStats();
+      // Note: Current implementation does not deduplicate
+      // This test documents the current behavior
+      expect(stats2.packCount).toBe(2);
+
+      await store.close();
+    });
+
+    it("isDelta returns true after duplicate storage", async () => {
+      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      await store.initialize();
+
+      const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      expect(await store.isDelta(targetKey)).toBe(true);
+
+      // Store same delta again
+      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+
+      // Should still report as delta
+      expect(await store.isDelta(targetKey)).toBe(true);
+
+      await store.close();
+    });
+
+    it("handles multiple distinct deltas correctly", async () => {
+      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      await store.initialize();
+
+      const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const target1 = "1111111111111111111111111111111111111111";
+      const target2 = "2222222222222222222222222222222222222222";
+      const target3 = "3333333333333333333333333333333333333333";
+
+      // Store distinct deltas
+      await store.storeDelta({ baseKey, targetKey: target1 }, createSimpleDelta(100));
+      await store.storeDelta({ baseKey, targetKey: target2 }, createSimpleDelta(100));
+      await store.storeDelta({ baseKey, targetKey: target3 }, createSimpleDelta(100));
+
+      // All should be queryable
+      expect(await store.isDelta(target1)).toBe(true);
+      expect(await store.isDelta(target2)).toBe(true);
+      expect(await store.isDelta(target3)).toBe(true);
+
+      // Base should have dependents
+      const dependents = await store.findDependents(baseKey);
+      expect(dependents).toContain(target1);
+      expect(dependents).toContain(target2);
+      expect(dependents).toContain(target3);
+
+      await store.close();
+    });
+  });
+
+  /**
+   * Pack directory duplicate handling tests
+   *
+   * Tests how PackDirectory handles objects that appear in multiple packs.
+   */
+  describe("PackDirectory duplicate handling", () => {
+    it("has() returns true for objects in any pack", async () => {
+      await files.mkdir(basePath);
+      const packDir = new PackDirectory({ files, basePath });
+
+      const idA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const content = new Uint8Array([1, 2, 3]);
+
+      // Create pack 1 with object A
+      const pack1 = await createTestPack([{ id: idA, content }]);
+      const index1 = await writePackIndexV2(pack1.indexEntries, pack1.packChecksum);
+      await packDir.addPack("pack-1", pack1.packData, index1);
+
+      // Verify object is found
+      expect(await packDir.has(idA)).toBe(true);
+
+      // Create pack 2 with same object A
+      const pack2 = await createTestPack([{ id: idA, content }]);
+      const index2 = await writePackIndexV2(pack2.indexEntries, pack2.packChecksum);
+      await packDir.addPack("pack-2", pack2.packData, index2);
+
+      // Should still find object
+      expect(await packDir.has(idA)).toBe(true);
+
+      // Load should work and return consistent content
+      const loaded = await packDir.load(idA);
+      expect(loaded).toEqual(content);
+    });
+
+    it("listObjects deduplicates across packs", async () => {
+      await files.mkdir(basePath);
+      const packDir = new PackDirectory({ files, basePath });
+
+      const idA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+      // Same object in two packs
+      for (let i = 1; i <= 2; i++) {
+        const pack = await createTestPack([{ id: idA, content: new Uint8Array([i]) }]);
+        const index = await writePackIndexV2(pack.indexEntries, pack.packChecksum);
+        await packDir.addPack(`pack-${i}`, pack.packData, index);
+      }
+
+      await packDir.invalidate();
+
+      const objects: string[] = [];
+      for await (const id of packDir.listObjects()) {
+        objects.push(id);
+      }
+
+      // Should only list once despite being in two packs
+      expect(objects).toEqual([idA]);
+    });
+
+    it("findPack returns first pack containing object", async () => {
+      await files.mkdir(basePath);
+      const packDir = new PackDirectory({ files, basePath });
+
+      const idA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+      // Add to pack-aaa first
+      const pack1 = await createTestPack([{ id: idA, content: new Uint8Array([1]) }]);
+      const index1 = await writePackIndexV2(pack1.indexEntries, pack1.packChecksum);
+      await packDir.addPack("pack-aaa", pack1.packData, index1);
+
+      // Add to pack-zzz second
+      const pack2 = await createTestPack([{ id: idA, content: new Uint8Array([2]) }]);
+      const index2 = await writePackIndexV2(pack2.indexEntries, pack2.packChecksum);
+      await packDir.addPack("pack-zzz", pack2.packData, index2);
+
+      await packDir.invalidate();
+
+      // Should find in newer pack (packs are searched in reverse alphabetical order)
+      const foundPack = await packDir.findPack(idA);
+      expect(foundPack).toBe("pack-zzz");
+    });
+
+    it("handles unique objects across multiple packs", async () => {
+      await files.mkdir(basePath);
+      const packDir = new PackDirectory({ files, basePath });
+
+      const idA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const idB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+      const idC = "cccccccccccccccccccccccccccccccccccccccc";
+
+      // Different objects in different packs
+      const pack1 = await createTestPack([{ id: idA, content: new Uint8Array([1]) }]);
+      const index1 = await writePackIndexV2(pack1.indexEntries, pack1.packChecksum);
+      await packDir.addPack("pack-1", pack1.packData, index1);
+
+      const pack2 = await createTestPack([{ id: idB, content: new Uint8Array([2]) }]);
+      const index2 = await writePackIndexV2(pack2.indexEntries, pack2.packChecksum);
+      await packDir.addPack("pack-2", pack2.packData, index2);
+
+      const pack3 = await createTestPack([{ id: idC, content: new Uint8Array([3]) }]);
+      const index3 = await writePackIndexV2(pack3.indexEntries, pack3.packChecksum);
+      await packDir.addPack("pack-3", pack3.packData, index3);
+
+      await packDir.invalidate();
+
+      // All should be findable
+      expect(await packDir.has(idA)).toBe(true);
+      expect(await packDir.has(idB)).toBe(true);
+      expect(await packDir.has(idC)).toBe(true);
+
+      // List should contain all three
+      const objects: string[] = [];
+      for await (const id of packDir.listObjects()) {
+        objects.push(id);
+      }
+      expect(objects.sort()).toEqual([idA, idB, idC].sort());
+    });
+  });
 });
+
+/**
+ * Helper to create test packs
+ */
+async function createTestPack(objects: Array<{ id: string; content: Uint8Array }>) {
+  const packObjects = objects.map((obj) => ({
+    id: obj.id,
+    type: PackObjectType.BLOB,
+    content: obj.content,
+  }));
+  return await writePack(packObjects);
+}
