@@ -307,6 +307,58 @@ describe("PendingPack", () => {
     });
   });
 
+  describe("delta inspection", () => {
+    it("isDelta returns true for pending delta", () => {
+      const pending = new PendingPack();
+      const baseId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const targetId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+      pending.addDelta(targetId, baseId, new Uint8Array([5, 5, 0x85, 0, 5]));
+
+      expect(pending.isDelta(targetId)).toBe(true);
+    });
+
+    it("isDelta returns false for pending full object", () => {
+      const pending = new PendingPack();
+      const id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+      pending.addObject(id, PackObjectType.BLOB, new Uint8Array([1, 2, 3]));
+
+      expect(pending.isDelta(id)).toBe(false);
+    });
+
+    it("isDelta returns false for unknown object", () => {
+      const pending = new PendingPack();
+
+      expect(pending.isDelta("cccccccccccccccccccccccccccccccccccccccc")).toBe(false);
+    });
+
+    it("getDeltaBase returns base ID for delta", () => {
+      const pending = new PendingPack();
+      const baseId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const targetId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+      pending.addDelta(targetId, baseId, new Uint8Array([5, 5, 0x85, 0, 5]));
+
+      expect(pending.getDeltaBase(targetId)).toBe(baseId);
+    });
+
+    it("getDeltaBase returns undefined for full object", () => {
+      const pending = new PendingPack();
+      const id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+      pending.addObject(id, PackObjectType.BLOB, new Uint8Array([1, 2, 3]));
+
+      expect(pending.getDeltaBase(id)).toBeUndefined();
+    });
+
+    it("getDeltaBase returns undefined for unknown object", () => {
+      const pending = new PendingPack();
+
+      expect(pending.getDeltaBase("cccccccccccccccccccccccccccccccccccccccc")).toBeUndefined();
+    });
+  });
+
   describe("object types", () => {
     it("handles COMMIT objects", async () => {
       const pending = new PendingPack();

@@ -49,7 +49,8 @@ const OBJECT_ID_LENGTH = 20;
 export class PackReader {
   private readonly files: FilesApi;
   private readonly packPath: string;
-  private readonly index: PackIndex;
+  /** Pack index for object lookups */
+  readonly index: PackIndex;
   private handle: FileHandle | null = null;
   private length = 0;
 
@@ -278,10 +279,19 @@ export class PackReader {
   /**
    * Find object ID by its offset in the pack file
    *
+   * Iterates through index entries to find matching offset.
+   * Used to resolve OFS_DELTA base references.
+   *
+   * Note: This is O(n) - for large packs, consider using
+   * PackReverseIndex for offset→id mapping.
+   *
+   * Based on: jgit PackReverseIndex.java#findObject
+   *
    * @param offset Offset to search for
-   * @returns Object ID or throws if not found
+   * @returns Object ID
+   * @throws Error if offset not found
    */
-  private findObjectIdByOffset(offset: number): ObjectId {
+  findObjectIdByOffset(offset: number): ObjectId {
     // Iterate through all entries to find matching offset
     for (const entry of this.index.entries()) {
       if (entry.offset === offset) {
@@ -337,6 +347,37 @@ export class PackReader {
     }
 
     return { type, size, baseOffset, baseId, headerLength };
+  }
+
+  /**
+   * Load raw delta bytes without resolution
+   *
+   * Returns the compressed delta data directly, without
+   * applying the delta to reconstruct the object.
+   *
+   * Useful for:
+   * - Copying deltas between packs
+   * - Inspecting delta format
+   * - Re-deltifying with different base
+   *
+   * Based on: jgit Pack.java#copyAsIs
+   *
+   * @param id Object ID
+   * @returns Raw delta bytes or undefined if not a delta
+   */
+  async loadRawDelta(id: ObjectId): Promise<Uint8Array | undefined> {
+    const offset = this.index.findOffset(id);
+    if (offset === -1) return undefined;
+
+    const header = await this.readObjectHeader(offset);
+
+    // Not a delta - return undefined
+    if (header.type !== 6 && header.type !== 7) {
+      return undefined;
+    }
+
+    // Decompress delta data
+    return this.decompress(offset + header.headerLength, header.size);
   }
 
   /**
