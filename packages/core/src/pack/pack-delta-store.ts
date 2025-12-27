@@ -396,6 +396,49 @@ export class PackDeltaStore implements DeltaStore {
   }
 
   /**
+   * Load resolved object content from pack files WITH Git header
+   *
+   * Loads fully resolved content (with delta resolution if needed)
+   * for any object stored in packs, whether it's a delta or full object.
+   * Returns content WITH Git header (e.g., "blob 123\0content") for
+   * compatibility with RawStore which expects headers.
+   *
+   * @param key Object key
+   * @returns Resolved content with header, or undefined if not in packs
+   */
+  async loadObject(key: string): Promise<Uint8Array | undefined> {
+    await this.ensureInitialized();
+
+    // Flush pending first
+    if (this.pending.hasPending(key)) {
+      await this.flush();
+    }
+
+    // Use loadRaw() which returns content WITH Git header
+    return this.packDir.loadRaw(key);
+  }
+
+  /**
+   * Check if object exists in any pack file
+   *
+   * Checks for any object in packs, regardless of whether
+   * it's a delta or full object.
+   *
+   * @param key Object key
+   * @returns True if object exists in packs
+   */
+  async hasObject(key: string): Promise<boolean> {
+    await this.ensureInitialized();
+
+    // Check pending first
+    if (this.pending.hasPending(key)) {
+      return true;
+    }
+
+    return this.packDir.has(key);
+  }
+
+  /**
    * Ensure store is initialized
    */
   private async ensureInitialized(): Promise<void> {

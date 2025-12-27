@@ -8,7 +8,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
-import { decompressBlock } from "@webrun-vcs/utils";
+import { decompressBlockPartial } from "@webrun-vcs/utils";
 import type { FileHandle, FilesApi } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import { bytesToHex } from "../utils/index.js";
@@ -412,15 +412,13 @@ export class PackReader {
 
     // Use partial decompression to handle trailing data gracefully
     // Git pack files use zlib format (RFC 1950), not raw DEFLATE
-    const result = await decompressBlock(compressed, { raw: false });
+    const { data } = await decompressBlockPartial(compressed, { raw: false });
 
-    if (result.length !== expectedSize) {
-      throw new Error(
-        `Decompression size mismatch: expected ${expectedSize}, got ${result.length}`,
-      );
+    if (data.length !== expectedSize) {
+      throw new Error(`Decompression size mismatch: expected ${expectedSize}, got ${data.length}`);
     }
 
-    return result;
+    return data;
   }
 }
 

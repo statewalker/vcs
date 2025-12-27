@@ -106,4 +106,27 @@ export interface DeltaStore {
    * @returns Async iterable of delta info (baseKey, targetKey)
    */
   listDeltas(): AsyncIterable<DeltaInfo>;
+
+  /**
+   * Load resolved object content from backing storage (optional)
+   *
+   * For pack-based implementations, loads the fully resolved
+   * content (with delta resolution if needed) for any object
+   * stored in packs, whether it's a delta or full object.
+   *
+   * @param key Object key
+   * @returns Resolved content or undefined if not in backing storage
+   */
+  loadObject?(key: string): Promise<Uint8Array | undefined>;
+
+  /**
+   * Check if object exists in the delta store's backing storage (optional)
+   *
+   * For pack-based implementations, checks if an object exists
+   * in any pack file, regardless of whether it's a delta or full object.
+   *
+   * @param key Object key
+   * @returns True if object exists
+   */
+  hasObject?(key: string): Promise<boolean>;
 }

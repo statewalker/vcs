@@ -418,7 +418,7 @@ describe("PackDeltaStore", () => {
       // Should still find object
       expect(await packDir.has(idA)).toBe(true);
 
-      // Load should work and return consistent content
+      // load() returns raw content without Git header
       const loaded = await packDir.load(idA);
       expect(loaded).toEqual(content);
     });

@@ -25,9 +25,6 @@ import {
   FileMode,
   type GitRepository,
   indexPack,
-  PackReader,
-  readPackIndex,
-  typeCodeToString,
   writePackIndex,
 } from "@webrun-vcs/core";
 import { clone, type PushObject, push } from "@webrun-vcs/transport";
@@ -275,29 +272,12 @@ async function cloneWithVcs(): Promise<void> {
     const idxPath = `${packDir}/${idxFileName}`;
 
     // Write pack and index files
+    // createGitRepository uses RawStoreWithDelta + PackDeltaStore which reads pack files directly
     await atomicWriteFile(files, packPath, cloneResult.packData);
     const indexData = await writePackIndex(indexResult.entries, indexResult.packChecksum);
     await atomicWriteFile(files, idxPath, indexData);
 
-    // Read objects from pack and store as loose objects
-    // This is needed because createGitRepository doesn't support pack file reading yet
-    printInfo("Unpacking objects to loose format...");
-    const idxData = await files.readFile(idxPath);
-    const packIndex = readPackIndex(idxData);
-    const packReader = new PackReader(files, packPath, packIndex);
-    await packReader.open();
-
-    for (const entry of packIndex.entries()) {
-      const obj = await packReader.get(entry.id);
-      if (obj) {
-        // PackObjectType 1-4 maps to ObjectTypeCode 1-4
-        const typeStr = typeCodeToString(obj.type as 1 | 2 | 3 | 4);
-        await repository.objects.store(typeStr, [obj.content]);
-      }
-    }
-
-    await packReader.close();
-    printInfo(`Unpacked ${indexResult.objectCount} objects`);
+    printInfo(`Stored pack file with ${indexResult.objectCount} objects`);
   }
 
   // Set up refs using high-level RefStore API

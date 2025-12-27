@@ -8,6 +8,8 @@
 
 import { basename, type FilesApi, joinPath } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
+import { createGitObject, typeCodeToString } from "../objects/object-header.js";
+import type { ObjectTypeCode } from "../objects/object-types.js";
 import { DeltaReverseIndex } from "./delta-reverse-index.js";
 import { readPackIndex } from "./pack-index-reader.js";
 import { type PackDeltaChainInfo, PackReader } from "./pack-reader.js";
@@ -162,8 +164,9 @@ export class PackDirectory {
   }
 
   /**
-   * Load object content from any pack
+   * Load object content from any pack (without Git header)
    *
+   * Returns the raw object content as stored in the pack file.
    * Returns undefined if not found in any pack.
    */
   async load(id: ObjectId): Promise<Uint8Array | undefined> {
@@ -173,6 +176,27 @@ export class PackDirectory {
     const reader = await this.getPack(packName);
     const obj = await reader.get(id);
     return obj?.content;
+  }
+
+  /**
+   * Load object content from any pack WITH Git header
+   *
+   * Returns content prefixed with Git object header (e.g., "blob 123\0content").
+   * This format is compatible with RawStore which expects headers.
+   *
+   * Returns undefined if not found in any pack.
+   */
+  async loadRaw(id: ObjectId): Promise<Uint8Array | undefined> {
+    const packName = await this.findPack(id);
+    if (!packName) return undefined;
+
+    const reader = await this.getPack(packName);
+    const obj = await reader.get(id);
+    if (!obj) return undefined;
+
+    // Pack types 1-4 map to Git object types
+    const typeStr = typeCodeToString(obj.type as ObjectTypeCode);
+    return createGitObject(typeStr, obj.content);
   }
 
   /**
