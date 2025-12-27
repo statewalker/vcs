@@ -32,6 +32,20 @@ export interface WorkingCopyConfig {
  * Accessed via WorkingCopy, but storage is backend-dependent:
  * - Git file-based: stores in central refs/stash
  * - Other backends: may use per-working-copy storage
+ *
+ * @example Push, list, and pop
+ * ```typescript
+ * // Save current work
+ * const id = await stash.push("WIP: fixing bug");
+ *
+ * // List all stashes
+ * for await (const entry of stash.list()) {
+ *   console.log(`stash@{${entry.index}}: ${entry.message}`);
+ * }
+ *
+ * // Restore and remove
+ * await stash.pop();
+ * ```
  */
 export interface StashStore {
   /** List all stash entries */
@@ -97,6 +111,37 @@ export interface RebaseState {
  *
  * Links to a Repository and adds local state.
  * Multiple WorkingCopies can share one Repository.
+ *
+ * @example Checking branch and status
+ * ```typescript
+ * const branch = await wc.getCurrentBranch();
+ * console.log(`On branch: ${branch ?? "detached HEAD"}`);
+ *
+ * const status = await wc.getStatus();
+ * if (!status.isClean) {
+ *   console.log("Uncommitted changes:", status.files.length);
+ * }
+ * ```
+ *
+ * @example Detecting in-progress operations
+ * ```typescript
+ * if (await wc.hasOperationInProgress()) {
+ *   const merge = await wc.getMergeState();
+ *   if (merge) console.log(`Merging: ${merge.mergeHead}`);
+ *
+ *   const rebase = await wc.getRebaseState();
+ *   if (rebase) console.log(`Rebasing: ${rebase.current}/${rebase.total}`);
+ * }
+ * ```
+ *
+ * @example Working with stash
+ * ```typescript
+ * await wc.stash.push("WIP: feature work");
+ * for await (const entry of wc.stash.list()) {
+ *   console.log(`stash@{${entry.index}}: ${entry.message}`);
+ * }
+ * await wc.stash.pop();
+ * ```
  */
 export interface WorkingCopy {
   // ============ Links ============
