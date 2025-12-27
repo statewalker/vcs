@@ -8,12 +8,13 @@
 import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
 import { CompressedRawStore } from "../binary/raw-store.compressed.js";
 import { createFileRawStore } from "../binary/raw-store.files.js";
-
 import { createFileVolatileStore } from "../binary/volatile-store.files.js";
 import { GitBlobStore } from "../blob/blob-store.impl.js";
 import { GitCommitStore } from "../commits/commit-store.impl.js";
+import { RawStoreWithDelta } from "../delta/raw-store-with-delta.js";
 import type { ObjectId } from "../id/object-id.js";
 import { GitObjectStoreImpl } from "../objects/object-store.impl.js";
+import { PackDeltaStore } from "../pack/pack-delta-store.js";
 import { createFileRefStore, type FileRefStore } from "../refs/ref-store.files.js";
 import type { MemoryRefStore } from "../refs/ref-store.memory.js";
 import { createRefsStructure, writeSymbolicRef } from "../refs/ref-writer.js";
@@ -141,10 +142,24 @@ export async function createGitRepository(
   const { create = true, defaultBranch = "main", bare = false, name } = options;
 
   const objectsDir = joinPath(gitDir, "objects");
+  const packDir = joinPath(objectsDir, "pack");
 
-  // File-based storage with Git-compatible compression
+  // Loose object storage with Git-compatible compression
   const fileStore = createFileRawStore(files, objectsDir);
-  const rawStore = new CompressedRawStore(fileStore);
+  const compressedStore = new CompressedRawStore(fileStore);
+
+  // Pack-based delta storage for reading pack files
+  const packDeltaStore = new PackDeltaStore({
+    files,
+    basePath: packDir,
+  });
+
+  // Combined raw store: loose objects + pack file support
+  const rawStore = new RawStoreWithDelta({
+    objects: compressedStore,
+    deltas: packDeltaStore,
+  });
+
   const volatileStore = createFileVolatileStore(files, joinPath(gitDir, "tmp"));
   const refStore = createFileRefStore(files, gitDir);
 

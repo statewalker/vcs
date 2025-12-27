@@ -463,6 +463,7 @@ describe("delta chain resolution", () => {
       expect(await packDir.has(baseId)).toBe(true);
       expect(await packDir.has(targetId)).toBe(true);
 
+      // load() returns raw content without Git header
       const loadedBase = await packDir.load(baseId);
       expect(loadedBase).toEqual(baseContent);
 

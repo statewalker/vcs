@@ -118,18 +118,40 @@ export class RawStoreWithDelta implements RawStore {
   }
 
   async size(id: string): Promise<number> {
+    // Check deltas first (returns originalSize for resolved content)
     const chainInfo = await this.deltas.getDeltaChainInfo(id);
     if (chainInfo) {
       return chainInfo.originalSize;
     }
-    return this.objects.size(id);
+
+    // Check loose objects
+    if (await this.objects.has(id)) {
+      return this.objects.size(id);
+    }
+
+    // Check pack files for full objects (not deltas)
+    if (this.deltas.loadObject) {
+      const content = await this.deltas.loadObject(id);
+      if (content) {
+        return content.length;
+      }
+    }
+
+    throw new Error(`Object not found: ${id}`);
   }
 
   async has(id: string): Promise<boolean> {
     if (await this.deltas.isDelta(id)) {
       return true;
     }
-    return this.objects.has(id);
+    if (await this.objects.has(id)) {
+      return true;
+    }
+    // Check pack files for full objects (not deltas)
+    if (this.deltas.hasObject) {
+      return this.deltas.hasObject(id);
+    }
+    return false;
   }
 
   async store(
@@ -144,6 +166,7 @@ export class RawStoreWithDelta implements RawStore {
    *
    * Returns content with Git header stripped.
    * Transparently resolves delta chains if object is stored as delta.
+   * Also loads full objects from pack files if not in loose storage.
    *
    * @param id Object ID
    * @throws Error if object not found
@@ -152,7 +175,7 @@ export class RawStoreWithDelta implements RawStore {
     id: string,
     options?: { offset?: number; length?: number },
   ): AsyncGenerator<Uint8Array> {
-    // Check if it's a delta
+    // Check if it's a delta in pack
     if (await this.deltas.isDelta(id)) {
       // Resolve delta chain (strips header internally)
       const content = this.resolveDeltaChain(id);
@@ -161,9 +184,32 @@ export class RawStoreWithDelta implements RawStore {
       } else {
         yield* content;
       }
-    } else {
-      yield* this.objects.load(id, options);
+      return;
     }
+
+    // Check loose objects first
+    if (await this.objects.has(id)) {
+      yield* this.objects.load(id, options);
+      return;
+    }
+
+    // Check pack files for full objects (not deltas)
+    if (this.deltas.loadObject) {
+      const content = await this.deltas.loadObject(id);
+      if (content) {
+        if (options?.offset !== undefined || options?.length !== undefined) {
+          const offset = options.offset ?? 0;
+          const length = options.length ?? content.length - offset;
+          yield content.subarray(offset, offset + length);
+        } else {
+          yield content;
+        }
+        return;
+      }
+    }
+
+    // Object not found anywhere
+    throw new Error(`Object not found: ${id}`);
   }
 
   /**
