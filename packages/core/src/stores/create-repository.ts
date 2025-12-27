@@ -142,9 +142,6 @@ export async function createGitRepository(
 
   const objectsDir = joinPath(gitDir, "objects");
 
-  // Determine if this is memory-based or file-based storage
-  const isMemoryBased = await isMemoryFilesApi(files);
-
   // File-based storage with Git-compatible compression
   const fileStore = createFileRawStore(files, objectsDir);
   const rawStore = new CompressedRawStore(fileStore);
@@ -170,7 +167,7 @@ export async function createGitRepository(
   }
 
   // Initialize if needed
-  if (create && !isInitialized && !isMemoryBased) {
+  if (create && !isInitialized) {
     // Create Git directory structure
     await files.mkdir(gitDir);
     await files.mkdir(objectsDir);
@@ -189,10 +186,6 @@ export async function createGitRepository(
 `;
     await files.write(joinPath(gitDir, "config"), [new TextEncoder().encode(config)]);
 
-    isInitialized = true;
-  } else if (create && !isInitialized && isMemoryBased) {
-    // For memory-based, just set up HEAD
-    await refStore.setSymbolic("HEAD", `refs/heads/${defaultBranch}`);
     isInitialized = true;
   }
 
@@ -219,7 +212,7 @@ export async function createGitRepository(
  * This is a heuristic check - memory-based FilesApi doesn't persist
  * to disk and starts empty.
  */
-async function isMemoryFilesApi(files: FilesApi): Promise<boolean> {
+async function _isMemoryFilesApi(files: FilesApi): Promise<boolean> {
   // Check if the root exists - memory-based starts with no directories
   try {
     const stats = await files.stats("/");
