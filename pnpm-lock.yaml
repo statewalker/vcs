@@ -74,9 +74,6 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/commands':
-        specifier: workspace:*
-        version: link:../../packages/commands
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -99,9 +96,6 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/commands':
-        specifier: workspace:*
-        version: link:../../packages/commands
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -124,9 +118,6 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/commands':
-        specifier: workspace:*
-        version: link:../../packages/commands
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -152,9 +143,6 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/commands':
-        specifier: workspace:*
-        version: link:../../packages/commands
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -177,9 +165,6 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/commands':
-        specifier: workspace:*
-        version: link:../../packages/commands
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -205,9 +190,6 @@ importers:
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.5.0
-      '@webrun-vcs/commands':
-        specifier: workspace:*
-        version: link:../../packages/commands
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../../packages/core

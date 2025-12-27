@@ -8,8 +8,8 @@
  * Reference: tmp/jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/api/CheckoutCommandTest.java
  */
 
+import { DeleteStagingEntry } from "@webrun-vcs/core";
 import { afterEach, describe, expect, it } from "vitest";
-
 import { CheckoutStatus } from "../src/commands/checkout-command.js";
 import { RefNotFoundError } from "../src/errors/index.js";
 import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
@@ -353,7 +353,6 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      */
     it("should update staging on branch checkout", async () => {
       const { git, store } = await createInitializedGit();
-      const { DeleteStagingEntry } = await import("@webrun-vcs/core");
 
       // Create initial state on main
       await addFile(store, "a.txt", "main-a");

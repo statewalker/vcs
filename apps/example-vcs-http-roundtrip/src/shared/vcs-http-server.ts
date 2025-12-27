@@ -13,12 +13,11 @@
 
 import * as http from "node:http";
 import {
-  extractGitObjectContent,
-  type GitStorage,
+  type GitRepository,
   PackWriterStream,
-  parseObjectHeader,
-  storeTypedObject,
-} from "@webrun-vcs/commands";
+  typeCodeToString,
+  typeStringToCode,
+} from "@webrun-vcs/core";
 import {
   CAPABILITY_DELETE_REFS,
   CAPABILITY_OFS_DELTA,
@@ -40,8 +39,8 @@ const textDecoder = new TextDecoder();
 export interface VcsHttpServerOptions {
   /** Port to listen on */
   port: number;
-  /** Storage getter - returns the GitStorage for a given repository path */
-  getStorage: (repoPath: string) => Promise<GitStorage | null>;
+  /** Storage getter - returns the GitRepository for a given repository path */
+  getStorage: (repoPath: string) => Promise<GitRepository | null>;
 }
 
 /**
@@ -50,7 +49,7 @@ export interface VcsHttpServerOptions {
 export class VcsHttpServer {
   private server: http.Server | null = null;
   private port: number;
-  private getStorage: (repoPath: string) => Promise<GitStorage | null>;
+  private getStorage: (repoPath: string) => Promise<GitRepository | null>;
 
   constructor(options: VcsHttpServerOptions) {
     this.port = options.port;
@@ -142,7 +141,7 @@ export class VcsHttpServer {
   private async handleInfoRefs(
     _req: http.IncomingMessage,
     res: http.ServerResponse,
-    storage: GitStorage,
+    storage: GitRepository,
     url: URL,
   ): Promise<void> {
     const service = url.searchParams.get("service");
@@ -167,7 +166,9 @@ export class VcsHttpServer {
     const headRef = await storage.refs.get("HEAD");
 
     // Build capabilities
-    const capabilities = this.buildCapabilities(service, headRef);
+    // Extract target from headRef if it's a symbolic ref
+    const headTarget = headRef && "target" in headRef ? { target: headRef.target } : undefined;
+    const capabilities = this.buildCapabilities(service, headTarget);
 
     // Write refs
     let firstRef = true;
@@ -195,7 +196,7 @@ export class VcsHttpServer {
   private async handleUploadPack(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    storage: GitStorage,
+    storage: GitRepository,
   ): Promise<void> {
     // Collect request body
     const body = await this.collectRequestBody(req);
@@ -260,7 +261,7 @@ export class VcsHttpServer {
   private async handleReceivePack(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    storage: GitStorage,
+    storage: GitRepository,
   ): Promise<void> {
     // Collect request body
     const body = await this.collectRequestBody(req);
@@ -331,7 +332,7 @@ export class VcsHttpServer {
   /**
    * Collect all refs from storage.
    */
-  private async collectRefs(storage: GitStorage): Promise<Map<string, string>> {
+  private async collectRefs(storage: GitRepository): Promise<Map<string, string>> {
     const refs = new Map<string, string>();
 
     // Get HEAD
@@ -340,9 +341,9 @@ export class VcsHttpServer {
       refs.set("HEAD", head);
     }
 
-    // Get all refs
+    // Get all refs (skip symbolic refs)
     for await (const ref of storage.refs.list()) {
-      if (ref.objectId) {
+      if ("objectId" in ref && ref.objectId) {
         refs.set(ref.name, ref.objectId);
       }
     }
@@ -382,7 +383,7 @@ export class VcsHttpServer {
    * Build a pack file containing wanted objects.
    */
   private async buildPackForWants(
-    storage: GitStorage,
+    storage: GitRepository,
     wants: string[],
     haves: string[],
   ): Promise<{ packData: Uint8Array }> {
@@ -395,18 +396,15 @@ export class VcsHttpServer {
       if (seen.has(id) || haveSet.has(id)) return;
       seen.add(id);
 
-      // Load raw object
+      // Load object with header
+      const [header, contentStream] = await storage.objects.loadWithHeader(id);
       const chunks: Uint8Array[] = [];
-      for await (const chunk of storage.rawStorage.load(id)) {
+      for await (const chunk of contentStream) {
         chunks.push(chunk);
       }
-      const rawData = this.concatBytes(chunks);
+      const content = this.concatBytes(chunks);
 
-      // Parse header to get type
-      const header = parseObjectHeader(rawData);
-      const content = extractGitObjectContent(rawData);
-
-      objectsToSend.push({ id, type: header.typeCode, content });
+      objectsToSend.push({ id, type: typeStringToCode(header.type), content });
 
       // Recursively collect referenced objects
       if (header.type === "commit") {
@@ -532,7 +530,7 @@ export class VcsHttpServer {
   /**
    * Process a received pack file.
    */
-  private async processReceivedPack(storage: GitStorage, packData: Uint8Array): Promise<void> {
+  private async processReceivedPack(storage: GitRepository, packData: Uint8Array): Promise<void> {
     // Parse and store objects from the pack
     // We parse the pack manually to extract object content for storage
 
@@ -626,10 +624,11 @@ export class VcsHttpServer {
       objectById.set(resolved.id, { type: resolved.type, content: resolved.content });
     }
 
-    // Store all resolved objects using storeTypedObject with correct type
+    // Store all resolved objects using objects.store with correct type
     for (const [_id, obj] of objectById) {
-      // Use storeTypedObject directly with rawStorage to ensure correct type is used
-      await storeTypedObject(storage.rawStorage, obj.type, obj.content);
+      // Convert numeric type to string and store via objects store
+      const typeString = typeCodeToString(obj.type);
+      await storage.objects.store(typeString, [obj.content]);
     }
   }
 
@@ -637,7 +636,7 @@ export class VcsHttpServer {
    * Apply ref update.
    */
   private async applyRefUpdate(
-    storage: GitStorage,
+    storage: GitRepository,
     update: { oldId: string; newId: string; refName: string },
   ): Promise<void> {
     const zeroId = "0".repeat(40);
