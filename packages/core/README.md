@@ -405,6 +405,104 @@ async function showStatus(calculator: StatusCalculator): Promise<void> {
 }
 ```
 
+### Repository State Detection
+
+The `WorkingCopy` interface provides state detection for in-progress operations. This helps UIs show appropriate status messages and prevent conflicting operations.
+
+```typescript
+import { RepositoryState } from "@webrun-vcs/core";
+import type { WorkingCopy } from "@webrun-vcs/core";
+
+async function checkRepositoryState(wc: WorkingCopy): Promise<void> {
+  const state = await wc.getState();
+  const capabilities = await wc.getStateCapabilities();
+
+  // Show current operation status
+  switch (state) {
+    case RepositoryState.SAFE:
+      console.log("Repository is ready for any operation");
+      break;
+    case RepositoryState.MERGING:
+      console.log("Merge in progress - resolve conflicts then commit");
+      break;
+    case RepositoryState.REBASING:
+    case RepositoryState.REBASING_MERGE:
+    case RepositoryState.REBASING_INTERACTIVE:
+      console.log("Rebase in progress - continue, skip, or abort");
+      break;
+    case RepositoryState.CHERRY_PICKING:
+      console.log("Cherry-pick in progress - resolve conflicts");
+      break;
+    case RepositoryState.REVERTING:
+      console.log("Revert in progress - resolve conflicts");
+      break;
+    case RepositoryState.BISECTING:
+      console.log("Bisect in progress");
+      break;
+  }
+
+  // Check what operations are allowed
+  if (!capabilities.canCheckout) {
+    console.log("Cannot checkout - finish current operation first");
+  }
+  if (!capabilities.canCommit) {
+    console.log("Cannot commit in current state");
+  }
+}
+```
+
+Available states mirror Git's internal states:
+
+| State | Description |
+|-------|-------------|
+| `BARE` | Bare repository, no working tree |
+| `SAFE` | Normal state, all operations allowed |
+| `MERGING` | Merge with unresolved conflicts |
+| `MERGING_RESOLVED` | Merge resolved, ready to commit |
+| `CHERRY_PICKING` | Cherry-pick with conflicts |
+| `CHERRY_PICKING_RESOLVED` | Cherry-pick resolved |
+| `REVERTING` | Revert with conflicts |
+| `REVERTING_RESOLVED` | Revert resolved |
+| `REBASING` / `REBASING_MERGE` / `REBASING_INTERACTIVE` | Rebase in progress |
+| `APPLY` | Git am (mailbox apply) in progress |
+| `BISECTING` | Bisect in progress |
+
+### Stash Operations
+
+```typescript
+import type { WorkingCopy } from "@webrun-vcs/core";
+
+async function useStash(wc: WorkingCopy): Promise<void> {
+  // Save current work with a message
+  const stashId = await wc.stash.push("WIP: fixing authentication");
+
+  // Include untracked files (like git stash -u)
+  await wc.stash.push({ message: "WIP with new files", includeUntracked: true });
+
+  // List all stashes
+  for await (const entry of wc.stash.list()) {
+    console.log(`stash@{${entry.index}}: ${entry.message}`);
+  }
+
+  // Apply most recent stash
+  await wc.stash.apply(0);
+
+  // Pop (apply and remove)
+  await wc.stash.pop();
+
+  // Drop specific stash
+  await wc.stash.drop(1);
+
+  // Clear all stashes
+  await wc.stash.clear();
+}
+```
+
+Stash commits follow Git's structure with 2-3 parents:
+- Parent 1: HEAD at time of stash
+- Parent 2: Index state commit
+- Parent 3 (optional): Untracked files commit (when `includeUntracked: true`)
+
 ## File Modes
 
 The package exports standard Git file mode constants:
