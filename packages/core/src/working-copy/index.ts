@@ -5,6 +5,8 @@
  * for managing local checkout state in Git repositories.
  */
 
+// Checkout utilities
+export * from "./checkout-utils.js";
 // State readers
 export * from "./cherry-pick-state-reader.js";
 export * from "./merge-state-reader.js";
