@@ -12,53 +12,89 @@
 import type { ObjectId } from "../id/index.js";
 
 /**
- * File status categories.
+ * File status categories for Git operations.
+ *
+ * Used to describe the state of files in the index (staging area)
+ * relative to HEAD, and in the working tree relative to the index.
+ *
+ * @example Interpreting status output
+ * ```typescript
+ * for (const file of status.files) {
+ *   // Index status: changes staged for commit
+ *   if (file.indexStatus === FileStatus.ADDED) {
+ *     console.log(`new file: ${file.path}`);
+ *   }
+ *   // Working tree status: unstaged changes
+ *   if (file.workTreeStatus === FileStatus.MODIFIED) {
+ *     console.log(`modified: ${file.path}`);
+ *   }
+ * }
+ * ```
  */
 export const FileStatus = {
-  /** File is unchanged */
+  /** File is unchanged (identical in HEAD, index, and working tree) */
   UNMODIFIED: "unmodified",
-  /** File added to index, not in HEAD */
+  /** File added to index but not in HEAD (new file staged) */
   ADDED: "added",
-  /** File modified in working tree or index */
+  /** File content or mode differs */
   MODIFIED: "modified",
-  /** File deleted from working tree or index */
+  /** File exists in source but not in target (removed) */
   DELETED: "deleted",
-  /** File renamed (detected by content similarity) */
+  /** File renamed (detected by content similarity, requires rename detection) */
   RENAMED: "renamed",
-  /** File copied (detected by content similarity) */
+  /** File copied (detected by content similarity, requires rename detection) */
   COPIED: "copied",
-  /** File not tracked */
+  /** File in working tree but not tracked by Git */
   UNTRACKED: "untracked",
-  /** File ignored by .gitignore */
+  /** File matches a .gitignore pattern */
   IGNORED: "ignored",
-  /** File has merge conflict */
+  /** File has unresolved merge conflict (multiple stages in index) */
   CONFLICTED: "conflicted",
 } as const;
 
 export type FileStatusValue = (typeof FileStatus)[keyof typeof FileStatus];
 
 /**
- * Detailed conflict stage state.
+ * Detailed conflict stage state for merge conflicts.
  *
  * Describes the type of conflict based on the presence of entries
- * in base (stage 1), ours (stage 2), and theirs (stage 3).
+ * in the three conflict stages:
+ * - Stage 1 (base): Common ancestor
+ * - Stage 2 (ours): Current branch version
+ * - Stage 3 (theirs): Merge source version
  *
+ * Use `getStageState()` to compute from stage presence flags.
  * Based on JGit IndexDiff.StageState.
+ *
+ * @example Conflict resolution hints
+ * ```typescript
+ * switch (file.stageState) {
+ *   case StageState.BOTH_MODIFIED:
+ *     console.log("Both sides modified - merge content manually");
+ *     break;
+ *   case StageState.DELETED_BY_THEM:
+ *     console.log("They deleted, we modified - keep or delete?");
+ *     break;
+ *   case StageState.BOTH_ADDED:
+ *     console.log("Both sides added different files");
+ *     break;
+ * }
+ * ```
  */
 export const StageState = {
-  /** Deleted in both ours and theirs */
+  /** File deleted in both branches (only base exists). Resolution: accept deletion. */
   BOTH_DELETED: "both-deleted",
-  /** Added only in ours (not in base or theirs) */
+  /** File added only in our branch (not in base or theirs). Resolution: keep ours. */
   ADDED_BY_US: "added-by-us",
-  /** Deleted in theirs, exists in base and ours */
+  /** File deleted by them but exists in base and ours. User must choose. */
   DELETED_BY_THEM: "deleted-by-them",
-  /** Added only in theirs (not in base or ours) */
+  /** File added only in their branch (not in base or ours). Resolution: take theirs. */
   ADDED_BY_THEM: "added-by-them",
-  /** Deleted in ours, exists in base and theirs */
+  /** File deleted by us but modified by them. User must choose. */
   DELETED_BY_US: "deleted-by-us",
-  /** Added in both with different content */
+  /** Both branches added the file with different content. User must merge. */
   BOTH_ADDED: "both-added",
-  /** Modified in both with different content */
+  /** Both branches modified the file differently. User must merge. */
   BOTH_MODIFIED: "both-modified",
 } as const;
 

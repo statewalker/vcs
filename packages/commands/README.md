@@ -323,29 +323,106 @@ console.log(`Cloned to branch: ${result.defaultBranch}`);
 ### Stash Operations
 
 ```typescript
-// Create a stash
+// Create a stash with a message
 const stashResult = await git.stashCreate()
   .setMessage("WIP: feature work")
   .call();
 
 console.log(`Created stash: ${stashResult.stashRef}`);
 
+// Include untracked files (like git stash -u)
+await git.stashCreate()
+  .setMessage("WIP with new files")
+  .setIncludeUntracked(true)
+  .call();
+
 // List stashes
 const stashes = await git.stashList().call();
 for (const stash of stashes) {
-  console.log(`${stash.index}: ${stash.message}`);
+  console.log(`stash@{${stash.index}}: ${stash.message}`);
 }
 
-// Apply latest stash
+// Apply latest stash (keeps stash in list)
 await git.stashApply()
   .setStashRef("stash@{0}")
   .call();
 
-// Drop a stash
-await git.stashDrop()
+// Pop stash (apply and remove)
+await git.stashPop()
   .setStashRef("stash@{0}")
   .call();
+
+// Drop a specific stash
+await git.stashDrop()
+  .setStashRef("stash@{1}")
+  .call();
+
+// Clear all stashes
+await git.stashClear().call();
 ```
+
+Stash commits follow Git's structure with 2-3 parents:
+- Parent 1: HEAD at time of stash
+- Parent 2: Index state commit
+- Parent 3 (optional): Untracked files commit (when `includeUntracked: true`)
+
+### Checkout Operations
+
+```typescript
+// Switch to a branch
+await git.checkout()
+  .setName("feature/login")
+  .call();
+
+// Create and switch to new branch (like git checkout -b)
+await git.checkout()
+  .setName("feature/new")
+  .setCreateBranch(true)
+  .call();
+
+// Checkout specific commit (detached HEAD)
+await git.checkout()
+  .setName("abc1234")
+  .call();
+
+// Checkout specific files from another branch
+await git.checkout()
+  .setName("main")
+  .addPath("src/config.ts")
+  .addPath("package.json")
+  .call();
+
+// Force checkout (discard local changes)
+await git.checkout()
+  .setName("main")
+  .setForce(true)
+  .call();
+```
+
+Checkout performs three-way conflict detection before switching branches:
+
+```typescript
+import { CheckoutConflictError } from "@webrun-vcs/commands/errors";
+
+try {
+  await git.checkout().setName("main").call();
+} catch (error) {
+  if (error instanceof CheckoutConflictError) {
+    // Local modifications would be overwritten
+    console.log("Conflicting paths:");
+    for (const conflict of error.conflicts) {
+      console.log(`  ${conflict.path}: ${conflict.message}`);
+    }
+
+    // Options: stash changes, force checkout, or abort
+  }
+}
+```
+
+Conflict types detected:
+- **DIRTY_WORKTREE**: Modified file would be overwritten
+- **DIRTY_INDEX**: Staged changes would be lost
+- **UNTRACKED_FILE**: New file would be overwritten
 
 ### Tags
 

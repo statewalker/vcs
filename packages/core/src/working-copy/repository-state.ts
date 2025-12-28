@@ -1,55 +1,209 @@
 /**
- * Repository operation state.
+ * Repository operation state enumeration.
  *
  * Tracks in-progress operations that affect what actions are allowed.
+ * Use with `getStateCapabilities()` to determine allowed operations.
+ *
  * Based on JGit's RepositoryState enum from lib/RepositoryState.java.
+ *
+ * @example Detecting repository state
+ * ```typescript
+ * import { RepositoryState, getStateCapabilities } from "@webrun-vcs/core";
+ *
+ * const state = await workingCopy.getState();
+ *
+ * if (state === RepositoryState.MERGING) {
+ *   console.log("Merge in progress - resolve conflicts");
+ * }
+ *
+ * const caps = getStateCapabilities(state);
+ * if (!caps.canCommit) {
+ *   console.log("Cannot commit in current state");
+ * }
+ * ```
+ *
+ * @example State-aware UI
+ * ```typescript
+ * switch (state) {
+ *   case RepositoryState.SAFE:
+ *     showNormalUI();
+ *     break;
+ *   case RepositoryState.MERGING:
+ *   case RepositoryState.MERGING_RESOLVED:
+ *     showMergeUI();
+ *     break;
+ *   case RepositoryState.REBASING:
+ *   case RepositoryState.REBASING_MERGE:
+ *   case RepositoryState.REBASING_INTERACTIVE:
+ *     showRebaseUI();
+ *     break;
+ * }
+ * ```
  */
 export const RepositoryState = {
-  /** Bare repository - no working tree */
+  /**
+   * Bare repository with no working tree.
+   * No checkout, commit, or worktree operations are possible.
+   */
   BARE: "bare",
-  /** Normal safe state */
+
+  /**
+   * Normal safe state - all operations allowed.
+   * This is the default state for a repository with no in-progress operations.
+   */
   SAFE: "safe",
-  /** Merge in progress with unresolved conflicts */
+
+  /**
+   * Merge in progress with unresolved conflicts.
+   * User must resolve conflicts before committing. Can abort with reset.
+   * Detected by presence of .git/MERGE_HEAD file.
+   */
   MERGING: "merging",
-  /** Merge resolved, ready to commit */
+
+  /**
+   * Merge resolved and ready to commit.
+   * All conflicts have been resolved. Commit to complete the merge.
+   */
   MERGING_RESOLVED: "merging-resolved",
-  /** Cherry-pick in progress with conflicts */
+
+  /**
+   * Cherry-pick in progress with unresolved conflicts.
+   * User must resolve conflicts before continuing. Can abort with reset.
+   * Detected by presence of .git/CHERRY_PICK_HEAD file.
+   */
   CHERRY_PICKING: "cherry-picking",
-  /** Cherry-pick resolved, ready to commit */
+
+  /**
+   * Cherry-pick resolved and ready to commit.
+   * All conflicts have been resolved. Commit to complete the cherry-pick.
+   */
   CHERRY_PICKING_RESOLVED: "cherry-picking-resolved",
-  /** Revert in progress with conflicts */
+
+  /**
+   * Revert in progress with unresolved conflicts.
+   * User must resolve conflicts before continuing. Can abort with reset.
+   * Detected by presence of .git/REVERT_HEAD file.
+   */
   REVERTING: "reverting",
-  /** Revert resolved, ready to commit */
+
+  /**
+   * Revert resolved and ready to commit.
+   * All conflicts have been resolved. Commit to complete the revert.
+   */
   REVERTING_RESOLVED: "reverting-resolved",
-  /** Rebase in progress (git am style) */
+
+  /**
+   * Rebase in progress using git-am style (patch-based).
+   * Detected by presence of .git/rebase-apply directory.
+   * Use `git rebase --continue/--skip/--abort` to proceed.
+   */
   REBASING: "rebasing",
-  /** Rebase in progress (merge strategy) */
+
+  /**
+   * Rebase in progress using merge strategy.
+   * Detected by presence of .git/rebase-merge directory.
+   * Use `git rebase --continue/--skip/--abort` to proceed.
+   */
   REBASING_MERGE: "rebasing-merge",
-  /** Interactive rebase in progress */
+
+  /**
+   * Interactive rebase in progress.
+   * Similar to REBASING_MERGE but with .git/rebase-merge/interactive marker.
+   * Use `git rebase --continue/--skip/--abort` to proceed.
+   */
   REBASING_INTERACTIVE: "rebasing-interactive",
-  /** Git am (apply mailbox) in progress */
+
+  /**
+   * Git am (apply mailbox) in progress.
+   * Applying patches from a mailbox. Similar to rebase-apply.
+   * Use `git am --continue/--skip/--abort` to proceed.
+   */
   APPLY: "apply",
-  /** Bisect in progress */
+
+  /**
+   * Git bisect in progress.
+   * Binary search for a bug. Checkout is allowed for testing commits.
+   * Detected by presence of .git/BISECT_LOG file.
+   * Use `git bisect good/bad/reset` to proceed.
+   */
   BISECTING: "bisecting",
 } as const;
 
+/**
+ * Type representing any valid repository state value.
+ * Use this type for variables that hold a repository state.
+ *
+ * @example
+ * ```typescript
+ * function handleState(state: RepositoryStateValue) {
+ *   if (state === RepositoryState.SAFE) {
+ *     // Normal operations
+ *   }
+ * }
+ * ```
+ */
 export type RepositoryStateValue = (typeof RepositoryState)[keyof typeof RepositoryState];
 
 /**
  * Capability queries for repository state.
  *
  * Determines what operations are allowed in the current state.
+ * Obtain via `getStateCapabilities(state)` or `workingCopy.getStateCapabilities()`.
+ *
+ * @example Checking capabilities before operations
+ * ```typescript
+ * const caps = await workingCopy.getStateCapabilities();
+ *
+ * if (caps.canCheckout) {
+ *   await git.checkout().setName("feature").call();
+ * } else {
+ *   console.log("Complete or abort current operation first");
+ * }
+ *
+ * if (caps.isRebasing) {
+ *   showRebaseToolbar(); // Continue, Skip, Abort buttons
+ * }
+ * ```
  */
 export interface StateCapabilities {
-  /** Can checkout to another branch/commit */
+  /**
+   * Whether checkout to another branch/commit is allowed.
+   *
+   * True in: SAFE, BISECTING
+   * False in: All conflict/in-progress states
+   */
   readonly canCheckout: boolean;
-  /** Can create commits */
+
+  /**
+   * Whether creating new commits is allowed.
+   *
+   * True in: SAFE, MERGING_RESOLVED, CHERRY_PICKING_RESOLVED, REVERTING_RESOLVED
+   * False in: Conflict states, rebase states, bare repos
+   */
   readonly canCommit: boolean;
-  /** Can reset HEAD */
+
+  /**
+   * Whether HEAD can be reset (e.g., to abort an operation).
+   *
+   * True in: SAFE, MERGING, MERGING_RESOLVED, CHERRY_PICKING, REVERTING states
+   * False in: REBASING states, APPLY, BISECTING, BARE
+   */
   readonly canResetHead: boolean;
-  /** Can amend last commit */
+
+  /**
+   * Whether the last commit can be amended.
+   *
+   * True in: SAFE, REBASING states, APPLY
+   * False in: Merge/cherry-pick/revert states (would corrupt history)
+   */
   readonly canAmend: boolean;
-  /** Is a rebase operation in progress */
+
+  /**
+   * Whether a rebase operation is currently in progress.
+   *
+   * True in: REBASING, REBASING_MERGE, REBASING_INTERACTIVE
+   * Used to show rebase-specific UI (continue/skip/abort).
+   */
   readonly isRebasing: boolean;
 }
 
