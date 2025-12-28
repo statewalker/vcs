@@ -145,7 +145,7 @@ const reconstructed = applyDelta(baseContent, delta);
 
 ## Example Applications
 
-The `apps/` directory contains several examples:
+The `apps/` directory contains several examples. See [docs/example-applications.md](docs/example-applications.md) for detailed documentation.
 
 | Application | Description |
 |-------------|-------------|
