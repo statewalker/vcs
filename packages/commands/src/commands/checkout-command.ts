@@ -35,6 +35,7 @@
 
 import {
   DeleteStagingEntry,
+  detectCheckoutConflicts,
   FileMode,
   type ObjectId,
   type Ref,
@@ -49,6 +50,7 @@ import {
   RefNotFoundError,
 } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
+import type { GitStoreWithWorkTree } from "../types.js";
 
 /**
  * Stage to check out for conflicting files.
@@ -108,7 +110,6 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
   private name: string | undefined;
   private createBranch = false;
   private orphan = false;
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: JGit compatibility - will be used for working tree checkout
   private force = false;
   // biome-ignore lint/correctness/noUnusedPrivateClassMembers: JGit compatibility - will be used for branch reset
   private forceRefUpdate = false;
@@ -347,6 +348,23 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
       throw new RefNotFoundError(this.name);
     }
 
+    // Get target tree for conflict detection and checkout
+    const targetTreeId = targetId ? await this.store.commits.getTree(targetId) : undefined;
+
+    // Check for conflicts unless force
+    if (!this.force && targetTreeId) {
+      const conflictResult = await this.detectBranchCheckoutConflicts(targetTreeId);
+      if (conflictResult.length > 0) {
+        return {
+          status: CheckoutStatus.CONFLICTS,
+          updated: [],
+          removed: [],
+          conflicts: conflictResult,
+          ref: null,
+        };
+      }
+    }
+
     // Check if it's a local branch
     const isLocalBranch = await this.store.refs.has(`refs/heads/${this.name}`);
 
@@ -354,14 +372,11 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     const updated: string[] = [];
     const removed: string[] = [];
 
-    if (targetId) {
-      const treeId = await this.store.commits.getTree(targetId);
-      if (treeId) {
-        // Reset staging to target tree
-        const result = await this.resetStagingToTree(treeId);
-        updated.push(...result.updated);
-        removed.push(...result.removed);
-      }
+    if (targetTreeId) {
+      // Reset staging to target tree
+      const result = await this.resetStagingToTree(targetTreeId);
+      updated.push(...result.updated);
+      removed.push(...result.removed);
     }
 
     // Update HEAD
@@ -596,5 +611,78 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     }
 
     return undefined;
+  }
+
+  /**
+   * Detect conflicts for branch checkout using three-way comparison.
+   *
+   * Uses the checkout conflict detector when a worktree is available.
+   * Falls back to basic index-only detection otherwise.
+   */
+  private async detectBranchCheckoutConflicts(targetTreeId: ObjectId): Promise<string[]> {
+    // Get current HEAD tree for comparison
+    const headRef = await this.store.refs.resolve("HEAD");
+    const headTreeId = headRef?.objectId
+      ? await this.store.commits.getTree(headRef.objectId)
+      : undefined;
+
+    // Check if store has worktree for three-way detection
+    const storeWithWorkTree = this.store as GitStoreWithWorkTree;
+    if (storeWithWorkTree.worktree) {
+      // Use three-way conflict detection
+      const result = await detectCheckoutConflicts(
+        {
+          trees: this.store.trees,
+          staging: this.store.staging,
+          worktree: storeWithWorkTree.worktree,
+        },
+        headTreeId,
+        targetTreeId,
+      );
+
+      return result.conflicts.map((c) => c.path);
+    }
+
+    // Fallback: basic index-based detection (no worktree access)
+    // Check for staged changes that would be lost
+    const conflicts: string[] = [];
+
+    if (headTreeId) {
+      // Collect HEAD tree entries
+      const headEntries = new Map<string, ObjectId>();
+      await this.collectTreeObjectIds(headTreeId, "", headEntries);
+
+      // Check staging for changes not in HEAD
+      for await (const entry of this.store.staging.listEntries()) {
+        if (entry.stage !== 0) continue;
+
+        const headObjectId = headEntries.get(entry.path);
+        if (headObjectId && headObjectId !== entry.objectId) {
+          // Staged change differs from HEAD
+          conflicts.push(entry.path);
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
+  /**
+   * Collect object IDs from a tree recursively.
+   */
+  private async collectTreeObjectIds(
+    treeId: ObjectId,
+    prefix: string,
+    entries: Map<string, ObjectId>,
+  ): Promise<void> {
+    for await (const entry of this.store.trees.loadTree(treeId)) {
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+
+      if (entry.mode === FileMode.TREE) {
+        await this.collectTreeObjectIds(entry.id, path, entries);
+      } else {
+        entries.set(path, entry.id);
+      }
+    }
   }
 }
