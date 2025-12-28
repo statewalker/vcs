@@ -6,7 +6,7 @@
  */
 
 import type { ObjectId } from "../id/index.js";
-import type { StashEntry, StashStore } from "../working-copy.js";
+import type { StashEntry, StashPushOptions, StashStore } from "../working-copy.js";
 
 /**
  * Generate a test object ID for stash commits.
@@ -42,12 +42,18 @@ export class MemoryStashStore implements StashStore {
    * Push current changes to stash.
    * In memory implementation, creates a placeholder commit ID.
    */
-  async push(message?: string): Promise<ObjectId> {
+  async push(messageOrOptions?: string | StashPushOptions): Promise<ObjectId> {
+    // Parse options
+    const options: StashPushOptions =
+      typeof messageOrOptions === "string"
+        ? { message: messageOrOptions }
+        : (messageOrOptions ?? {});
+
     const commitId = generateTestObjectId();
     const entry: StashEntry = {
       index: 0,
       commitId,
-      message: message ?? "WIP on branch",
+      message: options.message ?? "WIP on branch",
       timestamp: Date.now(),
     };
 
