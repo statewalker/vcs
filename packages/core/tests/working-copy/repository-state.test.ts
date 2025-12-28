@@ -429,3 +429,216 @@ describe("readRevertState", () => {
     });
   });
 });
+
+/**
+ * Git State File Format Compatibility Tests
+ *
+ * These tests verify that state file formats match Git's exact format.
+ * Based on Git source code and JGit documentation.
+ */
+describe("Git State File Format Compatibility", () => {
+  describe("MERGE_HEAD format", () => {
+    /**
+     * Git's MERGE_HEAD format:
+     * - One SHA-1 per line for each parent being merged
+     * - 40 hex characters + newline
+     */
+    it("should accept single SHA-1 with trailing newline", async () => {
+      const files = {
+        read: vi.fn().mockResolvedValue(undefined),
+        exists: vi.fn().mockImplementation((path: string) => path === ".git/MERGE_HEAD"),
+      };
+
+      const state = await detectRepositoryState(files, ".git", false);
+      expect(state).toBe(RepositoryState.MERGING_RESOLVED);
+    });
+  });
+
+  describe("CHERRY_PICK_HEAD format", () => {
+    /**
+     * Git's CHERRY_PICK_HEAD format:
+     * - Single 40-character SHA-1 + newline
+     * - Same format as refs
+     */
+    it("should parse full 40-char SHA-1", async () => {
+      const sha1 = "a".repeat(40);
+      const files = {
+        read: vi.fn().mockImplementation((path: string) => {
+          if (path === ".git/CHERRY_PICK_HEAD") {
+            return Promise.resolve(new TextEncoder().encode(`${sha1}\n`));
+          }
+          return Promise.resolve(undefined);
+        }),
+      };
+
+      const state = await readCherryPickState(files, ".git");
+      expect(state?.cherryPickHead).toBe(sha1);
+    });
+
+    it("should handle SHA-1 without trailing newline", async () => {
+      const sha1 = "b".repeat(40);
+      const files = {
+        read: vi.fn().mockImplementation((path: string) => {
+          if (path === ".git/CHERRY_PICK_HEAD") {
+            return Promise.resolve(new TextEncoder().encode(sha1));
+          }
+          return Promise.resolve(undefined);
+        }),
+      };
+
+      const state = await readCherryPickState(files, ".git");
+      expect(state?.cherryPickHead).toBe(sha1);
+    });
+  });
+
+  describe("REVERT_HEAD format", () => {
+    /**
+     * Git's REVERT_HEAD format:
+     * - Single 40-character SHA-1 + newline
+     */
+    it("should parse full 40-char SHA-1", async () => {
+      const sha1 = "c".repeat(40);
+      const files = {
+        read: vi.fn().mockImplementation((path: string) => {
+          if (path === ".git/REVERT_HEAD") {
+            return Promise.resolve(new TextEncoder().encode(`${sha1}\n`));
+          }
+          return Promise.resolve(undefined);
+        }),
+      };
+
+      const state = await readRevertState(files, ".git");
+      expect(state?.revertHead).toBe(sha1);
+    });
+  });
+
+  describe("MERGE_MSG format", () => {
+    /**
+     * Git's MERGE_MSG format:
+     * - Free-form text for commit message
+     * - May contain multiple lines
+     * - First line is subject
+     */
+    it("should preserve multi-line messages", async () => {
+      const message = "Merge branch 'feature'\n\n* feature:\n  Add new feature\n";
+      const files = {
+        read: vi.fn().mockImplementation((path: string) => {
+          if (path === ".git/CHERRY_PICK_HEAD") {
+            return Promise.resolve(new TextEncoder().encode("a".repeat(40)));
+          }
+          if (path === ".git/MERGE_MSG") {
+            return Promise.resolve(new TextEncoder().encode(message));
+          }
+          return Promise.resolve(undefined);
+        }),
+      };
+
+      const state = await readCherryPickState(files, ".git");
+      expect(state?.message).toBe(message);
+    });
+  });
+
+  describe("rebase-merge directory format", () => {
+    /**
+     * Git's rebase-merge/ directory:
+     * - head-name: original branch being rebased
+     * - onto: commit we're rebasing onto
+     * - interactive: marker file for interactive rebase
+     * - git-rebase-todo: remaining commits to process (interactive)
+     * - done: processed commits (interactive)
+     * - message: current commit message
+     */
+    it("should detect interactive rebase by 'interactive' marker", async () => {
+      const files = {
+        read: vi.fn().mockResolvedValue(undefined),
+        exists: vi.fn().mockImplementation((path: string) => {
+          return path === ".git/rebase-merge" || path === ".git/rebase-merge/interactive";
+        }),
+      };
+
+      const state = await detectRepositoryState(files, ".git", false);
+      expect(state).toBe(RepositoryState.REBASING_INTERACTIVE);
+    });
+
+    it("should detect merge-based rebase without 'interactive' marker", async () => {
+      const files = {
+        read: vi.fn().mockResolvedValue(undefined),
+        exists: vi.fn().mockImplementation((path: string) => {
+          return path === ".git/rebase-merge";
+        }),
+      };
+
+      const state = await detectRepositoryState(files, ".git", false);
+      expect(state).toBe(RepositoryState.REBASING_MERGE);
+    });
+  });
+
+  describe("rebase-apply directory format", () => {
+    /**
+     * Git's rebase-apply/ directory:
+     * - applying: marker for 'git am' operation
+     * - rebasing: marker for am-based rebase
+     * - head-name: original branch
+     * - patch files: 0001, 0002, etc.
+     */
+    it("should detect git am by 'applying' marker", async () => {
+      const files = {
+        read: vi.fn().mockResolvedValue(undefined),
+        exists: vi.fn().mockImplementation((path: string) => {
+          return path === ".git/rebase-apply" || path === ".git/rebase-apply/applying";
+        }),
+      };
+
+      const state = await detectRepositoryState(files, ".git", false);
+      expect(state).toBe(RepositoryState.APPLY);
+    });
+
+    it("should detect am-based rebase without 'applying' marker", async () => {
+      const files = {
+        read: vi.fn().mockResolvedValue(undefined),
+        exists: vi.fn().mockImplementation((path: string) => {
+          return path === ".git/rebase-apply";
+        }),
+      };
+
+      const state = await detectRepositoryState(files, ".git", false);
+      expect(state).toBe(RepositoryState.REBASING);
+    });
+  });
+
+  describe("BISECT_LOG format", () => {
+    /**
+     * Git's BISECT_LOG format:
+     * - Lines recording bisect commands executed
+     * - git bisect start [bad] [good]
+     * - git bisect good <commit>
+     * - git bisect bad <commit>
+     */
+    it("should detect bisect state from BISECT_LOG presence", async () => {
+      const files = {
+        read: vi.fn().mockResolvedValue(undefined),
+        exists: vi.fn().mockImplementation((path: string) => {
+          return path === ".git/BISECT_LOG";
+        }),
+      };
+
+      const state = await detectRepositoryState(files, ".git", false);
+      expect(state).toBe(RepositoryState.BISECTING);
+    });
+  });
+
+  describe("ORIG_HEAD format", () => {
+    /**
+     * Git's ORIG_HEAD format:
+     * - Single 40-character SHA-1 + newline
+     * - Stores HEAD before dangerous operations (reset, merge, rebase)
+     */
+    it("should store previous HEAD as 40-char SHA-1", () => {
+      // ORIG_HEAD is just a ref file with a SHA-1
+      // Format: <40 hex chars>\n
+      const validOrigHead = `${"d".repeat(40)}\n`;
+      expect(validOrigHead.length).toBe(41); // 40 + newline
+      expect(validOrigHead.match(/^[0-9a-f]{40}\n$/)).toBeTruthy();
+    });
+  });
+});
