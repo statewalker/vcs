@@ -67,6 +67,7 @@ class GitRepository implements Repository {
     readonly refs: FileRefStore | MemoryRefStore,
     private readonly _isInitialized: boolean,
     config: RepositoryConfig,
+    readonly deltaStorage: RawStoreWithDelta,
   ) {
     this.config = config;
   }
@@ -218,6 +219,7 @@ export async function createGitRepository(
     refStore,
     isInitialized,
     config,
+    rawStore,
   );
 }
 
