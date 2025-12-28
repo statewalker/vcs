@@ -532,7 +532,7 @@ interface BlobStore {
 
 ### Interface/Implementation Separation
 
-The package defines interfaces but not concrete implementations. Storage backends (like `@webrun-vcs/storage-git` or `@webrun-vcs/store-sql`) provide implementations tailored to their storage mechanisms.
+The package defines interfaces with concrete implementations for Git-compatible file storage. Additional storage backends (like `@webrun-vcs/store-sql` or `@webrun-vcs/store-mem`) provide alternative implementations for SQL databases or in-memory testing.
 
 ### JGit Compatibility
 

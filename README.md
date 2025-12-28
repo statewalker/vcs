@@ -16,23 +16,31 @@ The library focuses on three main capabilities:
 
 ## Package Structure
 
-The monorepo contains five packages organized by responsibility:
+The monorepo contains packages organized by responsibility:
 
 ### Core Packages
 
-**[@webrun-vcs/utils](packages/utils)** provides foundational algorithms. This includes zlib compression/decompression, SHA-1 hashing with streaming support, and diff algorithms for computing deltas between binary content.
+**[@webrun-vcs/core](packages/core)** provides the foundational layer for building Git-compatible version control systems. It defines the core object model (blobs, trees, commits, tags), storage interfaces, and high-level operations. Includes Git file storage for reading and writing the standard `.git` directory structure.
 
-**[@webrun-vcs/vcs](packages/vcs)** defines the core interfaces and provides base implementations. The interfaces establish contracts for object storage, tree management, commits, refs, and tags. Base implementations handle delta compression, memory-based storage, and pack file reading.
+**[@webrun-vcs/utils](packages/utils)** provides foundational algorithms including zlib compression/decompression, SHA-1 hashing with streaming support, and diff algorithms for computing deltas between binary content.
+
+**[@webrun-vcs/commands](packages/commands)** offers a high-level Git command API. Rather than working directly with low-level stores, you interact through familiar commands like `add`, `commit`, `push`, and `merge`.
+
+**[@webrun-vcs/transport](packages/transport)** implements the Git wire protocol (v1/v2), HTTP transport, and push/pull negotiation for communicating with remote repositories.
 
 ### Storage Adapters
 
-**[@webrun-vcs/storage-git](packages/store-files)** implements Git-compatible file storage. It reads and writes the standard `.git` directory structure including loose objects, pack files, and refs. This adapter works with any file system API that implements the required interface.
+**[@webrun-vcs/store-mem](packages/store-mem)** provides in-memory storage for testing and development scenarios with no persistence.
 
-**[@webrun-vcs/store-sql](packages/store-sql)** provides SQL-based storage using better-sqlite3. Objects, refs, and metadata persist in SQLite tables, making it suitable for server environments or applications preferring relational storage.
+**[@webrun-vcs/store-sql](packages/store-sql)** provides SQL-based storage using better-sqlite3. Objects, refs, and metadata persist in SQLite tables.
+
+**[@webrun-vcs/store-kv](packages/store-kv)** bridges VCS storage interfaces to key-value stores like IndexedDB, LocalStorage, or LevelDB.
 
 ### Development Utilities
 
 **[@webrun-vcs/testing](packages/testing)** contains shared test utilities and fixtures used across packages.
+
+**[@webrun-vcs/sandbox](packages/sandbox)** provides sandbox utilities for isolated testing environments.
 
 ## Installation
 
@@ -55,26 +63,26 @@ The example application in [apps/example-git-cycle](apps/example-git-cycle) demo
 
 ```typescript
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitStorage } from "@webrun-vcs/storage-git";
+import { createGitRepository, FileMode } from "@webrun-vcs/core";
 
 // Initialize an in-memory repository
 const files = new FilesApi(new MemFilesApi());
-const storage = await createGitStorage(files, "/repo/.git", {
+const repository = await createGitRepository(files, ".git", {
   create: true,
   defaultBranch: "main"
 });
 
 // Store a file as a blob
 const content = new TextEncoder().encode("Hello, World!");
-const blobId = await storage.objects.store([content]);
+const blobId = await repository.blobs.store([content]);
 
 // Create a tree (directory snapshot)
-const treeId = await storage.trees.storeTree([
+const treeId = await repository.trees.storeTree([
   { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId }
 ]);
 
 // Create a commit
-const commitId = await storage.commits.storeCommit({
+const commitId = await repository.commits.storeCommit({
   tree: treeId,
   parents: [],
   author: { name: "Alice", email: "alice@example.com", timestamp: Date.now() / 1000, tzOffset: "+0000" },
@@ -83,55 +91,56 @@ const commitId = await storage.commits.storeCommit({
 });
 
 // Update the branch reference
-await storage.refs.setRef("refs/heads/main", commitId);
+await repository.refs.set("refs/heads/main", commitId);
 ```
 
 ### Working with Pack Files
 
 For performance benchmarks and pack file operations, see [apps/example-git-perf](apps/example-git-perf). This example clones the Git source repository and demonstrates traversing commit history and reading delta-compressed objects.
 
-### Delta Storage and Pack Transfer
+### Using the Commands API
 
-The library provides format-agnostic delta storage with utilities for pack import/export:
+For a higher-level API, use `@webrun-vcs/commands` which provides Git-like commands:
 
 ```typescript
-import { parsePackEntries, importPackAsDeltas } from "@webrun-vcs/storage-git";
-import { DeltaStorageImpl } from "@webrun-vcs/vcs/engine";
+import { Git, createGitStore } from "@webrun-vcs/commands";
+import { createGitRepository } from "@webrun-vcs/core";
+import { MemoryStagingStore } from "@webrun-vcs/store-mem";
 
-// Parse pack and preserve delta relationships
-const result = await parsePackEntries(packData);
-for (const entry of result.entries) {
-  if (entry.type === "delta") {
-    // entry.delta contains format-agnostic Delta[] instructions
-    // entry.baseId references the base object
-    console.log(`Delta: ${entry.id} -> base: ${entry.baseId}`);
-  }
-}
+// Create repository and staging
+const repository = await createGitRepository();
+const staging = new MemoryStagingStore();
+const store = createGitStore({ repository, staging });
+const git = Git.wrap(store);
 
-// Direct delta storage via DeltaStorageManager
-const manager: DeltaStorageManager = /* ... */;
+// Stage and commit (like git add && git commit)
+await git.add().addFilepattern(".").call();
+await git.commit().setMessage("Initial commit").call();
 
-// Store a delta with known base (bypasses candidate selection)
-await manager.storeDelta(targetId, baseId, delta);
+// Check status
+const status = await git.status().call();
+console.log("Clean:", status.isClean());
 
-// Load delta information
-const stored = await manager.loadDelta(objectId);
-if (stored) {
-  console.log(`Delta instructions: ${stored.delta.length}`);
-  console.log(`Base: ${stored.baseId}`);
-}
+// Create branches, merge, push, and more
+await git.branchCreate().setName("feature").call();
+await git.checkout().setName("feature").call();
 ```
 
-The `Delta` type is format-agnostic and can be serialized to different formats:
+### Delta Compression
+
+The library uses format-agnostic delta storage for efficient pack files:
 
 ```typescript
-import { serializeDeltaToGit, deserializeDeltaFromGit } from "@webrun-vcs/utils";
+import { createDelta, applyDelta } from "@webrun-vcs/utils/diff";
 
-// Convert Delta[] to Git binary format for pack files
-const gitDelta = serializeDeltaToGit(delta);
+const baseContent = new TextEncoder().encode("Original file content");
+const newContent = new TextEncoder().encode("Original file content with additions");
 
-// Convert Git binary delta to Delta[]
-const delta = deserializeDeltaFromGit(gitDelta);
+// Create a delta from base to new
+const delta = createDelta(baseContent, newContent);
+
+// Apply delta to reconstruct new content
+const reconstructed = applyDelta(baseContent, delta);
 ```
 
 ## Example Applications
@@ -141,7 +150,9 @@ The `apps/` directory contains several examples:
 | Application | Description |
 |-------------|-------------|
 | [example-git-cycle](apps/example-git-cycle) | Complete Git workflow demonstration |
+| [example-git-lifecycle](apps/example-git-lifecycle) | Full Git lifecycle: init, commits, GC, packing, checkout |
 | [example-git-perf](apps/example-git-perf) | Performance benchmarks with real repositories |
+| [example-git-push](apps/example-git-push) | Push operations demonstration |
 | [example-vcs-http-roundtrip](apps/example-vcs-http-roundtrip) | Full HTTP clone/push workflow using VCS |
 | [example-pack-gc](apps/example-pack-gc) | Pack file garbage collection |
 | [examples-git](apps/examples-git) | Various Git format examples |
@@ -157,10 +168,10 @@ pnpm --filter @webrun-vcs/example-git-cycle start
 
 ```bash
 # Build a specific package
-pnpm --filter @webrun-vcs/vcs build
+pnpm --filter @webrun-vcs/core build
 
 # Run tests for a specific package
-pnpm --filter @webrun-vcs/storage-git test
+pnpm --filter @webrun-vcs/core test
 
 # Lint and format
 pnpm lint
