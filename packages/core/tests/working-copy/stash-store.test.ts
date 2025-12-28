@@ -459,4 +459,94 @@ describe("GitStashStore", () => {
       expect(entries).toHaveLength(1);
     });
   });
+
+  describe("untracked files support", () => {
+    it("should create stash with 2 parents when includeUntracked is false", async () => {
+      const stashId = await stash.push({ message: "Without untracked" });
+
+      const commit = await repository.commits.loadCommit(stashId);
+      expect(commit.parents).toHaveLength(2);
+    });
+
+    it("should create stash with 3 parents when includeUntracked is true and untracked files exist", async () => {
+      // Create worktree with both tracked and untracked files
+      const worktreeWithUntracked = createMockWorktree(
+        [
+          createWorkingTreeEntry("file.txt"), // tracked
+          createWorkingTreeEntry("untracked.txt"), // untracked
+        ],
+        new Map([
+          ["file.txt", "blob-1"],
+          ["untracked.txt", "untracked-blob"],
+        ]),
+      );
+
+      // Only file.txt is in staging (tracked)
+      const stagingWithTracked = createMockStagingStore([createStagingEntry("file.txt", "blob-1")]);
+      stagingWithTracked.writeTree = vi.fn().mockResolvedValue("tree-1");
+
+      const stashWithUntracked = new GitStashStore({
+        repository,
+        staging: stagingWithTracked,
+        worktree: worktreeWithUntracked,
+        files: filesApi,
+        gitDir: ".git",
+        getHead: async () => headCommitId,
+        getBranch: async () => "main",
+      });
+
+      const stashId = await stashWithUntracked.push({
+        message: "With untracked",
+        includeUntracked: true,
+      });
+
+      const commit = await repository.commits.loadCommit(stashId);
+
+      // Should have 3 parents: HEAD, index, untracked
+      expect(commit.parents).toHaveLength(3);
+
+      // Parent 3 should be the untracked commit (orphan)
+      const untrackedCommit = await repository.commits.loadCommit(commit.parents[2]);
+      expect(untrackedCommit.parents).toHaveLength(0); // Orphan commit
+      expect(untrackedCommit.message).toContain("untracked files");
+    });
+
+    it("should create stash with 2 parents when includeUntracked is true but no untracked files", async () => {
+      // All worktree files are tracked
+      const worktreeAllTracked = createMockWorktree(
+        [createWorkingTreeEntry("file.txt")],
+        new Map([["file.txt", "blob-1"]]),
+      );
+
+      const stagingAllTracked = createMockStagingStore([createStagingEntry("file.txt", "blob-1")]);
+      stagingAllTracked.writeTree = vi.fn().mockResolvedValue("tree-1");
+
+      const stashAllTracked = new GitStashStore({
+        repository,
+        staging: stagingAllTracked,
+        worktree: worktreeAllTracked,
+        files: filesApi,
+        gitDir: ".git",
+        getHead: async () => headCommitId,
+        getBranch: async () => "main",
+      });
+
+      const stashId = await stashAllTracked.push({
+        message: "No untracked",
+        includeUntracked: true,
+      });
+
+      const commit = await repository.commits.loadCommit(stashId);
+
+      // Should only have 2 parents since no untracked files exist
+      expect(commit.parents).toHaveLength(2);
+    });
+
+    it("should support string message as shorthand for options", async () => {
+      const stashId = await stash.push("Simple string message");
+
+      const commit = await repository.commits.loadCommit(stashId);
+      expect(commit.message).toBe("Simple string message");
+    });
+  });
 });

@@ -17,7 +17,7 @@ import type { PersonIdent } from "../person/person-ident.js";
 import type { Repository } from "../repository.js";
 import type { StagingStore } from "../staging/index.js";
 import type { TreeEntry } from "../trees/tree-entry.js";
-import type { StashEntry, StashStore } from "../working-copy.js";
+import type { StashEntry, StashPushOptions, StashStore } from "../working-copy.js";
 import type { WorkingTreeIterator } from "../worktree/index.js";
 
 /**
@@ -56,9 +56,10 @@ export interface GitStashStoreOptions {
 /**
  * Git-compatible stash store implementation.
  *
- * A stash commit has two parents:
+ * A stash commit has 2-3 parents:
  * - Parent 1: HEAD at time of stash
  * - Parent 2: Index state commit
+ * - Parent 3 (optional): Untracked files commit
  *
  * Tree contains working tree state.
  */
@@ -113,8 +114,15 @@ export class GitStashStore implements StashStore {
    * - Tree: current working tree state
    * - Parent 1: current HEAD
    * - Parent 2: commit of current index state
+   * - Parent 3 (optional): untracked files commit
    */
-  async push(message?: string): Promise<ObjectId> {
+  async push(messageOrOptions?: string | StashPushOptions): Promise<ObjectId> {
+    // Parse options
+    const options: StashPushOptions =
+      typeof messageOrOptions === "string"
+        ? { message: messageOrOptions }
+        : (messageOrOptions ?? {});
+
     const head = await this.getHead();
     if (!head) {
       throw new Error("Cannot stash: no commits in repository");
@@ -140,31 +148,40 @@ export class GitStashStore implements StashStore {
     });
 
     // 3. Create worktree tree by merging index with worktree changes
-    // For simplicity, we use the index tree for now
-    // A full implementation would scan worktree for modifications
     const worktreeTree = await this.createWorktreeTree(indexTree);
 
-    // 4. Create stash commit (parents = [HEAD, index commit])
-    const stashMessage = message ?? `WIP on ${branch}`;
+    // 4. Build parents array
+    const parents: ObjectId[] = [head, indexCommitId];
+
+    // 5. If includeUntracked, create untracked files commit (3rd parent)
+    if (options.includeUntracked) {
+      const untrackedCommitId = await this.createUntrackedFilesCommit(author, branch);
+      if (untrackedCommitId) {
+        parents.push(untrackedCommitId);
+      }
+    }
+
+    // 6. Create stash commit
+    const stashMessage = options.message ?? `WIP on ${branch}`;
     const stashCommitId = await this.repository.commits.storeCommit({
       tree: worktreeTree,
-      parents: [head, indexCommitId],
+      parents,
       author,
       committer: author,
       message: stashMessage,
     });
 
-    // 5. Get old stash ref for reflog
+    // 7. Get old stash ref for reflog
     const oldStash = await this.getStashRef();
 
-    // 6. Update refs/stash
+    // 8. Update refs/stash
     await this.ensureDir(`${this.gitDir}/refs`);
     await this.files.write(
       `${this.gitDir}/refs/stash`,
       new TextEncoder().encode(`${stashCommitId}\n`),
     );
 
-    // 7. Add reflog entry
+    // 9. Add reflog entry
     await this.addReflogEntry(
       oldStash ?? "0000000000000000000000000000000000000000",
       stashCommitId,
@@ -173,6 +190,60 @@ export class GitStashStore implements StashStore {
     );
 
     return stashCommitId;
+  }
+
+  /**
+   * Create a commit containing only untracked files.
+   *
+   * This is the 3rd parent of a stash when --include-untracked is used.
+   * The commit has no parents (orphan commit).
+   *
+   * @returns Commit ID, or undefined if no untracked files
+   */
+  private async createUntrackedFilesCommit(
+    author: PersonIdent,
+    branch: string,
+  ): Promise<ObjectId | undefined> {
+    // Collect set of tracked paths from index
+    const trackedPaths = new Set<string>();
+    for await (const entry of this.staging.listEntries()) {
+      trackedPaths.add(entry.path);
+    }
+
+    // Walk working tree to find untracked files
+    const untrackedEntries: TreeEntry[] = [];
+    for await (const wtEntry of this.worktree.walk()) {
+      if (wtEntry.isDirectory || wtEntry.isIgnored) {
+        continue;
+      }
+
+      // Check if file is tracked
+      if (!trackedPaths.has(wtEntry.path)) {
+        // Store blob content
+        const blobId = await this.repository.blobs.store(this.worktree.readContent(wtEntry.path));
+        untrackedEntries.push({
+          name: wtEntry.path,
+          mode: wtEntry.mode,
+          id: blobId,
+        });
+      }
+    }
+
+    if (untrackedEntries.length === 0) {
+      return undefined;
+    }
+
+    // Create tree with untracked files
+    const untrackedTree = await this.repository.trees.storeTree(untrackedEntries);
+
+    // Create orphan commit (no parents)
+    return this.repository.commits.storeCommit({
+      tree: untrackedTree,
+      parents: [],
+      author,
+      committer: author,
+      message: `untracked files on ${branch}`,
+    });
   }
 
   /**

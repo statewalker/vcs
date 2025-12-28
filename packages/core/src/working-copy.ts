@@ -28,6 +28,16 @@ export interface WorkingCopyConfig {
 }
 
 /**
+ * Options for stash push operation
+ */
+export interface StashPushOptions {
+  /** Stash message (default: "WIP on {branch}") */
+  message?: string;
+  /** Include untracked files in the stash (default: false) */
+  includeUntracked?: boolean;
+}
+
+/**
  * Stash operations interface
  *
  * Accessed via WorkingCopy, but storage is backend-dependent:
@@ -47,12 +57,18 @@ export interface WorkingCopyConfig {
  * // Restore and remove
  * await stash.pop();
  * ```
+ *
+ * @example Including untracked files
+ * ```typescript
+ * // Stash with untracked files (like git stash -u)
+ * await stash.push({ message: "WIP", includeUntracked: true });
+ * ```
  */
 export interface StashStore {
   /** List all stash entries */
   list(): AsyncIterable<StashEntry>;
   /** Push current changes to stash */
-  push(message?: string): Promise<ObjectId>;
+  push(messageOrOptions?: string | StashPushOptions): Promise<ObjectId>;
   /** Pop most recent stash entry */
   pop(): Promise<void>;
   /** Apply stash entry without removing it */
