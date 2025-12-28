@@ -26,7 +26,8 @@ import { isSymbolicRef } from "../refs/ref-types.js";
 import type { StagingStore } from "../staging/staging-store.js";
 import type { TreeStore } from "../trees/tree-store.js";
 import type { WorkingTreeIterator } from "../worktree/working-tree-iterator.js";
-import { createIndexDiffCalculator, type IndexDiff } from "./index-diff-calculator.js";
+import type { IndexDiff } from "./index-diff.js";
+import { createIndexDiffCalculator } from "./index-diff-calculator.js";
 import {
   FileStatus,
   type FileStatusEntry,
