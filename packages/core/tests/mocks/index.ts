@@ -6,3 +6,4 @@
 export { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 export * from "./mock-commit-store.js";
 export * from "./mock-delta-store.js";
+export * from "./mock-tree-store.js";
