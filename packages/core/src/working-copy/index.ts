@@ -6,6 +6,7 @@
  */
 
 // Checkout utilities
+export * from "./checkout-conflict-detector.js";
 export * from "./checkout-utils.js";
 // State readers
 export * from "./cherry-pick-state-reader.js";
