@@ -17,6 +17,7 @@
 
 import type { BlobStore } from "./blob/blob-store.js";
 import type { CommitStore } from "./commits/commit-store.js";
+import type { RawStoreWithDelta } from "./delta/raw-store-with-delta.js";
 import type { GitObjectStore } from "./objects/object-store.js";
 import type { RefStore } from "./refs/ref-store.js";
 import type { TagStore } from "./tags/tag-store.js";
@@ -63,6 +64,14 @@ export interface Repository {
 
   /** Repository configuration */
   readonly config: RepositoryConfig;
+
+  /**
+   * Delta storage for garbage collection (optional)
+   *
+   * Provides access to the underlying delta-aware storage
+   * for running GCController operations.
+   */
+  readonly deltaStorage?: RawStoreWithDelta;
 
   /**
    * Initialize repository structure
