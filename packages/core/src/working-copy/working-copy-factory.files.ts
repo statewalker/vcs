@@ -74,7 +74,27 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
     const worktree = context.createWorktreeIterator(worktreePath);
 
     // 4. Create stash store
-    const stash = createGitStashStore(context.repository, this.files, repositoryPath);
+    const stash = createGitStashStore({
+      repository: context.repository,
+      staging,
+      worktree,
+      files: this.files,
+      gitDir: repositoryPath,
+      getHead: async () => {
+        const ref = await context.repository.refs.resolve("HEAD");
+        return ref?.objectId;
+      },
+      getBranch: async () => {
+        const headRef = await context.repository.refs.get("HEAD");
+        if (headRef && "target" in headRef) {
+          const target = headRef.target;
+          if (target.startsWith("refs/heads/")) {
+            return target.substring("refs/heads/".length);
+          }
+        }
+        return undefined;
+      },
+    });
 
     // 5. Create config
     const config = await createWorkingCopyConfig(this.files, repositoryPath);

@@ -45,11 +45,6 @@ export function createMockWorktree(
         yield entry;
       }
     }),
-    listEntries: vi.fn().mockImplementation(async function* () {
-      for (const entry of entries) {
-        yield entry;
-      }
-    }),
     getEntry: vi.fn().mockImplementation(async (path: string) => {
       return entries.find((e) => e.path === path);
     }),

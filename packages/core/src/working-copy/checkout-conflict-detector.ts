@@ -143,7 +143,7 @@ export async function detectCheckoutConflicts(
 
   // Check for untracked files that would be overwritten
   if (!options.skipUntracked) {
-    for await (const wtEntry of deps.worktree.listEntries()) {
+    for await (const wtEntry of deps.worktree.walk()) {
       if (wtEntry.isDirectory || wtEntry.isIgnored) continue;
 
       // Filter by paths if specified
