@@ -14,6 +14,7 @@ import type { ObjectId } from "./id/index.js";
 import type { Repository } from "./repository.js";
 import type { StagingStore } from "./staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "./status/index.js";
+import type { RepositoryStateValue, StateCapabilities } from "./working-copy/repository-state.js";
 import type { WorkingTreeIterator } from "./worktree/index.js";
 
 /**
@@ -104,6 +105,26 @@ export interface RebaseState {
   readonly current: number;
   /** Total number of steps */
   readonly total: number;
+}
+
+/**
+ * Cherry-pick state when a cherry-pick is in progress
+ */
+export interface CherryPickState {
+  /** Commit being cherry-picked */
+  readonly cherryPickHead: ObjectId;
+  /** Commit message (from MERGE_MSG) */
+  readonly message?: string;
+}
+
+/**
+ * Revert state when a revert is in progress
+ */
+export interface RevertState {
+  /** Commit being reverted */
+  readonly revertHead: ObjectId;
+  /** Revert message (from MERGE_MSG) */
+  readonly message?: string;
 }
 
 /**
@@ -202,9 +223,33 @@ export interface WorkingCopy {
   getRebaseState(): Promise<RebaseState | undefined>;
 
   /**
+   * Get cherry-pick state if a cherry-pick is in progress
+   */
+  getCherryPickState(): Promise<CherryPickState | undefined>;
+
+  /**
+   * Get revert state if a revert is in progress
+   */
+  getRevertState(): Promise<RevertState | undefined>;
+
+  /**
    * Check if any operation is in progress (merge, rebase, cherry-pick, etc.)
    */
   hasOperationInProgress(): Promise<boolean>;
+
+  /**
+   * Get current repository state.
+   *
+   * Detects in-progress operations like merge, rebase, cherry-pick, etc.
+   */
+  getState(): Promise<RepositoryStateValue>;
+
+  /**
+   * Get capability queries for current state.
+   *
+   * Determines what operations are allowed in the current state.
+   */
+  getStateCapabilities(): Promise<StateCapabilities>;
 
   // ============ Status ============
 

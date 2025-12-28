@@ -9,21 +9,36 @@ import type { Repository } from "../repository.js";
 import type { StagingStore } from "../staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "../status/index.js";
 import type {
+  CherryPickState,
   MergeState,
   RebaseState,
+  RevertState,
   StashStore,
   WorkingCopy,
   WorkingCopyConfig,
 } from "../working-copy.js";
 import type { WorkingTreeIterator } from "../worktree/index.js";
 
+import { type CherryPickStateFilesApi, readCherryPickState } from "./cherry-pick-state-reader.js";
 import { type MergeStateFilesApi, readMergeState } from "./merge-state-reader.js";
 import { type RebaseStateFilesApi, readRebaseState } from "./rebase-state-reader.js";
+import {
+  getStateCapabilities,
+  type RepositoryStateValue,
+  type StateCapabilities,
+} from "./repository-state.js";
+import { detectRepositoryState, type StateDetectorFilesApi } from "./repository-state-detector.js";
+import { type RevertStateFilesApi, readRevertState } from "./revert-state-reader.js";
 
 /**
  * Files API subset needed for GitWorkingCopy
  */
-export interface WorkingCopyFilesApi extends MergeStateFilesApi, RebaseStateFilesApi {}
+export interface WorkingCopyFilesApi
+  extends MergeStateFilesApi,
+    RebaseStateFilesApi,
+    CherryPickStateFilesApi,
+    RevertStateFilesApi,
+    StateDetectorFilesApi {}
 
 /**
  * Git-compatible WorkingCopy implementation.
@@ -107,11 +122,55 @@ export class GitWorkingCopy implements WorkingCopy {
   }
 
   /**
+   * Get cherry-pick state if a cherry-pick is in progress.
+   */
+  async getCherryPickState(): Promise<CherryPickState | undefined> {
+    return readCherryPickState(this.files, this.gitDir);
+  }
+
+  /**
+   * Get revert state if a revert is in progress.
+   */
+  async getRevertState(): Promise<RevertState | undefined> {
+    return readRevertState(this.files, this.gitDir);
+  }
+
+  /**
    * Check if any operation is in progress (merge, rebase, cherry-pick, etc.).
    */
   async hasOperationInProgress(): Promise<boolean> {
-    const [merge, rebase] = await Promise.all([this.getMergeState(), this.getRebaseState()]);
-    return merge !== undefined || rebase !== undefined;
+    const [merge, rebase, cherryPick, revert] = await Promise.all([
+      this.getMergeState(),
+      this.getRebaseState(),
+      this.getCherryPickState(),
+      this.getRevertState(),
+    ]);
+    return (
+      merge !== undefined ||
+      rebase !== undefined ||
+      cherryPick !== undefined ||
+      revert !== undefined
+    );
+  }
+
+  /**
+   * Get current repository state.
+   *
+   * Detects in-progress operations like merge, rebase, cherry-pick, etc.
+   */
+  async getState(): Promise<RepositoryStateValue> {
+    const hasConflicts = await this.staging.hasConflicts();
+    return detectRepositoryState(this.files, this.gitDir, hasConflicts);
+  }
+
+  /**
+   * Get capability queries for current state.
+   *
+   * Determines what operations are allowed in the current state.
+   */
+  async getStateCapabilities(): Promise<StateCapabilities> {
+    const state = await this.getState();
+    return getStateCapabilities(state);
   }
 
   /**

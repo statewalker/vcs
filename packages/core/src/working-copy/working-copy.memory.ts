@@ -11,13 +11,21 @@ import type { Repository } from "../repository.js";
 import type { StagingStore } from "../staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "../status/index.js";
 import type {
+  CherryPickState,
   MergeState,
   RebaseState,
+  RevertState,
   StashStore,
   WorkingCopy,
   WorkingCopyConfig,
 } from "../working-copy.js";
 import type { WorkingTreeIterator } from "../worktree/index.js";
+import {
+  getStateCapabilities,
+  RepositoryState,
+  type RepositoryStateValue,
+  type StateCapabilities,
+} from "./repository-state.js";
 import { MemoryStashStore } from "./stash-store.memory.js";
 
 /**
@@ -31,6 +39,9 @@ export class MemoryWorkingCopy implements WorkingCopy {
   private headCommit: ObjectId | undefined;
   private _mergeState: MergeState | undefined;
   private _rebaseState: RebaseState | undefined;
+  private _cherryPickState: CherryPickState | undefined;
+  private _revertState: RevertState | undefined;
+  private _repositoryState: RepositoryStateValue = RepositoryState.SAFE;
 
   readonly stash: StashStore;
   readonly config: WorkingCopyConfig;
@@ -111,10 +122,43 @@ export class MemoryWorkingCopy implements WorkingCopy {
   }
 
   /**
+   * Get cherry-pick state if a cherry-pick is in progress.
+   */
+  async getCherryPickState(): Promise<CherryPickState | undefined> {
+    return this._cherryPickState;
+  }
+
+  /**
+   * Get revert state if a revert is in progress.
+   */
+  async getRevertState(): Promise<RevertState | undefined> {
+    return this._revertState;
+  }
+
+  /**
    * Check if any operation is in progress.
    */
   async hasOperationInProgress(): Promise<boolean> {
-    return this._mergeState !== undefined || this._rebaseState !== undefined;
+    return (
+      this._mergeState !== undefined ||
+      this._rebaseState !== undefined ||
+      this._cherryPickState !== undefined ||
+      this._revertState !== undefined
+    );
+  }
+
+  /**
+   * Get current repository state.
+   */
+  async getState(): Promise<RepositoryStateValue> {
+    return this._repositoryState;
+  }
+
+  /**
+   * Get capability queries for current state.
+   */
+  async getStateCapabilities(): Promise<StateCapabilities> {
+    return getStateCapabilities(this._repositoryState);
   }
 
   /**
@@ -180,6 +224,27 @@ export class MemoryWorkingCopy implements WorkingCopy {
    */
   setHeadCommit(commitId: ObjectId): void {
     this.headCommit = commitId;
+  }
+
+  /**
+   * Set cherry-pick state directly (for testing).
+   */
+  setCherryPickState(state: CherryPickState | undefined): void {
+    this._cherryPickState = state;
+  }
+
+  /**
+   * Set revert state directly (for testing).
+   */
+  setRevertState(state: RevertState | undefined): void {
+    this._revertState = state;
+  }
+
+  /**
+   * Set repository state directly (for testing).
+   */
+  setRepositoryState(state: RepositoryStateValue): void {
+    this._repositoryState = state;
   }
 }
 

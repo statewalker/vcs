@@ -6,8 +6,13 @@
  */
 
 // State readers
+export * from "./cherry-pick-state-reader.js";
 export * from "./merge-state-reader.js";
 export * from "./rebase-state-reader.js";
+// Repository state
+export * from "./repository-state.js";
+export * from "./repository-state-detector.js";
+export * from "./revert-state-reader.js";
 // Stash
 export * from "./stash-store.files.js";
 export * from "./stash-store.memory.js";
