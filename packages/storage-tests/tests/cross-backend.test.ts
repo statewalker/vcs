@@ -14,6 +14,7 @@ import { createSqlObjectStores } from "@webrun-vcs/store-sql";
 import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
 import {
   createCrossBackendTests,
+  createGitCompatibilityTests,
   createStreamingStoresTests,
   type StreamingStoresFactory,
 } from "@webrun-vcs/testing";
@@ -55,6 +56,11 @@ const backends = [
 createStreamingStoresTests("Memory", memoryFactory);
 createStreamingStoresTests("KV", kvFactory);
 createStreamingStoresTests("SQL", sqlFactory);
+
+// Run Git compatibility tests for each backend
+createGitCompatibilityTests("Memory", memoryFactory);
+createGitCompatibilityTests("KV", kvFactory);
+createGitCompatibilityTests("SQL", sqlFactory);
 
 // Run cross-backend roundtrip tests
 createCrossBackendTests(backends);
