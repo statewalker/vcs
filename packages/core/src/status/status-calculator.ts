@@ -38,6 +38,74 @@ export const FileStatus = {
 export type FileStatusValue = (typeof FileStatus)[keyof typeof FileStatus];
 
 /**
+ * Detailed conflict stage state.
+ *
+ * Describes the type of conflict based on the presence of entries
+ * in base (stage 1), ours (stage 2), and theirs (stage 3).
+ *
+ * Based on JGit IndexDiff.StageState.
+ */
+export const StageState = {
+  /** Deleted in both ours and theirs */
+  BOTH_DELETED: "both-deleted",
+  /** Added only in ours (not in base or theirs) */
+  ADDED_BY_US: "added-by-us",
+  /** Deleted in theirs, exists in base and ours */
+  DELETED_BY_THEM: "deleted-by-them",
+  /** Added only in theirs (not in base or ours) */
+  ADDED_BY_THEM: "added-by-them",
+  /** Deleted in ours, exists in base and theirs */
+  DELETED_BY_US: "deleted-by-us",
+  /** Added in both with different content */
+  BOTH_ADDED: "both-added",
+  /** Modified in both with different content */
+  BOTH_MODIFIED: "both-modified",
+} as const;
+
+export type StageStateValue = (typeof StageState)[keyof typeof StageState];
+
+/**
+ * Determine StageState from presence of stage entries.
+ *
+ * Uses a bitmask approach like JGit's StageState.fromMask():
+ * - Bit 0 (1): base exists (stage 1)
+ * - Bit 1 (2): ours exists (stage 2)
+ * - Bit 2 (4): theirs exists (stage 3)
+ *
+ * @param hasBase Whether base stage (1) exists
+ * @param hasOurs Whether ours stage (2) exists
+ * @param hasTheirs Whether theirs stage (3) exists
+ * @returns The StageState value
+ */
+export function getStageState(
+  hasBase: boolean,
+  hasOurs: boolean,
+  hasTheirs: boolean,
+): StageStateValue {
+  const mask = (hasBase ? 1 : 0) | (hasOurs ? 2 : 0) | (hasTheirs ? 4 : 0);
+
+  switch (mask) {
+    case 0b001: // base only
+      return StageState.BOTH_DELETED;
+    case 0b010: // ours only
+      return StageState.ADDED_BY_US;
+    case 0b011: // base + ours
+      return StageState.DELETED_BY_THEM;
+    case 0b100: // theirs only
+      return StageState.ADDED_BY_THEM;
+    case 0b101: // base + theirs
+      return StageState.DELETED_BY_US;
+    case 0b110: // ours + theirs
+      return StageState.BOTH_ADDED;
+    case 0b111: // all three
+      return StageState.BOTH_MODIFIED;
+    default:
+      // 0b000 means no stages present, which shouldn't happen for conflicts
+      throw new Error(`Invalid stage mask: ${mask}`);
+  }
+}
+
+/**
  * Detailed status for a single file.
  */
 export interface FileStatusEntry {
@@ -58,6 +126,9 @@ export interface FileStatusEntry {
 
   /** Conflict stage info if conflicted */
   conflictStages?: ConflictStages;
+
+  /** Conflict type if conflicted */
+  stageState?: StageStateValue;
 }
 
 /**
