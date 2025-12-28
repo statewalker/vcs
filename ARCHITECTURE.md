@@ -45,38 +45,32 @@ The type system and algorithms align with Eclipse JGit, a mature Java implementa
 ```
                     ┌──────────────────┐
                     │    commands      │
-                    │   (CLI/API)      │
+                    │   (Git API)      │
                     └────────┬─────────┘
                              │
           ┌──────────────────┼──────────────────┐
           │                  │                  │
           ▼                  ▼                  ▼
 ┌─────────────────┐  ┌──────────────┐  ┌──────────────┐
-│   transport     │  │  storage-git │  │   staging    │
-│  (protocols)    │  │ (filesystem) │  │   (index)    │
+│   transport     │  │  store-mem   │  │  store-sql   │
+│  (protocols)    │  │  (testing)   │  │  (persist)   │
 └────────┬────────┘  └──────┬───────┘  └──────┬───────┘
          │                  │                 │
-         │           ┌──────┴───────┐         │
-         │           │              │         │
-         │           ▼              ▼         │
-         │    ┌───────────┐  ┌───────────┐    │
-         │    │  worktree │  │    vcs    │    │
-         │    │  (files)  │  │  (engine) │    │
-         │    └─────┬─────┘  └─────┬─────┘    │
-         │          │              │          │
-         └──────────┼──────────────┼──────────┘
-                    │              │
-                    ▼              ▼
-              ┌───────────────────────┐
-              │         core          │
-              │ (interfaces, formats) │
-              └───────────┬───────────┘
-                          │
-                          ▼
-                    ┌───────────┐
-                    │   utils   │
-                    │(algorithms)│
-                    └───────────┘
+         └──────────────────┼─────────────────┘
+                            │
+                            ▼
+                   ┌──────────────────┐
+                   │       core       │
+                   │ (repository,     │
+                   │  stores, packs,  │
+                   │  staging, refs)  │
+                   └────────┬─────────┘
+                            │
+                            ▼
+                      ┌───────────┐
+                      │   utils   │
+                      │(algorithms)│
+                      └───────────┘
 ```
 
 ### Foundation Layer
@@ -94,29 +88,19 @@ The type system and algorithms align with Eclipse JGit, a mature Java implementa
 - Pack file format
 - Delta compression system
 
-### Engine Layer
-
-**@webrun-vcs/vcs** provides the delta storage engine:
-- Delta candidate selection strategies
-- Compression ratio optimization
-- Chain depth management
-
-**@webrun-vcs/worktree** handles filesystem traversal:
-- Working tree iteration
-- Ignore pattern matching
-- File mode detection
-
 ### Storage Layer
 
 Storage backends implement core interfaces for different systems:
 
 | Package | Storage Target | Use Case |
 |---------|---------------|----------|
-| `@webrun-vcs/storage-git` | Git `.git/` directory | Native Git compatibility |
+| `@webrun-vcs/core` | Git `.git/` directory | Native Git compatibility |
 | `@webrun-vcs/store-mem` | Memory | Testing, ephemeral repos |
 | `@webrun-vcs/store-sql` | SQLite | Server deployments |
 | `@webrun-vcs/store-kv` | Key-value stores | Custom backends |
 | `@webrun-vcs/sandbox` | Isolated storage | Safe experimentation |
+
+Note: `@webrun-vcs/core` includes Git filesystem storage, staging/index area, delta storage engine, and working tree iteration - all consolidated from previously separate packages.
 
 ### Protocol Layer
 
@@ -126,11 +110,6 @@ Storage backends implement core interfaces for different systems:
 - Capability negotiation
 - Pack transfer
 - Server-side handlers (UploadPack, ReceivePack)
-
-**@webrun-vcs/staging** manages the index/staging area:
-- Git index format
-- Merge conflict tracking
-- Staged changes
 
 ### Command Layer
 
@@ -346,10 +325,11 @@ Large repositories benefit from periodic repacking to optimize delta relationshi
 
 The core packages work in browsers without polyfills:
 - **@webrun-vcs/utils**: Pure TypeScript algorithms
-- **@webrun-vcs/core**: Interface definitions and format handling
+- **@webrun-vcs/core**: Interface definitions and format handling (Git filesystem storage requires a FilesApi implementation)
 - **@webrun-vcs/transport**: Web Standard APIs (fetch, Request/Response)
 
 Storage backends may have platform requirements:
-- **storage-git**: Requires filesystem API
+- **core (Git storage)**: Requires FilesApi implementation (available for Node.js, browser IndexedDB, etc.)
 - **store-sql**: Requires SQLite (Node.js only)
 - **store-mem**: Works everywhere
+- **store-kv**: Works with any key-value backend (IndexedDB, LocalStorage, etc.)
