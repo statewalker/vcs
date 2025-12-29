@@ -21,12 +21,14 @@ import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import {
   atomicWriteFile,
   createGitRepository,
+  createGitStorage,
   ensureDir,
-  FileMode,
   type GitRepository,
+  type GitStorage,
   indexPack,
   writePackIndex,
-} from "@webrun-vcs/core";
+} from "@webrun-vcs/commands";
+import { FileMode } from "@webrun-vcs/core";
 import { clone, type PushObject, push } from "@webrun-vcs/transport";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
@@ -70,7 +72,7 @@ async function main(): Promise<void> {
   console.log("for both server and client operations. Native git is only used for verification.\n");
 
   let server: VcsHttpServer | null = null;
-  let remoteStorage: GitRepository | null = null;
+  let remoteStorage: GitStorage | null = null;
   let localStorage: GitRepository | null = null;
 
   try {
@@ -140,7 +142,7 @@ async function main(): Promise<void> {
 /**
  * Step 1: Create remote repository entirely with VCS.
  */
-async function setupRemoteRepository(): Promise<GitRepository> {
+async function setupRemoteRepository(): Promise<GitStorage> {
   // Clean up any existing test directories
   await removeDirectory(BASE_DIR);
   await ensureDirectory(BASE_DIR);
@@ -151,8 +153,8 @@ async function setupRemoteRepository(): Promise<GitRepository> {
   // Create files API
   const files = new FilesApi(new NodeFilesApi({ fs, rootDir: REMOTE_REPO_DIR }));
 
-  // Initialize git repository (bare repository)
-  const storage = await createGitRepository(files, ".", {
+  // Initialize git storage (bare repository)
+  const storage = await createGitStorage(files, ".", {
     create: true,
     bare: true,
     defaultBranch: DEFAULT_BRANCH,
@@ -167,7 +169,7 @@ Created at: ${new Date().toISOString()}
 `;
 
   // Store blob
-  const blobId = await storage.blobs.store([textEncoder.encode(readmeContent)]);
+  const blobId = await storage.objects.store([textEncoder.encode(readmeContent)]);
   printInfo(`Created blob: ${shortId(blobId)}`);
 
   // Create tree
@@ -199,7 +201,7 @@ Created at: ${new Date().toISOString()}
 /**
  * Step 2: Start VCS HTTP server.
  */
-async function startHttpServer(remoteStorage: GitRepository): Promise<VcsHttpServer> {
+async function startHttpServer(remoteStorage: GitStorage): Promise<VcsHttpServer> {
   printInfo(`Starting VCS HTTP server on port ${HTTP_PORT}`);
 
   const server = await createVcsHttpServer({
@@ -261,23 +263,28 @@ async function cloneWithVcs(): Promise<void> {
     const indexResult = await indexPack(cloneResult.packData);
     printInfo(`Pack contains ${indexResult.objectCount} objects`);
 
-    // Store pack file temporarily to read objects from it
+    // Store pack file using FilesApi (platform-agnostic)
+    // This creates a Git-compatible pack file structure.
+    //
+    // Alternative approach for delta-aware storage:
+    // import { importPackAsDeltas, parsePackEntries } from "@webrun-vcs/storage-git";
+    // const result = await importPackAsDeltas(deltaStorageManager, cloneResult.packData);
+    // This would preserve delta relationships and store via DeltaStorageManager.
     const packChecksum = bytesToHex(indexResult.packChecksum);
     const packDir = ".git/objects/pack";
     await ensureDir(files, packDir);
 
     const packFileName = `pack-${packChecksum}.pack`;
     const idxFileName = `pack-${packChecksum}.idx`;
-    const packPath = `${packDir}/${packFileName}`;
-    const idxPath = `${packDir}/${idxFileName}`;
 
-    // Write pack and index files
-    // createGitRepository uses RawStoreWithDelta + PackDeltaStore which reads pack files directly
-    await atomicWriteFile(files, packPath, cloneResult.packData);
+    // Use atomicWriteFile for safe writes via FilesApi abstraction
+    await atomicWriteFile(files, `${packDir}/${packFileName}`, cloneResult.packData);
+
+    // Generate and write pack index
     const indexData = await writePackIndex(indexResult.entries, indexResult.packChecksum);
-    await atomicWriteFile(files, idxPath, indexData);
+    await atomicWriteFile(files, `${packDir}/${idxFileName}`, indexData);
 
-    printInfo(`Stored pack file with ${indexResult.objectCount} objects`);
+    printInfo(`Stored pack: ${packFileName}`);
   }
 
   // Set up refs using high-level RefStore API

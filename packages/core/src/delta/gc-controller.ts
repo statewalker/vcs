@@ -116,7 +116,6 @@ export class GCController {
    *
    * Performs lightweight deltification of objects from
    * recently created commits without full repository repack.
-   * All deltified objects are written to a single pack file.
    *
    * @returns Number of objects deltified
    */
@@ -128,28 +127,15 @@ export class GCController {
       return 0;
     }
 
-    // Start batch to collect all deltas into a single pack file
-    this.storage.startBatch();
     let total = 0;
-
-    try {
-      for (const commitId of this.pendingCommits) {
-        const candidateIds: ObjectId[] = [];
-        for await (const candidateId of getCandidates.findCandidates(commitId, this.storage)) {
-          candidateIds.push(candidateId);
-        }
-        const success = await this.storage.deltify(commitId, candidateIds);
-        if (success) total++;
+    for (const commitId of this.pendingCommits) {
+      const candidateIds: ObjectId[] = [];
+      for await (const candidateId of getCandidates.findCandidates(commitId, this.storage)) {
+        candidateIds.push(candidateId);
       }
-
-      // Commit all deltas to a single pack file
-      await this.storage.endBatch();
-    } catch (e) {
-      // Cancel batch on error
-      this.storage.cancelBatch();
-      throw e;
+      const success = await this.storage.deltify(commitId, candidateIds);
+      if (success) total++;
     }
-
     this.pendingCommits = [];
     return total;
   }
@@ -246,8 +232,7 @@ export class GCController {
    * Repack storage
    *
    * Deltifies loose objects and optionally prunes loose objects
-   * that have been converted to deltas. All new deltas are written
-   * to a single pack file with valid cross-references.
+   * that have been converted to deltas.
    */
   private async repack(options?: RepackOptions): Promise<RepackResult> {
     const maxChainDepth = options?.maxChainDepth ?? this.options.chainDepthThreshold;
@@ -270,25 +255,11 @@ export class GCController {
     // Break deep chains first
     for await (const id of this.storage.keys()) {
       if (await this.storage.isDelta(id)) {
-        try {
-          const chainInfo = await this.storage.getDeltaChainInfo(id);
-          if (chainInfo && chainInfo.depth > maxChainDepth) {
-            await this.storage.undeltify(id);
-            deltasRemoved++;
-            looseIds.push(id);
-          }
-        } catch {
-          // getDeltaChainInfo can fail if base object is not in the same pack
-          // (e.g., REF_DELTA with base in loose storage or different pack)
-          // In this case, undeltify the object to ensure it can be processed
-          try {
-            await this.storage.undeltify(id);
-            deltasRemoved++;
-            looseIds.push(id);
-          } catch {
-            // Object might already be undeltified or not accessible
-            // Skip it and continue with other objects
-          }
+        const chainInfo = await this.storage.getDeltaChainInfo(id);
+        if (chainInfo && chainInfo.depth > maxChainDepth) {
+          await this.storage.undeltify(id);
+          deltasRemoved++;
+          looseIds.push(id);
         }
       }
     }
@@ -297,60 +268,38 @@ export class GCController {
     const progressCallback = options?.progressCallback;
     const total = looseIds.length;
 
-    // Start batch to collect all new deltas into a single pack file
-    this.storage.startBatch();
+    // Deltify using sliding window
+    for (let i = 0; i < looseIds.length; i++) {
+      const id = looseIds[i];
+      objectsProcessed++;
 
-    try {
-      // Deltify using sliding window
-      for (let i = 0; i < looseIds.length; i++) {
-        const id = looseIds[i];
-        objectsProcessed++;
+      if (progressCallback) {
+        progressCallback({
+          phase: "deltifying",
+          totalObjects: total,
+          processedObjects: objectsProcessed,
+          deltifiedObjects: deltasCreated,
+          currentObjectId: id,
+          bytesSaved: spaceSaved,
+        });
+      }
 
-        if (progressCallback) {
-          progressCallback({
-            phase: "deltifying",
-            totalObjects: total,
-            processedObjects: objectsProcessed,
-            deltifiedObjects: deltasCreated,
-            currentObjectId: id,
-            bytesSaved: spaceSaved,
-          });
-        }
+      // Get candidates from window
+      const windowStart = Math.max(0, i - windowSize);
+      const candidates = looseIds.slice(windowStart, i);
 
-        // Get candidates from window
-        const windowStart = Math.max(0, i - windowSize);
-        const candidates = looseIds.slice(windowStart, i);
+      if (candidates.length > 0) {
+        const sizeBefore = await this.storage.size(id);
+        const success = await this.storage.deltify(id, candidates);
 
-        if (candidates.length > 0) {
-          try {
-            const sizeBefore = await this.storage.size(id);
-            const success = await this.storage.deltify(id, candidates);
-
-            if (success) {
-              deltasCreated++;
-              try {
-                const chainInfo = await this.storage.getDeltaChainInfo(id);
-                if (chainInfo) {
-                  spaceSaved += sizeBefore - chainInfo.compressedSize;
-                }
-              } catch {
-                // getDeltaChainInfo can fail for cross-pack deltas
-                // Space savings calculation is optional, continue processing
-              }
-            }
-          } catch {
-            // deltify can fail if object is not accessible
-            // Skip this object and continue with others
+        if (success) {
+          deltasCreated++;
+          const chainInfo = await this.storage.getDeltaChainInfo(id);
+          if (chainInfo) {
+            spaceSaved += sizeBefore - chainInfo.compressedSize;
           }
         }
       }
-
-      // Commit all new deltas to a single pack file with proper cross-references
-      await this.storage.endBatch();
-    } catch (e) {
-      // Cancel batch on error
-      this.storage.cancelBatch();
-      throw e;
     }
 
     // Prune loose objects if requested

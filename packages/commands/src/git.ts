@@ -106,10 +106,12 @@ export class Git implements Disposable {
    * @example
    * ```typescript
    * import { Git } from "@webrun-vcs/commands";
-   * import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+   * import { createRepository } from "@webrun-vcs/storage-git";
+   * import { createStagingStore } from "@webrun-vcs/worktree";
    *
-   * // Use with any Repository implementation
-   * const staging = new MemoryStagingStore();
+   * const repo = await createRepository(files, ".git");
+   * const staging = createStagingStore();
+   *
    * const git = Git.fromRepository({ repository: repo, staging });
    * await git.commit().setMessage("Initial commit").call();
    * ```

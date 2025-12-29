@@ -1,0 +1,7 @@
+export * from "./add.js";
+export * from "./checkout.js";
+export * from "./ignore-manager.js";
+export * from "./staging-edits.js";
+export * from "./staging-store.js";
+export * from "./status.js";
+export * from "./working-tree-iterator.js";

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
+    "@webrun-vcs/commands": "workspace:*",
     "@webrun-vcs/core": "workspace:*",
     "@webrun-vcs/utils": "workspace:*"
   },

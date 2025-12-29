@@ -14,7 +14,6 @@
  */
 
 import {
-  createAuthor,
   FileMode,
   getStorage,
   listFilesRecursive,
@@ -24,10 +23,7 @@ import {
   readBlob,
   shortId,
 } from "../shared/index.js";
-import { step02CreateFiles } from "./02-create-files.js";
-import { step03BuildTrees } from "./03-build-trees.js";
-import { step04CreateCommits, storedCommits } from "./04-create-commits.js";
-import { step05UpdateFiles } from "./05-update-files.js";
+import { storedCommits } from "./04-create-commits.js";
 
 export async function step07RestoreVersion(): Promise<void> {
   printStep(7, "Restore Specific Version");
@@ -37,6 +33,10 @@ export async function step07RestoreVersion(): Promise<void> {
   // Ensure we have commits
   if (!storedCommits.commit1) {
     console.log("  Note: Running previous steps to create commits...\n");
+    const { step02CreateFiles } = await import("./02-create-files.js");
+    const { step03BuildTrees } = await import("./03-build-trees.js");
+    const { step04CreateCommits } = await import("./04-create-commits.js");
+    const { step05UpdateFiles } = await import("./05-update-files.js");
     await step02CreateFiles();
     await step03BuildTrees();
     await step04CreateCommits();
@@ -193,6 +193,7 @@ export async function step07RestoreVersion(): Promise<void> {
   printSubsection("Practical example: Reverting a commit");
 
   // Actually perform a revert
+  const { createAuthor } = await import("../shared/index.js");
   const revertTarget = storedCommits.commit2; // Revert to after README update
 
   if (revertTarget && headId) {

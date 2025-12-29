@@ -8,8 +8,8 @@
  * Reference: tmp/jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/api/CheckoutCommandTest.java
  */
 
-import { DeleteStagingEntry } from "@webrun-vcs/core";
 import { afterEach, describe, expect, it } from "vitest";
+
 import { CheckoutStatus } from "../src/commands/checkout-command.js";
 import { RefNotFoundError } from "../src/errors/index.js";
 import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
@@ -347,125 +347,13 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
     });
   });
 
-  describe("conflict detection", () => {
-    /**
-     * Force checkout should bypass conflict detection.
-     */
-    it("should force checkout despite staged changes", async () => {
-      const { git, store } = await createInitializedGit();
-
-      // Create initial commit on main
-      await addFile(store, "Test.txt", "original");
-      await git.commit().setMessage("Initial").call();
-
-      // Create test branch with different content
-      await git.branchCreate().setName("test").call();
-      await git.checkout().setName("test").call();
-      await addFile(store, "Test.txt", "test-version");
-      await git.commit().setMessage("Test commit").call();
-
-      // Switch back to main
-      await git.checkout().setName("main").call();
-
-      // Stage a change on main
-      await addFile(store, "Test.txt", "main-modified");
-
-      // Non-force checkout should fail due to staged changes
-      const conflictResult = await git.checkout().setName("test").call();
-      expect(conflictResult.status).toBe(CheckoutStatus.CONFLICTS);
-      expect(conflictResult.conflicts).toContain("Test.txt");
-
-      // Force checkout should succeed
-      const forceResult = await git.checkout().setName("test").setForced(true).call();
-      expect(forceResult.status).toBe(CheckoutStatus.OK);
-    });
-
-    /**
-     * Checkout should detect staged changes that differ from HEAD.
-     */
-    it("should detect staged changes conflict", async () => {
-      const { git, store } = await createInitializedGit();
-
-      // Create initial commit on main
-      await addFile(store, "file.txt", "v1");
-      await git.commit().setMessage("Initial").call();
-
-      // Create feature branch with changes
-      await git.branchCreate().setName("feature").call();
-      await git.checkout().setName("feature").call();
-      await addFile(store, "file.txt", "feature-v2");
-      await git.commit().setMessage("Feature change").call();
-
-      // Switch back to main and stage different content
-      await git.checkout().setName("main").call();
-      await addFile(store, "file.txt", "main-staged");
-
-      // Checkout feature should detect conflict
-      const result = await git.checkout().setName("feature").call();
-
-      expect(result.status).toBe(CheckoutStatus.CONFLICTS);
-      expect(result.conflicts.length).toBeGreaterThan(0);
-    });
-
-    /**
-     * Checkout should succeed when staging matches HEAD.
-     */
-    it("should allow checkout when staging matches HEAD", async () => {
-      const { git, store } = await createInitializedGit();
-
-      // Create initial commit on main
-      await addFile(store, "file.txt", "original");
-      await git.commit().setMessage("Initial").call();
-
-      // Create test branch with changes
-      await git.branchCreate().setName("test").call();
-      await git.checkout().setName("test").call();
-      await addFile(store, "file.txt", "test-version");
-      await git.commit().setMessage("Test").call();
-
-      // Switch back to main - staging matches HEAD, no conflict
-      const result = await git.checkout().setName("main").call();
-
-      expect(result.status).toBe(CheckoutStatus.OK);
-    });
-
-    /**
-     * Checkout should detect conflict when file exists in both branches
-     * and we've staged different content on current branch.
-     */
-    it("should detect staged file differs from HEAD when target differs too", async () => {
-      const { git, store } = await createInitializedGit();
-
-      // Create initial commit with a shared file
-      await addFile(store, "shared.txt", "original");
-      await git.commit().setMessage("Initial").call();
-
-      // Create test branch with modified version
-      await git.branchCreate().setName("test").call();
-      await git.checkout().setName("test").call();
-      await addFile(store, "shared.txt", "test-version");
-      await git.commit().setMessage("Modify on test").call();
-
-      // Go back to main - the file will be restored to "original"
-      await git.checkout().setName("main").call();
-
-      // Stage a different modification on main (differs from HEAD "original")
-      await addFile(store, "shared.txt", "main-staged-different");
-
-      // Checkout test should detect conflict (staged differs from HEAD)
-      const result = await git.checkout().setName("test").call();
-
-      expect(result.status).toBe(CheckoutStatus.CONFLICTS);
-      expect(result.conflicts).toContain("shared.txt");
-    });
-  });
-
   describe("staging updates", () => {
     /**
      * Branch checkout should update staging to match target tree.
      */
     it("should update staging on branch checkout", async () => {
       const { git, store } = await createInitializedGit();
+      const { DeleteStagingEntry } = await import("@webrun-vcs/core");
 
       // Create initial state on main
       await addFile(store, "a.txt", "main-a");

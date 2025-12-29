@@ -221,17 +221,10 @@ describe("PackDirectory", () => {
       await files.write(`${basePath}/pack-test.idx`, [indexData]);
 
       const packDir = new PackDirectory({ files, basePath });
-
-      // load() returns raw content without Git header
       const loaded = await packDir.load(objectId);
+
       expect(loaded).toBeDefined();
       expect(new TextDecoder().decode(loaded)).toBe("hello world");
-
-      // loadRaw() returns content WITH Git header (for RawStore compatibility)
-      const loadedRaw = await packDir.loadRaw(objectId);
-      expect(loadedRaw).toBeDefined();
-      // Header format: "blob <size>\0<content>"
-      expect(new TextDecoder().decode(loadedRaw)).toBe("blob 11\0hello world");
     });
 
     it("returns undefined for non-existent object", async () => {

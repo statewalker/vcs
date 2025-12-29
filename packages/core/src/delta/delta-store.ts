@@ -1,8 +1,4 @@
 import type { Delta } from "@webrun-vcs/utils";
-import { ObjectType, type ObjectTypeCode } from "../objects/object-types.js";
-
-// Re-export for convenience
-export { ObjectType, type ObjectTypeCode };
 
 /**
  * Base delta relationship information
@@ -12,51 +8,6 @@ export interface DeltaInfo {
   baseKey: string;
   /** Target object key (result of applying delta) */
   targetKey: string;
-}
-
-/**
- * Batched update handle for delta storage
- *
- * Encapsulates a transaction/batch of write operations. All writes
- * are collected and only persisted when close() is called.
- *
- * Usage:
- * ```typescript
- * const update = store.startUpdate();
- * update.storeObject(id1, ObjectType.BLOB, content1);
- * update.storeDelta({ baseKey, targetKey }, delta);
- * await update.close(); // Commits all operations
- * ```
- */
-export interface DeltaStoreUpdate {
-  /**
-   * Store a full object (non-delta) in this batch
-   *
-   * @param key Object key (SHA-1 hash)
-   * @param type Object type code (1=commit, 2=tree, 3=blob, 4=tag)
-   * @param content Raw object content (WITHOUT Git header)
-   */
-  storeObject(key: string, type: ObjectTypeCode, content: Uint8Array): void;
-
-  /**
-   * Store a delta relationship in this batch
-   *
-   * @param info Delta relationship info (baseKey, targetKey)
-   * @param delta Delta instructions
-   * @returns Compressed size in bytes
-   */
-  storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number>;
-
-  /**
-   * Commit/flush all operations
-   *
-   * For pack-based: creates a single pack file with all objects
-   * For SQL-based: commits the transaction
-   * For KV-based: performs bulk write
-   *
-   * @returns Promise that resolves when all operations are persisted
-   */
-  close(): Promise<void>;
 }
 
 /**
@@ -101,25 +52,18 @@ export type DeltaChainInfo = DeltaChainDetails;
  *
  * All backends accept and return Delta[] instructions, handling
  * serialization internally.
- *
- * Write operations use the transaction pattern via startUpdate():
- * ```typescript
- * const update = store.startUpdate();
- * update.storeObject(id, type, content);
- * update.storeDelta(info, delta);
- * await update.close(); // Commits all operations
- * ```
  */
 export interface DeltaStore {
   /**
-   * Start a batched update transaction
+   * Store a delta relationship
    *
-   * Returns an update handle that collects all write operations.
-   * Operations are only persisted when close() is called on the handle.
+   * The backend serializes Delta[] to its native format internally.
    *
-   * @returns Update handle for batched writes
+   * @param info Delta relationship info (baseKey, targetKey)
+   * @param delta Delta instructions (format-agnostic)
+   * @returns True if stored successfully
    */
-  startUpdate(): DeltaStoreUpdate;
+  storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number>;
 
   /**
    * Load delta for an object
@@ -162,27 +106,4 @@ export interface DeltaStore {
    * @returns Async iterable of delta info (baseKey, targetKey)
    */
   listDeltas(): AsyncIterable<DeltaInfo>;
-
-  /**
-   * Load resolved object content from backing storage (optional)
-   *
-   * For pack-based implementations, loads the fully resolved
-   * content (with delta resolution if needed) for any object
-   * stored in packs, whether it's a delta or full object.
-   *
-   * @param key Object key
-   * @returns Resolved content or undefined if not in backing storage
-   */
-  loadObject?(key: string): Promise<Uint8Array | undefined>;
-
-  /**
-   * Check if object exists in the delta store's backing storage (optional)
-   *
-   * For pack-based implementations, checks if an object exists
-   * in any pack file, regardless of whether it's a delta or full object.
-   *
-   * @param key Object key
-   * @returns True if object exists
-   */
-  hasObject?(key: string): Promise<boolean>;
 }

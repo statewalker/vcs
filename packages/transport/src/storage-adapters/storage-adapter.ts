@@ -1,7 +1,7 @@
 /**
  * Storage adapter for RepositoryAccess interface.
  *
- * Adapts GitStorage from @webrun-vcs/core to the
+ * Adapts GitStorage from @webrun-vcs/storage-git to the
  * RepositoryAccess interface used by protocol handlers.
  */
 

@@ -1,0 +1,43 @@
+{
+  "name": "@webrun-vcs/storage-git",
+  "version": "0.1.0",
+  "description": "Git-compatible file-based storage backend for WebRun VCS",
+  "private": false,
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run",
+    "test:jgit": "vitest run --grep 'jgit'",
+    "test:interop": "vitest run --grep 'interop'",
+    "lint": "biome check --write .",
+    "lint:check": "biome check .",
+    "lint:fix": "biome check --write --unsafe .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "format:fix": "biome check --write --unsafe ."
+  },
+  "dependencies": {
+    "@statewalker/webrun-files": "catalog:",
+    "@webrun-vcs/core": "workspace:*",
+    "@webrun-vcs/vcs": "workspace:*",
+    "@webrun-vcs/utils": "workspace:*",
+    "@webrun-vcs/worktree": "workspace:*"
+  },
+  "devDependencies": {
+    "@webrun-vcs/testing": "workspace:*",
+    "rolldown": "catalog:",
+    "vitest": "catalog:",
+    "typescript": "catalog:",
+    "@types/node": "catalog:"
+  }
+}

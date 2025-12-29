@@ -4,7 +4,7 @@
 
 import * as fs from "node:fs/promises";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository, type GitRepository } from "@webrun-vcs/core";
+import { createGitRepository, type GitRepository } from "@webrun-vcs/commands";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { GIT_DIR, REPO_DIR } from "./config.js";
