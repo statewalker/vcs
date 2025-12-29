@@ -18,18 +18,15 @@ import type {
   DeltaChainDetails,
   DeltaInfo,
   DeltaStore,
+  DeltaStoreUpdate,
   StoredDelta,
 } from "../delta/delta-store.js";
 import type { FilesApi } from "../files/index.js";
+import type { ObjectTypeCode } from "../objects/object-types.js";
 import type { DeltaReverseIndex } from "./delta-reverse-index.js";
 import { PackDirectory } from "./pack-directory.js";
 import { PendingPack } from "./pending-pack.js";
-
-/** Default flush threshold (number of objects) */
-const DEFAULT_FLUSH_THRESHOLD = 100;
-
-/** Default flush size threshold (10MB) */
-const DEFAULT_FLUSH_SIZE = 10 * 1024 * 1024;
+import { PackObjectType } from "./types.js";
 
 /**
  * Options for PackDeltaStore
@@ -39,10 +36,99 @@ export interface PackDeltaStoreOptions {
   files: FilesApi;
   /** Base path for pack files (e.g., ".git/objects/pack") */
   basePath: string;
-  /** Flush threshold (number of objects, default: 100) */
-  flushThreshold?: number;
-  /** Flush size threshold (bytes, default: 10MB) */
-  flushSize?: number;
+}
+
+/**
+ * Convert ObjectTypeCode to PackObjectType
+ */
+function toPackObjectType(typeCode: ObjectTypeCode): PackObjectType {
+  switch (typeCode) {
+    case 1:
+      return PackObjectType.COMMIT;
+    case 2:
+      return PackObjectType.TREE;
+    case 3:
+      return PackObjectType.BLOB;
+    case 4:
+      return PackObjectType.TAG;
+    default:
+      throw new Error(`Unknown object type code: ${typeCode}`);
+  }
+}
+
+/**
+ * Batched update handle for pack-based delta storage
+ *
+ * Collects objects and deltas into a PendingPack, then writes
+ * a single pack file when close() is called.
+ */
+export class PackDeltaStoreUpdate implements DeltaStoreUpdate {
+  private readonly pending: PendingPack;
+  private readonly packDir: PackDirectory;
+  private readonly onClose?: () => void;
+  private closed = false;
+
+  constructor(packDir: PackDirectory, onClose?: () => void) {
+    this.pending = new PendingPack({
+      // No auto-flush - we want everything in one pack
+      maxObjects: Number.MAX_SAFE_INTEGER,
+      maxBytes: Number.MAX_SAFE_INTEGER,
+    });
+    this.packDir = packDir;
+    this.onClose = onClose;
+  }
+
+  /**
+   * Store a full object in this batch
+   */
+  storeObject(key: string, type: ObjectTypeCode, content: Uint8Array): void {
+    if (this.closed) {
+      throw new Error("Update already closed");
+    }
+    this.pending.addObject(key, toPackObjectType(type), content);
+  }
+
+  /**
+   * Store a delta relationship in this batch
+   */
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
+    if (this.closed) {
+      throw new Error("Update already closed");
+    }
+
+    // Serialize delta to Git binary format
+    const binaryDelta = serializeDelta(delta);
+
+    // Add as delta - uses OFS_DELTA if base is in same pack
+    this.pending.addDelta(info.targetKey, info.baseKey, binaryDelta);
+
+    return binaryDelta.length;
+  }
+
+  /**
+   * Commit all operations - creates a single pack file
+   */
+  async close(): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+
+    if (this.pending.isEmpty()) {
+      return;
+    }
+
+    const result = await this.pending.flush();
+
+    // Write pack files
+    await this.packDir.addPack(result.packName, result.packData, result.indexData);
+
+    // Invalidate pack directory cache
+    await this.packDir.invalidate();
+
+    // Notify parent store
+    this.onClose?.();
+  }
 }
 
 /**
@@ -62,20 +148,18 @@ export interface PackDeltaStoreOptions {
  * const store = new PackDeltaStore({ files, basePath: ".git/objects/pack" });
  * await store.initialize();
  *
- * // Store delta (written as OFS_DELTA or REF_DELTA)
- * await store.storeDelta(
- *   { baseKey: baseId, targetKey: targetId },
- *   deltaInstructions
- * );
+ * // Store objects using transaction pattern
+ * const update = store.startUpdate();
+ * update.storeObject(blobId, ObjectType.BLOB, content);
+ * update.storeDelta({ baseKey: baseId, targetKey: targetId }, delta);
+ * await update.close(); // Creates single pack file
  *
  * // Query uses pack headers, not separate index
  * const isDelta = await store.isDelta(targetId);
- * const base = await store.getDeltaBase(targetId);
  * ```
  */
 export class PackDeltaStore implements DeltaStore {
   private readonly packDir: PackDirectory;
-  private pending: PendingPack;
   private reverseIndex: DeltaReverseIndex | null = null;
   private initialized = false;
 
@@ -83,11 +167,6 @@ export class PackDeltaStore implements DeltaStore {
     this.packDir = new PackDirectory({
       files: options.files,
       basePath: options.basePath,
-    });
-
-    this.pending = new PendingPack({
-      maxObjects: options.flushThreshold ?? DEFAULT_FLUSH_THRESHOLD,
-      maxBytes: options.flushSize ?? DEFAULT_FLUSH_SIZE,
     });
   }
 
@@ -105,38 +184,18 @@ export class PackDeltaStore implements DeltaStore {
   }
 
   /**
-   * Store a delta relationship
+   * Start a batched update transaction
    *
-   * Stores as native OFS_DELTA or REF_DELTA depending on
-   * whether the base is in the same pack.
+   * Returns an update handle that collects all write operations.
+   * When close() is called, all objects are written to a single pack file.
    *
-   * Based on: jgit PackWriter.java#writeObject
-   *
-   * @param info Delta relationship (baseKey, targetKey)
-   * @param delta Delta instructions
-   * @returns Compressed size in bytes
+   * @returns Update handle for batched writes
    */
-  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
-    await this.ensureInitialized();
-
-    // Serialize delta to Git binary format
-    const binaryDelta = serializeDelta(delta);
-
-    // Add as delta - PendingPack handles OFS vs REF automatically
-    // (OFS if base already in pending, REF otherwise)
-    this.pending.addDelta(info.targetKey, info.baseKey, binaryDelta);
-
-    // Update reverse index if cached
-    if (this.reverseIndex) {
-      this.reverseIndex.add(info.targetKey, info.baseKey);
-    }
-
-    // Auto-flush if threshold reached
-    if (this.pending.shouldFlush()) {
-      await this.flush();
-    }
-
-    return binaryDelta.length;
+  startUpdate(): DeltaStoreUpdate {
+    return new PackDeltaStoreUpdate(this.packDir, () => {
+      // Invalidate reverse index when new pack is created
+      this.reverseIndex = null;
+    });
   }
 
   /**
@@ -149,11 +208,6 @@ export class PackDeltaStore implements DeltaStore {
    */
   async loadDelta(targetKey: string): Promise<StoredDelta | undefined> {
     await this.ensureInitialized();
-
-    // Flush pending to ensure object is available
-    if (this.pending.hasPending(targetKey)) {
-      await this.flush();
-    }
 
     // Check if it's a delta from pack header
     if (!(await this.packDir.isDelta(targetKey))) {
@@ -198,11 +252,6 @@ export class PackDeltaStore implements DeltaStore {
   async isDelta(targetKey: string): Promise<boolean> {
     await this.ensureInitialized();
 
-    // Check pending first
-    if (this.pending.hasPending(targetKey)) {
-      return this.pending.isDelta(targetKey);
-    }
-
     // Check reverse index if available (O(1))
     if (this.reverseIndex) {
       return this.reverseIndex.isDelta(targetKey);
@@ -246,11 +295,6 @@ export class PackDeltaStore implements DeltaStore {
   async getDeltaChainInfo(targetKey: string): Promise<DeltaChainDetails | undefined> {
     await this.ensureInitialized();
 
-    // Flush pending first
-    if (this.pending.hasPending(targetKey)) {
-      await this.flush();
-    }
-
     const packInfo = await this.packDir.getDeltaChainInfo(targetKey);
     if (!packInfo) return undefined;
 
@@ -285,11 +329,6 @@ export class PackDeltaStore implements DeltaStore {
    */
   async *listDeltas(): AsyncIterable<DeltaInfo> {
     await this.ensureInitialized();
-
-    // Flush pending first
-    if (!this.pending.isEmpty()) {
-      await this.flush();
-    }
 
     // Use reverse index if available
     if (this.reverseIndex) {
@@ -358,25 +397,9 @@ export class PackDeltaStore implements DeltaStore {
   }
 
   /**
-   * Flush pending objects to a new pack file
-   */
-  async flush(): Promise<void> {
-    if (this.pending.isEmpty()) return;
-
-    const result = await this.pending.flush();
-
-    // Write pack files
-    await this.packDir.addPack(result.packName, result.packData, result.indexData);
-
-    // Invalidate pack directory cache
-    await this.packDir.invalidate();
-  }
-
-  /**
    * Close the store
    */
   async close(): Promise<void> {
-    await this.flush();
     await this.packDir.invalidate();
     this.reverseIndex = null;
   }
@@ -409,11 +432,6 @@ export class PackDeltaStore implements DeltaStore {
   async loadObject(key: string): Promise<Uint8Array | undefined> {
     await this.ensureInitialized();
 
-    // Flush pending first
-    if (this.pending.hasPending(key)) {
-      await this.flush();
-    }
-
     // Use loadRaw() which returns content WITH Git header
     return this.packDir.loadRaw(key);
   }
@@ -429,11 +447,6 @@ export class PackDeltaStore implements DeltaStore {
    */
   async hasObject(key: string): Promise<boolean> {
     await this.ensureInitialized();
-
-    // Check pending first
-    if (this.pending.hasPending(key)) {
-      return true;
-    }
 
     return this.packDir.has(key);
   }

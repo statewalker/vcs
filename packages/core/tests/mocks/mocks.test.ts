@@ -2,22 +2,31 @@
  * Tests for mock implementations
  */
 
+import type { Delta } from "@webrun-vcs/utils";
 import { describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
+import type { DeltaInfo } from "../../src/delta/delta-store.js";
 import { CommitGraphBuilder, MockCommitStore } from "./mock-commit-store.js";
 import { MockDeltaStore } from "./mock-delta-store.js";
+
+// Helper to store delta using update pattern
+async function storeDelta(store: MockDeltaStore, info: DeltaInfo, delta: Delta[]): Promise<void> {
+  const update = store.startUpdate();
+  await update.storeDelta(info, delta);
+  await update.close();
+}
 
 describe("MockDeltaStore", () => {
   it("should store and load deltas", async () => {
     const store = new MockDeltaStore();
-    const delta = [
+    const delta: Delta[] = [
       { type: "start" as const, targetLen: 100 },
       { type: "copy" as const, start: 0, len: 50 },
       { type: "insert" as const, data: new Uint8Array([1, 2, 3]) },
       { type: "finish" as const, checksum: 0 },
     ];
 
-    await store.storeDelta({ baseKey: "base123", targetKey: "target456" }, delta);
+    await storeDelta(store, { baseKey: "base123", targetKey: "target456" }, delta);
 
     const loaded = await store.loadDelta("target456");
     expect(loaded).toBeDefined();
@@ -27,7 +36,7 @@ describe("MockDeltaStore", () => {
 
   it("should check if object is a delta", async () => {
     const store = new MockDeltaStore();
-    await store.storeDelta({ baseKey: "base", targetKey: "target" }, [
+    await storeDelta(store, { baseKey: "base", targetKey: "target" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
@@ -38,7 +47,7 @@ describe("MockDeltaStore", () => {
 
   it("should remove deltas", async () => {
     const store = new MockDeltaStore();
-    await store.storeDelta({ baseKey: "base", targetKey: "target" }, [
+    await storeDelta(store, { baseKey: "base", targetKey: "target" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
@@ -51,15 +60,15 @@ describe("MockDeltaStore", () => {
     const store = new MockDeltaStore();
 
     // Create a chain: target3 -> target2 -> target1 -> base
-    await store.storeDelta({ baseKey: "base", targetKey: "target1" }, [
+    await storeDelta(store, { baseKey: "base", targetKey: "target1" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
-    await store.storeDelta({ baseKey: "target1", targetKey: "target2" }, [
+    await storeDelta(store, { baseKey: "target1", targetKey: "target2" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
-    await store.storeDelta({ baseKey: "target2", targetKey: "target3" }, [
+    await storeDelta(store, { baseKey: "target2", targetKey: "target3" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
@@ -72,11 +81,11 @@ describe("MockDeltaStore", () => {
 
   it("should list all deltas", async () => {
     const store = new MockDeltaStore();
-    await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, [
+    await storeDelta(store, { baseKey: "base1", targetKey: "target1" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
-    await store.storeDelta({ baseKey: "base2", targetKey: "target2" }, [
+    await storeDelta(store, { baseKey: "base2", targetKey: "target2" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);

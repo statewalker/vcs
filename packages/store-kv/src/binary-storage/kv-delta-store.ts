@@ -5,7 +5,14 @@
  * Implements the new DeltaStore interface from binary-storage.
  */
 
-import type { DeltaChainDetails, DeltaInfo, DeltaStore, StoredDelta } from "@webrun-vcs/core";
+import type {
+  DeltaChainDetails,
+  DeltaInfo,
+  DeltaStore,
+  DeltaStoreUpdate,
+  ObjectTypeCode,
+  StoredDelta,
+} from "@webrun-vcs/core";
 import type { Delta } from "@webrun-vcs/utils";
 import type { KVStore } from "../kv-store.js";
 
@@ -13,6 +20,78 @@ import type { KVStore } from "../kv-store.js";
  * Key prefix for delta storage
  */
 const DELTA_PREFIX = "delta:";
+
+/**
+ * Pending delta for batch update
+ */
+interface PendingDelta {
+  info: DeltaInfo;
+  delta: Delta[];
+}
+
+/**
+ * Batched update handle for KV delta storage
+ */
+class KvDeltaStoreUpdate implements DeltaStoreUpdate {
+  private readonly pendingDeltas: PendingDelta[] = [];
+  private readonly store: KvDeltaStore;
+  private closed = false;
+
+  constructor(store: KvDeltaStore) {
+    this.store = store;
+  }
+
+  /**
+   * Store a full object - no-op for KV delta store
+   */
+  storeObject(_key: string, _type: ObjectTypeCode, _content: Uint8Array): void {
+    if (this.closed) {
+      throw new Error("Update already closed");
+    }
+    // KV delta store only handles deltas, not full objects
+  }
+
+  /**
+   * Store a delta relationship in this batch
+   */
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
+    if (this.closed) {
+      throw new Error("Update already closed");
+    }
+
+    this.pendingDeltas.push({ info, delta });
+
+    // Calculate approximate size
+    return delta.reduce((sum, d) => {
+      switch (d.type) {
+        case "copy":
+          return sum + 8;
+        case "insert":
+          return sum + 1 + d.data.length;
+        case "start":
+        case "finish":
+          return sum + 4;
+        default:
+          return sum;
+      }
+    }, 0);
+  }
+
+  /**
+   * Commit all pending deltas
+   */
+  async close(): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+
+    // Apply all pending deltas
+    for (const { info, delta } of this.pendingDeltas) {
+      await this.store.applyDelta(info, delta);
+    }
+  }
+}
 
 /**
  * KV-based delta storage
@@ -106,9 +185,16 @@ export class KvDeltaStore implements DeltaStore {
   }
 
   /**
-   * Store a delta relationship
+   * Start a batched update transaction
    */
-  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
+  startUpdate(): DeltaStoreUpdate {
+    return new KvDeltaStoreUpdate(this);
+  }
+
+  /**
+   * Apply a delta (internal method used by update)
+   */
+  async applyDelta(info: DeltaInfo, delta: Delta[]): Promise<void> {
     // Calculate ratio
     const deltaSize = delta.reduce((sum, d) => {
       switch (d.type) {
@@ -128,7 +214,6 @@ export class KvDeltaStore implements DeltaStore {
     const data = this.serialize(info.baseKey, delta, ratio);
 
     await this.kv.set(this.deltaKey(info.targetKey), data);
-    return data.length;
   }
 
   /**

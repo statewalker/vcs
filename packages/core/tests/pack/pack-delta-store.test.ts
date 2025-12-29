@@ -9,6 +9,7 @@ import type { Delta } from "@webrun-vcs/utils";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { DeltaInfo } from "../../src/delta/delta-store.js";
 import {
   PackDeltaStore,
   PackDirectory,
@@ -28,6 +29,16 @@ beforeAll(() => {
  */
 function createSimpleDelta(baseSize: number, resultSize: number = baseSize): Delta[] {
   return [{ type: "copy", offset: 0, length: Math.min(baseSize, resultSize) }];
+}
+
+/**
+ * Helper to store delta using update pattern
+ */
+async function storeDelta(store: PackDeltaStore, info: DeltaInfo, delta: Delta[]): Promise<number> {
+  const update = store.startUpdate();
+  const size = await update.storeDelta(info, delta);
+  await update.close();
+  return size;
 }
 
 describe("PackDeltaStore", () => {
@@ -55,29 +66,32 @@ describe("PackDeltaStore", () => {
 
   describe("storeDelta", () => {
     it("stores delta and returns compressed size", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
       const delta = createSimpleDelta(100, 100);
 
-      const size = await store.storeDelta({ baseKey, targetKey }, delta);
+      const size = await storeDelta(store, { baseKey, targetKey }, delta);
       expect(size).toBeGreaterThan(0);
 
       await store.close();
     });
 
-    it("auto-flushes when threshold reached", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 2 });
+    it("creates pack file when update is closed", async () => {
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const target1 = "1111111111111111111111111111111111111111";
       const target2 = "2222222222222222222222222222222222222222";
 
-      await store.storeDelta({ baseKey, targetKey: target1 }, createSimpleDelta(100));
-      await store.storeDelta({ baseKey, targetKey: target2 }, createSimpleDelta(100));
+      // Store multiple deltas in one batch
+      const update = store.startUpdate();
+      await update.storeDelta({ baseKey, targetKey: target1 }, createSimpleDelta(100));
+      await update.storeDelta({ baseKey, targetKey: target2 }, createSimpleDelta(100));
+      await update.close();
 
       // Check that pack was created
       const stats = await store.getPackDirectory().getStats();
@@ -89,13 +103,13 @@ describe("PackDeltaStore", () => {
 
   describe("isDelta", () => {
     it("returns true for stored deltas", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      await storeDelta(store, { baseKey, targetKey }, createSimpleDelta(100));
 
       expect(await store.isDelta(targetKey)).toBe(true);
 
@@ -114,15 +128,18 @@ describe("PackDeltaStore", () => {
 
   describe("reverse index", () => {
     it("builds reverse index from pack headers", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const target1 = "1111111111111111111111111111111111111111";
       const target2 = "2222222222222222222222222222222222222222";
 
-      await store.storeDelta({ baseKey, targetKey: target1 }, createSimpleDelta(100));
-      await store.storeDelta({ baseKey, targetKey: target2 }, createSimpleDelta(100));
+      // Store both deltas in one batch
+      const update = store.startUpdate();
+      await update.storeDelta({ baseKey, targetKey: target1 }, createSimpleDelta(100));
+      await update.storeDelta({ baseKey, targetKey: target2 }, createSimpleDelta(100));
+      await update.close();
 
       await store.buildReverseIndex();
 
@@ -135,13 +152,13 @@ describe("PackDeltaStore", () => {
     });
 
     it("finds dependents without building reverse index (slower)", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      await storeDelta(store, { baseKey, targetKey }, createSimpleDelta(100));
 
       // Don't build reverse index - should still work via pack scan
       const dependents = await store.findDependents(baseKey);
@@ -151,13 +168,13 @@ describe("PackDeltaStore", () => {
     });
 
     it("invalidates reverse index", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      await storeDelta(store, { baseKey, targetKey }, createSimpleDelta(100));
       await store.buildReverseIndex();
 
       expect(store.getReverseIndex()).not.toBeNull();
@@ -172,13 +189,13 @@ describe("PackDeltaStore", () => {
 
   describe("isBase", () => {
     it("returns true for objects with dependents", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      await storeDelta(store, { baseKey, targetKey }, createSimpleDelta(100));
 
       expect(await store.isBase(baseKey)).toBe(true);
 
@@ -186,13 +203,13 @@ describe("PackDeltaStore", () => {
     });
 
     it("returns false for objects without dependents", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      await storeDelta(store, { baseKey, targetKey }, createSimpleDelta(100));
 
       // targetKey has no dependents
       expect(await store.isBase(targetKey)).toBe(false);
@@ -203,15 +220,18 @@ describe("PackDeltaStore", () => {
 
   describe("listDeltas", () => {
     it("lists all delta relationships", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const target1 = "1111111111111111111111111111111111111111";
       const target2 = "2222222222222222222222222222222222222222";
 
-      await store.storeDelta({ baseKey, targetKey: target1 }, createSimpleDelta(100));
-      await store.storeDelta({ baseKey, targetKey: target2 }, createSimpleDelta(100));
+      // Store both deltas in one batch
+      const update = store.startUpdate();
+      await update.storeDelta({ baseKey, targetKey: target1 }, createSimpleDelta(100));
+      await update.storeDelta({ baseKey, targetKey: target2 }, createSimpleDelta(100));
+      await update.close();
 
       const deltas: Array<{ baseKey: string; targetKey: string }> = [];
       for await (const delta of store.listDeltas()) {
@@ -228,13 +248,13 @@ describe("PackDeltaStore", () => {
 
   describe("removeDelta", () => {
     it("marks delta as removed", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      await storeDelta(store, { baseKey, targetKey }, createSimpleDelta(100));
       await store.buildReverseIndex();
 
       expect(await store.removeDelta(targetKey)).toBe(true);
@@ -255,37 +275,15 @@ describe("PackDeltaStore", () => {
     });
   });
 
-  describe("flush and close", () => {
-    it("flushes pending deltas to pack file", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 100 });
+  describe("close", () => {
+    it("close cleans up reverse index", async () => {
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
-
-      // Not flushed yet (threshold is 100)
-      let stats = await store.getPackDirectory().getStats();
-      expect(stats.packCount).toBe(0);
-
-      // Manual flush
-      await store.flush();
-
-      stats = await store.getPackDirectory().getStats();
-      expect(stats.packCount).toBe(1);
-
-      await store.close();
-    });
-
-    it("close flushes and cleans up", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 100 });
-      await store.initialize();
-
-      const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-      const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      await storeDelta(store, { baseKey, targetKey }, createSimpleDelta(100));
       await store.buildReverseIndex();
 
       await store.close();
@@ -317,7 +315,7 @@ describe("PackDeltaStore", () => {
    */
   describe("duplicate handling", () => {
     it("stores delta even if already exists (default behavior)", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -325,13 +323,13 @@ describe("PackDeltaStore", () => {
       const delta = createSimpleDelta(100);
 
       // Store first delta
-      await store.storeDelta({ baseKey, targetKey }, delta);
+      await storeDelta(store, { baseKey, targetKey }, delta);
 
       const stats1 = await store.getPackDirectory().getStats();
       expect(stats1.packCount).toBe(1);
 
       // Store same delta again - creates new pack (no dedup by default)
-      await store.storeDelta({ baseKey, targetKey }, delta);
+      await storeDelta(store, { baseKey, targetKey }, delta);
 
       const stats2 = await store.getPackDirectory().getStats();
       // Note: Current implementation does not deduplicate
@@ -342,17 +340,17 @@ describe("PackDeltaStore", () => {
     });
 
     it("isDelta returns true after duplicate storage", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
       const targetKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      await storeDelta(store, { baseKey, targetKey }, createSimpleDelta(100));
       expect(await store.isDelta(targetKey)).toBe(true);
 
       // Store same delta again
-      await store.storeDelta({ baseKey, targetKey }, createSimpleDelta(100));
+      await storeDelta(store, { baseKey, targetKey }, createSimpleDelta(100));
 
       // Should still report as delta
       expect(await store.isDelta(targetKey)).toBe(true);
@@ -361,7 +359,7 @@ describe("PackDeltaStore", () => {
     });
 
     it("handles multiple distinct deltas correctly", async () => {
-      const store = new PackDeltaStore({ files, basePath, flushThreshold: 1 });
+      const store = new PackDeltaStore({ files, basePath });
       await store.initialize();
 
       const baseKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -369,10 +367,12 @@ describe("PackDeltaStore", () => {
       const target2 = "2222222222222222222222222222222222222222";
       const target3 = "3333333333333333333333333333333333333333";
 
-      // Store distinct deltas
-      await store.storeDelta({ baseKey, targetKey: target1 }, createSimpleDelta(100));
-      await store.storeDelta({ baseKey, targetKey: target2 }, createSimpleDelta(100));
-      await store.storeDelta({ baseKey, targetKey: target3 }, createSimpleDelta(100));
+      // Store all distinct deltas in one batch
+      const update = store.startUpdate();
+      await update.storeDelta({ baseKey, targetKey: target1 }, createSimpleDelta(100));
+      await update.storeDelta({ baseKey, targetKey: target2 }, createSimpleDelta(100));
+      await update.storeDelta({ baseKey, targetKey: target3 }, createSimpleDelta(100));
+      await update.close();
 
       // All should be queryable
       expect(await store.isDelta(target1)).toBe(true);

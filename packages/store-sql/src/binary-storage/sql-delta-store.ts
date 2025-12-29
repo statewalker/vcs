@@ -5,9 +5,88 @@
  * Implements the new DeltaStore interface from binary-storage.
  */
 
-import type { DeltaChainDetails, DeltaInfo, DeltaStore, StoredDelta } from "@webrun-vcs/core";
+import type {
+  DeltaChainDetails,
+  DeltaInfo,
+  DeltaStore,
+  DeltaStoreUpdate,
+  ObjectTypeCode,
+  StoredDelta,
+} from "@webrun-vcs/core";
 import type { Delta } from "@webrun-vcs/utils";
 import type { DatabaseClient } from "../database-client.js";
+
+/**
+ * Pending delta for batch update
+ */
+interface PendingDelta {
+  info: DeltaInfo;
+  delta: Delta[];
+}
+
+/**
+ * Batched update handle for SQL delta storage
+ */
+class SqlDeltaStoreUpdate implements DeltaStoreUpdate {
+  private readonly pendingDeltas: PendingDelta[] = [];
+  private readonly store: SqlDeltaStore;
+  private closed = false;
+
+  constructor(store: SqlDeltaStore) {
+    this.store = store;
+  }
+
+  /**
+   * Store a full object - no-op for SQL delta store
+   */
+  storeObject(_key: string, _type: ObjectTypeCode, _content: Uint8Array): void {
+    if (this.closed) {
+      throw new Error("Update already closed");
+    }
+    // SQL delta store only handles deltas, not full objects
+  }
+
+  /**
+   * Store a delta relationship in this batch
+   */
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
+    if (this.closed) {
+      throw new Error("Update already closed");
+    }
+
+    this.pendingDeltas.push({ info, delta });
+
+    // Calculate approximate size
+    return delta.reduce((sum, d) => {
+      switch (d.type) {
+        case "copy":
+          return sum + 8;
+        case "insert":
+          return sum + 1 + d.data.length;
+        case "start":
+        case "finish":
+          return sum + 4;
+        default:
+          return sum;
+      }
+    }, 0);
+  }
+
+  /**
+   * Commit all pending deltas
+   */
+  async close(): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+
+    // Apply all pending deltas
+    for (const { info, delta } of this.pendingDeltas) {
+      await this.store.applyDelta(info, delta);
+    }
+  }
+}
 
 /**
  * SQL-based delta storage
@@ -116,9 +195,16 @@ export class SqlDeltaStore implements DeltaStore {
   }
 
   /**
-   * Store a delta relationship
+   * Start a batched update transaction
    */
-  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
+  startUpdate(): DeltaStoreUpdate {
+    return new SqlDeltaStoreUpdate(this);
+  }
+
+  /**
+   * Apply a delta (internal method used by update)
+   */
+  async applyDelta(info: DeltaInfo, delta: Delta[]): Promise<void> {
     await this.ensureInitialized();
 
     // Calculate ratio
@@ -143,8 +229,6 @@ export class SqlDeltaStore implements DeltaStore {
       `INSERT OR REPLACE INTO ${this.tableName} (target_key, base_key, delta_data, ratio) VALUES (?, ?, ?, ?)`,
       [info.targetKey, info.baseKey, deltaData, ratio],
     );
-
-    return deltaData.length;
   }
 
   /**
