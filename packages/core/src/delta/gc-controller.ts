@@ -297,10 +297,23 @@ export class GCController {
     const progressCallback = options?.progressCallback;
     const total = looseIds.length;
 
-    // Start batch to collect all new deltas into a single pack file
+    // Start batch to collect all objects into a single pack file
     this.storage.startBatch();
 
     try {
+      // Get batch update handle for direct object storage
+      const batchUpdate = this.storage.getBatchUpdate();
+      if (!batchUpdate) {
+        throw new Error("Failed to get batch update handle");
+      }
+
+      // Add ALL objects as full objects first - this ensures bases are in pack
+      // When deltified later, full objects are replaced with delta entries
+      // This allows PendingPack to use OFS_DELTA instead of REF_DELTA
+      for (const id of looseIds) {
+        await batchUpdate.storeObject(id, this.storage.load(id));
+      }
+
       // Deltify using sliding window
       for (let i = 0; i < looseIds.length; i++) {
         const id = looseIds[i];

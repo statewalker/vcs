@@ -105,11 +105,23 @@ export class PendingPack {
   /**
    * Add a delta object to the pending pack
    *
+   * If an entry already exists for this ID (e.g., a full object added earlier),
+   * it will be replaced with this delta entry. This supports the pattern of
+   * adding all objects as full objects first, then selectively deltifying some.
+   *
    * @param id Object ID of the deltified object
    * @param baseId Object ID of the base object
    * @param delta Delta data (Git binary delta format)
    */
   addDelta(id: ObjectId, baseId: ObjectId, delta: Uint8Array): void {
+    // Remove existing entry if present (full object being replaced by delta)
+    const existingIndex = this.entries.findIndex((e) => e.id === id);
+    if (existingIndex >= 0) {
+      const existing = this.entries[existingIndex];
+      this.totalSize -= existing.type === "full" ? existing.content.length : existing.delta.length;
+      this.entries.splice(existingIndex, 1);
+    }
+
     this.entries.push({
       type: "delta",
       id,

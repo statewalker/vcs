@@ -170,6 +170,18 @@ export class RawStoreWithDelta implements RawStore {
   }
 
   /**
+   * Get the current batch update handle
+   *
+   * Returns the DeltaStoreUpdate for direct object storage during batch operations.
+   * This allows adding full objects to the pack before deltification.
+   *
+   * @returns The batch update handle, or null if no batch is in progress
+   */
+  getBatchUpdate(): DeltaStoreUpdate | null {
+    return this.batchUpdate;
+  }
+
+  /**
    * Check if a batch is currently in progress
    */
   isBatchInProgress(): boolean {

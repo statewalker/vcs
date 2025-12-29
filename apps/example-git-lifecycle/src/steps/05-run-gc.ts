@@ -2,23 +2,19 @@
  * Step 05: Perform Garbage Collection
  *
  * Runs garbage collection to pack loose objects into pack files.
- * Uses VCS-native garbage collection - NO NATIVE GIT.
+ * Uses GCController for VCS-native garbage collection - NO NATIVE GIT.
  *
- * NOTE: This implementation uses repository.deltaStorage (RawStoreWithDelta)
- * to read objects and PendingPack to write pack files.
- *
- * GCController is designed for MAINTAINING repositories that already have
- * pack files (deltification, chain depth management, consolidation).
- * For INITIAL PACKING of loose objects, we use the lower-level APIs
- * to create a single pack file containing all objects.
+ * GCController handles:
+ * - Collecting all loose objects
+ * - Packing them into a single pack file
+ * - Deltifying objects for compression
+ * - Managing delta chains
  */
 
-import { type GitRepository, PackObjectType, PendingPack, parseHeader } from "@webrun-vcs/core";
+import { GCController, type GitRepository, type PackingProgress } from "@webrun-vcs/core";
 import {
   countLooseObjects,
-  createFilesApi,
   fs,
-  GIT_DIR,
   getPackFileStats,
   listPackFiles,
   log,
@@ -29,54 +25,6 @@ import {
   path,
   state,
 } from "../shared/index.js";
-
-/**
- * Collect all bytes from an async iterable
- */
-async function collectBytes(stream: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
-  let totalLength = 0;
-
-  for await (const chunk of stream) {
-    chunks.push(chunk);
-    totalLength += chunk.length;
-  }
-
-  if (chunks.length === 0) {
-    return new Uint8Array(0);
-  }
-
-  if (chunks.length === 1) {
-    return chunks[0];
-  }
-
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return result;
-}
-
-/**
- * Convert object type code to PackObjectType
- */
-function objectTypeToPackType(typeCode: number): PackObjectType {
-  switch (typeCode) {
-    case 1:
-      return PackObjectType.COMMIT;
-    case 2:
-      return PackObjectType.TREE;
-    case 3:
-      return PackObjectType.BLOB;
-    case 4:
-      return PackObjectType.TAG;
-    default:
-      throw new Error(`Unknown object type code: ${typeCode}`);
-  }
-}
 
 /**
  * Delete loose object from filesystem
@@ -104,8 +52,41 @@ async function deleteLooseObject(objectId: string): Promise<void> {
   }
 }
 
+/**
+ * Collect all loose object IDs from filesystem
+ */
+async function collectLooseObjectIds(): Promise<string[]> {
+  const ids: string[] = [];
+
+  try {
+    const prefixes = await fs.readdir(OBJECTS_DIR);
+    for (const prefix of prefixes) {
+      // Skip pack directory and info directory
+      if (prefix === "pack" || prefix === "info") continue;
+      // Valid prefix is 2 hex characters
+      if (prefix.length !== 2) continue;
+
+      const prefixPath = path.join(OBJECTS_DIR, prefix);
+      const stat = await fs.stat(prefixPath);
+      if (!stat.isDirectory()) continue;
+
+      const suffixes = await fs.readdir(prefixPath);
+      for (const suffix of suffixes) {
+        // Valid object ID suffix is 38 hex characters
+        if (suffix.length === 38) {
+          ids.push(prefix + suffix);
+        }
+      }
+    }
+  } catch {
+    // Ignore errors - directory may not exist
+  }
+
+  return ids;
+}
+
 export async function run(): Promise<void> {
-  logSection("Step 05: Perform Garbage Collection (VCS-native)");
+  logSection("Step 05: Perform Garbage Collection (GCController)");
 
   const repository = state.repository as GitRepository | undefined;
   if (!repository) {
@@ -125,75 +106,52 @@ export async function run(): Promise<void> {
     return;
   }
 
-  // Access the delta storage from the repository
-  // RawStoreWithDelta provides access to both loose objects and pack files
-  const deltaStorage = repository.deltaStorage;
+  // Collect loose object IDs before GC (for cleanup)
+  const looseObjectIds = await collectLooseObjectIds();
 
-  // Collect all objects from the storage
-  log("\nCollecting objects from deltaStorage...");
-  const objectIds: string[] = [];
-  for await (const id of deltaStorage.keys()) {
-    objectIds.push(id);
-  }
-  log(`  Found ${objectIds.length} objects`);
-
-  // Create a pending pack to collect all objects into a single pack file
-  const pendingPack = new PendingPack({
-    maxObjects: objectIds.length + 1, // Don't auto-flush
-    maxBytes: Number.MAX_SAFE_INTEGER,
+  // Create GC controller with the delta storage
+  const gc = new GCController(repository.deltaStorage, {
+    looseObjectThreshold: 1, // Always run
+    minInterval: 0, // No minimum interval
   });
 
-  // Process each object using deltaStorage.load()
-  log("Reading and packing objects...");
-  let processed = 0;
-  for (const objectId of objectIds) {
-    try {
-      // Load object content via deltaStorage (handles both loose and packed objects)
-      const rawContent = await collectBytes(deltaStorage.load(objectId));
-
-      // Parse header to get type and content offset
-      const header = parseHeader(rawContent);
-      const content = rawContent.subarray(header.contentOffset);
-
-      // Convert to pack object type
-      const packType = objectTypeToPackType(header.typeCode);
-
-      // Add to pending pack (content WITHOUT Git header - pack uses its own format)
-      pendingPack.addObject(objectId, packType, content);
-
-      processed++;
-      if (processed % 10 === 0 || processed === objectIds.length) {
-        log(`  Processed ${processed}/${objectIds.length} objects`);
+  // Progress callback for logging
+  const progressCallback = (progress: PackingProgress): void => {
+    if (progress.phase === "deltifying") {
+      if (
+        progress.processedObjects % 10 === 0 ||
+        progress.processedObjects === progress.totalObjects
+      ) {
+        log(`  Processing ${progress.processedObjects}/${progress.totalObjects} objects`);
       }
-    } catch (error) {
-      log(`  Warning: Failed to process object ${objectId}: ${(error as Error).message}`);
+    } else if (progress.phase === "complete") {
+      log(`  Deltified ${progress.deltifiedObjects} objects`);
+      if (progress.bytesSaved > 0) {
+        log(`  Space saved: ${progress.bytesSaved} bytes`);
+      }
     }
-  }
+  };
 
-  if (pendingPack.isEmpty()) {
-    log("\nNo objects to pack.");
-    return;
-  }
+  // Run GC with progress reporting
+  // Note: Deltification disabled (windowSize: 0) due to pack file compatibility issues
+  // with native git. Full objects are packed correctly; deltification needs investigation.
+  // TODO: Debug delta serialization to enable deltification
+  log("\nRunning GC...");
+  const result = await gc.runGC({
+    progressCallback,
+    pruneLoose: false, // We'll delete loose objects ourselves for cleaner control
+    windowSize: 0, // Disable deltification - see comment above
+  });
 
-  // Flush to create a single pack file with all objects
-  log("\nCreating pack file...");
-  const flushResult = await pendingPack.flush();
-
-  // Write pack file and index to filesystem
-  const files = createFilesApi();
-  const packPath = `${GIT_DIR}/objects/pack/${flushResult.packName}.pack`;
-  const indexPath = `${GIT_DIR}/objects/pack/${flushResult.packName}.idx`;
-
-  await files.write(packPath, [flushResult.packData]);
-  await files.write(indexPath, [flushResult.indexData]);
-
-  log(`  Created ${flushResult.packName}.pack (${flushResult.packData.length} bytes)`);
-  log(`  Created ${flushResult.packName}.idx (${flushResult.indexData.length} bytes)`);
+  log(`\nGC completed in ${result.duration}ms:`);
+  logInfo("  Objects processed", result.objectsProcessed);
+  logInfo("  Deltas created", result.deltasCreated);
 
   // Delete loose objects from filesystem
+  // (GCController writes to pack, we delete the originals)
   log("\nRemoving loose objects from filesystem...");
   let deleted = 0;
-  for (const objectId of objectIds) {
+  for (const objectId of looseObjectIds) {
     await deleteLooseObject(objectId);
     deleted++;
   }
@@ -222,6 +180,6 @@ export async function run(): Promise<void> {
   }
 
   if (packsAfter.length > 0) {
-    logSuccess("Objects successfully packed using VCS-native GC!");
+    logSuccess("Objects successfully packed using GCController!");
   }
 }

@@ -14,8 +14,21 @@ import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 import type { DeltaInfo } from "../../src/delta/delta-store.js";
 import { GCController } from "../../src/delta/gc-controller.js";
 import { RawStoreWithDelta } from "../../src/delta/raw-store-with-delta.js";
+import { encodeObjectHeader } from "../../src/objects/object-header.js";
 import { PackConsolidator } from "../../src/pack/pack-consolidator.js";
 import { PackDeltaStore } from "../../src/pack/pack-delta-store.js";
+
+/**
+ * Helper to create blob content with Git header
+ */
+function createBlobWithHeader(content: string): Uint8Array {
+  const contentBytes = new TextEncoder().encode(content);
+  const header = encodeObjectHeader("blob", contentBytes.length);
+  const result = new Uint8Array(header.length + contentBytes.length);
+  result.set(header, 0);
+  result.set(contentBytes, header.length);
+  return result;
+}
 
 // Set up Node.js compression before tests
 beforeAll(() => {
@@ -145,12 +158,14 @@ describe("PackDeltaStore Integration", () => {
       });
 
       // Create several objects to trigger multiple packs
+      // Objects must include Git headers for GCController to process them
       for (let i = 0; i < 5; i++) {
         const id = `${i}`.repeat(40);
+        const blobWithHeader = createBlobWithHeader(`Content ${i}`);
         await objects.store(
           id,
           (async function* () {
-            yield new TextEncoder().encode(`Content ${i}`);
+            yield blobWithHeader;
           })(),
         );
       }
