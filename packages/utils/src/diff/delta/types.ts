@@ -5,6 +5,8 @@ export type DeltaRange =
 export type Delta =
   | {
       type: "start";
+      /** Length of the source/base object (required for Git delta serialization) */
+      sourceLen?: number;
       targetLen: number;
     }
   | {

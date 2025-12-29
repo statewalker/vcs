@@ -133,14 +133,11 @@ export async function run(): Promise<void> {
   };
 
   // Run GC with progress reporting
-  // Note: Deltification disabled (windowSize: 0) due to pack file compatibility issues
-  // with native git. Full objects are packed correctly; deltification needs investigation.
-  // TODO: Debug delta serialization to enable deltification
   log("\nRunning GC...");
   const result = await gc.runGC({
     progressCallback,
     pruneLoose: false, // We'll delete loose objects ourselves for cleaner control
-    windowSize: 0, // Disable deltification - see comment above
+    windowSize: 10, // Enable deltification with sliding window
   });
 
   log(`\nGC completed in ${result.duration}ms:`);
