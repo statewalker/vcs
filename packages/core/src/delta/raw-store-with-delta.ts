@@ -3,7 +3,7 @@ import { applyDelta, createDelta, createDeltaRanges, slice } from "@webrun-vcs/u
 import type { RawStore } from "../binary/raw-store.js";
 import { encodeObjectHeader } from "../objects/object-header.js";
 import { EMPTY_TREE_ID } from "../trees/tree-format.js";
-import type { DeltaChainDetails, DeltaStore } from "./delta-store.js";
+import type { DeltaChainDetails, DeltaStore, DeltaStoreUpdate } from "./delta-store.js";
 
 /**
  * Empty tree content (Git header with zero content)
@@ -81,6 +81,8 @@ export class RawStoreWithDelta implements RawStore {
   minSize?: number;
   /** Maximum delta chain depth */
   private readonly maxChainDepth: number;
+  /** Active batch update (for batching multiple deltify operations) */
+  private batchUpdate: DeltaStoreUpdate | null = null;
 
   constructor({
     objects,
@@ -108,6 +110,70 @@ export class RawStoreWithDelta implements RawStore {
     if (!this.computeDelta) {
       throw new Error("No compute strategy configured");
     }
+  }
+
+  /**
+   * Start a batch operation for deltification
+   *
+   * When a batch is active, all deltify() operations will be collected
+   * into a single pack file. Call endBatch() to commit all deltas.
+   *
+   * This enables GCController to create proper pack files with valid
+   * cross-references between objects in the same pack.
+   *
+   * @throws Error if a batch is already in progress
+   *
+   * @example
+   * ```typescript
+   * store.startBatch();
+   * try {
+   *   await store.deltify(id1, candidates);
+   *   await store.deltify(id2, candidates);
+   *   await store.endBatch(); // Creates single pack with all deltas
+   * } catch (e) {
+   *   store.cancelBatch();
+   *   throw e;
+   * }
+   * ```
+   */
+  startBatch(): void {
+    if (this.batchUpdate) {
+      throw new Error("Batch already in progress");
+    }
+    this.batchUpdate = this.deltas.startUpdate();
+  }
+
+  /**
+   * Commit all pending deltas in the current batch
+   *
+   * Creates a single pack file containing all deltas added since startBatch().
+   * This ensures proper cross-references between deltas in the same pack.
+   *
+   * @throws Error if no batch is in progress
+   */
+  async endBatch(): Promise<void> {
+    if (!this.batchUpdate) {
+      throw new Error("No batch in progress");
+    }
+    const update = this.batchUpdate;
+    this.batchUpdate = null;
+    await update.close();
+  }
+
+  /**
+   * Cancel the current batch without committing
+   *
+   * Discards all pending deltas. Use this in error handling.
+   */
+  cancelBatch(): void {
+    this.batchUpdate = null;
+  }
+
+  /**
+   * Check if a batch is currently in progress
+   */
+  isBatchInProgress(): boolean {
+    return this.batchUpdate !== null;
   }
 
   async *keys(): AsyncGenerator<string> {
@@ -365,13 +431,28 @@ export class RawStoreWithDelta implements RawStore {
       return false;
     }
 
-    await this.deltas.storeDelta(
-      {
-        targetKey: targetId,
-        baseKey: bestResult.baseId,
-      },
-      bestResult.delta,
-    );
+    // Store delta - use batch update if active, otherwise create individual update
+    if (this.batchUpdate) {
+      // Batch mode: add to existing update (will be committed with endBatch())
+      await this.batchUpdate.storeDelta(
+        {
+          targetKey: targetId,
+          baseKey: bestResult.baseId,
+        },
+        bestResult.delta,
+      );
+    } else {
+      // Individual mode: create and close update immediately
+      const update = this.deltas.startUpdate();
+      await update.storeDelta(
+        {
+          targetKey: targetId,
+          baseKey: bestResult.baseId,
+        },
+        bestResult.delta,
+      );
+      await update.close();
+    }
 
     return true;
   }
