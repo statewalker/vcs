@@ -1,7 +1,9 @@
 import type { Delta } from "@webrun-vcs/utils";
 import { applyDelta, createDelta, createDeltaRanges, slice } from "@webrun-vcs/utils";
+import { collect } from "@webrun-vcs/utils/streams";
 import type { RawStore } from "../binary/raw-store.js";
 import { encodeObjectHeader } from "../objects/object-header.js";
+import type { ObjectTypeString } from "../objects/object-types.js";
 import { EMPTY_TREE_ID } from "../trees/tree-format.js";
 import type { DeltaChainDetails, DeltaStore, DeltaStoreUpdate } from "./delta-store.js";
 
@@ -514,8 +516,19 @@ export class RawStoreWithDelta implements RawStore {
     // Resolve base content recursively
     const baseContent = await collectBytes(this.resolveDeltaChain(storedDelta.baseKey));
 
-    // Apply delta to reconstruct content (applyDelta returns a generator)
-    yield* applyDelta(baseContent, storedDelta.delta);
+    // Extract type from base content header (deltas are between objects of same type)
+    // and strip header before applying delta
+    const { typeStr, content: headerlessBase } = extractGitHeaderInfo(baseContent);
+
+    // Apply delta to reconstruct headerless content (applyDelta returns sync generator)
+    const deltaResult = collectSyncGenerator(applyDelta(headerlessBase, storedDelta.delta));
+
+    // Reconstruct Git header with same type and new size
+    // This ensures load() returns content WITH headers as expected
+    if (typeStr) {
+      yield encodeObjectHeader(typeStr as ObjectTypeString, deltaResult.length);
+    }
+    yield deltaResult;
   }
 }
 
@@ -525,6 +538,9 @@ export class RawStoreWithDelta implements RawStore {
  * Uses rolling hash algorithm to find copy regions between base and target.
  * Produces format-agnostic Delta[] instructions that can be serialized
  * to Git format, stored in SQL, etc.
+ *
+ * Git headers ("type size\0") are automatically stripped before delta computation
+ * to ensure deltas work correctly with pack files which store headerless content.
  */
 export async function defaultComputeDelta(
   base: RandomAccessDataSource,
@@ -534,8 +550,10 @@ export async function defaultComputeDelta(
   const minSize = options?.minSize ?? DEFAULT_MIN_SIZE;
   const maxRatio = options?.maxRatio ?? DEFAULT_MAX_RATIO;
 
-  const baseBuffer = await collectBytes(base());
-  const targetBuffer = await collectBytes(target());
+  // Strip Git headers before delta computation
+  // Pack files store content WITHOUT headers, so deltas must be computed on headerless content
+  const baseBuffer = await stripGitHeaderAndCollect(base());
+  const targetBuffer = await stripGitHeaderAndCollect(target());
 
   // Skip small objects
   if (targetBuffer.length < minSize) {
@@ -560,6 +578,67 @@ export async function defaultComputeDelta(
     delta,
     ratio,
   };
+}
+
+/**
+ * Extracted Git header information
+ */
+interface GitHeaderInfo {
+  /** Object type string (blob, tree, commit, tag) */
+  typeStr: string;
+  /** Content without Git header */
+  content: Uint8Array;
+}
+
+/**
+ * Extract Git header info and strip header from buffer
+ *
+ * Git objects have format "type size\0content". This function extracts
+ * the type string and returns content without the header.
+ *
+ * If no Git header is found (no null byte within first 32 bytes),
+ * returns the content as-is with empty type string.
+ *
+ * @returns Object with typeStr and headerless content
+ */
+function extractGitHeaderInfo(buffer: Uint8Array): GitHeaderInfo {
+  // Look for null byte in first 32 bytes (max header length)
+  const maxHeaderLen = Math.min(32, buffer.length);
+  for (let i = 0; i < maxHeaderLen; i++) {
+    if (buffer[i] === 0) {
+      // Found null byte - parse header "type size"
+      const headerStr = new TextDecoder().decode(buffer.subarray(0, i));
+      const spaceIdx = headerStr.indexOf(" ");
+      const typeStr = spaceIdx > 0 ? headerStr.substring(0, spaceIdx) : headerStr;
+      return {
+        typeStr,
+        content: buffer.subarray(i + 1),
+      };
+    }
+  }
+  // No header found - return as-is
+  return { typeStr: "", content: buffer };
+}
+
+/**
+ * Strip Git header from buffer
+ *
+ * Git objects have format "type size\0content". This function removes
+ * the header and returns only the content bytes.
+ *
+ * If no Git header is found (no null byte within first 32 bytes),
+ * returns the content as-is (for raw content without headers).
+ */
+function stripGitHeader(buffer: Uint8Array): Uint8Array {
+  return extractGitHeaderInfo(buffer).content;
+}
+
+/**
+ * Collect stream and strip Git header
+ */
+async function stripGitHeaderAndCollect(stream: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
+  const buffer = await collect(stream);
+  return stripGitHeader(buffer);
 }
 
 /**
@@ -592,6 +671,36 @@ export function estimateDeltaSize(delta: Iterable<Delta>): number {
     }
   }
   return size;
+}
+
+/**
+ * Collect sync generator into single Uint8Array
+ */
+function collectSyncGenerator(gen: Generator<Uint8Array>): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let totalLength = 0;
+
+  for (const chunk of gen) {
+    chunks.push(chunk);
+    totalLength += chunk.length;
+  }
+
+  if (chunks.length === 0) {
+    return new Uint8Array(0);
+  }
+
+  if (chunks.length === 1) {
+    return chunks[0];
+  }
+
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return result;
 }
 
 /**

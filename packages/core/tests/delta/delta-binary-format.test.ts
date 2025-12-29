@@ -156,7 +156,7 @@ describe("delta-binary-format", () => {
       const parsed = parseBinaryDelta(binary);
 
       expect(parsed).toHaveLength(3);
-      expect(parsed[0]).toEqual({ type: "start", targetLen: 50 });
+      expect(parsed[0]).toEqual({ type: "start", sourceLen: 60, targetLen: 50 });
       expect(parsed[1]).toEqual({ type: "copy", start: 10, len: 50 });
       expect(parsed[2]).toEqual({ type: "finish", checksum: 0 });
     });
@@ -173,7 +173,7 @@ describe("delta-binary-format", () => {
       const parsed = parseBinaryDelta(binary);
 
       expect(parsed).toHaveLength(3);
-      expect(parsed[0]).toEqual({ type: "start", targetLen: 9 });
+      expect(parsed[0]).toEqual({ type: "start", sourceLen: 0, targetLen: 9 });
       expect(parsed[1].type).toBe("insert");
       if (parsed[1].type === "insert") {
         expect(new TextDecoder().decode(parsed[1].data)).toBe("test data");
@@ -213,7 +213,7 @@ describe("delta-binary-format", () => {
       const binary = serializeDelta(original);
       const parsed = parseBinaryDelta(binary);
 
-      expect(parsed[0]).toEqual({ type: "start", targetLen: 100 });
+      expect(parsed[0]).toEqual({ type: "start", sourceLen: 150, targetLen: 100 });
       expect(parsed[1]).toEqual({ type: "copy", start: 50, len: 100 });
       expect(parsed[2]).toEqual({ type: "finish", checksum: 0 });
     });

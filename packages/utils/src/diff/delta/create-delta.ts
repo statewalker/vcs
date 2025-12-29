@@ -18,6 +18,7 @@ export function* createDelta(
   const checksumObj = new FossilChecksum();
   yield {
     type: "start",
+    sourceLen: source.length,
     targetLen: target.length,
   };
   for (const r of ranges) {

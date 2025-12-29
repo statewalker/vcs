@@ -15,30 +15,48 @@ export async function readHeader(
   maxLength = -1,
 ): Promise<[header: Uint8Array, rest: AsyncGenerator<Uint8Array>]> {
   let header: Uint8Array | null = null;
-  let iterator: AsyncGenerator<Uint8Array> = (async function* () {})();
   let len = 0;
-  const getSplitPos =
-    maxLength > 0
-      ? (block: Uint8Array) => {
-          const endPos = getHeaderEnd(block);
-          if (endPos < 0 || endPos > block.length) {
-            len += block.length;
-            if (len > maxLength) {
-              throw new Error(`Header exceeds maximum length of ${maxLength} bytes`);
-            }
-          }
-          return endPos;
-        }
-      : getHeaderEnd;
+
+  // Track if we've found the header split point
+  let foundHeader = false;
+
+  // Wrap the split function to only split once (on the header delimiter)
+  const getSplitPos = (block: Uint8Array): number => {
+    // Once we've found the header, don't split anymore
+    if (foundHeader) {
+      return -1;
+    }
+
+    const endPos = getHeaderEnd(block);
+    if (endPos >= 0 && endPos <= block.length) {
+      foundHeader = true;
+      return endPos;
+    }
+
+    // Check max length
+    if (maxLength > 0) {
+      len += block.length;
+      if (len > maxLength) {
+        throw new Error(`Header exceeds maximum length of ${maxLength} bytes`);
+      }
+    }
+
+    return -1;
+  };
+
+  let restGenerator: AsyncGenerator<Uint8Array> = (async function* () {})();
+
   for await (const it of splitStream(input, getSplitPos)) {
     if (header === null) {
       header = await collect(it);
     } else {
-      iterator = it;
+      // This generator contains ALL remaining content (no more splits)
+      restGenerator = it;
       break;
     }
   }
-  return [header || new Uint8Array(0), iterator];
+
+  return [header || new Uint8Array(0), restGenerator];
 }
 
 /**

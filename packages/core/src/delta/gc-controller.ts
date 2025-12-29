@@ -330,6 +330,11 @@ export class GCController {
           });
         }
 
+        // Skip if windowSize is 0 (deltification disabled)
+        if (windowSize === 0) {
+          continue;
+        }
+
         // Get candidates from window
         const windowStart = Math.max(0, i - windowSize);
         const candidates = looseIds.slice(windowStart, i);

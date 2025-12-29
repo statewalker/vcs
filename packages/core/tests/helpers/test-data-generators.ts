@@ -134,7 +134,12 @@ export function createTestDelta(
   copyRanges: Array<{ start: number; len: number }> = [],
   insertData: Uint8Array[] = [],
 ): Delta[] {
-  const deltas: Delta[] = [{ type: "start", targetLen: targetSize }];
+  // Compute sourceLen from copy ranges (same logic as serializeDeltaToGit fallback)
+  let sourceLen = 0;
+  for (const range of copyRanges) {
+    sourceLen = Math.max(sourceLen, range.start + range.len);
+  }
+  const deltas: Delta[] = [{ type: "start", sourceLen, targetLen: targetSize }];
 
   for (const range of copyRanges) {
     deltas.push({ type: "copy", start: range.start, len: range.len });

@@ -461,18 +461,30 @@ export function getGitDeltaResultSize(delta: Uint8Array): number {
 /**
  * Serialize Delta[] instructions to Git binary delta format
  *
- * This is a convenience function that extracts baseSize from copy instructions
- * and calls deltaToGitFormat.
+ * Uses sourceLen from the start instruction for the base size header.
+ * Falls back to computing from copy instructions if sourceLen is not present
+ * (for backwards compatibility with older delta formats).
  *
  * @param delta Delta instructions (must have start, copy/insert, and finish)
  * @returns Git binary delta
  */
 export function serializeDeltaToGit(delta: Delta[]): Uint8Array {
-  // Find base size from copy instructions (max offset + length)
-  let baseSize = 0;
+  // First try to get baseSize from start instruction's sourceLen
+  let baseSize: number | undefined;
   for (const d of delta) {
-    if (d.type === "copy") {
-      baseSize = Math.max(baseSize, d.start + d.len);
+    if (d.type === "start" && d.sourceLen !== undefined) {
+      baseSize = d.sourceLen;
+      break;
+    }
+  }
+
+  // Fallback: compute from copy instructions (legacy behavior)
+  if (baseSize === undefined) {
+    baseSize = 0;
+    for (const d of delta) {
+      if (d.type === "copy") {
+        baseSize = Math.max(baseSize, d.start + d.len);
+      }
     }
   }
 
@@ -491,8 +503,8 @@ export function deserializeDeltaFromGit(binary: Uint8Array): Delta[] {
   const parsed = parseGitDelta(binary);
   const result: Delta[] = [];
 
-  // Start instruction with target size
-  result.push({ type: "start", targetLen: parsed.resultSize });
+  // Start instruction with source and target sizes
+  result.push({ type: "start", sourceLen: parsed.baseSize, targetLen: parsed.resultSize });
 
   // Convert each Git instruction to Delta
   for (const instr of parsed.instructions) {

@@ -148,7 +148,7 @@ describe("randomTreeEntries", () => {
 describe("createTestDelta", () => {
   it("should create delta with start and finish", () => {
     const delta = createTestDelta(100);
-    expect(delta[0]).toEqual({ type: "start", targetLen: 100 });
+    expect(delta[0]).toEqual({ type: "start", sourceLen: 0, targetLen: 100 });
     expect(delta[delta.length - 1]).toEqual({ type: "finish", checksum: 0 });
   });
 
