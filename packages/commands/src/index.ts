@@ -1,7 +1,5 @@
 // Main entry point
 
-// Repository creation (re-exported from storage-git for convenience)
-export { createGitRepository, createGitStorage, GitRepository } from "@webrun-vcs/storage-git";
 // Commands
 export * from "./commands/index.js";
 // Errors

@@ -52,6 +52,34 @@ Repository (unified entry point)
 
 Lower layers handle raw storage and compression, while higher layers provide semantic operations like commit ancestry traversal or reference resolution.
 
+### Repository vs WorkingCopy
+
+The package separates shared history storage from local checkout state:
+
+| Concept | Purpose | Examples |
+|---------|---------|----------|
+| **Repository** | Immutable shared history | Commits, trees, blobs, tags, branches |
+| **WorkingCopy** | Local checkout state | HEAD, staging area, merge state, stash |
+
+Multiple WorkingCopies can share a single Repository, similar to `git worktree`. This separation enables:
+
+- Clean architectural boundaries
+- Multiple parallel checkouts
+- Clear ownership of state
+
+```
+WorkingCopy (local checkout state)
+├── HEAD (current branch or detached commit)
+├── staging (index)
+├── worktree (filesystem)
+├── stash
+├── config (per-worktree settings)
+└── Repository (shared history)
+        ├── objects (commits, trees, blobs, tags)
+        ├── refs (branches, tags, remotes)
+        └── config (shared settings)
+```
+
 ## Public API
 
 ### Main Export
@@ -110,7 +138,8 @@ import {
 
 | Interface | Purpose |
 |-----------|---------|
-| `Repository` | Unified entry point combining all stores |
+| `Repository` | Shared history storage (objects + refs) |
+| `WorkingCopy` | Local checkout state (HEAD, staging, stash) |
 | `GitObjectStore` | Store/load any Git object by type |
 | `BlobStore` | Binary file content storage |
 | `TreeStore` | Directory structure snapshots |
@@ -118,6 +147,7 @@ import {
 | `TagStore` | Annotated tag objects |
 | `RefStore` | Branches, tags, HEAD management |
 | `StagingStore` | Index with conflict support |
+| `StashStore` | Stash operations (push, pop, list) |
 | `StatusCalculator` | Three-way diff (HEAD/index/worktree) |
 | `WorkingTreeIterator` | Filesystem traversal |
 
@@ -162,6 +192,53 @@ async function createCommit(repo: Repository, message: string): Promise<ObjectId
   await repo.refs.set("refs/heads/main", commitId);
 
   return commitId;
+}
+```
+
+### Working with WorkingCopy
+
+The `WorkingCopy` interface provides access to local checkout state:
+
+```typescript
+import type { WorkingCopy } from "@webrun-vcs/core";
+
+async function checkWorkingCopyStatus(wc: WorkingCopy): Promise<void> {
+  // Get current branch
+  const branch = await wc.getCurrentBranch();
+  console.log(`On branch: ${branch ?? "detached HEAD"}`);
+
+  // Check for in-progress operations
+  if (await wc.hasOperationInProgress()) {
+    const mergeState = await wc.getMergeState();
+    if (mergeState) {
+      console.log(`Merge in progress: ${mergeState.mergeHead}`);
+    }
+
+    const rebaseState = await wc.getRebaseState();
+    if (rebaseState) {
+      console.log(`Rebase: step ${rebaseState.current}/${rebaseState.total}`);
+    }
+  }
+
+  // Get status
+  const status = await wc.getStatus();
+  if (!status.isClean) {
+    console.log("Working tree has uncommitted changes");
+  }
+}
+
+// Using stash
+async function stashChanges(wc: WorkingCopy, message: string): Promise<void> {
+  const stashId = await wc.stash.push(message);
+  console.log(`Created stash: ${stashId}`);
+
+  // List stashes
+  for await (const entry of wc.stash.list()) {
+    console.log(`stash@{${entry.index}}: ${entry.message}`);
+  }
+
+  // Pop most recent
+  await wc.stash.pop();
 }
 ```
 
@@ -328,6 +405,104 @@ async function showStatus(calculator: StatusCalculator): Promise<void> {
 }
 ```
 
+### Repository State Detection
+
+The `WorkingCopy` interface provides state detection for in-progress operations. This helps UIs show appropriate status messages and prevent conflicting operations.
+
+```typescript
+import { RepositoryState } from "@webrun-vcs/core";
+import type { WorkingCopy } from "@webrun-vcs/core";
+
+async function checkRepositoryState(wc: WorkingCopy): Promise<void> {
+  const state = await wc.getState();
+  const capabilities = await wc.getStateCapabilities();
+
+  // Show current operation status
+  switch (state) {
+    case RepositoryState.SAFE:
+      console.log("Repository is ready for any operation");
+      break;
+    case RepositoryState.MERGING:
+      console.log("Merge in progress - resolve conflicts then commit");
+      break;
+    case RepositoryState.REBASING:
+    case RepositoryState.REBASING_MERGE:
+    case RepositoryState.REBASING_INTERACTIVE:
+      console.log("Rebase in progress - continue, skip, or abort");
+      break;
+    case RepositoryState.CHERRY_PICKING:
+      console.log("Cherry-pick in progress - resolve conflicts");
+      break;
+    case RepositoryState.REVERTING:
+      console.log("Revert in progress - resolve conflicts");
+      break;
+    case RepositoryState.BISECTING:
+      console.log("Bisect in progress");
+      break;
+  }
+
+  // Check what operations are allowed
+  if (!capabilities.canCheckout) {
+    console.log("Cannot checkout - finish current operation first");
+  }
+  if (!capabilities.canCommit) {
+    console.log("Cannot commit in current state");
+  }
+}
+```
+
+Available states mirror Git's internal states:
+
+| State | Description |
+|-------|-------------|
+| `BARE` | Bare repository, no working tree |
+| `SAFE` | Normal state, all operations allowed |
+| `MERGING` | Merge with unresolved conflicts |
+| `MERGING_RESOLVED` | Merge resolved, ready to commit |
+| `CHERRY_PICKING` | Cherry-pick with conflicts |
+| `CHERRY_PICKING_RESOLVED` | Cherry-pick resolved |
+| `REVERTING` | Revert with conflicts |
+| `REVERTING_RESOLVED` | Revert resolved |
+| `REBASING` / `REBASING_MERGE` / `REBASING_INTERACTIVE` | Rebase in progress |
+| `APPLY` | Git am (mailbox apply) in progress |
+| `BISECTING` | Bisect in progress |
+
+### Stash Operations
+
+```typescript
+import type { WorkingCopy } from "@webrun-vcs/core";
+
+async function useStash(wc: WorkingCopy): Promise<void> {
+  // Save current work with a message
+  const stashId = await wc.stash.push("WIP: fixing authentication");
+
+  // Include untracked files (like git stash -u)
+  await wc.stash.push({ message: "WIP with new files", includeUntracked: true });
+
+  // List all stashes
+  for await (const entry of wc.stash.list()) {
+    console.log(`stash@{${entry.index}}: ${entry.message}`);
+  }
+
+  // Apply most recent stash
+  await wc.stash.apply(0);
+
+  // Pop (apply and remove)
+  await wc.stash.pop();
+
+  // Drop specific stash
+  await wc.stash.drop(1);
+
+  // Clear all stashes
+  await wc.stash.clear();
+}
+```
+
+Stash commits follow Git's structure with 2-3 parents:
+- Parent 1: HEAD at time of stash
+- Parent 2: Index state commit
+- Parent 3 (optional): Untracked files commit (when `includeUntracked: true`)
+
 ## File Modes
 
 The package exports standard Git file mode constants:
@@ -357,7 +532,7 @@ interface BlobStore {
 
 ### Interface/Implementation Separation
 
-The package defines interfaces but not concrete implementations. Storage backends (like `@webrun-vcs/storage-git` or `@webrun-vcs/store-sql`) provide implementations tailored to their storage mechanisms.
+The package defines interfaces with concrete implementations for Git-compatible file storage. Additional storage backends (like `@webrun-vcs/store-sql` or `@webrun-vcs/store-mem`) provide alternative implementations for SQL databases or in-memory testing.
 
 ### JGit Compatibility
 
@@ -374,11 +549,12 @@ Type definitions and constants align with Eclipse JGit for proven Git compatibil
 
 | Package | Description |
 |---------|-------------|
-| `@webrun-vcs/storage-git` | Git-compatible filesystem storage |
-| `@webrun-vcs/store-sql` | SQLite-based storage |
+| `@webrun-vcs/store-sql` | SQLite-based storage backend |
 | `@webrun-vcs/store-mem` | In-memory storage for testing |
+| `@webrun-vcs/store-kv` | Key-value storage abstraction |
 | `@webrun-vcs/transport` | Git protocol and HTTP transport |
 | `@webrun-vcs/commands` | High-level Git commands |
+| `@webrun-vcs/testing` | Test utilities and fixtures |
 
 ## License
 

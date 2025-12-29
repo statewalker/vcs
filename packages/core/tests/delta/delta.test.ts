@@ -2,11 +2,20 @@
  * Tests for delta compression module
  */
 
+import type { Delta } from "@webrun-vcs/utils";
 import { describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
+import type { DeltaInfo } from "../../src/delta/delta-store.js";
 import { estimateDeltaSize, RawStoreWithDelta } from "../../src/delta/raw-store-with-delta.js";
 import { collectBytes } from "../helpers/assertion-helpers.js";
 import { MockDeltaStore } from "../mocks/mock-delta-store.js";
+
+// Helper to store delta using update pattern
+async function storeDelta(store: MockDeltaStore, info: DeltaInfo, delta: Delta[]): Promise<void> {
+  const update = store.startUpdate();
+  await update.storeDelta(info, delta);
+  await update.close();
+}
 
 describe("estimateDeltaSize", () => {
   it("estimates size for start instruction", () => {
@@ -98,7 +107,7 @@ describe("RawStoreWithDelta", () => {
     await store.store("raw2", [new TextEncoder().encode("content2")]);
 
     // Store delta
-    await deltaStore.storeDelta({ baseKey: "raw1", targetKey: "delta1" }, [
+    await storeDelta(deltaStore, { baseKey: "raw1", targetKey: "delta1" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
@@ -141,7 +150,7 @@ describe("RawStoreWithDelta", () => {
     await store.store("base", [new TextEncoder().encode("base content")]);
 
     // Store delta
-    await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta1" }, [
+    await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta1" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
@@ -164,7 +173,7 @@ describe("RawStoreWithDelta", () => {
     await store.store("base", [new TextEncoder().encode("base")]);
 
     // Store delta
-    await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta1" }, [
+    await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta1" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
@@ -185,15 +194,15 @@ describe("RawStoreWithDelta", () => {
     await store.store("base", [new TextEncoder().encode("base content")]);
 
     // Create chain: delta3 -> delta2 -> delta1 -> base
-    await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta1" }, [
+    await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta1" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
-    await deltaStore.storeDelta({ baseKey: "delta1", targetKey: "delta2" }, [
+    await storeDelta(deltaStore, { baseKey: "delta1", targetKey: "delta2" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);
-    await deltaStore.storeDelta({ baseKey: "delta2", targetKey: "delta3" }, [
+    await storeDelta(deltaStore, { baseKey: "delta2", targetKey: "delta3" }, [
       { type: "start", targetLen: 10 },
       { type: "finish", checksum: 0 },
     ]);

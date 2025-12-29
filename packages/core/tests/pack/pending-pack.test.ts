@@ -307,6 +307,58 @@ describe("PendingPack", () => {
     });
   });
 
+  describe("delta inspection", () => {
+    it("isDelta returns true for pending delta", () => {
+      const pending = new PendingPack();
+      const baseId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const targetId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+      pending.addDelta(targetId, baseId, new Uint8Array([5, 5, 0x85, 0, 5]));
+
+      expect(pending.isDelta(targetId)).toBe(true);
+    });
+
+    it("isDelta returns false for pending full object", () => {
+      const pending = new PendingPack();
+      const id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+      pending.addObject(id, PackObjectType.BLOB, new Uint8Array([1, 2, 3]));
+
+      expect(pending.isDelta(id)).toBe(false);
+    });
+
+    it("isDelta returns false for unknown object", () => {
+      const pending = new PendingPack();
+
+      expect(pending.isDelta("cccccccccccccccccccccccccccccccccccccccc")).toBe(false);
+    });
+
+    it("getDeltaBase returns base ID for delta", () => {
+      const pending = new PendingPack();
+      const baseId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const targetId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+      pending.addDelta(targetId, baseId, new Uint8Array([5, 5, 0x85, 0, 5]));
+
+      expect(pending.getDeltaBase(targetId)).toBe(baseId);
+    });
+
+    it("getDeltaBase returns undefined for full object", () => {
+      const pending = new PendingPack();
+      const id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+      pending.addObject(id, PackObjectType.BLOB, new Uint8Array([1, 2, 3]));
+
+      expect(pending.getDeltaBase(id)).toBeUndefined();
+    });
+
+    it("getDeltaBase returns undefined for unknown object", () => {
+      const pending = new PendingPack();
+
+      expect(pending.getDeltaBase("cccccccccccccccccccccccccccccccccccccccc")).toBeUndefined();
+    });
+  });
+
   describe("object types", () => {
     it("handles COMMIT objects", async () => {
       const pending = new PendingPack();
@@ -355,4 +407,200 @@ describe("PendingPack", () => {
       expect(result.entries).toHaveLength(1);
     });
   });
+
+  /**
+   * Large object tests
+   *
+   * Ported from JGit PackInserterTest.java#largeBlob
+   * Tests handling of objects larger than typical buffer sizes.
+   *
+   * Beads issue: webrun-vcs-k2cf
+   */
+  describe("large objects", () => {
+    it("handles large blobs (>16KB)", async () => {
+      const pending = new PendingPack();
+
+      // Create large blob (20KB - larger than typical 16KB buffer)
+      const largeContent = new Uint8Array(20 * 1024);
+      // Fill with pseudo-random data for realistic compression
+      for (let i = 0; i < largeContent.length; i++) {
+        largeContent[i] = (i * 31 + 17) % 256;
+      }
+
+      const objectId = "1".repeat(40);
+      pending.addObject(objectId, PackObjectType.BLOB, largeContent);
+
+      const result = await pending.flush();
+
+      // Verify pack was created
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].id).toBe(objectId);
+      expect(result.packData.length).toBeGreaterThan(0);
+
+      // Verify we can read it back through pack index
+      const index = readPackIndex(result.indexData);
+      expect(index.has(objectId)).toBe(true);
+      expect(index.objectCount).toBe(1);
+    });
+
+    it("handles very large blobs (>1MB)", async () => {
+      const pending = new PendingPack();
+
+      // Create 1MB+ blob
+      const veryLargeContent = new Uint8Array(1024 * 1024 + 100);
+      for (let i = 0; i < veryLargeContent.length; i++) {
+        veryLargeContent[i] = (i * 37 + 11) % 256;
+      }
+
+      const objectId = "2".repeat(40);
+      pending.addObject(objectId, PackObjectType.BLOB, veryLargeContent);
+
+      const result = await pending.flush();
+
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].id).toBe(objectId);
+
+      // Verify index is valid
+      const index = readPackIndex(result.indexData);
+      expect(index.has(objectId)).toBe(true);
+    });
+
+    it("handles multiple large blobs", async () => {
+      const pending = new PendingPack({ maxObjects: 100, maxBytes: 100 * 1024 * 1024 });
+
+      // Create multiple large blobs
+      const sizes = [50 * 1024, 100 * 1024, 200 * 1024];
+      const ids = sizes.map((_, i) => `${i + 3}`.repeat(40));
+
+      for (let i = 0; i < sizes.length; i++) {
+        const content = new Uint8Array(sizes[i]);
+        for (let j = 0; j < content.length; j++) {
+          content[j] = (j * (i + 41)) % 256;
+        }
+        pending.addObject(ids[i], PackObjectType.BLOB, content);
+      }
+
+      const result = await pending.flush();
+
+      expect(result.entries).toHaveLength(3);
+
+      // Verify all objects are in the index
+      const index = readPackIndex(result.indexData);
+      for (const id of ids) {
+        expect(index.has(id)).toBe(true);
+      }
+    });
+
+    it("compresses large blobs efficiently", async () => {
+      const pending = new PendingPack();
+
+      // Create highly compressible content (repeated pattern)
+      const compressibleContent = new Uint8Array(100 * 1024);
+      for (let i = 0; i < compressibleContent.length; i++) {
+        compressibleContent[i] = i % 10; // Very repetitive
+      }
+
+      pending.addObject("4".repeat(40), PackObjectType.BLOB, compressibleContent);
+
+      const result = await pending.flush();
+
+      // Compressed pack should be much smaller than original
+      // Pack header is 12 bytes, checksum is 20 bytes
+      // Content should compress very well due to repetitive pattern
+      expect(result.packData.length).toBeLessThan(compressibleContent.length / 2);
+    });
+
+    it("handles incompressible large blobs", async () => {
+      const pending = new PendingPack();
+
+      // Create incompressible content (pseudo-random)
+      const incompressibleContent = new Uint8Array(50 * 1024);
+      let seed = 12345;
+      for (let i = 0; i < incompressibleContent.length; i++) {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        incompressibleContent[i] = seed % 256;
+      }
+
+      pending.addObject("5".repeat(40), PackObjectType.BLOB, incompressibleContent);
+
+      const result = await pending.flush();
+
+      // Pack should still be created successfully
+      expect(result.entries).toHaveLength(1);
+
+      // Verify index
+      const index = readPackIndex(result.indexData);
+      expect(index.has("5".repeat(40))).toBe(true);
+    });
+
+    it("handles large delta with large base", async () => {
+      const pending = new PendingPack();
+
+      // Large base object
+      const baseContent = new Uint8Array(50 * 1024);
+      for (let i = 0; i < baseContent.length; i++) {
+        baseContent[i] = (i * 41) % 256;
+      }
+      const baseId = "6".repeat(40);
+
+      pending.addObject(baseId, PackObjectType.BLOB, baseContent);
+
+      // Create delta that modifies only a small part
+      // Delta format: base_size, result_size, commands
+      const targetId = "7".repeat(40);
+
+      // Create a simple delta that copies most of the base and changes first bytes
+      const baseSizeBytes = encodeVarInt(baseContent.length);
+      const resultSizeBytes = encodeVarInt(baseContent.length);
+
+      // INSERT 10 new bytes + COPY the rest
+      const delta = new Uint8Array([
+        ...baseSizeBytes,
+        ...resultSizeBytes,
+        10, // INSERT 10 bytes
+        0xff,
+        0xfe,
+        0xfd,
+        0xfc,
+        0xfb,
+        0xfa,
+        0xf9,
+        0xf8,
+        0xf7,
+        0xf6,
+        // COPY from offset 10, length = baseContent.length - 10
+        0x80 | 0x01 | 0x10 | 0x20, // COPY with offset byte 0, size bytes 0-1
+        10, // offset = 10
+        (baseContent.length - 10) & 0xff, // size low byte
+        ((baseContent.length - 10) >> 8) & 0xff, // size high byte
+      ]);
+
+      pending.addDelta(targetId, baseId, delta);
+
+      const result = await pending.flush();
+
+      expect(result.entries).toHaveLength(2);
+
+      // Both should be in index
+      const index = readPackIndex(result.indexData);
+      expect(index.has(baseId)).toBe(true);
+      expect(index.has(targetId)).toBe(true);
+    });
+  });
 });
+
+/**
+ * Encode a variable-length integer (Git varint format)
+ */
+function encodeVarInt(value: number): number[] {
+  const bytes: number[] = [];
+  let v = value;
+  bytes.push(v & 0x7f);
+  v >>= 7;
+  while (v > 0) {
+    bytes[bytes.length - 1] |= 0x80;
+    bytes.push(v & 0x7f);
+    v >>= 7;
+  }
+  return bytes;
+}

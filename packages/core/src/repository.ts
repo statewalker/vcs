@@ -1,15 +1,23 @@
 /**
- * Repository interface - the main entry point for VCS operations
+ * Repository interface - shared history storage
  *
- * A Repository combines all stores (objects, refs, staging) into a single
- * coherent interface. Implementations may use different backends:
+ * A Repository contains immutable objects (commits, trees, blobs, tags)
+ * and shared refs (branches, remote tracking refs).
+ *
+ * For local checkout state (HEAD, staging, merge state), use WorkingCopy.
+ * Multiple WorkingCopies can share a single Repository.
+ *
+ * Implementations may use different backends:
  * - File-based: .git directory structure
  * - SQL: database tables
  * - Memory: in-memory for testing
+ *
+ * @see WorkingCopy for local checkout state management
  */
 
 import type { BlobStore } from "./blob/blob-store.js";
 import type { CommitStore } from "./commits/commit-store.js";
+import type { RawStoreWithDelta } from "./delta/raw-store-with-delta.js";
 import type { GitObjectStore } from "./objects/object-store.js";
 import type { RefStore } from "./refs/ref-store.js";
 import type { TagStore } from "./tags/tag-store.js";
@@ -30,8 +38,10 @@ export interface RepositoryConfig {
 /**
  * Repository interface
  *
- * Combines all stores into a unified repository interface.
- * This is the main entry point for VCS operations.
+ * Combines object stores and shared refs into a unified repository interface.
+ * Contains immutable history that can be shared across multiple working copies.
+ *
+ * @see WorkingCopy for local checkout state (HEAD, staging, merge state)
  */
 export interface Repository {
   /** Unified Git object storage (raw objects with headers) */
@@ -54,6 +64,14 @@ export interface Repository {
 
   /** Repository configuration */
   readonly config: RepositoryConfig;
+
+  /**
+   * Delta storage for garbage collection (optional)
+   *
+   * Provides access to the underlying delta-aware storage
+   * for running GCController operations.
+   */
+  readonly deltaStorage?: RawStoreWithDelta;
 
   /**
    * Initialize repository structure
@@ -82,9 +100,11 @@ export interface Repository {
 /**
  * GitStores - Collection of Git object stores
  *
- * A subset of Repository containing only the object stores
+ * A subset of Repository containing only the immutable object stores
  * (without refs, config, or lifecycle methods).
- * Useful for transport and storage operations.
+ * Useful for transport and storage operations that work with raw objects.
+ *
+ * @see Repository for full repository interface with refs and lifecycle
  */
 export interface GitStores {
   /** Unified Git object storage (raw objects with headers) */

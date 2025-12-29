@@ -214,6 +214,57 @@ export function createStagingStoreTests(name: string, factory: StagingStoreFacto
         expect(entries[2].path).toBe("z.txt");
       });
 
+      /**
+       * JGit: DirCacheBuilderTest.testAdd_InGitSortOrder
+       * Git sort order uses byte comparison with special handling for '/'
+       */
+      it("maintains Git sort order with special characters", async () => {
+        // Git sort order: a- < a.b < a/b < a0b
+        const paths = ["a-", "a.b", "a/b", "a0b"];
+        const builder = ctx.stagingStore.builder();
+        for (const path of paths) {
+          builder.add(createEntry(path));
+        }
+        await builder.finish();
+
+        const entries = await collectEntries(ctx.stagingStore.listEntries());
+        expect(entries.length).toBe(4);
+        expect(entries[0].path).toBe("a-");
+        expect(entries[1].path).toBe("a.b");
+        expect(entries[2].path).toBe("a/b");
+        expect(entries[3].path).toBe("a0b");
+      });
+
+      /**
+       * JGit: DirCacheBuilderTest.testAdd_ReverseGitSortOrder
+       * Entries added in reverse order should still be sorted
+       */
+      it("sorts entries added in reverse order", async () => {
+        const paths = ["a-", "a.b", "a/b", "a0b"];
+        const builder = ctx.stagingStore.builder();
+        // Add in reverse order
+        for (let i = paths.length - 1; i >= 0; i--) {
+          builder.add(createEntry(paths[i]));
+        }
+        await builder.finish();
+
+        const entries = await collectEntries(ctx.stagingStore.listEntries());
+        expect(entries.length).toBe(4);
+        expect(entries[0].path).toBe("a-");
+        expect(entries[1].path).toBe("a.b");
+        expect(entries[2].path).toBe("a/b");
+        expect(entries[3].path).toBe("a0b");
+      });
+
+      /**
+       * JGit: DirCacheBasicTest.testFindOnEmpty
+       * Finding entry on empty cache returns undefined
+       */
+      it("returns undefined when finding entry on empty cache", async () => {
+        const entry = await ctx.stagingStore.getEntry("nonexistent");
+        expect(entry).toBeUndefined();
+      });
+
       it("lists entries under prefix", async () => {
         const builder = ctx.stagingStore.builder();
         builder.add(createEntry("src/a.txt"));
@@ -291,6 +342,46 @@ export function createStagingStoreTests(name: string, factory: StagingStoreFacto
 
         expect(await ctx.stagingStore.getEntryCount()).toBe(0);
         expect(await ctx.stagingStore.hasEntry("file.txt")).toBe(false);
+      });
+
+      /**
+       * JGit: DirCacheBuilderTest.testBuilderClear
+       * Finishing an empty builder clears all existing entries
+       */
+      it("clears entries when empty builder is finished", async () => {
+        // Add some entries first
+        const builder1 = ctx.stagingStore.builder();
+        builder1.add(createEntry("a-"));
+        builder1.add(createEntry("a.b"));
+        builder1.add(createEntry("a/b"));
+        builder1.add(createEntry("a0b"));
+        await builder1.finish();
+
+        expect(await ctx.stagingStore.getEntryCount()).toBe(4);
+
+        // Finish an empty builder - should clear everything
+        const builder2 = ctx.stagingStore.builder();
+        await builder2.finish();
+
+        expect(await ctx.stagingStore.getEntryCount()).toBe(0);
+      });
+
+      /**
+       * JGit: DirCacheBasicTest.testBuildThenClear
+       * Build entries, verify hasConflicts, then clear
+       */
+      it("clears conflict state after clear", async () => {
+        const builder = ctx.stagingStore.builder();
+        builder.add(createEntry("file.txt", { stage: MergeStage.OURS }));
+        builder.add(createEntry("file.txt", { stage: MergeStage.THEIRS }));
+        await builder.finish();
+
+        expect(await ctx.stagingStore.hasConflicts()).toBe(true);
+
+        await ctx.stagingStore.clear();
+
+        expect(await ctx.stagingStore.getEntryCount()).toBe(0);
+        expect(await ctx.stagingStore.hasConflicts()).toBe(false);
       });
     });
 

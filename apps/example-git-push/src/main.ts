@@ -16,8 +16,13 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository, type GitRepository } from "@webrun-vcs/commands";
-import { extractGitObjectContent, FileMode, parseHeader } from "@webrun-vcs/core";
+import {
+  createGitRepository,
+  extractGitObjectContent,
+  FileMode,
+  type GitRepository,
+  parseHeader,
+} from "@webrun-vcs/core";
 import { type PushObject, push } from "@webrun-vcs/transport";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";

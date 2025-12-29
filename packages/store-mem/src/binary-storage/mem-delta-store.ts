@@ -5,7 +5,13 @@
  * Implements the new DeltaStore interface from binary-storage.
  */
 
-import type { DeltaChainDetails, DeltaInfo, DeltaStore, StoredDelta } from "@webrun-vcs/core";
+import type {
+  DeltaChainDetails,
+  DeltaInfo,
+  DeltaStore,
+  DeltaStoreUpdate,
+  StoredDelta,
+} from "@webrun-vcs/core";
 import type { Delta } from "@webrun-vcs/utils";
 
 /**
@@ -19,6 +25,82 @@ interface DeltaEntry {
 }
 
 /**
+ * Pending delta for batch update
+ */
+interface PendingDelta {
+  info: DeltaInfo;
+  delta: Delta[];
+}
+
+/**
+ * Batched update handle for in-memory delta storage
+ */
+class MemDeltaStoreUpdate implements DeltaStoreUpdate {
+  private readonly pendingDeltas: PendingDelta[] = [];
+  private readonly store: MemDeltaStore;
+  private closed = false;
+
+  constructor(store: MemDeltaStore) {
+    this.store = store;
+  }
+
+  /**
+   * Store a full object - no-op for memory store (objects stored elsewhere)
+   */
+  async storeObject(
+    _key: string,
+    _content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<void> {
+    if (this.closed) {
+      throw new Error("Update already closed");
+    }
+    // Memory delta store only handles deltas, not full objects
+    // Full objects are stored in MemRawStore
+  }
+
+  /**
+   * Store a delta relationship in this batch
+   */
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
+    if (this.closed) {
+      throw new Error("Update already closed");
+    }
+
+    this.pendingDeltas.push({ info, delta });
+
+    // Calculate approximate size
+    return delta.reduce((sum, d) => {
+      switch (d.type) {
+        case "copy":
+          return sum + 8;
+        case "insert":
+          return sum + 1 + d.data.length;
+        case "start":
+        case "finish":
+          return sum + 4;
+        default:
+          return sum;
+      }
+    }, 0);
+  }
+
+  /**
+   * Commit all pending deltas
+   */
+  async close(): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+
+    // Apply all pending deltas
+    for (const { info, delta } of this.pendingDeltas) {
+      this.store.applyDelta(info, delta);
+    }
+  }
+}
+
+/**
  * In-memory delta storage implementation
  *
  * Stores delta relationships with support for chain traversal.
@@ -29,25 +111,31 @@ export class MemDeltaStore implements DeltaStore {
   private readonly maxChainDepth = 50;
 
   /**
-   * Store a delta relationship
+   * Start a batched update transaction
    */
-  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
+  startUpdate(): DeltaStoreUpdate {
+    return new MemDeltaStoreUpdate(this);
+  }
+
+  /**
+   * Apply a delta (internal method used by update)
+   */
+  applyDelta(info: DeltaInfo, delta: Delta[]): void {
     // Calculate approximate ratio
     const deltaSize = delta.reduce((sum, d) => {
       switch (d.type) {
         case "copy":
-          return sum + 8; // offset + length
+          return sum + 8;
         case "insert":
-          return sum + 1 + d.data.length; // type + data
+          return sum + 1 + d.data.length;
         case "start":
         case "finish":
-          return sum + 4; // small overhead
+          return sum + 4;
         default:
           return sum;
       }
     }, 0);
 
-    // We don't have the original size, so ratio is approximate
     const ratio = deltaSize > 0 ? 1 : 0;
 
     this.deltas.set(info.targetKey, {
@@ -56,8 +144,6 @@ export class MemDeltaStore implements DeltaStore {
       delta,
       ratio,
     });
-
-    return deltaSize;
   }
 
   /**

@@ -234,4 +234,29 @@ export class PendingPack {
   hasPending(id: ObjectId): boolean {
     return this.entries.some((e) => e.id === id);
   }
+
+  /**
+   * Check if a pending object is a delta
+   *
+   * @param id Object ID
+   * @returns True if pending as delta, false if full or not found
+   */
+  isDelta(id: ObjectId): boolean {
+    const entry = this.entries.find((e) => e.id === id);
+    return entry?.type === "delta";
+  }
+
+  /**
+   * Get base key for a pending delta
+   *
+   * @param id Object ID
+   * @returns Base object ID or undefined
+   */
+  getDeltaBase(id: ObjectId): ObjectId | undefined {
+    const entry = this.entries.find((e) => e.id === id && e.type === "delta");
+    if (entry && entry.type === "delta") {
+      return entry.baseId;
+    }
+    return undefined;
+  }
 }

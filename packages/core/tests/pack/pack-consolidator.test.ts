@@ -187,6 +187,7 @@ describe("PackConsolidator", () => {
         const exists = await packDir.has(obj.id);
         expect(exists).toBe(true);
 
+        // load() returns raw content without Git header
         const content = await packDir.load(obj.id);
         expect(content).toBeDefined();
         if (content) {
@@ -313,7 +314,7 @@ describe("PackConsolidator", () => {
       const consolidator = new PackConsolidator(packDir, files, basePath);
       await consolidator.consolidate({ minPackSize: 1024 * 1024 });
 
-      // Verify exact content is preserved
+      // load() returns raw content without Git header
       const loaded1 = await packDir.load("a".repeat(40));
       const loaded2 = await packDir.load("b".repeat(40));
       const loaded3 = await packDir.load("c".repeat(40));

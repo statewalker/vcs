@@ -23,7 +23,7 @@ Application Code
        ↓
    Core Interfaces (this package)
        ↓
-   Storage Backend (@webrun-vcs/storage-*, @webrun-vcs/store-*)
+   Storage Backend (@webrun-vcs/store-*)
        ↓
    Actual Storage (filesystem, SQLite, IndexedDB, etc.)
 ```
@@ -123,6 +123,16 @@ The package organizes stores in layers, each building on the one below:
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Two-Tier API Design
+
+The Repository exposes both `GitObjectStore` and typed stores (`blobs`, `trees`, `commits`, `tags`) because they serve different purposes:
+
+**GitObjectStore** provides low-level, type-agnostic, format-aware access. It works with raw Git objects including their headers (`"blob 123\0content"`), enabling operations that need the wire format: transport protocols, pack file generation, and object introspection.
+
+**Typed stores** provide high-level, type-specific, parsed interfaces. They parse object content into structured data (`Commit`, `TreeEntry[]`, etc.) and handle serialization automatically. Application code typically uses these for everyday VCS operations.
+
+Both layers are necessary. Transport code needs raw bytes with headers to build pack files. Application code needs parsed commits to display history. The architecture exposes both rather than forcing one abstraction for all use cases.
+
 ### RawStore - Foundation Layer
 
 The lowest layer stores raw bytes by string key:
@@ -161,12 +171,17 @@ Adds Git object semantics (type headers, content hashing):
 ```typescript
 interface GitObjectStore {
   store(type: ObjectTypeString, content: AsyncIterable<Uint8Array>): Promise<ObjectId>;
-  loadRaw(id: ObjectId): AsyncIterable<Uint8Array>; // With header
-  load(id: ObjectId): AsyncIterable<Uint8Array>;    // Without header
+  loadRaw(id: ObjectId): AsyncIterable<Uint8Array>;  // With header
+  load(id: ObjectId): AsyncIterable<Uint8Array>;     // Without header
+  loadWithHeader(id: ObjectId): Promise<[GitObjectHeader, AsyncGenerator<Uint8Array>]>;
   getHeader(id: ObjectId): Promise<GitObjectHeader>;
   has(id: ObjectId): Promise<boolean>;
+  delete(id: ObjectId): Promise<boolean>;
+  list(): AsyncIterable<ObjectId>;                   // All object IDs
 }
 ```
+
+The distinction between `loadRaw()` and `load()` matters for different use cases. Transport protocols need `loadRaw()` to get the complete Git object with header for pack file generation. Application code uses `load()` to get just the content, or works through typed stores that handle parsing.
 
 ### Semantic Stores
 
@@ -179,6 +194,63 @@ Built on GitObjectStore, these provide domain-specific operations:
 | `CommitStore` | `storeCommit()`, `loadCommit()`, `walkAncestry()`, `findMergeBase()` |
 | `TagStore` | `storeTag()`, `loadTag()`, `getTarget(id, peel?)` |
 
+### Why `objects` is Exposed in the Public API
+
+The `Repository` and `GitStores` interfaces expose `objects: GitObjectStore` alongside the typed stores. This design choice enables several important use cases:
+
+**Transport and Protocol Operations**
+
+Git's HTTP and SSH protocols transfer objects in pack files, which contain raw objects with their Git headers. The transport layer needs direct access to `objects` for building pack files during push and receiving objects during fetch. The `@webrun-vcs/transport` package's `createVcsRepositoryAdapter()` requires `objects` to implement protocol handlers:
+
+```typescript
+// From transport package - needs objects for protocol handling
+const repositoryAccess = createVcsRepositoryAdapter({
+  objects: store.objects,  // Required for loadObject, storeObject, hasObject
+  refs: store.refs,
+  commits: store.commits,
+  trees: store.trees,
+  tags: store.tags,
+});
+```
+
+**Object Introspection**
+
+Sometimes you need to query an object's type and size without parsing its content. The `getHeader()` method provides this efficiently:
+
+```typescript
+const header = await repository.objects.getHeader(unknownId);
+console.log(`Type: ${header.type}, Size: ${header.size} bytes`);
+```
+
+**Raw Object Streaming**
+
+The `loadRaw()` method streams objects with their Git headers intact, essential for network transfer and pack file generation:
+
+```typescript
+// Collect raw object for push operation
+for await (const chunk of repository.objects.loadRaw(id)) {
+  chunks.push(chunk);
+}
+const rawData = concatBytes(chunks);
+const header = parseHeader(rawData);
+const content = extractGitObjectContent(rawData);
+```
+
+**Unified Object Iteration**
+
+The `list()` method returns all object IDs regardless of type, useful for garbage collection, repository analysis, and migration tools:
+
+```typescript
+for await (const id of repository.objects.list()) {
+  const header = await repository.objects.getHeader(id);
+  console.log(`${id}: ${header.type}`);
+}
+```
+
+**Internal Composition**
+
+The typed stores are thin wrappers that delegate to `GitObjectStore`. For example, `BlobStore.store()` simply calls `objects.store("blob", content)`. Exposing `objects` allows advanced users to bypass the typed layer when needed while keeping the common case simple.
+
 ## Directory Structure Deep Dive
 
 ### binary/
@@ -188,8 +260,12 @@ Low-level byte storage abstractions.
 | File | Purpose |
 |------|---------|
 | `raw-store.ts` | `RawStore` interface for key-value byte storage |
-| `volatile-store.ts` | `VolatileStore` for transient data |
-| `impl/` | Reference implementations |
+| `raw-store.files.ts` | File-based RawStore implementation |
+| `raw-store.memory.ts` | In-memory RawStore implementation |
+| `raw-store.compressed.ts` | Zlib-compressed RawStore wrapper |
+| `volatile-store.ts` | `VolatileStore` interface for transient data |
+| `volatile-store.files.ts` | File-based VolatileStore implementation |
+| `volatile-store.memory.ts` | In-memory VolatileStore implementation |
 
 The `RawStore` interface is implemented by each storage backend. All higher layers build on this abstraction.
 
@@ -242,12 +318,11 @@ Sophisticated delta compression system.
 |------|---------|
 | `delta-store.ts` | `DeltaStore` interface |
 | `delta-binary-format.ts` | Delta instruction encoding |
-| `delta-metadata-index.ts` | Index for delta relationships |
 | `gc-controller.ts` | Garbage collection coordination |
-| `pack-delta-store.ts` | Pack-file based delta storage |
 | `packing-orchestrator.ts` | Batch delta computation |
 | `raw-store-with-delta.ts` | Raw store with delta resolution |
 | `storage-analyzer.ts` | Analyze storage for optimization |
+| `types.ts` | Delta-related type definitions |
 | `strategies/` | Delta candidate selection strategies |
 
 Delta compression stores objects as differences from similar objects. The system manages:
@@ -349,6 +424,7 @@ Pack file format support.
 | File | Purpose |
 |------|---------|
 | `pack-consolidator.ts` | Merge multiple packs |
+| `pack-delta-store.ts` | Pack-file based delta storage |
 | `pack-directory.ts` | Pack directory management |
 | `pack-entries-parser.ts` | Parse pack entries |
 | `pack-indexer.ts` | Build .idx files |
@@ -357,6 +433,7 @@ Pack file format support.
 | `pack-reader.ts` | Read .pack files |
 | `pack-writer.ts` | Write .pack files |
 | `pending-pack.ts` | In-progress pack tracking |
+| `delta-reverse-index.ts` | Reverse index for delta lookups |
 | `types.ts` | Pack-related types |
 
 Pack files bundle multiple objects efficiently for storage and transfer. The .idx file provides random access by object ID.
@@ -387,6 +464,8 @@ Reference management (branches, tags, HEAD).
 | File | Purpose |
 |------|---------|
 | `ref-store.ts` | `RefStore` interface |
+| `ref-store.files.ts` | File-based RefStore implementation |
+| `ref-store.memory.ts` | In-memory RefStore implementation |
 | `ref-types.ts` | `Ref`, `SymbolicRef`, `RefStorage` |
 | `ref-reader.ts` | Read loose refs |
 | `ref-writer.ts` | Write loose refs |
@@ -547,6 +626,28 @@ interface Repository {
 
 The `GitStores` type provides just object stores without refs/config for transport operations.
 
+### stores/
+
+Repository factory functions.
+
+| File | Purpose |
+|------|---------|
+| `create-repository.ts` | Factory for creating Git-compatible repositories |
+
+The `createGitRepository()` function creates a fully configured repository with all stores:
+
+```typescript
+import { createGitRepository } from "@webrun-vcs/core";
+
+// In-memory repository (default)
+const memRepo = await createGitRepository();
+
+// File-based repository
+import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
+const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "/path/to/project" }));
+const fileRepo = await createGitRepository(files, ".git");
+```
+
 ## Key Algorithms
 
 ### Commit Ancestry Traversal
@@ -665,10 +766,13 @@ Call `refs.optimize?.()` periodically to pack loose refs. Many loose ref files s
 
 ### In-Memory Backend
 
-Use `@webrun-vcs/store-mem` for unit tests:
+Use `createGitRepository()` without arguments for in-memory tests:
 
 ```typescript
-const repo = createMemoryRepository();
+import { createGitRepository } from "@webrun-vcs/core";
+
+// Creates an in-memory repository (uses MemFilesApi by default)
+const repo = await createGitRepository();
 // Tests run fast with no filesystem I/O
 ```
 
@@ -689,5 +793,17 @@ const mockCommitStore: CommitStore = {
 The `@webrun-vcs/testing` package provides test suites that verify any backend:
 
 ```typescript
-runStorageTestSuite(MyStorageBackend);
+import { describe } from "vitest";
+import { objectStorageSuite, commitStoreSuite, refStoreSuite } from "@webrun-vcs/testing";
+
+describe("MyCustomStorage", () => {
+  objectStorageSuite({
+    createStore: () => new MyCustomObjectStore(),
+    cleanup: async (store) => await store.close(),
+  });
+
+  commitStoreSuite({
+    createStore: () => new MyCustomCommitStore(),
+  });
+});
 ```

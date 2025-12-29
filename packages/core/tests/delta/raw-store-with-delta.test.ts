@@ -9,9 +9,17 @@ import type { Delta } from "@webrun-vcs/utils";
 import { FossilChecksum } from "@webrun-vcs/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
+import type { DeltaInfo } from "../../src/delta/delta-store.js";
 import { defaultComputeDelta, RawStoreWithDelta } from "../../src/delta/raw-store-with-delta.js";
 import { collectBytes } from "../helpers/assertion-helpers.js";
 import { MockDeltaStore } from "../mocks/mock-delta-store.js";
+
+// Helper to store delta using update pattern
+async function storeDelta(store: MockDeltaStore, info: DeltaInfo, delta: Delta[]): Promise<void> {
+  const update = store.startUpdate();
+  await update.storeDelta(info, delta);
+  await update.close();
+}
 
 /**
  * Compute checksum for delta output
@@ -162,7 +170,7 @@ describe("RawStoreWithDelta - Loose Object Operations", () => {
 
     it("returns true for delta object", async () => {
       await store.store("base", [new TextEncoder().encode("base")]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta1" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta1" }, [
         { type: "start", targetLen: 10 },
         { type: "finish", checksum: 0 },
       ]);
@@ -182,7 +190,7 @@ describe("RawStoreWithDelta - Loose Object Operations", () => {
 
     it("returns original size for delta object", async () => {
       await store.store("base", [new TextEncoder().encode("base content")]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta1" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta1" }, [
         { type: "start", targetLen: 50 },
         { type: "copy", start: 0, len: 12 },
         { type: "finish", checksum: 0 },
@@ -214,7 +222,7 @@ describe("RawStoreWithDelta - Loose Object Operations", () => {
 
     it("deletes delta object", async () => {
       await store.store("base", [new TextEncoder().encode("base")]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta1" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta1" }, [
         { type: "start", targetLen: 10 },
         { type: "finish", checksum: 0 },
       ]);
@@ -228,7 +236,7 @@ describe("RawStoreWithDelta - Loose Object Operations", () => {
       // Store in raw store
       await store.store("key1", [new TextEncoder().encode("loose content")]);
       // Also store as delta
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "key1" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "key1" }, [
         { type: "start", targetLen: 10 },
         { type: "finish", checksum: 0 },
       ]);
@@ -357,19 +365,19 @@ describe("RawStoreWithDelta - Deltify Operations", () => {
         { type: "copy", start: 0, len: baseContent.length },
         { type: "insert", data: new TextEncoder().encode(" d1 suffix") },
       ]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "d1" }, d1Delta);
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "d1" }, d1Delta);
 
       const d2Delta = createValidDelta(new TextEncoder().encode(`${baseContent} d1 suffix`), [
         { type: "copy", start: 0, len: baseContent.length + 10 },
         { type: "insert", data: new TextEncoder().encode(" d2 suffix") },
       ]);
-      await deltaStore.storeDelta({ baseKey: "d1", targetKey: "d2" }, d2Delta);
+      await storeDelta(deltaStore, { baseKey: "d1", targetKey: "d2" }, d2Delta);
 
       const d3Delta = createValidDelta(new TextEncoder().encode(`${baseContent} d1 d2 suffix`), [
         { type: "copy", start: 0, len: baseContent.length + 14 },
         { type: "insert", data: new TextEncoder().encode(" d3 suffix") },
       ]);
-      await deltaStore.storeDelta({ baseKey: "d2", targetKey: "d3" }, d3Delta);
+      await storeDelta(deltaStore, { baseKey: "d2", targetKey: "d3" }, d3Delta);
 
       // Create store with low maxChainDepth
       const lowDepthStore = new RawStoreWithDelta({
@@ -430,7 +438,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
 
       // Store delta that copies from base with correct checksum
       const delta = createValidDelta(baseContent, [{ type: "copy", start: 0, len: 17 }]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "target" }, delta);
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "target" }, delta);
 
       // Verify it's a delta
       expect(await store.isDelta("target")).toBe(true);
@@ -470,7 +478,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
         { type: "copy", start: 0, len: 4 },
         { type: "insert", data: new TextEncoder().encode("M") },
       ]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "middle" }, middleDelta);
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "middle" }, middleDelta);
 
       // target = "baseM" + "T" = "baseMT"
       const middleContent = new TextEncoder().encode("baseM");
@@ -478,7 +486,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
         { type: "copy", start: 0, len: 5 },
         { type: "insert", data: new TextEncoder().encode("T") },
       ]);
-      await deltaStore.storeDelta({ baseKey: "middle", targetKey: "target" }, targetDelta);
+      await storeDelta(deltaStore, { baseKey: "middle", targetKey: "target" }, targetDelta);
 
       // Undeltify target
       await store.undeltify("target");
@@ -500,7 +508,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
 
     it("returns true for delta objects", async () => {
       await rawStore.store("base", [new TextEncoder().encode("base")]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta" }, [
         { type: "start", targetLen: 4 },
         { type: "copy", start: 0, len: 4 },
         { type: "finish", checksum: 0 },
@@ -523,7 +531,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
 
     it("returns chain info for single delta", async () => {
       await rawStore.store("base", [new TextEncoder().encode("base")]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta" }, [
         { type: "start", targetLen: 4 },
         { type: "copy", start: 0, len: 4 },
         { type: "finish", checksum: 0 },
@@ -540,17 +548,17 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
       await rawStore.store("base", [new TextEncoder().encode("base")]);
 
       // Create chain: d3 -> d2 -> d1 -> base
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "d1" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "d1" }, [
         { type: "start", targetLen: 4 },
         { type: "copy", start: 0, len: 4 },
         { type: "finish", checksum: 0 },
       ]);
-      await deltaStore.storeDelta({ baseKey: "d1", targetKey: "d2" }, [
+      await storeDelta(deltaStore, { baseKey: "d1", targetKey: "d2" }, [
         { type: "start", targetLen: 4 },
         { type: "copy", start: 0, len: 4 },
         { type: "finish", checksum: 0 },
       ]);
-      await deltaStore.storeDelta({ baseKey: "d2", targetKey: "d3" }, [
+      await storeDelta(deltaStore, { baseKey: "d2", targetKey: "d3" }, [
         { type: "start", targetLen: 4 },
         { type: "copy", start: 0, len: 4 },
         { type: "finish", checksum: 0 },
@@ -569,7 +577,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
       await rawStore.store("base", [baseContent]);
 
       const delta = createValidDelta(baseContent, [{ type: "copy", start: 0, len: 12 }]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "target" }, delta);
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "target" }, delta);
 
       const loaded = await collectBytes(store.load("target"));
       expect(new TextDecoder().decode(loaded)).toBe("base content");
@@ -585,7 +593,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
         { type: "copy", start: 0, len: 1 },
         { type: "insert", data: new TextEncoder().encode("B") },
       ]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "d1" }, d1Delta);
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "d1" }, d1Delta);
 
       // d2 = "AB" + "C" = "ABC"
       const d1Content = new TextEncoder().encode("AB");
@@ -593,7 +601,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
         { type: "copy", start: 0, len: 2 },
         { type: "insert", data: new TextEncoder().encode("C") },
       ]);
-      await deltaStore.storeDelta({ baseKey: "d1", targetKey: "d2" }, d2Delta);
+      await storeDelta(deltaStore, { baseKey: "d1", targetKey: "d2" }, d2Delta);
 
       // d3 = "ABC" + "D" = "ABCD"
       const d2Content = new TextEncoder().encode("ABC");
@@ -601,7 +609,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
         { type: "copy", start: 0, len: 3 },
         { type: "insert", data: new TextEncoder().encode("D") },
       ]);
-      await deltaStore.storeDelta({ baseKey: "d2", targetKey: "d3" }, d3Delta);
+      await storeDelta(deltaStore, { baseKey: "d2", targetKey: "d3" }, d3Delta);
 
       const loaded = await collectBytes(store.load("d3"));
       expect(new TextDecoder().decode(loaded)).toBe("ABCD");
@@ -612,7 +620,7 @@ describe("RawStoreWithDelta - Undeltify and Delta Chain Resolution", () => {
       await rawStore.store("base", [baseContent]);
 
       const delta = createValidDelta(baseContent, [{ type: "copy", start: 0, len: 11 }]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta" }, delta);
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta" }, delta);
 
       const loaded = await collectBytes(store.load("delta", { offset: 6 }));
       expect(new TextDecoder().decode(loaded)).toBe("world");
@@ -659,11 +667,11 @@ describe("RawStoreWithDelta - Keys Enumeration", () => {
 
     it("returns delta object keys", async () => {
       await rawStore.store("base", [new TextEncoder().encode("base")]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta1" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta1" }, [
         { type: "start", targetLen: 4 },
         { type: "finish", checksum: 0 },
       ]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "delta2" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "delta2" }, [
         { type: "start", targetLen: 4 },
         { type: "finish", checksum: 0 },
       ]);
@@ -682,7 +690,7 @@ describe("RawStoreWithDelta - Keys Enumeration", () => {
     it("returns combined keys from both stores", async () => {
       await store.store("loose1", [new TextEncoder().encode("content1")]);
       await store.store("loose2", [new TextEncoder().encode("content2")]);
-      await deltaStore.storeDelta({ baseKey: "loose1", targetKey: "delta1" }, [
+      await storeDelta(deltaStore, { baseKey: "loose1", targetKey: "delta1" }, [
         { type: "start", targetLen: 8 },
         { type: "finish", checksum: 0 },
       ]);
@@ -702,7 +710,7 @@ describe("RawStoreWithDelta - Keys Enumeration", () => {
       // Store in raw store
       await store.store("shared", [new TextEncoder().encode("loose content")]);
       // Also store as delta (unusual but possible)
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "shared" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "shared" }, [
         { type: "start", targetLen: 4 },
         { type: "finish", checksum: 0 },
       ]);
@@ -810,7 +818,7 @@ describe("RawStoreWithDelta - Edge Cases", () => {
 
     it("throws when delta base is missing", async () => {
       // Store delta without base
-      await deltaStore.storeDelta({ baseKey: "missing-base", targetKey: "orphan" }, [
+      await storeDelta(deltaStore, { baseKey: "missing-base", targetKey: "orphan" }, [
         { type: "start", targetLen: 4 },
         { type: "copy", start: 0, len: 4 },
         { type: "finish", checksum: 0 },
@@ -823,7 +831,7 @@ describe("RawStoreWithDelta - Edge Cases", () => {
   describe("object in both stores", () => {
     it("prefers delta store for has()", async () => {
       await rawStore.store("both", [new TextEncoder().encode("loose")]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "both" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "both" }, [
         { type: "start", targetLen: 4 },
         { type: "finish", checksum: 0 },
       ]);
@@ -840,7 +848,7 @@ describe("RawStoreWithDelta - Edge Cases", () => {
       await rawStore.store("both", [new TextEncoder().encode("loose version")]);
       // Store delta version with valid checksum
       const delta = createValidDelta(baseContent, [{ type: "copy", start: 0, len: 4 }]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "both" }, delta);
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "both" }, delta);
 
       // Load should prefer delta
       const loaded = await collectBytes(store.load("both"));
@@ -849,7 +857,7 @@ describe("RawStoreWithDelta - Edge Cases", () => {
 
     it("delete removes from both stores", async () => {
       await rawStore.store("both", [new TextEncoder().encode("loose")]);
-      await deltaStore.storeDelta({ baseKey: "base", targetKey: "both" }, [
+      await storeDelta(deltaStore, { baseKey: "base", targetKey: "both" }, [
         { type: "start", targetLen: 4 },
         { type: "finish", checksum: 0 },
       ]);
@@ -905,6 +913,86 @@ describe("RawStoreWithDelta - Edge Cases", () => {
         minSize: 100,
       });
       expect(s.minSize).toBe(100);
+    });
+  });
+
+  describe("batch operations", () => {
+    it("batches multiple deltify operations", async () => {
+      // Store base content
+      const baseContent =
+        "This is base content that will be used for delta compression testing. " +
+        "The content needs to be long enough so the rolling hash algorithm works properly.";
+      await store.store("base", [new TextEncoder().encode(baseContent)]);
+
+      // Store target objects
+      const target1Content = baseContent.replace("base", "first");
+      const target2Content = baseContent.replace("base", "second");
+      await store.store("target1", [new TextEncoder().encode(target1Content)]);
+      await store.store("target2", [new TextEncoder().encode(target2Content)]);
+
+      // Start batch
+      store.startBatch();
+      expect(store.isBatchInProgress()).toBe(true);
+
+      try {
+        // Multiple deltify operations within batch
+        await store.deltify("target1", ["base"]);
+        await store.deltify("target2", ["base"]);
+
+        // End batch
+        await store.endBatch();
+      } catch (e) {
+        store.cancelBatch();
+        throw e;
+      }
+
+      expect(store.isBatchInProgress()).toBe(false);
+
+      // Verify both targets are now deltas
+      expect(await store.isDelta("target1")).toBe(true);
+      expect(await store.isDelta("target2")).toBe(true);
+    });
+
+    it("throws when starting batch while one is in progress", async () => {
+      store.startBatch();
+      expect(() => store.startBatch()).toThrow("Batch already in progress");
+      store.cancelBatch();
+    });
+
+    it("throws when ending batch without starting one", async () => {
+      await expect(store.endBatch()).rejects.toThrow("No batch in progress");
+    });
+
+    it("cancelBatch clears the batch state", async () => {
+      store.startBatch();
+      expect(store.isBatchInProgress()).toBe(true);
+
+      store.cancelBatch();
+      expect(store.isBatchInProgress()).toBe(false);
+
+      // Should be able to start a new batch after canceling
+      store.startBatch();
+      expect(store.isBatchInProgress()).toBe(true);
+      store.cancelBatch();
+    });
+
+    it("deltify works normally without batch", async () => {
+      // Store base content
+      const baseContent =
+        "This is base content that will be used for delta compression testing. " +
+        "The content needs to be long enough so the rolling hash algorithm works properly.";
+      await store.store("base2", [new TextEncoder().encode(baseContent)]);
+
+      // Store target
+      const targetContent = baseContent.replace("base", "modified");
+      await store.store("target3", [new TextEncoder().encode(targetContent)]);
+
+      // Deltify without batch
+      expect(store.isBatchInProgress()).toBe(false);
+      const success = await store.deltify("target3", ["base2"]);
+
+      expect(success).toBe(true);
+      expect(await store.isDelta("target3")).toBe(true);
     });
   });
 });

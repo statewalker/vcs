@@ -108,16 +108,19 @@ const restoredStorage = await createSQLStorage(restoredDb);
 ### Using with @webrun-vcs/commands
 
 ```typescript
-import { Git } from "@webrun-vcs/commands";
+import { Git, createGitStore } from "@webrun-vcs/commands";
+import { createGitRepository } from "@webrun-vcs/core";
 import { createSQLStorage } from "@webrun-vcs/store-sql";
 import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
 
 const db = await SqlJsAdapter.create();
 const { storage, close } = await createSQLStorage(db);
 
-const git = new Git(storage);
+// Create repository and wrap with Git commands
+const repository = await createGitRepository();
+const store = createGitStore({ repository, staging: storage.stagingStore });
+const git = Git.wrap(store);
 
-await git.init().call();
 await git.add().addFilepattern(".").call();
 await git.commit().setMessage("Initial commit").call();
 
@@ -200,8 +203,9 @@ The SQL backend provides capabilities Git's file-based storage lacks, such as ef
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/vcs` - Interface definitions
+- `@webrun-vcs/core` - Interface definitions
 - `@webrun-vcs/utils` - Hashing, compression utilities
+- `@webrun-vcs/sandbox` - Sandbox utilities
 
 **Peer Dependencies:**
 - `sql.js` (optional) - SQLite compiled to WebAssembly

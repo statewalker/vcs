@@ -8,7 +8,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
-import { decompressBlock } from "@webrun-vcs/utils";
+import { decompressBlockPartial } from "@webrun-vcs/utils";
 import type { FileHandle, FilesApi } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import { bytesToHex } from "../utils/index.js";
@@ -49,7 +49,8 @@ const OBJECT_ID_LENGTH = 20;
 export class PackReader {
   private readonly files: FilesApi;
   private readonly packPath: string;
-  private readonly index: PackIndex;
+  /** Pack index for object lookups */
+  readonly index: PackIndex;
   private handle: FileHandle | null = null;
   private length = 0;
 
@@ -278,10 +279,19 @@ export class PackReader {
   /**
    * Find object ID by its offset in the pack file
    *
+   * Iterates through index entries to find matching offset.
+   * Used to resolve OFS_DELTA base references.
+   *
+   * Note: This is O(n) - for large packs, consider using
+   * PackReverseIndex for offset→id mapping.
+   *
+   * Based on: jgit PackReverseIndex.java#findObject
+   *
    * @param offset Offset to search for
-   * @returns Object ID or throws if not found
+   * @returns Object ID
+   * @throws Error if offset not found
    */
-  private findObjectIdByOffset(offset: number): ObjectId {
+  findObjectIdByOffset(offset: number): ObjectId {
     // Iterate through all entries to find matching offset
     for (const entry of this.index.entries()) {
       if (entry.offset === offset) {
@@ -340,6 +350,37 @@ export class PackReader {
   }
 
   /**
+   * Load raw delta bytes without resolution
+   *
+   * Returns the compressed delta data directly, without
+   * applying the delta to reconstruct the object.
+   *
+   * Useful for:
+   * - Copying deltas between packs
+   * - Inspecting delta format
+   * - Re-deltifying with different base
+   *
+   * Based on: jgit Pack.java#copyAsIs
+   *
+   * @param id Object ID
+   * @returns Raw delta bytes or undefined if not a delta
+   */
+  async loadRawDelta(id: ObjectId): Promise<Uint8Array | undefined> {
+    const offset = this.index.findOffset(id);
+    if (offset === -1) return undefined;
+
+    const header = await this.readObjectHeader(offset);
+
+    // Not a delta - return undefined
+    if (header.type !== 6 && header.type !== 7) {
+      return undefined;
+    }
+
+    // Decompress delta data
+    return this.decompress(offset + header.headerLength, header.size);
+  }
+
+  /**
    * Read bytes from pack file
    */
   private async read(
@@ -371,15 +412,13 @@ export class PackReader {
 
     // Use partial decompression to handle trailing data gracefully
     // Git pack files use zlib format (RFC 1950), not raw DEFLATE
-    const result = await decompressBlock(compressed, { raw: false });
+    const { data } = await decompressBlockPartial(compressed, { raw: false });
 
-    if (result.length !== expectedSize) {
-      throw new Error(
-        `Decompression size mismatch: expected ${expectedSize}, got ${result.length}`,
-      );
+    if (data.length !== expectedSize) {
+      throw new Error(`Decompression size mismatch: expected ${expectedSize}, got ${data.length}`);
     }
 
-    return result;
+    return data;
   }
 }
 

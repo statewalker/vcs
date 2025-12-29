@@ -26,7 +26,10 @@ import {
   shortId,
   storeBlob,
 } from "../shared/index.js";
-import { storedCommits } from "./04-create-commits.js";
+import { step02CreateFiles } from "./02-create-files.js";
+import { step03BuildTrees } from "./03-build-trees.js";
+import { step04CreateCommits, storedCommits } from "./04-create-commits.js";
+import { step05UpdateFiles } from "./05-update-files.js";
 
 export async function step08BranchesTags(): Promise<void> {
   printStep(8, "Working with Branches and Tags");
@@ -36,10 +39,6 @@ export async function step08BranchesTags(): Promise<void> {
   // Ensure we have commits
   if (!storedCommits.commit1) {
     console.log("  Note: Running previous steps to create commits...\n");
-    const { step02CreateFiles } = await import("./02-create-files.js");
-    const { step03BuildTrees } = await import("./03-build-trees.js");
-    const { step04CreateCommits } = await import("./04-create-commits.js");
-    const { step05UpdateFiles } = await import("./05-update-files.js");
     await step02CreateFiles();
     await step03BuildTrees();
     await step04CreateCommits();

@@ -1,6 +1,6 @@
 # Git Pack File Examples
 
-Working examples demonstrating how to read and write Git pack files using the `@webrun-vcs/storage-git` package.
+Working examples demonstrating how to read and write Git pack files using the `@webrun-vcs/core` package.
 
 ## Quick Start
 
