@@ -10,7 +10,7 @@ import { splitStream } from "./split-stream.js";
  * @returns A tuple containing the header as a Uint8Array and an async generator for the remaining data.
  */
 export async function readHeader(
-  input: AsyncIterable<Uint8Array>,
+  input: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   getHeaderEnd: (block: Uint8Array) => number,
   maxLength = -1,
 ): Promise<[header: Uint8Array, rest: AsyncGenerator<Uint8Array>]> {
@@ -50,7 +50,7 @@ export async function readHeader(
  * @returns A tuple containing the header as a Uint8Array and an async generator for the remaining data.
  */
 export async function readAhead(
-  input: AsyncIterable<Uint8Array>,
+  input: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   getHeaderEnd: (block: Uint8Array) => number,
   maxLength = -1,
 ): Promise<[header: Uint8Array, stream: AsyncGenerator<Uint8Array>]> {

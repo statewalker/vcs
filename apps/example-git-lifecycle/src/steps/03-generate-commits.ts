@@ -87,6 +87,8 @@ Added new features in this version.
         message = `Add tests for feature ${i}`;
         break;
       }
+      default:
+        message = `Commit ${i}`;
     }
 
     // Create the commit

@@ -9,7 +9,7 @@
  * @param finishOnEnd If true, all generators will finish when the input ends. Otherwise, the last generator may remain open.
  */
 export async function* splitStream(
-  input: AsyncIterable<Uint8Array>,
+  input: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   split: (block: Uint8Array) => number,
   finishOnEnd = false,
 ): AsyncGenerator<AsyncGenerator<Uint8Array>> {
