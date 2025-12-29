@@ -8,8 +8,11 @@
 
 import { basename, type FilesApi, joinPath } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
+import { createGitObject, typeCodeToString } from "../objects/object-header.js";
+import type { ObjectTypeCode } from "../objects/object-types.js";
+import { DeltaReverseIndex } from "./delta-reverse-index.js";
 import { readPackIndex } from "./pack-index-reader.js";
-import { PackReader } from "./pack-reader.js";
+import { type PackDeltaChainInfo, PackReader } from "./pack-reader.js";
 import type { PackIndex } from "./types.js";
 
 /**
@@ -161,8 +164,9 @@ export class PackDirectory {
   }
 
   /**
-   * Load object content from any pack
+   * Load object content from any pack (without Git header)
    *
+   * Returns the raw object content as stored in the pack file.
    * Returns undefined if not found in any pack.
    */
   async load(id: ObjectId): Promise<Uint8Array | undefined> {
@@ -172,6 +176,27 @@ export class PackDirectory {
     const reader = await this.getPack(packName);
     const obj = await reader.get(id);
     return obj?.content;
+  }
+
+  /**
+   * Load object content from any pack WITH Git header
+   *
+   * Returns content prefixed with Git object header (e.g., "blob 123\0content").
+   * This format is compatible with RawStore which expects headers.
+   *
+   * Returns undefined if not found in any pack.
+   */
+  async loadRaw(id: ObjectId): Promise<Uint8Array | undefined> {
+    const packName = await this.findPack(id);
+    if (!packName) return undefined;
+
+    const reader = await this.getPack(packName);
+    const obj = await reader.get(id);
+    if (!obj) return undefined;
+
+    // Pack types 1-4 map to Git object types
+    const typeStr = typeCodeToString(obj.type as ObjectTypeCode);
+    return createGitObject(typeStr, obj.content);
   }
 
   /**
@@ -251,6 +276,131 @@ export class PackDirectory {
         }
       }
     }
+  }
+
+  /**
+   * Check if object is stored as delta in any pack
+   *
+   * Reads the pack header to determine object type.
+   * OFS_DELTA (type 6) and REF_DELTA (type 7) are deltas.
+   *
+   * Based on: jgit Pack.java#loadObjectSize (checks object type from header)
+   *
+   * @param id Object ID to check
+   * @returns True if stored as delta
+   */
+  async isDelta(id: ObjectId): Promise<boolean> {
+    const packName = await this.findPack(id);
+    if (!packName) return false;
+    const reader = await this.getPack(packName);
+    return reader.isDelta(id);
+  }
+
+  /**
+   * Get immediate delta base (not full chain resolution)
+   *
+   * For OFS_DELTA: calculates base offset and finds object ID
+   * For REF_DELTA: returns the embedded base object ID
+   *
+   * Based on: jgit Pack.java#resolveDeltas
+   *
+   * @param id Object ID to query
+   * @returns Base object ID or undefined if not a delta
+   */
+  async getDeltaBase(id: ObjectId): Promise<ObjectId | undefined> {
+    const packName = await this.findPack(id);
+    if (!packName) return undefined;
+
+    const reader = await this.getPack(packName);
+    const offset = reader.index.findOffset(id);
+    if (offset === -1) return undefined;
+
+    const header = await reader.readObjectHeader(offset);
+
+    if (header.type === 7) {
+      // REF_DELTA - base ID embedded in header
+      return header.baseId;
+    }
+    if (header.type === 6) {
+      // OFS_DELTA - calculate base offset, find corresponding ID
+      if (header.baseOffset === undefined) {
+        throw new Error("OFS_DELTA missing base offset");
+      }
+      const baseOffset = offset - header.baseOffset;
+      return reader.findObjectIdByOffset(baseOffset);
+    }
+
+    return undefined; // Not a delta
+  }
+
+  /**
+   * Get delta chain info (depth, ultimate base)
+   *
+   * Walks the delta chain from target to ultimate base object.
+   *
+   * Based on: jgit Pack.java#load (delta chain resolution)
+   *
+   * @param id Object ID to query
+   * @returns Chain info or undefined if not a delta
+   */
+  async getDeltaChainInfo(id: ObjectId): Promise<PackDeltaChainInfo | undefined> {
+    const packName = await this.findPack(id);
+    if (!packName) return undefined;
+    const reader = await this.getPack(packName);
+    return reader.getDeltaChainInfo(id);
+  }
+
+  /**
+   * Find all objects that depend on a base (O(n) scan)
+   *
+   * Scans all pack headers to find objects with matching base.
+   * For efficient repeated queries, use DeltaReverseIndex.
+   *
+   * Note: Git/JGit don't maintain persistent reverse indexes for
+   * delta relationships - they rebuild during repack operations.
+   *
+   * @param baseId Base object ID
+   * @returns Array of dependent object IDs
+   */
+  async findDependents(baseId: ObjectId): Promise<ObjectId[]> {
+    const dependents: ObjectId[] = [];
+
+    for await (const id of this.listObjects()) {
+      const base = await this.getDeltaBase(id);
+      if (base === baseId) {
+        dependents.push(id);
+      }
+    }
+
+    return dependents;
+  }
+
+  /**
+   * List all delta relationships by scanning pack headers
+   *
+   * Iterates through all objects and yields those stored as deltas.
+   *
+   * @returns Async iterable of target→base relationships
+   */
+  async *listDeltaRelationships(): AsyncIterable<{ target: ObjectId; base: ObjectId }> {
+    for await (const id of this.listObjects()) {
+      const base = await this.getDeltaBase(id);
+      if (base) {
+        yield { target: id, base };
+      }
+    }
+  }
+
+  /**
+   * Build reverse index for efficient dependent lookups
+   *
+   * Scans all packs once to build an in-memory index of
+   * base→targets relationships.
+   *
+   * @returns DeltaReverseIndex with O(1) lookups
+   */
+  async buildReverseIndex(): Promise<DeltaReverseIndex> {
+    return DeltaReverseIndex.build(this);
   }
 
   /**

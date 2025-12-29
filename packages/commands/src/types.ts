@@ -6,6 +6,7 @@ import type {
   StagingStore,
   TagStore,
   TreeStore,
+  WorkingCopy,
   WorkingTreeIterator,
 } from "@webrun-vcs/core";
 
@@ -120,12 +121,10 @@ export interface CreateGitStoreOptions {
  * @example
  * ```typescript
  * import { createGitStore } from "@webrun-vcs/commands";
- * import { createRepository } from "@webrun-vcs/storage-git";
- * import { createStagingStore } from "@webrun-vcs/worktree";
+ * import { MemoryStagingStore } from "@webrun-vcs/store-mem";
  *
- * const repo = await createRepository(files, ".git");
- * const staging = createStagingStore();
- *
+ * // Use with any Repository implementation
+ * const staging = new MemoryStagingStore();
  * const store = createGitStore({ repository: repo, staging });
  * const git = Git.wrap(store);
  * ```
@@ -154,4 +153,40 @@ export function createGitStore(options: CreateGitStoreOptions): GitStore | GitSt
   }
 
   return store;
+}
+
+/**
+ * Create a GitStoreWithWorkTree from a WorkingCopy.
+ *
+ * This factory function allows using a WorkingCopy with the Git command facade.
+ * The WorkingCopy provides all necessary components: repository, staging, and worktree.
+ *
+ * @example
+ * ```typescript
+ * import { createGitStoreFromWorkingCopy } from "@webrun-vcs/commands";
+ *
+ * // Use WorkingCopy with Git facade
+ * const store = createGitStoreFromWorkingCopy(workingCopy);
+ * const git = Git.wrap(store);
+ *
+ * // Now all commands work with the working copy
+ * await git.add().addFilepattern(".").call();
+ * await git.status().call();
+ * ```
+ *
+ * @param workingCopy The WorkingCopy to create the store from
+ * @returns GitStoreWithWorkTree for use with Git commands
+ */
+export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStoreWithWorkTree {
+  const { repository, staging, worktree } = workingCopy;
+
+  return {
+    blobs: repository.blobs,
+    trees: repository.trees,
+    commits: repository.commits,
+    refs: repository.refs,
+    staging,
+    tags: repository.tags,
+    worktree,
+  };
 }

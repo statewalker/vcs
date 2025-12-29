@@ -18,8 +18,13 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository, createGitStorage, type GitRepository } from "@webrun-vcs/commands";
-import { FileMode, type ObjectId, type PersonIdent } from "@webrun-vcs/core";
+import {
+  createGitRepository,
+  FileMode,
+  type GitRepository,
+  type ObjectId,
+  type PersonIdent,
+} from "@webrun-vcs/core";
 import { setCompression } from "@webrun-vcs/utils";
 import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 
@@ -393,18 +398,15 @@ export function subtract(a: number, b: number): number {
   // ========== Step 4: Pack all objects (gc) ==========
   printSection("Step 4: Pack All Objects (GC)");
 
-  // NOTE: Pack/gc operations are storage-implementation specific.
-  // The high-level Repository API doesn't expose pack operations.
-  // For pack operations, use GitStorage which exposes rawStorage.repack():
-  console.log("  Running VCS repack operation...");
+  // NOTE: Pack/gc operations are run using native git to demonstrate compatibility.
+  // The VCS repository is compatible with native git operations.
+  console.log("  Running native git gc operation...");
 
-  // Close high-level repository, open low-level storage for pack operations
+  // Close high-level repository before running native git
   await repository.close();
 
-  // Use GitStorage for pack-specific operations (implementation-specific API)
-  const storageForPack = await createGitStorage(files, GIT_DIR, { create: false });
-  await storageForPack.rawStorage.repack({ windowSize: 10 });
-  await storageForPack.close();
+  // Use native git gc for packing (demonstrates compatibility)
+  execSync("git gc --aggressive", { cwd: REPO_DIR, stdio: "pipe" });
 
   // Reopen with high-level Repository API for verification
   const repositoryAfterGc = (await createGitRepository(files, GIT_DIR, {

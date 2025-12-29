@@ -17,26 +17,29 @@ pnpm add @webrun-vcs/commands
 ```
 
 **Dependencies:**
-- `@webrun-vcs/core` - Core types and store interfaces
+- `@webrun-vcs/core` - Core types, store interfaces, and repository factories
 - `@webrun-vcs/transport` - Remote protocol implementation
-- `@webrun-vcs/storage-git` - Git-compatible storage
+- `@webrun-vcs/utils` - Utility functions
 
 ## Quick Start
 
 ```typescript
-import { Git, createGitRepository } from "@webrun-vcs/commands";
-import { createFilesApi } from "@statewalker/webrun-files";
+import { Git, createGitStore } from "@webrun-vcs/commands";
+import { createGitRepository } from "@webrun-vcs/core";
+import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
+import * as fs from "node:fs/promises";
 
 // Create a Git-compatible repository
-const files = createFilesApi("/path/to/repo");
-const repository = await createGitRepository({ files });
-await repository.initialize();
+const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "/path/to/repo" }));
+const repository = await createGitRepository(files, ".git");
+
+// Create a staging store (or use one from store-mem/store-sql)
+import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+const staging = new MemoryStagingStore();
 
 // Create the Git command interface
-const git = Git.fromRepository({
-  repository,
-  staging: repository.staging,
-});
+const store = createGitStore({ repository, staging });
+const git = Git.wrap(store);
 
 // Stage and commit changes
 await git.add().addFilepattern(".").call();
@@ -61,13 +64,13 @@ import {
   GitCommand,
   TransportCommand,
 
-  // Repository creation
-  createGitRepository,
-  createGitStorage,
+  // Store creation
+  createGitStore,
 
   // Types
   type GitStore,
   type GitStoreWithWorkTree,
+  type CreateGitStoreOptions,
 
   // Enums
   ResetMode,
@@ -295,17 +298,19 @@ await git.pull()
 ### Cloning Repositories
 
 ```typescript
-import { Git, createGitStorage } from "@webrun-vcs/commands";
-import { createFilesApi } from "@statewalker/webrun-files";
+import { Git, createGitStore } from "@webrun-vcs/commands";
+import { createGitRepository } from "@webrun-vcs/core";
+import { MemoryStagingStore } from "@webrun-vcs/store-mem";
 
-// Create storage for the clone
-const files = createFilesApi("/path/to/clone");
-const storage = await createGitStorage({ files });
+// Create an in-memory repository for the clone
+const repository = await createGitRepository();
+const staging = new MemoryStagingStore();
+const store = createGitStore({ repository, staging });
 
 // Clone a repository
 const result = await Git.clone()
   .setUri("https://github.com/user/repo.git")
-  .setStorage(storage)
+  .setStore(store)
   .setCredentials({ token: "github_pat_xxx" })
   .setProgressCallback((progress) => {
     console.log(`${progress.phase}: ${progress.message}`);
@@ -318,29 +323,106 @@ console.log(`Cloned to branch: ${result.defaultBranch}`);
 ### Stash Operations
 
 ```typescript
-// Create a stash
+// Create a stash with a message
 const stashResult = await git.stashCreate()
   .setMessage("WIP: feature work")
   .call();
 
 console.log(`Created stash: ${stashResult.stashRef}`);
 
+// Include untracked files (like git stash -u)
+await git.stashCreate()
+  .setMessage("WIP with new files")
+  .setIncludeUntracked(true)
+  .call();
+
 // List stashes
 const stashes = await git.stashList().call();
 for (const stash of stashes) {
-  console.log(`${stash.index}: ${stash.message}`);
+  console.log(`stash@{${stash.index}}: ${stash.message}`);
 }
 
-// Apply latest stash
+// Apply latest stash (keeps stash in list)
 await git.stashApply()
   .setStashRef("stash@{0}")
   .call();
 
-// Drop a stash
-await git.stashDrop()
+// Pop stash (apply and remove)
+await git.stashPop()
   .setStashRef("stash@{0}")
   .call();
+
+// Drop a specific stash
+await git.stashDrop()
+  .setStashRef("stash@{1}")
+  .call();
+
+// Clear all stashes
+await git.stashClear().call();
 ```
+
+Stash commits follow Git's structure with 2-3 parents:
+- Parent 1: HEAD at time of stash
+- Parent 2: Index state commit
+- Parent 3 (optional): Untracked files commit (when `includeUntracked: true`)
+
+### Checkout Operations
+
+```typescript
+// Switch to a branch
+await git.checkout()
+  .setName("feature/login")
+  .call();
+
+// Create and switch to new branch (like git checkout -b)
+await git.checkout()
+  .setName("feature/new")
+  .setCreateBranch(true)
+  .call();
+
+// Checkout specific commit (detached HEAD)
+await git.checkout()
+  .setName("abc1234")
+  .call();
+
+// Checkout specific files from another branch
+await git.checkout()
+  .setName("main")
+  .addPath("src/config.ts")
+  .addPath("package.json")
+  .call();
+
+// Force checkout (discard local changes)
+await git.checkout()
+  .setName("main")
+  .setForce(true)
+  .call();
+```
+
+Checkout performs three-way conflict detection before switching branches:
+
+```typescript
+import { CheckoutConflictError } from "@webrun-vcs/commands/errors";
+
+try {
+  await git.checkout().setName("main").call();
+} catch (error) {
+  if (error instanceof CheckoutConflictError) {
+    // Local modifications would be overwritten
+    console.log("Conflicting paths:");
+    for (const conflict of error.conflicts) {
+      console.log(`  ${conflict.path}: ${conflict.message}`);
+    }
+
+    // Options: stash changes, force checkout, or abort
+  }
+}
+```
+
+Conflict types detected:
+- **DIRTY_WORKTREE**: Modified file would be overwritten
+- **DIRTY_INDEX**: Staged changes would be lost
+- **UNTRACKED_FILE**: New file would be overwritten
 
 ### Tags
 
@@ -507,11 +589,11 @@ await git.clone()
 
 | Package | Description |
 |---------|-------------|
-| `@webrun-vcs/core` | Core types and store interfaces |
+| `@webrun-vcs/core` | Core types, store interfaces, and repository factories |
 | `@webrun-vcs/transport` | Git protocol implementation |
-| `@webrun-vcs/storage-git` | Git-compatible filesystem storage |
 | `@webrun-vcs/store-sql` | SQLite storage backend |
 | `@webrun-vcs/store-mem` | In-memory storage for testing |
+| `@webrun-vcs/store-kv` | Key-value storage abstraction |
 
 ## License
 

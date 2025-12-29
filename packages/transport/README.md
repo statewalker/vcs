@@ -45,13 +45,11 @@ import {
 
 | Export Path | Description |
 |-------------|-------------|
-| `@webrun-vcs/transport/http-server` | Git HTTP server, VCS adapter |
 | `@webrun-vcs/transport/protocol` | Pkt-line codec, capabilities, protocol types |
 | `@webrun-vcs/transport/negotiation` | Protocol negotiation logic |
 | `@webrun-vcs/transport/connection` | HTTP connection implementation |
 | `@webrun-vcs/transport/operations` | Remote operations (fetch, push) |
 | `@webrun-vcs/transport/streams` | Stream utilities |
-| `@webrun-vcs/transport/handlers` | Protocol handlers (UploadPack, ReceivePack) |
 
 ### Key Classes and Functions
 

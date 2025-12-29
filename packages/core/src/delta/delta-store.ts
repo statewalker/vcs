@@ -11,6 +11,56 @@ export interface DeltaInfo {
 }
 
 /**
+ * Batched update handle for delta storage
+ *
+ * Encapsulates a transaction/batch of write operations. All writes
+ * are collected and only persisted when close() is called.
+ *
+ * Usage:
+ * ```typescript
+ * const update = store.startUpdate();
+ * await update.storeObject(id1, [contentWithHeader]);
+ * update.storeDelta({ baseKey, targetKey }, delta);
+ * await update.close(); // Commits all operations
+ * ```
+ */
+export interface DeltaStoreUpdate {
+  /**
+   * Store a full object (non-delta) in this batch
+   *
+   * Content should be a stream of raw object data WITH Git header.
+   * The implementation will parse the header to determine object type.
+   *
+   * @param key Object key (SHA-1 hash)
+   * @param content Stream of raw object data WITH Git header
+   */
+  storeObject(
+    key: string,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<void>;
+
+  /**
+   * Store a delta relationship in this batch
+   *
+   * @param info Delta relationship info (baseKey, targetKey)
+   * @param delta Delta instructions
+   * @returns Compressed size in bytes
+   */
+  storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number>;
+
+  /**
+   * Commit/flush all operations
+   *
+   * For pack-based: creates a single pack file with all objects
+   * For SQL-based: commits the transaction
+   * For KV-based: performs bulk write
+   *
+   * @returns Promise that resolves when all operations are persisted
+   */
+  close(): Promise<void>;
+}
+
+/**
  * Stored delta with instructions
  *
  * Returns delta as Delta[] instructions, regardless of how the backend
@@ -52,18 +102,25 @@ export type DeltaChainInfo = DeltaChainDetails;
  *
  * All backends accept and return Delta[] instructions, handling
  * serialization internally.
+ *
+ * Write operations use the transaction pattern via startUpdate():
+ * ```typescript
+ * const update = store.startUpdate();
+ * await update.storeObject(id, [contentWithHeader]);
+ * await update.storeDelta(info, delta);
+ * await update.close(); // Commits all operations
+ * ```
  */
 export interface DeltaStore {
   /**
-   * Store a delta relationship
+   * Start a batched update transaction
    *
-   * The backend serializes Delta[] to its native format internally.
+   * Returns an update handle that collects all write operations.
+   * Operations are only persisted when close() is called on the handle.
    *
-   * @param info Delta relationship info (baseKey, targetKey)
-   * @param delta Delta instructions (format-agnostic)
-   * @returns True if stored successfully
+   * @returns Update handle for batched writes
    */
-  storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number>;
+  startUpdate(): DeltaStoreUpdate;
 
   /**
    * Load delta for an object
@@ -106,4 +163,27 @@ export interface DeltaStore {
    * @returns Async iterable of delta info (baseKey, targetKey)
    */
   listDeltas(): AsyncIterable<DeltaInfo>;
+
+  /**
+   * Load resolved object content from backing storage (optional)
+   *
+   * For pack-based implementations, loads the fully resolved
+   * content (with delta resolution if needed) for any object
+   * stored in packs, whether it's a delta or full object.
+   *
+   * @param key Object key
+   * @returns Resolved content or undefined if not in backing storage
+   */
+  loadObject?(key: string): Promise<Uint8Array | undefined>;
+
+  /**
+   * Check if object exists in the delta store's backing storage (optional)
+   *
+   * For pack-based implementations, checks if an object exists
+   * in any pack file, regardless of whether it's a delta or full object.
+   *
+   * @param key Object key
+   * @returns True if object exists
+   */
+  hasObject?(key: string): Promise<boolean>;
 }

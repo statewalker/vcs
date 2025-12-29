@@ -179,8 +179,11 @@ export async function readAllRefs(
     }
   }
 
+  // When prefix is empty, read from refs/ to avoid reading the entire git directory
+  const refsPrefix = prefix === "" ? R_REFS : prefix;
+
   // Read loose refs from directory tree
-  await readLooseRefsRecursive(files, gitDir, prefix, refs);
+  await readLooseRefsRecursive(files, gitDir, refsPrefix, refs);
 
   // Read packed refs and add any not already found as loose
   const { refs: packedRefs } = await readPackedRefs(files, gitDir);

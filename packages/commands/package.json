@@ -38,7 +38,6 @@
   },
   "dependencies": {
     "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/storage-git": "workspace:*",
     "@webrun-vcs/transport": "workspace:*",
     "@webrun-vcs/utils": "workspace:*"
   },

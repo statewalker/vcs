@@ -1,7 +1,18 @@
 import type { Delta } from "@webrun-vcs/utils";
 import { applyDelta, createDelta, createDeltaRanges, slice } from "@webrun-vcs/utils";
 import type { RawStore } from "../binary/raw-store.js";
-import type { DeltaChainDetails, DeltaStore } from "./delta-store.js";
+import { encodeObjectHeader } from "../objects/object-header.js";
+import { EMPTY_TREE_ID } from "../trees/tree-format.js";
+import type { DeltaChainDetails, DeltaStore, DeltaStoreUpdate } from "./delta-store.js";
+
+/**
+ * Empty tree content (Git header with zero content)
+ *
+ * The empty tree is a well-known Git constant that represents a tree
+ * with no entries. Its SHA-1 hash is 4b825dc642cb6eb9a060e54bf8d69288fbee4904.
+ * This is a virtual object that doesn't need to be stored.
+ */
+const EMPTY_TREE_CONTENT = encodeObjectHeader("tree", 0);
 
 /**
  * Random access data source
@@ -70,6 +81,8 @@ export class RawStoreWithDelta implements RawStore {
   minSize?: number;
   /** Maximum delta chain depth */
   private readonly maxChainDepth: number;
+  /** Active batch update (for batching multiple deltify operations) */
+  private batchUpdate: DeltaStoreUpdate | null = null;
 
   constructor({
     objects,
@@ -99,6 +112,70 @@ export class RawStoreWithDelta implements RawStore {
     }
   }
 
+  /**
+   * Start a batch operation for deltification
+   *
+   * When a batch is active, all deltify() operations will be collected
+   * into a single pack file. Call endBatch() to commit all deltas.
+   *
+   * This enables GCController to create proper pack files with valid
+   * cross-references between objects in the same pack.
+   *
+   * @throws Error if a batch is already in progress
+   *
+   * @example
+   * ```typescript
+   * store.startBatch();
+   * try {
+   *   await store.deltify(id1, candidates);
+   *   await store.deltify(id2, candidates);
+   *   await store.endBatch(); // Creates single pack with all deltas
+   * } catch (e) {
+   *   store.cancelBatch();
+   *   throw e;
+   * }
+   * ```
+   */
+  startBatch(): void {
+    if (this.batchUpdate) {
+      throw new Error("Batch already in progress");
+    }
+    this.batchUpdate = this.deltas.startUpdate();
+  }
+
+  /**
+   * Commit all pending deltas in the current batch
+   *
+   * Creates a single pack file containing all deltas added since startBatch().
+   * This ensures proper cross-references between deltas in the same pack.
+   *
+   * @throws Error if no batch is in progress
+   */
+  async endBatch(): Promise<void> {
+    if (!this.batchUpdate) {
+      throw new Error("No batch in progress");
+    }
+    const update = this.batchUpdate;
+    this.batchUpdate = null;
+    await update.close();
+  }
+
+  /**
+   * Cancel the current batch without committing
+   *
+   * Discards all pending deltas. Use this in error handling.
+   */
+  cancelBatch(): void {
+    this.batchUpdate = null;
+  }
+
+  /**
+   * Check if a batch is currently in progress
+   */
+  isBatchInProgress(): boolean {
+    return this.batchUpdate !== null;
+  }
+
   async *keys(): AsyncGenerator<string> {
     const seen = new Set<string>();
 
@@ -118,21 +195,56 @@ export class RawStoreWithDelta implements RawStore {
   }
 
   async size(id: string): Promise<number> {
+    // Handle well-known empty tree (virtual object)
+    if (id === EMPTY_TREE_ID) {
+      return 0;
+    }
+
+    // Check deltas first (returns originalSize for resolved content)
     const chainInfo = await this.deltas.getDeltaChainInfo(id);
     if (chainInfo) {
       return chainInfo.originalSize;
     }
-    return this.objects.size(id);
+
+    // Check loose objects
+    if (await this.objects.has(id)) {
+      return this.objects.size(id);
+    }
+
+    // Check pack files for full objects (not deltas)
+    if (this.deltas.loadObject) {
+      const content = await this.deltas.loadObject(id);
+      if (content) {
+        return content.length;
+      }
+    }
+
+    throw new Error(`Object not found: ${id}`);
   }
 
   async has(id: string): Promise<boolean> {
+    // Handle well-known empty tree (virtual object)
+    if (id === EMPTY_TREE_ID) {
+      return true;
+    }
+
     if (await this.deltas.isDelta(id)) {
       return true;
     }
-    return this.objects.has(id);
+    if (await this.objects.has(id)) {
+      return true;
+    }
+    // Check pack files for full objects (not deltas)
+    if (this.deltas.hasObject) {
+      return this.deltas.hasObject(id);
+    }
+    return false;
   }
 
-  async store(key: string, content: AsyncIterable<Uint8Array>): Promise<number> {
+  async store(
+    key: string,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<number> {
     return this.objects.store(key, content);
   }
 
@@ -141,6 +253,7 @@ export class RawStoreWithDelta implements RawStore {
    *
    * Returns content with Git header stripped.
    * Transparently resolves delta chains if object is stored as delta.
+   * Also loads full objects from pack files if not in loose storage.
    *
    * @param id Object ID
    * @throws Error if object not found
@@ -149,18 +262,62 @@ export class RawStoreWithDelta implements RawStore {
     id: string,
     options?: { offset?: number; length?: number },
   ): AsyncGenerator<Uint8Array> {
-    // Check if it's a delta
+    // Handle well-known empty tree (virtual object)
+    if (id === EMPTY_TREE_ID) {
+      // Return the empty tree header "tree 0\0"
+      if (options?.offset !== undefined || options?.length !== undefined) {
+        const offset = options.offset ?? 0;
+        const length = options.length ?? EMPTY_TREE_CONTENT.length - offset;
+        yield EMPTY_TREE_CONTENT.subarray(offset, offset + length);
+      } else {
+        yield EMPTY_TREE_CONTENT;
+      }
+      return;
+    }
+
+    // Check pack files first (handles both full objects AND deltas)
+    // The pack reader resolves deltas internally using Git's binary format
+    // This takes precedence because pack delta resolution is more efficient
+    // If loading fails (e.g., REF_DELTA with base in loose storage), fall back to other methods
+    if (this.deltas.loadObject) {
+      try {
+        const content = await this.deltas.loadObject(id);
+        if (content) {
+          if (options?.offset !== undefined || options?.length !== undefined) {
+            const offset = options.offset ?? 0;
+            const length = options.length ?? content.length - offset;
+            yield content.subarray(offset, offset + length);
+          } else {
+            yield content;
+          }
+          return;
+        }
+      } catch {
+        // Pack loading failed (e.g., REF_DELTA base not in pack)
+        // Fall through to try other loading methods
+      }
+    }
+
+    // Check if it's a delta (internal format, not pack)
+    // This handles non-pack delta stores (e.g., SQL-based, mock stores)
     if (await this.deltas.isDelta(id)) {
-      // Resolve delta chain (strips header internally)
       const content = this.resolveDeltaChain(id);
       if (options?.offset !== undefined || options?.length !== undefined) {
         yield* slice(content, options.offset, options.length);
       } else {
         yield* content;
       }
-    } else {
-      yield* this.objects.load(id, options);
+      return;
     }
+
+    // Check loose objects
+    if (await this.objects.has(id)) {
+      yield* this.objects.load(id, options);
+      return;
+    }
+
+    // Object not found anywhere
+    throw new Error(`Object not found: ${id}`);
   }
 
   /**
@@ -274,13 +431,28 @@ export class RawStoreWithDelta implements RawStore {
       return false;
     }
 
-    await this.deltas.storeDelta(
-      {
-        targetKey: targetId,
-        baseKey: bestResult.baseId,
-      },
-      bestResult.delta,
-    );
+    // Store delta - use batch update if active, otherwise create individual update
+    if (this.batchUpdate) {
+      // Batch mode: add to existing update (will be committed with endBatch())
+      await this.batchUpdate.storeDelta(
+        {
+          targetKey: targetId,
+          baseKey: bestResult.baseId,
+        },
+        bestResult.delta,
+      );
+    } else {
+      // Individual mode: create and close update immediately
+      const update = this.deltas.startUpdate();
+      await update.storeDelta(
+        {
+          targetKey: targetId,
+          baseKey: bestResult.baseId,
+        },
+        bestResult.delta,
+      );
+      await update.close();
+    }
 
     return true;
   }
@@ -309,12 +481,22 @@ export class RawStoreWithDelta implements RawStore {
     const storedDelta = await this.deltas.loadDelta(objectId);
 
     if (!storedDelta) {
-      // Not a delta - stream directly from raw storage
-      if (!(await this.objects.has(objectId))) {
-        throw new Error(`Object not found: ${objectId}`);
+      // Not a delta - stream directly from raw storage or pack files
+      if (await this.objects.has(objectId)) {
+        yield* this.objects.load(objectId);
+        return;
       }
-      yield* this.objects.load(objectId);
-      return;
+
+      // Check pack files for full objects (not deltas)
+      if (this.deltas.loadObject) {
+        const content = await this.deltas.loadObject(objectId);
+        if (content) {
+          yield content;
+          return;
+        }
+      }
+
+      throw new Error(`Object not found: ${objectId}`);
     }
 
     // Resolve base content recursively

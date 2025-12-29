@@ -12,6 +12,8 @@
  * - Conflict detection from staging area
  * - Content-based comparison for accurate modification detection
  *
+ * Uses IndexDiffCalculator for core diff computation.
+ *
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/StatusCommand.java
  */
 
@@ -24,6 +26,8 @@ import { isSymbolicRef } from "../refs/ref-types.js";
 import type { StagingStore } from "../staging/staging-store.js";
 import type { TreeStore } from "../trees/tree-store.js";
 import type { WorkingTreeIterator } from "../worktree/working-tree-iterator.js";
+import type { IndexDiff } from "./index-diff.js";
+import { createIndexDiffCalculator } from "./index-diff-calculator.js";
 import {
   FileStatus,
   type FileStatusEntry,
@@ -522,6 +526,183 @@ export class StatusCalculatorImpl implements StatusCalculator {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Calculate status using IndexDiff.
+   *
+   * This is an alternative implementation that uses the IndexDiffCalculator
+   * for core diff computation. It provides the same result as calculateStatus
+   * but uses a more modular approach.
+   *
+   * @param options Status options
+   * @returns Repository status
+   */
+  async calculateStatusFromIndexDiff(options: StatusOptions = {}): Promise<RepositoryStatus> {
+    const {
+      includeIgnored = false,
+      includeUntracked = true,
+      pathPrefix = "",
+      detectRenames = false,
+      renameThreshold = 50,
+    } = options;
+
+    // Get HEAD tree
+    const headRef = await this.refs.resolve("HEAD");
+    const headTreeId = headRef?.objectId ? await this.commits.getTree(headRef.objectId) : undefined;
+
+    // Create IndexDiff calculator and compute diff
+    const diffCalculator = createIndexDiffCalculator(
+      {
+        trees: this.trees,
+        staging: this.staging,
+        worktree: this.worktree,
+      },
+      headTreeId,
+    );
+
+    const indexDiff = await diffCalculator.calculate({
+      includeIgnored,
+      includeUntracked,
+      pathPrefix,
+    });
+
+    // Convert IndexDiff to FileStatusEntry array
+    const files = this.convertIndexDiffToStatusEntries(indexDiff, includeIgnored, includeUntracked);
+
+    // Build tree maps for rename detection if needed
+    if (detectRenames) {
+      const headEntries = headTreeId
+        ? await this.buildTreeMap(headTreeId, "")
+        : new Map<string, TreeEntryInfo>();
+      const indexEntries = await this.buildIndexMap();
+      await this.detectRenames(files, headEntries, indexEntries, renameThreshold);
+    }
+
+    // Sort files by path
+    files.sort((a, b) => a.path.localeCompare(b.path));
+
+    // Calculate summary flags
+    const hasStaged = files.some((f) => f.indexStatus !== FileStatus.UNMODIFIED);
+    const hasUnstaged = files.some(
+      (f) =>
+        f.workTreeStatus !== FileStatus.UNMODIFIED &&
+        f.workTreeStatus !== FileStatus.UNTRACKED &&
+        f.workTreeStatus !== FileStatus.IGNORED,
+    );
+    const hasUntracked = files.some((f) => f.workTreeStatus === FileStatus.UNTRACKED);
+    const hasConflicts = indexDiff.conflicting.size > 0;
+
+    // Get branch info
+    const branch = await this.getCurrentBranch();
+
+    return {
+      branch,
+      head: headRef?.objectId,
+      files,
+      isClean: files.length === 0,
+      hasStaged,
+      hasUnstaged,
+      hasUntracked,
+      hasConflicts,
+    };
+  }
+
+  /**
+   * Convert IndexDiff result to FileStatusEntry array.
+   */
+  private convertIndexDiffToStatusEntries(
+    diff: IndexDiff,
+    includeIgnored: boolean,
+    includeUntracked: boolean,
+  ): FileStatusEntry[] {
+    const entries: FileStatusEntry[] = [];
+
+    // Added files (in index, not in HEAD)
+    for (const path of diff.added) {
+      const workTreeStatus = diff.modified.has(path)
+        ? FileStatus.MODIFIED
+        : diff.missing.has(path)
+          ? FileStatus.DELETED
+          : FileStatus.UNMODIFIED;
+      entries.push({ path, indexStatus: FileStatus.ADDED, workTreeStatus });
+    }
+
+    // Changed files (in index with different content from HEAD)
+    for (const path of diff.changed) {
+      const workTreeStatus = diff.modified.has(path)
+        ? FileStatus.MODIFIED
+        : diff.missing.has(path)
+          ? FileStatus.DELETED
+          : FileStatus.UNMODIFIED;
+      entries.push({ path, indexStatus: FileStatus.MODIFIED, workTreeStatus });
+    }
+
+    // Removed files (in HEAD, not in index)
+    for (const path of diff.removed) {
+      entries.push({
+        path,
+        indexStatus: FileStatus.DELETED,
+        workTreeStatus: FileStatus.UNMODIFIED,
+      });
+    }
+
+    // Conflicting files
+    for (const path of diff.conflicting) {
+      const stageState = diff.conflictingStageStates.get(path);
+      entries.push({
+        path,
+        indexStatus: FileStatus.CONFLICTED,
+        workTreeStatus: diff.modified.has(path) ? FileStatus.MODIFIED : FileStatus.UNMODIFIED,
+        stageState,
+      });
+    }
+
+    // Missing files (in index but not on disk) - only if not already added
+    for (const path of diff.missing) {
+      if (!diff.added.has(path) && !diff.changed.has(path) && !diff.conflicting.has(path)) {
+        entries.push({
+          path,
+          indexStatus: FileStatus.UNMODIFIED,
+          workTreeStatus: FileStatus.DELETED,
+        });
+      }
+    }
+
+    // Modified files in worktree (different from index) - only if not already added
+    for (const path of diff.modified) {
+      if (!diff.added.has(path) && !diff.changed.has(path) && !diff.conflicting.has(path)) {
+        entries.push({
+          path,
+          indexStatus: FileStatus.UNMODIFIED,
+          workTreeStatus: FileStatus.MODIFIED,
+        });
+      }
+    }
+
+    // Untracked files
+    if (includeUntracked) {
+      for (const path of diff.untracked) {
+        entries.push({
+          path,
+          indexStatus: FileStatus.UNMODIFIED,
+          workTreeStatus: FileStatus.UNTRACKED,
+        });
+      }
+    }
+
+    // Ignored files
+    if (includeIgnored) {
+      for (const path of diff.ignoredNotInIndex) {
+        entries.push({
+          path,
+          indexStatus: FileStatus.UNMODIFIED,
+          workTreeStatus: FileStatus.IGNORED,
+        });
+      }
+    }
+
+    return entries;
   }
 
   /**
