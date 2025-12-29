@@ -434,22 +434,17 @@ transport.push({
 
 ### Storage Backend Integration
 
-Use `createGitStore` to bridge between repositories and the commands package:
+The package re-exports from `@webrun-vcs/storage-git` for convenience:
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
-import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+import { createGitRepository, createGitStorage } from "@webrun-vcs/commands";
 
-// Create repository from @webrun-vcs/core
-const repository = await createGitRepository();
+// Creates Git-compatible filesystem repository
+const repo = await createGitRepository({ files });
+await repo.initialize();
 
-// Create staging store from any backend
-const staging = new MemoryStagingStore();
-
-// Bridge to commands package
-const store = createGitStore({ repository, staging });
-const git = Git.wrap(store);
+// Wrap with Git commands
+const git = Git.fromRepository({ repository: repo, staging: repo.staging });
 ```
 
 ## Error Handling Strategy
@@ -592,18 +587,16 @@ export class FileNotInCommitError extends GitApiError {
 Use memory storage for fast tests:
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
-import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+import { Git } from "@webrun-vcs/commands";
+import { createMemoryRepository } from "@webrun-vcs/store-mem";
 
 describe("CommitCommand", () => {
   let git: Git;
 
   beforeEach(async () => {
-    const repo = await createGitRepository(); // In-memory by default
-    const staging = new MemoryStagingStore();
-    const store = createGitStore({ repository: repo, staging });
-    git = Git.wrap(store);
+    const repo = createMemoryRepository();
+    await repo.initialize();
+    git = Git.fromRepository({ repository: repo, staging: repo.staging });
   });
 
   it("creates commit with message", async () => {

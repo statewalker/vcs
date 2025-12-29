@@ -10,7 +10,6 @@
  * Based on JGit's UploadPack.serviceV2() and ProtocolV2Parser
  */
 
-import { compressBlock, sha1 } from "@webrun-vcs/utils";
 import {
   CAPABILITY_AGENT,
   CAPABILITY_INCLUDE_TAG,
@@ -435,6 +434,10 @@ async function buildPackForV2(
   haves: ObjectId[],
   includeTag: boolean,
 ): Promise<Uint8Array> {
+  // Import the buildPack logic from upload-pack-handler
+  // For now, use walkObjects directly
+  const { compressBlock, sha1 } = await import("@webrun-vcs/utils");
+
   const objects: Array<{ id: ObjectId; type: number; content: Uint8Array }> = [];
   const sentObjectIds = new Set<ObjectId>();
 

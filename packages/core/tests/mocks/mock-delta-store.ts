@@ -7,64 +7,8 @@ import type {
   DeltaChainDetails,
   DeltaInfo,
   DeltaStore,
-  DeltaStoreUpdate,
-  ObjectTypeCode,
   StoredDelta,
 } from "../../src/delta/delta-store.js";
-
-/**
- * Pending delta for batch update
- */
-interface PendingDelta {
-  info: DeltaInfo;
-  delta: Delta[];
-}
-
-/**
- * Batched update handle for mock delta storage
- */
-class MockDeltaStoreUpdate implements DeltaStoreUpdate {
-  private readonly pendingDeltas: PendingDelta[] = [];
-  private readonly store: MockDeltaStore;
-  private closed = false;
-
-  constructor(store: MockDeltaStore) {
-    this.store = store;
-  }
-
-  storeObject(_key: string, _type: ObjectTypeCode, _content: Uint8Array): void {
-    if (this.closed) {
-      throw new Error("Update already closed");
-    }
-    // Mock delta store only handles deltas
-  }
-
-  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
-    if (this.closed) {
-      throw new Error("Update already closed");
-    }
-
-    this.pendingDeltas.push({ info, delta });
-
-    return delta.reduce((sum, d) => {
-      if (d.type === "insert") {
-        return sum + d.data.length;
-      }
-      return sum + 8;
-    }, 0);
-  }
-
-  async close(): Promise<void> {
-    if (this.closed) {
-      return;
-    }
-    this.closed = true;
-
-    for (const { info, delta } of this.pendingDeltas) {
-      this.store.applyDelta(info, delta);
-    }
-  }
-}
 
 /**
  * In-memory DeltaStore implementation for testing
@@ -74,16 +18,14 @@ class MockDeltaStoreUpdate implements DeltaStoreUpdate {
 export class MockDeltaStore implements DeltaStore {
   private readonly deltas = new Map<string, { info: DeltaInfo; delta: Delta[]; ratio: number }>();
 
-  startUpdate(): DeltaStoreUpdate {
-    return new MockDeltaStoreUpdate(this);
-  }
-
-  applyDelta(info: DeltaInfo, delta: Delta[]): void {
+  async storeDelta(info: DeltaInfo, delta: Delta[]): Promise<number> {
+    const estimatedSize = this.estimateDeltaSize(delta);
     this.deltas.set(info.targetKey, {
       info,
       delta,
       ratio: 0.5, // Default compression ratio for testing
     });
+    return estimatedSize;
   }
 
   async loadDelta(targetKey: string): Promise<StoredDelta | undefined> {
@@ -161,5 +103,17 @@ export class MockDeltaStore implements DeltaStore {
     if (entry) {
       entry.ratio = ratio;
     }
+  }
+
+  private estimateDeltaSize(delta: Delta[]): number {
+    let size = 0;
+    for (const instruction of delta) {
+      if (instruction.type === "insert") {
+        size += instruction.data.length;
+      } else {
+        size += 8; // Approximate size for copy/start/finish instructions
+      }
+    }
+    return size;
   }
 }

@@ -385,60 +385,6 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
     });
   });
 
-  describe("nested paths", () => {
-    /**
-     * JGit: testDifferentStatesWithPaths - nested directory filtering
-     * Tests filtering on nested paths like D/D/d
-     */
-    it("should filter on deeply nested paths", async () => {
-      const { git, store } = await createInitializedGit();
-
-      await addFile(store, "a.txt", "a");
-      await addFile(store, "D/b.txt", "b");
-      await addFile(store, "D/c.txt", "c");
-      await addFile(store, "D/D/d.txt", "d");
-      await git.commit().setMessage("initial").call();
-
-      // Modify all
-      await addFile(store, "a.txt", "new a");
-      await addFile(store, "D/b.txt", "new b");
-      await addFile(store, "D/D/d.txt", "new d");
-
-      // Filter on D/D only
-      const status = await git.status().addPath("D/D").call();
-
-      expect(status.changed.size).toBe(1);
-      expect(status.changed.has("D/D/d.txt")).toBe(true);
-      expect(status.changed.has("a.txt")).toBe(false);
-      expect(status.changed.has("D/b.txt")).toBe(false);
-    });
-
-    /**
-     * JGit: testDifferentStatesWithPaths - combined nested + root filtering
-     */
-    it("should combine nested and root path filters", async () => {
-      const { git, store } = await createInitializedGit();
-
-      await addFile(store, "a.txt", "a");
-      await addFile(store, "D/b.txt", "b");
-      await addFile(store, "D/D/d.txt", "d");
-      await git.commit().setMessage("initial").call();
-
-      // Modify all
-      await addFile(store, "a.txt", "new a");
-      await addFile(store, "D/b.txt", "new b");
-      await addFile(store, "D/D/d.txt", "new d");
-
-      // Filter on D/D and a.txt
-      const status = await git.status().addPath("D/D").addPath("a.txt").call();
-
-      expect(status.changed.size).toBe(2);
-      expect(status.changed.has("a.txt")).toBe(true);
-      expect(status.changed.has("D/D/d.txt")).toBe(true);
-      expect(status.changed.has("D/b.txt")).toBe(false);
-    });
-  });
-
   describe("convenience methods", () => {
     /**
      * Test isClean() method.

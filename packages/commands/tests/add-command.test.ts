@@ -8,12 +8,12 @@
  * Reference: tmp/jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/api/AddCommandTest.java
  */
 
-import {
-  FileMode,
-  type WorkingTreeEntry,
-  type WorkingTreeIterator,
-  type WorkingTreeIteratorOptions,
-} from "@webrun-vcs/core";
+import { FileMode } from "@webrun-vcs/core";
+import type {
+  WorkingTreeEntry,
+  WorkingTreeIterator,
+  WorkingTreeIteratorOptions,
+} from "@webrun-vcs/worktree";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { NoFilepatternError } from "../src/errors/index.js";

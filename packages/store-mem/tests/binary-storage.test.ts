@@ -242,24 +242,12 @@ describe("MemDeltaStore", () => {
     ];
   }
 
-  // Helper to store delta using new update pattern
-  async function storeDelta(
-    store: MemDeltaStore,
-    info: { baseKey: string; targetKey: string },
-    delta: Delta[],
-  ): Promise<number> {
-    const update = store.startUpdate();
-    const size = await update.storeDelta(info, delta);
-    await update.close();
-    return size;
-  }
-
   describe("storeDelta", () => {
     it("stores delta relationship", async () => {
       const store = new MemDeltaStore();
       const delta = createSampleDelta();
 
-      const result = await storeDelta(store, { baseKey: "base1", targetKey: "target1" }, delta);
+      const result = await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, delta);
 
       expect(result).toBeGreaterThan(0);
       expect(await store.isDelta("target1")).toBe(true);
@@ -274,8 +262,8 @@ describe("MemDeltaStore", () => {
         { type: "finish", checksum: 0 },
       ];
 
-      await storeDelta(store, { baseKey: "base1", targetKey: "target1" }, delta1);
-      await storeDelta(store, { baseKey: "base2", targetKey: "target1" }, delta2);
+      await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, delta1);
+      await store.storeDelta({ baseKey: "base2", targetKey: "target1" }, delta2);
 
       const loaded = await store.loadDelta("target1");
       expect(loaded?.baseKey).toBe("base2");
@@ -287,7 +275,7 @@ describe("MemDeltaStore", () => {
       const store = new MemDeltaStore();
       const delta = createSampleDelta();
 
-      await storeDelta(store, { baseKey: "base1", targetKey: "target1" }, delta);
+      await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, delta);
       const loaded = await store.loadDelta("target1");
 
       expect(loaded).toBeDefined();
@@ -308,7 +296,7 @@ describe("MemDeltaStore", () => {
   describe("isDelta", () => {
     it("returns true for existing delta", async () => {
       const store = new MemDeltaStore();
-      await storeDelta(store, { baseKey: "base", targetKey: "target" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base", targetKey: "target" }, createSampleDelta());
 
       expect(await store.isDelta("target")).toBe(true);
     });
@@ -323,7 +311,7 @@ describe("MemDeltaStore", () => {
   describe("removeDelta", () => {
     it("removes existing delta", async () => {
       const store = new MemDeltaStore();
-      await storeDelta(store, { baseKey: "base", targetKey: "target" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base", targetKey: "target" }, createSampleDelta());
 
       const removed = await store.removeDelta("target");
 
@@ -343,7 +331,7 @@ describe("MemDeltaStore", () => {
   describe("getDeltaChainInfo", () => {
     it("returns chain info for single delta", async () => {
       const store = new MemDeltaStore();
-      await storeDelta(store, { baseKey: "base", targetKey: "target" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base", targetKey: "target" }, createSampleDelta());
 
       const info = await store.getDeltaChainInfo("target");
 
@@ -356,8 +344,8 @@ describe("MemDeltaStore", () => {
 
     it("returns chain info for delta chain", async () => {
       const store = new MemDeltaStore();
-      await storeDelta(store, { baseKey: "base", targetKey: "middle" }, createSampleDelta());
-      await storeDelta(store, { baseKey: "middle", targetKey: "target" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base", targetKey: "middle" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "middle", targetKey: "target" }, createSampleDelta());
 
       const info = await store.getDeltaChainInfo("target");
 
@@ -379,8 +367,8 @@ describe("MemDeltaStore", () => {
   describe("listDeltas", () => {
     it("lists all delta relationships", async () => {
       const store = new MemDeltaStore();
-      await storeDelta(store, { baseKey: "base1", targetKey: "target1" }, createSampleDelta());
-      await storeDelta(store, { baseKey: "base2", targetKey: "target2" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base2", targetKey: "target2" }, createSampleDelta());
 
       const deltas = await toArray(store.listDeltas());
 
@@ -401,8 +389,8 @@ describe("MemDeltaStore", () => {
   describe("clear", () => {
     it("removes all deltas", async () => {
       const store = new MemDeltaStore();
-      await storeDelta(store, { baseKey: "base1", targetKey: "target1" }, createSampleDelta());
-      await storeDelta(store, { baseKey: "base2", targetKey: "target2" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base2", targetKey: "target2" }, createSampleDelta());
 
       store.clear();
 
@@ -417,10 +405,10 @@ describe("MemDeltaStore", () => {
       const store = new MemDeltaStore();
       expect(store.count).toBe(0);
 
-      await storeDelta(store, { baseKey: "base1", targetKey: "target1" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base1", targetKey: "target1" }, createSampleDelta());
       expect(store.count).toBe(1);
 
-      await storeDelta(store, { baseKey: "base2", targetKey: "target2" }, createSampleDelta());
+      await store.storeDelta({ baseKey: "base2", targetKey: "target2" }, createSampleDelta());
       expect(store.count).toBe(2);
 
       await store.removeDelta("target1");
@@ -460,9 +448,7 @@ describe("MemBinStore", () => {
         { type: "finish", checksum: 0 },
       ];
 
-      const update = store.delta.startUpdate();
-      await update.storeDelta({ baseKey: "base", targetKey: "target" }, delta);
-      await update.close();
+      await store.delta.storeDelta({ baseKey: "base", targetKey: "target" }, delta);
       const loaded = await store.delta.loadDelta("target");
 
       expect(loaded).toBeDefined();
@@ -504,12 +490,10 @@ describe("MemBinStore", () => {
       const store = new MemBinStore();
 
       await store.raw.store("key", chunks("content"));
-      const update = store.delta.startUpdate();
-      await update.storeDelta({ baseKey: "base", targetKey: "target" }, [
+      await store.delta.storeDelta({ baseKey: "base", targetKey: "target" }, [
         { type: "start", targetLen: 100 },
         { type: "finish", checksum: 0 },
       ]);
-      await update.close();
 
       store.clear();
 

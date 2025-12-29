@@ -27,7 +27,6 @@ import {
 import { collectStream, streamFromBuffer } from "./utils.js";
 import { deflateWeb, inflateWeb } from "./web-streams.js";
 
-export * from "./pako-compression.js";
 // Re-export types
 export * from "./types.js";
 export * from "./utils.js";

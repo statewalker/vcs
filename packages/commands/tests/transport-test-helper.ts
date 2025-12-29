@@ -17,7 +17,7 @@ import type {
   TreeEntry,
   TreeStore,
 } from "@webrun-vcs/core";
-import { serializeCommit, serializeTree } from "@webrun-vcs/core";
+import { serializeCommit, serializeTree } from "@webrun-vcs/storage-git";
 import { MemoryRefStore, MemoryStagingStore, MemoryTagStore } from "@webrun-vcs/store-mem";
 import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
 

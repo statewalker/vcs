@@ -666,9 +666,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
   });
 });
 
-describe.each(backends)("StashCreateCommand - JGit compatibility tests ($name backend)", ({
-  factory,
-}) => {
+describe.each(backends)("StashCreateCommand - additional tests ($name backend)", ({ factory }) => {
   let cleanup: (() => Promise<void>) | undefined;
 
   afterEach(async () => {

@@ -74,16 +74,14 @@ const hash = await objectStore.store(async function* () {
 The memory backend integrates seamlessly with high-level commands:
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
+import { Git } from "@webrun-vcs/commands";
 import { createMemoryStorage } from "@webrun-vcs/store-mem";
 
-const { stagingStore } = createMemoryStorage();
-const repository = await createGitRepository(); // In-memory by default
-const store = createGitStore({ repository, staging: stagingStore });
-const git = Git.wrap(store);
+const storage = createMemoryStorage();
+const git = new Git(storage);
 
-// Stage and commit
+// Initialize and commit
+await git.init().call();
 await git.add().addFilepattern(".").call();
 await git.commit().setMessage("Initial commit").call();
 ```
@@ -160,9 +158,7 @@ The DFS (Distributed File System) layer in JGit provides similar abstraction, th
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/core` - Interface definitions
-- `@webrun-vcs/utils` - Utilities
-- `@webrun-vcs/sandbox` - Sandbox utilities
+- `@webrun-vcs/vcs` - Interface definitions
 
 **Development:**
 - `@webrun-vcs/testing` - Test suites for validation

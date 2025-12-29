@@ -9,6 +9,10 @@
       "@webrun-vcs/core/*": ["packages/core/src/*"],
       "@webrun-vcs/sandbox": ["packages/sandbox/src"],
       "@webrun-vcs/sandbox/*": ["packages/sandbox/src/*"],
+      "@webrun-vcs/staging": ["packages/staging/src"],
+      "@webrun-vcs/staging/*": ["packages/staging/src/*"],
+      "@webrun-vcs/storage-git": ["packages/storage-git/src"],
+      "@webrun-vcs/storage-git/*": ["packages/storage-git/src/*"],
       "@webrun-vcs/storage-tests": ["packages/storage-tests/src"],
       "@webrun-vcs/storage-tests/*": ["packages/storage-tests/src/*"],
       "@webrun-vcs/store-kv": ["packages/store-kv/src"],
@@ -22,19 +26,27 @@
       "@webrun-vcs/transport": ["packages/transport/src"],
       "@webrun-vcs/transport/*": ["packages/transport/src/*"],
       "@webrun-vcs/utils": ["packages/utils/src"],
-      "@webrun-vcs/utils/*": ["packages/utils/src/*"]
+      "@webrun-vcs/utils/*": ["packages/utils/src/*"],
+      "@webrun-vcs/vcs": ["packages/vcs/src"],
+      "@webrun-vcs/vcs/*": ["packages/vcs/src/*"],
+      "@webrun-vcs/worktree": ["packages/worktree/src"],
+      "@webrun-vcs/worktree/*": ["packages/worktree/src/*"]
     }
   },
   "include": [],
   "references": [
     { "path": "packages/utils" },
     { "path": "packages/core" },
+    { "path": "packages/vcs" },
+    { "path": "packages/worktree" },
     { "path": "packages/transport" },
     { "path": "packages/testing" },
+    { "path": "packages/staging" },
     { "path": "packages/store-kv" },
     { "path": "packages/sandbox" },
     { "path": "packages/store-mem" },
     { "path": "packages/store-sql" },
+    { "path": "packages/storage-git" },
     { "path": "packages/storage-tests" },
     { "path": "packages/commands" }
   ]

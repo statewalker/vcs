@@ -10,7 +10,9 @@
 import * as fsSync from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { GitRepository, ObjectId } from "@webrun-vcs/core";
+
+import type { GitRepository } from "@webrun-vcs/commands";
+import type { ObjectId } from "@webrun-vcs/core";
 import { FileMode } from "@webrun-vcs/core";
 import {
   formatBytes,

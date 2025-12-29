@@ -25,9 +25,9 @@ import {
   shortId,
   storeBlob,
 } from "../shared/index.js";
-import { step02CreateFiles, storedFiles } from "./02-create-files.js";
-import { step03BuildTrees, storedTrees } from "./03-build-trees.js";
-import { step04CreateCommits, storedCommits } from "./04-create-commits.js";
+import { storedFiles } from "./02-create-files.js";
+import { storedTrees } from "./03-build-trees.js";
+import { storedCommits } from "./04-create-commits.js";
 
 export async function step05UpdateFiles(): Promise<void> {
   printStep(5, "Update Files (Add, Modify, Remove)");
@@ -37,6 +37,9 @@ export async function step05UpdateFiles(): Promise<void> {
   // Ensure previous steps have run
   if (!storedCommits.commit2) {
     console.log("  Note: Running steps 2-4 first to create initial commits...\n");
+    const { step02CreateFiles } = await import("./02-create-files.js");
+    const { step03BuildTrees } = await import("./03-build-trees.js");
+    const { step04CreateCommits } = await import("./04-create-commits.js");
     await step02CreateFiles();
     await step03BuildTrees();
     await step04CreateCommits();

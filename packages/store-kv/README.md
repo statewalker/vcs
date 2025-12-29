@@ -195,8 +195,7 @@ The DFS layer in JGit abstracts storage backends for distributed systems like cl
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/core` - Interface definitions
-- `@webrun-vcs/utils` - Utilities
+- `@webrun-vcs/vcs` - Interface definitions
 
 **Development:**
 - `@webrun-vcs/testing` - Test suites for validation
