@@ -442,6 +442,9 @@ importers:
       '@webrun-vcs/core':
         specifier: workspace:*
         version: link:../core
+      '@webrun-vcs/sandbox':
+        specifier: workspace:*
+        version: link:../sandbox
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
