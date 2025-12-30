@@ -3,39 +3,32 @@
   "version": "0.1.0",
   "private": false,
   "type": "module",
-  "main": "./dist/cjs/index.cjs",
-  "module": "./dist/esm/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": "./dist/index.js"
     },
     "./protocol": {
       "types": "./dist/protocol/index.d.ts",
-      "import": "./dist/esm/protocol/index.js",
-      "require": "./dist/cjs/protocol/index.cjs"
+      "import": "./dist/protocol/index.js"
     },
     "./negotiation": {
       "types": "./dist/negotiation/index.d.ts",
-      "import": "./dist/esm/negotiation/index.js",
-      "require": "./dist/cjs/negotiation/index.cjs"
+      "import": "./dist/negotiation/index.js"
     },
     "./connection": {
       "types": "./dist/connection/index.d.ts",
-      "import": "./dist/esm/connection/index.js",
-      "require": "./dist/cjs/connection/index.cjs"
+      "import": "./dist/connection/index.js"
     },
     "./operations": {
       "types": "./dist/operations/index.d.ts",
-      "import": "./dist/esm/operations/index.js",
-      "require": "./dist/cjs/operations/index.cjs"
+      "import": "./dist/operations/index.js"
     },
     "./streams": {
       "types": "./dist/streams/index.d.ts",
-      "import": "./dist/esm/streams/index.js",
-      "require": "./dist/cjs/streams/index.cjs"
+      "import": "./dist/streams/index.js"
     }
   },
   "files": [

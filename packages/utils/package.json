@@ -3,74 +3,60 @@
   "version": "0.1.0",
   "private": false,
   "type": "module",
-  "main": "./dist/cjs/index.cjs",
-  "module": "./dist/esm/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": "./dist/index.js"
     },
     "./compression": {
       "types": "./dist/compression/index.d.ts",
-      "import": "./dist/esm/compression/index.js",
-      "require": "./dist/cjs/compression/index.cjs"
+      "import": "./dist/compression/index.js"
     },
     "./compression-node": {
       "types": "./dist/compression/compression-node/index.d.ts",
-      "import": "./dist/esm/compression/compression-node/index.js",
-      "require": "./dist/cjs/compression/compression-node/index.cjs"
+      "import": "./dist/compression/compression-node/index.js"
     },
     "./hash": {
       "types": "./dist/hash/index.d.ts",
-      "import": "./dist/esm/hash/index.js",
-      "require": "./dist/cjs/hash/index.cjs"
+      "import": "./dist/hash/index.js"
     },
     "./hash/crc32": {
       "types": "./dist/hash/crc32/index.d.ts",
-      "import": "./dist/esm/hash/crc32/index.js",
-      "require": "./dist/cjs/hash/crc32/index.cjs"
+      "import": "./dist/hash/crc32/index.js"
     },
     "./hash/sha1": {
       "types": "./dist/hash/sha1/index.d.ts",
-      "import": "./dist/esm/hash/sha1/index.js",
-      "require": "./dist/cjs/hash/sha1/index.cjs"
+      "import": "./dist/hash/sha1/index.js"
     },
     "./hash/utils": {
       "types": "./dist/hash/utils/index.d.ts",
-      "import": "./dist/esm/hash/utils/index.js",
-      "require": "./dist/cjs/hash/utils/index.cjs"
+      "import": "./dist/hash/utils/index.js"
     },
     "./hash/fossil-checksum": {
       "types": "./dist/hash/fossil-checksum/index.d.ts",
-      "import": "./dist/esm/hash/fossil-checksum/index.js",
-      "require": "./dist/cjs/hash/fossil-checksum/index.cjs"
+      "import": "./dist/hash/fossil-checksum/index.js"
     },
     "./hash/rolling-checksum": {
       "types": "./dist/hash/rolling-checksum/index.d.ts",
-      "import": "./dist/esm/hash/rolling-checksum/index.js",
-      "require": "./dist/cjs/hash/rolling-checksum/index.cjs"
+      "import": "./dist/hash/rolling-checksum/index.js"
     },
     "./hash/strong-checksum": {
       "types": "./dist/hash/strong-checksum/index.d.ts",
-      "import": "./dist/esm/hash/strong-checksum/index.js",
-      "require": "./dist/cjs/hash/strong-checksum/index.cjs"
+      "import": "./dist/hash/strong-checksum/index.js"
     },
     "./diff": {
       "types": "./dist/diff/index.d.ts",
-      "import": "./dist/esm/diff/index.js",
-      "require": "./dist/cjs/diff/index.cjs"
+      "import": "./dist/diff/index.js"
     },
     "./streams": {
       "types": "./dist/streams/index.d.ts",
-      "import": "./dist/esm/streams/index.js",
-      "require": "./dist/cjs/streams/index.cjs"
+      "import": "./dist/streams/index.js"
     },
     "./cache": {
       "types": "./dist/cache/index.d.ts",
-      "import": "./dist/esm/cache/index.js",
-      "require": "./dist/cjs/cache/index.cjs"
+      "import": "./dist/cache/index.js"
     }
   },
   "files": [
