@@ -4,19 +4,16 @@
   "description": "SQL-based storage backend for WebRun VCS",
   "private": false,
   "type": "module",
-  "main": "./dist/cjs/index.cjs",
-  "module": "./dist/esm/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": "./dist/index.js"
     },
     "./adapters/sql-js": {
       "types": "./dist/adapters/sql-js-adapter.d.ts",
-      "import": "./dist/esm/adapters/sql-js-adapter.js",
-      "require": "./dist/cjs/adapters/sql-js-adapter.cjs"
+      "import": "./dist/adapters/sql-js-adapter.js"
     }
   },
   "scripts": {

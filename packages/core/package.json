@@ -3,34 +3,20 @@
   "version": "0.1.0",
   "private": false,
   "type": "module",
-  "main": "./dist/cjs/index.cjs",
-  "module": "./dist/esm/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
-    },
-    "./types": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/types/index.js",
-      "require": "./dist/cjs/types/index.cjs"
-    },
-    "./stores": {
-      "types": "./dist/stores/index.d.ts",
-      "import": "./dist/esm/stores/index.js",
-      "require": "./dist/cjs/stores/index.cjs"
+      "import": "./dist/index.js"
     },
     "./staging": {
       "types": "./dist/staging/index.d.ts",
-      "import": "./dist/esm/staging/index.js",
-      "require": "./dist/cjs/staging/index.cjs"
+      "import": "./dist/staging/index.js"
     },
     "./format": {
       "types": "./dist/format/index.d.ts",
-      "import": "./dist/esm/format/index.js",
-      "require": "./dist/cjs/format/index.cjs"
+      "import": "./dist/format/index.js"
     }
   },
   "files": [

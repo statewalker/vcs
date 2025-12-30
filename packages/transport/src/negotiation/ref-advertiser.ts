@@ -8,7 +8,7 @@
  * Based on JGit's RefAdvertiser and BasePackConnection.readAdvertisedRefs()
  */
 
-import { hexToBytes } from "@webrun-vcs/utils/hash/utils";
+import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
 import { parseCapabilities } from "../protocol/capabilities.js";
 import { OBJECT_ID_STRING_LENGTH, ZERO_ID } from "../protocol/constants.js";
 import { PackProtocolError } from "../protocol/errors.js";
@@ -121,7 +121,6 @@ export function formatRefLine(
   refName: string,
   capabilities?: string,
 ): string {
-  const { bytesToHex } = require("@webrun-vcs/utils/hash/utils");
   const idHex = bytesToHex(objectId);
 
   if (capabilities) {

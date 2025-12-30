@@ -16,19 +16,11 @@ export default defineConfig({
     "streams/index": "src/streams/index.ts",
     "cache/index": "src/cache/index.ts",
   },
-  output: [
-    {
-      dir: "dist/esm",
-      format: "esm",
-      entryFileNames: "[name].js",
-      chunkFileNames: "[name]-[hash].js",
-    },
-    {
-      dir: "dist/cjs",
-      format: "cjs",
-      entryFileNames: "[name].cjs",
-      chunkFileNames: "[name]-[hash].cjs",
-    },
-  ],
+  output: {
+    dir: "dist",
+    format: "esm",
+    entryFileNames: "[name].js",
+    chunkFileNames: "[name]-[hash].js",
+  },
   treeshake: true,
 });
