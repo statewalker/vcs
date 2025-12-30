@@ -92,15 +92,16 @@ The `Git` class provides factory methods for all commands:
 
 | Category | Methods |
 |----------|---------|
-| **Staging** | `add()`, `rm()`, `status()` |
-| **Committing** | `commit()`, `log()` |
+| **Staging** | `add()`, `rm()`, `status()`, `clean()` |
+| **Committing** | `commit()`, `log()`, `reflog()` |
 | **Branches** | `branchCreate()`, `branchDelete()`, `branchList()`, `branchRename()`, `checkout()` |
 | **Tags** | `tag()`, `tagDelete()`, `tagList()` |
 | **History** | `reset()`, `rebase()`, `merge()`, `cherryPick()`, `revert()` |
-| **Inspection** | `diff()`, `describe()` |
+| **Inspection** | `diff()`, `describe()`, `blame()` |
 | **Remote** | `fetch()`, `push()`, `pull()`, `clone()`, `lsRemote()` |
 | **Remotes** | `remoteAdd()`, `remoteRemove()`, `remoteList()`, `remoteSetUrl()` |
 | **Stash** | `stashCreate()`, `stashApply()`, `stashDrop()`, `stashList()` |
+| **Maintenance** | `gc()`, `packRefs()` |
 
 ## Usage Examples
 
@@ -449,6 +450,113 @@ for (const tag of tags) {
 // Delete tag
 await git.tagDelete()
   .setTags("v0.9.0")
+  .call();
+```
+
+### Repository Maintenance
+
+```typescript
+// Pack loose refs into packed-refs file
+const packResult = await git.packRefs()
+  .setAll(true)
+  .call();
+console.log(`Packed ${packResult.refsPacked} refs`);
+
+// Run garbage collection (pack refs + cleanup)
+const gcResult = await git.gc()
+  .setPackRefs(true)
+  .call();
+console.log(`GC completed in ${gcResult.durationMs}ms`);
+console.log(`Refs packed: ${gcResult.refsPacked}`);
+
+// Aggressive GC with repacking (for better compression)
+await git.gc()
+  .setAggressive(true)
+  .call();
+
+// GC with expiration date (keep recent unreachable objects)
+const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+await git.gc()
+  .setExpire(twoWeeksAgo)
+  .call();
+```
+
+### Reference History (Reflog)
+
+```typescript
+// View HEAD reflog entries
+const headEntries = await git.reflog().call();
+for (const entry of headEntries) {
+  console.log(`${entry.newId.slice(0, 7)} ${entry.comment}`);
+}
+
+// View reflog for specific branch
+const branchEntries = await git.reflog()
+  .setRef("refs/heads/main")
+  .call();
+
+console.log(`Found ${branchEntries.length} reflog entries`);
+```
+
+### Cleaning Working Tree
+
+```typescript
+// Preview what would be cleaned (dry run - default)
+const preview = await git.clean()
+  .setDryRun(true)
+  .call();
+for (const file of preview.cleaned) {
+  console.log(`Would remove: ${file}`);
+}
+
+// Actually remove untracked files
+const result = await git.clean()
+  .setDryRun(false)
+  .call();
+console.log(`Removed ${result.cleaned.size} files`);
+
+// Include untracked directories
+await git.clean()
+  .setCleanDirectories(true)
+  .setDryRun(false)
+  .call();
+
+// Also clean ignored files (like git clean -x)
+await git.clean()
+  .setIgnore(false)
+  .setDryRun(false)
+  .call();
+
+// Clean specific paths only
+await git.clean()
+  .setPaths(new Set(["build/", "temp/"]))
+  .setDryRun(false)
+  .call();
+```
+
+### File Blame
+
+```typescript
+// Blame a file to see line-by-line authorship
+const blameResult = await git.blame()
+  .setFilePath("src/main.ts")
+  .call();
+
+for (const entry of blameResult.entries) {
+  const lines = `${entry.resultStart}-${entry.resultStart + entry.lineCount - 1}`;
+  console.log(`Lines ${lines}: ${entry.commit.author.name}`);
+}
+
+// Blame starting from a specific commit
+await git.blame()
+  .setFilePath("src/main.ts")
+  .setStartCommit("v1.0.0")
+  .call();
+
+// Follow file renames
+await git.blame()
+  .setFilePath("src/new-name.ts")
+  .setFollowFileRenames(true)
   .call();
 ```
 
