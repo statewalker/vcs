@@ -10,6 +10,7 @@ import {
   DescribeCommand,
   DiffCommand,
   FetchCommand,
+  GarbageCollectCommand,
   ListBranchCommand,
   ListTagCommand,
   LogCommand,
@@ -18,6 +19,7 @@ import {
   PullCommand,
   PushCommand,
   RebaseCommand,
+  ReflogCommand,
   RemoteAddCommand,
   RemoteListCommand,
   RemoteRemoveCommand,
@@ -210,6 +212,25 @@ export class Git implements Disposable {
   log(): LogCommand {
     this.checkClosed();
     return new LogCommand(this.store);
+  }
+
+  /**
+   * Create a ReflogCommand for viewing reflog entries.
+   *
+   * @example
+   * ```typescript
+   * // Get HEAD reflog
+   * const entries = await git.reflog().call();
+   *
+   * // Get reflog for specific branch
+   * const branchEntries = await git.reflog()
+   *   .setRef("refs/heads/main")
+   *   .call();
+   * ```
+   */
+  reflog(): ReflogCommand {
+    this.checkClosed();
+    return new ReflogCommand(this.store);
   }
 
   // ============ Branch Operations ============
@@ -415,6 +436,27 @@ export class Git implements Disposable {
   describe(): DescribeCommand {
     this.checkClosed();
     return new DescribeCommand(this.store);
+  }
+
+  // ============ Maintenance Operations ============
+
+  /**
+   * Create a GarbageCollectCommand for repository maintenance.
+   *
+   * @example
+   * ```typescript
+   * // Basic garbage collection
+   * const result = await git.gc().call();
+   *
+   * // Aggressive GC with repacking
+   * const result = await git.gc()
+   *   .setAggressive(true)
+   *   .call();
+   * ```
+   */
+  gc(): GarbageCollectCommand {
+    this.checkClosed();
+    return new GarbageCollectCommand(this.store);
   }
 
   // ============ Status Operations ============

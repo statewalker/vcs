@@ -6,11 +6,13 @@
  */
 
 import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
+
 import { CompressedRawStore } from "../binary/raw-store.compressed.js";
 import { createFileRawStore } from "../binary/raw-store.files.js";
 import { createFileVolatileStore } from "../binary/volatile-store.files.js";
 import { GitBlobStore } from "../blob/blob-store.impl.js";
 import { GitCommitStore } from "../commits/commit-store.impl.js";
+import { GCController } from "../delta/gc-controller.js";
 import { RawStoreWithDelta } from "../delta/raw-store-with-delta.js";
 import type { ObjectId } from "../id/object-id.js";
 import { GitObjectStoreImpl } from "../objects/object-store.impl.js";
@@ -57,6 +59,7 @@ export interface CreateRepositoryOptions {
  */
 class GitRepository implements Repository {
   readonly config: RepositoryConfig;
+  readonly gc: GCController;
 
   constructor(
     readonly objects: GitObjectStoreImpl,
@@ -70,6 +73,7 @@ class GitRepository implements Repository {
     readonly deltaStorage: RawStoreWithDelta,
   ) {
     this.config = config;
+    this.gc = new GCController(deltaStorage);
   }
 
   async initialize(): Promise<void> {

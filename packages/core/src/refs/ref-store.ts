@@ -7,6 +7,7 @@
 
 import type { ObjectId } from "../id/index.js";
 import type { Ref, SymbolicRef } from "./ref-types.js";
+import type { ReflogReader } from "./reflog-types.js";
 
 // Re-export RefStorage enum as RefStoreLocation for backwards compatibility
 export { RefStorage as RefStoreLocation } from "./ref-types.js";
@@ -99,4 +100,20 @@ export interface RefStore {
    * Generic maintenance code can call this without knowing the implementation.
    */
   optimize?(): Promise<void>;
+
+  /**
+   * Get reflog reader for a ref
+   *
+   * @param refName Ref name (e.g., "HEAD", "refs/heads/main")
+   * @returns ReflogReader or undefined if no reflog exists
+   */
+  getReflog?(refName: string): Promise<ReflogReader | undefined>;
+
+  /**
+   * Pack loose refs into packed-refs file
+   *
+   * @param refNames Specific refs to pack (empty array with all=true packs all)
+   * @param options Pack options
+   */
+  packRefs?(refNames: string[], options?: { all?: boolean; deleteLoose?: boolean }): Promise<void>;
 }
