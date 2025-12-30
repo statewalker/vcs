@@ -17,6 +17,7 @@
 
 import type { BlobStore } from "./blob/blob-store.js";
 import type { CommitStore } from "./commits/commit-store.js";
+import type { GCController } from "./delta/gc-controller.js";
 import type { RawStoreWithDelta } from "./delta/raw-store-with-delta.js";
 import type { GitObjectStore } from "./objects/object-store.js";
 import type { RefStore } from "./refs/ref-store.js";
@@ -72,6 +73,14 @@ export interface Repository {
    * for running GCController operations.
    */
   readonly deltaStorage?: RawStoreWithDelta;
+
+  /**
+   * Garbage collection controller (optional)
+   *
+   * Provides GC operations like repacking, pruning unreachable objects,
+   * and storage optimization. Created from deltaStorage when available.
+   */
+  readonly gc?: GCController;
 
   /**
    * Initialize repository structure

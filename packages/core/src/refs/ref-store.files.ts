@@ -7,6 +7,7 @@
 
 import type { FilesApi } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
+
 import { packRefs } from "./packed-refs-writer.js";
 import { readAllRefs, readRef, resolveRef } from "./ref-reader.js";
 import type { RefStore, RefUpdateResult } from "./ref-store.js";
@@ -18,6 +19,9 @@ import {
   writeObjectRef,
   writeSymbolicRef,
 } from "./ref-writer.js";
+import { createReflogReader } from "./reflog-reader.js";
+import type { ReflogReader } from "./reflog-types.js";
+import { hasReflog } from "./reflog-writer.js";
 
 /**
  * File-based RefStore implementation
@@ -131,6 +135,39 @@ export class FileRefStore implements RefStore {
     const refNames = refs.map((r) => r.name);
     if (refNames.length > 0) {
       await packRefs(this.files, this.gitDir, refNames, true);
+    }
+  }
+
+  /**
+   * Get reflog reader for a ref
+   */
+  async getReflog(refName: string): Promise<ReflogReader | undefined> {
+    const exists = await hasReflog(this.files, this.gitDir, refName);
+    if (!exists) {
+      return undefined;
+    }
+    return createReflogReader(this.files, this.gitDir, refName);
+  }
+
+  /**
+   * Pack loose refs into packed-refs file
+   */
+  async packRefs(
+    refNames: string[],
+    options?: { all?: boolean; deleteLoose?: boolean },
+  ): Promise<void> {
+    const deleteLoose = options?.deleteLoose ?? true;
+
+    if (options?.all) {
+      // Pack all refs
+      const refs = await readAllRefs(this.files, this.gitDir, "refs/");
+      const allRefNames = refs.map((r) => r.name);
+      if (allRefNames.length > 0) {
+        await packRefs(this.files, this.gitDir, allRefNames, deleteLoose);
+      }
+    } else if (refNames.length > 0) {
+      // Pack specific refs
+      await packRefs(this.files, this.gitDir, refNames, deleteLoose);
     }
   }
 }
