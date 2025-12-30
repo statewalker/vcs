@@ -1,4 +1,5 @@
 export * from "./add-command.js";
+export * from "./blame-command.js";
 export * from "./branch-command.js";
 export * from "./checkout-command.js";
 export * from "./cherry-pick-command.js";

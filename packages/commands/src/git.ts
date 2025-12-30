@@ -1,5 +1,6 @@
 import {
   AddCommand,
+  BlameCommand,
   CheckoutCommand,
   CherryPickCommand,
   CleanCommand,
@@ -151,6 +152,27 @@ export class Git implements Disposable {
   add(): AddCommand {
     this.checkClosed();
     return new AddCommand(this.store);
+  }
+
+  // ============ Blame Operations ============
+
+  /**
+   * Create a BlameCommand for annotating file lines with authorship.
+   *
+   * @example
+   * ```typescript
+   * const result = await git.blame()
+   *   .setFilePath("src/main.ts")
+   *   .call();
+   *
+   * for (const entry of result.entries) {
+   *   console.log(`${entry.commit.author.name}: lines ${entry.resultStart}-${entry.resultStart + entry.lineCount - 1}`);
+   * }
+   * ```
+   */
+  blame(): BlameCommand {
+    this.checkClosed();
+    return new BlameCommand(this.store);
   }
 
   // ============ Checkout Operations ============
