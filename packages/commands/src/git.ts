@@ -2,6 +2,7 @@ import {
   AddCommand,
   CheckoutCommand,
   CherryPickCommand,
+  CleanCommand,
   CloneCommand,
   CommitCommand,
   CreateBranchCommand,
@@ -16,6 +17,7 @@ import {
   LogCommand,
   LsRemoteCommand,
   MergeCommand,
+  PackRefsCommand,
   PullCommand,
   PushCommand,
   RebaseCommand,
@@ -457,6 +459,38 @@ export class Git implements Disposable {
   gc(): GarbageCollectCommand {
     this.checkClosed();
     return new GarbageCollectCommand(this.store);
+  }
+
+  /**
+   * Create a PackRefsCommand for packing loose refs.
+   *
+   * @example
+   * ```typescript
+   * // Pack all refs
+   * const result = await git.packRefs()
+   *   .setAll(true)
+   *   .call();
+   * ```
+   */
+  packRefs(): PackRefsCommand {
+    this.checkClosed();
+    return new PackRefsCommand(this.store);
+  }
+
+  /**
+   * Create a CleanCommand for removing untracked files.
+   *
+   * @example
+   * ```typescript
+   * // Preview what would be cleaned (dry run)
+   * const result = await git.clean()
+   *   .setDryRun(true)
+   *   .call();
+   * ```
+   */
+  clean(): CleanCommand {
+    this.checkClosed();
+    return new CleanCommand(this.store);
   }
 
   // ============ Status Operations ============
