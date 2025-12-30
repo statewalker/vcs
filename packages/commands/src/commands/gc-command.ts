@@ -48,7 +48,9 @@ export interface GCCommandResult {
  * ```
  */
 export class GarbageCollectCommand extends GitCommand<GCCommandResult> {
-  private packRefs = true;
+  private _packRefs = true;
+  private _aggressive = false;
+  private _expire?: Date;
 
   /**
    * Set aggressive mode.
@@ -59,7 +61,7 @@ export class GarbageCollectCommand extends GitCommand<GCCommandResult> {
    */
   setAggressive(aggressive: boolean): this {
     this.checkCallable();
-    this.aggressive = aggressive;
+    this._aggressive = aggressive;
     return this;
   }
 
@@ -72,7 +74,7 @@ export class GarbageCollectCommand extends GitCommand<GCCommandResult> {
    */
   setPackRefs(packRefs: boolean): this {
     this.checkCallable();
-    this.packRefs = packRefs;
+    this._packRefs = packRefs;
     return this;
   }
 
@@ -87,7 +89,7 @@ export class GarbageCollectCommand extends GitCommand<GCCommandResult> {
    */
   setExpire(expire: Date): this {
     this.checkCallable();
-    this.expire = expire;
+    this._expire = expire;
     return this;
   }
 
@@ -124,7 +126,7 @@ export class GarbageCollectCommand extends GitCommand<GCCommandResult> {
     // For now, we'll check if the RefStore supports the gc operations
 
     // Check if refs support packRefs
-    if (this.packRefs && this.store.refs.packRefs) {
+    if (this._packRefs && this.store.refs.packRefs) {
       await this.store.refs.packRefs([], { all: true, deleteLoose: true });
       refsPacked = true;
     }
@@ -137,6 +139,11 @@ export class GarbageCollectCommand extends GitCommand<GCCommandResult> {
 
     // For aggressive mode, we could trigger repack here
     // But that also requires access to the GCController
+    // Reserved for future implementation:
+    // - this._aggressive: trigger full repack with better compression
+    // - this._expire: pass to collectGarbage() for expiration filtering
+    void this._aggressive;
+    void this._expire;
 
     return {
       objectsRemoved,
