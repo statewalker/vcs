@@ -4,18 +4,24 @@ export default defineConfig({
   input: "src/index.ts",
   output: [
     {
-      dir: "dist",
+      dir: "dist/esm",
       format: "esm",
       entryFileNames: "[name].js",
       chunkFileNames: "[name]-[hash].js",
     },
     {
-      dir: "dist",
+      dir: "dist/cjs",
       format: "cjs",
       entryFileNames: "[name].cjs",
       chunkFileNames: "[name]-[hash].cjs",
     },
   ],
-  external: ["@webrun-vcs/storage", "@webrun-vcs/storage-default", "vitest"],
+  external: [
+    "@webrun-vcs/core",
+    /^@webrun-vcs\/core\//,
+    "@webrun-vcs/sandbox",
+    /^@webrun-vcs\/sandbox\//,
+    "vitest",
+  ],
   treeshake: true,
 });
