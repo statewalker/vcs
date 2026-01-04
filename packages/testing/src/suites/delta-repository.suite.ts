@@ -2,7 +2,7 @@
  * Parametrized test suite for DeltaRepository implementations
  */
 
-import type { DeltaRepository } from "@webrun-vcs/sandbox";
+import type { DeltaRepository } from "@statewalker/vcs-sandbox";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

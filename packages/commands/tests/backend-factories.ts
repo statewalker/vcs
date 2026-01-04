@@ -9,16 +9,16 @@ import {
   createMemoryObjectStores,
   MemoryRefStore,
   MemoryStagingStore,
-} from "@webrun-vcs/store-mem";
+} from "@statewalker/vcs-store-mem";
 import {
   createSqlObjectStores,
   initializeSchema,
   SQLRefStore,
   SQLStagingStore,
-} from "@webrun-vcs/store-sql";
-import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+} from "@statewalker/vcs-store-sql";
+import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 
 import type { GitStore } from "../src/index.js";
 

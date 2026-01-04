@@ -8,7 +8,7 @@
  * objects are stored compressed on disk.
  */
 
-import { deflate, inflate, slice } from "@webrun-vcs/utils";
+import { deflate, inflate, slice } from "@statewalker/vcs-utils";
 import type { RawStore } from "./raw-store.js";
 
 /**

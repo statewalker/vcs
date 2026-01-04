@@ -1,7 +1,7 @@
 /**
  * Tests for KV-based store implementations
  *
- * Uses the parametrized test suites from @webrun-vcs/testing
+ * Uses the parametrized test suites from @statewalker/vcs-testing
  * to verify the KV implementations follow the interface contracts.
  */
 
@@ -11,7 +11,7 @@ import {
   createStagingStoreTests,
   createTagStoreTests,
   createTreeStoreTests,
-} from "@webrun-vcs/testing";
+} from "@statewalker/vcs-testing";
 import { MemoryKVAdapter } from "../src/adapters/memory-adapter.js";
 import { KVCommitStore } from "../src/kv-commit-store.js";
 import { KVRefStore } from "../src/kv-ref-store.js";

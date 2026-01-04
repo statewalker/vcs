@@ -8,7 +8,7 @@
  * Based on JGit's RefAdvertiser and BasePackConnection.readAdvertisedRefs()
  */
 
-import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
+import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 import { parseCapabilities } from "../protocol/capabilities.js";
 import { OBJECT_ID_STRING_LENGTH, ZERO_ID } from "../protocol/constants.js";
 import { PackProtocolError } from "../protocol/errors.js";

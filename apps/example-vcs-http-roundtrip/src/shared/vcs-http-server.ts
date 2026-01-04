@@ -17,7 +17,7 @@ import {
   PackWriterStream,
   typeCodeToString,
   typeStringToCode,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 import {
   CAPABILITY_DELETE_REFS,
   CAPABILITY_OFS_DELTA,
@@ -29,9 +29,9 @@ import {
   pktLineReader,
   SIDEBAND_DATA,
   SIDEBAND_PROGRESS,
-} from "@webrun-vcs/transport";
-import { decompressBlockPartial } from "@webrun-vcs/utils";
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+} from "@statewalker/vcs-transport";
+import { decompressBlockPartial } from "@statewalker/vcs-utils";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();

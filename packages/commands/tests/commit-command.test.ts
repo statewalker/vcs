@@ -385,7 +385,7 @@ import {
   type WorkingTreeEntry,
   type WorkingTreeIterator,
   type WorkingTreeIteratorOptions,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 
 class MockWorkingTree implements WorkingTreeIterator {
   private files: Map<string, { content: Uint8Array; mode: number; mtime: number }> = new Map();

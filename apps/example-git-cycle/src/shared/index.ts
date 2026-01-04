@@ -10,16 +10,16 @@
  * @see packages/storage/src/types.ts - Core type definitions
  */
 
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import {
   createGitRepository,
   FileMode,
   type GitRepository,
   type ObjectId,
   type PersonIdent,
-} from "@webrun-vcs/core";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+} from "@statewalker/vcs-core";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 
 // ============================================================================
 // Compression Setup
@@ -76,7 +76,7 @@ export const GIT_DIR = "/demo-repo/.git";
 /**
  * Shared repository instance
  *
- * Uses the high-level Repository interface from @webrun-vcs/core.
+ * Uses the high-level Repository interface from @statewalker/vcs-core.
  */
 let sharedRepository: GitRepository | null = null;
 
@@ -353,5 +353,5 @@ export type {
   PersonIdent,
   Repository,
   TreeEntry,
-} from "@webrun-vcs/core";
-export { FileMode, ObjectType } from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
+export { FileMode, ObjectType } from "@statewalker/vcs-core";

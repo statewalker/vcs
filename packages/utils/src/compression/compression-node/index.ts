@@ -6,8 +6,8 @@
  *
  * @example
  * ```ts
- * import { setCompression } from "@webrun-vcs/compression";
- * import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+ * import { setCompression } from "@statewalker/vcs-utils/compression";
+ * import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
  *
  * setCompression(createNodeCompression());
  * ```
@@ -270,8 +270,8 @@ export async function decompressBlockPartialNode(
  *
  * @example
  * ```ts
- * import { setCompression } from "@webrun-vcs/compression";
- * import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+ * import { setCompression } from "@statewalker/vcs-utils/compression";
+ * import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
  *
  * setCompression(createNodeCompression());
  * ```

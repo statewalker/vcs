@@ -1,4 +1,4 @@
-import type { FileModeValue, ObjectId, TreeEntry } from "@webrun-vcs/core";
+import type { FileModeValue, ObjectId, TreeEntry } from "@statewalker/vcs-core";
 
 import { GitCommand } from "../git-command.js";
 import {

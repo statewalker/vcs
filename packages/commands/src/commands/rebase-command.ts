@@ -1,4 +1,4 @@
-import type { ObjectId, PersonIdent } from "@webrun-vcs/core";
+import type { ObjectId, PersonIdent } from "@statewalker/vcs-core";
 
 import {
   CommitNotFoundError,

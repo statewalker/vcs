@@ -18,8 +18,7 @@
 import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createGitStore, Git } from "@webrun-vcs/commands";
+import { createGitStore, Git } from "@statewalker/vcs-commands";
 import {
   createGitRepository,
   FileMode,
@@ -29,9 +28,10 @@ import {
   type ObjectId,
   type PackingProgress,
   type PersonIdent,
-} from "@webrun-vcs/core";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+} from "@statewalker/vcs-core";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 
 // Initialize compression (required before any storage operations)
 setCompression(createNodeCompression());
@@ -692,7 +692,7 @@ export function subtract(a: number, b: number): number {
   // ========== Step 9: Demonstrate High-Level Commands ==========
   printSection("Step 9: High-Level Commands (Git Facade)");
 
-  console.log("  Demonstrating @webrun-vcs/commands high-level API:\n");
+  console.log("  Demonstrating @statewalker/vcs-commands high-level API:\n");
 
   // Create a GitStore from the repository for use with Git facade
   const staging = new MemoryStagingStore();
@@ -777,7 +777,7 @@ export function subtract(a: number, b: number): number {
        - All commits readable from pack files: ${allCommitsValid ? "YES" : "NO"}
        - Native git compatible: ${gitAvailable ? "YES" : "N/A"}
 
-    7. High-Level Commands (@webrun-vcs/commands)
+    7. High-Level Commands (@statewalker/vcs-commands)
        - PackRefsCommand: Pack loose refs into packed-refs file
        - GarbageCollectCommand: High-level GC with configurable options
        - ReflogCommand: View reference history

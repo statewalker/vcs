@@ -11,7 +11,7 @@ import {
   readPackIndex,
   writePack,
   writePackIndexV2,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 import {
   compareBytes,
   createFilesApi,

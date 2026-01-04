@@ -4,7 +4,7 @@
  * Tests MemRawStore, MemDeltaStore, and MemBinStore.
  */
 
-import type { Delta } from "@webrun-vcs/utils";
+import type { Delta } from "@statewalker/vcs-utils";
 import { describe, expect, it } from "vitest";
 import {
   createMemBinStore,

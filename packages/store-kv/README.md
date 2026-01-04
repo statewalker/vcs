@@ -1,4 +1,4 @@
-# @webrun-vcs/store-kv
+# @statewalker/vcs-store-kv
 
 Key-value storage abstraction with adapters for various backends.
 
@@ -13,7 +13,7 @@ The package includes a `MemoryAdapter` for testing, demonstrating the minimal in
 ## Installation
 
 ```bash
-pnpm add @webrun-vcs/store-kv
+pnpm add @statewalker/vcs-store-kv
 ```
 
 ## Public API
@@ -23,7 +23,7 @@ pnpm add @webrun-vcs/store-kv
 The foundation that all adapters implement:
 
 ```typescript
-import type { KVStore } from "@webrun-vcs/store-kv";
+import type { KVStore } from "@statewalker/vcs-store-kv";
 
 interface KVStore {
   get(key: string): Promise<Uint8Array | undefined>;
@@ -53,7 +53,7 @@ interface KVStore {
 For testing and development:
 
 ```typescript
-import { MemoryAdapter, KVCommitStore, KVRefStore } from "@webrun-vcs/store-kv";
+import { MemoryAdapter, KVCommitStore, KVRefStore } from "@statewalker/vcs-store-kv";
 
 const kv = new MemoryAdapter();
 const commitStore = new KVCommitStore(kv);
@@ -68,7 +68,7 @@ await refStore.setRef("refs/heads/main", commitHash);
 Here's how to implement a browser-compatible adapter:
 
 ```typescript
-import type { KVStore } from "@webrun-vcs/store-kv";
+import type { KVStore } from "@statewalker/vcs-store-kv";
 
 class IndexedDBAdapter implements KVStore {
   private db: IDBDatabase;
@@ -150,7 +150,7 @@ import {
   KVStagingStore,
   KVTagStore,
   KVTreeStore,
-} from "@webrun-vcs/store-kv";
+} from "@statewalker/vcs-store-kv";
 
 function createKVStorage(adapter: KVStore) {
   return {
@@ -195,11 +195,11 @@ The DFS layer in JGit abstracts storage backends for distributed systems like cl
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/core` - Interface definitions
-- `@webrun-vcs/utils` - Utilities
+- `@statewalker/vcs-core` - Interface definitions
+- `@statewalker/vcs-utils` - Utilities
 
 **Development:**
-- `@webrun-vcs/testing` - Test suites for validation
+- `@statewalker/vcs-testing` - Test suites for validation
 - `vitest` - Testing
 - `rolldown` - Bundling
 - `typescript` - Type definitions

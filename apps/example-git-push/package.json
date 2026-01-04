@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/example-git-push",
+  "name": "@statewalker/vcs-example-git-push",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
-    "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/transport": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*"
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-transport": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

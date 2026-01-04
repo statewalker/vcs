@@ -1,5 +1,5 @@
 /**
- * Transport test helpers for @webrun-vcs/commands
+ * Transport test helpers for @statewalker/vcs-commands
  *
  * Provides test infrastructure for remote operations (fetch, push, clone, pull).
  * Uses an in-memory Git HTTP server for testing with createVcsRepositoryAdapter.
@@ -16,10 +16,10 @@ import type {
   ObjectTypeString,
   TreeEntry,
   TreeStore,
-} from "@webrun-vcs/core";
-import { serializeCommit, serializeTree } from "@webrun-vcs/core";
-import { MemoryRefStore, MemoryStagingStore, MemoryTagStore } from "@webrun-vcs/store-mem";
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+} from "@statewalker/vcs-core";
+import { serializeCommit, serializeTree } from "@statewalker/vcs-core";
+import { MemoryRefStore, MemoryStagingStore, MemoryTagStore } from "@statewalker/vcs-store-mem";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 import { Git, type GitStore } from "../src/index.js";
 import { testAuthor } from "./test-helper.js";

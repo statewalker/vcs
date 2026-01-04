@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/utils",
+  "name": "@statewalker/vcs-utils",
   "version": "0.1.0",
   "private": false,
   "type": "module",

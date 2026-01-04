@@ -1,5 +1,5 @@
-import type { ObjectId } from "@webrun-vcs/core";
-import { FileMode, MergeStage } from "@webrun-vcs/core";
+import type { ObjectId } from "@statewalker/vcs-core";
+import { FileMode, MergeStage } from "@statewalker/vcs-core";
 
 import { GitCommand } from "../git-command.js";
 import { type Status, StatusImpl } from "../results/status-result.js";

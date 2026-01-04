@@ -4,7 +4,7 @@
  * Uses JavaScript Maps for fast lookups by both object ID and record ID.
  */
 
-import type { ObjectEntry, ObjectId, ObjectRepository } from "@webrun-vcs/sandbox";
+import type { ObjectEntry, ObjectId, ObjectRepository } from "@statewalker/vcs-sandbox";
 
 /**
  * In-memory object repository using Maps

@@ -88,7 +88,7 @@ INSERT command (length byte, 1-127):
 ### Streaming Writer
 
 ```typescript
-import { PackWriterStream, PackObjectType } from "@webrun-vcs/core";
+import { PackWriterStream, PackObjectType } from "@statewalker/vcs-core";
 
 const writer = new PackWriterStream();
 

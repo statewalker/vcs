@@ -12,7 +12,7 @@
  *   <commit message>
  */
 
-import { asAsyncIterable, collect, encodeString, toArray } from "@webrun-vcs/utils/streams";
+import { asAsyncIterable, collect, encodeString, toArray } from "@statewalker/vcs-utils/streams";
 import { formatPersonIdent, parsePersonIdent } from "../format/person-ident.js";
 import type { CommitEntry } from "../format/types.js";
 import type { Commit } from "./commit-store.js";

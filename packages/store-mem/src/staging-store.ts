@@ -9,8 +9,8 @@ import type {
   StagingStore,
   TreeEntry,
   TreeStore,
-} from "@webrun-vcs/core";
-import { FileMode, MergeStage } from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
+import { FileMode, MergeStage } from "@statewalker/vcs-core";
 
 /**
  * In-memory staging store implementation.

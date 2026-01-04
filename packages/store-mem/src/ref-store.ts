@@ -5,8 +5,8 @@
  * No persistence - data is lost when the instance is garbage collected.
  */
 
-import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@webrun-vcs/core";
-import { RefStorage } from "@webrun-vcs/core";
+import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@statewalker/vcs-core";
+import { RefStorage } from "@statewalker/vcs-core";
 
 /**
  * Maximum depth for following symbolic refs to prevent infinite loops.

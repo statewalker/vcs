@@ -99,7 +99,7 @@ export async function* listFilesRecursive(files: FilesApi, path: string): AsyncG
 }
 
 // Re-export from hash package for backward compatibility
-export { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
+export { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 
 /**
  * Get the file path for a loose object

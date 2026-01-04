@@ -1,5 +1,5 @@
-import type { Commit, ObjectId, PersonIdent, WorkingTreeIterator } from "@webrun-vcs/core";
-import { isSymbolicRef } from "@webrun-vcs/core";
+import type { Commit, ObjectId, PersonIdent, WorkingTreeIterator } from "@statewalker/vcs-core";
+import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import {
   EmptyCommitError,

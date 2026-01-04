@@ -595,7 +595,7 @@ Replace the current implementation with native delta storage.
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/PackWriter.java
  */
 
-import type { Delta } from "@webrun-vcs/utils";
+import type { Delta } from "@statewalker/vcs-utils";
 import type { FilesApi } from "../files/index.js";
 import { PackDirectory } from "./pack-directory.js";
 import { PendingPack } from "./pending-pack.js";

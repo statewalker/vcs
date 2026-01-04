@@ -2,7 +2,7 @@
  * Integration tests for streaming stores
  */
 
-import { createStreamingStoresTests } from "@webrun-vcs/testing";
+import { createStreamingStoresTests } from "@statewalker/vcs-testing";
 import { createStreamingMemoryStores } from "../src/create-streaming-stores.js";
 
 // Run the standard streaming stores test suite

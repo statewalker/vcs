@@ -13,8 +13,8 @@ This plan migrates useful code from `packages/storage-git` to `packages/core` be
 - [x] Updated `storage-git` to re-export from core (backwards compatible)
 
 **Note**: The `storage-git` package cannot be fully removed yet because:
-- `@webrun-vcs/commands` depends on `GitRepository`, `createGitStorage`, `serializeCommit/Tree`
-- `@webrun-vcs/storage-tests` depends on `createFileObjectStores`
+- `@statewalker/vcs-commands` depends on `GitRepository`, `createGitStorage`, `serializeCommit/Tree`
+- `@statewalker/vcs-storage-tests` depends on `createFileObjectStores`
 
 These are higher-level abstractions that remain in storage-git. The binary storage layer has been successfully migrated to core.
 
@@ -57,7 +57,7 @@ Core only has memory implementations (`MemoryRawStore`, `MemoryVolatileStore`). 
 ### Tasks
 
 1. Copy files to `packages/core/src/binary/`
-2. Update imports to use `@webrun-vcs/core` internal paths
+2. Update imports to use `@statewalker/vcs-core` internal paths
 3. Export from `packages/core/src/binary/index.ts`
 4. Add tests from `packages/storage-git/tests/binary-storage/`
 
@@ -96,8 +96,8 @@ GitObjectStoreImpl (typed objects with headers)
 
 ### Tasks
 
-1. **Run core tests**: `pnpm --filter @webrun-vcs/core test`
-2. **Run type check**: `pnpm --filter @webrun-vcs/core exec tsc --noEmit`
+1. **Run core tests**: `pnpm --filter @statewalker/vcs-core test`
+2. **Run type check**: `pnpm --filter @statewalker/vcs-core exec tsc --noEmit`
 3. **Update core exports**: Add new modules to `src/binary/index.ts`
 4. **Run full build**: `pnpm build`
 5. **Remove storage-git**: Delete `packages/storage-git/` directory
@@ -133,4 +133,4 @@ After removing storage-git, update packages that depend on it:
 grep -r "@webrun-vcs/storage-git" packages/*/package.json
 ```
 
-Update each dependent to import from `@webrun-vcs/core` instead.
+Update each dependent to import from `@statewalker/vcs-core` instead.

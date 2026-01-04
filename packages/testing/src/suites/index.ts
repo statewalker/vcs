@@ -2,8 +2,8 @@
  * Parametrized test suites for storage implementations
  *
  * These test suites verify implementations of the storage interfaces
- * defined in @webrun-vcs/storage and repository interfaces from
- * @webrun-vcs/storage-default.
+ * defined in @statewalker/vcs-core and repository interfaces from
+ * @statewalker/vcs-sandbox.
  */
 
 export * from "./commit-store.suite.js";

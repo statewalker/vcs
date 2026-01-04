@@ -4,7 +4,7 @@
  * This script runs all steps of the Git workflow example in sequence.
  * Each step demonstrates a key aspect of the webrun-vcs library.
  *
- * Run with: pnpm start (or: pnpm --filter @webrun-vcs/example-git-cycle start)
+ * Run with: pnpm start (or: pnpm --filter @statewalker/vcs-example-git-cycle start)
  *
  * Individual steps can also be run separately:
  *   pnpm step:01  - Initialize repository
@@ -88,7 +88,7 @@ async function main() {
 
     1. Repository Initialization
        - createGitRepository() creates .git directory structure
-       - Returns Repository interface from @webrun-vcs/core
+       - Returns Repository interface from @statewalker/vcs-core
        - HEAD, refs/, objects/ directories are set up
 
     2. Blob Storage (Files) - High-Level BlobStore API

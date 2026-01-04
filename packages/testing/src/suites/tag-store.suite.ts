@@ -5,8 +5,8 @@
  * All storage implementations must pass these tests.
  */
 
-import type { AnnotatedTag, ObjectTypeCode, PersonIdent, TagStore } from "@webrun-vcs/core";
-import { ObjectType } from "@webrun-vcs/core";
+import type { AnnotatedTag, ObjectTypeCode, PersonIdent, TagStore } from "@statewalker/vcs-core";
+import { ObjectType } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

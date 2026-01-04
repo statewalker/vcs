@@ -1,5 +1,5 @@
-import type { ObjectId } from "@webrun-vcs/core";
-import { lsRemote } from "@webrun-vcs/transport";
+import type { ObjectId } from "@statewalker/vcs-core";
+import { lsRemote } from "@statewalker/vcs-transport";
 
 import { InvalidRemoteError } from "../errors/index.js";
 import { TransportCommand } from "../transport-command.js";

@@ -1,7 +1,7 @@
 /**
  * Tests for SQL high-level store implementations
  *
- * Uses the parametrized test suites from @webrun-vcs/testing
+ * Uses the parametrized test suites from @statewalker/vcs-testing
  * to verify the SQL implementations follow the interface contracts.
  */
 
@@ -11,7 +11,7 @@ import {
   createStagingStoreTests,
   createTagStoreTests,
   createTreeStoreTests,
-} from "@webrun-vcs/testing";
+} from "@statewalker/vcs-testing";
 import { SqlJsAdapter } from "../src/adapters/sql-js-adapter.js";
 import { SQLCommitStore } from "../src/commit-store.js";
 import { initializeSchema } from "../src/migrations/index.js";

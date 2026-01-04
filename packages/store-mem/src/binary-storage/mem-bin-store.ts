@@ -5,7 +5,7 @@
  * Implements the BinStore interface from binary-storage.
  */
 
-import type { BinStore, DeltaStore, RawStore } from "@webrun-vcs/core";
+import type { BinStore, DeltaStore, RawStore } from "@statewalker/vcs-core";
 import { MemDeltaStore } from "./mem-delta-store.js";
 import { MemRawStore } from "./mem-raw-store.js";
 

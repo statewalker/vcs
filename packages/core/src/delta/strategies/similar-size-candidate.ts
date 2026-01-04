@@ -5,7 +5,7 @@
  * Based on the observation that similar-sized objects often produce good deltas.
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectId } from "@statewalker/vcs-core";
 import type { RawStore } from "../../binary/index.js";
 import type { DeltaCandidateStrategy } from "../types.js";
 

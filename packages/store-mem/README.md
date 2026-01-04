@@ -1,4 +1,4 @@
-# @webrun-vcs/store-mem
+# @statewalker/vcs-store-mem
 
 In-memory storage implementation for testing and development scenarios.
 
@@ -6,14 +6,14 @@ In-memory storage implementation for testing and development scenarios.
 
 This package provides a complete in-memory implementation of all webrun-vcs storage interfaces. Every object, commit, tree, tag, reference, and staging entry lives in JavaScript Maps and Arrays, making this backend perfect for unit tests, development environments, and scenarios where persistence isn't needed.
 
-The in-memory backend is intentionally simple. It focuses on correctness over optimization, serving as a reference implementation that other backends can compare against. The `@webrun-vcs/testing` package validates all storage backends against the same test suites, ensuring consistent behavior regardless of which backend you choose.
+The in-memory backend is intentionally simple. It focuses on correctness over optimization, serving as a reference implementation that other backends can compare against. The `@statewalker/vcs-testing` package validates all storage backends against the same test suites, ensuring consistent behavior regardless of which backend you choose.
 
 Because everything stays in memory, this backend offers the fastest read and write performance of any storage option. Use it when you need to run thousands of operations in tests without disk I/O overhead.
 
 ## Installation
 
 ```bash
-pnpm add @webrun-vcs/store-mem
+pnpm add @statewalker/vcs-store-mem
 ```
 
 ## Public API
@@ -23,7 +23,7 @@ pnpm add @webrun-vcs/store-mem
 The simplest way to create a complete storage setup:
 
 ```typescript
-import { createMemoryStorage } from "@webrun-vcs/store-mem";
+import { createMemoryStorage } from "@statewalker/vcs-store-mem";
 
 const storage = createMemoryStorage();
 // Returns all stores ready to use
@@ -52,7 +52,7 @@ For more control, instantiate stores individually:
 The factory function creates everything you need:
 
 ```typescript
-import { createMemoryStorage } from "@webrun-vcs/store-mem";
+import { createMemoryStorage } from "@statewalker/vcs-store-mem";
 
 const {
   objectStore,
@@ -69,14 +69,14 @@ const hash = await objectStore.store(async function* () {
 }());
 ```
 
-### Using with @webrun-vcs/commands
+### Using with @statewalker/vcs-commands
 
 The memory backend integrates seamlessly with high-level commands:
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
-import { createMemoryStorage } from "@webrun-vcs/store-mem";
+import { Git, createGitStore } from "@statewalker/vcs-commands";
+import { createGitRepository } from "@statewalker/vcs-core";
+import { createMemoryStorage } from "@statewalker/vcs-store-mem";
 
 const { stagingStore } = createMemoryStorage();
 const repository = await createGitRepository(); // In-memory by default
@@ -94,7 +94,7 @@ The memory backend makes tests fast and isolated:
 
 ```typescript
 import { describe, it, expect, beforeEach } from "vitest";
-import { createMemoryStorage } from "@webrun-vcs/store-mem";
+import { createMemoryStorage } from "@statewalker/vcs-store-mem";
 
 describe("MyFeature", () => {
   let storage;
@@ -122,7 +122,7 @@ When you need fine-grained control:
 import {
   InMemoryObjectRepository,
   InMemoryRefStore,
-} from "@webrun-vcs/store-mem";
+} from "@statewalker/vcs-store-mem";
 
 const objectRepo = new InMemoryObjectRepository();
 const refStore = new InMemoryRefStore();
@@ -144,7 +144,7 @@ The stores share no state between instances. Creating a new storage with `create
 
 Object storage uses a `Map<string, Uint8Array>` keyed by SHA-1 hash. References use `Map<string, string>` mapping ref names to object hashes. Staging entries track file paths to their staged content and metadata.
 
-The implementation passes all test suites from `@webrun-vcs/testing`, guaranteeing interface compliance. Any behavior difference between memory and other backends indicates a bug in one of the implementations.
+The implementation passes all test suites from `@statewalker/vcs-testing`, guaranteeing interface compliance. Any behavior difference between memory and other backends indicates a bug in one of the implementations.
 
 ## JGit References
 
@@ -160,12 +160,12 @@ The DFS (Distributed File System) layer in JGit provides similar abstraction, th
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/core` - Interface definitions
-- `@webrun-vcs/utils` - Utilities
-- `@webrun-vcs/sandbox` - Sandbox utilities
+- `@statewalker/vcs-core` - Interface definitions
+- `@statewalker/vcs-utils` - Utilities
+- `@statewalker/vcs-sandbox` - Sandbox utilities
 
 **Development:**
-- `@webrun-vcs/testing` - Test suites for validation
+- `@statewalker/vcs-testing` - Test suites for validation
 - `vitest` - Testing
 - `rolldown` - Bundling
 - `typescript` - Type definitions

@@ -2,7 +2,7 @@
  * Integration tests for streaming stores
  */
 
-import { createStreamingStoresTests } from "@webrun-vcs/testing";
+import { createStreamingStoresTests } from "@statewalker/vcs-testing";
 import { MemoryKVAdapter } from "../src/adapters/memory-adapter.js";
 import { createStreamingKvStores } from "../src/create-streaming-stores.js";
 

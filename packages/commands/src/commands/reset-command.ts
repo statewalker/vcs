@@ -1,5 +1,5 @@
-import type { ObjectId, Ref } from "@webrun-vcs/core";
-import { isSymbolicRef } from "@webrun-vcs/core";
+import type { ObjectId, Ref } from "@statewalker/vcs-core";
+import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import { GitCommand } from "../git-command.js";
 import { ResetMode } from "../types.js";

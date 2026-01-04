@@ -29,7 +29,7 @@ Run all steps in sequence:
 ```bash
 # From the monorepo root
 pnpm install
-pnpm --filter @webrun-vcs/example-git-perf start
+pnpm --filter @statewalker/vcs-example-git-perf start
 
 # Or from this directory
 pnpm start

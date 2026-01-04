@@ -1,4 +1,4 @@
-# @webrun-vcs/core Architecture
+# @statewalker/vcs-core Architecture
 
 This document explains the internal architecture of the core package, covering design decisions, module organization, and extension points.
 
@@ -23,7 +23,7 @@ Application Code
        ↓
    Core Interfaces (this package)
        ↓
-   Storage Backend (@webrun-vcs/store-*)
+   Storage Backend (@statewalker/vcs-store-*)
        ↓
    Actual Storage (filesystem, SQLite, IndexedDB, etc.)
 ```
@@ -200,7 +200,7 @@ The `Repository` and `GitStores` interfaces expose `objects: GitObjectStore` alo
 
 **Transport and Protocol Operations**
 
-Git's HTTP and SSH protocols transfer objects in pack files, which contain raw objects with their Git headers. The transport layer needs direct access to `objects` for building pack files during push and receiving objects during fetch. The `@webrun-vcs/transport` package's `createVcsRepositoryAdapter()` requires `objects` to implement protocol handlers:
+Git's HTTP and SSH protocols transfer objects in pack files, which contain raw objects with their Git headers. The transport layer needs direct access to `objects` for building pack files during push and receiving objects during fetch. The `@statewalker/vcs-transport` package's `createVcsRepositoryAdapter()` requires `objects` to implement protocol handlers:
 
 ```typescript
 // From transport package - needs objects for protocol handling
@@ -637,7 +637,7 @@ Repository factory functions.
 The `createGitRepository()` function creates a fully configured repository with all stores:
 
 ```typescript
-import { createGitRepository } from "@webrun-vcs/core";
+import { createGitRepository } from "@statewalker/vcs-core";
 
 // In-memory repository (default)
 const memRepo = await createGitRepository();
@@ -769,7 +769,7 @@ Call `refs.optimize?.()` periodically to pack loose refs. Many loose ref files s
 Use `createGitRepository()` without arguments for in-memory tests:
 
 ```typescript
-import { createGitRepository } from "@webrun-vcs/core";
+import { createGitRepository } from "@statewalker/vcs-core";
 
 // Creates an in-memory repository (uses MemFilesApi by default)
 const repo = await createGitRepository();
@@ -790,11 +790,11 @@ const mockCommitStore: CommitStore = {
 
 ### Parametrized Tests
 
-The `@webrun-vcs/testing` package provides test suites that verify any backend:
+The `@statewalker/vcs-testing` package provides test suites that verify any backend:
 
 ```typescript
 import { describe } from "vitest";
-import { objectStorageSuite, commitStoreSuite, refStoreSuite } from "@webrun-vcs/testing";
+import { objectStorageSuite, commitStoreSuite, refStoreSuite } from "@statewalker/vcs-testing";
 
 describe("MyCustomStorage", () => {
   objectStorageSuite({

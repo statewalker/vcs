@@ -1,4 +1,7 @@
+import path from "node:path";
 import { defineConfig } from "vitest/config";
+
+const rootDir = path.resolve(import.meta.dirname || __dirname);
 
 export default defineConfig({
   test: {
@@ -10,9 +13,97 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      "@webrun-vcs/core": "/packages/core/src",
-      "@webrun-vcs/diff": "/packages/diff/src",
-    },
+    alias: [
+      // Subpath aliases MUST come before base package aliases for correct matching
+      // Utils subpath aliases
+      {
+        find: "@statewalker/vcs-utils/compression-node",
+        replacement: path.resolve(rootDir, "packages/utils/src/compression/compression-node"),
+      },
+      {
+        find: "@statewalker/vcs-utils/compression",
+        replacement: path.resolve(rootDir, "packages/utils/src/compression/compression"),
+      },
+      {
+        find: "@statewalker/vcs-utils/hash/crc32",
+        replacement: path.resolve(rootDir, "packages/utils/src/hash/crc32"),
+      },
+      {
+        find: "@statewalker/vcs-utils/hash/sha1",
+        replacement: path.resolve(rootDir, "packages/utils/src/hash/sha1"),
+      },
+      {
+        find: "@statewalker/vcs-utils/hash/utils",
+        replacement: path.resolve(rootDir, "packages/utils/src/hash/utils"),
+      },
+      {
+        find: "@statewalker/vcs-utils/hash/fossil-checksum",
+        replacement: path.resolve(rootDir, "packages/utils/src/hash/fossil-checksum"),
+      },
+      {
+        find: "@statewalker/vcs-utils/hash/rolling-checksum",
+        replacement: path.resolve(rootDir, "packages/utils/src/hash/rolling-checksum"),
+      },
+      {
+        find: "@statewalker/vcs-utils/hash/strong-checksum",
+        replacement: path.resolve(rootDir, "packages/utils/src/hash/strong-checksum"),
+      },
+      {
+        find: "@statewalker/vcs-utils/hash",
+        replacement: path.resolve(rootDir, "packages/utils/src/hash"),
+      },
+      {
+        find: "@statewalker/vcs-utils/diff",
+        replacement: path.resolve(rootDir, "packages/utils/src/diff"),
+      },
+      {
+        find: "@statewalker/vcs-utils/streams",
+        replacement: path.resolve(rootDir, "packages/utils/src/streams"),
+      },
+      {
+        find: "@statewalker/vcs-utils/cache",
+        replacement: path.resolve(rootDir, "packages/utils/src/cache"),
+      },
+      // Store-sql subpath aliases
+      {
+        find: "@statewalker/vcs-store-sql/adapters/sql-js",
+        replacement: path.resolve(rootDir, "packages/store-sql/src/adapters/sql-js-adapter"),
+      },
+      // Base package aliases (must come after subpath aliases)
+      {
+        find: "@statewalker/vcs-commands",
+        replacement: path.resolve(rootDir, "packages/commands/src"),
+      },
+      { find: "@statewalker/vcs-core", replacement: path.resolve(rootDir, "packages/core/src") },
+      {
+        find: "@statewalker/vcs-sandbox",
+        replacement: path.resolve(rootDir, "packages/sandbox/src"),
+      },
+      {
+        find: "@statewalker/vcs-storage-tests",
+        replacement: path.resolve(rootDir, "packages/storage-tests/src"),
+      },
+      {
+        find: "@statewalker/vcs-store-kv",
+        replacement: path.resolve(rootDir, "packages/store-kv/src"),
+      },
+      {
+        find: "@statewalker/vcs-store-mem",
+        replacement: path.resolve(rootDir, "packages/store-mem/src"),
+      },
+      {
+        find: "@statewalker/vcs-store-sql",
+        replacement: path.resolve(rootDir, "packages/store-sql/src"),
+      },
+      {
+        find: "@statewalker/vcs-testing",
+        replacement: path.resolve(rootDir, "packages/testing/src"),
+      },
+      {
+        find: "@statewalker/vcs-transport",
+        replacement: path.resolve(rootDir, "packages/transport/src"),
+      },
+      { find: "@statewalker/vcs-utils", replacement: path.resolve(rootDir, "packages/utils/src") },
+    ],
   },
 });

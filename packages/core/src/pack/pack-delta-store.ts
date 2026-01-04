@@ -12,8 +12,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/PackWriter.java
  */
 
-import type { Delta } from "@webrun-vcs/utils";
-import { collect, newByteSplitter, readHeader } from "@webrun-vcs/utils/streams";
+import type { Delta } from "@statewalker/vcs-utils";
+import { collect, newByteSplitter, readHeader } from "@statewalker/vcs-utils/streams";
 import { parseBinaryDelta, serializeDelta } from "../delta/delta-binary-format.js";
 import type {
   DeltaChainDetails,

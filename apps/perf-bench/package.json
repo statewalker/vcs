@@ -9,7 +9,7 @@
     "lint": "biome lint src"
   },
   "dependencies": {
-    "@webrun-vcs/utils": "workspace:*"
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "tsx": "catalog:",

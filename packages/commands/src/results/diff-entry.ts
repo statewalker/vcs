@@ -1,4 +1,4 @@
-import type { FileModeValue, ObjectId } from "@webrun-vcs/core";
+import type { FileModeValue, ObjectId } from "@statewalker/vcs-core";
 
 /**
  * Type of change in a diff entry.

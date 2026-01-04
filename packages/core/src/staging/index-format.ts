@@ -1,4 +1,4 @@
-import { bytesToHex, hexToBytes, sha1 } from "@webrun-vcs/utils";
+import { bytesToHex, hexToBytes, sha1 } from "@statewalker/vcs-utils";
 import type { MergeStageValue, StagingEntry } from "./staging-store.js";
 
 /**

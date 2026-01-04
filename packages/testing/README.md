@@ -1,4 +1,4 @@
-# @webrun-vcs/testing
+# @statewalker/vcs-testing
 
 Parametrized test suites for validating storage backend implementations.
 
@@ -17,7 +17,7 @@ This package is private and available only within the webrun-vcs monorepo:
 ```json
 {
   "devDependencies": {
-    "@webrun-vcs/testing": "workspace:*"
+    "@statewalker/vcs-testing": "workspace:*"
   }
 }
 ```
@@ -42,7 +42,7 @@ This package is private and available only within the webrun-vcs monorepo:
 ### Test Utilities
 
 ```typescript
-import { createTestContent, collectAsync, toAsyncIterable } from "@webrun-vcs/testing";
+import { createTestContent, collectAsync, toAsyncIterable } from "@statewalker/vcs-testing";
 ```
 
 ## Usage Examples
@@ -53,7 +53,7 @@ Each suite accepts a factory function that creates a fresh instance:
 
 ```typescript
 import { describe } from "vitest";
-import { objectStorageSuite } from "@webrun-vcs/testing";
+import { objectStorageSuite } from "@statewalker/vcs-testing";
 import { MyCustomObjectStore } from "./my-store";
 
 describe("MyCustomObjectStore", () => {
@@ -77,7 +77,7 @@ import {
   objectStorageSuite,
   refStoreSuite,
   commitStoreSuite,
-} from "@webrun-vcs/testing";
+} from "@statewalker/vcs-testing";
 import { createMyStorage } from "./my-storage";
 
 describe("MyStorage", () => {
@@ -116,7 +116,7 @@ describe("MyStorage", () => {
 Helper functions simplify test data creation:
 
 ```typescript
-import { createTestContent, collectAsync, toAsyncIterable } from "@webrun-vcs/testing";
+import { createTestContent, collectAsync, toAsyncIterable } from "@statewalker/vcs-testing";
 
 // Create test content of specific size
 const content = createTestContent(1024); // 1KB of deterministic content
@@ -182,7 +182,7 @@ The approach mirrors how JGit tests its DFS implementations, ensuring all backen
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/core` - Interface definitions
+- `@statewalker/vcs-core` - Interface definitions
 
 **Peer Dependencies:**
 - `vitest` - Test framework

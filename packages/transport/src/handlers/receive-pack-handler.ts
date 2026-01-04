@@ -7,8 +7,8 @@
  * Based on JGit's ReceivePack.java
  */
 
-import { decompressBlockPartial } from "@webrun-vcs/utils";
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+import { decompressBlockPartial } from "@statewalker/vcs-utils";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import {
   CAPABILITY_AGENT,
   CAPABILITY_ATOMIC,
@@ -529,7 +529,7 @@ async function processPackData(repository: RepositoryAccess, packData: Uint8Arra
 
 /**
  * Decompress data partially and return bytes read.
- * Uses the decompression utilities from @webrun-vcs/utils.
+ * Uses the decompression utilities from @statewalker/vcs-utils.
  */
 async function decompressPartial(
   data: Uint8Array,

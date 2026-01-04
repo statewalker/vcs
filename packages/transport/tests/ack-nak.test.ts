@@ -3,7 +3,7 @@
  * Ported from JGit's PacketLineInTest.java (ACK/NAK tests)
  */
 
-import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
+import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 import { describe, expect, it } from "vitest";
 import { formatAck, formatNak, parseAckNak, parseAckNakV2 } from "../src/protocol/ack-nak.js";
 import { PackProtocolError } from "../src/protocol/errors.js";

@@ -4,7 +4,7 @@
  * Verifies round-trip conversion between Delta[] and Git binary format.
  */
 
-import type { Delta } from "@webrun-vcs/utils";
+import type { Delta } from "@statewalker/vcs-utils";
 import { describe, expect, it } from "vitest";
 import {
   formatGitDelta,

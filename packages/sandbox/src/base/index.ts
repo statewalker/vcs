@@ -5,8 +5,8 @@
  * content-addressable object storage with delta compression.
  */
 
-// Re-export cache utilities from @webrun-vcs/utils
-export { IntermediateCache, LRUCache } from "@webrun-vcs/utils";
+// Re-export cache utilities from @statewalker/vcs-utils
+export { IntermediateCache, LRUCache } from "@statewalker/vcs-utils";
 // Default implementation
 export * from "./default-object-store.js";
 

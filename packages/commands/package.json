@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/commands",
+  "name": "@statewalker/vcs-commands",
   "version": "0.1.0",
   "private": false,
   "type": "module",
@@ -32,14 +32,14 @@
     "lint": "biome lint src tests"
   },
   "dependencies": {
-    "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/transport": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*"
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-transport": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@webrun-vcs/store-mem": "workspace:*",
-    "@webrun-vcs/store-sql": "workspace:*",
+    "@statewalker/vcs-store-mem": "workspace:*",
+    "@statewalker/vcs-store-sql": "workspace:*",
     "rolldown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

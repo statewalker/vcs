@@ -15,17 +15,17 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import {
   createGitRepository,
   extractGitObjectContent,
   FileMode,
   type GitRepository,
   parseHeader,
-} from "@webrun-vcs/core";
-import { type PushObject, push } from "@webrun-vcs/transport";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+} from "@statewalker/vcs-core";
+import { type PushObject, push } from "@statewalker/vcs-transport";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 
 import {
   BASE_DIR,

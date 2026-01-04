@@ -1,9 +1,9 @@
-import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectId } from "@statewalker/vcs-core";
 import {
   type CloneOptions as TransportCloneOptions,
   clone as transportClone,
-} from "@webrun-vcs/transport";
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+} from "@statewalker/vcs-transport";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 
 import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
 import type { CloneResult } from "../results/clone-result.js";

@@ -1,6 +1,6 @@
-import type { Delta } from "@webrun-vcs/utils";
-import { applyDelta, createDelta, createDeltaRanges, slice } from "@webrun-vcs/utils";
-import { collect } from "@webrun-vcs/utils/streams";
+import type { Delta } from "@statewalker/vcs-utils";
+import { applyDelta, createDelta, createDeltaRanges, slice } from "@statewalker/vcs-utils";
+import { collect } from "@statewalker/vcs-utils/streams";
 import type { RawStore } from "../binary/raw-store.js";
 import { encodeObjectHeader } from "../objects/object-header.js";
 import type { ObjectTypeString } from "../objects/object-types.js";

@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/sandbox",
+  "name": "@statewalker/vcs-sandbox",
   "version": "0.1.0",
   "private": false,
   "type": "module",
@@ -20,8 +20,8 @@
     "lint": "biome lint src tests"
   },
   "dependencies": {
-    "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*"
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "rolldown": "catalog:",

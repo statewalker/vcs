@@ -13,8 +13,8 @@ import {
   FileMode,
   type ObjectId,
   type TreeEntry,
-} from "@webrun-vcs/core";
-import { bytesToHex, Sha1 } from "@webrun-vcs/utils";
+} from "@statewalker/vcs-core";
+import { bytesToHex, Sha1 } from "@statewalker/vcs-utils";
 import type { DatabaseClient } from "../database-client.js";
 import type { SqlNativeTreeStore } from "./types.js";
 

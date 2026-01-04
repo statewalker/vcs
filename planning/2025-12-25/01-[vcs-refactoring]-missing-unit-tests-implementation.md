@@ -107,7 +107,7 @@ describe("Pack delta resolution", () => {
 1. Create `packages/core/tests/pack/` directory
 2. Copy test files from storage-git, updating imports:
    - Change `../../src/pack/index.js` to `../../src/pack/index.js`
-   - Ensure `@webrun-vcs/utils` imports work
+   - Ensure `@statewalker/vcs-utils` imports work
 3. Run tests to verify they pass
 4. Add new edge case tests based on JGit patterns
 5. Add performance regression tests for large packs

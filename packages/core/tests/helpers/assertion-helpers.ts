@@ -2,8 +2,8 @@
  * Assertion helpers for testing Git operations
  */
 
-import type { Delta } from "@webrun-vcs/utils";
-import { applyDelta } from "@webrun-vcs/utils";
+import type { Delta } from "@statewalker/vcs-utils";
+import { applyDelta } from "@statewalker/vcs-utils";
 import { expect } from "vitest";
 import type { RawStore } from "../../src/binary/raw-store.js";
 import type { ObjectId } from "../../src/id/index.js";

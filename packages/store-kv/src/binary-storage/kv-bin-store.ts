@@ -5,7 +5,7 @@
  * Implements the BinStore interface from binary-storage.
  */
 
-import type { BinStore, DeltaStore, RawStore } from "@webrun-vcs/core";
+import type { BinStore, DeltaStore, RawStore } from "@statewalker/vcs-core";
 import type { KVStore } from "../kv-store.js";
 import { KvDeltaStore } from "./kv-delta-store.js";
 import { KvRawStore } from "./kv-raw-store.js";

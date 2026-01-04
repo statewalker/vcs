@@ -3,10 +3,10 @@
  */
 
 import * as fs from "node:fs/promises";
+import { createGitRepository, type GitRepository } from "@statewalker/vcs-core";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository, type GitRepository } from "@webrun-vcs/core";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { GIT_DIR, REPO_DIR } from "./config.js";
 
 let compressionInitialized = false;

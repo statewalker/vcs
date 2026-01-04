@@ -9,8 +9,8 @@
  * - Ignored files handling
  */
 
-import type { BlobStore, ObjectId, TreeStore } from "@webrun-vcs/core";
-import { FileMode } from "@webrun-vcs/core";
+import type { BlobStore, ObjectId, TreeStore } from "@statewalker/vcs-core";
+import { FileMode } from "@statewalker/vcs-core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AddCommand, createAddCommand } from "../../src/commands/add.command.impl.js";
 import type {

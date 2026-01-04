@@ -6,7 +6,7 @@
  * Run with: pnpm step:traverse
  */
 
-import type { GitRepository, ObjectId } from "@webrun-vcs/core";
+import type { GitRepository, ObjectId } from "@statewalker/vcs-core";
 import {
   COMMIT_LIMIT,
   type CommitInfo,

@@ -6,7 +6,7 @@
  * Run with: pnpm step:load
  */
 
-import type { GitRepository } from "@webrun-vcs/core";
+import type { GitRepository } from "@statewalker/vcs-core";
 import {
   fixGitObjectPermissions,
   formatBytes,

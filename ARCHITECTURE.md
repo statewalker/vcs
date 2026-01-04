@@ -16,13 +16,13 @@ The architecture strictly separates three concerns:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Commands (@webrun-vcs/commands)                            │
+│  Commands (@statewalker/vcs-commands)                            │
 │  High-level operations: clone, fetch, push, commit          │
 ├─────────────────────────────────────────────────────────────┤
-│  Core Interfaces (@webrun-vcs/core)                         │
+│  Core Interfaces (@statewalker/vcs-core)                         │
 │  Storage contracts, object model, format specifications     │
 ├─────────────────────────────────────────────────────────────┤
-│  Storage Backends (@webrun-vcs/storage-*, @webrun-vcs/store-*)│
+│  Storage Backends (@statewalker/vcs-store-*)                  │
 │  Concrete implementations for different storage systems     │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -75,13 +75,13 @@ The type system and algorithms align with Eclipse JGit, a mature Java implementa
 
 ### Foundation Layer
 
-**@webrun-vcs/utils** provides pure algorithmic implementations with zero VCS-specific dependencies:
+**@statewalker/vcs-utils** provides pure algorithmic implementations with zero VCS-specific dependencies:
 - Cryptographic hashing (SHA-1, CRC32, rolling checksums)
 - Compression (zlib via pako, optional Node.js native)
 - Diff algorithms (Myers text diff, binary delta encoding)
 - Streaming utilities
 
-**@webrun-vcs/core** defines the VCS contracts and object model:
+**@statewalker/vcs-core** defines the VCS contracts and object model:
 - Store interfaces (RawStore, GitObjectStore, CommitStore, etc.)
 - Git object types (blob, tree, commit, tag)
 - Reference management
@@ -94,17 +94,17 @@ Storage backends implement core interfaces for different systems:
 
 | Package | Storage Target | Use Case |
 |---------|---------------|----------|
-| `@webrun-vcs/core` | Git `.git/` directory | Native Git compatibility |
-| `@webrun-vcs/store-mem` | Memory | Testing, ephemeral repos |
-| `@webrun-vcs/store-sql` | SQLite | Server deployments |
-| `@webrun-vcs/store-kv` | Key-value stores | Custom backends |
-| `@webrun-vcs/sandbox` | Isolated storage | Safe experimentation |
+| `@statewalker/vcs-core` | Git `.git/` directory | Native Git compatibility |
+| `@statewalker/vcs-store-mem` | Memory | Testing, ephemeral repos |
+| `@statewalker/vcs-store-sql` | SQLite | Server deployments |
+| `@statewalker/vcs-store-kv` | Key-value stores | Custom backends |
+| `@statewalker/vcs-sandbox` | Isolated storage | Safe experimentation |
 
-Note: `@webrun-vcs/core` includes Git filesystem storage, staging/index area, delta storage engine, and working tree iteration - all consolidated from previously separate packages.
+Note: `@statewalker/vcs-core` includes Git filesystem storage, staging/index area, delta storage engine, and working tree iteration - all consolidated from previously separate packages.
 
 ### Protocol Layer
 
-**@webrun-vcs/transport** implements Git's network protocols:
+**@statewalker/vcs-transport** implements Git's network protocols:
 - HTTP smart protocol (v1 and v2)
 - Pkt-line encoding
 - Capability negotiation
@@ -113,7 +113,7 @@ Note: `@webrun-vcs/core` includes Git filesystem storage, staging/index area, de
 
 ### Command Layer
 
-**@webrun-vcs/commands** provides high-level operations:
+**@statewalker/vcs-commands** provides high-level operations:
 - Clone, fetch, push
 - Commit, checkout
 - Branch management
@@ -268,8 +268,8 @@ interface DeltaCandidateStrategy {
 The compression layer supports pluggable implementations:
 
 ```typescript
-import { setCompression } from "@webrun-vcs/utils/compression";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+import { setCompression } from "@statewalker/vcs-utils/compression";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 
 setCompression(createNodeCompression()); // Use native zlib
 ```
@@ -291,9 +291,9 @@ const server = createGitHttpServer({
 
 ## Development Packages
 
-**@webrun-vcs/testing** provides shared test utilities and fixtures for verifying storage implementations.
+**@statewalker/vcs-testing** provides shared test utilities and fixtures for verifying storage implementations.
 
-**@webrun-vcs/storage-tests** contains parametrized test suites that validate any storage backend against the expected behavior.
+**@statewalker/vcs-storage-tests** contains parametrized test suites that validate any storage backend against the expected behavior.
 
 ## Performance Considerations
 
@@ -324,9 +324,9 @@ Large repositories benefit from periodic repacking to optimize delta relationshi
 ## Browser Compatibility
 
 The core packages work in browsers without polyfills:
-- **@webrun-vcs/utils**: Pure TypeScript algorithms
-- **@webrun-vcs/core**: Interface definitions and format handling (Git filesystem storage requires a FilesApi implementation)
-- **@webrun-vcs/transport**: Web Standard APIs (fetch, Request/Response)
+- **@statewalker/vcs-utils**: Pure TypeScript algorithms
+- **@statewalker/vcs-core**: Interface definitions and format handling (Git filesystem storage requires a FilesApi implementation)
+- **@statewalker/vcs-transport**: Web Standard APIs (fetch, Request/Response)
 
 Storage backends may have platform requirements:
 - **core (Git storage)**: Requires FilesApi implementation (available for Node.js, browser IndexedDB, etc.)

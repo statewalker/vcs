@@ -11,7 +11,7 @@
  * Based on JGit's FetchProcess.java
  */
 
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { openUploadPack } from "../connection/connection-factory.js";
 import type { Credentials } from "../connection/types.js";
 import {

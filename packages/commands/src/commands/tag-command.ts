@@ -1,5 +1,5 @@
-import type { AnnotatedTag, ObjectId, PersonIdent, Ref } from "@webrun-vcs/core";
-import { ObjectType } from "@webrun-vcs/core";
+import type { AnnotatedTag, ObjectId, PersonIdent, Ref } from "@statewalker/vcs-core";
+import { ObjectType } from "@statewalker/vcs-core";
 
 import {
   InvalidTagNameError,

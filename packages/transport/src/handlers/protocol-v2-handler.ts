@@ -10,7 +10,7 @@
  * Based on JGit's UploadPack.serviceV2() and ProtocolV2Parser
  */
 
-import { compressBlock, sha1 } from "@webrun-vcs/utils";
+import { compressBlock, sha1 } from "@statewalker/vcs-utils";
 import {
   CAPABILITY_AGENT,
   CAPABILITY_INCLUDE_TAG,

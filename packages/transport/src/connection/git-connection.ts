@@ -138,7 +138,7 @@ export function createNodeTcpSocket(_host: string, _port: number): TcpSocket {
   // For now, we throw an error indicating this needs Node.js environment
   throw new Error(
     "Native git protocol requires Node.js environment. " +
-      "Use createNodeGitConnection() from @webrun-vcs/transport/node",
+      "Use createNodeGitConnection() from @statewalker/vcs-transport/node",
   );
 }
 

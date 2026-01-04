@@ -2,7 +2,7 @@
  * Integration tests for streaming stores
  */
 
-import { createStreamingStoresTests } from "@webrun-vcs/testing";
+import { createStreamingStoresTests } from "@statewalker/vcs-testing";
 import { SqlJsAdapter } from "../src/adapters/sql-js-adapter.js";
 import { createStreamingSqlStores } from "../src/create-streaming-stores.js";
 

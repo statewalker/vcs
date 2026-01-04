@@ -1,5 +1,5 @@
-import type { ObjectId, Ref, SymbolicRef } from "@webrun-vcs/core";
-import { isSymbolicRef } from "@webrun-vcs/core";
+import type { ObjectId, Ref, SymbolicRef } from "@statewalker/vcs-core";
+import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import { NoHeadError, RefNotFoundError } from "./errors/index.js";
 import type { GitStore } from "./types.js";

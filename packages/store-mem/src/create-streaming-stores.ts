@@ -5,7 +5,7 @@
  * This file is kept for backwards compatibility.
  */
 
-import type { GitStores } from "@webrun-vcs/core";
+import type { GitStores } from "@statewalker/vcs-core";
 import { createMemoryObjectStores } from "./object-storage/index.js";
 
 /**

@@ -5,7 +5,7 @@
  * All storage implementations must pass these tests.
  */
 
-import type { Commit, CommitStore, PersonIdent } from "@webrun-vcs/core";
+import type { Commit, CommitStore, PersonIdent } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

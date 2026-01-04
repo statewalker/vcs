@@ -5,8 +5,8 @@
  * keys enumeration, and edge cases.
  */
 
-import type { Delta } from "@webrun-vcs/utils";
-import { FossilChecksum } from "@webrun-vcs/utils";
+import type { Delta } from "@statewalker/vcs-utils";
+import { FossilChecksum } from "@statewalker/vcs-utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 import type { DeltaInfo } from "../../src/delta/delta-store.js";

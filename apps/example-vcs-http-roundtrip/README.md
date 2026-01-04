@@ -130,9 +130,9 @@ Objects are stored using `storeTypedObject()` which properly handles the Git obj
 
 ## Dependencies
 
-- `@webrun-vcs/core` - Git storage, types, and interfaces
-- `@webrun-vcs/transport` - Git transport protocol (clone, push)
-- `@webrun-vcs/utils` - Compression and hash utilities
+- `@statewalker/vcs-core` - Git storage, types, and interfaces
+- `@statewalker/vcs-transport` - Git transport protocol (clone, push)
+- `@statewalker/vcs-utils` - Compression and hash utilities
 
 ## Verification
 

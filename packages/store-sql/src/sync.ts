@@ -9,7 +9,7 @@
  * is straightforward - load from source, store to destination.
  */
 
-import type { GitStores, ObjectId } from "@webrun-vcs/core";
+import type { GitStores, ObjectId } from "@statewalker/vcs-core";
 import type { SqlNativeStores } from "./native/types.js";
 
 /**

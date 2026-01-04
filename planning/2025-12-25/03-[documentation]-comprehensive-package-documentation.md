@@ -23,14 +23,14 @@ Based on current documentation gaps and package importance:
 
 | Priority | Package | Current State | README | ARCHITECTURE |
 |----------|---------|---------------|--------|--------------|
-| P1 | @webrun-vcs/core | No docs | Create | Create |
-| P1 | @webrun-vcs/commands | No docs | Create | Create |
-| P2 | @webrun-vcs/utils | Has README | Review/Enhance | Create |
-| P2 | @webrun-vcs/transport | Has README | Review/Enhance | Create |
+| P1 | @statewalker/vcs-core | No docs | Create | Create |
+| P1 | @statewalker/vcs-commands | No docs | Create | Create |
+| P2 | @statewalker/vcs-utils | Has README | Review/Enhance | Create |
+| P2 | @statewalker/vcs-transport | Has README | Review/Enhance | Create |
 
 ---
 
-## Part 1: @webrun-vcs/core Documentation
+## Part 1: @statewalker/vcs-core Documentation
 
 ### 1.1 README.md Structure
 
@@ -65,7 +65,7 @@ The core package is the foundation of the entire VCS system. Its README should c
    - Reference management
 
 6. **Dependencies**
-   - Relationship to @webrun-vcs/utils
+   - Relationship to @statewalker/vcs-utils
    - External dependencies
 
 ### 1.2 ARCHITECTURE.md Structure
@@ -139,7 +139,7 @@ The core package is the foundation of the entire VCS system. Its README should c
 
 ---
 
-## Part 2: @webrun-vcs/commands Documentation
+## Part 2: @statewalker/vcs-commands Documentation
 
 ### 2.1 README.md Structure
 
@@ -226,7 +226,7 @@ The core package is the foundation of the entire VCS system. Its README should c
 
 ---
 
-## Part 3: @webrun-vcs/utils Documentation
+## Part 3: @statewalker/vcs-utils Documentation
 
 ### 3.1 README.md Review/Enhancement
 
@@ -246,7 +246,7 @@ Current README exists and is comprehensive. Review for:
 
 2. **Module Architecture**
    ```
-   @webrun-vcs/utils
+   @statewalker/vcs-utils
    ├── compression/ - zlib implementation
    ├── hash/
    │   ├── sha1/ - Git object IDs
@@ -290,7 +290,7 @@ Current README exists and is comprehensive. Review for:
 
 ---
 
-## Part 4: @webrun-vcs/transport Documentation
+## Part 4: @statewalker/vcs-transport Documentation
 
 ### 4.1 README.md Review/Enhancement
 
@@ -310,7 +310,7 @@ Current README is extensive. Review for:
 
 2. **Component Architecture**
    ```
-   @webrun-vcs/transport
+   @statewalker/vcs-transport
    ├── protocol/ - Wire format
    │   ├── pkt-line codec
    │   ├── capabilities
@@ -369,14 +369,14 @@ A project-level architecture document explaining how all packages fit together.
 
 2. **Layer Architecture**
    ```
-   Commands Layer (@webrun-vcs/commands)
+   Commands Layer (@statewalker/vcs-commands)
         ↓
-   Transport Layer (@webrun-vcs/transport)
+   Transport Layer (@statewalker/vcs-transport)
         ↓
-   Core Layer (@webrun-vcs/core)
+   Core Layer (@statewalker/vcs-core)
    [Types + VCS Engine + Storage Interfaces]
         ↓
-   Utilities (@webrun-vcs/utils)
+   Utilities (@statewalker/vcs-utils)
         ↓
    Storage Backends (storage-*, store-*)
    ```
@@ -401,23 +401,23 @@ A project-level architecture document explaining how all packages fit together.
 ## Implementation Tasks
 
 ### Epic 1: Core Package Documentation
-- **Task 1.1**: Write @webrun-vcs/core README.md
-- **Task 1.2**: Write @webrun-vcs/core ARCHITECTURE.md
+- **Task 1.1**: Write @statewalker/vcs-core README.md
+- **Task 1.2**: Write @statewalker/vcs-core ARCHITECTURE.md
 - **Task 1.3**: Add inline JSDoc to key exports
 
 ### Epic 2: Commands Package Documentation
-- **Task 2.1**: Write @webrun-vcs/commands README.md
-- **Task 2.2**: Write @webrun-vcs/commands ARCHITECTURE.md
+- **Task 2.1**: Write @statewalker/vcs-commands README.md
+- **Task 2.2**: Write @statewalker/vcs-commands ARCHITECTURE.md
 - **Task 2.3**: Add usage examples to command classes
 
 ### Epic 3: Utils Package Documentation
 - **Task 3.1**: Review and enhance existing README.md
-- **Task 3.2**: Write @webrun-vcs/utils ARCHITECTURE.md
+- **Task 3.2**: Write @statewalker/vcs-utils ARCHITECTURE.md
 - **Task 3.3**: Add algorithm explanation comments
 
 ### Epic 4: Transport Package Documentation
 - **Task 4.1**: Review and enhance existing README.md
-- **Task 4.2**: Write @webrun-vcs/transport ARCHITECTURE.md
+- **Task 4.2**: Write @statewalker/vcs-transport ARCHITECTURE.md
 - **Task 4.3**: Add server implementation examples
 
 ### Epic 5: Project-Level Documentation

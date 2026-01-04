@@ -2,8 +2,8 @@
  * Tests for CompressedRawStore
  */
 
-import { collect, setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+import { collect, setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { CompressedRawStore } from "../../src/binary/raw-store.compressed.js";
 import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";

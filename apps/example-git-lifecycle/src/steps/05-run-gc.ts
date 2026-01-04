@@ -11,7 +11,7 @@
  * - Managing delta chains
  */
 
-import { GCController, type GitRepository, type PackingProgress } from "@webrun-vcs/core";
+import { GCController, type GitRepository, type PackingProgress } from "@statewalker/vcs-core";
 import {
   countLooseObjects,
   fs,

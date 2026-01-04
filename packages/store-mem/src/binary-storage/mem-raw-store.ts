@@ -5,7 +5,7 @@
  * Implements the new RawStore interface from binary-storage.
  */
 
-import type { RawStore } from "@webrun-vcs/core";
+import type { RawStore } from "@statewalker/vcs-core";
 
 /**
  * Collect async iterable to Uint8Array

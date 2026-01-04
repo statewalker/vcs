@@ -5,7 +5,7 @@
  * where type is "blob", "tree", "commit", or "tag" and size is decimal.
  */
 
-import { concat, encodeString } from "@webrun-vcs/utils/streams";
+import { concat, encodeString } from "@statewalker/vcs-utils/streams";
 import { ObjectType, type ObjectTypeCode, type ObjectTypeString } from "./object-types.js";
 
 /** Null byte for header termination */

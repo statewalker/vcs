@@ -5,10 +5,10 @@
 import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { GitRepository, ObjectId, PersonIdent } from "@statewalker/vcs-core";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import type { GitRepository, ObjectId, PersonIdent } from "@webrun-vcs/core";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 
 // Initialize compression (required before any storage operations)
 setCompression(createNodeCompression());

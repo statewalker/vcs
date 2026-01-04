@@ -1,4 +1,4 @@
-import type { Commit, ObjectId, PersonIdent } from "@webrun-vcs/core";
+import type { Commit, ObjectId, PersonIdent } from "@statewalker/vcs-core";
 
 import { GitCommand } from "../git-command.js";
 
@@ -220,7 +220,6 @@ export class BlameCommand extends GitCommand<BlameResult> {
 
       // Check if file changed between parent and this commit
       if (currentBlobId === parentBlobId) {
-        continue; // File unchanged, keep looking
       }
 
       // File changed - some lines may originate here

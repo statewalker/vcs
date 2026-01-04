@@ -5,7 +5,7 @@
  * creating good opportunities for delta compression.
  */
 
-import { FileMode, type ObjectId } from "@webrun-vcs/core";
+import { FileMode, type ObjectId } from "@statewalker/vcs-core";
 import {
   createAuthor,
   log,

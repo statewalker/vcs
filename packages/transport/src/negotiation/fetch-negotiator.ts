@@ -8,7 +8,7 @@
  * Based on JGit's BasePackFetchConnection.java
  */
 
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { negotiateCapabilities } from "../protocol/capabilities.js";
 import { PACKET_DONE, PACKET_HAVE, PACKET_WANT } from "../protocol/constants.js";
 import { dataPacket, flushPacket } from "../protocol/pkt-line-codec.js";

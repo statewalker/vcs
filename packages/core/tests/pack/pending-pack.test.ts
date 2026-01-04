@@ -4,8 +4,8 @@
  * Tests object buffering, threshold detection, and pack generation.
  */
 
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { beforeAll, describe, expect, it } from "vitest";
 import { PackObjectType, PendingPack, readPackIndex } from "../../src/pack/index.js";
 

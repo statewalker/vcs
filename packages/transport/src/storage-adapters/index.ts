@@ -5,7 +5,7 @@
  * to the RepositoryAccess interface used by protocol handlers.
  *
  * Available adapters:
- * - createRepositoryAdapter: For Repository interface from @webrun-vcs/core
+ * - createRepositoryAdapter: For Repository interface from @statewalker/vcs-core
  * - createVcsRepositoryAdapter: For VcsStores (GitObjectStore, RefStore, etc.)
  * - createStorageAdapter: For MinimalStorage (legacy, Git-specific)
  */

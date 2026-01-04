@@ -7,7 +7,7 @@ This example application demonstrates the complete Git workflow using the webrun
 ```bash
 # From the monorepo root
 pnpm install
-pnpm --filter @webrun-vcs/example-git-cycle start
+pnpm --filter @statewalker/vcs-example-git-cycle start
 ```
 
 ## Running Individual Steps
@@ -15,14 +15,14 @@ pnpm --filter @webrun-vcs/example-git-cycle start
 Each step can be run independently:
 
 ```bash
-pnpm --filter @webrun-vcs/example-git-cycle step:01  # Initialize repository
-pnpm --filter @webrun-vcs/example-git-cycle step:02  # Create files (blobs)
-pnpm --filter @webrun-vcs/example-git-cycle step:03  # Build trees
-pnpm --filter @webrun-vcs/example-git-cycle step:04  # Create commits
-pnpm --filter @webrun-vcs/example-git-cycle step:05  # Update files
-pnpm --filter @webrun-vcs/example-git-cycle step:06  # View history
-pnpm --filter @webrun-vcs/example-git-cycle step:07  # Restore version
-pnpm --filter @webrun-vcs/example-git-cycle step:08  # Branches and tags
+pnpm --filter @statewalker/vcs-example-git-cycle step:01  # Initialize repository
+pnpm --filter @statewalker/vcs-example-git-cycle step:02  # Create files (blobs)
+pnpm --filter @statewalker/vcs-example-git-cycle step:03  # Build trees
+pnpm --filter @statewalker/vcs-example-git-cycle step:04  # Create commits
+pnpm --filter @statewalker/vcs-example-git-cycle step:05  # Update files
+pnpm --filter @statewalker/vcs-example-git-cycle step:06  # View history
+pnpm --filter @statewalker/vcs-example-git-cycle step:07  # Restore version
+pnpm --filter @statewalker/vcs-example-git-cycle step:08  # Branches and tags
 ```
 
 ## Step-by-Step Guide
@@ -35,7 +35,7 @@ Creates a new Git repository with the standard directory structure.
 
 ```typescript
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository } from "@webrun-vcs/core";
+import { createGitRepository } from "@statewalker/vcs-core";
 
 // Create file system (in-memory for this example)
 const files = new FilesApi(new MemFilesApi());
@@ -103,7 +103,7 @@ const exists = await storage.objects.has(id);
 Creates Git tree objects representing directories. Trees contain entries with mode, name, and object ID.
 
 ```typescript
-import { FileMode } from "@webrun-vcs/core";
+import { FileMode } from "@statewalker/vcs-core";
 
 // Create a tree with files
 const treeId = await storage.trees.storeTree([
@@ -331,7 +331,7 @@ await storage.refs.setRef("refs/tags/v1.0.0", commitId);
 
 **Annotated Tags:**
 ```typescript
-import { ObjectType } from "@webrun-vcs/core";
+import { ObjectType } from "@statewalker/vcs-core";
 
 // Create tag object
 const tagId = await storage.tags.storeTag({

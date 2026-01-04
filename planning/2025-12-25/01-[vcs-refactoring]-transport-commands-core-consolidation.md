@@ -8,20 +8,20 @@ This plan details how to refactor the `transport` and `commands` packages to use
 - `transport` → depends on `core` + `utils`
 - `commands` → depends on `core` + `transport` + `utils`
 
-**Note:** Importing from `@webrun-vcs/utils` is acceptable for hash, compression, and diff utilities. The focus is on consolidating VCS-specific types (stores, refs, repository, etc.) in core.
+**Note:** Importing from `@statewalker/vcs-utils` is acceptable for hash, compression, and diff utilities. The focus is on consolidating VCS-specific types (stores, refs, repository, etc.) in core.
 
 ## Current State Analysis
 
 ### Transport Package Dependencies
 
 Currently imports from:
-- `@webrun-vcs/core`: `CommitStore`, `GitObjectStore`, `ObjectTypeCode`, `ObjectTypeString`, `Ref`, `RefStore`, `RefStoreLocation`, `RefUpdateResult`, `SymbolicRef`, `TagStore`, `TreeEntry`, `TreeStore`, `Repository`
-- `@webrun-vcs/utils`:
+- `@statewalker/vcs-core`: `CommitStore`, `GitObjectStore`, `ObjectTypeCode`, `ObjectTypeString`, `Ref`, `RefStore`, `RefStoreLocation`, `RefUpdateResult`, `SymbolicRef`, `TagStore`, `TreeEntry`, `TreeStore`, `Repository`
+- `@statewalker/vcs-utils`:
   - `compressBlock`, `decompressBlockPartial` (compression)
   - `sha1` (hashing)
   - `bytesToHex`, `hexToBytes` (from `hash/utils`)
 
-**Files using @webrun-vcs/utils:**
+**Files using @statewalker/vcs-utils:**
 - `handlers/receive-pack-handler.ts` - `decompressBlockPartial`, `bytesToHex`
 - `handlers/upload-pack-handler.ts` - `compressBlock`, `sha1`
 - `handlers/protocol-v2-handler.ts` - dynamic import of `compressBlock`, `sha1`
@@ -34,16 +34,16 @@ Currently imports from:
 ### Commands Package Dependencies
 
 Currently imports from:
-- `@webrun-vcs/core`: `ObjectId`, `Ref`, `SymbolicRef`, `Commit`, `PersonIdent`, `Tree`, `Blob`, `Tag`, `FileMode`, `MergeStage`, `BlobStore`, `TreeStore`, `CommitStore`, `RefStore`, `TagStore`, `Repository`, `isSymbolicRef()`
-- `@webrun-vcs/transport`: `Credentials`, `ProgressInfo`, `push()`, `fetch()`, `clone()`, transport types
-- `@webrun-vcs/utils`:
+- `@statewalker/vcs-core`: `ObjectId`, `Ref`, `SymbolicRef`, `Commit`, `PersonIdent`, `Tree`, `Blob`, `Tag`, `FileMode`, `MergeStage`, `BlobStore`, `TreeStore`, `CommitStore`, `RefStore`, `TagStore`, `Repository`, `isSymbolicRef()`
+- `@statewalker/vcs-transport`: `Credentials`, `ProgressInfo`, `push()`, `fetch()`, `clone()`, transport types
+- `@statewalker/vcs-utils`:
   - `bytesToHex`, `hexToBytes` (hash utilities)
   - `MyersDiff`, `RawText`, `RawTextComparator`, `EditList` (diff utilities)
 - `@webrun-vcs/worktree`:
   - `StagingStore`, `WorkingTreeIterator` (interfaces)
   - `UpdateStagingEntry`, `DeleteStagingEntry` (staging edits)
 
-**Files using @webrun-vcs/utils:**
+**Files using @statewalker/vcs-utils:**
 - `commands/fetch-command.ts` - `bytesToHex`, `hexToBytes`
 - `commands/clone-command.ts` - `bytesToHex`
 - `results/diff-formatter.ts` - `MyersDiff`, `RawText`, `RawTextComparator`, `EditList`
@@ -109,10 +109,10 @@ export * from "./worktree/working-tree-iterator.js";
 
 ### Task 1.2: Keep Utils as Direct Dependency
 
-Transport and commands will import utilities directly from `@webrun-vcs/utils`:
-- Hash utilities: `bytesToHex`, `hexToBytes`, `sha1` from `@webrun-vcs/utils`
-- Compression: `compressBlock`, `decompressBlockPartial` from `@webrun-vcs/utils`
-- Diff utilities: `MyersDiff`, `RawText`, `RawTextComparator` from `@webrun-vcs/utils`
+Transport and commands will import utilities directly from `@statewalker/vcs-utils`:
+- Hash utilities: `bytesToHex`, `hexToBytes`, `sha1` from `@statewalker/vcs-utils`
+- Compression: `compressBlock`, `decompressBlockPartial` from `@statewalker/vcs-utils`
+- Diff utilities: `MyersDiff`, `RawText`, `RawTextComparator` from `@statewalker/vcs-utils`
 
 No re-exports needed from core.
 
@@ -128,7 +128,7 @@ If missing, add to staging module.
 
 ### Task 1.4: Update Core Package.json
 
-Verify core's dependencies include `@webrun-vcs/utils` and that exports are correctly configured for any new sub-exports.
+Verify core's dependencies include `@statewalker/vcs-utils` and that exports are correctly configured for any new sub-exports.
 
 ---
 
@@ -156,10 +156,10 @@ import {
   TagStore,
   TreeEntry,
   TreeStore,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 ```
 
-**Note:** Utils imports (`bytesToHex`, `compressBlock`, etc.) remain from `@webrun-vcs/utils`.
+**Note:** Utils imports (`bytesToHex`, `compressBlock`, etc.) remain from `@statewalker/vcs-utils`.
 
 ### Task 2.2: Update Transport Tests
 
@@ -167,14 +167,14 @@ import {
 - `storage-adapter.test.ts`
 - `vcs-repository-adapter.test.ts`
 
-Update VCS type imports to use `@webrun-vcs/core`. Utils imports remain from `@webrun-vcs/utils`.
+Update VCS type imports to use `@statewalker/vcs-core`. Utils imports remain from `@statewalker/vcs-utils`.
 
 ### Task 2.3: Verify Transport Build and Tests
 
 Run:
 ```bash
-pnpm --filter @webrun-vcs/transport build
-pnpm --filter @webrun-vcs/transport test
+pnpm --filter @statewalker/vcs-transport build
+pnpm --filter @statewalker/vcs-transport test
 ```
 
 ---
@@ -189,7 +189,7 @@ pnpm --filter @webrun-vcs/transport test
 - `git.ts` - Repository types
 - All command files in `commands/`
 
-Ensure all VCS types come from `@webrun-vcs/core`. Utils imports (`bytesToHex`, `MyersDiff`, etc.) remain from `@webrun-vcs/utils`.
+Ensure all VCS types come from `@statewalker/vcs-core`. Utils imports (`bytesToHex`, `MyersDiff`, etc.) remain from `@statewalker/vcs-utils`.
 
 ### Task 3.2: Replace Worktree Imports with Core
 
@@ -211,7 +211,7 @@ import {
   WorkingTreeIterator,
   UpdateStagingEntry,
   DeleteStagingEntry
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 ```
 
 ### Task 3.3: Update Commands Package.json
@@ -219,15 +219,15 @@ import {
 ```json
 {
   "dependencies": {
-    "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/transport": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*"
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-transport": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
     // Remove: "@webrun-vcs/worktree": "workspace:*"
   }
 }
 ```
 
-**Note:** `@webrun-vcs/utils` remains as a dependency.
+**Note:** `@statewalker/vcs-utils` remains as a dependency.
 
 ### Task 3.4: Update Commands Test Infrastructure
 
@@ -237,16 +237,16 @@ import {
 - `transport-test-helper.ts`
 - All `*.test.ts` files
 
-Update imports to use `@webrun-vcs/core` for types and `@webrun-vcs/transport` for transport operations.
+Update imports to use `@statewalker/vcs-core` for types and `@statewalker/vcs-transport` for transport operations.
 
-**Note:** Dev dependencies for test backends (`@webrun-vcs/store-mem`, `@webrun-vcs/store-sql`, `@webrun-vcs/storage-git`) remain as devDependencies since they're only used in tests.
+**Note:** Dev dependencies for test backends (`@statewalker/vcs-store-mem`, `@statewalker/vcs-store-sql`, `@webrun-vcs/storage-git`) remain as devDependencies since they're only used in tests.
 
 ### Task 3.5: Verify Commands Build and Tests
 
 Run:
 ```bash
-pnpm --filter @webrun-vcs/commands build
-pnpm --filter @webrun-vcs/commands test
+pnpm --filter @statewalker/vcs-commands build
+pnpm --filter @statewalker/vcs-commands test
 ```
 
 ---
@@ -322,7 +322,7 @@ Update README files to reflect the new dependency structure.
 | commands | core + transport + utils + worktree | core + transport + utils |
 
 **Key changes:**
-- `@webrun-vcs/utils` remains as a direct dependency (acceptable)
+- `@statewalker/vcs-utils` remains as a direct dependency (acceptable)
 - `@webrun-vcs/worktree` is replaced by core exports
 - All VCS types (stores, refs, repository) come from core
 
