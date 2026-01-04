@@ -17,7 +17,7 @@ import {
   MemoryVolatileStore,
   type TagStore,
   type TreeStore,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 import { SqlRawStore } from "../binary-storage/sql-raw-store.js";
 import type { DatabaseClient } from "../database-client.js";
 
@@ -92,4 +92,4 @@ export {
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";

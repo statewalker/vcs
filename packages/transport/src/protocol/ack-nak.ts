@@ -7,7 +7,7 @@
  * Based on JGit's PacketLineIn.readACK() and parseACKv2()
  */
 
-import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
+import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 import { OBJECT_ID_STRING_LENGTH, PACKET_ACK, PACKET_ERR, PACKET_NAK } from "./constants.js";
 import { PackProtocolError } from "./errors.js";
 import { packetDataToString } from "./pkt-line-codec.js";

@@ -12,9 +12,9 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/transport/IndexPack.java
  */
 
-import { decompressBlockPartial } from "@webrun-vcs/utils";
-import { CRC32 } from "@webrun-vcs/utils/hash/crc32";
-import { sha1 } from "@webrun-vcs/utils/hash/sha1";
+import { decompressBlockPartial } from "@statewalker/vcs-utils";
+import { CRC32 } from "@statewalker/vcs-utils/hash/crc32";
+import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "../utils/index.js";
 import type { PackIndexWriterEntry } from "./pack-index-writer.js";
 import { applyDelta } from "./pack-reader.js";

@@ -1,18 +1,18 @@
 /**
- * Test helpers for @webrun-vcs/commands
+ * Test helpers for @statewalker/vcs-commands
  *
  * Provides utilities for testing Git commands with multiple storage backends.
  * For multi-backend testing, use `createInitializedGitFromFactory()` with
  * different backend factories.
  */
 
-import type { ObjectId, PersonIdent } from "@webrun-vcs/core";
-import { FileMode } from "@webrun-vcs/core";
+import type { ObjectId, PersonIdent } from "@statewalker/vcs-core";
+import { FileMode } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
   MemoryRefStore,
   MemoryStagingStore,
-} from "@webrun-vcs/store-mem";
+} from "@statewalker/vcs-store-mem";
 
 import { Git, type GitStore } from "../src/index.js";
 import {

@@ -110,8 +110,8 @@ export class Git implements Disposable {
    *
    * @example
    * ```typescript
-   * import { Git } from "@webrun-vcs/commands";
-   * import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+   * import { Git } from "@statewalker/vcs-commands";
+   * import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
    *
    * // Use with any Repository implementation
    * const staging = new MemoryStagingStore();

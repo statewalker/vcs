@@ -5,7 +5,7 @@
  * lookups by both object ID (hash) and internal record ID.
  */
 
-import type { ObjectEntry, ObjectId, ObjectRepository } from "@webrun-vcs/sandbox";
+import type { ObjectEntry, ObjectId, ObjectRepository } from "@statewalker/vcs-sandbox";
 import type { DatabaseClient } from "./database-client.js";
 
 /**

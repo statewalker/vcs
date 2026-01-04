@@ -8,7 +8,7 @@
  * - include-tag optimization must handle chains correctly
  */
 
-import type { ObjectTypeCode } from "@webrun-vcs/core";
+import type { ObjectTypeCode } from "@statewalker/vcs-core";
 import { describe, expect, it } from "vitest";
 import { createProtocolV2Handler } from "../src/handlers/protocol-v2-handler.js";
 import type {

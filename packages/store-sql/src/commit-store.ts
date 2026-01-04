@@ -5,7 +5,7 @@
  * tables for commits and their parent references.
  */
 
-import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@webrun-vcs/core";
+import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@statewalker/vcs-core";
 import type { DatabaseClient } from "./database-client.js";
 
 /**

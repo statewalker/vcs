@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/storage-tests",
+  "name": "@statewalker/vcs-storage-tests",
   "version": "0.1.0",
   "description": "Cross-backend integration tests for WebRun VCS storage",
   "private": true,
@@ -11,12 +11,12 @@
     "format": "biome format --write ."
   },
   "devDependencies": {
-    "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/testing": "workspace:*",
-    "@webrun-vcs/store-kv": "workspace:*",
-    "@webrun-vcs/store-mem": "workspace:*",
-    "@webrun-vcs/store-sql": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*",
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-testing": "workspace:*",
+    "@statewalker/vcs-store-kv": "workspace:*",
+    "@statewalker/vcs-store-mem": "workspace:*",
+    "@statewalker/vcs-store-sql": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*",
     "sql.js": "^1.12.0",
     "vitest": "catalog:",
     "typescript": "catalog:",

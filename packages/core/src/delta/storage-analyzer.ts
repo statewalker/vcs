@@ -4,7 +4,7 @@
  * Examines storage content and produces analysis reports for GC and packing.
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectId } from "@statewalker/vcs-core";
 import type { PackingContext } from "./packing-orchestrator.js";
 import type { AnalyzerOptions, PackingCandidate, StorageAnalysisReport } from "./types.js";
 

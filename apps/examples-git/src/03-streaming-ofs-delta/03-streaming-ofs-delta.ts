@@ -11,7 +11,7 @@ import {
   PackWriterStream,
   readPackIndex,
   writePackIndexV2,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 import {
   createFilesApi,
   formatId,

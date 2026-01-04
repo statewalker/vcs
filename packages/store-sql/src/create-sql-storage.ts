@@ -5,9 +5,9 @@
  * suitable for persistent storage in browsers and Node.js.
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
-import { DefaultObjectStore } from "@webrun-vcs/sandbox";
-import { IntermediateCache, LRUCache } from "@webrun-vcs/utils";
+import type { ObjectId } from "@statewalker/vcs-core";
+import { DefaultObjectStore } from "@statewalker/vcs-sandbox";
+import { IntermediateCache, LRUCache } from "@statewalker/vcs-utils";
 import type { DatabaseClient } from "./database-client.js";
 import { SQLDeltaRepository } from "./delta-repository.js";
 import { SQLMetadataRepository } from "./metadata-repository.js";
@@ -52,8 +52,8 @@ export interface SQLStorage {
  *
  * @example Browser with sql.js
  * ```typescript
- * import { createSQLStorage } from "@webrun-vcs/storage-sql";
- * import { SqlJsAdapter } from "@webrun-vcs/storage-sql/adapters/sql-js";
+ * import { createSQLStorage } from "@statewalker/vcs-store-sql";
+ * import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
  *
  * const db = await SqlJsAdapter.create();
  * const { storage, close } = await createSQLStorage(db);

@@ -4,9 +4,9 @@
  * Tests multi-pack management, caching, and object lookup.
  */
 
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   PackDirectory,

@@ -20,27 +20,27 @@ The monorepo contains packages organized by responsibility:
 
 ### Core Packages
 
-**[@webrun-vcs/core](packages/core)** provides the foundational layer for building Git-compatible version control systems. It defines the core object model (blobs, trees, commits, tags), storage interfaces, and high-level operations. Includes Git file storage for reading and writing the standard `.git` directory structure.
+**[@statewalker/vcs-core](packages/core)** provides the foundational layer for building Git-compatible version control systems. It defines the core object model (blobs, trees, commits, tags), storage interfaces, and high-level operations. Includes Git file storage for reading and writing the standard `.git` directory structure.
 
-**[@webrun-vcs/utils](packages/utils)** provides foundational algorithms including zlib compression/decompression, SHA-1 hashing with streaming support, and diff algorithms for computing deltas between binary content.
+**[@statewalker/vcs-utils](packages/utils)** provides foundational algorithms including zlib compression/decompression, SHA-1 hashing with streaming support, and diff algorithms for computing deltas between binary content.
 
-**[@webrun-vcs/commands](packages/commands)** offers a high-level Git command API. Rather than working directly with low-level stores, you interact through familiar commands like `add`, `commit`, `push`, and `merge`.
+**[@statewalker/vcs-commands](packages/commands)** offers a high-level Git command API. Rather than working directly with low-level stores, you interact through familiar commands like `add`, `commit`, `push`, and `merge`.
 
-**[@webrun-vcs/transport](packages/transport)** implements the Git wire protocol (v1/v2), HTTP transport, and push/pull negotiation for communicating with remote repositories.
+**[@statewalker/vcs-transport](packages/transport)** implements the Git wire protocol (v1/v2), HTTP transport, and push/pull negotiation for communicating with remote repositories.
 
 ### Storage Adapters
 
-**[@webrun-vcs/store-mem](packages/store-mem)** provides in-memory storage for testing and development scenarios with no persistence.
+**[@statewalker/vcs-store-mem](packages/store-mem)** provides in-memory storage for testing and development scenarios with no persistence.
 
-**[@webrun-vcs/store-sql](packages/store-sql)** provides SQL-based storage using better-sqlite3. Objects, refs, and metadata persist in SQLite tables.
+**[@statewalker/vcs-store-sql](packages/store-sql)** provides SQL-based storage using better-sqlite3. Objects, refs, and metadata persist in SQLite tables.
 
-**[@webrun-vcs/store-kv](packages/store-kv)** bridges VCS storage interfaces to key-value stores like IndexedDB, LocalStorage, or LevelDB.
+**[@statewalker/vcs-store-kv](packages/store-kv)** bridges VCS storage interfaces to key-value stores like IndexedDB, LocalStorage, or LevelDB.
 
 ### Development Utilities
 
-**[@webrun-vcs/testing](packages/testing)** contains shared test utilities and fixtures used across packages.
+**[@statewalker/vcs-testing](packages/testing)** contains shared test utilities and fixtures used across packages.
 
-**[@webrun-vcs/sandbox](packages/sandbox)** provides sandbox utilities for isolated testing environments.
+**[@statewalker/vcs-sandbox](packages/sandbox)** provides sandbox utilities for isolated testing environments.
 
 ## Installation
 
@@ -63,7 +63,7 @@ The example application in [apps/example-git-cycle](apps/example-git-cycle) demo
 
 ```typescript
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository, FileMode } from "@webrun-vcs/core";
+import { createGitRepository, FileMode } from "@statewalker/vcs-core";
 
 // Initialize an in-memory repository
 const files = new FilesApi(new MemFilesApi());
@@ -100,12 +100,12 @@ For performance benchmarks and pack file operations, see [apps/example-git-perf]
 
 ### Using the Commands API
 
-For a higher-level API, use `@webrun-vcs/commands` which provides Git-like commands:
+For a higher-level API, use `@statewalker/vcs-commands` which provides Git-like commands:
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
-import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+import { Git, createGitStore } from "@statewalker/vcs-commands";
+import { createGitRepository } from "@statewalker/vcs-core";
+import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 
 // Create repository and staging
 const repository = await createGitRepository();
@@ -131,7 +131,7 @@ await git.checkout().setName("feature").call();
 The library uses format-agnostic delta storage for efficient pack files:
 
 ```typescript
-import { createDelta, applyDelta } from "@webrun-vcs/utils/diff";
+import { createDelta, applyDelta } from "@statewalker/vcs-utils/diff";
 
 const baseContent = new TextEncoder().encode("Original file content");
 const newContent = new TextEncoder().encode("Original file content with additions");
@@ -161,17 +161,17 @@ The `apps/` directory contains several examples. See [docs/example-applications.
 Run any example:
 
 ```bash
-pnpm --filter @webrun-vcs/example-git-cycle start
+pnpm --filter @statewalker/vcs-example-git-cycle start
 ```
 
 ## Development
 
 ```bash
 # Build a specific package
-pnpm --filter @webrun-vcs/core build
+pnpm --filter @statewalker/vcs-core build
 
 # Run tests for a specific package
-pnpm --filter @webrun-vcs/core test
+pnpm --filter @statewalker/vcs-core test
 
 # Lint and format
 pnpm lint

@@ -1,4 +1,4 @@
-# @webrun-vcs/commands Architecture
+# @statewalker/vcs-commands Architecture
 
 This document explains the internal architecture of the commands package, covering the command pattern implementation, class hierarchy, and integration with core stores and transport.
 
@@ -376,7 +376,7 @@ if (result.status === MergeStatus.CONFLICTING) {
 
 ### Core Store Integration
 
-Commands depend on store interfaces from `@webrun-vcs/core`:
+Commands depend on store interfaces from `@statewalker/vcs-core`:
 
 ```
 AddCommand
@@ -406,7 +406,7 @@ StagingStore.builder()      → Build merged index
 
 ### Transport Integration
 
-Remote commands delegate to `@webrun-vcs/transport`:
+Remote commands delegate to `@statewalker/vcs-transport`:
 
 ```
 FetchCommand
@@ -437,11 +437,11 @@ transport.push({
 Use `createGitStore` to bridge between repositories and the commands package:
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
-import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+import { Git, createGitStore } from "@statewalker/vcs-commands";
+import { createGitRepository } from "@statewalker/vcs-core";
+import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 
-// Create repository from @webrun-vcs/core
+// Create repository from @statewalker/vcs-core
 const repository = await createGitRepository();
 
 // Create staging store from any backend
@@ -592,9 +592,9 @@ export class FileNotInCommitError extends GitApiError {
 Use memory storage for fast tests:
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
-import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+import { Git, createGitStore } from "@statewalker/vcs-commands";
+import { createGitRepository } from "@statewalker/vcs-core";
+import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 
 describe("CommitCommand", () => {
   let git: Git;
@@ -619,7 +619,7 @@ describe("CommitCommand", () => {
 Test transport commands without network:
 
 ```typescript
-vi.mock("@webrun-vcs/transport", () => ({
+vi.mock("@statewalker/vcs-transport", () => ({
   fetch: vi.fn().mockResolvedValue({
     objectCount: 10,
     bytesReceived: 1024,

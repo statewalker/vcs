@@ -6,7 +6,7 @@
  */
 
 import * as fs from "node:fs/promises";
-import { createGitRepository, type GitRepository } from "@webrun-vcs/core";
+import { createGitRepository, type GitRepository } from "@statewalker/vcs-core";
 import {
   cleanupRepo,
   createFilesApi,

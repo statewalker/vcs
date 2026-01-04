@@ -8,16 +8,16 @@
  * approach for the new architecture.
  */
 
-import { createKvObjectStores, MemoryKVAdapter } from "@webrun-vcs/store-kv";
-import { createMemoryObjectStores } from "@webrun-vcs/store-mem";
-import { createSqlObjectStores } from "@webrun-vcs/store-sql";
-import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
+import { createKvObjectStores, MemoryKVAdapter } from "@statewalker/vcs-store-kv";
+import { createMemoryObjectStores } from "@statewalker/vcs-store-mem";
+import { createSqlObjectStores } from "@statewalker/vcs-store-sql";
+import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 import {
   createCrossBackendTests,
   createGitCompatibilityTests,
   createStreamingStoresTests,
   type StreamingStoresFactory,
-} from "@webrun-vcs/testing";
+} from "@statewalker/vcs-testing";
 import { describe, expect, it } from "vitest";
 
 // Factory for memory backend using new object-storage API

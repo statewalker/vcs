@@ -5,7 +5,7 @@
  * and hot/cold object classification.
  */
 
-import type { CacheMetadata, MetadataRepository, ObjectId } from "@webrun-vcs/sandbox";
+import type { CacheMetadata, MetadataRepository, ObjectId } from "@statewalker/vcs-sandbox";
 import type { DatabaseClient } from "./database-client.js";
 
 /**

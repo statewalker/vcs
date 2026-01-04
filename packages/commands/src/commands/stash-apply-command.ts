@@ -1,4 +1,4 @@
-import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectId } from "@statewalker/vcs-core";
 
 import { InvalidArgumentError, NoHeadError, RefNotFoundError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";

@@ -7,7 +7,7 @@
  * Based on JGit DirCache format tests and Git source documentation.
  */
 
-import { sha1 } from "@webrun-vcs/utils";
+import { sha1 } from "@statewalker/vcs-utils";
 import { describe, expect, it } from "vitest";
 
 import {

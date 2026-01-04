@@ -1,7 +1,7 @@
 /**
  * Repository Adapter
  *
- * Adapts the Repository interface from @webrun-vcs/core to the
+ * Adapts the Repository interface from @statewalker/vcs-core to the
  * RepositoryAccess interface used by HTTP protocol handlers.
  *
  * This adapter provides a clean integration layer that uses only the
@@ -17,7 +17,7 @@ import type {
   SymbolicRef,
   TagStore,
   TreeStore,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 import type {
   HeadInfo,
   ObjectId,
@@ -30,7 +30,7 @@ import type {
 /**
  * Create RepositoryAccess from a Repository.
  *
- * @param repository - Repository implementation from @webrun-vcs/core
+ * @param repository - Repository implementation from @statewalker/vcs-core
  * @returns RepositoryAccess interface for protocol handlers
  */
 export function createRepositoryAdapter(repository: Repository): RepositoryAccess {

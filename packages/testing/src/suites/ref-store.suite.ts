@@ -5,8 +5,8 @@
  * All storage implementations must pass these tests.
  */
 
-import type { Ref, RefStore, SymbolicRef } from "@webrun-vcs/core";
-import { isSymbolicRef, RefStoreLocation } from "@webrun-vcs/core";
+import type { Ref, RefStore, SymbolicRef } from "@statewalker/vcs-core";
+import { isSymbolicRef, RefStoreLocation } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

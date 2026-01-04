@@ -1,7 +1,7 @@
 /**
  * Tests for in-memory store implementations
  *
- * Uses the parametrized test suites from @webrun-vcs/testing
+ * Uses the parametrized test suites from @statewalker/vcs-testing
  * to verify the memory implementations follow the interface contracts.
  */
 
@@ -11,7 +11,7 @@ import {
   createStagingStoreTests,
   createTagStoreTests,
   createTreeStoreTests,
-} from "@webrun-vcs/testing";
+} from "@statewalker/vcs-testing";
 import {
   MemoryCommitStore,
   MemoryRefStore,

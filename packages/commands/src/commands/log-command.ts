@@ -1,4 +1,4 @@
-import type { Commit, ObjectId } from "@webrun-vcs/core";
+import type { Commit, ObjectId } from "@statewalker/vcs-core";
 
 import { GitCommand } from "../git-command.js";
 

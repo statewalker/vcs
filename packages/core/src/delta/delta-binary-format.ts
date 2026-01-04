@@ -1,7 +1,7 @@
 /**
  * Delta binary format conversion
  *
- * Re-exports Git delta format functions from @webrun-vcs/utils
+ * Re-exports Git delta format functions from @statewalker/vcs-utils
  * for convenient access from the core package's delta module.
  *
  * These functions convert between format-agnostic Delta[] instructions
@@ -19,7 +19,7 @@ import {
   getGitDeltaResultSize,
   gitFormatToDeltaRanges,
   parseGitDelta,
-} from "@webrun-vcs/utils";
+} from "@statewalker/vcs-utils";
 
 // Re-export with original names
 export {

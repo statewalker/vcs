@@ -1,6 +1,6 @@
 # Git Pack File Examples
 
-Working examples demonstrating how to read and write Git pack files using the `@webrun-vcs/core` package.
+Working examples demonstrating how to read and write Git pack files using the `@statewalker/vcs-core` package.
 
 ## Quick Start
 
@@ -97,7 +97,7 @@ pnpm example:01 ./test-data/git-repo/pack-*.pack
 import {
   readPackIndex,
   PackReader,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 
 // Read index file
 const idxData = await files.read("pack.idx");
@@ -123,7 +123,7 @@ import {
   writePack,
   writePackIndexV2,
   PackObjectType,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 
 // Prepare objects
 const objects = [
@@ -145,7 +145,7 @@ await files.write("new.idx", idxData);
 ### Streaming Writer
 
 ```typescript
-import { PackWriterStream } from "@webrun-vcs/core";
+import { PackWriterStream } from "@statewalker/vcs-core";
 
 const writer = new PackWriterStream();
 

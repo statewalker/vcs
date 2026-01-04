@@ -1,4 +1,8 @@
-import { type PushObject, type PushOptions, push as transportPush } from "@webrun-vcs/transport";
+import {
+  type PushObject,
+  type PushOptions,
+  push as transportPush,
+} from "@statewalker/vcs-transport";
 
 import { InvalidRemoteError, NonFastForwardError, PushRejectedException } from "../errors/index.js";
 import { type PushResult, PushStatus, type RemoteRefUpdate } from "../results/push-result.js";

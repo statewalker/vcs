@@ -8,7 +8,7 @@ import type {
   TreeStore,
   WorkingCopy,
   WorkingTreeIterator,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 
 /**
  * Core storage interface for Git operations.
@@ -120,8 +120,8 @@ export interface CreateGitStoreOptions {
  *
  * @example
  * ```typescript
- * import { createGitStore } from "@webrun-vcs/commands";
- * import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+ * import { createGitStore } from "@statewalker/vcs-commands";
+ * import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
  *
  * // Use with any Repository implementation
  * const staging = new MemoryStagingStore();
@@ -163,7 +163,7 @@ export function createGitStore(options: CreateGitStoreOptions): GitStore | GitSt
  *
  * @example
  * ```typescript
- * import { createGitStoreFromWorkingCopy } from "@webrun-vcs/commands";
+ * import { createGitStoreFromWorkingCopy } from "@statewalker/vcs-commands";
  *
  * // Use WorkingCopy with Git facade
  * const store = createGitStoreFromWorkingCopy(workingCopy);

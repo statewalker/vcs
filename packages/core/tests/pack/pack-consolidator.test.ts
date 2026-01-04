@@ -4,9 +4,9 @@
  * Tests pack file merging and consolidation.
  */
 
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PackConsolidator } from "../../src/pack/pack-consolidator.js";
 import { PackDirectory } from "../../src/pack/pack-directory.js";

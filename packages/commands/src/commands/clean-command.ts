@@ -1,4 +1,4 @@
-import type { WorkingTreeApi } from "@webrun-vcs/core";
+import type { WorkingTreeApi } from "@statewalker/vcs-core";
 import { GitCommand } from "../git-command.js";
 
 /**

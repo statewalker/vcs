@@ -11,8 +11,8 @@ import type {
   DeltaStore,
   DeltaStoreUpdate,
   StoredDelta,
-} from "@webrun-vcs/core";
-import type { Delta } from "@webrun-vcs/utils";
+} from "@statewalker/vcs-core";
+import type { Delta } from "@statewalker/vcs-utils";
 import type { DatabaseClient } from "../database-client.js";
 
 /**

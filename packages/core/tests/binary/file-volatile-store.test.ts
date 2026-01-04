@@ -2,8 +2,8 @@
  * Tests for FileVolatileStore
  */
 
+import { collect } from "@statewalker/vcs-utils";
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { collect } from "@webrun-vcs/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import { FileVolatileStore } from "../../src/binary/volatile-store.files.js";
 

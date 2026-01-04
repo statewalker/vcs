@@ -1,4 +1,4 @@
-# @webrun-vcs/utils
+# @statewalker/vcs-utils
 
 Foundation utilities for cryptographic hashing, compression, and diff/delta algorithms.
 
@@ -13,7 +13,7 @@ All functions are pure and stateless, making them easy to test and compose. The 
 ## Installation
 
 ```bash
-pnpm add @webrun-vcs/utils
+pnpm add @statewalker/vcs-utils
 ```
 
 ## Public API
@@ -23,25 +23,25 @@ pnpm add @webrun-vcs/utils
 The root export combines all major functionality:
 
 ```typescript
-import { sha1, compress, decompress, createDelta, applyDelta } from "@webrun-vcs/utils";
+import { sha1, compress, decompress, createDelta, applyDelta } from "@statewalker/vcs-utils";
 ```
 
 ### Sub-exports
 
 | Export Path | Description |
 |-------------|-------------|
-| `@webrun-vcs/utils/compression` | `compress()`, `decompress()` using pako (browser-compatible) |
-| `@webrun-vcs/utils/compression-node` | Node.js-optimized compression using native zlib |
-| `@webrun-vcs/utils/hash` | Hash algorithm registry and utilities |
-| `@webrun-vcs/utils/hash/sha1` | SHA-1 hashing for Git object IDs |
-| `@webrun-vcs/utils/hash/crc32` | CRC32 checksum calculation |
-| `@webrun-vcs/utils/hash/fossil-checksum` | Fossil VCS compatible checksum |
-| `@webrun-vcs/utils/hash/rolling-checksum` | Rolling hash for rsync-style delta |
-| `@webrun-vcs/utils/hash/strong-checksum` | Strong checksum verification |
-| `@webrun-vcs/utils/hash/utils` | Hash conversion utilities |
-| `@webrun-vcs/utils/diff` | Delta encoding/decoding, text diff (Myers), and Git patch format |
-| `@webrun-vcs/utils/cache` | LRU cache and intermediate caching utilities |
-| `@webrun-vcs/utils/streams` | Async iterable utilities for streaming data |
+| `@statewalker/vcs-utils/compression` | `compress()`, `decompress()` using pako (browser-compatible) |
+| `@statewalker/vcs-utils/compression-node` | Node.js-optimized compression using native zlib |
+| `@statewalker/vcs-utils/hash` | Hash algorithm registry and utilities |
+| `@statewalker/vcs-utils/hash/sha1` | SHA-1 hashing for Git object IDs |
+| `@statewalker/vcs-utils/hash/crc32` | CRC32 checksum calculation |
+| `@statewalker/vcs-utils/hash/fossil-checksum` | Fossil VCS compatible checksum |
+| `@statewalker/vcs-utils/hash/rolling-checksum` | Rolling hash for rsync-style delta |
+| `@statewalker/vcs-utils/hash/strong-checksum` | Strong checksum verification |
+| `@statewalker/vcs-utils/hash/utils` | Hash conversion utilities |
+| `@statewalker/vcs-utils/diff` | Delta encoding/decoding, text diff (Myers), and Git patch format |
+| `@statewalker/vcs-utils/cache` | LRU cache and intermediate caching utilities |
+| `@statewalker/vcs-utils/streams` | Async iterable utilities for streaming data |
 
 ## Usage Examples
 
@@ -50,7 +50,7 @@ import { sha1, compress, decompress, createDelta, applyDelta } from "@webrun-vcs
 Git identifies objects by their SHA-1 hash. Here's how to compute one:
 
 ```typescript
-import { sha1 } from "@webrun-vcs/utils/hash/sha1";
+import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 
 const content = new TextEncoder().encode("Hello, World!");
 const hash = sha1(content);
@@ -67,7 +67,7 @@ const hexHash = Array.from(hash)
 Git stores objects in zlib-compressed format:
 
 ```typescript
-import { compress, decompress } from "@webrun-vcs/utils/compression";
+import { compress, decompress } from "@statewalker/vcs-utils/compression";
 
 const original = new TextEncoder().encode("Some content to compress");
 
@@ -81,7 +81,7 @@ const restored = decompress(compressed);
 For Node.js environments, prefer the optimized version:
 
 ```typescript
-import { compress, decompress } from "@webrun-vcs/utils/compression-node";
+import { compress, decompress } from "@statewalker/vcs-utils/compression-node";
 ```
 
 ### Creating and Applying Binary Deltas
@@ -89,7 +89,7 @@ import { compress, decompress } from "@webrun-vcs/utils/compression-node";
 Delta compression stores differences between similar objects, dramatically reducing storage for incremental changes:
 
 ```typescript
-import { createDelta, applyDelta } from "@webrun-vcs/utils/diff";
+import { createDelta, applyDelta } from "@statewalker/vcs-utils/diff";
 
 const baseContent = new TextEncoder().encode("Original file content");
 const newContent = new TextEncoder().encode("Original file content with additions");
@@ -106,7 +106,7 @@ const reconstructed = applyDelta(baseContent, delta);
 Pack files use CRC32 for integrity verification:
 
 ```typescript
-import { crc32 } from "@webrun-vcs/utils/hash/crc32";
+import { crc32 } from "@statewalker/vcs-utils/hash/crc32";
 
 const data = new Uint8Array([1, 2, 3, 4, 5]);
 const checksum = crc32(data);
@@ -117,7 +117,7 @@ const checksum = crc32(data);
 The Myers diff algorithm finds the minimal edit sequence between two text contents:
 
 ```typescript
-import { RawText, RawTextComparator, myersDiff } from "@webrun-vcs/utils/diff";
+import { RawText, RawTextComparator, myersDiff } from "@statewalker/vcs-utils/diff";
 
 const oldText = new RawText(new TextEncoder().encode("line1\nline2\nline3"));
 const newText = new RawText(new TextEncoder().encode("line1\nmodified\nline3"));
@@ -135,7 +135,7 @@ for (const edit of edits) {
 Efficiently cache computed values with automatic eviction of least-recently-used entries:
 
 ```typescript
-import { LruCache } from "@webrun-vcs/utils/cache";
+import { LruCache } from "@statewalker/vcs-utils/cache";
 
 const cache = new LruCache<string, Uint8Array>(100); // Max 100 entries
 
@@ -154,7 +154,7 @@ if (cache.has("key1")) {
 Process data streams efficiently without loading everything into memory:
 
 ```typescript
-import { collect, concat, toLines, mapStream } from "@webrun-vcs/utils/streams";
+import { collect, concat, toLines, mapStream } from "@statewalker/vcs-utils/streams";
 
 // Collect async iterable into single Uint8Array
 const allData = await collect(asyncDataSource);

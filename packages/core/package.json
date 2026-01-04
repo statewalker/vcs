@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/core",
+  "name": "@statewalker/vcs-core",
   "version": "0.1.0",
   "private": false,
   "type": "module",
@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
-    "@webrun-vcs/utils": "workspace:*"
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

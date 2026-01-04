@@ -8,13 +8,13 @@ This document details the implementation plan for commands missing for productio
 
 ### Porcelain API Layer Separation
 
-**CRITICAL: The `@webrun-vcs/commands` package (porcelain API) must use EXCLUSIVELY APIs from these packages:**
+**CRITICAL: The `@statewalker/vcs-commands` package (porcelain API) must use EXCLUSIVELY APIs from these packages:**
 
 | Package | Purpose | Example APIs |
 |---------|---------|--------------|
-| `@webrun-vcs/core` | All VCS primitives | `Repository`, `CommitStore`, `TreeStore`, `RefStore`, `GCController`, `StatusCalculator` |
-| `@webrun-vcs/transport` | Network operations | `HttpTransport`, `PackProtocol`, `fetchPack`, `sendPack` |
-| `@webrun-vcs/utils` | Low-level utilities | `sha1`, `inflate`, `deflate`, `createDelta` |
+| `@statewalker/vcs-core` | All VCS primitives | `Repository`, `CommitStore`, `TreeStore`, `RefStore`, `GCController`, `StatusCalculator` |
+| `@statewalker/vcs-transport` | Network operations | `HttpTransport`, `PackProtocol`, `fetchPack`, `sendPack` |
+| `@statewalker/vcs-utils` | Low-level utilities | `sha1`, `inflate`, `deflate`, `createDelta` |
 
 **Prohibited:**
 - Direct filesystem access (use `FilesApi` from core)
@@ -30,7 +30,7 @@ This document details the implementation plan for commands missing for productio
                         │
                         ▼
 ┌─────────────────────────────────────────────────┐
-│          @webrun-vcs/commands (porcelain)       │
+│          @statewalker/vcs-commands (porcelain)       │
 │  GarbageCollectCommand, CleanCommand, etc.      │
 └─────────────────────────────────────────────────┘
                         │
@@ -52,7 +52,7 @@ import {
   type Repository,
   type CommitStore,
   // ... other core types
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 
 export class ExampleCommand {
   constructor(private readonly repository: Repository) {}
@@ -103,7 +103,7 @@ This ensures:
 
 ## 0. Core Prerequisites (FIXME Implementation)
 
-Before implementing porcelain commands, the following FIXME-marked code in `@webrun-vcs/core` must be completed.
+Before implementing porcelain commands, the following FIXME-marked code in `@statewalker/vcs-core` must be completed.
 
 ### 0.1 Complete `collectGarbage()` in GCController
 
@@ -292,7 +292,7 @@ import type {
   ProgressMonitor,
   GCOptions,
   GCStatistics,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 
 /**
  * Garbage collection command
@@ -462,7 +462,7 @@ The core `packRefs()` function already exists. Just need a command wrapper.
 **File:** `packages/commands/src/commands/pack-refs-command.ts`
 
 ```typescript
-import type { Repository, RefStore, ProgressMonitor } from "@webrun-vcs/core";
+import type { Repository, RefStore, ProgressMonitor } from "@statewalker/vcs-core";
 
 /**
  * Pack loose references into packed-refs
@@ -736,7 +736,7 @@ export async function appendReflog(
 **File:** `packages/commands/src/commands/reflog-command.ts`
 
 ```typescript
-import type { Repository, ReflogEntry } from "@webrun-vcs/core";
+import type { Repository, ReflogEntry } from "@statewalker/vcs-core";
 
 /**
  * Reflog command
@@ -816,7 +816,7 @@ import type {
   StatusCalculator,
   FileStatus,
   WorkingTreeApi,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 
 /**
  * Remove untracked files from working tree
@@ -993,7 +993,7 @@ async* blame(path: string, startCommit: ObjectId): AsyncIterable<BlameLine> {
 
 ### Phase 0: Core Prerequisites (Must Complete First)
 
-Complete FIXME-marked code in `@webrun-vcs/core` before porcelain commands:
+Complete FIXME-marked code in `@statewalker/vcs-core` before porcelain commands:
 
 1. **GCController.collectGarbage()** - Implement reachability-based object pruning
    - File: `packages/core/src/delta/gc-controller.ts:429-457`
@@ -1096,7 +1096,7 @@ describe("ReflogCommand", () => {
 
 ## Required Core API Additions
 
-To maintain the architectural constraint that porcelain commands use ONLY core/transport/utils APIs, the following additions are needed in `@webrun-vcs/core`:
+To maintain the architectural constraint that porcelain commands use ONLY core/transport/utils APIs, the following additions are needed in `@statewalker/vcs-core`:
 
 ### RefStore Interface Additions
 

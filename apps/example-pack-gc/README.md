@@ -44,7 +44,7 @@ Runs native git commands to prove compatibility:
 
 ```bash
 # From the repository root
-pnpm --filter @webrun-vcs/example-pack-gc start
+pnpm --filter @statewalker/vcs-example-pack-gc start
 
 # Or from this directory
 pnpm start

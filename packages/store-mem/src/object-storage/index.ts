@@ -6,7 +6,7 @@
  * implementations from the vcs package.
  */
 
-import type { BlobStore, CommitStore, TagStore, TreeStore } from "@webrun-vcs/core";
+import type { BlobStore, CommitStore, TagStore, TreeStore } from "@statewalker/vcs-core";
 import {
   GitBlobStore,
   GitCommitStore,
@@ -15,7 +15,7 @@ import {
   GitTagStore,
   GitTreeStore,
   MemoryVolatileStore,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 import { MemRawStore } from "../binary-storage/index.js";
 
 /**

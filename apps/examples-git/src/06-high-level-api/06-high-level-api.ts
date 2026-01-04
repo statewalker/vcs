@@ -25,15 +25,15 @@
  * - Building pack file tools
  */
 
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import {
   createGitRepository,
   FileMode,
   type GitRepository,
   type PersonIdent,
-} from "@webrun-vcs/core";
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+} from "@statewalker/vcs-core";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 
 // Initialize compression
 setCompression(createNodeCompression());

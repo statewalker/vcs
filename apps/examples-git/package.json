@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/examples-git",
+  "name": "@statewalker/vcs-examples-git",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
-    "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*"
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "tsx": "catalog:",

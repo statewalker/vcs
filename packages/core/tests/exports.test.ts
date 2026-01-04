@@ -1,7 +1,7 @@
 /**
  * Integration test for core package exports
  *
- * Verifies that all required types and functions are exported from @webrun-vcs/core
+ * Verifies that all required types and functions are exported from @statewalker/vcs-core
  */
 
 import { describe, expect, it } from "vitest";

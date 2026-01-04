@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/monorepo",
+  "name": "@statewalker/vcs-monorepo",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.0",
@@ -12,7 +12,7 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "format:fix": "biome check --write --unsafe .",
-    "dev:notes": "pnpm --filter @webrun-vcs/notes dev",
+    "dev:notes": "pnpm --filter @statewalker/vcs-notes dev",
     "dev:demo": "pnpm --filter demo dev",
     "deps:check": "./scripts/update-deps.sh --check-only",
     "deps:update": "./scripts/update-deps.sh",

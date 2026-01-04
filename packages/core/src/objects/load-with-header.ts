@@ -1,4 +1,4 @@
-import { newByteSplitter, readHeader } from "@webrun-vcs/utils/streams";
+import { newByteSplitter, readHeader } from "@statewalker/vcs-utils/streams";
 import { parseHeader } from "./object-header.js";
 import type { GitObjectHeader } from "./object-store.js";
 

@@ -5,7 +5,7 @@
  * efficient chain traversal via recursive CTEs.
  */
 
-import type { DeltaEntry, DeltaRepository } from "@webrun-vcs/sandbox";
+import type { DeltaEntry, DeltaRepository } from "@statewalker/vcs-sandbox";
 import type { DatabaseClient } from "./database-client.js";
 
 /**

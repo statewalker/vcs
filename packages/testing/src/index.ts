@@ -1,5 +1,5 @@
 /**
- * @webrun-vcs/storage-tests
+ * @statewalker/vcs-storage-tests
  *
  * Parametrized test suites for storage implementations.
  * Use these suites to test any storage backend against the standard interface contracts.

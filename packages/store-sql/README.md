@@ -1,4 +1,4 @@
-# @webrun-vcs/store-sql
+# @statewalker/vcs-store-sql
 
 SQL-based persistent storage using SQLite for long-term data persistence with delta compression.
 
@@ -13,7 +13,7 @@ Schema migrations handle database evolution automatically. When you upgrade to a
 ## Installation
 
 ```bash
-pnpm add @webrun-vcs/store-sql sql.js
+pnpm add @statewalker/vcs-store-sql sql.js
 ```
 
 Note: `sql.js` is an optional peer dependency. Install it to use the built-in `SqlJsAdapter`.
@@ -23,8 +23,8 @@ Note: `sql.js` is an optional peer dependency. Install it to use the built-in `S
 ### Factory Function
 
 ```typescript
-import { createSQLStorage } from "@webrun-vcs/store-sql";
-import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
+import { createSQLStorage } from "@statewalker/vcs-store-sql";
+import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 
 const db = await SqlJsAdapter.create();
 const { storage, close } = await createSQLStorage(db);
@@ -49,15 +49,15 @@ const { storage, close } = await createSQLStorage(db);
 
 | Export Path | Description |
 |-------------|-------------|
-| `@webrun-vcs/store-sql/adapters/sql-js` | sql.js database adapter |
+| `@statewalker/vcs-store-sql/adapters/sql-js` | sql.js database adapter |
 
 ## Usage Examples
 
 ### Basic Usage with sql.js
 
 ```typescript
-import { createSQLStorage } from "@webrun-vcs/store-sql";
-import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
+import { createSQLStorage } from "@statewalker/vcs-store-sql";
+import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 
 // Create in-memory database
 const db = await SqlJsAdapter.create();
@@ -83,8 +83,8 @@ await close();
 sql.js databases can be exported and saved:
 
 ```typescript
-import { createSQLStorage } from "@webrun-vcs/store-sql";
-import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
+import { createSQLStorage } from "@statewalker/vcs-store-sql";
+import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 import { writeFile, readFile } from "fs/promises";
 
 // Create and use storage
@@ -105,13 +105,13 @@ const restoredDb = await SqlJsAdapter.create(savedData);
 const restoredStorage = await createSQLStorage(restoredDb);
 ```
 
-### Using with @webrun-vcs/commands
+### Using with @statewalker/vcs-commands
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
-import { createSQLStorage } from "@webrun-vcs/store-sql";
-import { SqlJsAdapter } from "@webrun-vcs/store-sql/adapters/sql-js";
+import { Git, createGitStore } from "@statewalker/vcs-commands";
+import { createGitRepository } from "@statewalker/vcs-core";
+import { createSQLStorage } from "@statewalker/vcs-store-sql";
+import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 
 const db = await SqlJsAdapter.create();
 const { storage, close } = await createSQLStorage(db);
@@ -133,7 +133,7 @@ await close();
 For native SQLite or other databases:
 
 ```typescript
-import type { DatabaseClient } from "@webrun-vcs/store-sql";
+import type { DatabaseClient } from "@statewalker/vcs-store-sql";
 
 class BetterSqlite3Adapter implements DatabaseClient {
   private db: Database;
@@ -203,15 +203,15 @@ The SQL backend provides capabilities Git's file-based storage lacks, such as ef
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/core` - Interface definitions
-- `@webrun-vcs/utils` - Hashing, compression utilities
-- `@webrun-vcs/sandbox` - Sandbox utilities
+- `@statewalker/vcs-core` - Interface definitions
+- `@statewalker/vcs-utils` - Hashing, compression utilities
+- `@statewalker/vcs-sandbox` - Sandbox utilities
 
 **Peer Dependencies:**
 - `sql.js` (optional) - SQLite compiled to WebAssembly
 
 **Development:**
-- `@webrun-vcs/testing` - Test suites for validation
+- `@statewalker/vcs-testing` - Test suites for validation
 - `vitest` - Testing
 - `rolldown` - Bundling
 - `typescript` - Type definitions

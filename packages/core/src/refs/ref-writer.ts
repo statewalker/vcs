@@ -9,7 +9,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectoryUpdate.java
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectId } from "@statewalker/vcs-core";
 import { dirname, type FilesApi, joinPath } from "../files/index.js";
 import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-types.js";
 

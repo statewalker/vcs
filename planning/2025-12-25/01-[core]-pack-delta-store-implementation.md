@@ -185,7 +185,7 @@ export class DeltaMetadataIndex {
 **File:** `packages/core/src/delta/delta-binary-format.ts`
 
 ```typescript
-import type { Delta } from "@webrun-vcs/utils";
+import type { Delta } from "@statewalker/vcs-utils";
 
 /**
  * Serialize Delta[] instructions to Git binary delta format
@@ -229,7 +229,7 @@ export function decodeVarint(data: Uint8Array, offset: number): { value: number;
 
 #### 2.2 Integration with Existing Delta Utils
 
-The `@webrun-vcs/utils` package already has delta computation. Ensure compatibility:
+The `@statewalker/vcs-utils` package already has delta computation. Ensure compatibility:
 
 ```typescript
 // Verify round-trip compatibility

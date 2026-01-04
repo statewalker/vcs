@@ -4,8 +4,8 @@
  * Stores tree objects using a key-value backend with JSON serialization.
  */
 
-import type { ObjectId, TreeEntry, TreeStore } from "@webrun-vcs/core";
-import { FileMode } from "@webrun-vcs/core";
+import type { ObjectId, TreeEntry, TreeStore } from "@statewalker/vcs-core";
+import { FileMode } from "@statewalker/vcs-core";
 import type { KVStore } from "./kv-store.js";
 
 /**

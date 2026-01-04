@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/store-kv",
+  "name": "@statewalker/vcs-store-kv",
   "version": "0.1.0",
   "description": "Key-value storage backend for WebRun VCS",
   "private": false,
@@ -23,11 +23,11 @@
     "format:fix": "biome check --write --unsafe ."
   },
   "dependencies": {
-    "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*"
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
-    "@webrun-vcs/testing": "workspace:*",
+    "@statewalker/vcs-testing": "workspace:*",
     "rolldown": "catalog:",
     "vitest": "catalog:",
     "typescript": "catalog:",

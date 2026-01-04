@@ -4,7 +4,7 @@
  * Tracks access patterns and provides cache hints for optimization.
  */
 
-import type { CacheMetadata, MetadataRepository, ObjectId } from "@webrun-vcs/sandbox";
+import type { CacheMetadata, MetadataRepository, ObjectId } from "@statewalker/vcs-sandbox";
 
 /**
  * In-memory metadata repository

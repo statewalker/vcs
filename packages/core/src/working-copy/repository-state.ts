@@ -8,7 +8,7 @@
  *
  * @example Detecting repository state
  * ```typescript
- * import { RepositoryState, getStateCapabilities } from "@webrun-vcs/core";
+ * import { RepositoryState, getStateCapabilities } from "@statewalker/vcs-core";
  *
  * const state = await workingCopy.getState();
  *

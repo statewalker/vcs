@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/store-sql",
+  "name": "@statewalker/vcs-store-sql",
   "version": "0.1.0",
   "description": "SQL-based storage backend for WebRun VCS",
   "private": false,
@@ -22,12 +22,12 @@
     "lint": "biome lint src tests"
   },
   "dependencies": {
-    "@webrun-vcs/sandbox": "workspace:*",
-    "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/utils": "workspace:*"
+    "@statewalker/vcs-sandbox": "workspace:*",
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
-    "@webrun-vcs/testing": "workspace:*",
+    "@statewalker/vcs-testing": "workspace:*",
     "sql.js": "^1.12.0",
     "@types/sql.js": "^1.4.9",
     "rolldown": "catalog:",

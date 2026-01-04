@@ -8,7 +8,7 @@
  * Reference: tmp/jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/api/CheckoutCommandTest.java
  */
 
-import { DeleteStagingEntry } from "@webrun-vcs/core";
+import { DeleteStagingEntry } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 import { CheckoutStatus } from "../src/commands/checkout-command.js";
 import { RefNotFoundError } from "../src/errors/index.js";

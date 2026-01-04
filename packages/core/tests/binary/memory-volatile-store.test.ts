@@ -2,7 +2,7 @@
  * Tests for MemoryVolatileStore
  */
 
-import { collect } from "@webrun-vcs/utils";
+import { collect } from "@statewalker/vcs-utils";
 import { describe, expect, it } from "vitest";
 import { MemoryVolatileStore } from "../../src/binary/volatile-store.memory.js";
 

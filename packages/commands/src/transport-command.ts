@@ -1,4 +1,4 @@
-import type { Credentials, ProgressInfo } from "@webrun-vcs/transport";
+import type { Credentials, ProgressInfo } from "@statewalker/vcs-transport";
 
 import { GitCommand } from "./git-command.js";
 

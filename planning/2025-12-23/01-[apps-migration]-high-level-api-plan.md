@@ -7,26 +7,26 @@ Related: [notes/src/2025-12-23/01-[apps-verification]-diagnostics.md](../../note
 
 This plan outlines the migration of all apps in the `apps/` folder to use exclusively high-level APIs from the webrun-vcs library stack. The goal is to ensure all example applications demonstrate best practices using:
 
-1. **Porcelaine API** (`@webrun-vcs/commands`) - High-level Git commands
-2. **Transport API** (`@webrun-vcs/transport`) - Network operations
-3. **High-level Stores** (`@webrun-vcs/core`) - Repository, CommitStore, TreeStore, BlobStore, TagStore, RefStore
+1. **Porcelaine API** (`@statewalker/vcs-commands`) - High-level Git commands
+2. **Transport API** (`@statewalker/vcs-transport`) - Network operations
+3. **High-level Stores** (`@statewalker/vcs-core`) - Repository, CommitStore, TreeStore, BlobStore, TagStore, RefStore
 
 ## Target Architecture
 
 ```
 Apps should use ONLY:
 ┌─────────────────────────────────────────────────────┐
-│  PORCELAIN (@webrun-vcs/commands)                  │
+│  PORCELAIN (@statewalker/vcs-commands)                  │
 │  Git.wrap(store).add().commit().push()             │
 └──────────────────┬──────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────┐
-│  TRANSPORT (@webrun-vcs/transport)                 │
+│  TRANSPORT (@statewalker/vcs-transport)                 │
 │  clone(), fetch(), push(), createGitHttpServer()   │
 └──────────────────┬──────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────┐
-│  TYPED STORES (@webrun-vcs/core Repository)        │
+│  TYPED STORES (@statewalker/vcs-core Repository)        │
 │  repository.commits, .trees, .blobs, .tags, .refs  │
 └─────────────────────────────────────────────────────┘
 ```
@@ -76,7 +76,7 @@ Apps should use ONLY:
 **Current Dependencies:**
 - `@webrun-vcs/vcs`
 - `@webrun-vcs/storage-git`
-- `@webrun-vcs/utils`
+- `@statewalker/vcs-utils`
 
 **Migration Tasks:**
 1. Replace direct `storage.objects.store()` with `repository.blobs.store()`
@@ -86,8 +86,8 @@ Apps should use ONLY:
 5. Update refs via `repository.refs.set()` instead of lower-level calls
 
 **Target Dependencies:**
-- `@webrun-vcs/commands` (Git Porcelaine)
-- `@webrun-vcs/storage-git` (or `@webrun-vcs/core` Repository)
+- `@statewalker/vcs-commands` (Git Porcelaine)
+- `@webrun-vcs/storage-git` (or `@statewalker/vcs-core` Repository)
 
 **Migration Difficulty:** Low - mostly rename/restructure
 
@@ -98,7 +98,7 @@ Apps should use ONLY:
 **Current Dependencies:**
 - `@webrun-vcs/vcs`
 - `@webrun-vcs/storage-git`
-- `@webrun-vcs/utils`
+- `@statewalker/vcs-utils`
 
 **Migration Tasks:**
 1. Use `createRepository()` factory instead of direct GitStorage
@@ -108,7 +108,7 @@ Apps should use ONLY:
 5. Fix Unicode path issue as part of migration
 
 **Target Dependencies:**
-- `@webrun-vcs/core` (Repository)
+- `@statewalker/vcs-core` (Repository)
 - `@webrun-vcs/storage-git`
 - `@webrun-vcs/worktree`
 
@@ -121,8 +121,8 @@ Apps should use ONLY:
 **Current Dependencies:**
 - `@webrun-vcs/vcs`
 - `@webrun-vcs/storage-git`
-- `@webrun-vcs/transport`
-- `@webrun-vcs/utils`
+- `@statewalker/vcs-transport`
+- `@statewalker/vcs-utils`
 
 **Migration Tasks:**
 1. Replace VCS imports with Repository from core
@@ -130,8 +130,8 @@ Apps should use ONLY:
 3. Ensure typed stores for blob/tree/commit creation
 
 **Target Dependencies:**
-- `@webrun-vcs/commands` (optional, for higher-level abstraction)
-- `@webrun-vcs/transport`
+- `@statewalker/vcs-commands` (optional, for higher-level abstraction)
+- `@statewalker/vcs-transport`
 - `@webrun-vcs/storage-git`
 
 **Migration Difficulty:** Low - already well-structured
@@ -143,7 +143,7 @@ Apps should use ONLY:
 **Current Dependencies:**
 - `@webrun-vcs/vcs`
 - `@webrun-vcs/storage-git`
-- `@webrun-vcs/utils`
+- `@statewalker/vcs-utils`
 
 **Migration Tasks:**
 1. Use `createRepository()` factory
@@ -152,7 +152,7 @@ Apps should use ONLY:
 4. Consider if pack operations should be exposed via Repository interface
 
 **Target Dependencies:**
-- `@webrun-vcs/core` (Repository)
+- `@statewalker/vcs-core` (Repository)
 - `@webrun-vcs/storage-git` (for pack-specific operations)
 
 **Migration Difficulty:** Low - straightforward mapping
@@ -163,7 +163,7 @@ Apps should use ONLY:
 
 **Current Dependencies:**
 - `@webrun-vcs/storage-git`
-- `@webrun-vcs/utils`
+- `@statewalker/vcs-utils`
 
 **Special Consideration:** This app demonstrates pack file internals, which is inherently low-level. May need to be kept as-is for educational purposes.
 
@@ -183,8 +183,8 @@ Apps should use ONLY:
 **Current Dependencies:**
 - `@webrun-vcs/vcs`
 - `@webrun-vcs/storage-git`
-- `@webrun-vcs/transport`
-- `@webrun-vcs/utils`
+- `@statewalker/vcs-transport`
+- `@statewalker/vcs-utils`
 
 **Migration Tasks:**
 1. Replace VCS imports with Repository from core
@@ -194,8 +194,8 @@ Apps should use ONLY:
 5. Ensure typed stores for object creation
 
 **Target Dependencies:**
-- `@webrun-vcs/core` (Repository)
-- `@webrun-vcs/transport`
+- `@statewalker/vcs-core` (Repository)
+- `@statewalker/vcs-transport`
 - `@webrun-vcs/storage-git`
 
 **Migration Difficulty:** Low - mostly import cleanup + bugfix
@@ -205,7 +205,7 @@ Apps should use ONLY:
 **Current State:** Uses only utils package for benchmarking.
 
 **Current Dependencies:**
-- `@webrun-vcs/utils`
+- `@statewalker/vcs-utils`
 
 **Migration Tasks:** None needed - this is a standalone benchmarking tool.
 
@@ -224,7 +224,7 @@ Each app should have a README explaining:
 ### 3.2 Add TypeScript Types
 
 Ensure all apps:
-1. Use proper TypeScript types from `@webrun-vcs/core`
+1. Use proper TypeScript types from `@statewalker/vcs-core`
 2. Avoid `any` types
 3. Use Repository and store interfaces
 
@@ -284,7 +284,7 @@ Ensure GitHub Actions runs all example apps as part of CI.
 ## Success Criteria
 
 Each migrated app should:
-1. Use only imports from: `@webrun-vcs/commands`, `@webrun-vcs/transport`, `@webrun-vcs/core`, `@webrun-vcs/storage-*`
+1. Use only imports from: `@statewalker/vcs-commands`, `@statewalker/vcs-transport`, `@statewalker/vcs-core`, `@webrun-vcs/storage-*`
 2. NOT use direct imports from `@webrun-vcs/vcs` internals
 3. Use typed store interfaces (BlobStore, TreeStore, etc.) not raw ObjectStore
 4. Handle resources properly (no FileHandle leaks)

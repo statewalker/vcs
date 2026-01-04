@@ -6,7 +6,7 @@ import {
   createDeltaRepositoryTests,
   createMetadataRepositoryTests,
   createObjectRepositoryTests,
-} from "@webrun-vcs/testing";
+} from "@statewalker/vcs-testing";
 import { SqlJsAdapter } from "../src/adapters/sql-js-adapter.js";
 import { SQLDeltaRepository } from "../src/delta-repository.js";
 import { SQLMetadataRepository } from "../src/metadata-repository.js";

@@ -3,7 +3,7 @@
  * Ported from JGit's RefAdvertiserTest.java
  */
 
-import { bytesToHex, hexToBytes } from "@webrun-vcs/utils/hash/utils";
+import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 import { describe, expect, it } from "vitest";
 import {
   filterRefs,

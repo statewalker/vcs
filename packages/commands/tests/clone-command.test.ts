@@ -5,7 +5,7 @@
  * Tests run against all storage backends (Memory, SQL).
  */
 
-import type { Ref } from "@webrun-vcs/core";
+import type { Ref } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Git, TagOption } from "../src/index.js";

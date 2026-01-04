@@ -2,7 +2,7 @@
  * Tests for MemoryRawStore
  */
 
-import { collect } from "@webrun-vcs/utils";
+import { collect } from "@statewalker/vcs-utils";
 import { describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 

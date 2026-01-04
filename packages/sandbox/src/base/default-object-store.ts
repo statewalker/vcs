@@ -15,7 +15,7 @@ import {
   decompressBlock,
   encodeDeltaBlocks,
   newSha1,
-} from "@webrun-vcs/utils";
+} from "@statewalker/vcs-utils";
 
 /**
  * Options for delta creation
@@ -41,7 +41,7 @@ export interface DeltaChainInfo {
   savings: number;
 }
 
-import type { IntermediateCache, LRUCache } from "@webrun-vcs/utils";
+import type { IntermediateCache, LRUCache } from "@statewalker/vcs-utils";
 import type { ObjectStore } from "./object-store.js";
 import type { DeltaRepository } from "./repositories/delta-repository.js";
 import type { MetadataRepository } from "./repositories/metadata-repository.js";

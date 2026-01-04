@@ -144,8 +144,8 @@ export async function* inflatePako(
  *
  * @example
  * ```ts
- * import { setCompression } from "@webrun-vcs/compression";
- * import { createPakoCompression } from "@webrun-vcs/utils/compression";
+ * import { setCompression } from "@statewalker/vcs-utils/compression";
+ * import { createPakoCompression } from "@statewalker/vcs-utils/compression";
  *
  * setCompression(createPakoCompression());
  * ```

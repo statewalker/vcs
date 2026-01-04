@@ -2,8 +2,8 @@
  * Tests for FileRawStore
  */
 
+import { collect } from "@statewalker/vcs-utils";
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { collect } from "@webrun-vcs/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import { FileRawStore } from "../../src/binary/raw-store.files.js";
 

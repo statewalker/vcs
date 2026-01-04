@@ -2,7 +2,7 @@
  * Mock DeltaStore implementation for testing
  */
 
-import type { Delta } from "@webrun-vcs/utils";
+import type { Delta } from "@statewalker/vcs-utils";
 import type {
   DeltaChainDetails,
   DeltaInfo,

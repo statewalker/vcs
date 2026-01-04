@@ -6,12 +6,12 @@ This document provides detailed implementation planning for 6 packages in the VC
 
 The migration restructures the codebase from scattered responsibilities into a clean layered architecture. This plan covers:
 
-1. **@webrun-vcs/core** - Central API Layer (interfaces + formats)
+1. **@statewalker/vcs-core** - Central API Layer (interfaces + formats)
 2. **@webrun-vcs/storage-git** - Git File Backend (FilesApi-based, no native APIs)
 3. **@webrun-vcs/staging** - Staging Area Implementation
 4. **@webrun-vcs/worktree** - Working Tree Operations
-5. **@webrun-vcs/transport** - Protocol Layer
-6. **@webrun-vcs/commands** - Porcelain Layer
+5. **@statewalker/vcs-transport** - Protocol Layer
+6. **@statewalker/vcs-commands** - Porcelain Layer
 
 **Key Constraint**: storage-git must use only FilesApi abstraction - no native/Node.js APIs.
 
@@ -21,7 +21,7 @@ The migration restructures the codebase from scattered responsibilities into a c
 
 **Phased Approach**: This plan focuses on Phase 1 - clean architecture with one storage backend (storage-git). Low-level abstractions (ObjectStore, RawStore, DeltaStore, BinStore, TempStore) remain internal to storage-git. These will be extracted to a shared storage-common package in Phase 2 when adding additional backends (mem, sql, kv).
 
-**Streaming API Preference**: All interfaces should prefer streaming APIs (`AsyncIterable<Uint8Array>`) over accumulating binary chunks in memory. Use stream utilities from `@webrun-vcs/utils` (migrated from `vcs/src/format/stream-utils.ts`) for:
+**Streaming API Preference**: All interfaces should prefer streaming APIs (`AsyncIterable<Uint8Array>`) over accumulating binary chunks in memory. Use stream utilities from `@statewalker/vcs-utils` (migrated from `vcs/src/format/stream-utils.ts`) for:
 - `splitStream()` - Split streams at delimiter boundaries
 - `readHeader()` - Read headers without buffering entire content
 - `mapStream()` - Transform stream items
@@ -29,7 +29,7 @@ The migration restructures the codebase from scattered responsibilities into a c
 
 ---
 
-## Pre-Migration: Stream Utilities to @webrun-vcs/utils
+## Pre-Migration: Stream Utilities to @statewalker/vcs-utils
 
 Before migrating core, stream utilities must move to utils package.
 
@@ -65,7 +65,7 @@ packages/utils/src/streams/
 
 ---
 
-## Package 1: @webrun-vcs/core (Central API Layer)
+## Package 1: @statewalker/vcs-core (Central API Layer)
 
 ### Purpose
 Single source of truth for all public interfaces and Git-compatible serialization formats. All backends implement these interfaces.
@@ -299,7 +299,7 @@ packages/storage-git/src/
    - Ensure MemFilesApi compatibility
 
 7. **Update imports to use core**
-   - All interfaces from `@webrun-vcs/core`
+   - All interfaces from `@statewalker/vcs-core`
    - Remove vcs interface imports
 
 ### Test Migration
@@ -456,7 +456,7 @@ packages/staging/src/
 
 1. **Create package structure**
    - Initialize `packages/staging/`
-   - Configure dependencies on `@webrun-vcs/core`
+   - Configure dependencies on `@statewalker/vcs-core`
 
 2. **Implement file-based staging (Git-compatible)**
    - Uses FilesApi for file operations
@@ -553,7 +553,7 @@ packages/worktree/src/
 ### Implementation Tasks
 
 1. **Update imports to use core**
-   - Replace `@webrun-vcs/vcs` imports with `@webrun-vcs/core`
+   - Replace `@webrun-vcs/vcs` imports with `@statewalker/vcs-core`
    - Update interface references
 
 2. **Add staging dependency**
@@ -595,7 +595,7 @@ Update tests to use core interfaces.
 
 ---
 
-## Package 5: @webrun-vcs/transport (Protocol Layer)
+## Package 5: @statewalker/vcs-transport (Protocol Layer)
 
 ### Purpose
 Git network protocol implementation for clone, fetch, push operations.
@@ -659,7 +659,7 @@ packages/transport/src/
 ### Implementation Tasks
 
 1. **Update imports to use core**
-   - Replace `@webrun-vcs/vcs` with `@webrun-vcs/core`
+   - Replace `@webrun-vcs/vcs` with `@statewalker/vcs-core`
    - Update all interface references
 
 2. **Update storage adapters**
@@ -696,7 +696,7 @@ Update to use core interfaces and test with different backends.
 
 ---
 
-## Package 6: @webrun-vcs/commands (Porcelain Layer)
+## Package 6: @statewalker/vcs-commands (Porcelain Layer)
 
 ### Purpose
 High-level Git commands for end users. The user-facing API.
@@ -766,13 +766,13 @@ packages/commands/src/
 ### Implementation Tasks
 
 1. **Update imports to use core**
-   - Replace `@webrun-vcs/vcs` with `@webrun-vcs/core`
+   - Replace `@webrun-vcs/vcs` with `@statewalker/vcs-core`
    - Update interface references
 
 2. **Update dependencies**
    - Depend on `@webrun-vcs/staging` for staging operations
    - Depend on `@webrun-vcs/worktree` for working tree
-   - Depend on `@webrun-vcs/transport` for remote operations
+   - Depend on `@statewalker/vcs-transport` for remote operations
 
 3. **Support multiple backends**
    - Git class should accept any Repository implementation
@@ -812,10 +812,10 @@ Update to use core interfaces and test with multiple backends.
 The packages should be implemented in dependency order:
 
 ### Phase 0: Prerequisites
-0. **Stream utilities to @webrun-vcs/utils** - Required by core and all packages
+0. **Stream utilities to @statewalker/vcs-utils** - Required by core and all packages
 
 ### Phase 1: Foundation
-1. **@webrun-vcs/core** - Must be first (all others depend on it)
+1. **@statewalker/vcs-core** - Must be first (all others depend on it)
 
 ### Phase 2: Storage Layer
 2. **@webrun-vcs/storage-git** - Rename and consolidate store-files
@@ -825,8 +825,8 @@ The packages should be implemented in dependency order:
 4. **@webrun-vcs/worktree** - Depends on core, staging
 
 ### Phase 4: High-Level Components
-5. **@webrun-vcs/transport** - Depends on core
-6. **@webrun-vcs/commands** - Depends on all above
+5. **@statewalker/vcs-transport** - Depends on core
+6. **@statewalker/vcs-commands** - Depends on all above
 
 ---
 
@@ -868,14 +868,14 @@ After validation, create the following issue hierarchy:
 ### Epic: VCS Architecture Refactoring
 
 **Utils Package Issues (Phase 0):**
-- Create @webrun-vcs/utils package structure
+- Create @statewalker/vcs-utils package structure
 - Migrate stream utilities from vcs/src/format/stream-utils.ts
 - Implement streaming tests (concat, splitStream, readHeader, toLines)
 - Add newSplitter and newByteSplitter tests
-- Update vcs package to depend on @webrun-vcs/utils
+- Update vcs package to depend on @statewalker/vcs-utils
 
 **Core Package Issues:**
-- Create @webrun-vcs/core package structure
+- Create @statewalker/vcs-core package structure
 - Migrate type definitions to core
 - Migrate store interfaces to core (BlobStore, TreeStore, CommitStore, TagStore, RefStore, Repository)
 - Migrate staging interfaces to core
@@ -928,5 +928,5 @@ After validation, create the following issue hierarchy:
 1. Review this plan document
 2. Transform into bd issues using `bd create` commands
 3. Set up dependencies between issues (utils blocks core, core blocks all others)
-4. Begin implementation with @webrun-vcs/utils package (stream utilities)
-5. Continue with @webrun-vcs/core package
+4. Begin implementation with @statewalker/vcs-utils package (stream utilities)
+5. Continue with @statewalker/vcs-core package

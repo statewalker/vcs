@@ -1,4 +1,4 @@
-# @webrun-vcs/transport Architecture
+# @statewalker/vcs-transport Architecture
 
 This document explains the internal architecture of the transport package, covering the Git protocol implementation, connection handling, and server-side components.
 
@@ -36,7 +36,7 @@ for await (const packet of connection.receive()) {
 ## Module Architecture
 
 ```
-@webrun-vcs/transport
+@statewalker/vcs-transport
 ├── protocol/           # Wire format (pkt-line, capabilities)
 ├── connection/         # Transport abstraction (HTTP, git://)
 ├── negotiation/        # Refspec parsing, URL handling
@@ -414,7 +414,7 @@ interface RepositoryAccess {
 Adapters bridge storage implementations to RepositoryAccess:
 
 ```typescript
-import { createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+import { createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 const adapter = createVcsRepositoryAdapter({
   objects: repository.objects,

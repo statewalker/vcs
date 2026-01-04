@@ -1,6 +1,6 @@
 # Package Consolidation Plan: Merge into Core
 
-This plan details the removal of four packages by merging their unique functionality into `@webrun-vcs/core`.
+This plan details the removal of four packages by merging their unique functionality into `@statewalker/vcs-core`.
 
 ## Packages to Remove
 
@@ -96,7 +96,7 @@ Core already contains comprehensive implementations for:
 #### Analysis
 
 The staging package contains:
-- Re-exports of types from `@webrun-vcs/core/staging`
+- Re-exports of types from `@statewalker/vcs-core/staging`
 - `MemoryStagingStore` - In-memory staging implementation
 
 #### Items in Core
@@ -122,7 +122,7 @@ The staging package contains:
 #### Analysis
 
 The vcs package is a **re-export wrapper** that provides a unified public API. It exports:
-- Everything from `@webrun-vcs/core`
+- Everything from `@statewalker/vcs-core`
 - One unique interface: `ObjectStore` (minimal storage contract)
 
 #### Items Unique to vcs
@@ -243,10 +243,10 @@ If `GitRepository` and `GitStorage` provide value:
    - Any external consumers
 
 2. Replace:
-   - `@webrun-vcs/storage-git` → `@webrun-vcs/core`
-   - `@webrun-vcs/staging` → `@webrun-vcs/core`
-   - `@webrun-vcs/vcs` → `@webrun-vcs/core`
-   - `@webrun-vcs/worktree` → `@webrun-vcs/core`
+   - `@webrun-vcs/storage-git` → `@statewalker/vcs-core`
+   - `@webrun-vcs/staging` → `@statewalker/vcs-core`
+   - `@webrun-vcs/vcs` → `@statewalker/vcs-core`
+   - `@webrun-vcs/worktree` → `@statewalker/vcs-core`
 
 ### Phase 4: Package Removal (P1)
 
@@ -298,7 +298,7 @@ If `GitRepository` and `GitStorage` provide value:
 
 ### Recommended Action
 
-1. Update consumer packages to import from `@webrun-vcs/core`
+1. Update consumer packages to import from `@statewalker/vcs-core`
 2. Delete the four packages
 3. Update workspace configuration
 4. Run full test suite

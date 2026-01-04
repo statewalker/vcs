@@ -1,4 +1,4 @@
-# @webrun-vcs/transport
+# @statewalker/vcs-transport
 
 Git protocol implementation (v1/v2), HTTP transport, and push/pull negotiation.
 
@@ -13,7 +13,7 @@ Beyond client operations, the package includes server-side handlers. The `Upload
 ## Installation
 
 ```bash
-pnpm add @webrun-vcs/transport
+pnpm add @statewalker/vcs-transport
 ```
 
 ## Public API
@@ -38,18 +38,18 @@ import {
   type VcsStores,
   type RepositoryAccess,
   type GitHttpServerOptions,
-} from "@webrun-vcs/transport";
+} from "@statewalker/vcs-transport";
 ```
 
 ### Sub-exports
 
 | Export Path | Description |
 |-------------|-------------|
-| `@webrun-vcs/transport/protocol` | Pkt-line codec, capabilities, protocol types |
-| `@webrun-vcs/transport/negotiation` | Protocol negotiation logic |
-| `@webrun-vcs/transport/connection` | HTTP connection implementation |
-| `@webrun-vcs/transport/operations` | Remote operations (fetch, push) |
-| `@webrun-vcs/transport/streams` | Stream utilities |
+| `@statewalker/vcs-transport/protocol` | Pkt-line codec, capabilities, protocol types |
+| `@statewalker/vcs-transport/negotiation` | Protocol negotiation logic |
+| `@statewalker/vcs-transport/connection` | HTTP connection implementation |
+| `@statewalker/vcs-transport/operations` | Remote operations (fetch, push) |
+| `@statewalker/vcs-transport/streams` | Stream utilities |
 
 ### Key Classes and Functions
 
@@ -71,8 +71,8 @@ import {
 ### Fetching from a Remote Repository
 
 ```typescript
-import { HTTPConnection } from "@webrun-vcs/transport/connection";
-import { fetchObjects } from "@webrun-vcs/transport/operations";
+import { HTTPConnection } from "@statewalker/vcs-transport/connection";
+import { fetchObjects } from "@statewalker/vcs-transport/operations";
 
 const connection = new HTTPConnection("https://github.com/user/repo.git");
 
@@ -94,8 +94,8 @@ console.log(`Received ${result.objectCount} objects`);
 ### Pushing to a Remote
 
 ```typescript
-import { HTTPConnection } from "@webrun-vcs/transport/connection";
-import { pushObjects } from "@webrun-vcs/transport/operations";
+import { HTTPConnection } from "@statewalker/vcs-transport/connection";
+import { pushObjects } from "@statewalker/vcs-transport/operations";
 
 const connection = new HTTPConnection("https://github.com/user/repo.git");
 
@@ -124,7 +124,7 @@ if (result.success) {
 The transport package includes a complete HTTP server implementation that responds to Git smart protocol requests. The server works with any storage backend that implements the VCS interfaces.
 
 ```typescript
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 const server = createGitHttpServer({
   async resolveRepository(request, repoPath) {
@@ -159,7 +159,7 @@ The server uses Web Standard APIs (`Request`/`Response`), making it portable acr
 **Cloudflare Workers:**
 
 ```typescript
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -177,7 +177,7 @@ export default {
 **Deno:**
 
 ```typescript
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 const server = createGitHttpServer({ /* ... */ });
 Deno.serve((request) => server.fetch(request));
@@ -187,7 +187,7 @@ Deno.serve((request) => server.fetch(request));
 
 ```typescript
 import { createServer } from "node:http";
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 const gitServer = createGitHttpServer({ /* ... */ });
 
@@ -211,7 +211,7 @@ createServer(async (req, res) => {
 For convenience, you can also use `createVcsServerOptions` to configure the server:
 
 ```typescript
-import { createGitHttpServer, createVcsServerOptions } from "@webrun-vcs/transport";
+import { createGitHttpServer, createVcsServerOptions } from "@statewalker/vcs-transport";
 
 const server = createGitHttpServer(
   createVcsServerOptions(
@@ -231,7 +231,7 @@ const server = createGitHttpServer(
 The server supports flexible authentication through callback hooks:
 
 ```typescript
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@webrun-vcs/transport";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 const server = createGitHttpServer({
   async resolveRepository(request, repoPath) {
@@ -272,7 +272,7 @@ When authentication fails, the server returns a 401 status with a `WWW-Authentic
 The Git protocol uses pkt-line framing for messages:
 
 ```typescript
-import { PktLineCodec } from "@webrun-vcs/transport/protocol";
+import { PktLineCodec } from "@statewalker/vcs-transport/protocol";
 
 const codec = new PktLineCodec();
 
@@ -292,7 +292,7 @@ for await (const line of codec.decode(stream)) {
 ### Protocol Negotiation
 
 ```typescript
-import { NegotiationState } from "@webrun-vcs/transport/negotiation";
+import { NegotiationState } from "@statewalker/vcs-transport/negotiation";
 
 const negotiation = new NegotiationState({
   wants: ["abc123..."],
@@ -343,8 +343,8 @@ This package closely mirrors JGit's transport implementation:
 ## Dependencies
 
 **Runtime:**
-- `@webrun-vcs/core` - Interface definitions
-- `@webrun-vcs/utils` - Hashing, compression, pack utilities
+- `@statewalker/vcs-core` - Interface definitions
+- `@statewalker/vcs-utils` - Hashing, compression, pack utilities
 
 **Development:**
 - `vitest` - Testing

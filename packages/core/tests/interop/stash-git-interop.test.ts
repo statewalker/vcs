@@ -15,8 +15,8 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { createPakoCompression, setCompression } from "@statewalker/vcs-utils";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-import { createPakoCompression, setCompression } from "@webrun-vcs/utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createGitRepository, FileMode } from "../../src/index.js";
 

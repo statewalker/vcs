@@ -4,7 +4,7 @@
  * Utility functions for working with Git refs.
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectId } from "@statewalker/vcs-core";
 import { R_HEADS, R_REMOTES, R_TAGS, type Ref } from "./ref-types.js";
 
 /**

@@ -8,8 +8,12 @@
  * Based on pack-indexer.ts but designed for delta-aware import.
  */
 
-import { type Delta, decompressBlockPartial, deserializeDeltaFromGit } from "@webrun-vcs/utils";
-import { sha1 } from "@webrun-vcs/utils/hash/sha1";
+import {
+  type Delta,
+  decompressBlockPartial,
+  deserializeDeltaFromGit,
+} from "@statewalker/vcs-utils";
+import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "../utils/index.js";
 import { applyDelta } from "./pack-reader.js";
 import { PackObjectType } from "./types.js";

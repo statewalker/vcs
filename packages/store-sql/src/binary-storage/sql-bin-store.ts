@@ -5,7 +5,7 @@
  * Implements the BinStore interface from binary-storage.
  */
 
-import type { BinStore, DeltaStore, RawStore } from "@webrun-vcs/core";
+import type { BinStore, DeltaStore, RawStore } from "@statewalker/vcs-core";
 import type { DatabaseClient } from "../database-client.js";
 import { SqlDeltaStore } from "./sql-delta-store.js";
 import { SqlRawStore } from "./sql-raw-store.js";

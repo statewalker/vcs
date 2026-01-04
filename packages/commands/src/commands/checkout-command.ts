@@ -40,7 +40,7 @@ import {
   type ObjectId,
   type Ref,
   UpdateStagingEntry,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 
 import {
   MissingArgumentError,

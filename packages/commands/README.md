@@ -1,4 +1,4 @@
-# @webrun-vcs/commands
+# @statewalker/vcs-commands
 
 High-level Git command API for building version control applications.
 
@@ -13,19 +13,19 @@ Commands work with any storage backend that implements the required store interf
 ## Installation
 
 ```bash
-pnpm add @webrun-vcs/commands
+pnpm add @statewalker/vcs-commands
 ```
 
 **Dependencies:**
-- `@webrun-vcs/core` - Core types, store interfaces, and repository factories
-- `@webrun-vcs/transport` - Remote protocol implementation
-- `@webrun-vcs/utils` - Utility functions
+- `@statewalker/vcs-core` - Core types, store interfaces, and repository factories
+- `@statewalker/vcs-transport` - Remote protocol implementation
+- `@statewalker/vcs-utils` - Utility functions
 
 ## Quick Start
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
+import { Git, createGitStore } from "@statewalker/vcs-commands";
+import { createGitRepository } from "@statewalker/vcs-core";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import * as fs from "node:fs/promises";
 
@@ -34,7 +34,7 @@ const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "/path/to/repo" }));
 const repository = await createGitRepository(files, ".git");
 
 // Create a staging store (or use one from store-mem/store-sql)
-import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 const staging = new MemoryStagingStore();
 
 // Create the Git command interface
@@ -75,16 +75,16 @@ import {
   // Enums
   ResetMode,
   ListBranchMode,
-} from "@webrun-vcs/commands";
+} from "@statewalker/vcs-commands";
 ```
 
 ### Sub-exports
 
 | Export Path | Description |
 |-------------|-------------|
-| `@webrun-vcs/commands/commands` | Individual command classes |
-| `@webrun-vcs/commands/errors` | Error types |
-| `@webrun-vcs/commands/results` | Result types and enums |
+| `@statewalker/vcs-commands/commands` | Individual command classes |
+| `@statewalker/vcs-commands/errors` | Error types |
+| `@statewalker/vcs-commands/results` | Result types and enums |
 
 ### Git Class Methods
 
@@ -108,7 +108,7 @@ The `Git` class provides factory methods for all commands:
 ### Staging and Committing
 
 ```typescript
-import { Git } from "@webrun-vcs/commands";
+import { Git } from "@statewalker/vcs-commands";
 
 // Stage specific files
 await git.add()
@@ -203,7 +203,7 @@ await git.reset()
 ### Merging and Rebasing
 
 ```typescript
-import { MergeStatus, FastForwardMode } from "@webrun-vcs/commands/results";
+import { MergeStatus, FastForwardMode } from "@statewalker/vcs-commands/results";
 
 // Merge a branch
 const result = await git.merge()
@@ -299,9 +299,9 @@ await git.pull()
 ### Cloning Repositories
 
 ```typescript
-import { Git, createGitStore } from "@webrun-vcs/commands";
-import { createGitRepository } from "@webrun-vcs/core";
-import { MemoryStagingStore } from "@webrun-vcs/store-mem";
+import { Git, createGitStore } from "@statewalker/vcs-commands";
+import { createGitRepository } from "@statewalker/vcs-core";
+import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 
 // Create an in-memory repository for the clone
 const repository = await createGitRepository();
@@ -403,7 +403,7 @@ await git.checkout()
 Checkout performs three-way conflict detection before switching branches:
 
 ```typescript
-import { CheckoutConflictError } from "@webrun-vcs/commands/errors";
+import { CheckoutConflictError } from "@statewalker/vcs-commands/errors";
 
 try {
   await git.checkout().setName("main").call();
@@ -570,7 +570,7 @@ import {
   MergeConflictError,
   AuthenticationError,
   PushRejectedException,
-} from "@webrun-vcs/commands/errors";
+} from "@statewalker/vcs-commands/errors";
 
 try {
   await git.checkout().setName("nonexistent").call();
@@ -620,7 +620,7 @@ import {
   MergeStatus,
   PushStatus,
   RebaseStatus,
-} from "@webrun-vcs/commands/results";
+} from "@statewalker/vcs-commands/results";
 
 // Check merge result
 const mergeResult = await git.merge().include("feature").call();
@@ -697,11 +697,11 @@ await git.clone()
 
 | Package | Description |
 |---------|-------------|
-| `@webrun-vcs/core` | Core types, store interfaces, and repository factories |
-| `@webrun-vcs/transport` | Git protocol implementation |
-| `@webrun-vcs/store-sql` | SQLite storage backend |
-| `@webrun-vcs/store-mem` | In-memory storage for testing |
-| `@webrun-vcs/store-kv` | Key-value storage abstraction |
+| `@statewalker/vcs-core` | Core types, store interfaces, and repository factories |
+| `@statewalker/vcs-transport` | Git protocol implementation |
+| `@statewalker/vcs-store-sql` | SQLite storage backend |
+| `@statewalker/vcs-store-mem` | In-memory storage for testing |
+| `@statewalker/vcs-store-kv` | Key-value storage abstraction |
 
 ## License
 

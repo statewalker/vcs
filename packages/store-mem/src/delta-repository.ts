@@ -4,7 +4,7 @@
  * Manages delta relationships with efficient chain traversal and cycle detection.
  */
 
-import type { DeltaEntry, DeltaRepository } from "@webrun-vcs/sandbox";
+import type { DeltaEntry, DeltaRepository } from "@statewalker/vcs-sandbox";
 
 /**
  * In-memory delta repository

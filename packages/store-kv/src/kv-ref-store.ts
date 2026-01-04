@@ -4,8 +4,8 @@
  * Stores Git references using a key-value backend with JSON serialization.
  */
 
-import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@webrun-vcs/core";
-import { RefStorage } from "@webrun-vcs/core";
+import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@statewalker/vcs-core";
+import { RefStorage } from "@statewalker/vcs-core";
 import type { KVStore } from "./kv-store.js";
 
 /**

@@ -1,4 +1,4 @@
-# @webrun-vcs/core
+# @statewalker/vcs-core
 
 Core Git-compatible VCS types, interfaces, and operations for building version control systems.
 
@@ -13,11 +13,11 @@ All interfaces use streaming patterns with `AsyncIterable<Uint8Array>` to handle
 ## Installation
 
 ```bash
-pnpm add @webrun-vcs/core
+pnpm add @statewalker/vcs-core
 ```
 
 **Peer Dependencies:**
-- `@webrun-vcs/utils` - Required for compression, hashing, and delta algorithms
+- `@statewalker/vcs-utils` - Required for compression, hashing, and delta algorithms
 
 ## Core Concepts
 
@@ -122,17 +122,17 @@ import {
   // Commands
   type Add,
   type Checkout,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 ```
 
 ### Sub-exports
 
 | Export Path | Description |
 |-------------|-------------|
-| `@webrun-vcs/core/types` | All type definitions |
-| `@webrun-vcs/core/stores` | Store interfaces |
-| `@webrun-vcs/core/staging` | Staging area types |
-| `@webrun-vcs/core/format` | Serialization utilities |
+| `@statewalker/vcs-core/types` | All type definitions |
+| `@statewalker/vcs-core/stores` | Store interfaces |
+| `@statewalker/vcs-core/staging` | Staging area types |
+| `@statewalker/vcs-core/format` | Serialization utilities |
 
 ### Key Interfaces
 
@@ -158,7 +158,7 @@ import {
 The `Repository` interface provides unified access to all VCS operations:
 
 ```typescript
-import type { Repository, Commit } from "@webrun-vcs/core";
+import type { Repository, Commit } from "@statewalker/vcs-core";
 
 async function createCommit(repo: Repository, message: string): Promise<ObjectId> {
   // Get current HEAD
@@ -200,7 +200,7 @@ async function createCommit(repo: Repository, message: string): Promise<ObjectId
 The `WorkingCopy` interface provides access to local checkout state:
 
 ```typescript
-import type { WorkingCopy } from "@webrun-vcs/core";
+import type { WorkingCopy } from "@statewalker/vcs-core";
 
 async function checkWorkingCopyStatus(wc: WorkingCopy): Promise<void> {
   // Get current branch
@@ -245,7 +245,7 @@ async function stashChanges(wc: WorkingCopy, message: string): Promise<void> {
 ### Storing and Loading Blobs
 
 ```typescript
-import type { BlobStore } from "@webrun-vcs/core";
+import type { BlobStore } from "@statewalker/vcs-core";
 
 async function storeFile(blobs: BlobStore, content: string): Promise<ObjectId> {
   const encoder = new TextEncoder();
@@ -272,8 +272,8 @@ async function loadFile(blobs: BlobStore, id: ObjectId): Promise<string> {
 ### Building Trees
 
 ```typescript
-import type { TreeStore, TreeEntry } from "@webrun-vcs/core";
-import { FileMode } from "@webrun-vcs/core";
+import type { TreeStore, TreeEntry } from "@statewalker/vcs-core";
+import { FileMode } from "@statewalker/vcs-core";
 
 async function buildTree(trees: TreeStore, blobs: BlobStore): Promise<ObjectId> {
   // Store file contents first
@@ -298,7 +298,7 @@ async function buildTree(trees: TreeStore, blobs: BlobStore): Promise<ObjectId> 
 ### Traversing Commit History
 
 ```typescript
-import type { CommitStore } from "@webrun-vcs/core";
+import type { CommitStore } from "@statewalker/vcs-core";
 
 async function* getHistory(
   commits: CommitStore,
@@ -320,7 +320,7 @@ for await (const { id, commit } of getHistory(repo.commits, headId)) {
 ### Managing References
 
 ```typescript
-import type { RefStore } from "@webrun-vcs/core";
+import type { RefStore } from "@statewalker/vcs-core";
 
 async function createBranch(refs: RefStore, name: string, commitId: ObjectId): Promise<void> {
   const refName = `refs/heads/${name}`;
@@ -348,8 +348,8 @@ async function listBranches(refs: RefStore): Promise<string[]> {
 ### Working with the Staging Area
 
 ```typescript
-import type { StagingStore, StagingEntry } from "@webrun-vcs/core";
-import { FileMode } from "@webrun-vcs/core";
+import type { StagingStore, StagingEntry } from "@statewalker/vcs-core";
+import { FileMode } from "@statewalker/vcs-core";
 
 async function stageFile(
   staging: StagingStore,
@@ -383,7 +383,7 @@ async function listStagedFiles(staging: StagingStore): Promise<string[]> {
 ### Calculating Repository Status
 
 ```typescript
-import type { StatusCalculator, FileStatus } from "@webrun-vcs/core";
+import type { StatusCalculator, FileStatus } from "@statewalker/vcs-core";
 
 async function showStatus(calculator: StatusCalculator): Promise<void> {
   const status = await calculator.calculateStatus({
@@ -410,8 +410,8 @@ async function showStatus(calculator: StatusCalculator): Promise<void> {
 The `WorkingCopy` interface provides state detection for in-progress operations. This helps UIs show appropriate status messages and prevent conflicting operations.
 
 ```typescript
-import { RepositoryState } from "@webrun-vcs/core";
-import type { WorkingCopy } from "@webrun-vcs/core";
+import { RepositoryState } from "@statewalker/vcs-core";
+import type { WorkingCopy } from "@statewalker/vcs-core";
 
 async function checkRepositoryState(wc: WorkingCopy): Promise<void> {
   const state = await wc.getState();
@@ -470,7 +470,7 @@ Available states mirror Git's internal states:
 ### Stash Operations
 
 ```typescript
-import type { WorkingCopy } from "@webrun-vcs/core";
+import type { WorkingCopy } from "@statewalker/vcs-core";
 
 async function useStash(wc: WorkingCopy): Promise<void> {
   // Save current work with a message
@@ -508,7 +508,7 @@ Stash commits follow Git's structure with 2-3 parents:
 The package exports standard Git file mode constants:
 
 ```typescript
-import { FileMode } from "@webrun-vcs/core";
+import { FileMode } from "@statewalker/vcs-core";
 
 FileMode.TREE           // 0o040000 - Directory
 FileMode.REGULAR_FILE   // 0o100644 - Normal file
@@ -532,7 +532,7 @@ interface BlobStore {
 
 ### Interface/Implementation Separation
 
-The package defines interfaces with concrete implementations for Git-compatible file storage. Additional storage backends (like `@webrun-vcs/store-sql` or `@webrun-vcs/store-mem`) provide alternative implementations for SQL databases or in-memory testing.
+The package defines interfaces with concrete implementations for Git-compatible file storage. Additional storage backends (like `@statewalker/vcs-store-sql` or `@statewalker/vcs-store-mem`) provide alternative implementations for SQL databases or in-memory testing.
 
 ### JGit Compatibility
 
@@ -542,19 +542,19 @@ Type definitions and constants align with Eclipse JGit for proven Git compatibil
 
 | Package | Purpose |
 |---------|---------|
-| `@webrun-vcs/utils` | Compression, SHA-1 hashing, delta algorithms |
+| `@statewalker/vcs-utils` | Compression, SHA-1 hashing, delta algorithms |
 | `@statewalker/webrun-files` | File system abstraction |
 
 ## Related Packages
 
 | Package | Description |
 |---------|-------------|
-| `@webrun-vcs/store-sql` | SQLite-based storage backend |
-| `@webrun-vcs/store-mem` | In-memory storage for testing |
-| `@webrun-vcs/store-kv` | Key-value storage abstraction |
-| `@webrun-vcs/transport` | Git protocol and HTTP transport |
-| `@webrun-vcs/commands` | High-level Git commands |
-| `@webrun-vcs/testing` | Test utilities and fixtures |
+| `@statewalker/vcs-store-sql` | SQLite-based storage backend |
+| `@statewalker/vcs-store-mem` | In-memory storage for testing |
+| `@statewalker/vcs-store-kv` | Key-value storage abstraction |
+| `@statewalker/vcs-transport` | Git protocol and HTTP transport |
+| `@statewalker/vcs-commands` | High-level Git commands |
+| `@statewalker/vcs-testing` | Test utilities and fixtures |
 
 ## License
 

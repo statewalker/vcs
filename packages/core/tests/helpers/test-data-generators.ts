@@ -2,7 +2,7 @@
  * Test data generators for creating valid Git objects
  */
 
-import type { Delta } from "@webrun-vcs/utils";
+import type { Delta } from "@statewalker/vcs-utils";
 import type { Commit } from "../../src/commits/commit-store.js";
 import type { ObjectId, PersonIdent } from "../../src/id/index.js";
 import type { TreeEntry } from "../../src/trees/tree-entry.js";

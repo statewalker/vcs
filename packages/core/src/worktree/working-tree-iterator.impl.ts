@@ -11,9 +11,9 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/treewalk/FileTreeIterator.java
  */
 
+import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import type { FileInfo } from "@statewalker/webrun-files";
-import { sha1 } from "@webrun-vcs/utils/hash/sha1";
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
 import { basename, FileMode, type FilesApi, joinPath } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import { createIgnoreManager } from "../ignore/ignore-manager.impl.js";

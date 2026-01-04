@@ -1,5 +1,5 @@
-import type { Commit, ObjectId, PersonIdent } from "@webrun-vcs/core";
-import { FileMode, MergeStage } from "@webrun-vcs/core";
+import type { Commit, ObjectId, PersonIdent } from "@statewalker/vcs-core";
+import { FileMode, MergeStage } from "@statewalker/vcs-core";
 
 import {
   InvalidMainlineParentError,

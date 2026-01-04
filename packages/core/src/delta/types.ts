@@ -2,7 +2,7 @@
  * Delta compression types and strategy interfaces
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectId } from "@statewalker/vcs-core";
 import type { RawStore } from "../binary";
 
 /**

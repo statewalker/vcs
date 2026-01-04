@@ -6,8 +6,8 @@
  *
  * @example Basic usage with sql.js
  * ```typescript
- * import { createSQLStorage } from "@webrun-vcs/storage-sql";
- * import { SqlJsAdapter } from "@webrun-vcs/storage-sql/adapters/sql-js";
+ * import { createSQLStorage } from "@statewalker/vcs-store-sql";
+ * import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
  *
  * // Create in-memory SQLite database
  * const db = await SqlJsAdapter.create();

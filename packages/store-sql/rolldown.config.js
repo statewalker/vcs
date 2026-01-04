@@ -11,11 +11,6 @@ export default defineConfig({
     entryFileNames: "[name].js",
     chunkFileNames: "[name]-[hash].js",
   },
-  external: [
-    "@webrun-vcs/compression",
-    "@webrun-vcs/storage",
-    "@webrun-vcs/storage-default",
-    "sql.js",
-  ],
+  external: ["@statewalker/vcs-utils", "@statewalker/vcs-core", "sql.js"],
   treeshake: true,
 });

@@ -4,9 +4,9 @@
  * Based on storage-git pack-index tests and JGit PackIndexTest
  */
 
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
-import { sha1 } from "@webrun-vcs/utils/hash/sha1";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   type PackIndexWriterEntry,

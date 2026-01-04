@@ -4,11 +4,11 @@
  * Based on storage-git pack-writer tests and JGit BasePackWriterTest
  */
 
-import { setCompression } from "@webrun-vcs/utils";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
-import { crc32 } from "@webrun-vcs/utils/hash/crc32";
-import { sha1 } from "@webrun-vcs/utils/hash/sha1";
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { crc32 } from "@statewalker/vcs-utils/hash/crc32";
+import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   PackObjectType,

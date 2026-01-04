@@ -11,7 +11,7 @@ import {
   type RefStore,
   type RefUpdateResult,
   type SymbolicRef,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 import type { DatabaseClient } from "./database-client.js";
 
 /**

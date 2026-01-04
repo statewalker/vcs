@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "@webrun-vcs/notes",
+  "name": "@statewalker/vcs-notes",
   "private": true,
   "scripts": {
     "clean": "rimraf src/.observablehq/cache",

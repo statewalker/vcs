@@ -8,6 +8,6 @@ export default defineConfig({
     entryFileNames: "[name].js",
     chunkFileNames: "[name]-[hash].js",
   },
-  external: ["@webrun-vcs/utils", /^@webrun-vcs\/utils\//],
+  external: ["@statewalker/vcs-utils", /^@statewalker\/vcs-utils\//],
   treeshake: true,
 });

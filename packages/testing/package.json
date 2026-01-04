@@ -1,5 +1,5 @@
 {
-  "name": "@webrun-vcs/testing",
+  "name": "@statewalker/vcs-testing",
   "version": "0.1.0",
   "description": "Test utilities for WebRun VCS",
   "private": true,
@@ -18,8 +18,8 @@
     "lint": "biome lint src"
   },
   "dependencies": {
-    "@webrun-vcs/core": "workspace:*",
-    "@webrun-vcs/sandbox": "workspace:*"
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-sandbox": "workspace:*"
   },
   "peerDependencies": {
     "vitest": "^4.0.0"

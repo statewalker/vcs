@@ -1,4 +1,4 @@
-import { createDeltaRanges, type DeltaRange } from "@webrun-vcs/utils";
+import { createDeltaRanges, type DeltaRange } from "@statewalker/vcs-utils";
 import type { Benchmark, BenchmarkConfig, BenchmarkResult, MetricResult } from "../types.js";
 import { getEnvironmentInfo } from "../utils/environment.js";
 import { generateMutatedTarget, generateRandomBytes, SeededRandom } from "../utils/random.js";

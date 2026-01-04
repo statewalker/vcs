@@ -13,7 +13,7 @@ import {
   type WorkingTreeEntry,
   type WorkingTreeIterator,
   type WorkingTreeIteratorOptions,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { NoFilepatternError } from "../src/errors/index.js";

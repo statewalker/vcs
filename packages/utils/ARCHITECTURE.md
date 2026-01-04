@@ -1,4 +1,4 @@
-# @webrun-vcs/utils Architecture
+# @statewalker/vcs-utils Architecture
 
 This document explains the internal architecture of the utils package, covering algorithm implementations, design decisions, and extension points.
 
@@ -9,11 +9,11 @@ This document explains the internal architecture of the utils package, covering 
 The utils package serves as the foundational layer with zero VCS-specific dependencies. It provides pure algorithmic implementations that higher-level packages build upon:
 
 ```
-@webrun-vcs/commands
+@statewalker/vcs-commands
        ↓
-@webrun-vcs/core
+@statewalker/vcs-core
        ↓
-@webrun-vcs/utils  ← You are here
+@statewalker/vcs-utils  ← You are here
        ↓
    pako (only external dependency)
 ```
@@ -42,7 +42,7 @@ This design enables processing multi-gigabyte files without loading everything i
 ## Module Architecture
 
 ```
-@webrun-vcs/utils
+@statewalker/vcs-utils
 ├── hash/                 - Cryptographic and checksum algorithms
 │   ├── sha1/            - SHA-1 hash (Git object IDs)
 │   ├── crc32/           - CRC32 checksums (pack files)
@@ -81,11 +81,11 @@ The SHA-1 implementation provides both sync and async APIs:
 
 ```typescript
 // Sync - pure TypeScript
-import { Sha1 } from "@webrun-vcs/utils/hash/sha1";
+import { Sha1 } from "@statewalker/vcs-utils/hash/sha1";
 const hash = new Sha1().update(data).finalize();
 
 // Async - Web Crypto when available
-import { sha1 } from "@webrun-vcs/utils/hash/sha1";
+import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 const hash = await sha1(data);
 ```
 
@@ -104,7 +104,7 @@ The pure TypeScript implementation processes data in 64-byte blocks. For increme
 The rolling checksum enables O(1) sliding window updates for efficient block matching:
 
 ```typescript
-import { RollingChecksum } from "@webrun-vcs/utils/hash/rolling-checksum";
+import { RollingChecksum } from "@statewalker/vcs-utils/hash/rolling-checksum";
 
 const rc = new RollingChecksum(16); // 16-byte window
 rc.init(data, 0, 16);
@@ -151,7 +151,7 @@ The compression module provides streaming DEFLATE/INFLATE with pluggable impleme
 ### Core API
 
 ```typescript
-import { deflate, inflate, setCompression } from "@webrun-vcs/utils/compression";
+import { deflate, inflate, setCompression } from "@statewalker/vcs-utils/compression";
 
 // Streaming compression
 async function* compress(input: AsyncIterable<Uint8Array>) {
@@ -170,8 +170,8 @@ const decompressed = await decompressBlock(compressed);
 The default implementation uses pako (pure JavaScript). For better performance in Node.js:
 
 ```typescript
-import { setCompression } from "@webrun-vcs/utils/compression";
-import { createNodeCompression } from "@webrun-vcs/utils/compression-node";
+import { setCompression } from "@statewalker/vcs-utils/compression";
+import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 
 setCompression(createNodeCompression());
 ```
@@ -197,7 +197,7 @@ The diff module provides three complementary diffing approaches:
 Line-based diffing for human-readable output:
 
 ```typescript
-import { MyersDiff, RawText, RawTextComparator } from "@webrun-vcs/utils/diff/text-diff";
+import { MyersDiff, RawText, RawTextComparator } from "@statewalker/vcs-utils/diff/text-diff";
 
 const a = new RawText(oldContent);
 const b = new RawText(newContent);
@@ -268,7 +268,7 @@ type Delta =
 Parsing and applying Git unified/binary patches:
 
 ```typescript
-import { Patch } from "@webrun-vcs/utils/diff/patch";
+import { Patch } from "@statewalker/vcs-utils/diff/patch";
 
 const patch = new Patch();
 patch.parse(patchContent);
@@ -298,7 +298,7 @@ Git uses Base85 encoding for binary data in patches. The decoder handles:
 Doubly-linked list implementation with both size and entry count limits:
 
 ```typescript
-import { LRUCache } from "@webrun-vcs/utils/cache";
+import { LRUCache } from "@statewalker/vcs-utils/cache";
 
 const cache = new LRUCache<string, Uint8Array>(
   50 * 1024 * 1024,  // 50MB max size
@@ -327,7 +327,7 @@ Most Recently Used           Least Recently Used
 Optimizes delta chain reconstruction by caching waypoints:
 
 ```typescript
-import { IntermediateCache } from "@webrun-vcs/utils/cache";
+import { IntermediateCache } from "@statewalker/vcs-utils/cache";
 
 const cache = new IntermediateCache();
 

@@ -12,7 +12,7 @@
  *   <tag message>
  */
 
-import { asAsyncIterable, mapStream, toLines } from "@webrun-vcs/utils/streams";
+import { asAsyncIterable, mapStream, toLines } from "@statewalker/vcs-utils/streams";
 import { formatPersonIdent, parsePersonIdent } from "../format/person-ident.js";
 import type { TagEntry } from "../format/types.js";
 import { typeCodeToString, typeStringToCode } from "../objects/object-header.js";

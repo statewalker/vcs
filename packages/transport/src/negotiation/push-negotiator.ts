@@ -7,7 +7,7 @@
  * Based on JGit's BasePackPushConnection.java and PushProcess.java
  */
 
-import { bytesToHex } from "@webrun-vcs/utils/hash/utils";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import {
   CAPABILITY_ATOMIC,
   CAPABILITY_DELETE_REFS,

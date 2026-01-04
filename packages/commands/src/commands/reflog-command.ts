@@ -1,4 +1,4 @@
-import type { ReflogEntry } from "@webrun-vcs/core";
+import type { ReflogEntry } from "@statewalker/vcs-core";
 
 import { GitCommand } from "../git-command.js";
 

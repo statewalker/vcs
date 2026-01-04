@@ -9,8 +9,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/PackIndexWriterV2.java
  */
 
-import { sha1 } from "@webrun-vcs/utils/hash/sha1";
-import { hexToBytes } from "@webrun-vcs/utils/hash/utils";
+import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
+import { hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 
 /** Magic bytes for V2+ index: 0xFF, 't', 'O', 'c' */
 const TOC_SIGNATURE = new Uint8Array([0xff, 0x74, 0x4f, 0x63]);

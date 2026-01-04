@@ -7,7 +7,7 @@
  * Based on JGit's UploadPack.java
  */
 
-import { compressBlock, sha1 } from "@webrun-vcs/utils";
+import { compressBlock, sha1 } from "@statewalker/vcs-utils";
 import {
   CAPABILITY_AGENT,
   CAPABILITY_INCLUDE_TAG,
@@ -604,7 +604,7 @@ async function encodePackObject(type: number, content: Uint8Array): Promise<Uint
 
 /**
  * Compress data using deflate.
- * Uses the compression utilities from @webrun-vcs/utils.
+ * Uses the compression utilities from @statewalker/vcs-utils.
  */
 async function compressDeflate(data: Uint8Array): Promise<Uint8Array> {
   return compressBlock(data, { raw: false });

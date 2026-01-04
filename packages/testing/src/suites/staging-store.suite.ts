@@ -5,8 +5,13 @@
  * All storage implementations must pass these tests.
  */
 
-import type { StagingEntry, StagingEntryOptions, StagingStore, TreeStore } from "@webrun-vcs/core";
-import { FileMode, MergeStage } from "@webrun-vcs/core";
+import type {
+  StagingEntry,
+  StagingEntryOptions,
+  StagingStore,
+  TreeStore,
+} from "@statewalker/vcs-core";
+import { FileMode, MergeStage } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

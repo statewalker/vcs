@@ -38,10 +38,10 @@ The example progresses through 8 steps, each demonstrating core concepts:
 
 ```bash
 # Run all steps
-pnpm --filter @webrun-vcs/example-git-cycle start
+pnpm --filter @statewalker/vcs-example-git-cycle start
 
 # Run individual step
-pnpm --filter @webrun-vcs/example-git-cycle step:01
+pnpm --filter @statewalker/vcs-example-git-cycle step:01
 ```
 
 ### Key APIs
@@ -83,7 +83,7 @@ The example proves VCS compatibility by using native Git for verification:
 ### Running
 
 ```bash
-pnpm --filter @webrun-vcs/example-git-lifecycle start
+pnpm --filter @statewalker/vcs-example-git-lifecycle start
 ```
 
 ---
@@ -114,11 +114,11 @@ Performance benchmark using the official Git source repository. Measures real-wo
 
 ```bash
 # Full benchmark (first run clones ~200MB repository)
-pnpm --filter @webrun-vcs/example-git-perf start
+pnpm --filter @statewalker/vcs-example-git-perf start
 
 # Individual steps
-pnpm --filter @webrun-vcs/example-git-perf step:clone
-pnpm --filter @webrun-vcs/example-git-perf step:traverse
+pnpm --filter @statewalker/vcs-example-git-perf step:clone
+pnpm --filter @statewalker/vcs-example-git-perf step:traverse
 ```
 
 ### Requirements
@@ -163,14 +163,14 @@ const commitId = await repository.commits.storeCommit({
 
 Pushing with VCS transport:
 ```typescript
-import { push } from "@webrun-vcs/transport";
+import { push } from "@statewalker/vcs-transport";
 await push({ url, refspecs, getLocalRef, getObjectsToPush });
 ```
 
 ### Running
 
 ```bash
-pnpm --filter @webrun-vcs/example-git-push start
+pnpm --filter @statewalker/vcs-example-git-push start
 ```
 
 ---
@@ -200,7 +200,7 @@ Demonstrates pack file creation and garbage collection, proving compatibility wi
 ### Running
 
 ```bash
-pnpm --filter @webrun-vcs/example-pack-gc start
+pnpm --filter @statewalker/vcs-example-pack-gc start
 ```
 
 ---
@@ -240,7 +240,7 @@ Complete HTTP workflow using VCS for both server and client. Proves the library 
 ### Running
 
 ```bash
-pnpm --filter @webrun-vcs/example-vcs-http-roundtrip start
+pnpm --filter @statewalker/vcs-example-vcs-http-roundtrip start
 ```
 
 ---
@@ -265,7 +265,7 @@ Technical examples demonstrating pack file format handling. Shows low-level pack
 
 Reading packs:
 ```typescript
-import { readPackIndex, PackReader } from "@webrun-vcs/core";
+import { readPackIndex, PackReader } from "@statewalker/vcs-core";
 const index = readPackIndex(idxData);
 const reader = new PackReader(files, "pack.pack", index);
 const obj = await reader.get(objectId);
@@ -273,7 +273,7 @@ const obj = await reader.get(objectId);
 
 Writing packs:
 ```typescript
-import { writePack, writePackIndexV2 } from "@webrun-vcs/core";
+import { writePack, writePackIndexV2 } from "@statewalker/vcs-core";
 const result = await writePack(objects);
 const idxData = await writePackIndexV2(result.indexEntries, result.packChecksum);
 ```
@@ -285,10 +285,10 @@ const idxData = await writePackIndexV2(result.indexEntries, result.packChecksum)
 ./test-data/create-test-pack.sh ./test-data
 
 # Run all examples
-pnpm --filter @webrun-vcs/examples-git examples ./test-data/git-repo/test.pack
+pnpm --filter @statewalker/vcs-examples-git examples ./test-data/git-repo/test.pack
 
 # Run specific example
-pnpm --filter @webrun-vcs/examples-git example:01 ./test-data/git-repo/test.pack
+pnpm --filter @statewalker/vcs-examples-git example:01 ./test-data/git-repo/test.pack
 ```
 
 ---
@@ -321,7 +321,7 @@ All examples share common patterns for working with VCS:
 ### Opening Repositories
 
 ```typescript
-import { createGitRepository } from "@webrun-vcs/core";
+import { createGitRepository } from "@statewalker/vcs-core";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 
 const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "./repo" }));

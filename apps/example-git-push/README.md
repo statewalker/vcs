@@ -20,7 +20,7 @@ The example shows how to:
 | `repository.commits.storeCommit()` | Create commit objects |
 | `repository.refs.set()` | Create/update branch references |
 | `repository.refs.setSymbolic()` | Update HEAD reference |
-| `push()` from `@webrun-vcs/transport` | Push to remote |
+| `push()` from `@statewalker/vcs-transport` | Push to remote |
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ The example shows how to:
 ```bash
 # From the monorepo root
 pnpm install
-pnpm --filter @webrun-vcs/example-git-push start
+pnpm --filter @statewalker/vcs-example-git-push start
 ```
 
 ## Workflow Steps
@@ -52,7 +52,7 @@ pnpm --filter @webrun-vcs/example-git-push start
 ### Opening Repository with High-Level API
 
 ```typescript
-import { createGitRepository, type GitRepository } from "@webrun-vcs/commands";
+import { createGitRepository, type GitRepository } from "@statewalker/vcs-commands";
 
 const repository = await createGitRepository(files, ".git", {
   create: false,
@@ -86,7 +86,7 @@ await repository.refs.set("refs/heads/branch", commitId);
 ### Pushing with VCS Transport
 
 ```typescript
-import { push } from "@webrun-vcs/transport";
+import { push } from "@statewalker/vcs-transport";
 
 const result = await push({
   url: remoteUrl,

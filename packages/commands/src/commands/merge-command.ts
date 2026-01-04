@@ -1,5 +1,5 @@
-import type { Commit, ObjectId, TreeEntry } from "@webrun-vcs/core";
-import { FileMode, isSymbolicRef, MergeStage } from "@webrun-vcs/core";
+import type { Commit, ObjectId, TreeEntry } from "@statewalker/vcs-core";
+import { FileMode, isSymbolicRef, MergeStage } from "@statewalker/vcs-core";
 
 import {
   InvalidMergeHeadsError,

@@ -5,7 +5,7 @@
  * and files to demonstrate tree handling.
  */
 
-import { FileMode } from "@webrun-vcs/core";
+import { FileMode } from "@statewalker/vcs-core";
 import {
   createAuthor,
   log,

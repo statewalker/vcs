@@ -1,4 +1,4 @@
-import type { MergeStageValue } from "@webrun-vcs/core";
+import type { MergeStageValue } from "@statewalker/vcs-core";
 
 import { NoFilepatternError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";

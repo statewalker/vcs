@@ -6,7 +6,7 @@
  * make good delta bases. This follows Git's pack window approach.
  */
 
-import type { ObjectId } from "@webrun-vcs/core";
+import type { ObjectId } from "@statewalker/vcs-core";
 import type { RawStore } from "../../binary/raw-store.js";
 import type { DeltaCandidateStrategy } from "../types.js";
 

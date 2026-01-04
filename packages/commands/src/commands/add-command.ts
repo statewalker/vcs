@@ -36,7 +36,7 @@ import {
   FileMode,
   UpdateStagingEntry,
   type WorkingTreeIterator,
-} from "@webrun-vcs/core";
+} from "@statewalker/vcs-core";
 
 import {
   IncompatibleOptionsError,

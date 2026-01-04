@@ -5,8 +5,8 @@
  * identical to native Git.
  */
 
-import { encodeObjectHeader, type ObjectId } from "@webrun-vcs/core";
-import { bytesToHex, collect, Sha1 } from "@webrun-vcs/utils";
+import { encodeObjectHeader, type ObjectId } from "@statewalker/vcs-core";
+import { bytesToHex, collect, Sha1 } from "@statewalker/vcs-utils";
 import type { DatabaseClient } from "../database-client.js";
 import type { SqlNativeBlobStore } from "./types.js";
 

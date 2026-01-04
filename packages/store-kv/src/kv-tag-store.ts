@@ -4,8 +4,8 @@
  * Stores annotated tag objects using a key-value backend with JSON serialization.
  */
 
-import type { AnnotatedTag, ObjectId, ObjectTypeCode, TagStore } from "@webrun-vcs/core";
-import { ObjectType } from "@webrun-vcs/core";
+import type { AnnotatedTag, ObjectId, ObjectTypeCode, TagStore } from "@statewalker/vcs-core";
+import { ObjectType } from "@statewalker/vcs-core";
 import type { KVStore } from "./kv-store.js";
 
 /**
