@@ -1,4 +1,3 @@
-import type { WorkingTreeApi } from "@webrun-vcs/core";
 import { GitCommand } from "../git-command.js";
 
 /**
@@ -12,27 +11,14 @@ export interface CleanResult {
 }
 
 /**
- * Check if an object implements WorkingTreeApi (has write methods).
- */
-function isWorkingTreeApi(obj: unknown): obj is WorkingTreeApi {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    typeof (obj as WorkingTreeApi).removeFile === "function" &&
-    typeof (obj as WorkingTreeApi).rmdir === "function"
-  );
-}
-
-/**
  * Remove untracked files from working tree.
  *
  * Equivalent to `git clean`.
  *
  * Based on JGit's CleanCommand.
  *
- * Supports both dry-run mode (preview what would be cleaned) and actual
- * file deletion when the worktree implements WorkingTreeApi. If the worktree
- * only implements WorkingTreeIterator (read-only), dry-run mode is forced.
+ * NOTE: Currently only supports dry-run mode as it requires WorkingTreeApi
+ * for file deletion, which extends beyond the current WorkingTreeIterator.
  *
  * @example
  * ```typescript
@@ -44,15 +30,9 @@ function isWorkingTreeApi(obj: unknown): obj is WorkingTreeApi {
  *   console.log(`Would remove: ${file}`);
  * }
  *
- * // Actually remove untracked files
- * const result = await git.clean()
- *   .setDryRun(false)
- *   .call();
- *
  * // Include directories
  * const result = await git.clean()
  *   .setCleanDirectories(true)
- *   .setDryRun(false)
  *   .call();
  * ```
  */
@@ -197,22 +177,17 @@ export class CleanCommand extends GitCommand<CleanResult> {
       const displayPath = entryTyped.isDirectory ? `${entryTyped.path}/` : entryTyped.path;
       cleaned.add(displayPath);
 
-      // Actually delete the file if not in dry-run mode and worktree supports write
-      if (!this.dryRun && isWorkingTreeApi(worktree)) {
-        if (entryTyped.isDirectory) {
-          await worktree.rmdir(entryTyped.path);
-        } else {
-          await worktree.removeFileAndCleanDirs(entryTyped.path);
-        }
+      // TODO: When not in dry-run mode, actually delete the file
+      // This requires WorkingTreeApi with remove() method
+      if (!this.dryRun) {
+        // For now, dry-run is always enabled since we can't delete files
+        // through the current interface
       }
     }
 
-    // Determine actual dry-run status: forced dry-run or worktree doesn't support writes
-    const actualDryRun = this.dryRun || !isWorkingTreeApi(worktree);
-
     return {
       cleaned,
-      dryRun: actualDryRun,
+      dryRun: true, // Always true until WorkingTreeApi supports deletion
     };
   }
 
