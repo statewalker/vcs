@@ -24,11 +24,11 @@ import {
   FileMode,
   GCController,
   type GitRepository,
-  MemoryStagingStore,
   type ObjectId,
   type PackingProgress,
   type PersonIdent,
 } from "@statewalker/vcs-core";
+import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";

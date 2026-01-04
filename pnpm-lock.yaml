@@ -168,6 +168,9 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@statewalker/vcs-store-mem':
+        specifier: workspace:*
+        version: link:../../packages/store-mem
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
