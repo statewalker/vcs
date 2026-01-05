@@ -166,7 +166,18 @@ export class HunkHeader {
         // ' ' or '\n' - context line
         this.contextLineCount++;
       } else if (firstChar === 0x2d) {
-        // '-' - deleted line
+        // '-' could be deleted line OR start of "--- " (new file in traditional diff)
+        // Check for "--- " pattern (traditional patch file boundary)
+        if (
+          lineStart + 4 <= end &&
+          this.buffer[lineStart + 1] === 0x2d && // '-'
+          this.buffer[lineStart + 2] === 0x2d && // '-'
+          this.buffer[lineStart + 3] === 0x20 // ' '
+        ) {
+          // "--- " - start of next traditional patch file
+          this.endOffset = lineStart;
+          return lineStart;
+        }
         this.deletedLineCount++;
       } else if (firstChar === 0x2b) {
         // '+' - added line
