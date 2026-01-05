@@ -1671,4 +1671,240 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
     const mergeCommit = await store.commits.loadCommit(result.newHead ?? "");
     expect(mergeCommit.parents.length).toBe(2);
   });
+
+  /**
+   * JGit parity: Additional merge algorithm conflict tests.
+   * Ported from MergeAlgorithmTest.java patterns adapted for tree-level merge.
+   */
+  describe("merge algorithm conflict scenarios (JGit parity)", () => {
+    /**
+     * JGit: testTwoConflictingModifications pattern
+     * Both sides modify the same file differently - should conflict.
+     */
+    it("should conflict when both sides modify same file with different content", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base content
+      await addFile(store, "file.txt", "line1\nline2\nline3\n");
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify on side
+      await addFile(store, "file.txt", "line1\nmodified-side\nline3\n");
+      await git.commit().setMessage("side modification").call();
+
+      // Switch to main
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+
+      // Modify same file differently on main
+      await addFile(store, "file.txt", "line1\nmodified-main\nline3\n");
+      await git.commit().setMessage("main modification").call();
+
+      // Merge should conflict
+      const result = await git.merge().include("refs/heads/side").call();
+      expect(result.status).toBe(MergeStatus.CONFLICTING);
+      expect(result.conflicts).toContain("file.txt");
+    });
+
+    /**
+     * JGit: testNoAgainstOneModification pattern
+     * Only one side modifies - should merge cleanly.
+     */
+    it("should merge cleanly when only one side modifies a file", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base with two files
+      await addFile(store, "unchanged.txt", "unchanged content\n");
+      await addFile(store, "modified.txt", "original content\n");
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify file on side only
+      await addFile(store, "modified.txt", "modified by side\n");
+      await git.commit().setMessage("side modification").call();
+
+      // Switch to main - don't modify anything
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+
+      // Create an empty commit on main to force non-fast-forward
+      await addFile(store, "new-main.txt", "new on main\n");
+      await git.commit().setMessage("main commit").call();
+
+      // Merge should succeed without conflict
+      const result = await git.merge().include("refs/heads/side").call();
+      expect(result.status).toBe(MergeStatus.MERGED);
+      expect(result.conflicts).toBeUndefined();
+    });
+
+    /**
+     * JGit: testTwoNonConflictingModifications pattern
+     * Both sides modify different files - should merge cleanly.
+     */
+    it("should merge cleanly when both sides modify different files", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base with two files
+      await addFile(store, "file-a.txt", "content a\n");
+      await addFile(store, "file-b.txt", "content b\n");
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify file-b on side
+      await addFile(store, "file-b.txt", "modified by side\n");
+      await git.commit().setMessage("side modifies b").call();
+
+      // Switch to main
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+
+      // Modify file-a on main
+      await addFile(store, "file-a.txt", "modified by main\n");
+      await git.commit().setMessage("main modifies a").call();
+
+      // Merge should succeed
+      const result = await git.merge().include("refs/heads/side").call();
+      expect(result.status).toBe(MergeStatus.MERGED);
+      expect(result.conflicts).toBeUndefined();
+    });
+
+    /**
+     * JGit: testSameModification pattern
+     * Both sides make identical modification - should merge cleanly.
+     */
+    it("should merge cleanly when both sides make identical changes", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base
+      await addFile(store, "file.txt", "original\n");
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Make identical modification on side
+      await addFile(store, "file.txt", "identical change\n");
+      await git.commit().setMessage("side makes change").call();
+
+      // Switch to main
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+
+      // Make identical modification on main
+      await addFile(store, "file.txt", "identical change\n");
+      await git.commit().setMessage("main makes same change").call();
+
+      // Merge should succeed (identical changes converge)
+      const result = await git.merge().include("refs/heads/side").call();
+      expect(result.status).toBe(MergeStatus.MERGED);
+      expect(result.conflicts).toBeUndefined();
+    });
+
+    /**
+     * JGit: testDeleteVsModify pattern
+     * One side deletes, other modifies - should conflict.
+     */
+    it("should conflict when one side deletes and other modifies", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base
+      await addFile(store, "file.txt", "content\n");
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Delete on side
+      await removeFile(store, "file.txt");
+      await git.commit().setMessage("side deletes file").call();
+
+      // Switch to main
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+
+      // Modify on main
+      await addFile(store, "file.txt", "modified\n");
+      await git.commit().setMessage("main modifies file").call();
+
+      // Merge should conflict
+      const result = await git.merge().include("refs/heads/side").call();
+      expect(result.status).toBe(MergeStatus.CONFLICTING);
+      expect(result.conflicts).toContain("file.txt");
+    });
+
+    /**
+     * JGit: testInsertVsModify pattern (adapted)
+     * One side adds new file, other modifies different file - no conflict.
+     */
+    it("should merge cleanly when one side adds file and other modifies different file", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base
+      await addFile(store, "existing.txt", "content\n");
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Add new file on side
+      await addFile(store, "new-file.txt", "new content\n");
+      await git.commit().setMessage("side adds file").call();
+
+      // Switch to main
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+
+      // Modify existing file on main
+      await addFile(store, "existing.txt", "modified\n");
+      await git.commit().setMessage("main modifies existing").call();
+
+      // Merge should succeed
+      const result = await git.merge().include("refs/heads/side").call();
+      expect(result.status).toBe(MergeStatus.MERGED);
+      expect(result.conflicts).toBeUndefined();
+    });
+  });
 });
