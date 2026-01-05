@@ -1,5 +1,5 @@
 /**
- * SQL-based storage for webrun-vcs
+ * SQL-based storage for StateWalker VCS
  *
  * Provides persistent object storage using SQL databases (primarily SQLite).
  * Implements the repository pattern with delta compression support.

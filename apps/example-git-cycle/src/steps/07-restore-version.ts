@@ -163,7 +163,7 @@ export async function step07RestoreVersion(): Promise<void> {
   printSubsection("Restoring to a specific version");
 
   console.log(`
-  To "restore" a version in webrun-vcs:
+  To "restore" a version in statewalker-vcs:
 
   1. Load the commit at that version:
      const commit = await storage.commits.loadCommit(oldCommitId);

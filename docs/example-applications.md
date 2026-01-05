@@ -1,6 +1,6 @@
 # Example Applications
 
-This document describes the example applications included in the WebRun VCS monorepo. Each example demonstrates different aspects of the VCS library, from basic Git operations to advanced pack file handling and remote transport.
+This document describes the example applications included in the StateWalker VCS monorepo. Each example demonstrates different aspects of the VCS library, from basic Git operations to advanced pack file handling and remote transport.
 
 ## Quick Reference
 
@@ -19,7 +19,7 @@ This document describes the example applications included in the WebRun VCS mono
 
 **Location:** [apps/example-git-cycle](../apps/example-git-cycle)
 
-The primary tutorial for learning WebRun VCS. This example walks through the complete Git workflow step-by-step, teaching the fundamentals of content-addressable storage and version control.
+The primary tutorial for learning StateWalker VCS. This example walks through the complete Git workflow step-by-step, teaching the fundamentals of content-addressable storage and version control.
 
 ### What You Learn
 
@@ -106,7 +106,7 @@ Performance benchmark using the official Git source repository. Measures real-wo
 
 ### Performance Metrics
 
-- **webrun_vcs_init** - Time to initialize storage and load pack indexes
+- **statewalker_vcs_init** - Time to initialize storage and load pack indexes
 - **commit_traversal** - Time to walk 1000 commits with full parsing
 - **object_random_access** - Time for random object lookups
 

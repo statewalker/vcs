@@ -45,7 +45,7 @@ function printBanner(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                              ║
-║              webrun-vcs: Full Git Lifecycle Example                          ║
+║              statewalker-vcs: Full Git Lifecycle Example                          ║
 ║                                                                              ║
 ║  Demonstrates: repository creation, commits, GC, packing, and checkout       ║
 ║                                                                              ║

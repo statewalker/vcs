@@ -60,8 +60,8 @@ describe("formatCapabilities", () => {
   });
 
   it("should include agent", () => {
-    const result = formatCapabilities(["multi_ack"], "webrun-vcs/1.0");
-    expect(result).toBe("multi_ack agent=webrun-vcs/1.0");
+    const result = formatCapabilities(["multi_ack"], "statewalker-vcs/1.0");
+    expect(result).toBe("multi_ack agent=statewalker-vcs/1.0");
   });
 
   it("should handle empty list", () => {

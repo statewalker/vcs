@@ -245,7 +245,7 @@ async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                              ║
-║        webrun-vcs: VCS GC Example with Native Git Verification               ║
+║        statewalker-vcs: VCS GC Example with Native Git Verification               ║
 ║                                                                              ║
 ║  This example demonstrates repository creation, commits, VCS-native          ║
 ║  garbage collection using GCController (not native git gc), and              ║
@@ -280,7 +280,7 @@ async function main() {
   {
     const readmeContent = `# Test Repository
 
-This is a test repository created by webrun-vcs.
+This is a test repository created by statewalker-vcs.
 
 ## Purpose
 
@@ -469,7 +469,7 @@ export function subtract(a: number, b: number): number {
   printSection("Step 4: Pack All Objects (GC)");
 
   // NOTE: Using VCS-native GCController for garbage collection - NO native git.
-  // This demonstrates that webrun-vcs can pack objects independently.
+  // This demonstrates that statewalker-vcs can pack objects independently.
   console.log("  Running VCS GCController garbage collection...\n");
 
   // Collect loose object IDs before GC (for cleanup after packing)
@@ -783,7 +783,7 @@ export function subtract(a: number, b: number): number {
        - ReflogCommand: View reference history
 
   KEY: VCS created pack files that native git can read!
-  This proves webrun-vcs packing is fully git-compatible.
+  This proves statewalker-vcs packing is fully git-compatible.
 
   Repository location: ${REPO_DIR}
   You can explore it with native git commands!

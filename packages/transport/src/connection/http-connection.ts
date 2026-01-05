@@ -31,7 +31,7 @@ import { collectPackets, pktLineReader, pktLineWriter } from "../protocol/pkt-li
 import type { Packet, RefAdvertisement, ServiceType } from "../protocol/types.js";
 import type { ConnectionOptions, Credentials, DiscoverableConnection } from "./types.js";
 
-const DEFAULT_USER_AGENT = "webrun-vcs/1.0";
+const DEFAULT_USER_AGENT = "statewalker-vcs/1.0";
 const DEFAULT_TIMEOUT = 30000;
 
 /**

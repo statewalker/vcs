@@ -4,7 +4,7 @@
  * This script runs all benchmark steps in sequence:
  * 1. Clone the git source repository
  * 2. Run garbage collection to pack all objects
- * 3. Load pack files with webrun-vcs
+ * 3. Load pack files with statewalker-vcs
  * 4. Traverse the last 1000 commits
  * 5. Measure object access performance
  * 6. Write performance results to file
@@ -35,7 +35,7 @@ import {
 
 async function main() {
   printBanner(
-    "webrun-vcs: Git Source Repository Performance Benchmark",
+    "statewalker-vcs: Git Source Repository Performance Benchmark",
     "Clones git repo, runs gc, loads pack files, and measures performance",
   );
 
@@ -48,7 +48,7 @@ async function main() {
     // // Step 2: Run garbage collection
     // await runGarbageCollection(tracker);
 
-    // Step 3: Load pack files with webrun-vcs using high-level Repository API
+    // Step 3: Load pack files with statewalker-vcs using high-level Repository API
     const repository = await loadPackFiles(tracker);
 
     // Step 4: Traverse commit history using high-level CommitStore API

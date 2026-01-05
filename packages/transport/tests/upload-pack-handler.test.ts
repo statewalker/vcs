@@ -244,7 +244,7 @@ describe("UploadPackHandler", () => {
 
       const output = bytesToString(await collectBytes(handler.advertise()));
 
-      expect(output).toContain("agent=webrun-vcs");
+      expect(output).toContain("agent=statewalker-vcs");
     });
   });
 

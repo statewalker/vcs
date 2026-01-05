@@ -1,5 +1,5 @@
 /**
- * In-memory storage implementations for WebRun VCS
+ * In-memory storage implementations for StateWalker VCS
  *
  * Provides in-memory implementations of all storage interfaces
  * for testing and development purposes.

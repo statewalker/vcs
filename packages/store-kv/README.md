@@ -4,7 +4,7 @@ Key-value storage abstraction with adapters for various backends.
 
 ## Overview
 
-This package bridges webrun-vcs storage interfaces to key-value stores. Whether you're targeting IndexedDB in browsers, LocalStorage for simple persistence, or LevelDB for Node.js applications, the KV abstraction lets you use the same VCS code across all these backends.
+This package bridges StateWalker VCS storage interfaces to key-value stores. Whether you're targeting IndexedDB in browsers, LocalStorage for simple persistence, or LevelDB for Node.js applications, the KV abstraction lets you use the same VCS code across all these backends.
 
 The adapter pattern separates VCS logic from storage mechanics. You implement a simple `KVStore` interface for your target backend, then the provided store classes handle Git-specific concerns like serialization, key namespacing, and data organization. This separation keeps adapters small and focused.
 
@@ -185,8 +185,8 @@ The async-first API accommodates both synchronous backends (like in-memory Maps)
 
 JGit doesn't have a direct equivalent to key-value storage abstraction. The closest comparison is the DFS (Distributed File System) layer:
 
-| webrun-vcs | JGit Equivalent |
-|------------|-----------------|
+| StateWalker VCS | JGit Equivalent |
+|-----------------|-----------------|
 | `KVStore` interface | `org.eclipse.jgit.internal.storage.dfs.DfsObjDatabase` |
 | Adapter pattern | DFS backend implementations |
 

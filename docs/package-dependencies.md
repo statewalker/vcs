@@ -1,6 +1,6 @@
 # Package Dependency Diagram
 
-This diagram shows the dependency relationships between packages in the WebRun VCS monorepo.
+This diagram shows the dependency relationships between packages in the StateWalker VCS monorepo.
 
 ## Visual Diagram
 

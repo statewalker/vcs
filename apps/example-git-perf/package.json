@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Performance benchmark: Clone git source repository, run gc, load pack files with webrun-vcs, traverse commit history",
+  "description": "Performance benchmark: Clone git source repository, run gc, load pack files with StateWalker VCS, traverse commit history",
   "scripts": {
     "start": "tsx src/main.ts",
     "test": "echo \"No tests specified\" && exit 0",

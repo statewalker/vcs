@@ -190,10 +190,10 @@ The schema design prioritizes query efficiency. Objects are stored with indexed 
 
 ## JGit References
 
-JGit doesn't include SQL-based storage; this is a webrun-vcs-specific implementation. However, the concepts map to JGit's storage abstraction:
+JGit doesn't include SQL-based storage; this is a StateWalker VCS-specific implementation. However, the concepts map to JGit's storage abstraction:
 
-| webrun-vcs | JGit Equivalent |
-|------------|-----------------|
+| StateWalker VCS | JGit Equivalent |
+|-----------------|-----------------|
 | `SQLObjectRepository` | `ObjectDatabase` (different implementation) |
 | `SQLRefStore` | `RefDatabase` (different implementation) |
 | Migration system | No direct equivalent |

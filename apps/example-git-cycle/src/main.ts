@@ -2,7 +2,7 @@
  * Main Entry Point: Complete Git Cycle Example
  *
  * This script runs all steps of the Git workflow example in sequence.
- * Each step demonstrates a key aspect of the webrun-vcs library.
+ * Each step demonstrates a key aspect of the statewalker-vcs library.
  *
  * Run with: pnpm start (or: pnpm --filter @statewalker/vcs-example-git-cycle start)
  *
@@ -31,9 +31,9 @@ async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                              ║
-║               webrun-vcs: Basic Git Cycle Example                            ║
+║               statewalker-vcs: Basic Git Cycle Example                            ║
 ║                                                                              ║
-║  This example demonstrates the complete Git workflow using the webrun-vcs   ║
+║  This example demonstrates the complete Git workflow using the statewalker-vcs   ║
 ║  library. All operations use in-memory storage for demonstration.            ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝

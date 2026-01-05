@@ -1,10 +1,10 @@
-# WebRun VCS
+# StateWalker VCS
 
 A TypeScript implementation of Git-compatible version control, designed for content-addressable storage with delta compression. This library enables reading and writing Git repositories directly in JavaScript environments, including browsers.
 
 ## Goal
 
-WebRun VCS provides a portable, streaming-oriented implementation of Git's core object model. It allows applications to work with Git repositories without relying on native Git binaries or specific file system APIs.
+StateWalker VCS provides a portable, streaming-oriented implementation of Git's core object model. It allows applications to work with Git repositories without relying on native Git binaries or specific file system APIs.
 
 The library focuses on three main capabilities:
 
@@ -12,7 +12,7 @@ The library focuses on three main capabilities:
 
 **Delta Compression** - Reduce storage requirements by computing and storing differences between similar objects. The implementation supports multiple delta strategies including rsync-style rolling checksums and Myers diff algorithm.
 
-**Git Compatibility** - Read and write standard Git pack files, loose objects, and refs. Repositories created with WebRun VCS work with native Git tools and vice versa.
+**Git Compatibility** - Read and write standard Git pack files, loose objects, and refs. Repositories created with StateWalker VCS work with native Git tools and vice versa.
 
 ## Package Structure
 

@@ -1,7 +1,7 @@
 /**
- * Step 3: Load Pack Files with webrun-vcs
+ * Step 3: Load Pack Files with statewalker-vcs
  *
- * Initializes the webrun-vcs storage layer and loads pack file indexes.
+ * Initializes the statewalker-vcs storage layer and loads pack file indexes.
  *
  * Run with: pnpm step:load
  */
@@ -21,13 +21,13 @@ import {
 export async function loadPackFiles(tracker?: PerformanceTracker): Promise<GitRepository> {
   const perf = tracker ?? new PerformanceTracker();
 
-  printSection("Step 3: Load Pack Files with webrun-vcs");
+  printSection("Step 3: Load Pack Files with statewalker-vcs");
 
   // Fix permissions before loading (in case gc step was skipped)
   console.log("  Ensuring git object permissions are correct...");
   await fixGitObjectPermissions();
 
-  const storage = await perf.measureAsync("webrun_vcs_init", async () => {
+  const storage = await perf.measureAsync("statewalker_vcs_init", async () => {
     return openStorage();
   });
 
@@ -42,7 +42,7 @@ export async function loadPackFiles(tracker?: PerformanceTracker): Promise<GitRe
 
 // Run as standalone script
 if (import.meta.url === `file://${process.argv[1]}`) {
-  printBanner("webrun-vcs: Load Pack Files", "Step 3 of 6");
+  printBanner("statewalker-vcs: Load Pack Files", "Step 3 of 6");
   loadPackFiles()
     .then(async (storage) => {
       console.log("\n  Step 3 completed successfully!");

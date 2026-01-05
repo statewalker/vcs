@@ -329,8 +329,8 @@ Server-side handlers are stateless, processing one request at a time. State live
 
 This package closely mirrors JGit's transport implementation:
 
-| webrun-vcs | JGit |
-|------------|------|
+| StateWalker VCS | JGit |
+|-----------------|------|
 | `HTTPConnection` | `TransportHttp`, `HttpTransport` |
 | `PktLineCodec` | `PacketLineIn`, `PacketLineOut` |
 | `UploadPackHandler` | `UploadPack` |

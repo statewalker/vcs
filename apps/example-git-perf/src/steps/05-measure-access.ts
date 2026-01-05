@@ -74,7 +74,7 @@ export async function measureObjectAccess(
 
 // Run as standalone script
 if (import.meta.url === `file://${process.argv[1]}`) {
-  printBanner("webrun-vcs: Measure Object Access", "Step 5 of 6");
+  printBanner("statewalker-vcs: Measure Object Access", "Step 5 of 6");
   openStorage()
     .then(async (repository) => {
       console.log("  First, traversing commits to get sample data...\n");

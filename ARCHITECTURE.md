@@ -1,14 +1,14 @@
-# WebRun VCS Architecture
+# StateWalker VCS Architecture
 
-This document explains the overall architecture of the WebRun VCS monorepo, covering design philosophy, package organization, and how the components work together.
+This document explains the overall architecture of the StateWalker VCS monorepo, covering design philosophy, package organization, and how the components work together.
 
 ## Design Philosophy
 
 ### Git Compatibility Without Git Dependencies
 
-WebRun VCS implements Git's object model and protocols entirely in TypeScript. Applications can read and write Git repositories without native Git binaries, making the library portable across Node.js, browsers, edge functions, and any JavaScript runtime.
+StateWalker VCS implements Git's object model and protocols entirely in TypeScript. Applications can read and write Git repositories without native Git binaries, making the library portable across Node.js, browsers, edge functions, and any JavaScript runtime.
 
-The implementation produces identical output to native Git: same object IDs, same pack file formats, same protocol messages. Repositories created with WebRun VCS work with standard Git tools and vice versa.
+The implementation produces identical output to native Git: same object IDs, same pack file formats, same protocol messages. Repositories created with StateWalker VCS work with standard Git tools and vice versa.
 
 ### Separation of Concerns
 

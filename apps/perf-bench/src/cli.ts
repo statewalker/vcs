@@ -1,7 +1,7 @@
 import type { CLIOptions, OutputFormat } from "./types.js";
 
 const HELP_TEXT = `
-perf-bench - Performance benchmarking tool for webrun-vcs
+perf-bench - Performance benchmarking tool for statewalker-vcs
 
 Usage: perf-bench [options] [benchmarks...]
 

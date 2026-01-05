@@ -1,7 +1,7 @@
 /**
  * Step 1: Initialize Repository
  *
- * This step demonstrates how to create a new Git repository using webrun-vcs.
+ * This step demonstrates how to create a new Git repository using statewalker-vcs.
  *
  * Key concepts:
  * - GitStorage.init() creates the repository directory structure
