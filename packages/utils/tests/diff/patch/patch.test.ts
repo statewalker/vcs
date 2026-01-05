@@ -254,9 +254,7 @@ mode 100644,100644..100755
       const cfh = patch.getFiles()[0];
 
       // File paths should be parsed
-      expect(cfh.newPath).toBe(
-        "org.spearce.egit.ui/src/org/spearce/egit/ui/UIText.java",
-      );
+      expect(cfh.newPath).toBe("org.spearce.egit.ui/src/org/spearce/egit/ui/UIText.java");
       expect(cfh.oldPath).toBe(cfh.newPath);
 
       // Should have one hunk
