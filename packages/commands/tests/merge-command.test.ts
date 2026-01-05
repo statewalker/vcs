@@ -1907,4 +1907,86 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
       expect(result.conflicts).toBeUndefined();
     });
   });
+
+  /**
+   * JGit parity tests for UNION merge strategy.
+   * Ported from MergeAlgorithmUnionTest.java
+   *
+   * UNION merge resolves conflicts by concatenating both sides instead of
+   * producing conflict markers. This is useful for files like .gitignore
+   * where ordering doesn't matter.
+   *
+   * TODO: UNION merge strategy is defined in ContentMergeStrategy but not
+   * implemented at the text-level merge algorithm. These tests document the
+   * expected behavior for when text-level UNION merge is implemented.
+   */
+  describe.skip("UNION merge strategy (JGit parity)", () => {
+    /**
+     * JGit: testTwoConflictingModifications
+     * UNION merge concatenates both sides instead of producing conflict.
+     */
+    it("should concatenate conflicting modifications", () => {
+      // With UNION, "abZdefghij" (ours: c->Z) + "aZZdefghij" (theirs: bc->ZZ)
+      // produces "abZZdefghij" (both changes included)
+    });
+
+    /**
+     * JGit: testConflictAtStart
+     */
+    it("should handle conflicts at start of file", () => {
+      // base: "abcdefghij", ours: "Zbcdefghij", theirs: "Ybcdefghij"
+      // UNION result: "ZYbcdefghij" (both changes)
+    });
+
+    /**
+     * JGit: testConflictAtEnd
+     */
+    it("should handle conflicts at end of file", () => {
+      // base: "abcdefghij", ours: "abcdefghiZ", theirs: "abcdefghiY"
+      // UNION result: "abcdefghiZY" (both changes)
+    });
+
+    /**
+     * JGit: testDeleteVsModify
+     * With UNION, modification wins over deletion.
+     */
+    it("should keep modifications over deletions", () => {
+      // base: "abcdefghij", ours: "abdefghij" (c deleted), theirs: "abZdefghij" (c->Z)
+      // UNION result: "abZdefghij" (modification kept)
+    });
+
+    /**
+     * JGit: testInsertVsModify
+     */
+    it("should concatenate insert and modify", () => {
+      // base: "ab", ours: "abZ" (Z inserted), theirs: "aXY" (b->XY)
+      // UNION result: "abZXY" (both changes)
+    });
+
+    /**
+     * JGit: testAdjacentModifications
+     */
+    it("should handle adjacent modifications", () => {
+      // base: "abcd", ours: "aZcd" (b->Z), theirs: "abYd" (c->Y)
+      // UNION result: "aZcbYd" (both changes preserved)
+    });
+
+    /**
+     * JGit: testEmptyTextModifiedAgainstDeletion
+     * When one side deletes and other modifies, UNION keeps modification.
+     */
+    it("should keep modification when one side deletes to empty", () => {
+      // base: "A", ours: "AB", theirs: ""
+      // UNION result: "AB"
+    });
+
+    /**
+     * JGit: testEmptyTextDeletionAgainstDeletion
+     * When both sides delete, result is empty.
+     */
+    it("should produce empty when both sides delete", () => {
+      // base: "AB", ours: "", theirs: ""
+      // UNION result: ""
+    });
+  });
 });
