@@ -24,6 +24,17 @@ export interface MinimalStorage {
     get(name: string): Promise<{ objectId?: string; target?: string } | null>;
     set(name: string, objectId: string): Promise<void>;
     delete(name: string): Promise<boolean>;
+    /**
+     * Compare-and-swap update for concurrent safety (optional).
+     *
+     * If provided, enables atomic ref updates that only succeed
+     * when the current value matches the expected old value.
+     */
+    compareAndSwap?(
+      refName: string,
+      expectedOld: string | undefined,
+      newValue: string,
+    ): Promise<{ success: boolean; previousValue?: string }>;
   };
 
   rawStorage: {
@@ -129,16 +140,39 @@ export function createStorageAdapter(storage: MinimalStorage): RepositoryAccess 
 
     async updateRef(
       name: string,
-      _oldId: ObjectId | null,
+      oldId: ObjectId | null,
       newId: ObjectId | null,
     ): Promise<boolean> {
       if (newId === null) {
-        // Delete ref
+        // Delete ref - check oldId if provided
+        if (oldId !== null) {
+          const current = await storage.refs.get(name);
+          const currentId = current?.objectId;
+          if (currentId !== oldId) {
+            // Ref has changed since oldId was read
+            return false;
+          }
+        }
         return storage.refs.delete(name);
       }
 
-      // TODO: Implement atomic compare-and-swap with oldId check
-      // For now, just set the ref
+      // Use compare-and-swap if available for atomic updates
+      if (storage.refs.compareAndSwap) {
+        const result = await storage.refs.compareAndSwap(name, oldId ?? undefined, newId);
+        return result.success;
+      }
+
+      // Fallback: non-atomic check-then-set
+      // This is racy but better than no check at all
+      if (oldId !== null) {
+        const current = await storage.refs.get(name);
+        const currentId = current?.objectId;
+        if (currentId !== oldId) {
+          // Ref has changed since oldId was read
+          return false;
+        }
+      }
+
       await storage.refs.set(name, newId);
       return true;
     },

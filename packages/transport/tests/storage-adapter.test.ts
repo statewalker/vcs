@@ -436,6 +436,93 @@ describe("createStorageAdapter", () => {
       expect(result).toBe(true);
       expect(refs.has("refs/heads/to-delete")).toBe(false);
     });
+
+    it("should fail update when oldId does not match current value", async () => {
+      const refs = new Map<string, { objectId?: string; target?: string }>([
+        ["refs/heads/master", { objectId: COMMIT_ID }],
+      ]);
+      const storage = createMockStorage({ refs });
+      const adapter = createStorageAdapter(storage);
+
+      // Try to update with wrong oldId
+      const wrongOldId = "x".repeat(40);
+      const newCommit = "n".repeat(40);
+      const result = await adapter.updateRef("refs/heads/master", wrongOldId, newCommit);
+
+      expect(result).toBe(false);
+      // Ref should not have changed
+      expect(refs.get("refs/heads/master")?.objectId).toBe(COMMIT_ID);
+    });
+
+    it("should fail delete when oldId does not match current value", async () => {
+      const refs = new Map<string, { objectId?: string; target?: string }>([
+        ["refs/heads/to-delete", { objectId: COMMIT_ID }],
+      ]);
+      const storage = createMockStorage({ refs });
+      const adapter = createStorageAdapter(storage);
+
+      // Try to delete with wrong oldId
+      const wrongOldId = "x".repeat(40);
+      const result = await adapter.updateRef("refs/heads/to-delete", wrongOldId, null);
+
+      expect(result).toBe(false);
+      // Ref should still exist
+      expect(refs.has("refs/heads/to-delete")).toBe(true);
+    });
+
+    it("should use compareAndSwap when available", async () => {
+      const refs = new Map<string, { objectId?: string; target?: string }>([
+        ["refs/heads/master", { objectId: COMMIT_ID }],
+      ]);
+      let casCallCount = 0;
+
+      const storage = createMockStorage({ refs });
+      // Add compareAndSwap to the storage
+      storage.refs.compareAndSwap = async (
+        refName: string,
+        expectedOld: string | undefined,
+        newValue: string,
+      ) => {
+        casCallCount++;
+        const current = refs.get(refName);
+        const currentId = current?.objectId;
+
+        if (currentId !== expectedOld) {
+          return { success: false, previousValue: currentId };
+        }
+
+        refs.set(refName, { objectId: newValue });
+        return { success: true, previousValue: currentId };
+      };
+
+      const adapter = createStorageAdapter(storage);
+      const newCommit = "n".repeat(40);
+
+      const result = await adapter.updateRef("refs/heads/master", COMMIT_ID, newCommit);
+
+      expect(result).toBe(true);
+      expect(casCallCount).toBe(1); // compareAndSwap was used
+      expect(refs.get("refs/heads/master")?.objectId).toBe(newCommit);
+    });
+
+    it("should return false when compareAndSwap fails", async () => {
+      const refs = new Map<string, { objectId?: string; target?: string }>([
+        ["refs/heads/master", { objectId: COMMIT_ID }],
+      ]);
+
+      const storage = createMockStorage({ refs });
+      // Add compareAndSwap that always fails
+      storage.refs.compareAndSwap = async () => {
+        return { success: false };
+      };
+
+      const adapter = createStorageAdapter(storage);
+      const newCommit = "n".repeat(40);
+
+      const result = await adapter.updateRef("refs/heads/master", COMMIT_ID, newCommit);
+
+      expect(result).toBe(false);
+    });
   });
 
   describe("walkObjects", () => {
