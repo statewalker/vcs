@@ -67,7 +67,7 @@ export async function cloneRepository(tracker?: PerformanceTracker): Promise<voi
 
 // Run as standalone script
 if (import.meta.url === `file://${process.argv[1]}`) {
-  printBanner("webrun-vcs: Clone Git Repository", "Step 1 of 6");
+  printBanner("statewalker-vcs: Clone Git Repository", "Step 1 of 6");
   cloneRepository()
     .then(() => {
       console.log("\n  Step 1 completed successfully!\n");

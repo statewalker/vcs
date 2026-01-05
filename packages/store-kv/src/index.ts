@@ -1,5 +1,5 @@
 /**
- * Key-value storage backend for WebRun VCS
+ * Key-value storage backend for StateWalker VCS
  *
  * Provides VCS storage implementations that work with any key-value store.
  * Includes adapters for in-memory storage (for testing) and can be extended

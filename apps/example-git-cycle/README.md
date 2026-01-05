@@ -1,6 +1,6 @@
 # Basic Git Cycle Example
 
-This example application demonstrates the complete Git workflow using the webrun-vcs library. It shows how to create repositories, manage files, make commits, view history, and restore specific versions.
+This example application demonstrates the complete Git workflow using the statewalker-vcs library. It shows how to create repositories, manage files, make commits, view history, and restore specific versions.
 
 ## Quick Start
 

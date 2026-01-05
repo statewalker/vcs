@@ -1,7 +1,7 @@
 {
   "name": "@statewalker/vcs-testing",
   "version": "0.1.0",
-  "description": "Test utilities for WebRun VCS",
+  "description": "Test utilities for StateWalker VCS",
   "private": true,
   "type": "module",
   "module": "./dist/index.js",

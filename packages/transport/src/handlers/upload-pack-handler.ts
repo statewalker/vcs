@@ -74,7 +74,7 @@ const DEFAULT_CAPABILITIES = [
 /**
  * Agent string for capability advertisement.
  */
-const AGENT_STRING = "webrun-vcs/1.0";
+const AGENT_STRING = "statewalker-vcs/1.0";
 
 /**
  * Maximum sideband payload size.

@@ -1,7 +1,7 @@
 {
   "name": "@statewalker/vcs-storage-tests",
   "version": "0.1.0",
-  "description": "Cross-backend integration tests for WebRun VCS storage",
+  "description": "Cross-backend integration tests for StateWalker VCS storage",
   "private": true,
   "type": "module",
   "scripts": {

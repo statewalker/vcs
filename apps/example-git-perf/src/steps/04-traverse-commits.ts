@@ -1,7 +1,7 @@
 /**
  * Step 4: Traverse Commit History
  *
- * Walks through the last 1000 commits using webrun-vcs commit ancestry traversal.
+ * Walks through the last 1000 commits using statewalker-vcs commit ancestry traversal.
  *
  * Run with: pnpm step:traverse
  */
@@ -89,7 +89,7 @@ export async function traverseCommits(
 
 // Run as standalone script
 if (import.meta.url === `file://${process.argv[1]}`) {
-  printBanner("webrun-vcs: Traverse Commit History", "Step 4 of 6");
+  printBanner("statewalker-vcs: Traverse Commit History", "Step 4 of 6");
   openStorage()
     .then(async (storage) => {
       const commits = await traverseCommits(storage);

@@ -4,7 +4,7 @@ Foundation utilities for cryptographic hashing, compression, and diff/delta algo
 
 ## Overview
 
-This package provides the low-level building blocks that power the webrun-vcs ecosystem. It handles the fundamental operations needed for content-addressable storage: computing SHA-1 hashes to identify objects, compressing and decompressing data using zlib-compatible algorithms, and creating efficient binary deltas between similar content.
+This package provides the low-level building blocks that power the StateWalker VCS ecosystem. It handles the fundamental operations needed for content-addressable storage: computing SHA-1 hashes to identify objects, compressing and decompressing data using zlib-compatible algorithms, and creating efficient binary deltas between similar content.
 
 The utilities are designed to work seamlessly in both Node.js and browser environments. Where platform-specific optimizations are available (like Node.js's native zlib), dedicated sub-exports provide better performance while maintaining the same API.
 
@@ -181,7 +181,7 @@ Browser compatibility is achieved through pako for compression, while Node.js ca
 
 ### Implementation Details
 
-The delta algorithm implements the same format Git uses for pack files, based on the rsync rolling checksum approach. This allows webrun-vcs pack files to be read by standard Git clients and vice versa.
+The delta algorithm implements the same format Git uses for pack files, based on the rsync rolling checksum approach. This allows StateWalker VCS pack files to be read by standard Git clients and vice versa.
 
 Hash functions operate on `Uint8Array` input and output, providing a consistent interface across all environments without string encoding issues.
 
@@ -189,8 +189,8 @@ Hash functions operate on `Uint8Array` input and output, providing a consistent 
 
 Developers familiar with JGit will recognize these mappings:
 
-| webrun-vcs | JGit |
-|------------|------|
+| StateWalker VCS | JGit |
+|-----------------|------|
 | `sha1` | `org.eclipse.jgit.util.sha1.SHA1`, `SHA1Java` |
 | `crc32` | CRC32 validation in pack processing |
 | `compress`/`decompress` | `InflaterCache`, zlib usage throughout |

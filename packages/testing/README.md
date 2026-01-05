@@ -6,13 +6,13 @@ Parametrized test suites for validating storage backend implementations.
 
 This internal package provides test suites that validate storage implementations against interface contracts. When you build a new storage backend, run these suites against it to ensure your implementation behaves correctly. The same tests run against store-mem, store-kv, store-sql, and store-files, guaranteeing consistent behavior across all backends.
 
-The suites test interface compliance, not implementation details. They verify that storing an object and retrieving it returns identical content, that references update atomically, that staging entries persist correctly, and dozens of other behavioral requirements. If your implementation passes all suites, it will work correctly with the rest of the webrun-vcs ecosystem.
+The suites test interface compliance, not implementation details. They verify that storing an object and retrieving it returns identical content, that references update atomically, that staging entries persist correctly, and dozens of other behavioral requirements. If your implementation passes all suites, it will work correctly with the rest of the StateWalker VCS ecosystem.
 
-This is a private package, intended only for development within the webrun-vcs monorepo. It's not published to npm.
+This is a private package, intended only for development within the StateWalker VCS monorepo. It's not published to npm.
 
 ## Installation
 
-This package is private and available only within the webrun-vcs monorepo:
+This package is private and available only within the StateWalker VCS monorepo:
 
 ```json
 {
@@ -172,8 +172,8 @@ The suites avoid implementation-specific assertions. Instead of checking interna
 
 While JGit doesn't have an exact equivalent, the concept maps to:
 
-| webrun-vcs | JGit Equivalent |
-|------------|-----------------|
+| StateWalker VCS | JGit Equivalent |
+|-----------------|-----------------|
 | Interface test suites | JGit's test infrastructure for storage implementations |
 | Parametrized testing | Tests run against FileRepository, DfsRepository, etc. |
 

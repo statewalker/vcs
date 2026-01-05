@@ -63,7 +63,7 @@ const textEncoder = new TextEncoder();
 /**
  * Agent string for V2 capability advertisement.
  */
-const AGENT_STRING = "webrun-vcs/1.0";
+const AGENT_STRING = "statewalker-vcs/1.0";
 
 /**
  * Maximum sideband payload size.

@@ -2,7 +2,7 @@
  * Step 2: Run Garbage Collection
  *
  * Runs git gc --aggressive to consolidate all objects into pack files.
- * Also fixes pack file permissions for compatibility with webrun-vcs.
+ * Also fixes pack file permissions for compatibility with statewalker-vcs.
  *
  * Run with: pnpm step:gc
  */
@@ -31,7 +31,7 @@ export async function runGarbageCollection(tracker?: PerformanceTracker): Promis
     await runGitCommandAsync(["gc", "--aggressive"], REPO_DIR);
   });
 
-  // Fix git object permissions for webrun-vcs compatibility
+  // Fix git object permissions for statewalker-vcs compatibility
   console.log("  Fixing git object permissions...");
   await fixGitObjectPermissions();
 
@@ -45,7 +45,7 @@ export async function runGarbageCollection(tracker?: PerformanceTracker): Promis
 
 // Run as standalone script
 if (import.meta.url === `file://${process.argv[1]}`) {
-  printBanner("webrun-vcs: Garbage Collection", "Step 2 of 6");
+  printBanner("statewalker-vcs: Garbage Collection", "Step 2 of 6");
   runGarbageCollection()
     .then(() => {
       console.log("\n  Step 2 completed successfully!\n");

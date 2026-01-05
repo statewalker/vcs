@@ -1,6 +1,6 @@
 # Git Source Repository Performance Benchmark
 
-This example application benchmarks webrun-vcs by loading and traversing the git source code repository itself. It demonstrates the library's ability to handle large, real-world git repositories with extensive commit histories.
+This example application benchmarks statewalker-vcs by loading and traversing the git source code repository itself. It demonstrates the library's ability to handle large, real-world git repositories with extensive commit histories.
 
 ## What It Does
 
@@ -10,7 +10,7 @@ The benchmark performs these operations in sequence:
 
 **Step 2: Run Garbage Collection** - Executes `git gc --aggressive` to consolidate all objects into optimally packed files. This creates the most realistic scenario for testing pack file reading performance.
 
-**Step 3: Load Pack Files with webrun-vcs** - Initializes the webrun-vcs storage layer and loads the pack file indexes. This measures the overhead of preparing the library for use.
+**Step 3: Load Pack Files with statewalker-vcs** - Initializes the statewalker-vcs storage layer and loads the pack file indexes. This measures the overhead of preparing the library for use.
 
 **Step 4: Traverse Commit History** - Walks through the last 1000 commits using the commit ancestry traversal API. Each commit is fully loaded and parsed, demonstrating the library's ability to resolve delta-compressed objects.
 
@@ -18,7 +18,7 @@ The benchmark performs these operations in sequence:
 
 **Step 6: Output Performance Results** - Writes detailed metrics to `performance-results.json` including individual operation timings, commit information, and summary statistics.
 
-**Step 7: Checkout Third Commit** - Extracts the third commit's entire file tree to the `git-repo` working directory using only the webrun-vcs API. Then verifies the extraction using native git's `diff-index` command to ensure all files match the commit exactly.
+**Step 7: Checkout Third Commit** - Extracts the third commit's entire file tree to the `git-repo` working directory using only the statewalker-vcs API. Then verifies the extraction using native git's `diff-index` command to ensure all files match the commit exactly.
 
 ## Running the Benchmark
 
@@ -48,7 +48,7 @@ pnpm step:clone
 # Step 2: Run garbage collection
 pnpm step:gc
 
-# Step 3: Load pack files with webrun-vcs
+# Step 3: Load pack files with statewalker-vcs
 pnpm step:load
 
 # Step 4: Traverse last 1000 commits
@@ -83,7 +83,7 @@ The JSON results file contains:
   "metrics": [
     { "name": "git_clone", "duration": 45000, "unit": "ms" },
     { "name": "git_gc", "duration": 12000, "unit": "ms" },
-    { "name": "webrun_vcs_init", "duration": 150, "unit": "ms" },
+    { "name": "statewalker_vcs_init", "duration": 150, "unit": "ms" },
     { "name": "commit_traversal", "duration": 2500, "unit": "ms" },
     { "name": "object_random_access", "duration": 800, "unit": "ms" }
   ],
@@ -99,9 +99,9 @@ The JSON results file contains:
 
 ## Understanding the Results
 
-The most relevant metrics for evaluating webrun-vcs performance are:
+The most relevant metrics for evaluating statewalker-vcs performance are:
 
-- **webrun_vcs_init** - Time to initialize storage and load pack indexes
+- **statewalker_vcs_init** - Time to initialize storage and load pack indexes
 - **commit_traversal** - Time to walk 1000 commits with full parsing
 - **object_random_access** - Time for random object lookups
 

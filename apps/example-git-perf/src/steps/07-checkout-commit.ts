@@ -1,7 +1,7 @@
 /**
  * Step 7: Checkout Third Commit
  *
- * Extracts the third commit's tree to the git-repo working directory using webrun-vcs API.
+ * Extracts the third commit's tree to the git-repo working directory using statewalker-vcs API.
  * Then verifies the extraction using native git to ensure files match the commit.
  *
  * Run with: pnpm step:checkout
@@ -228,7 +228,7 @@ export async function checkoutCommit(
   const stats = { files: 0, directories: 0, totalBytes: 0 };
 
   await perf.measureAsync("checkout_extract", async () => {
-    console.log("  Extracting files using webrun-vcs high-level API...");
+    console.log("  Extracting files using statewalker-vcs high-level API...");
     await extractTree(repository, commit.tree, REPO_DIR, stats);
   });
 
@@ -266,7 +266,7 @@ export async function checkoutCommit(
 
 // Run as standalone script
 if (import.meta.url === `file://${process.argv[1]}`) {
-  printBanner("webrun-vcs: Checkout Commit", "Step 7 of 7");
+  printBanner("statewalker-vcs: Checkout Commit", "Step 7 of 7");
 
   openStorage()
     .then(async (repository) => {

@@ -4,7 +4,7 @@ In-memory storage implementation for testing and development scenarios.
 
 ## Overview
 
-This package provides a complete in-memory implementation of all webrun-vcs storage interfaces. Every object, commit, tree, tag, reference, and staging entry lives in JavaScript Maps and Arrays, making this backend perfect for unit tests, development environments, and scenarios where persistence isn't needed.
+This package provides a complete in-memory implementation of all StateWalker VCS storage interfaces. Every object, commit, tree, tag, reference, and staging entry lives in JavaScript Maps and Arrays, making this backend perfect for unit tests, development environments, and scenarios where persistence isn't needed.
 
 The in-memory backend is intentionally simple. It focuses on correctness over optimization, serving as a reference implementation that other backends can compare against. The `@statewalker/vcs-testing` package validates all storage backends against the same test suites, ensuring consistent behavior regardless of which backend you choose.
 
@@ -150,8 +150,8 @@ The implementation passes all test suites from `@statewalker/vcs-testing`, guara
 
 While JGit doesn't ship an in-memory backend in its public API, the concept maps to:
 
-| webrun-vcs | JGit Equivalent |
-|------------|-----------------|
+| StateWalker VCS | JGit Equivalent |
+|-----------------|-----------------|
 | In-memory storage | `org.eclipse.jgit.internal.storage.dfs.InMemoryRepository` |
 | DFS abstractions | `org.eclipse.jgit.internal.storage.dfs.DfsObjDatabase` |
 

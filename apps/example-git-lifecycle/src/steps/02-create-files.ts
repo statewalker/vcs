@@ -35,7 +35,7 @@ export async function run(): Promise<void> {
     "README.md",
     `# Example Project
 
-This is a demo project created by the webrun-vcs lifecycle example.
+This is a demo project created by the statewalker-vcs lifecycle example.
 
 ## Features
 

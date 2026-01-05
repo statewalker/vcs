@@ -1,6 +1,6 @@
 # Git Push Example
 
-This example demonstrates the complete branch/commit/push workflow using the webrun-vcs library with a native git HTTP server.
+This example demonstrates the complete branch/commit/push workflow using the statewalker-vcs library with a native git HTTP server.
 
 ## What This Example Demonstrates
 

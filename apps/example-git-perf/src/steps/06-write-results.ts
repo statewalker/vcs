@@ -84,7 +84,7 @@ export function printSummary(tracker: PerformanceTracker, commits: CommitInfo[])
 
 // Run as standalone script - shows how to use with existing data
 if (import.meta.url === `file://${process.argv[1]}`) {
-  printBanner("webrun-vcs: Write Performance Results", "Step 6 of 6");
+  printBanner("statewalker-vcs: Write Performance Results", "Step 6 of 6");
 
   // When run standalone, just show info about what this step does
   console.log("  This step writes performance results to a JSON file.");

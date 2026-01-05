@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Example application demonstrating the complete Git workflow with webrun-vcs",
+  "description": "Example application demonstrating the complete Git workflow with StateWalker VCS",
   "scripts": {
     "start": "tsx src/main.ts",
     "test": "echo \"No tests specified\" && exit 0",

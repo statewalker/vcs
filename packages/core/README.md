@@ -4,7 +4,7 @@ Core Git-compatible VCS types, interfaces, and operations for building version c
 
 ## Overview
 
-This package provides the foundational layer for building Git-compatible version control systems. It defines the core object model (blobs, trees, commits, tags), storage interfaces, and high-level operations that power the entire WebRun VCS ecosystem. Think of it as the engine that drives all VCS functionality while remaining agnostic to how and where data is actually stored.
+This package provides the foundational layer for building Git-compatible version control systems. It defines the core object model (blobs, trees, commits, tags), storage interfaces, and high-level operations that power the entire StateWalker VCS ecosystem. Think of it as the engine that drives all VCS functionality while remaining agnostic to how and where data is actually stored.
 
 The design follows a clear separation between interfaces and implementations. The package defines what operations are possible (storing commits, managing references, tracking staged files) without dictating how storage backends implement them. This architecture enables the same VCS logic to work across diverse environments: browser-based IndexedDB storage, Node.js filesystem access, or cloud-based solutions.
 

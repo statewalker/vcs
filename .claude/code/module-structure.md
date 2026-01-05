@@ -1,6 +1,6 @@
 # Module Structure and Import/Export Conventions
 
-This document describes the module organization, import/export patterns, and folder structure conventions used in the webrun-vcs codebase.
+This document describes the module organization, import/export patterns, and folder structure conventions used in the StateWalker VCS codebase.
 
 ## Folder Structure
 
