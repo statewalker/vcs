@@ -222,14 +222,16 @@ export class PatchApplier {
       if (!result.success) {
         if (this.allowConflicts) {
           this.warnings.push(`Hunk at line ${hunk.oldStartLine} has conflicts`);
-          // TODO: Insert conflict markers
+          // Insert conflict markers at the expected position
+          const conflictResult = this.insertConflictMarkers(hunk, newLines, afterLastHunk);
+          afterLastHunk = conflictResult.position;
         } else {
           this.errors.push(`Failed to apply hunk at line ${hunk.oldStartLine}`);
           return this.createResult(false, null);
         }
+      } else {
+        afterLastHunk = result.position;
       }
-
-      afterLastHunk = result.position;
     }
 
     // Convert lines back to bytes
@@ -275,6 +277,72 @@ export class PatchApplier {
     }
 
     return { success: true, position: currentLine };
+  }
+
+  /**
+   * Insert conflict markers when a hunk cannot be applied
+   */
+  private insertConflictMarkers(
+    hunk: HunkHeader,
+    lines: Line[],
+    afterLastHunk: number,
+  ): { position: number } {
+    const expectedPosition = hunk.newStartLine - 1;
+    const insertPosition = Math.max(afterLastHunk, Math.min(expectedPosition, lines.length));
+
+    // Parse the hunk to get the expected old content and new content
+    const hunkLines = this.parseHunkLines(hunk);
+
+    // Extract "ours" (current content at that location) and "theirs" (what patch wants)
+    const oursLines: Line[] = [];
+    const theirsLines: Line[] = [];
+
+    // Collect what the patch expects to find (context and deletions) as "ours"
+    // and what it wants to add (additions) as "theirs"
+    for (const hl of hunkLines) {
+      if (hl.type === " " || hl.type === "-") {
+        // Context and deletion lines represent what was there ("ours")
+        oursLines.push(hl.line);
+      }
+      if (hl.type === " " || hl.type === "+") {
+        // Context and addition lines represent what should be there ("theirs")
+        theirsLines.push(hl.line);
+      }
+    }
+
+    // Create conflict marker lines
+    const encoder = new TextEncoder();
+    const conflictStart: Line = {
+      content: encoder.encode("<<<<<<< ours"),
+      hasCrLf: false,
+    };
+    const conflictSeparator: Line = {
+      content: encoder.encode("======="),
+      hasCrLf: false,
+    };
+    const conflictEnd: Line = {
+      content: encoder.encode(">>>>>>> theirs"),
+      hasCrLf: false,
+    };
+
+    // Build the conflict block
+    const conflictBlock: Line[] = [
+      conflictStart,
+      ...oursLines,
+      conflictSeparator,
+      ...theirsLines,
+      conflictEnd,
+    ];
+
+    // Remove the old lines at the conflict position (if they exist and match context/deletion count)
+    const oldLineCount = hunkLines.filter((hl) => hl.type === " " || hl.type === "-").length;
+    const linesToRemove = Math.min(oldLineCount, lines.length - insertPosition);
+
+    // Replace old content with conflict block
+    lines.splice(insertPosition, linesToRemove, ...conflictBlock);
+
+    // Return position after the conflict block
+    return { position: insertPosition + conflictBlock.length };
   }
 
   /**

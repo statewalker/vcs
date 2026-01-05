@@ -609,4 +609,211 @@ ${base85String}
       expect(result.errors[0]).toContain("decompress");
     });
   });
+
+  describe("Conflict markers", () => {
+    it("should insert conflict markers when allowConflicts is true and hunk fails", async () => {
+      const patchText = `diff --git a/file.txt b/file.txt
+index abc123..def456 100644
+--- a/file.txt
++++ b/file.txt
+@@ -1,3 +1,3 @@
+ context line
+-old line to replace
++new replacement line
+ more context
+`;
+      // File content doesn't match - patch expects "old line to replace" but file has different content
+      const oldContent = new TextEncoder().encode(
+        "context line\ndifferent content here\nmore context\n",
+      );
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      const applier = new PatchApplier({ allowConflicts: true, maxFuzz: 0 });
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
+
+      expect(result.success).toBe(true);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings[0]).toContain("conflicts");
+      expect(result.content).not.toBeNull();
+
+      const newContentStr = new TextDecoder().decode(result.content);
+      expect(newContentStr).toContain("<<<<<<< ours");
+      expect(newContentStr).toContain("=======");
+      expect(newContentStr).toContain(">>>>>>> theirs");
+    });
+
+    it("should include ours and theirs content in conflict markers", async () => {
+      const patchText = `diff --git a/file.txt b/file.txt
+index abc123..def456 100644
+--- a/file.txt
++++ b/file.txt
+@@ -1,3 +1,3 @@
+ header
+-original line
++modified line
+ footer
+`;
+      // Content doesn't match what patch expects
+      const oldContent = new TextEncoder().encode("header\ncompletely different\nfooter\n");
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      const applier = new PatchApplier({ allowConflicts: true, maxFuzz: 0 });
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
+
+      expect(result.success).toBe(true);
+      expect(result.content).not.toBeNull();
+
+      const newContentStr = new TextDecoder().decode(result.content);
+
+      // Should contain the ours content (what patch expected to find: context + deletion)
+      expect(newContentStr).toContain("header");
+      expect(newContentStr).toContain("original line");
+
+      // Should contain the theirs content (what patch wants: context + addition)
+      expect(newContentStr).toContain("modified line");
+
+      // Should have proper conflict marker structure
+      const lines = newContentStr.split("\n");
+      const oursIndex = lines.findIndex((l) => l.includes("<<<<<<< ours"));
+      const separatorIndex = lines.indexOf("=======");
+      const theirsIndex = lines.findIndex((l) => l.includes(">>>>>>> theirs"));
+
+      expect(oursIndex).toBeLessThan(separatorIndex);
+      expect(separatorIndex).toBeLessThan(theirsIndex);
+    });
+
+    it("should fail without conflict markers when allowConflicts is false", async () => {
+      const patchText = `diff --git a/file.txt b/file.txt
+index abc123..def456 100644
+--- a/file.txt
++++ b/file.txt
+@@ -1,3 +1,3 @@
+ context line
+-old line
++new line
+ more context
+`;
+      const oldContent = new TextEncoder().encode(
+        "context line\ndifferent content\nmore context\n",
+      );
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      // Default: allowConflicts is false
+      const applier = new PatchApplier({ maxFuzz: 0 });
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
+
+      expect(result.success).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+    });
+
+    it("should apply successful hunks even when one has conflicts", async () => {
+      const patchText = `diff --git a/file.txt b/file.txt
+index abc123..def456 100644
+--- a/file.txt
++++ b/file.txt
+@@ -1,3 +1,3 @@
+ first section
+-line to change
++changed line
+ section end
+@@ -10,3 +10,3 @@
+ second section
+-another line
++another changed
+ section end
+`;
+      // First hunk will fail (content mismatch), second hunk content is at correct position
+      const oldContent = new TextEncoder().encode(
+        "first section\ndifferent line here\nsection end\nfiller1\nfiller2\nfiller3\nfiller4\nfiller5\nfiller6\nsecond section\nanother line\nsection end\n",
+      );
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      const applier = new PatchApplier({ allowConflicts: true, maxFuzz: 0 });
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
+
+      expect(result.success).toBe(true);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.content).not.toBeNull();
+
+      const newContentStr = new TextDecoder().decode(result.content);
+
+      // Should have conflict markers for the first hunk
+      expect(newContentStr).toContain("<<<<<<< ours");
+
+      // Second hunk should have been applied (shifted due to first conflict)
+      // After conflict markers are inserted, the line count changes
+      expect(newContentStr).toContain("another changed");
+    });
+
+    it("should handle conflict with only additions", async () => {
+      const patchText = `diff --git a/file.txt b/file.txt
+index abc123..def456 100644
+--- a/file.txt
++++ b/file.txt
+@@ -1,2 +1,4 @@
+ existing line
++new line 1
++new line 2
+ another existing
+`;
+      // Content at expected position doesn't match
+      const oldContent = new TextEncoder().encode("wrong line\ndifferent line\n");
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      const applier = new PatchApplier({ allowConflicts: true, maxFuzz: 0 });
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
+
+      expect(result.success).toBe(true);
+      expect(result.content).not.toBeNull();
+
+      const newContentStr = new TextDecoder().decode(result.content);
+      expect(newContentStr).toContain("<<<<<<< ours");
+      expect(newContentStr).toContain("new line 1");
+      expect(newContentStr).toContain("new line 2");
+      expect(newContentStr).toContain(">>>>>>> theirs");
+    });
+
+    it("should handle conflict with only deletions", async () => {
+      const patchText = `diff --git a/file.txt b/file.txt
+index abc123..def456 100644
+--- a/file.txt
++++ b/file.txt
+@@ -1,4 +1,2 @@
+ keep this
+-delete me
+-delete me too
+ keep this too
+`;
+      // Content doesn't match what patch expects to delete
+      const oldContent = new TextEncoder().encode(
+        "keep this\nwrong content\nwrong again\nkeep this too\n",
+      );
+
+      const patch = new Patch();
+      patch.parse(new TextEncoder().encode(patchText));
+
+      const applier = new PatchApplier({ allowConflicts: true, maxFuzz: 0 });
+      const result = await applier.apply(patch.getFiles()[0], oldContent);
+
+      expect(result.success).toBe(true);
+      expect(result.content).not.toBeNull();
+
+      const newContentStr = new TextDecoder().decode(result.content);
+      expect(newContentStr).toContain("<<<<<<< ours");
+      // Ours should contain what patch expected (context + deletions)
+      expect(newContentStr).toContain("delete me");
+      // Theirs should contain what patch wanted (just context, no deletions)
+      expect(newContentStr).toContain(">>>>>>> theirs");
+    });
+  });
 });
