@@ -169,26 +169,39 @@ export class Patch {
 
   /**
    * Parse a combined diff ("diff --cc" or "diff --combined")
-   * Placeholder - combined diffs are for merge conflicts
+   *
+   * Combined diffs are used for merge commits showing changes from multiple parents.
+   * Format:
+   *   diff --cc file.txt
+   *   index abc123,def456..789012
+   *   --- a/file.txt
+   *   +++ b/file.txt
+   *   @@@ -1,5 -1,5 +1,6 @@@
    */
   private parseDiffCombined(
     buffer: Uint8Array,
     offset: number,
-    _end: number,
-    _marker: Uint8Array,
+    end: number,
+    marker: Uint8Array,
   ): number {
-    // TODO: Implement combined diff parsing (lower priority)
-    this.addError("Combined diff parsing not yet implemented", offset);
-    return nextLF(buffer, offset);
+    const header = new FileHeader(buffer, offset);
+    const nextOffset = header.parseCombinedHeader(end, marker.length);
+    this.files.push(header);
+    return nextOffset;
   }
 
   /**
    * Parse a traditional unified diff ("--- ... \\n+++ ...")
-   * Placeholder - will be implemented with FileHeader parser
+   *
+   * Traditional patches don't have "diff --git" headers, they just start with:
+   *   --- path/to/old
+   *   +++ path/to/new
+   *   @@ -1,5 +1,6 @@
    */
-  private parseTraditionalPatch(buffer: Uint8Array, offset: number, _end: number): number {
-    // TODO: Implement traditional patch parsing
-    this.addError("Traditional patch parsing not yet implemented", offset);
-    return nextLF(buffer, offset);
+  private parseTraditionalPatch(buffer: Uint8Array, offset: number, end: number): number {
+    const header = new FileHeader(buffer, offset);
+    const nextOffset = header.parseTraditionalHeader(end);
+    this.files.push(header);
+    return nextOffset;
   }
 }

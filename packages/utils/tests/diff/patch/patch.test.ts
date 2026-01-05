@@ -44,24 +44,125 @@ describe("Patch", () => {
       expect(patch.getFiles()[0].newPath).toBe("file.txt");
     });
 
-    it("should detect traditional diff format", () => {
+    it("should parse traditional diff format", () => {
       const patch = new Patch();
-      const buffer = new TextEncoder().encode("--- a/file.txt\n+++ b/file.txt\n@@ -1,1 +1,1 @@\n");
+      const patchText = `--- a/file.txt
++++ b/file.txt
+@@ -1,3 +1,3 @@
+ line 1
+-old line
++new line
+ line 3
+`;
+      const buffer = new TextEncoder().encode(patchText);
       patch.parse(buffer);
 
-      // Should attempt to parse (will error since we haven't implemented parsing yet)
-      expect(patch.getErrors().length).toBeGreaterThanOrEqual(1);
-      expect(patch.getErrors()[0].message).toContain("not yet implemented");
+      expect(patch.getErrors()).toHaveLength(0);
+      expect(patch.getFiles()).toHaveLength(1);
+      expect(patch.getFiles()[0].oldPath).toBe("file.txt");
+      expect(patch.getFiles()[0].newPath).toBe("file.txt");
+      expect(patch.getFiles()[0].changeType).toBe("MODIFY");
+      expect(patch.getFiles()[0].hunks).toHaveLength(1);
     });
 
-    it("should detect combined diff format", () => {
+    it("should parse traditional diff with /dev/null for new file", () => {
       const patch = new Patch();
-      const buffer = new TextEncoder().encode("diff --cc file.txt\n");
+      const patchText = `--- /dev/null
++++ b/newfile.txt
+@@ -0,0 +1,2 @@
++new line 1
++new line 2
+`;
+      const buffer = new TextEncoder().encode(patchText);
       patch.parse(buffer);
 
-      // Should attempt to parse (will error since we haven't implemented parsing yet)
-      expect(patch.getErrors().length).toBeGreaterThanOrEqual(1);
-      expect(patch.getErrors()[0].message).toContain("not yet implemented");
+      expect(patch.getErrors()).toHaveLength(0);
+      expect(patch.getFiles()).toHaveLength(1);
+      expect(patch.getFiles()[0].oldPath).toBeNull();
+      expect(patch.getFiles()[0].newPath).toBe("newfile.txt");
+      expect(patch.getFiles()[0].changeType).toBe("ADD");
+    });
+
+    it("should parse traditional diff with /dev/null for deleted file", () => {
+      const patch = new Patch();
+      const patchText = `--- a/deleted.txt
++++ /dev/null
+@@ -1,2 +0,0 @@
+-old line 1
+-old line 2
+`;
+      const buffer = new TextEncoder().encode(patchText);
+      patch.parse(buffer);
+
+      expect(patch.getErrors()).toHaveLength(0);
+      expect(patch.getFiles()).toHaveLength(1);
+      expect(patch.getFiles()[0].oldPath).toBe("deleted.txt");
+      expect(patch.getFiles()[0].newPath).toBeNull();
+      expect(patch.getFiles()[0].changeType).toBe("DELETE");
+    });
+
+    it("should parse combined diff format (diff --cc)", () => {
+      const patch = new Patch();
+      const patchText = `diff --cc file.txt
+index abc123,def456..789012
+--- a/file.txt
++++ b/file.txt
+@@@ -1,5 -1,5 +1,6 @@@
+  context
++ line from parent 1
+ +line from parent 2
+++line in result
+`;
+      const buffer = new TextEncoder().encode(patchText);
+      patch.parse(buffer);
+
+      expect(patch.getErrors()).toHaveLength(0);
+      expect(patch.getFiles()).toHaveLength(1);
+      expect(patch.getFiles()[0].oldPath).toBe("file.txt");
+      expect(patch.getFiles()[0].newPath).toBe("file.txt");
+      expect(patch.getFiles()[0].hunks).toHaveLength(1);
+    });
+
+    it("should parse combined diff format (diff --combined)", () => {
+      const patch = new Patch();
+      const patchText = `diff --combined file.txt
+index abc123,def456..789012
+--- a/file.txt
++++ b/file.txt
+@@@ -1,3 -1,3 +1,4 @@@
+  context line
+++new combined line
+  more context
+`;
+      const buffer = new TextEncoder().encode(patchText);
+      patch.parse(buffer);
+
+      expect(patch.getErrors()).toHaveLength(0);
+      expect(patch.getFiles()).toHaveLength(1);
+      expect(patch.getFiles()[0].oldPath).toBe("file.txt");
+      expect(patch.getFiles()[0].newPath).toBe("file.txt");
+    });
+
+    it("should parse multiple traditional diffs", () => {
+      const patch = new Patch();
+      const patchText = `--- a/file1.txt
++++ b/file1.txt
+@@ -1,1 +1,1 @@
+-old1
++new1
+--- a/file2.txt
++++ b/file2.txt
+@@ -1,1 +1,1 @@
+-old2
++new2
+`;
+      const buffer = new TextEncoder().encode(patchText);
+      patch.parse(buffer);
+
+      expect(patch.getErrors()).toHaveLength(0);
+      expect(patch.getFiles()).toHaveLength(2);
+      expect(patch.getFiles()[0].oldPath).toBe("file1.txt");
+      expect(patch.getFiles()[1].oldPath).toBe("file2.txt");
     });
 
     it("should parse with custom offset and end", () => {
