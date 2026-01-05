@@ -188,6 +188,34 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  apps/example-readme-scripts:
+    dependencies:
+      '@statewalker/vcs-commands':
+        specifier: workspace:*
+        version: link:../../packages/commands
+      '@statewalker/vcs-core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@statewalker/vcs-store-mem':
+        specifier: workspace:*
+        version: link:../../packages/store-mem
+      '@statewalker/vcs-utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
+      '@statewalker/webrun-files':
+        specifier: 'catalog:'
+        version: 0.5.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.4
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   apps/example-vcs-http-roundtrip:
     dependencies:
       '@statewalker/vcs-core':
