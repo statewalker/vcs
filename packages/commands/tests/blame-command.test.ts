@@ -345,6 +345,223 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
   });
 
+/**
+   * JGit parity tests for rename tracking.
+   * Ported from BlameCommandTest.java
+   *
+   * TODO: These tests require implementing actual rename tracking in BlameCommand.
+   * Currently setFollowRenames(true) is a no-op.
+   */
+  describe("rename tracking (JGit parity)", () => {
+    /**
+     * Helper to rename a file in staging.
+     */
+    async function renameFile(
+      store: Awaited<ReturnType<typeof createInitializedGit>>["store"],
+      oldPath: string,
+      newPath: string,
+    ): Promise<void> {
+      const entries: Array<{ path: string; objectId: string; mode: number }> = [];
+
+      // Collect all entries except the old path
+      for await (const entry of store.staging.listEntries()) {
+        if (entry.path !== oldPath) {
+          entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
+        } else {
+          // Add the entry with new path
+          entries.push({ path: newPath, objectId: entry.objectId, mode: entry.mode });
+        }
+      }
+
+      // Rebuild staging with renamed file
+      const builder = store.staging.builder();
+      for (const entry of entries) {
+        builder.add({
+          path: entry.path,
+          objectId: entry.objectId as ReturnType<typeof entry.objectId.toString>,
+          mode: entry.mode,
+          stage: 0,
+          size: 100,
+          mtime: Date.now(),
+        });
+      }
+      await builder.finish();
+    }
+
+    /**
+     * JGit: testRename
+     * Tests blame following a simple file rename.
+     */
+    it.skip("should follow simple file rename", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Create file with 3 lines
+      await addFile(store, "file1.txt", "a\nb\nc\n");
+      await git.commit().setMessage("create file").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Rename file1.txt to file2.txt
+      await renameFile(store, "file1.txt", "file2.txt");
+      await git.commit().setMessage("moving file").call();
+
+      // Edit last line
+      await addFile(store, "file2.txt", "a\nb\nc2\n");
+      await git.commit().setMessage("editing file").call();
+
+      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3 = commit3Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file2.txt").setFollowRenames(true).call();
+
+      expect(result.lineCount).toBe(3);
+
+      // Lines 1 and 2 should be blamed to first commit (before rename)
+      expect(result.getEntry(1)?.commitId).toBe(commit1);
+      expect(result.getEntry(1)?.sourcePath).toBe("file1.txt");
+
+      expect(result.getEntry(2)?.commitId).toBe(commit1);
+      expect(result.getEntry(2)?.sourcePath).toBe("file1.txt");
+
+      // Line 3 should be blamed to third commit (after edit)
+      expect(result.getEntry(3)?.commitId).toBe(commit3);
+      expect(result.getEntry(3)?.sourcePath).toBe("file2.txt");
+    });
+
+    /**
+     * JGit: testRenameInSubDir
+     * Tests blame following a file rename within the same subdirectory.
+     */
+    it.skip("should follow rename in subdirectory", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Create file in subdirectory
+      await addFile(store, "subdir/file1.txt", "a\nb\nc\n");
+      await git.commit().setMessage("create file").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Rename within same directory
+      await renameFile(store, "subdir/file1.txt", "subdir/file2.txt");
+      await git.commit().setMessage("moving file").call();
+
+      // Edit last line
+      await addFile(store, "subdir/file2.txt", "a\nb\nc2\n");
+      await git.commit().setMessage("editing file").call();
+
+      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3 = commit3Ref?.objectId ?? "";
+
+      const result = await git
+        .blame()
+        .setFilePath("subdir/file2.txt")
+        .setFollowRenames(true)
+        .call();
+
+      expect(result.lineCount).toBe(3);
+
+      // Lines 1 and 2 traced back to original file
+      expect(result.getEntry(1)?.commitId).toBe(commit1);
+      expect(result.getEntry(1)?.sourcePath).toBe("subdir/file1.txt");
+
+      expect(result.getEntry(2)?.commitId).toBe(commit1);
+      expect(result.getEntry(2)?.sourcePath).toBe("subdir/file1.txt");
+
+      // Line 3 from the edit
+      expect(result.getEntry(3)?.commitId).toBe(commit3);
+      expect(result.getEntry(3)?.sourcePath).toBe("subdir/file2.txt");
+    });
+
+    /**
+     * JGit: testMoveToOtherDir
+     * Tests blame following a file move to a different directory.
+     */
+    it.skip("should follow move to different directory", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Create file in subdirectory
+      await addFile(store, "subdir/file1.txt", "a\nb\nc\n");
+      await git.commit().setMessage("create file").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Move to different directory
+      await renameFile(store, "subdir/file1.txt", "otherdir/file1.txt");
+      await git.commit().setMessage("moving file").call();
+
+      // Edit last line
+      await addFile(store, "otherdir/file1.txt", "a\nb\nc2\n");
+      await git.commit().setMessage("editing file").call();
+
+      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3 = commit3Ref?.objectId ?? "";
+
+      const result = await git
+        .blame()
+        .setFilePath("otherdir/file1.txt")
+        .setFollowRenames(true)
+        .call();
+
+      expect(result.lineCount).toBe(3);
+
+      // Lines 1 and 2 traced back to original location
+      expect(result.getEntry(1)?.commitId).toBe(commit1);
+      expect(result.getEntry(1)?.sourcePath).toBe("subdir/file1.txt");
+
+      expect(result.getEntry(2)?.commitId).toBe(commit1);
+      expect(result.getEntry(2)?.sourcePath).toBe("subdir/file1.txt");
+
+      // Line 3 from the edit
+      expect(result.getEntry(3)?.commitId).toBe(commit3);
+      expect(result.getEntry(3)?.sourcePath).toBe("otherdir/file1.txt");
+    });
+
+    /**
+     * JGit: testTwoRenames
+     * Tests blame following a file through two consecutive renames.
+     */
+    it.skip("should follow two consecutive renames", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Create file.txt
+      await addFile(store, "file.txt", "a\n");
+      await git.commit().setMessage("create file").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Rename to file1.txt
+      await renameFile(store, "file.txt", "file1.txt");
+      await git.commit().setMessage("moving file").call();
+
+      // Edit and add line
+      await addFile(store, "file1.txt", "a\nb\n");
+      await git.commit().setMessage("editing file").call();
+
+      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3 = commit3Ref?.objectId ?? "";
+
+      // Rename to file2.txt
+      await renameFile(store, "file1.txt", "file2.txt");
+      await git.commit().setMessage("moving file again").call();
+
+      const result = await git.blame().setFilePath("file2.txt").setFollowRenames(true).call();
+
+      expect(result.lineCount).toBe(2);
+
+      // Line 1 traced back through two renames to original file
+      expect(result.getEntry(1)?.commitId).toBe(commit1);
+      expect(result.getEntry(1)?.sourcePath).toBe("file.txt");
+
+      // Line 2 added during first rename
+      expect(result.getEntry(2)?.commitId).toBe(commit3);
+      expect(result.getEntry(2)?.sourcePath).toBe("file1.txt");
+    });
+  });
+
   describe("BlameResult methods", () => {
     it("getEntry should return correct entry for line", async () => {
       const { git, store } = await createInitializedGit();
