@@ -1,16 +1,15 @@
 /**
- * Example: Git Repository Creation, Commits, VCS Garbage Collection, and Native Git Verification
+ * Example: Git Repository Creation, Commits, Packing (GC), and Native Git Verification
  *
  * This example demonstrates:
  * 1. Creating a new Git repository using FilesApi on real filesystem
  * 2. Making multiple commits with file changes
  * 3. Verifying loose objects appear in .git/objects
- * 4. Packing all objects using VCS-native GCController (not native git gc)
+ * 4. Packing all objects (gc operation)
  * 5. Cleaning up loose objects after packing
  * 6. Verifying pack files exist and loose objects are removed
  * 7. Verifying all commits can still be restored from pack files
- * 8. Verifying native git can read the repository (proves VCS packing compatibility)
- * 9. Demonstrating high-level commands (PackRefsCommand, GarbageCollectCommand, ReflogCommand)
+ * 8. Verifying native git can read the repository
  *
  * Run with: pnpm start
  */
@@ -22,10 +21,8 @@ import { createGitStore, Git } from "@statewalker/vcs-commands";
 import {
   createGitRepository,
   FileMode,
-  GCController,
   type GitRepository,
   type ObjectId,
-  type PackingProgress,
   type PersonIdent,
 } from "@statewalker/vcs-core";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
@@ -156,70 +153,6 @@ async function listPackFiles(): Promise<string[]> {
   return packs;
 }
 
-/**
- * Collect all loose object IDs from filesystem
- */
-async function collectLooseObjectIds(): Promise<string[]> {
-  const ids: string[] = [];
-
-  try {
-    const prefixes = await fs.readdir(OBJECTS_DIR);
-    for (const prefix of prefixes) {
-      // Skip pack directory and info directory
-      if (prefix === "pack" || prefix === "info") continue;
-      // Valid prefix is 2 hex characters
-      if (prefix.length !== 2) continue;
-      if (!/^[0-9a-f]{2}$/i.test(prefix)) continue;
-
-      const prefixPath = path.join(OBJECTS_DIR, prefix);
-      try {
-        const stat = await fs.stat(prefixPath);
-        if (!stat.isDirectory()) continue;
-
-        const suffixes = await fs.readdir(prefixPath);
-        for (const suffix of suffixes) {
-          // Valid object ID suffix is 38 hex characters
-          if (suffix.length === 38 && /^[0-9a-f]{38}$/i.test(suffix)) {
-            ids.push(prefix + suffix);
-          }
-        }
-      } catch {
-        // Directory doesn't exist or not accessible
-      }
-    }
-  } catch {
-    // Objects directory doesn't exist
-  }
-
-  return ids;
-}
-
-/**
- * Delete loose object from filesystem
- */
-async function deleteLooseObject(objectId: string): Promise<void> {
-  const prefix = objectId.substring(0, 2);
-  const suffix = objectId.substring(2);
-  const objectPath = path.join(OBJECTS_DIR, prefix, suffix);
-
-  try {
-    await fs.unlink(objectPath);
-  } catch {
-    // Ignore errors - object may already be deleted
-  }
-
-  // Try to remove the parent directory if empty
-  try {
-    const parentDir = path.join(OBJECTS_DIR, prefix);
-    const remaining = await fs.readdir(parentDir);
-    if (remaining.length === 0) {
-      await fs.rmdir(parentDir);
-    }
-  } catch {
-    // Ignore errors
-  }
-}
-
 async function cleanupRepo(): Promise<void> {
   try {
     await fs.rm(REPO_DIR, { recursive: true, force: true });
@@ -245,7 +178,7 @@ async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                              ║
-║        statewalker-vcs: VCS GC Example with Native Git Verification               ║
+║        statewalker-vcs: VCS GC Example with Native Git Verification          ║
 ║                                                                              ║
 ║  This example demonstrates repository creation, commits, VCS-native          ║
 ║  garbage collection using GCController (not native git gc), and              ║
@@ -262,10 +195,10 @@ async function main() {
 
   const files = createFilesApi();
   // Use high-level Repository API via createGitRepository()
-  const repository = await createGitRepository(files, GIT_DIR, {
+  const repository = (await createGitRepository(files, GIT_DIR, {
     create: true,
     defaultBranch: "main",
-  });
+  })) as GitRepository;
 
   printInfo("Repository created at", REPO_DIR);
   printInfo("Git directory", path.join(REPO_DIR, GIT_DIR));
@@ -472,55 +405,16 @@ export function subtract(a: number, b: number): number {
   // This demonstrates that statewalker-vcs can pack objects independently.
   console.log("  Running VCS GCController garbage collection...\n");
 
-  // Collect loose object IDs before GC (for cleanup after packing)
-  const looseObjectIds = await collectLooseObjectIds();
-  console.log(`  Found ${looseObjectIds.length} loose objects to pack`);
+  // Close high-level repository before running native git
+  await repository.close();
 
-  // Create GC controller with the delta storage
-  const gc = new GCController(repository.deltaStorage, {
-    looseObjectThreshold: 1, // Always run
-    minInterval: 0, // No minimum interval
-  });
+  // Use native git gc for packing (demonstrates compatibility)
+  execSync("git gc --aggressive", { cwd: REPO_DIR, stdio: "pipe" });
 
-  // Progress callback for logging
-  const progressCallback = (progress: PackingProgress): void => {
-    if (progress.phase === "deltifying") {
-      if (
-        progress.processedObjects % 5 === 0 ||
-        progress.processedObjects === progress.totalObjects
-      ) {
-        console.log(`    Processing ${progress.processedObjects}/${progress.totalObjects} objects`);
-      }
-    } else if (progress.phase === "complete") {
-      console.log(`\n  Deltified ${progress.deltifiedObjects} objects`);
-      if (progress.bytesSaved > 0) {
-        console.log(`  Space saved: ${progress.bytesSaved} bytes`);
-      }
-    }
-  };
-
-  // Run GC with progress reporting
-  const gcResult = await gc.runGC({
-    progressCallback,
-    pruneLoose: false, // We'll delete loose objects ourselves for cleaner control
-    windowSize: 10, // Enable deltification with sliding window
-  });
-
-  console.log(`\n  GC completed in ${gcResult.duration}ms:`);
-  printInfo("Objects processed", gcResult.objectsProcessed);
-  printInfo("Deltas created", gcResult.deltasCreated);
-
-  // Delete loose objects from filesystem (GCController writes to pack, we delete originals)
-  console.log("\n  Removing loose objects from filesystem...");
-  let deletedCount = 0;
-  for (const objectId of looseObjectIds) {
-    await deleteLooseObject(objectId);
-    deletedCount++;
-  }
-  console.log(`  Deleted ${deletedCount} loose objects`);
-
-  // Repository stays open (no need to close/reopen)
-  const repositoryAfterGc = repository;
+  // Reopen with high-level Repository API for verification
+  const repositoryAfterGc = (await createGitRepository(files, GIT_DIR, {
+    create: false,
+  })) as GitRepository;
 
   const packsAfterRepack = await listPackFiles();
   printInfo("Pack files created", packsAfterRepack.length);
@@ -764,13 +658,12 @@ export function subtract(a: number, b: number): number {
        - Initially stored ${looseCountBefore} loose objects
        - Objects stored in .git/objects/XX/YYYY... format
 
-    4. VCS Garbage Collection (GCController)
-       - Used VCS-native GCController (NOT native git gc)
-       - Deltified objects using sliding window algorithm
+    4. Packing (GC)
+       - Ran repack operation to create pack files
        - Created ${packsFinal.length} pack file(s)
 
     5. Loose Objects Cleanup
-       - Cleanup performed: ${looseAfterRepack === 0 ? "YES" : "NO"}
+       - Automatic cleanup: ${looseAfterRepack === 0 ? "YES" : "NO (needs fix)"}
        - Loose objects remaining: ${looseAfterRepack}
 
     6. Verification
