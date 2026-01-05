@@ -7,7 +7,11 @@
 import type { ObjectId } from "../id/index.js";
 import type { Repository } from "../repository.js";
 import type { StagingStore } from "../staging/index.js";
-import type { RepositoryStatus, StatusOptions } from "../status/index.js";
+import {
+  createStatusCalculator,
+  type RepositoryStatus,
+  type StatusOptions,
+} from "../status/index.js";
 import type {
   CherryPickState,
   MergeState,
@@ -178,23 +182,17 @@ export class GitWorkingCopy implements WorkingCopy {
    *
    * Compares HEAD, staging area, and working tree.
    */
-  async getStatus(_options?: StatusOptions): Promise<RepositoryStatus> {
-    // TODO: Integrate with StatusCalculator
-    // For now, return a minimal status
-    const head = await this.getHead();
-    const branch = await this.getCurrentBranch();
-    const hasConflicts = await this.staging.hasConflicts();
+  async getStatus(options?: StatusOptions): Promise<RepositoryStatus> {
+    const calculator = createStatusCalculator({
+      worktree: this.worktree,
+      staging: this.staging,
+      trees: this.repository.trees,
+      commits: this.repository.commits,
+      refs: this.repository.refs,
+      blobs: this.repository.blobs,
+    });
 
-    return {
-      branch,
-      head,
-      files: [],
-      isClean: true,
-      hasStaged: false,
-      hasUnstaged: false,
-      hasUntracked: false,
-      hasConflicts,
-    };
+    return calculator.calculateStatus(options);
   }
 
   /**
