@@ -221,6 +221,130 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
   });
 
+  /**
+   * JGit parity tests for line deletion tracking.
+   * Ported from BlameCommandTest.java
+   */
+  describe("line deletion tracking (JGit parity)", () => {
+    /**
+     * JGit: testDeleteTrailingLines
+     * Tests that when trailing lines are added then removed,
+     * the original lines retain their blame to the first commit.
+     */
+    it("should correctly blame after deleting trailing lines", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Step 1: Create file with 2 lines
+      await addFile(store, "file.txt", "a\nb\n");
+      await git.commit().setMessage("create file").call();
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Step 2: Add trailing lines (a, b, c, d)
+      await addFile(store, "file.txt", "a\nb\nc\nd\n");
+      await git.commit().setMessage("edit file").call();
+
+      // Step 3: Delete trailing lines (back to a, b)
+      await addFile(store, "file.txt", "a\nb\n");
+      await git.commit().setMessage("edit file").call();
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(2);
+      expect(result.getEntry(1)?.commitId).toBe(commit1);
+      expect(result.getEntry(2)?.commitId).toBe(commit1);
+    });
+
+    /**
+     * JGit: testDeleteMiddleLines
+     * Tests that when middle lines are added then removed,
+     * the surrounding lines retain their blame to the first commit.
+     *
+     * TODO: This test requires tracking line position mappings through history,
+     * which the current simplified blame algorithm doesn't implement.
+     * See webrun-vcs-g692 for the follow-up task.
+     */
+    it.skip("should correctly blame after deleting middle lines", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Step 1: Create file with 3 lines (a, c, e)
+      await addFile(store, "file.txt", "a\nc\ne\n");
+      await git.commit().setMessage("create file").call();
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Step 2: Add middle lines (a, b, c, d, e)
+      await addFile(store, "file.txt", "a\nb\nc\nd\ne\n");
+      await git.commit().setMessage("edit file").call();
+
+      // Step 3: Delete middle lines (back to a, c, e)
+      await addFile(store, "file.txt", "a\nc\ne\n");
+      await git.commit().setMessage("edit file").call();
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(3);
+      expect(result.getEntry(1)?.commitId).toBe(commit1);
+      expect(result.getEntry(2)?.commitId).toBe(commit1);
+      expect(result.getEntry(3)?.commitId).toBe(commit1);
+    });
+
+    /**
+     * JGit: testEditAllLines
+     * Tests that when all lines are modified, all lines are blamed
+     * to the commit that modified them.
+     */
+    it("should blame all lines to second commit when all edited", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Step 1: Create file with original content
+      await addFile(store, "file.txt", "a\n1\n");
+      await git.commit().setMessage("create file").call();
+
+      // Step 2: Edit all lines
+      await addFile(store, "file.txt", "b\n2\n");
+      await git.commit().setMessage("edit file").call();
+      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2 = commit2Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(2);
+      expect(result.getEntry(1)?.commitId).toBe(commit2);
+      expect(result.getEntry(2)?.commitId).toBe(commit2);
+    });
+
+    /**
+     * JGit: testMiddleClearAllLines
+     * Tests that when file is cleared then repopulated with same content,
+     * all lines are blamed to the commit that repopulated them.
+     */
+    it("should blame all lines to third commit after clear and repopulate", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Step 1: Create file with content
+      await addFile(store, "file.txt", "a\nb\nc\n");
+      await git.commit().setMessage("create file").call();
+
+      // Step 2: Clear the file
+      await addFile(store, "file.txt", "");
+      await git.commit().setMessage("clear file").call();
+
+      // Step 3: Repopulate with same content
+      await addFile(store, "file.txt", "a\nb\nc\n");
+      await git.commit().setMessage("repopulate file").call();
+      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3 = commit3Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(3);
+      expect(result.getEntry(1)?.commitId).toBe(commit3);
+      expect(result.getEntry(2)?.commitId).toBe(commit3);
+      expect(result.getEntry(3)?.commitId).toBe(commit3);
+    });
+  });
+
   describe("BlameResult methods", () => {
     it("getEntry should return correct entry for line", async () => {
       const { git, store } = await createInitializedGit();
