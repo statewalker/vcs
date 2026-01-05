@@ -1,4 +1,5 @@
 import type { Commit, ObjectId, PersonIdent } from "@statewalker/vcs-core";
+import { EditType, MyersDiff, RawText, RawTextComparator } from "@statewalker/vcs-utils";
 
 import { GitCommand } from "../git-command.js";
 
@@ -220,15 +221,78 @@ export class BlameCommand extends GitCommand<BlameResult> {
 
       // Check if file changed between parent and this commit
       if (currentBlobId === parentBlobId) {
+        continue; // File didn't change, check parent
       }
 
-      // File changed - some lines may originate here
-      // For simplicity, we attribute all unblamed lines to the first commit
-      // that modifies the file. A full implementation would use diff to
-      // identify exactly which lines were added in this commit.
-      //
-      // This simplified approach gives reasonable results for most cases.
-      // TODO: Implement full line-by-line diff tracking
+      // File changed - use diff to find which lines were added in this commit
+      const currentContent = await this.collectBlob(currentBlobId);
+      const parentContent = await this.collectBlob(parentBlobId);
+
+      // Find lines that were added or changed in this commit
+      const addedLines = this.findAddedLines(parentContent, currentContent);
+
+      // Blame the added lines that are still unblamed
+      const newUnblamedRegions: Array<[number, number]> = [];
+
+      for (const [start, end] of unblamedRegions) {
+        // Find lines in this region that were added in this commit
+        const addedInRegion: number[] = [];
+        for (let line = start; line <= end; line++) {
+          if (addedLines.has(line)) {
+            addedInRegion.push(line);
+          }
+        }
+
+        if (addedInRegion.length > 0) {
+          // Create blame entries for added lines
+          let regionStart = addedInRegion[0];
+          let regionEnd = addedInRegion[0];
+
+          for (let i = 1; i < addedInRegion.length; i++) {
+            if (addedInRegion[i] === regionEnd + 1) {
+              regionEnd = addedInRegion[i];
+            } else {
+              // End current region
+              entries.push({
+                commit,
+                commitId,
+                sourcePath: path,
+                sourceStart: regionStart,
+                resultStart: regionStart,
+                lineCount: regionEnd - regionStart + 1,
+              });
+              regionStart = addedInRegion[i];
+              regionEnd = addedInRegion[i];
+            }
+          }
+
+          // Push final region
+          entries.push({
+            commit,
+            commitId,
+            sourcePath: path,
+            sourceStart: regionStart,
+            resultStart: regionStart,
+            lineCount: regionEnd - regionStart + 1,
+          });
+        }
+
+        // Keep track of lines that are still unblamed
+        let currentStart = start;
+        for (const addedLine of addedInRegion) {
+          if (addedLine > currentStart) {
+            // There are unblamed lines before this added line
+            newUnblamedRegions.push([currentStart, addedLine - 1]);
+          }
+          currentStart = addedLine + 1;
+        }
+        if (currentStart <= end) {
+          // There are unblamed lines after the last added line
+          newUnblamedRegions.push([currentStart, end]);
+        }
+      }
+
+      unblamedRegions = newUnblamedRegions;
     }
 
     // If any lines remain unblamed (e.g., empty history), blame to start commit
@@ -305,6 +369,51 @@ export class BlameCommand extends GitCommand<BlameResult> {
     }
 
     return undefined;
+  }
+
+  /**
+   * Find lines that were added or changed in the new content compared to old content.
+   *
+   * Uses Myers diff algorithm to identify which lines in newContent were introduced
+   * (not present in oldContent).
+   *
+   * @param oldContent The previous version of the file
+   * @param newContent The current version of the file
+   * @returns Set of 1-based line numbers that were added or changed
+   */
+  private findAddedLines(oldContent: Uint8Array, newContent: Uint8Array): Set<number> {
+    const addedLines = new Set<number>();
+
+    // Handle binary files - treat as entirely new
+    if (RawText.isBinary(oldContent) || RawText.isBinary(newContent)) {
+      const lineCount = this.countLines(newContent);
+      for (let i = 1; i <= lineCount; i++) {
+        addedLines.add(i);
+      }
+      return addedLines;
+    }
+
+    const oldText = new RawText(oldContent);
+    const newText = new RawText(newContent);
+    const comparator = RawTextComparator.DEFAULT;
+
+    // Compute diff between old and new
+    const edits = MyersDiff.diff(comparator, oldText, newText);
+
+    // For each edit, identify lines that were added in the new version
+    for (const edit of edits) {
+      const editType = edit.getType();
+
+      if (editType === EditType.INSERT || editType === EditType.REPLACE) {
+        // Lines [beginB, endB) in the new version were added/changed
+        // Convert from 0-based to 1-based line numbers
+        for (let line = edit.beginB; line < edit.endB; line++) {
+          addedLines.add(line + 1); // Convert to 1-based
+        }
+      }
+    }
+
+    return addedLines;
   }
 
   /**

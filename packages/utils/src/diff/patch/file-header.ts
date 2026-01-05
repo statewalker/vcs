@@ -402,6 +402,272 @@ export class FileHeader {
   }
 
   /**
+   * Parse a combined diff header ("diff --cc" or "diff --combined")
+   *
+   * Combined diffs are used for merge commits showing changes from multiple parents.
+   * The format differs from regular diffs in that each line may have multiple
+   * prefix characters (one per parent).
+   *
+   * @param end End of buffer
+   * @param markerLength Length of the marker ("diff --cc " or "diff --combined ")
+   * @returns Next offset to continue parsing, or end if complete
+   */
+  parseCombinedHeader(end: number, markerLength: number): number {
+    let ptr = this.startOffset;
+
+    // Parse the "diff --cc path" or "diff --combined path" line
+    const eol = nextLF(this.buffer, ptr);
+    if (eol >= end) {
+      this.endOffset = end;
+      return end;
+    }
+
+    // Extract path (skip the marker)
+    const pathStart = ptr + markerLength;
+    const pathEnd = eol - 1; // Skip newline
+    this.oldPath = decode(this.buffer, pathStart, pathEnd);
+    this.newPath = this.oldPath;
+    ptr = eol;
+
+    // Parse headers until we hit hunks or end
+    while (ptr < end) {
+      const lineEnd = nextLF(this.buffer, ptr);
+
+      // Check for index line (can have multiple parent IDs: "index abc,def..ghi")
+      if (match(this.buffer, ptr, INDEX) >= 0) {
+        this.parseCombinedIndexLine(ptr + INDEX.length, lineEnd);
+        ptr = lineEnd;
+        continue;
+      }
+
+      // Check for mode lines
+      if (match(this.buffer, ptr, OLD_MODE) >= 0) {
+        this.oldMode = this.parseFileMode(ptr + OLD_MODE.length, lineEnd);
+        ptr = lineEnd;
+        continue;
+      }
+      if (match(this.buffer, ptr, NEW_MODE) >= 0) {
+        this.newMode = this.parseFileMode(ptr + NEW_MODE.length, lineEnd);
+        ptr = lineEnd;
+        continue;
+      }
+
+      // Check for --- line (combined diffs can have multiple --- lines)
+      if (match(this.buffer, ptr, OLD_NAME) >= 0) {
+        ptr = lineEnd;
+        continue;
+      }
+
+      // Check for +++ line
+      if (match(this.buffer, ptr, NEW_NAME) >= 0) {
+        ptr = lineEnd;
+        continue;
+      }
+
+      // Check for combined hunk header (@@@ or more @)
+      if (this.isCombinedHunkHdr(ptr, end)) {
+        ptr = this.parseCombinedHunks(ptr, end);
+        break;
+      }
+
+      // Unknown line - move to next
+      ptr = lineEnd;
+    }
+
+    this.endOffset = ptr;
+    return ptr;
+  }
+
+  /**
+   * Check if current position is a combined hunk header (@@@ or more)
+   */
+  private isCombinedHunkHdr(ptr: number, end: number): boolean {
+    // Combined hunks start with 3+ @ characters
+    if (ptr + 3 > end) return false;
+    return (
+      this.buffer[ptr] === 0x40 && this.buffer[ptr + 1] === 0x40 && this.buffer[ptr + 2] === 0x40
+    );
+  }
+
+  /**
+   * Parse combined diff index line (e.g., "abc123,def456..789012")
+   */
+  private parseCombinedIndexLine(ptr: number, end: number): void {
+    // Find ".." separator
+    let dotdot = ptr;
+    while (dotdot < end - 1) {
+      if (this.buffer[dotdot] === 0x2e && this.buffer[dotdot + 1] === 0x2e) {
+        break;
+      }
+      dotdot++;
+    }
+
+    if (dotdot < end - 1) {
+      // Everything before ".." is parent IDs (comma-separated)
+      // Everything after ".." is the result ID
+      let idEnd = dotdot + 2;
+      while (idEnd < end && this.buffer[idEnd] !== 0x20 && this.buffer[idEnd] !== 0x0a) {
+        idEnd++;
+      }
+      this.newId = decode(this.buffer, dotdot + 2, idEnd);
+    }
+  }
+
+  /**
+   * Parse combined diff hunks
+   *
+   * Combined hunks have a different format:
+   *   @@@ -1,5 -1,5 +1,6 @@@
+   * Each line has N prefix characters (one per parent)
+   */
+  private parseCombinedHunks(ptr: number, end: number): number {
+    // For now, parse combined hunks similarly to regular hunks
+    // but handle the extended hunk header format
+    while (ptr < end && this.isCombinedHunkHdr(ptr, end)) {
+      const hunk = new HunkHeader(this.buffer, ptr);
+      // Parse the hunk with combined format awareness
+      ptr = this.parseCombinedHunk(hunk, ptr, end);
+      this.hunks.push(hunk);
+    }
+    return ptr;
+  }
+
+  /**
+   * Parse a single combined hunk
+   */
+  private parseCombinedHunk(hunk: HunkHeader, ptr: number, end: number): number {
+    // Parse the header line: @@@ -start,count -start,count +start,count @@@
+    const headerEnd = nextLF(this.buffer, ptr);
+
+    // Skip to after header line (startOffset is set in constructor)
+    ptr = headerEnd;
+
+    // Parse hunk body lines
+    while (ptr < end) {
+      const lineEnd = nextLF(this.buffer, ptr);
+
+      // Check if this is a new combined hunk header
+      if (this.isCombinedHunkHdr(ptr, end)) {
+        break;
+      }
+
+      // Check for next file (diff --cc, diff --git, etc.)
+      if (this.isNextFileStart(ptr)) {
+        break;
+      }
+
+      ptr = lineEnd;
+    }
+
+    hunk.endOffset = ptr;
+    return ptr;
+  }
+
+  /**
+   * Check if current position starts a new file header
+   */
+  private isNextFileStart(ptr: number): boolean {
+    const DIFF = encodeASCII("diff ");
+    return match(this.buffer, ptr, DIFF) >= 0;
+  }
+
+  /**
+   * Parse a traditional unified diff header ("--- ... \n+++ ...")
+   *
+   * Traditional diffs don't have "diff --git" prefix or extended headers.
+   * They start directly with the old/new file markers.
+   *
+   * @param end End of buffer
+   * @returns Next offset to continue parsing, or end if complete
+   */
+  parseTraditionalHeader(end: number): number {
+    let ptr = this.startOffset;
+
+    // Parse "--- path" line
+    if (match(this.buffer, ptr, OLD_NAME) >= 0) {
+      const eol = nextLF(this.buffer, ptr);
+      this.oldPath = this.parseTraditionalPath(ptr + OLD_NAME.length, eol);
+      ptr = eol;
+    } else {
+      // Invalid format
+      this.endOffset = end;
+      return end;
+    }
+
+    // Parse "+++ path" line
+    if (ptr < end && match(this.buffer, ptr, NEW_NAME) >= 0) {
+      const eol = nextLF(this.buffer, ptr);
+      this.newPath = this.parseTraditionalPath(ptr + NEW_NAME.length, eol);
+      ptr = eol;
+    } else {
+      // Invalid format
+      this.endOffset = end;
+      return end;
+    }
+
+    // Determine change type based on paths
+    if (this.oldPath === "/dev/null") {
+      this.changeType = ChangeType.ADD;
+      this.oldPath = null;
+    } else if (this.newPath === "/dev/null") {
+      this.changeType = ChangeType.DELETE;
+      this.newPath = null;
+    } else {
+      this.changeType = ChangeType.MODIFY;
+    }
+
+    // Parse all text hunks in this file
+    while (ptr < end && isHunkHdr(this.buffer, ptr, end) === 1) {
+      const hunk = new HunkHeader(this.buffer, ptr);
+      ptr = hunk.parse(end);
+      this.hunks.push(hunk);
+    }
+
+    this.endOffset = ptr;
+    return ptr;
+  }
+
+  /**
+   * Parse a traditional path from "--- " or "+++ " line
+   *
+   * Traditional paths can have various formats:
+   *   --- a/path/file.txt
+   *   --- path/file.txt
+   *   --- /dev/null
+   *   --- a/path/file.txt\t2024-01-01 12:00:00
+   *
+   * @param ptr Start of path
+   * @param end End of line
+   * @returns Extracted path
+   */
+  private parseTraditionalPath(ptr: number, end: number): string {
+    // Skip leading whitespace
+    while (ptr < end && (this.buffer[ptr] === 0x20 || this.buffer[ptr] === 0x09)) {
+      ptr++;
+    }
+
+    // Find end of path (tab, newline, or end of buffer)
+    let pathEnd = ptr;
+    while (pathEnd < end) {
+      const c = this.buffer[pathEnd];
+      if (c === 0x09 || c === 0x0a || c === 0x0d) {
+        // Tab, LF, or CR
+        break;
+      }
+      pathEnd++;
+    }
+
+    let path = decode(this.buffer, ptr, pathEnd);
+
+    // Strip "a/" or "b/" prefix if present (Git-style in traditional)
+    if (path.startsWith("a/") || path.startsWith("b/")) {
+      path = path.slice(2);
+    }
+
+    return path;
+  }
+
+  /**
    * Get a string representation of this file header
    */
   toString(): string {
