@@ -345,7 +345,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
   });
 
-/**
+  /**
    * JGit parity tests for rename tracking.
    * Ported from BlameCommandTest.java
    *
@@ -559,6 +559,219 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       // Line 2 added during first rename
       expect(result.getEntry(2)?.commitId).toBe(commit3);
       expect(result.getEntry(2)?.sourcePath).toBe("file1.txt");
+    });
+  });
+
+  /**
+   * JGit parity tests for CRLF line ending handling.
+   * Ported from BlameCommandTest.java
+   *
+   * Tests that blame correctly handles files with Windows-style line endings (CRLF).
+   */
+  describe("CRLF handling (JGit parity)", () => {
+    /**
+     * JGit: testCoreAutoCrlf pattern
+     * Tests blame with CRLF line endings in file content.
+     */
+    it("should correctly count lines with CRLF endings", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // File with Windows-style line endings (CRLF)
+      await addFile(store, "file.txt", "a\r\nb\r\nc\r\n");
+      await git.commit().setMessage("create file").call();
+
+      const commitRef = await store.refs.resolve("HEAD");
+      const commitId = commitRef?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      // Should recognize 3 lines despite CRLF endings
+      expect(result.lineCount).toBe(3);
+      expect(result.getEntry(1)?.commitId).toBe(commitId);
+      expect(result.getEntry(2)?.commitId).toBe(commitId);
+      expect(result.getEntry(3)?.commitId).toBe(commitId);
+    });
+
+    /**
+     * Tests blame tracking changes across CRLF and LF mixed content.
+     */
+    it("should track changes in files with mixed line endings", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Start with CRLF file
+      await addFile(store, "file.txt", "line1\r\nline2\r\n");
+      await git.commit().setMessage("create file").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Add a new line (keeping CRLF)
+      await addFile(store, "file.txt", "line1\r\nline2\r\nline3\r\n");
+      await git.commit().setMessage("add line").call();
+
+      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2 = commit2Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(3);
+      expect(result.getEntry(1)?.commitId).toBe(commit1);
+      expect(result.getEntry(2)?.commitId).toBe(commit1);
+      expect(result.getEntry(3)?.commitId).toBe(commit2);
+    });
+
+    /**
+     * Tests blame with only CR line endings (old Mac style).
+     *
+     * TODO: CR-only line endings are not currently supported by RawText.
+     * The algorithm only recognizes LF and CRLF as line endings.
+     */
+    it.skip("should handle CR-only line endings", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // File with old Mac-style line endings (CR only)
+      await addFile(store, "file.txt", "a\rb\rc\r");
+      await git.commit().setMessage("create file").call();
+
+      const commitRef = await store.refs.resolve("HEAD");
+      const commitId = commitRef?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      // CR-only should be treated as line endings
+      expect(result.lineCount).toBe(3);
+      expect(result.getEntry(1)?.commitId).toBe(commitId);
+    });
+  });
+
+  /**
+   * JGit parity tests for blame after merge conflicts.
+   * Ported from BlameCommandTest.java
+   *
+   * Tests that blame correctly tracks authorship after merges,
+   * especially when conflicts were resolved.
+   *
+   * TODO: The current blame algorithm walks commit history linearly and
+   * doesn't implement proper multi-parent blame tracking. JGit's BlameGenerator
+   * uses a more sophisticated approach that follows all parent commits and
+   * tracks line origins across merge boundaries. These tests document the
+   * expected behavior for when multi-parent blame is implemented.
+   */
+  describe("merge conflict tracking (JGit parity)", () => {
+    /**
+     * JGit: testConflictingMerge1 pattern
+     * Tests blame after resolving a merge conflict.
+     * Lines from different sources should be attributed correctly.
+     *
+     * TODO: Requires multi-parent blame tracking to attribute lines
+     * from side branches correctly.
+     */
+    it.skip("should correctly attribute lines after merge conflict resolution", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base: create file with 5 lines
+      await addFile(store, "file.txt", "0\n1\n2\n3\n4\n");
+      await git.commit().setMessage("base commit").call();
+
+      const baseRef = await store.refs.resolve("HEAD");
+      const baseCommitId = baseRef?.objectId ?? "";
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify on side branch
+      await addFile(store, "file.txt", "0\n1 side\n2\n3 on side\n4\n");
+      await git.commit().setMessage("side changes").call();
+
+      const sideModRef = await store.refs.resolve("HEAD");
+      const sideModCommitId = sideModRef?.objectId ?? "";
+
+      // Switch to main and modify differently
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+
+      // Remove line on main (will conflict with side's modification)
+      await addFile(store, "file.txt", "0\n1\n2\n");
+      await git.commit().setMessage("main removes lines").call();
+
+      // Resolve conflict manually - keep side's changes plus resolution
+      await addFile(store, "file.txt", "0\n1 side\n2\n3 resolved\n4\n");
+      await git.commit().setMessage("merge resolution").call();
+
+      const mergeRef = await store.refs.resolve("HEAD");
+      const mergeCommitId = mergeRef?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(5);
+
+      // Line 0: from base (unchanged)
+      expect(result.getEntry(1)?.commitId).toBe(baseCommitId);
+
+      // Line "1 side": from side branch
+      expect(result.getEntry(2)?.commitId).toBe(sideModCommitId);
+
+      // Line 2: from base (unchanged)
+      expect(result.getEntry(3)?.commitId).toBe(baseCommitId);
+
+      // Line "3 resolved": new in merge resolution
+      expect(result.getEntry(4)?.commitId).toBe(mergeCommitId);
+
+      // Line 4: from base (preserved from side)
+      // Note: This line survived from base through side branch
+    });
+
+    /**
+     * Tests blame with multiple parents (merge commit).
+     *
+     * TODO: Requires multi-parent blame tracking. The current algorithm
+     * only follows first parent, so lines from merged branches are
+     * attributed to the merge commit instead of their original source.
+     */
+    it.skip("should handle files modified in merge commits", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Create base file
+      await addFile(store, "file.txt", "base line\n");
+      await git.commit().setMessage("initial").call();
+
+      const baseRef = await store.refs.resolve("HEAD");
+      const baseCommitId = baseRef?.objectId ?? "";
+
+      // Create branch and add line
+      await git.branchCreate().setName("feature").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/feature");
+      const featureRef = await store.refs.resolve("refs/heads/feature");
+      const featureCommit = await store.commits.loadCommit(featureRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, featureCommit.tree);
+
+      await addFile(store, "file.txt", "base line\nfeature line\n");
+      await git.commit().setMessage("feature addition").call();
+
+      const featureModRef = await store.refs.resolve("HEAD");
+      const featureModCommitId = featureModRef?.objectId ?? "";
+
+      // Switch back to main
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+
+      // Merge feature (should be clean merge)
+      await addFile(store, "file.txt", "base line\nfeature line\n");
+      await git.commit().setMessage("merge feature").call();
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(2);
+      expect(result.getEntry(1)?.commitId).toBe(baseCommitId);
+      expect(result.getEntry(2)?.commitId).toBe(featureModCommitId);
     });
   });
 
