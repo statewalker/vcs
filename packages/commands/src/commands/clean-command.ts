@@ -1,4 +1,3 @@
-import type { WorkingTreeApi } from "@statewalker/vcs-core";
 import { GitCommand } from "../git-command.js";
 
 /**
