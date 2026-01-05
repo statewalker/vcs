@@ -1,0 +1,27 @@
+{
+  "name": "@statewalker/vcs-example-readme-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Runnable examples from the README documentation",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "echo \"No tests specified\" && exit 0",
+    "basic-repository": "tsx src/basic-repository-operations.ts",
+    "commands-api": "tsx src/commands-api.ts",
+    "delta-compression": "tsx src/delta-compression.ts",
+    "all": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@statewalker/webrun-files": "catalog:",
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-commands": "workspace:*",
+    "@statewalker/vcs-store-mem": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -94,6 +94,8 @@ const commitId = await repository.commits.storeCommit({
 await repository.refs.set("refs/heads/main", commitId);
 ```
 
+> **Runnable example:** [apps/example-readme-scripts/src/basic-repository-operations.ts](apps/example-readme-scripts/src/basic-repository-operations.ts)
+
 ### Working with Pack Files
 
 For performance benchmarks and pack file operations, see [apps/example-git-perf](apps/example-git-perf). This example clones the Git source repository and demonstrates traversing commit history and reading delta-compressed objects.
@@ -126,22 +128,36 @@ await git.branchCreate().setName("feature").call();
 await git.checkout().setName("feature").call();
 ```
 
+> **Runnable example:** [apps/example-readme-scripts/src/commands-api.ts](apps/example-readme-scripts/src/commands-api.ts)
+> Note: The `git.add()` command requires a working tree iterator. The runnable example demonstrates an in-memory approach using direct staging manipulation.
+
 ### Delta Compression
 
 The library uses format-agnostic delta storage for efficient pack files:
 
 ```typescript
-import { createDelta, applyDelta } from "@statewalker/vcs-utils/diff";
+import { applyDelta, createDelta, createDeltaRanges } from "@statewalker/vcs-utils/diff";
 
 const baseContent = new TextEncoder().encode("Original file content");
 const newContent = new TextEncoder().encode("Original file content with additions");
 
-// Create a delta from base to new
-const delta = createDelta(baseContent, newContent);
+// Step 1: Compute delta ranges (identifies copy vs insert regions)
+const ranges = [...createDeltaRanges(baseContent, newContent)];
 
-// Apply delta to reconstruct new content
-const reconstructed = applyDelta(baseContent, delta);
+// Step 2: Create delta instructions from ranges
+const delta = [...createDelta(baseContent, newContent, ranges)];
+
+// Step 3: Apply delta to reconstruct new content
+const chunks = [...applyDelta(baseContent, delta)];
+const reconstructed = new Uint8Array(chunks.reduce((sum, c) => sum + c.length, 0));
+let offset = 0;
+for (const chunk of chunks) {
+  reconstructed.set(chunk, offset);
+  offset += chunk.length;
+}
 ```
+
+> **Runnable example:** [apps/example-readme-scripts/src/delta-compression.ts](apps/example-readme-scripts/src/delta-compression.ts)
 
 ## Example Applications
 
@@ -149,6 +165,7 @@ The `apps/` directory contains several examples. See [docs/example-applications.
 
 | Application | Description |
 |-------------|-------------|
+| [example-readme-scripts](apps/example-readme-scripts) | Runnable versions of all README code examples |
 | [example-git-cycle](apps/example-git-cycle) | Complete Git workflow demonstration |
 | [example-git-lifecycle](apps/example-git-lifecycle) | Full Git lifecycle: init, commits, GC, packing, checkout |
 | [example-git-perf](apps/example-git-perf) | Performance benchmarks with real repositories |
