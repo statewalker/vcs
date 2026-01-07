@@ -9,7 +9,7 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": false,
+    "declarationMap": false,
     "noEmit": true
   },
   "include": ["src/**/*.ts"],
