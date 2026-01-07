@@ -12,14 +12,15 @@
 
 import {
   createGitRepository,
+  createInMemoryFilesApi,
   FileMode,
+  type FilesApi,
   type GitRepository,
   type ObjectId,
   type PersonIdent,
 } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 
 // ============================================================================
 // Compression Setup
@@ -51,19 +52,18 @@ export function initCompression(): void {
 /**
  * Shared file system instance (in-memory for this example)
  *
- * For real file system usage, replace MemFilesApi with NodeFilesApi:
+ * For real file system usage, use createNodeFilesApi:
  * ```ts
  * import * as fs from "node:fs/promises";
- * const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "/" }));
+ * import { createNodeFilesApi } from "@statewalker/vcs-core";
+ * const files = createNodeFilesApi({ fs, rootDir: "/" });
  * ```
- *
- * @see @statewalker/webrun-files package
  */
 let sharedFiles: FilesApi | null = null;
 
 export function getFilesApi(): FilesApi {
   if (!sharedFiles) {
-    sharedFiles = new FilesApi(new MemFilesApi());
+    sharedFiles = createInMemoryFilesApi();
   }
   return sharedFiles;
 }

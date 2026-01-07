@@ -80,9 +80,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -102,9 +99,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -124,9 +118,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -149,9 +140,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -177,9 +165,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -205,9 +190,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -230,9 +212,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -252,9 +231,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
     devDependencies:
       tsx:
         specifier: 'catalog:'

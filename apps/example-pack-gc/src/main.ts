@@ -20,6 +20,7 @@ import * as path from "node:path";
 import { createGitStore, Git } from "@statewalker/vcs-commands";
 import {
   createGitRepository,
+  createNodeFilesApi,
   FileMode,
   type GitRepository,
   type ObjectId,
@@ -28,7 +29,6 @@ import {
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 
 // Initialize compression (required before any storage operations)
 setCompression(createNodeCompression());
@@ -46,9 +46,8 @@ const PACK_DIR = path.join(OBJECTS_DIR, "pack");
 // Helper Functions
 // ============================================================================
 
-function createFilesApi(): FilesApi {
-  const nodeFs = new NodeFilesApi({ fs, rootDir: REPO_DIR });
-  return new FilesApi(nodeFs);
+function createFilesApi() {
+  return createNodeFilesApi({ fs, rootDir: REPO_DIR });
 }
 
 function createAuthor(

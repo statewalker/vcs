@@ -6,9 +6,9 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { GitRepository, ObjectId, PersonIdent } from "@statewalker/vcs-core";
+import { createNodeFilesApi, type FilesApi } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 
 // Initialize compression (required before any storage operations)
 setCompression(createNodeCompression());
@@ -75,8 +75,7 @@ export function logError(message: string): void {
 // ============================================================================
 
 export function createFilesApi(): FilesApi {
-  const nodeFs = new NodeFilesApi({ fs, rootDir: REPO_DIR });
-  return new FilesApi(nodeFs);
+  return createNodeFilesApi({ fs, rootDir: REPO_DIR });
 }
 
 export function createTestFile(name: string, content: string): { name: string; content: string } {

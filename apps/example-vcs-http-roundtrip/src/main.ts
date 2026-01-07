@@ -20,6 +20,7 @@ import * as path from "node:path";
 import {
   atomicWriteFile,
   createGitRepository,
+  createNodeFilesApi,
   ensureDir,
   FileMode,
   type GitRepository,
@@ -30,7 +31,6 @@ import { clone, type PushObject, push } from "@statewalker/vcs-transport";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 
 import {
   BASE_DIR,
@@ -149,7 +149,7 @@ async function setupRemoteRepository(): Promise<GitRepository> {
   printInfo(`Creating bare repository at ${REMOTE_REPO_DIR}`);
 
   // Create files API
-  const files = new FilesApi(new NodeFilesApi({ fs, rootDir: REMOTE_REPO_DIR }));
+  const files = createNodeFilesApi({ fs, rootDir: REMOTE_REPO_DIR });
 
   // Initialize git repository (bare repository)
   const storage = await createGitRepository(files, ".", {
@@ -245,7 +245,7 @@ async function cloneWithVcs(): Promise<void> {
   await ensureDirectory(gitDir);
 
   // Create files API for local repository
-  const files = new FilesApi(new NodeFilesApi({ fs, rootDir: LOCAL_REPO_DIR }));
+  const files = createNodeFilesApi({ fs, rootDir: LOCAL_REPO_DIR });
 
   // Initialize local repository using high-level Repository API
   const repository = (await createGitRepository(files, ".git", {
@@ -389,7 +389,7 @@ async function verifyCloneWithNativeGit(): Promise<void> {
 async function openLocalRepository(): Promise<GitRepository> {
   printInfo(`Opening repository at ${LOCAL_REPO_DIR}`);
 
-  const files = new FilesApi(new NodeFilesApi({ fs, rootDir: LOCAL_REPO_DIR }));
+  const files = createNodeFilesApi({ fs, rootDir: LOCAL_REPO_DIR });
 
   // Use high-level Repository API via createGitRepository()
   const repository = (await createGitRepository(files, ".git", {
