@@ -9,7 +9,6 @@
     "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {
-    "@statewalker/webrun-files": "catalog:",
     "@statewalker/vcs-commands": "workspace:*",
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-store-mem": "workspace:*",

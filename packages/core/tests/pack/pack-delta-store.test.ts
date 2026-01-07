@@ -7,9 +7,9 @@
 import type { Delta } from "@statewalker/vcs-utils";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DeltaInfo } from "../../src/delta/delta-store.js";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
 import {
   PackDeltaStore,
   PackDirectory,
@@ -46,7 +46,7 @@ describe("PackDeltaStore", () => {
   const basePath = "/repo/objects/pack";
 
   beforeEach(() => {
-    files = new FilesApi(new MemFilesApi());
+    files = createInMemoryFilesApi();
   });
 
   describe("initialization", () => {

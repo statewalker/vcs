@@ -15,6 +15,7 @@ export default defineConfig({
     "diff/index": "src/diff/index.ts",
     "streams/index": "src/streams/index.ts",
     "cache/index": "src/cache/index.ts",
+    "files/index": "src/files/index.ts",
   },
   output: {
     dir: "dist",

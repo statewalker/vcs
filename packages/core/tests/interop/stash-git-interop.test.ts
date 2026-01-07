@@ -16,8 +16,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createPakoCompression, setCompression } from "@statewalker/vcs-utils";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createNodeFilesApi } from "../../src/files/index.js";
 import { createGitRepository, FileMode } from "../../src/index.js";
 
 // Initialize compression for tests
@@ -98,7 +98,7 @@ describe("Stash Git Interoperability", () => {
       execSync(`chmod -R u+rw "${objectsDir}"`, { stdio: "ignore" });
 
       // Open repository with VCS
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       const repo = await createGitRepository(files, ".git", { create: false });
 
       // Read refs/stash - resolve to get the objectId
@@ -146,7 +146,7 @@ describe("Stash Git Interoperability", () => {
       execSync(`chmod -R u+rw "${path.join(repoDir, ".git", "objects")}"`, { stdio: "ignore" });
 
       // Open with VCS
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       const repo = await createGitRepository(files, ".git", { create: false });
 
       // Load stash commit
@@ -221,7 +221,7 @@ describe("Stash Git Interoperability", () => {
       await fs.mkdir(repoDir);
 
       // Create repository with VCS
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       const repo = await createGitRepository(files, ".git", {
         create: true,
         defaultBranch: "main",
@@ -303,7 +303,7 @@ describe("Stash Git Interoperability", () => {
       await fs.mkdir(repoDir);
 
       // Create repository with VCS
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       const repo = await createGitRepository(files, ".git", {
         create: true,
         defaultBranch: "main",
@@ -400,7 +400,7 @@ describe("Stash Git Interoperability", () => {
         execSync(`chmod -R u+rw "${path.join(repoDir, ".git", "objects")}"`, { stdio: "ignore" });
 
         // Open with VCS
-        const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+        const files = createNodeFilesApi({ fs, rootDir: repoDir });
         const repo = await createGitRepository(files, ".git", { create: false });
 
         const stashRef = await repo.refs.resolve("refs/stash");
@@ -434,7 +434,7 @@ describe("Stash Git Interoperability", () => {
       execSync(`chmod -R u+rw "${path.join(repoDir, ".git", "objects")}"`, { stdio: "ignore" });
 
       // Open with VCS
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       const repo = await createGitRepository(files, ".git", { create: false });
 
       const stashRef = await repo.refs.resolve("refs/stash");
@@ -479,7 +479,7 @@ describe("Stash Git Interoperability", () => {
       execSync(`chmod -R u+rw "${path.join(repoDir, ".git", "objects")}"`, { stdio: "ignore" });
 
       // Step 3: VCS reads native git stash
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       let repo = await createGitRepository(files, ".git", { create: false });
 
       const gitStashRef = await repo.refs.resolve("refs/stash");

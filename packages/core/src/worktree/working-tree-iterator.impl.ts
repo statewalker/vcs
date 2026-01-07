@@ -13,8 +13,14 @@
 
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
-import type { FileInfo } from "@statewalker/webrun-files";
-import { basename, FileMode, type FilesApi, joinPath } from "../files/index.js";
+import {
+  basename,
+  type FileInfo,
+  FileMode,
+  type FilesApi,
+  joinPath,
+  readFile,
+} from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import { createIgnoreManager } from "../ignore/ignore-manager.impl.js";
 import type { IgnoreManager } from "../ignore/ignore-manager.js";
@@ -287,7 +293,7 @@ export class FileTreeIterator implements WorkingTreeIterator {
     const fullPath = joinPath(this.rootPath, path);
 
     // Read entire file content
-    const content = await this.files.readFile(fullPath);
+    const content = await readFile(this.files, fullPath);
 
     // Create Git blob header
     const header = createBlobHeader(content.length);
@@ -312,7 +318,7 @@ export class FileTreeIterator implements WorkingTreeIterator {
     if (this.files.read) {
       yield* this.files.read(fullPath);
     } else {
-      yield await this.files.readFile(fullPath);
+      yield await readFile(this.files, fullPath);
     }
   }
 
@@ -324,7 +330,7 @@ export class FileTreeIterator implements WorkingTreeIterator {
 
     try {
       if (await this.files.exists(gitignorePath)) {
-        const content = await this.files.readFile(gitignorePath);
+        const content = await readFile(this.files, gitignorePath);
         const text = new TextDecoder().decode(content);
         this.ignoreManager.addIgnoreFile(relativePath, text);
       }
@@ -374,7 +380,7 @@ export class FileTreeIterator implements WorkingTreeIterator {
 
     try {
       if (await this.files.exists(excludePath)) {
-        const content = await this.files.readFile(excludePath);
+        const content = await readFile(this.files, excludePath);
         const text = new TextDecoder().decode(content);
         // Add as global patterns (checked after .gitignore files)
         const patterns = text.split("\n").filter((line) => line.trim() !== "");
@@ -394,7 +400,7 @@ export class FileTreeIterator implements WorkingTreeIterator {
   private async tryLoadGlobalExcludes(excludesFilePath: string): Promise<void> {
     try {
       if (await this.files.exists(excludesFilePath)) {
-        const content = await this.files.readFile(excludesFilePath);
+        const content = await readFile(this.files, excludesFilePath);
         const text = new TextDecoder().decode(content);
         // Add as global patterns (lowest precedence)
         this.ignoreManager.addGlobalPatterns(text.split("\n").filter((line) => line.trim() !== ""));

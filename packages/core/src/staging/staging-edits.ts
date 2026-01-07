@@ -1,4 +1,4 @@
-import type { FileModeValue } from "../files/file-mode.js";
+import type { FileModeValue } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import type { MergeStageValue, StagingEdit, StagingEntry } from "./staging-store.js";
 import { MergeStage } from "./staging-store.js";

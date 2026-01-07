@@ -5,8 +5,6 @@
  * for either file-based or memory-based storage.
  */
 
-import { FilesApi, joinPath, MemFilesApi } from "@statewalker/webrun-files";
-
 import { CompressedRawStore } from "../binary/raw-store.compressed.js";
 import { createFileRawStore } from "../binary/raw-store.files.js";
 import { createFileVolatileStore } from "../binary/volatile-store.files.js";
@@ -14,6 +12,7 @@ import { GitBlobStore } from "../blob/blob-store.impl.js";
 import { GitCommitStore } from "../commits/commit-store.impl.js";
 import { GCController } from "../delta/gc-controller.js";
 import { RawStoreWithDelta } from "../delta/raw-store-with-delta.js";
+import { createInMemoryFilesApi, type FilesApi, joinPath } from "../files/index.js";
 import type { ObjectId } from "../id/object-id.js";
 import { GitObjectStoreImpl } from "../objects/object-store.impl.js";
 import { PackDeltaStore } from "../pack/pack-delta-store.js";
@@ -119,9 +118,9 @@ class GitRepository implements Repository {
  * Create a Git-compatible repository
  *
  * Creates a Repository with all necessary stores. Works with both
- * file-based storage (NodeFilesApi) and in-memory storage (MemFilesApi).
+ * file-based storage (createNodeFilesApi) and in-memory storage (createInMemoryFilesApi).
  *
- * @param files FilesApi instance (defaults to MemFilesApi for in-memory)
+ * @param files FilesApi instance (defaults to in-memory storage)
  * @param gitDir Path to .git directory (relative to files root)
  * @param options Repository creation options
  * @returns Configured Repository instance
@@ -132,15 +131,15 @@ class GitRepository implements Repository {
  * const repo = await createGitRepository();
  *
  * // File-based repository
- * import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
+ * import { createNodeFilesApi } from "@statewalker/vcs-utils/files";
  * import * as fs from "node:fs/promises";
  *
- * const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "/path/to/project" }));
+ * const files = createNodeFilesApi({ fs, rootDir: "/path/to/project" });
  * const repo = await createGitRepository(files, ".git");
  * ```
  */
 export async function createGitRepository(
-  files: FilesApi = new FilesApi(new MemFilesApi()),
+  files: FilesApi = createInMemoryFilesApi(),
   gitDir = ".git",
   options: CreateRepositoryOptions = {},
 ): Promise<GitRepository> {

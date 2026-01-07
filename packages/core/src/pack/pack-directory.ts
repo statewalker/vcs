@@ -6,7 +6,7 @@
  * Based on jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/PackDirectory.java
  */
 
-import { basename, type FilesApi, joinPath } from "../files/index.js";
+import { basename, type FilesApi, joinPath, readFile } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import { createGitObject, typeCodeToString } from "../objects/object-header.js";
 import type { ObjectTypeCode } from "../objects/object-types.js";
@@ -429,7 +429,7 @@ export class PackDirectory {
    */
   private async loadIndex(name: string): Promise<PackIndex> {
     const idxPath = joinPath(this.basePath, `${name}.idx`);
-    const data = await this.files.readFile(idxPath);
+    const data = await readFile(this.files, idxPath);
     return readPackIndex(data);
   }
 

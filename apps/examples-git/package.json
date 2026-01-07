@@ -14,7 +14,6 @@
     "examples": "tsx src/run-all.ts"
   },
   "dependencies": {
-    "@statewalker/webrun-files": "catalog:",
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*"
   },

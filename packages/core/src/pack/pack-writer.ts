@@ -12,9 +12,9 @@ import { compressBlock } from "@statewalker/vcs-utils";
 import { CRC32, crc32 } from "@statewalker/vcs-utils/hash/crc32";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { hexToBytes } from "@statewalker/vcs-utils/hash/utils";
-import { writeOfsVarint, writePackHeader } from "../utils/varint.js";
 import type { PackIndexWriterEntry } from "./pack-index-writer.js";
 import { PackObjectType } from "./types.js";
+import { writeOfsVarint, writePackHeader } from "./varint.js";
 
 /** Pack file signature "PACK" */
 const PACK_SIGNATURE = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
