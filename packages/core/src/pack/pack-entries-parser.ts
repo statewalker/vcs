@@ -14,7 +14,7 @@ import {
   deserializeDeltaFromGit,
 } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
-import { bytesToHex } from "../utils/index.js";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { applyDelta } from "./pack-reader.js";
 import { PackObjectType } from "./types.js";
 

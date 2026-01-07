@@ -5,6 +5,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import { promisify } from "node:util";
+import { basename, dirname, type FilesApi, joinPath } from "@statewalker/vcs-core";
 
 const execFileAsync = promisify(execFile);
 
@@ -149,4 +150,39 @@ export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
     offset += arr.length;
   }
   return result;
+}
+
+/**
+ * Write a file atomically (via temp file + rename)
+ *
+ * This ensures that readers never see a partially written file.
+ * If the write fails, the original file is left unchanged.
+ */
+export async function atomicWriteFile(
+  files: FilesApi,
+  path: string,
+  content: Uint8Array,
+): Promise<void> {
+  const dir = dirname(path);
+  const base = basename(path);
+  const tempPath = joinPath(dir, `.${base}.tmp.${Date.now()}`);
+
+  try {
+    await files.write(tempPath, [content]);
+    await files.move(tempPath, path);
+  } catch (error) {
+    try {
+      await files.remove(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+    throw error;
+  }
+}
+
+/**
+ * Ensure a directory exists using FilesApi (create if needed)
+ */
+export async function ensureDirFiles(files: FilesApi, path: string): Promise<void> {
+  await files.mkdir(path);
 }
