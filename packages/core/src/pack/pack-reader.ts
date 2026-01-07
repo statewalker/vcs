@@ -9,7 +9,7 @@
  */
 
 import { decompressBlockPartial } from "@statewalker/vcs-utils";
-import type { FileHandle, FilesApi } from "../files/index.js";
+import { type FilesApi, readAt } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import { bytesToHex } from "../utils/index.js";
 
@@ -51,7 +51,7 @@ export class PackReader {
   private readonly packPath: string;
   /** Pack index for object lookups */
   readonly index: PackIndex;
-  private handle: FileHandle | null = null;
+  private opened = false;
   private length = 0;
 
   constructor(files: FilesApi, packPath: string, index: PackIndex) {
@@ -64,10 +64,15 @@ export class PackReader {
    * Open the pack file for reading
    */
   async open(): Promise<void> {
-    if (this.handle) return;
+    if (this.opened) return;
 
-    this.handle = await this.files.open(this.packPath);
-    this.length = this.handle.size;
+    // Get file size from stats
+    const stats = await this.files.stats(this.packPath);
+    if (!stats) {
+      throw new Error(`Pack file not found: ${this.packPath}`);
+    }
+    this.length = stats.size ?? 0;
+    this.opened = true;
 
     // Validate header
     const header = await this.readPackHeader();
@@ -79,13 +84,10 @@ export class PackReader {
   }
 
   /**
-   * Close the pack file
+   * Close the pack file (no-op for streaming API)
    */
   async close(): Promise<void> {
-    if (this.handle) {
-      await this.handle.close();
-      this.handle = null;
-    }
+    this.opened = false;
   }
 
   /**
@@ -389,10 +391,10 @@ export class PackReader {
     length: number,
     position: number,
   ): Promise<number> {
-    if (!this.handle) {
+    if (!this.opened) {
       throw new Error("Pack file not open");
     }
-    return this.handle.read(buffer, bufferOffset, length, position);
+    return readAt(this.files, this.packPath, buffer, bufferOffset, length, position);
   }
 
   /**

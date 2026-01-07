@@ -13,7 +13,7 @@ import { GitCommitStore } from "../../src/commits/commit-store.impl.js";
 import type { Commit } from "../../src/commits/commit-store.js";
 import { GCController, type GCScheduleOptions } from "../../src/delta/gc-controller.js";
 import { RawStoreWithDelta } from "../../src/delta/raw-store-with-delta.js";
-import { FileMode } from "../../src/files/file-mode.js";
+import { FileMode } from "../../src/files/index.js";
 import type { ObjectId } from "../../src/id/index.js";
 import { GitObjectStoreImpl } from "../../src/objects/object-store.impl.js";
 import type { PersonIdent } from "../../src/person/person-ident.js";

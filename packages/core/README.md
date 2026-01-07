@@ -542,8 +542,7 @@ Type definitions and constants align with Eclipse JGit for proven Git compatibil
 
 | Package | Purpose |
 |---------|---------|
-| `@statewalker/vcs-utils` | Compression, SHA-1 hashing, delta algorithms |
-| `@statewalker/webrun-files` | File system abstraction |
+| `@statewalker/vcs-utils` | Compression, SHA-1 hashing, delta algorithms, file system abstraction |
 
 ## Related Packages
 

@@ -57,6 +57,10 @@
     "./cache": {
       "types": "./dist/cache/index.d.ts",
       "import": "./dist/cache/index.js"
+    },
+    "./files": {
+      "types": "./dist/files/index.d.ts",
+      "import": "./dist/files/index.js"
     }
   },
   "files": [
@@ -75,6 +79,7 @@
     "vitest": "catalog:"
   },
   "dependencies": {
+    "@statewalker/webrun-files": "catalog:",
     "pako": "^2.1.0"
   }
 }

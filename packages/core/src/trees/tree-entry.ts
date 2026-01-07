@@ -1,4 +1,4 @@
-import type { FileModeValue } from "../files/file-mode.js";
+import type { FileModeValue } from "../files/index.js";
 import type { ObjectId } from "../id/object-id.js";
 
 /**

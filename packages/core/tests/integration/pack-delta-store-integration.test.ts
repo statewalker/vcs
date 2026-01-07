@@ -8,12 +8,12 @@
 import type { Delta } from "@statewalker/vcs-utils";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 import type { DeltaInfo } from "../../src/delta/delta-store.js";
 import { GCController } from "../../src/delta/gc-controller.js";
 import { RawStoreWithDelta } from "../../src/delta/raw-store-with-delta.js";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
 import { encodeObjectHeader } from "../../src/objects/object-header.js";
 import { PackConsolidator } from "../../src/pack/pack-consolidator.js";
 import { PackDeltaStore } from "../../src/pack/pack-delta-store.js";
@@ -48,7 +48,7 @@ describe("PackDeltaStore Integration", () => {
   const basePath = "/repo/objects/pack";
 
   beforeEach(() => {
-    files = new FilesApi(new MemFilesApi());
+    files = createInMemoryFilesApi();
   });
 
   describe("RawStoreWithDelta integration", () => {

@@ -1,5 +1,4 @@
-import { FileMode } from "../files/file-mode.js";
-import type { FilesApi } from "../files/index.js";
+import { FileMode, type FilesApi, readFile } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import type { TreeEntry, TreeStore } from "../trees/index.js";
 import {
@@ -211,7 +210,7 @@ export class FileStagingStore implements StagingStore {
       return;
     }
 
-    const data = await this.files.readFile(this.indexPath);
+    const data = await readFile(this.files, this.indexPath);
     const parsed = await parseIndexFile(data);
 
     this.entries = parsed.entries;

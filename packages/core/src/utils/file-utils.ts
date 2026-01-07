@@ -2,7 +2,7 @@
  * File utility functions for Git storage
  */
 
-import { basename, dirname, type FilesApi, joinPath } from "../files/index.js";
+import { basename, dirname, type FilesApi, joinPath, readFile } from "../files/index.js";
 
 /**
  * Write a file atomically (via temp file + rename)
@@ -60,7 +60,7 @@ export async function ensureDir(files: FilesApi, path: string): Promise<void> {
  */
 export async function tryReadFile(files: FilesApi, path: string): Promise<Uint8Array | undefined> {
   try {
-    return await files.readFile(path);
+    return await readFile(files, path);
   } catch (error) {
     if (isNotFoundError(error)) {
       return undefined;

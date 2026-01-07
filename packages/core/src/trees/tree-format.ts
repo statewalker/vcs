@@ -14,7 +14,7 @@
 
 import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 import { asAsyncIterable, concat, encodeString } from "@statewalker/vcs-utils/streams";
-import { FileMode } from "../files/file-mode.js";
+import { FileMode } from "../files/index.js";
 import { GitFormat } from "../id/object-id.js";
 import type { TreeEntry } from "./tree-entry.js";
 
