@@ -12,6 +12,7 @@
  * @see packages/storage-git/src/refs/ref-writer.ts - Reference initialization
  */
 
+import { readFile } from "@statewalker/vcs-core";
 import {
   GIT_DIR,
   getFilesApi,
@@ -54,7 +55,7 @@ export async function step01InitRepository(): Promise<void> {
   }
 
   // Read HEAD content to show symbolic reference
-  const headContent = await files.readFile(`${GIT_DIR}/HEAD`);
+  const headContent = await readFile(files, `${GIT_DIR}/HEAD`);
   const headText = new TextDecoder().decode(headContent);
   console.log(`\n  HEAD content: ${headText.trim()}`);
   console.log(`  This is a symbolic reference pointing to refs/heads/main`);

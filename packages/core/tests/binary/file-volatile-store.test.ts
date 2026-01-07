@@ -3,9 +3,9 @@
  */
 
 import { collect } from "@statewalker/vcs-utils";
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { beforeEach, describe, expect, it } from "vitest";
 import { FileVolatileStore } from "../../src/binary/volatile-store.files.js";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
 
 describe("FileVolatileStore", () => {
   let files: FilesApi;
@@ -15,7 +15,7 @@ describe("FileVolatileStore", () => {
   const encoder = new TextEncoder();
 
   beforeEach(() => {
-    files = new FilesApi(new MemFilesApi());
+    files = createInMemoryFilesApi();
     store = new FileVolatileStore(files, tempDir);
   });
 

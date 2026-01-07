@@ -26,11 +26,11 @@ pnpm add @statewalker/vcs-commands
 ```typescript
 import { Git, createGitStore } from "@statewalker/vcs-commands";
 import { createGitRepository } from "@statewalker/vcs-core";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
+import { createNodeFilesApi } from "@statewalker/vcs-utils/files";
 import * as fs from "node:fs/promises";
 
 // Create a Git-compatible repository
-const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "/path/to/repo" }));
+const files = createNodeFilesApi({ fs, rootDir: "/path/to/repo" });
 const repository = await createGitRepository(files, ".git");
 
 // Create a staging store (or use one from store-mem/store-sql)

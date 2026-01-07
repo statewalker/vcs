@@ -3,9 +3,9 @@
  */
 
 import { collect } from "@statewalker/vcs-utils";
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { beforeEach, describe, expect, it } from "vitest";
 import { FileRawStore } from "../../src/binary/raw-store.files.js";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
 
 describe("FileRawStore", () => {
   let files: FilesApi;
@@ -16,7 +16,7 @@ describe("FileRawStore", () => {
   const decoder = new TextDecoder();
 
   beforeEach(() => {
-    files = new FilesApi(new MemFilesApi());
+    files = createInMemoryFilesApi();
     store = new FileRawStore(files, basePath);
   });
 

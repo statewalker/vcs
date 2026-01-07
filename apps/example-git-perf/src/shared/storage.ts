@@ -3,10 +3,9 @@
  */
 
 import * as fs from "node:fs/promises";
-import { createGitRepository, type GitRepository } from "@statewalker/vcs-core";
+import { createGitRepository, createNodeFilesApi, type GitRepository } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import { GIT_DIR, REPO_DIR } from "./config.js";
 
 let compressionInitialized = false;
@@ -18,9 +17,8 @@ export function initCompression(): void {
   }
 }
 
-export function createFilesApi(): FilesApi {
-  const nodeFs = new NodeFilesApi({ fs, rootDir: REPO_DIR });
-  return new FilesApi(nodeFs);
+export function createFilesApi() {
+  return createNodeFilesApi({ fs, rootDir: REPO_DIR });
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CommitStore } from "../../src/commits/commit-store.js";
-import { FileMode } from "../../src/files/file-mode.js";
+import { FileMode } from "../../src/files/index.js";
 import type { RefStore } from "../../src/refs/ref-store.js";
 import type { MergeStageValue, StagingEntry, StagingStore } from "../../src/staging/index.js";
 import {

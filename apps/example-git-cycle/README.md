@@ -34,11 +34,10 @@ pnpm --filter @statewalker/vcs-example-git-cycle step:08  # Branches and tags
 Creates a new Git repository with the standard directory structure.
 
 ```typescript
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository } from "@statewalker/vcs-core";
+import { createGitRepository, createInMemoryFilesApi } from "@statewalker/vcs-core";
 
 // Create file system (in-memory for this example)
-const files = new FilesApi(new MemFilesApi());
+const files = createInMemoryFilesApi();
 
 // Initialize repository
 const repository = await createGitRepository(files, ".git");

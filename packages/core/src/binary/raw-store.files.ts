@@ -6,7 +6,7 @@
  * where prefix = first 2 chars, suffix = remaining chars.
  */
 
-import { dirname, type FilesApi, joinPath } from "@statewalker/webrun-files";
+import { dirname, type FilesApi, joinPath } from "../files/index.js";
 import type { RawStore } from "./raw-store.js";
 
 /**

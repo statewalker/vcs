@@ -16,7 +16,6 @@
     "step:checkout": "tsx src/steps/07-checkout-commit.ts"
   },
   "dependencies": {
-    "@statewalker/webrun-files": "catalog:",
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*"
   },

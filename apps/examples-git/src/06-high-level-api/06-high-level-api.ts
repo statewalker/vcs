@@ -27,13 +27,13 @@
 
 import {
   createGitRepository,
+  createInMemoryFilesApi,
   FileMode,
   type GitRepository,
   type PersonIdent,
 } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 
 // Initialize compression
 setCompression(createNodeCompression());
@@ -77,7 +77,7 @@ async function main() {
   console.log("Compare with examples 1-5 for low-level pack file operations.\n");
 
   // Create an in-memory file system
-  const files = new FilesApi(new MemFilesApi());
+  const files = createInMemoryFilesApi();
 
   // Initialize repository using high-level factory
   printSection("Creating Repository");

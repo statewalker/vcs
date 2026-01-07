@@ -19,7 +19,7 @@
 
 import type { BlobStore } from "../blob/blob-store.js";
 import type { CommitStore } from "../commits/commit-store.js";
-import { FileMode } from "../files/file-mode.js";
+import { FileMode } from "../files/index.js";
 import type { ObjectId } from "../id/object-id.js";
 import type { RefStore } from "../refs/ref-store.js";
 import { isSymbolicRef } from "../refs/ref-types.js";

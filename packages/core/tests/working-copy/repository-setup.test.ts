@@ -9,8 +9,8 @@
  * Based on JGit's RepositorySetupWorkDirTest
  */
 
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { describe, expect, it, vi } from "vitest";
+import { createInMemoryFilesApi } from "../../src/files/index.js";
 import { createGitRepository } from "../../src/stores/create-repository.js";
 import {
   type ConfigFilesApi,
@@ -163,7 +163,7 @@ describe("Bare Repository Detection (JGit parity)", () => {
     }
 
     it("should create bare repository when bare=true", async () => {
-      const files = new FilesApi(new MemFilesApi());
+      const files = createInMemoryFilesApi();
 
       const repo = await createGitRepository(files, ".git", {
         bare: true,
@@ -180,7 +180,7 @@ describe("Bare Repository Detection (JGit parity)", () => {
     });
 
     it("should create non-bare repository when bare=false", async () => {
-      const files = new FilesApi(new MemFilesApi());
+      const files = createInMemoryFilesApi();
 
       const repo = await createGitRepository(files, ".git", {
         bare: false,
@@ -195,7 +195,7 @@ describe("Bare Repository Detection (JGit parity)", () => {
     });
 
     it("should default to non-bare repository", async () => {
-      const files = new FilesApi(new MemFilesApi());
+      const files = createInMemoryFilesApi();
 
       const repo = await createGitRepository(files, ".git", { create: true });
 
