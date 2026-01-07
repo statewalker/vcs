@@ -11,11 +11,10 @@
  * Run with: pnpm --filter @statewalker/vcs-example-readme-scripts basic-repository
  */
 
-import { createGitRepository, FileMode } from "@statewalker/vcs-core";
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
+import { createGitRepository, createInMemoryFilesApi, FileMode } from "@statewalker/vcs-core";
 
 // Initialize an in-memory repository
-const files = new FilesApi(new MemFilesApi());
+const files = createInMemoryFilesApi();
 const repository = await createGitRepository(files, ".git", {
   create: true,
   defaultBranch: "main",

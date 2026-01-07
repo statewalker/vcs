@@ -4,10 +4,9 @@
 
 import * as fs from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { PackObjectType } from "@statewalker/vcs-core";
+import { createNodeFilesApi, PackObjectType } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 
 // Set up Node.js compression (required for pack file operations)
 setCompression(createNodeCompression());
@@ -15,9 +14,8 @@ setCompression(createNodeCompression());
 /**
  * Create a FilesApi instance for the given base path
  */
-export function createFilesApi(basePath?: string): FilesApi {
-  const nodeFs = new NodeFilesApi({ fs, rootDir: basePath ?? "" });
-  return new FilesApi(nodeFs);
+export function createFilesApi(basePath?: string) {
+  return createNodeFilesApi({ fs, rootDir: basePath ?? "" });
 }
 
 /**

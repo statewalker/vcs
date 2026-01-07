@@ -13,7 +13,6 @@
     "all": "tsx src/main.ts"
   },
   "dependencies": {
-    "@statewalker/webrun-files": "catalog:",
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-commands": "workspace:*",
     "@statewalker/vcs-store-mem": "workspace:*",

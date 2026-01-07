@@ -17,6 +17,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
   createGitRepository,
+  createNodeFilesApi,
   extractGitObjectContent,
   FileMode,
   type GitRepository,
@@ -25,7 +26,6 @@ import {
 import { type PushObject, push } from "@statewalker/vcs-transport";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 
 import {
   BASE_DIR,
@@ -205,7 +205,7 @@ async function cloneWithNativeGit(): Promise<void> {
 async function openRepositoryWithVcs(): Promise<GitRepository> {
   printInfo(`Opening repository at ${LOCAL_REPO_DIR}`);
 
-  const files = new FilesApi(new NodeFilesApi({ fs, rootDir: LOCAL_REPO_DIR }));
+  const files = createNodeFilesApi({ fs, rootDir: LOCAL_REPO_DIR });
 
   const repository = (await createGitRepository(files, ".git", {
     create: false,
