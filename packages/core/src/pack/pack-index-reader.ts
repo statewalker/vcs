@@ -10,7 +10,7 @@
  */
 
 import type { ObjectId } from "@statewalker/vcs-core";
-import { bytesToHex, hexToBytes } from "../utils/index.js";
+import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 import type { PackIndex, PackIndexEntry } from "./types.js";
 
 /** Magic bytes for V2+ index: 0xFF, 't', 'O', 'c' */

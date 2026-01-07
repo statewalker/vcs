@@ -18,10 +18,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
-  atomicWriteFile,
   createGitRepository,
   createNodeFilesApi,
-  ensureDir,
   FileMode,
   type GitRepository,
   indexPack,
@@ -33,12 +31,14 @@ import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 
 import {
+  atomicWriteFile,
   BASE_DIR,
   concatBytes,
   createAuthor,
   createVcsHttpServer,
   DEFAULT_BRANCH,
   ensureDirectory,
+  ensureDirFiles,
   HTTP_PORT,
   LOCAL_REPO_DIR,
   printError,
@@ -264,7 +264,7 @@ async function cloneWithVcs(): Promise<void> {
     // Store pack file temporarily to read objects from it
     const packChecksum = bytesToHex(indexResult.packChecksum);
     const packDir = ".git/objects/pack";
-    await ensureDir(files, packDir);
+    await ensureDirFiles(files, packDir);
 
     const packFileName = `pack-${packChecksum}.pack`;
     const idxFileName = `pack-${packChecksum}.idx`;

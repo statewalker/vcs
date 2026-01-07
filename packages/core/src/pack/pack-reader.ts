@@ -9,9 +9,9 @@
  */
 
 import { decompressBlockPartial } from "@statewalker/vcs-utils";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { type FilesApi, readAt } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
-import { bytesToHex } from "../utils/index.js";
 
 /**
  * Pack-specific delta chain information
