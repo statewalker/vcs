@@ -14,7 +14,7 @@
  * - conflicting: multi-stage entries in index
  */
 
-import { FileMode } from "../files/file-mode.js";
+import { FileMode } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import type { MergeStageValue, StagingEntry, StagingStore } from "../staging/index.js";
 import type { TreeStore } from "../trees/index.js";

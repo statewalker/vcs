@@ -12,7 +12,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import { type FilesApi, joinPath } from "../files/index.js";
+import { type FilesApi, joinPath, readFile } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import {
   createPeeledRef,
@@ -48,7 +48,7 @@ export async function readPackedRefs(files: FilesApi, gitDir: string): Promise<P
 
   let content: string;
   try {
-    const data = await files.readFile(packedRefsPath);
+    const data = await readFile(files, packedRefsPath);
     content = new TextDecoder().decode(data);
   } catch {
     // File doesn't exist or can't be read

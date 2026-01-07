@@ -315,9 +315,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../utils
-      '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -520,6 +517,9 @@ importers:
 
   packages/utils:
     dependencies:
+      '@statewalker/webrun-files':
+        specifier: 'catalog:'
+        version: 0.5.0
       pako:
         specifier: ^2.1.0
         version: 2.1.0

@@ -10,7 +10,7 @@
  */
 
 import type { ObjectId } from "@statewalker/vcs-core";
-import { dirname, type FilesApi, joinPath } from "../files/index.js";
+import { dirname, type FilesApi, joinPath, readFile } from "../files/index.js";
 import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-types.js";
 
 /**
@@ -180,7 +180,7 @@ export async function updateRef(
   if (oldValue !== undefined) {
     const refPath = joinPath(gitDir, refName);
     try {
-      const content = await files.readFile(refPath);
+      const content = await readFile(files, refPath);
       const currentValue = new TextDecoder().decode(content).trim();
       if (currentValue !== oldValue) {
         return false;

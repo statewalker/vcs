@@ -8,7 +8,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import { type FilesApi, joinPath } from "../files/index.js";
+import { type FilesApi, joinPath, readFile } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import { findPackedRef, readPackedRefs } from "./packed-refs-reader.js";
 import {
@@ -67,7 +67,7 @@ export async function readLooseRef(
 
   let content: Uint8Array;
   try {
-    content = await files.readFile(refPath);
+    content = await readFile(files, refPath);
   } catch {
     return undefined;
   }

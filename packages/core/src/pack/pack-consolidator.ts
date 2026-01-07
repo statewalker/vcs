@@ -7,8 +7,7 @@
  * Based on jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/GC.java
  */
 
-import type { FilesApi } from "../files/index.js";
-import { joinPath } from "../files/index.js";
+import { type FilesApi, joinPath, readFile } from "../files/index.js";
 import type { PackDirectory } from "./pack-directory.js";
 import { PendingPack } from "./pending-pack.js";
 import type { PackObjectType } from "./types.js";
@@ -206,7 +205,7 @@ export class PackConsolidator {
           size = stat?.size ?? 0;
         } catch {
           // Stat might not be available, try reading file
-          const data = await this.files.readFile(packPath);
+          const data = await readFile(this.files, packPath);
           size = data.length;
         }
         infos.push({

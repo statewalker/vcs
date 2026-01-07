@@ -5,7 +5,7 @@
  * handling of large content that exceeds available memory.
  */
 
-import { type FilesApi, joinPath } from "@statewalker/webrun-files";
+import { type FilesApi, joinPath } from "../files/index.js";
 import type { VolatileContent, VolatileStore } from "./volatile-store.js";
 
 /**

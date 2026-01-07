@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BlobStore } from "../../src/blob/blob-store.js";
 import type { CommitStore } from "../../src/commits/commit-store.js";
-import { FileMode } from "../../src/files/file-mode.js";
+import { FileMode } from "../../src/files/index.js";
 import type { RefStore } from "../../src/refs/ref-store.js";
 import type { Repository } from "../../src/repository.js";
 import type { StagingEntry, StagingStore } from "../../src/staging/staging-store.js";

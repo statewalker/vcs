@@ -10,8 +10,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createPakoCompression, setCompression } from "@statewalker/vcs-utils";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createNodeFilesApi } from "../../src/files/index.js";
 import { createGitRepository, FileMode } from "../../src/index.js";
 
 // Initialize compression for tests - use pako for universal compatibility
@@ -88,7 +88,7 @@ describe("Git Interoperability", () => {
       execSync(`chmod -R u+rw "${objectsDir}"`, { stdio: "ignore" });
 
       // Open repository with VCS
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       const repo = await createGitRepository(files, ".git", { create: false });
 
       // Verify VCS can read the commit
@@ -157,7 +157,7 @@ describe("Git Interoperability", () => {
       const commitHash = git(["rev-parse", "HEAD"], repoDir);
 
       // Open repository with VCS
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       const repo = await createGitRepository(files, ".git", { create: false });
 
       // Verify VCS can read from pack files
@@ -189,7 +189,7 @@ describe("Git Interoperability", () => {
       await fs.mkdir(repoDir);
 
       // Create repository with VCS
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       const repo = await createGitRepository(files, ".git", {
         create: true,
         defaultBranch: "main",
@@ -242,7 +242,7 @@ describe("Git Interoperability", () => {
       await fs.mkdir(repoDir);
 
       // Create repository with VCS
-      const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+      const files = createNodeFilesApi({ fs, rootDir: repoDir });
       const repo = await createGitRepository(files, ".git", {
         create: true,
         defaultBranch: "main",
@@ -305,7 +305,7 @@ describe("Git Interoperability", () => {
         execSync(`chmod -R u+rw "${objectsDir}"`, { stdio: "ignore" });
 
         // Step 2: VCS reads what git wrote
-        const files = new FilesApi(new NodeFilesApi({ fs, rootDir: repoDir }));
+        const files = createNodeFilesApi({ fs, rootDir: repoDir });
         const repo = await createGitRepository(files, ".git", { create: false });
 
         const vcsHead1 = await repo.getHead();

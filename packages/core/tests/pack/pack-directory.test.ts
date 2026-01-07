@@ -6,8 +6,8 @@
 
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
 import {
   PackDirectory,
   PackObjectType,
@@ -37,7 +37,7 @@ describe("PackDirectory", () => {
   const basePath = "/repo/objects/pack";
 
   beforeEach(() => {
-    files = new FilesApi(new MemFilesApi());
+    files = createInMemoryFilesApi();
   });
 
   describe("scan", () => {
