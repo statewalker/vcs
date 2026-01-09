@@ -82,7 +82,7 @@ export async function readAt(
   length: number,
   position: number,
 ): Promise<number> {
-  const data = await readBlock(files.read(path, { start: position, len: length }), length);
+  const data = await readBlock(files.read(path, { start: position, length }), length);
   buffer.set(data, bufferOffset);
   return data.length;
 }
@@ -105,5 +105,5 @@ export async function readRange(
   position: number,
   length: number,
 ): Promise<Uint8Array> {
-  return readBlock(files.read(path, { start: position, len: length }), length);
+  return readBlock(files.read(path, { start: position, length }), length);
 }

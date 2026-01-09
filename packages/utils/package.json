@@ -80,6 +80,8 @@
   },
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
+    "@statewalker/webrun-files-mem": "catalog:",
+    "@statewalker/webrun-files-node": "catalog:",
     "pako": "^2.1.0"
   }
 }
