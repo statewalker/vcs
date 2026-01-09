@@ -36,5 +36,12 @@
   },
   "eslintConfig": {
     "extends": []
+  },
+  "pnpm": {
+    "overrides": {
+      "@statewalker/webrun-files": "link:../webrun-files/packages/webrun-files",
+      "@statewalker/webrun-files-mem": "link:../webrun-files/packages/webrun-files-mem",
+      "@statewalker/webrun-files-node": "link:../webrun-files/packages/webrun-files-node"
+    }
   }
 }

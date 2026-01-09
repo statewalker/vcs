@@ -13,7 +13,7 @@ export interface ReadOptions {
   /** Start offset in bytes */
   start?: number;
   /** Number of bytes to read */
-  len?: number;
+  length?: number;
   /** AbortSignal for cancellation */
   signal?: AbortSignal;
 }

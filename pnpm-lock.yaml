@@ -9,9 +9,6 @@ catalogs:
     '@biomejs/biome':
       specifier: ^2.3.7
       version: 2.3.11
-    '@statewalker/webrun-files':
-      specifier: ^0.5.0
-      version: 0.5.0
     '@types/node':
       specifier: ^24.10.1
       version: 24.10.4
@@ -36,6 +33,11 @@ catalogs:
     vitest:
       specifier: ^4.0.12
       version: 4.0.16
+
+overrides:
+  '@statewalker/webrun-files': link:../webrun-files/packages/webrun-files
+  '@statewalker/webrun-files-mem': link:../webrun-files/packages/webrun-files-mem
+  '@statewalker/webrun-files-node': link:../webrun-files/packages/webrun-files-node
 
 importers:
 
@@ -494,8 +496,14 @@ importers:
   packages/utils:
     dependencies:
       '@statewalker/webrun-files':
-        specifier: 'catalog:'
-        version: 0.5.0
+        specifier: link:../../../webrun-files/packages/webrun-files
+        version: link:../../../webrun-files/packages/webrun-files
+      '@statewalker/webrun-files-mem':
+        specifier: link:../../../webrun-files/packages/webrun-files-mem
+        version: link:../../../webrun-files/packages/webrun-files-mem
+      '@statewalker/webrun-files-node':
+        specifier: link:../../../webrun-files/packages/webrun-files-node
+        version: link:../../../webrun-files/packages/webrun-files-node
       pako:
         specifier: ^2.1.0
         version: 2.1.0
@@ -1051,9 +1059,6 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
-
-  '@statewalker/webrun-files@0.5.0':
-    resolution: {integrity: sha512-dE6/OxrwzNd9h+Dxo3/2ZIoO8UMVQI3Zpf7ukzmk2OOd05H93KoiWAMWPLS1UKzhXkk+FSa0dMeY7IUZh02VKw==}
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
@@ -2156,8 +2161,6 @@ snapshots:
     optional: true
 
   '@standard-schema/spec@1.1.0': {}
-
-  '@statewalker/webrun-files@0.5.0': {}
 
   '@tybys/wasm-util@0.10.1':
     dependencies:
