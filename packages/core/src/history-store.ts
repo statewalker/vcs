@@ -1,11 +1,11 @@
 /**
- * Repository interface - shared history storage
+ * HistoryStore interface - shared history storage (Part 1 of Three-Part Architecture)
  *
- * A Repository contains immutable objects (commits, trees, blobs, tags)
+ * A HistoryStore contains immutable objects (commits, trees, blobs, tags)
  * and shared refs (branches, remote tracking refs).
  *
  * For local checkout state (HEAD, staging, merge state), use WorkingCopy.
- * Multiple WorkingCopies can share a single Repository.
+ * Multiple WorkingCopies can share a single HistoryStore.
  *
  * Implementations may use different backends:
  * - File-based: .git directory structure
@@ -25,9 +25,9 @@ import type { TagStore } from "./tags/tag-store.js";
 import type { TreeStore } from "./trees/tree-store.js";
 
 /**
- * Repository configuration
+ * HistoryStore configuration
  */
-export interface RepositoryConfig {
+export interface HistoryStoreConfig {
   /** Repository name (optional) */
   name?: string;
   /** Whether this is a bare repository */
@@ -37,14 +37,14 @@ export interface RepositoryConfig {
 }
 
 /**
- * Repository interface
+ * HistoryStore interface
  *
  * Combines object stores and shared refs into a unified repository interface.
  * Contains immutable history that can be shared across multiple working copies.
  *
  * @see WorkingCopy for local checkout state (HEAD, staging, merge state)
  */
-export interface Repository {
+export interface HistoryStore {
   /** Unified Git object storage (raw objects with headers) */
   readonly objects: GitObjectStore;
 
@@ -64,7 +64,7 @@ export interface Repository {
   readonly refs: RefStore;
 
   /** Repository configuration */
-  readonly config: RepositoryConfig;
+  readonly config: HistoryStoreConfig;
 
   /**
    * Delta storage for garbage collection (optional)
@@ -109,11 +109,11 @@ export interface Repository {
 /**
  * GitStores - Collection of Git object stores
  *
- * A subset of Repository containing only the immutable object stores
+ * A subset of HistoryStore containing only the immutable object stores
  * (without refs, config, or lifecycle methods).
  * Useful for transport and storage operations that work with raw objects.
  *
- * @see Repository for full repository interface with refs and lifecycle
+ * @see HistoryStore for full repository interface with refs and lifecycle
  */
 export interface GitStores {
   /** Unified Git object storage (raw objects with headers) */
@@ -131,3 +131,9 @@ export interface GitStores {
   /** Tag object storage */
   readonly tags: TagStore;
 }
+
+// Backward compatibility aliases
+/** @deprecated Use HistoryStore instead */
+export type Repository = HistoryStore;
+/** @deprecated Use HistoryStoreConfig instead */
+export type RepositoryConfig = HistoryStoreConfig;

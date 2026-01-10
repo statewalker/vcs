@@ -1,8 +1,8 @@
 import type {
   BlobStore,
   CommitStore,
+  HistoryStore,
   RefStore,
-  Repository,
   StagingStore,
   TagStore,
   TreeStore,
@@ -99,11 +99,11 @@ export interface GitStoreWithWorkTree extends GitStore {
 }
 
 /**
- * Options for creating a GitStore from a Repository.
+ * Options for creating a GitStore from a HistoryStore.
  */
 export interface CreateGitStoreOptions {
-  /** The repository providing object stores */
-  repository: Repository;
+  /** The history store providing object stores */
+  repository: HistoryStore;
 
   /** Staging area for index operations */
   staging: StagingStore;
@@ -113,9 +113,9 @@ export interface CreateGitStoreOptions {
 }
 
 /**
- * Create a GitStore from a Repository and staging store.
+ * Create a GitStore from a HistoryStore and staging store.
  *
- * This factory function allows using any Repository implementation
+ * This factory function allows using any HistoryStore implementation
  * (file-based, SQL, memory, etc.) with the Git command facade.
  *
  * @example

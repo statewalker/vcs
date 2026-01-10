@@ -6,8 +6,8 @@
  * without dealing with actual file operations.
  */
 
+import type { HistoryStore } from "../history-store.js";
 import type { ObjectId } from "../id/index.js";
-import type { Repository } from "../repository.js";
 import type { StagingStore } from "../staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "../status/index.js";
 import type {
@@ -47,7 +47,7 @@ export class MemoryWorkingCopy implements WorkingCopy {
   readonly config: WorkingCopyConfig;
 
   constructor(
-    readonly repository: Repository,
+    readonly repository: HistoryStore,
     readonly worktree: WorkingTreeIterator,
     readonly staging: StagingStore,
     stash?: StashStore,
@@ -252,7 +252,7 @@ export class MemoryWorkingCopy implements WorkingCopy {
  * Create a MemoryWorkingCopy instance.
  */
 export function createMemoryWorkingCopy(
-  repository: Repository,
+  repository: HistoryStore,
   worktree: WorkingTreeIterator,
   staging: StagingStore,
   stash?: StashStore,

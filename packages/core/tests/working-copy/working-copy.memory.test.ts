@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Repository } from "../../src/repository.js";
+import type { HistoryStore } from "../../src/history-store.js";
 import type { StagingStore } from "../../src/staging/staging-store.js";
 import { MemoryStashStore } from "../../src/working-copy/stash-store.memory.js";
 import { MemoryWorkingCopy } from "../../src/working-copy/working-copy.memory.js";
@@ -8,7 +8,7 @@ import type { WorkingTreeIterator } from "../../src/worktree/working-tree-iterat
 
 describe("MemoryWorkingCopy", () => {
   let workingCopy: MemoryWorkingCopy;
-  let mockRepository: Repository;
+  let mockRepository: HistoryStore;
   let mockWorktree: WorkingTreeIterator;
   let mockStaging: StagingStore;
 

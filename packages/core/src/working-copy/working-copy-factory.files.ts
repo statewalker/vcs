@@ -5,7 +5,7 @@
  * and to add additional worktrees to an existing repository.
  */
 
-import type { Repository } from "../repository.js";
+import type { HistoryStore } from "../history-store.js";
 import type {
   AddWorktreeOptions,
   WorkingCopy,
@@ -37,8 +37,8 @@ export interface WorkingCopyFactoryFilesApi
  * for the repository, staging, and worktree components.
  */
 export interface GitWorkingCopyContext {
-  /** The repository to link to */
-  repository: Repository;
+  /** The history store to link to */
+  repository: HistoryStore;
   /** Factory function to create the staging store */
   createStagingStore: (gitDir: string) => Promise<import("../staging/index.js").StagingStore>;
   /** Factory function to create the working tree iterator */
@@ -132,7 +132,7 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
    * @param options Worktree options
    */
   async addWorktree(
-    repository: Repository,
+    repository: HistoryStore,
     worktreePath: string,
     options: AddWorktreeOptions = {},
   ): Promise<WorkingCopy> {

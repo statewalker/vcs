@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BlobStore } from "../../src/blob/blob-store.js";
 import type { CommitStore } from "../../src/commits/commit-store.js";
 import { FileMode } from "../../src/files/index.js";
+import type { HistoryStore } from "../../src/history-store.js";
 import type { RefStore } from "../../src/refs/ref-store.js";
-import type { Repository } from "../../src/repository.js";
 import type { StagingEntry, StagingStore } from "../../src/staging/staging-store.js";
 import { FileStatus } from "../../src/status/status-calculator.js";
 import type { TreeEntry, TreeStore } from "../../src/trees/tree-store.js";
@@ -174,7 +174,7 @@ function createMockRepository(options: {
   branch?: string;
   treeEntries?: Map<string, TreeEntry[]>;
   commitTrees?: Map<string, string>;
-}): Repository {
+}): HistoryStore {
   const { headCommit, branch = "main", treeEntries = new Map(), commitTrees = new Map() } = options;
 
   return {
@@ -231,7 +231,7 @@ function createWorkingTreeEntry(
 
 describe("GitWorkingCopy", () => {
   let workingCopy: GitWorkingCopy;
-  let mockRepository: Repository;
+  let mockRepository: HistoryStore;
   let mockWorktree: WorkingTreeIterator;
   let mockStaging: StagingStore;
   let mockStash: MemoryStashStore;

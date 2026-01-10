@@ -103,9 +103,9 @@ export class Git implements Disposable {
   }
 
   /**
-   * Create a Git facade from a Repository and staging store.
+   * Create a Git facade from a HistoryStore and staging store.
    *
-   * This factory method allows using any Repository implementation
+   * This factory method allows using any HistoryStore implementation
    * (file-based, SQL, memory, etc.) with the Git command facade.
    *
    * @example
@@ -113,7 +113,7 @@ export class Git implements Disposable {
    * import { Git } from "@statewalker/vcs-commands";
    * import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
    *
-   * // Use with any Repository implementation
+   * // Use with any HistoryStore implementation
    * const staging = new MemoryStagingStore();
    * const git = Git.fromRepository({ repository: repo, staging });
    * await git.commit().setMessage("Initial commit").call();

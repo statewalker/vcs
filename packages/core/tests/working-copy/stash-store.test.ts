@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Repository } from "../../src/repository.js";
+import type { HistoryStore } from "../../src/history-store.js";
 import type { StashFilesApi } from "../../src/working-copy/stash-store.files.js";
 
 import { GitStashStore } from "../../src/working-copy/stash-store.files.js";
@@ -102,7 +102,7 @@ function createMockRepository() {
 
 describe("GitStashStore", () => {
   let stash: GitStashStore;
-  let repository: Repository;
+  let repository: HistoryStore;
   let filesApi: ReturnType<typeof createMockFilesApi>;
   let headCommitId: string;
   let headTreeId: string;

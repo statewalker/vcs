@@ -13,13 +13,13 @@ import { GitCommitStore } from "../commits/commit-store.impl.js";
 import { GCController } from "../delta/gc-controller.js";
 import { RawStoreWithDelta } from "../delta/raw-store-with-delta.js";
 import { createInMemoryFilesApi, type FilesApi, joinPath } from "../files/index.js";
+import type { HistoryStore, HistoryStoreConfig } from "../history-store.js";
 import type { ObjectId } from "../id/object-id.js";
 import { GitObjectStoreImpl } from "../objects/object-store.impl.js";
 import { PackDeltaStore } from "../pack/pack-delta-store.js";
 import { createFileRefStore, type FileRefStore } from "../refs/ref-store.files.js";
 import type { MemoryRefStore } from "../refs/ref-store.memory.js";
 import { createRefsStructure, writeSymbolicRef } from "../refs/ref-writer.js";
-import type { Repository, RepositoryConfig } from "../repository.js";
 import { GitTagStore } from "../tags/tag-store.impl.js";
 import { GitTreeStore } from "../trees/tree-store.impl.js";
 
@@ -52,12 +52,12 @@ export interface CreateRepositoryOptions {
 }
 
 /**
- * Git-compatible Repository implementation
+ * Git-compatible HistoryStore implementation
  *
  * Composes all stores and provides lifecycle management.
  */
-class GitRepository implements Repository {
-  readonly config: RepositoryConfig;
+class GitRepository implements HistoryStore {
+  readonly config: HistoryStoreConfig;
   readonly gc: GCController;
 
   constructor(
@@ -68,7 +68,7 @@ class GitRepository implements Repository {
     readonly tags: GitTagStore,
     readonly refs: FileRefStore | MemoryRefStore,
     private readonly _isInitialized: boolean,
-    config: RepositoryConfig,
+    config: HistoryStoreConfig,
     readonly deltaStorage: RawStoreWithDelta,
   ) {
     this.config = config;
@@ -208,7 +208,7 @@ export async function createGitRepository(
     isInitialized = true;
   }
 
-  const config: RepositoryConfig = {
+  const config: HistoryStoreConfig = {
     name,
     bare,
   };
