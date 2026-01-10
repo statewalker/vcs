@@ -12,10 +12,7 @@ import {
   GitWorkingCopy,
   type WorkingCopyFilesApi,
 } from "../../src/working-copy/working-copy.files.js";
-import type {
-  WorktreeEntry,
-  WorktreeStore,
-} from "../../src/worktree/worktree-store.js";
+import type { WorktreeEntry, WorktreeStore } from "../../src/worktree/worktree-store.js";
 
 /**
  * Create mock files API
@@ -213,10 +210,7 @@ function createStagingEntry(
 /**
  * Create working tree entry helper
  */
-function createWorktreeEntry(
-  path: string,
-  options: Partial<WorktreeEntry> = {},
-): WorktreeEntry {
+function createWorktreeEntry(path: string, options: Partial<WorktreeEntry> = {}): WorktreeEntry {
   return {
     path,
     name: path.split("/").pop() ?? path,

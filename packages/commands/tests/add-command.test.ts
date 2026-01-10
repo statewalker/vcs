@@ -641,11 +641,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       );
 
       // With custom iterator, should work
-      const result = await git
-        .add()
-        .addFilepattern(".")
-        .setWorktreeStore(customWorktree)
-        .call();
+      const result = await git.add().addFilepattern(".").setWorktreeStore(customWorktree).call();
 
       expect(result.added).toContain("custom.txt");
     });
