@@ -21,6 +21,7 @@ import type { GCController } from "./delta/gc-controller.js";
 import type { RawStoreWithDelta } from "./delta/raw-store-with-delta.js";
 import type { GitObjectStore } from "./objects/object-store.js";
 import type { RefStore } from "./refs/ref-store.js";
+import type { RepositoryAccess } from "./repository-access/repository-access.js";
 import type { TagStore } from "./tags/tag-store.js";
 import type { TreeStore } from "./trees/tree-store.js";
 
@@ -104,6 +105,20 @@ export interface HistoryStore {
    * @returns True if repository has been initialized
    */
   isInitialized(): Promise<boolean>;
+
+  /**
+   * Get repository access for byte-level object operations
+   *
+   * Returns a RepositoryAccess interface for working with objects
+   * at the wire format level. Use this for transport operations,
+   * delta compression, and other low-level object access.
+   *
+   * Prefer using typed stores (commits, trees, blobs, tags) for
+   * normal application code.
+   *
+   * @returns RepositoryAccess for byte-level object access
+   */
+  getRepositoryAccess(): RepositoryAccess;
 }
 
 /**

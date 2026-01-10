@@ -8,7 +8,7 @@ import type {
   AnnotatedTag,
   Commit,
   CommitStore,
-  GitObjectStore,
+  RepositoryAccess as CoreRepositoryAccess,
   ObjectTypeCode,
   Ref,
   RefStore,
@@ -79,9 +79,45 @@ function parseGitObjectHeader(data: Uint8Array): {
 }
 
 /**
- * Create mock GitObjectStore.
+ * Map type string to ObjectTypeCode.
  */
-function createMockObjectStore(objects?: Map<string, Uint8Array>): GitObjectStore {
+function stringToTypeCode(type: string): ObjectTypeCode {
+  switch (type) {
+    case "commit":
+      return 1 as ObjectTypeCode;
+    case "tree":
+      return 2 as ObjectTypeCode;
+    case "blob":
+      return 3 as ObjectTypeCode;
+    case "tag":
+      return 4 as ObjectTypeCode;
+    default:
+      throw new Error(`Unknown type: ${type}`);
+  }
+}
+
+/**
+ * Map ObjectTypeCode to type string.
+ */
+function typeCodeToString(type: ObjectTypeCode): string {
+  switch (type) {
+    case 1:
+      return "commit";
+    case 2:
+      return "tree";
+    case 3:
+      return "blob";
+    case 4:
+      return "tag";
+    default:
+      throw new Error(`Unknown type code: ${type}`);
+  }
+}
+
+/**
+ * Create mock CoreRepositoryAccess.
+ */
+function createMockRepositoryAccess(objects?: Map<string, Uint8Array>): CoreRepositoryAccess {
   const store =
     objects ??
     new Map([
@@ -91,20 +127,10 @@ function createMockObjectStore(objects?: Map<string, Uint8Array>): GitObjectStor
     ]);
 
   return {
-    async store(type, content) {
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of content) {
-        chunks.push(chunk);
-      }
-      const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-      const body = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        body.set(chunk, offset);
-        offset += chunk.length;
-      }
+    async store(type: ObjectTypeCode, content: Uint8Array) {
+      const typeStr = typeCodeToString(type);
       // Create full git object with header
-      const fullData = createGitObject(type, body);
+      const fullData = createGitObject(typeStr, content);
       // Generate simple hash-like ID
       const id = Array.from(fullData.slice(0, 20))
         .map((b) => b.toString(16).padStart(2, "0"))
@@ -113,32 +139,36 @@ function createMockObjectStore(objects?: Map<string, Uint8Array>): GitObjectStor
       store.set(id, fullData);
       return id;
     },
-    async *load(id) {
+    async load(id) {
       const obj = store.get(id);
-      if (!obj) throw new Error(`Object not found: ${id}`);
-      const { headerLength } = parseGitObjectHeader(obj);
-      yield obj.subarray(headerLength);
+      if (!obj) return null;
+      const { type, headerLength } = parseGitObjectHeader(obj);
+      return {
+        type: stringToTypeCode(type),
+        content: obj.subarray(headerLength),
+      };
     },
-    async *loadRaw(id) {
-      const obj = store.get(id);
-      if (!obj) throw new Error(`Object not found: ${id}`);
-      yield obj;
+    async loadWireFormat(id) {
+      return store.get(id) ?? null;
     },
-    async getHeader(id) {
+    async getInfo(id) {
       const obj = store.get(id);
-      if (!obj) throw new Error(`Object not found: ${id}`);
+      if (!obj) return null;
       const { type, size } = parseGitObjectHeader(obj);
-      return { type: type as "commit" | "tree" | "blob" | "tag", size };
+      return { id, type: stringToTypeCode(type), size };
     },
     async has(id) {
       return store.has(id);
     },
-    async delete(id) {
-      return store.delete(id);
-    },
-    async *list() {
+    async *enumerate() {
       for (const id of store.keys()) {
         yield id;
+      }
+    },
+    async *enumerateWithInfo() {
+      for (const [id, obj] of store.entries()) {
+        const { type, size } = parseGitObjectHeader(obj);
+        yield { id, type: stringToTypeCode(type), size };
       }
     },
   };
@@ -436,7 +466,7 @@ function createMockVcsStores(options?: {
   tags?: Map<string, { object: string; objectType: ObjectTypeCode }>;
 }): VcsStores {
   return {
-    objects: createMockObjectStore(options?.objects),
+    repositoryAccess: createMockRepositoryAccess(options?.objects),
     refs: createMockRefStore({ refs: options?.refs }),
     commits: createMockCommitStore(options?.commits),
     trees: createMockTreeStore(options?.trees),
