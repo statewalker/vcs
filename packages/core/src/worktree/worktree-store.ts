@@ -84,11 +84,3 @@ export interface WorktreeStore {
    */
   readContent(path: string): AsyncIterable<Uint8Array>;
 }
-
-// Backward compatibility aliases
-/** @deprecated Use WorktreeStore instead */
-export type WorkingTreeIterator = WorktreeStore;
-/** @deprecated Use WorktreeEntry instead */
-export type WorkingTreeEntry = WorktreeEntry;
-/** @deprecated Use WorktreeStoreOptions instead */
-export type WorkingTreeIteratorOptions = WorktreeStoreOptions;
