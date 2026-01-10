@@ -162,6 +162,9 @@ export function createGitStore(options: CreateGitStoreOptions): GitStore | GitSt
  * This factory function allows using a WorkingCopy with the Git command facade.
  * The WorkingCopy provides all necessary components: repository, staging, and worktree.
  *
+ * @deprecated Use createGitStoreFromStores() with the Three-Part Store Architecture instead.
+ * This function is kept for backward compatibility with WorkingCopy.
+ *
  * @example
  * ```typescript
  * import { createGitStoreFromWorkingCopy } from "@statewalker/vcs-commands";
