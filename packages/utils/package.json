@@ -14,10 +14,6 @@
       "types": "./dist/compression/index.d.ts",
       "import": "./dist/compression/index.js"
     },
-    "./compression-node": {
-      "types": "./dist/compression/compression-node/index.d.ts",
-      "import": "./dist/compression/compression-node/index.js"
-    },
     "./hash": {
       "types": "./dist/hash/index.d.ts",
       "import": "./dist/hash/index.js"
@@ -69,11 +65,15 @@
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run",
+    "test:browser": "vitest run --config vitest.config.browser.ts",
     "lint": "biome lint src tests"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/pako": "^2.0.4",
+    "@vitest/browser": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
+    "playwright": "catalog:",
     "rolldown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
@@ -81,7 +81,6 @@
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
     "@statewalker/webrun-files-mem": "catalog:",
-    "@statewalker/webrun-files-node": "catalog:",
     "pako": "^2.1.0"
   }
 }

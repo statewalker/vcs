@@ -2,9 +2,10 @@
  * Compression module
  *
  * Provides streaming and block-based compression/decompression operations.
- * By default uses Web Compression Streams API.
+ * By default uses Web Compression Streams API (WinterTC compliant).
  *
- * Use setCompression() to override with custom implementations (e.g., Node.js zlib).
+ * Use setCompressionUtils() to override with platform-specific implementations
+ * (e.g., Node.js zlib for better performance).
  *
  * Primary API:
  * - Streaming: deflate(), inflate() - for large data or incremental processing
@@ -16,7 +17,7 @@ import {
   type ByteStream,
   type CompressBlockFunction,
   CompressionError,
-  type CompressionImplementation,
+  type CompressionUtils,
   type DecompressBlockFunction,
   type DecompressBlockPartialFunction,
   type DeflateFunction,
@@ -41,26 +42,31 @@ let _decompressBlock: DecompressBlockFunction | null = null;
 let _decompressBlockPartial: DecompressBlockPartialFunction | null = null;
 
 /**
- * Set custom compression implementation
+ * Set custom compression utilities
  *
  * This allows overriding the default web-based compression with
  * platform-specific implementations (e.g., Node.js zlib for better performance).
  *
  * @example
  * ```ts
- * import { setCompression } from "@statewalker/vcs-utils/compression";
- * import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+ * import { setCompressionUtils } from "@statewalker/vcs-utils/compression";
+ * import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
  *
- * setCompression(createNodeCompression());
+ * setCompressionUtils(createNodeCompression());
  * ```
  */
-export function setCompression(impl: Partial<CompressionImplementation>): void {
+export function setCompressionUtils(impl: Partial<CompressionUtils>): void {
   if (impl.deflate) _deflate = impl.deflate;
   if (impl.inflate) _inflate = impl.inflate;
   if (impl.compressBlock) _compressBlock = impl.compressBlock;
   if (impl.decompressBlock) _decompressBlock = impl.decompressBlock;
   if (impl.decompressBlockPartial) _decompressBlockPartial = impl.decompressBlockPartial;
 }
+
+/**
+ * @deprecated Use setCompressionUtils instead
+ */
+export const setCompression = setCompressionUtils;
 
 /**
  * Compress a byte stream using DEFLATE

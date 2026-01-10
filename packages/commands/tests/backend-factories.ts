@@ -17,13 +17,13 @@ import {
   SQLStagingStore,
 } from "@statewalker/vcs-store-sql";
 import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
-import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 
 import type { GitStore } from "../src/index.js";
 
 // Enable Node.js compression for SQL backend
-setCompression(createNodeCompression());
+setCompressionUtils(createNodeCompression());
 
 /**
  * Test context for GitStore tests

@@ -9,7 +9,7 @@ import pako from "pako";
 import { decompressBlockPartialPako } from "./pako-inflate.js";
 import type {
   ByteStream,
-  CompressionImplementation,
+  CompressionUtils,
   PartialDecompressionResult,
   StreamingCompressionOptions,
 } from "./types.js";
@@ -140,17 +140,17 @@ export async function* inflatePako(
  * This implementation works universally in Node.js and browsers.
  * It uses block-based compression/decompression (collects all data first).
  *
- * @returns CompressionImplementation configured for pako
+ * @returns CompressionUtils configured for pako
  *
  * @example
  * ```ts
- * import { setCompression } from "@statewalker/vcs-utils/compression";
+ * import { setCompressionUtils } from "@statewalker/vcs-utils/compression";
  * import { createPakoCompression } from "@statewalker/vcs-utils/compression";
  *
- * setCompression(createPakoCompression());
+ * setCompressionUtils(createPakoCompression());
  * ```
  */
-export function createPakoCompression(): CompressionImplementation {
+export function createPakoCompression(): CompressionUtils {
   return {
     deflate: deflatePako,
     inflate: inflatePako,

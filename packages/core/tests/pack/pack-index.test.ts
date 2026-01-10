@@ -4,9 +4,9 @@
  * Based on storage-git pack-index tests and JGit PackIndexTest
  */
 
-import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   type PackIndexWriterEntry,
@@ -17,7 +17,7 @@ import {
 
 // Set up Node.js compression before tests
 beforeAll(() => {
-  setCompression(createNodeCompression());
+  setCompressionUtils(createNodeCompression());
 });
 
 /**

@@ -643,7 +643,7 @@ import { createGitRepository } from "@statewalker/vcs-core";
 const memRepo = await createGitRepository();
 
 // File-based repository
-import { createNodeFilesApi } from "@statewalker/vcs-utils/files";
+import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 const files = createNodeFilesApi({ fs, rootDir: "/path/to/project" });
 const fileRepo = await createGitRepository(files, ".git");
 ```

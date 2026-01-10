@@ -4,7 +4,6 @@ export default defineConfig({
   input: {
     index: "src/index.ts",
     "compression/index": "src/compression/index.ts",
-    "compression/compression-node/index": "src/compression/compression-node/index.ts",
     "hash/index": "src/hash/index.ts",
     "hash/crc32/index": "src/hash/crc32/index.ts",
     "hash/sha1/index": "src/hash/sha1/index.ts",

@@ -22,7 +22,7 @@ This separation ensures utils can be used independently for general-purpose hash
 
 ### Browser-First Compatibility
 
-All implementations work in browser environments without Node.js APIs. Platform-specific optimizations (like Node.js zlib) are optional and injected via `setCompression()`. This enables:
+All implementations work in browser environments without Node.js APIs. Platform-specific optimizations (like Node.js zlib) are optional and injected via `setCompressionUtilsUtils()`. This enables:
 
 - Same code running in browsers, edge functions, and Node.js
 - Optional native acceleration when available
@@ -52,7 +52,7 @@ This design enables processing multi-gigabyte files without loading everything i
 │   └── utils/           - Hex/byte conversions
 ├── compression/          - DEFLATE/INFLATE streaming
 │   ├── compression/     - Core API and pako wrapper
-│   └── compression-node/ - Optional Node.js zlib binding
+│   └── // Node.js compression: use @statewalker/vcs-utils-node - Optional Node.js zlib binding
 ├── diff/                 - Diff and patch algorithms
 │   ├── delta/           - Binary delta encoding (Fossil format)
 │   ├── patch/           - Git patch parsing/application
@@ -151,7 +151,7 @@ The compression module provides streaming DEFLATE/INFLATE with pluggable impleme
 ### Core API
 
 ```typescript
-import { deflate, inflate, setCompression } from "@statewalker/vcs-utils/compression";
+import { deflate, inflate, setCompressionUtils } from "@statewalker/vcs-utils/compression";
 
 // Streaming compression
 async function* compress(input: AsyncIterable<Uint8Array>) {
@@ -170,10 +170,10 @@ const decompressed = await decompressBlock(compressed);
 The default implementation uses pako (pure JavaScript). For better performance in Node.js:
 
 ```typescript
-import { setCompression } from "@statewalker/vcs-utils/compression";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { setCompressionUtils } from "@statewalker/vcs-utils/compression";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 
-setCompression(createNodeCompression());
+setCompressionUtils(createNodeCompression());
 ```
 
 ### Partial Decompression
@@ -378,10 +378,10 @@ const splitter = newSplitter(new TextEncoder().encode("\r\n"));
 
 ### Custom Compression
 
-Implement `CompressionImplementation` for custom backends:
+Implement `CompressionUtils` for custom backends:
 
 ```typescript
-interface CompressionImplementation {
+interface CompressionUtils {
   deflate: (stream: ByteStream, options?) => ByteStream;
   inflate: (stream: ByteStream, options?) => ByteStream;
   compressBlock: (data: Uint8Array, options?) => Promise<Uint8Array>;
@@ -389,7 +389,7 @@ interface CompressionImplementation {
   decompressBlockPartial?: (data: Uint8Array, options?) => Promise<PartialDecompressionResult>;
 }
 
-setCompression(myCustomImplementation);
+setCompressionUtils(myCustomImplementation);
 ```
 
 ### Custom Delta Strategies

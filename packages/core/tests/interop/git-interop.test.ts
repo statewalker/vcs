@@ -9,13 +9,13 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createPakoCompression, setCompression } from "@statewalker/vcs-utils";
+import { createPakoCompression, setCompressionUtils } from "@statewalker/vcs-utils";
+import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createNodeFilesApi } from "../../src/files/index.js";
 import { createGitRepository, FileMode } from "../../src/index.js";
 
 // Initialize compression for tests - use pako for universal compatibility
-setCompression(createPakoCompression());
+setCompressionUtils(createPakoCompression());
 
 /**
  * Run git command in a directory

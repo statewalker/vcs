@@ -5,8 +5,8 @@
  * Uses the @statewalker/webrun-files-node package directly.
  */
 
+import type { FilesApi } from "@statewalker/vcs-utils/files";
 import { NodeFilesApi } from "@statewalker/webrun-files-node";
-import type { FilesApi } from "./files-api.js";
 
 /**
  * Create a Node.js filesystem-backed FilesApi instance.
@@ -16,6 +16,8 @@ import type { FilesApi } from "./files-api.js";
  *
  * @example
  * ```typescript
+ * import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
+ *
  * const files = createNodeFilesApi({
  *   rootDir: "/path/to/repo",
  * });

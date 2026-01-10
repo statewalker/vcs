@@ -6,8 +6,8 @@
  */
 
 import type { Delta } from "@statewalker/vcs-utils";
-import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 import type { DeltaInfo } from "../../src/delta/delta-store.js";
@@ -32,7 +32,7 @@ function createBlobWithHeader(content: string): Uint8Array {
 
 // Set up Node.js compression before tests
 beforeAll(() => {
-  setCompression(createNodeCompression());
+  setCompressionUtils(createNodeCompression());
 });
 
 // Helper to store delta using update pattern
