@@ -20,7 +20,6 @@ import { PackDeltaStore } from "../pack/pack-delta-store.js";
 import { createFileRefStore, type FileRefStore } from "../refs/ref-store.files.js";
 import type { MemoryRefStore } from "../refs/ref-store.memory.js";
 import { createRefsStructure, writeSymbolicRef } from "../refs/ref-writer.js";
-import { GitNativeRepositoryAccess, type RepositoryAccess } from "../repository-access/index.js";
 import { GitTagStore } from "../tags/tag-store.impl.js";
 import { GitTreeStore } from "../trees/tree-store.impl.js";
 
@@ -112,13 +111,6 @@ class GitRepository implements HistoryStore {
       return target;
     }
     return undefined;
-  }
-
-  /**
-   * Get repository access for byte-level object operations
-   */
-  getRepositoryAccess(): RepositoryAccess {
-    return new GitNativeRepositoryAccess(this.objects);
   }
 }
 
