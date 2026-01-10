@@ -42,9 +42,7 @@ export interface GitWorkingCopyContext {
   /** Factory function to create the staging store */
   createStagingStore: (gitDir: string) => Promise<import("../staging/index.js").StagingStore>;
   /** Factory function to create the worktree store */
-  createWorktreeIterator: (
-    worktreePath: string,
-  ) => import("../worktree/index.js").WorktreeStore;
+  createWorktreeIterator: (worktreePath: string) => import("../worktree/index.js").WorktreeStore;
 }
 
 /**

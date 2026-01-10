@@ -75,10 +75,7 @@ function createMockStagingStore(
 /**
  * Helper to create mock working tree iterator
  */
-function createMockWorktree(
-  entries: WorktreeEntry[],
-  hashes: Map<string, string>,
-): WorktreeStore {
+function createMockWorktree(entries: WorktreeEntry[], hashes: Map<string, string>): WorktreeStore {
   return {
     walk: vi.fn().mockImplementation(async function* () {
       for (const entry of entries) {
@@ -161,10 +158,7 @@ function createStagingEntry(
 /**
  * Helper to create a working tree entry
  */
-function createWorktreeEntry(
-  path: string,
-  options: Partial<WorktreeEntry> = {},
-): WorktreeEntry {
+function createWorktreeEntry(path: string, options: Partial<WorktreeEntry> = {}): WorktreeEntry {
   return {
     path,
     name: path.split("/").pop() ?? path,
