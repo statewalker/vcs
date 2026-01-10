@@ -38,8 +38,8 @@ import {
   StatusCommand,
   TagCommand,
 } from "./commands/index.js";
-import type { CreateGitStoreOptions, GitStore } from "./types.js";
-import { createGitStore } from "./types.js";
+import type { CreateGitStoreOptions, GitStore, GitStoresConfig } from "./types.js";
+import { createGitStore, createGitStoreFromStores } from "./types.js";
 
 /**
  * Main entry point for high-level Git operations.
@@ -124,6 +124,50 @@ export class Git implements Disposable {
    */
   static fromRepository(options: CreateGitStoreOptions): Git {
     const store = createGitStore(options);
+    return new Git(store);
+  }
+
+  /**
+   * Create a Git facade from the three-part store architecture.
+   *
+   * This factory method uses the new store separation:
+   * - HistoryStore: Immutable history (commits, trees, blobs, refs, tags)
+   * - CheckoutStore: Mutable local state (staging, HEAD, in-progress ops)
+   * - WorktreeStore: Filesystem access (working tree files)
+   *
+   * @example
+   * ```typescript
+   * import { Git } from "@statewalker/vcs-commands";
+   *
+   * // Use with three-part store architecture
+   * const git = Git.fromStores({
+   *   history: historyStore,
+   *   checkout: checkoutStore,
+   *   worktree: worktreeStore,
+   * });
+   *
+   * await git.commit().setMessage("Initial commit").call();
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // For read-only operations (no checkout store)
+   * const git = Git.fromStores({
+   *   history: historyStore,
+   *   staging: memoryStagingStore,
+   * });
+   *
+   * // Read-only commands work
+   * for await (const commit of await git.log().call()) {
+   *   console.log(commit.message);
+   * }
+   * ```
+   *
+   * @param config Store configuration with history, checkout, and worktree
+   * @returns A Git instance for executing commands
+   */
+  static fromStores(config: GitStoresConfig): Git {
+    const store = createGitStoreFromStores(config);
     return new Git(store);
   }
 
