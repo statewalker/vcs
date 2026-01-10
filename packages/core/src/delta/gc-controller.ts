@@ -11,7 +11,6 @@ import type { ObjectId } from "../id/object-id.js";
 import type { PackConsolidator } from "../pack/pack-consolidator.js";
 import type { TreeStore } from "../trees/tree-store.js";
 
-import type { DeltaDecisionStrategy } from "./delta-decision-strategy.js";
 import type { RawStoreWithDelta } from "./raw-store-with-delta.js";
 import { SimilarSizeCandidateStrategy } from "./strategies/similar-size-candidate.js";
 import type { DeltaCandidateStrategy, RepackOptions, RepackResult } from "./types.js";
@@ -22,21 +21,9 @@ import type { DeltaCandidateStrategy, RepackOptions, RepackResult } from "./type
 export interface GCScheduleOptions {
   /** Delta candidate strategy to use during GC */
   deltaCandidateStrategy?: DeltaCandidateStrategy;
-  /**
-   * Delta decision strategy for compression decisions
-   *
-   * When provided, the strategy's maxChainDepth is used instead of
-   * chainDepthThreshold. This allows using pre-configured strategies
-   * like createPackStrategy() or createNetworkStrategy().
-   */
-  deltaDecisionStrategy?: DeltaDecisionStrategy;
   /** Trigger GC when loose objects exceed this count */
   looseObjectThreshold?: number;
-  /**
-   * Trigger GC when delta chains exceed this depth
-   *
-   * @deprecated Use deltaDecisionStrategy.maxChainDepth instead
-   */
+  /** Trigger GC when delta chains exceed this depth */
   chainDepthThreshold?: number;
   /** Minimum interval between GC runs (ms) */
   minInterval?: number;
@@ -61,12 +48,8 @@ export interface GCResult {
 /**
  * Resolved GC options (with defaults applied)
  */
-type ResolvedGCOptions = Omit<
-  Required<GCScheduleOptions>,
-  "consolidator" | "deltaDecisionStrategy"
-> & {
+type ResolvedGCOptions = Omit<Required<GCScheduleOptions>, "consolidator"> & {
   consolidator?: PackConsolidator;
-  deltaDecisionStrategy?: DeltaDecisionStrategy;
 };
 
 /**
@@ -79,7 +62,6 @@ const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
   minInterval: 60000, // 1 minute
   quickPackThreshold: 5,
   consolidator: undefined,
-  deltaDecisionStrategy: undefined,
 };
 
 /**
@@ -114,16 +96,6 @@ export class GCController {
       ...DEFAULT_GC_OPTIONS,
       ...options,
     };
-  }
-
-  /**
-   * Get the maximum chain depth threshold
-   *
-   * Uses deltaDecisionStrategy.maxChainDepth if available,
-   * otherwise falls back to chainDepthThreshold.
-   */
-  private getMaxChainDepth(): number {
-    return this.options.deltaDecisionStrategy?.maxChainDepth ?? this.options.chainDepthThreshold;
   }
 
   /**
@@ -218,7 +190,7 @@ export class GCController {
         looseCount++;
       } else {
         const chainInfo = await this.storage.getDeltaChainInfo(objectId);
-        if (chainInfo && chainInfo.depth > this.getMaxChainDepth()) {
+        if (chainInfo && chainInfo.depth > this.options.chainDepthThreshold) {
           deepChains++;
         }
       }
@@ -282,7 +254,7 @@ export class GCController {
    * to a single pack file with valid cross-references.
    */
   private async repack(options?: RepackOptions): Promise<RepackResult> {
-    const maxChainDepth = options?.maxChainDepth ?? this.getMaxChainDepth();
+    const maxChainDepth = options?.maxChainDepth ?? this.options.chainDepthThreshold;
     const windowSize = options?.windowSize ?? 10;
 
     let objectsProcessed = 0;
