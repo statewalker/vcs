@@ -3,6 +3,8 @@ export * from "./binary/index.js";
 export * from "./blob/blob-store.impl.js";
 // Blob store
 export * from "./blob/blob-store.js";
+// CheckoutStore interface (Part 3 of Three-Part Architecture)
+export * from "./checkout/index.js";
 // Stores
 export * from "./commits/index.js";
 // Delta storage
