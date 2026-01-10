@@ -279,10 +279,7 @@ class IndexDiffCalculatorImpl implements IndexDiffCalculator {
   /**
    * Check if a working tree file differs from index entry.
    */
-  private async isFileModified(
-    wtEntry: WorktreeEntry,
-    indexEntry: StagingEntry,
-  ): Promise<boolean> {
+  private async isFileModified(wtEntry: WorktreeEntry, indexEntry: StagingEntry): Promise<boolean> {
     // Quick check: size mismatch
     if (wtEntry.size !== indexEntry.size) {
       return true;

@@ -21,6 +21,7 @@
 
 import type { ObjectId } from "../id/index.js";
 import type { StagingStore } from "../staging/index.js";
+import type { RepositoryStateValue, StateCapabilities } from "../working-copy/repository-state.js";
 import type {
   CherryPickState,
   MergeState,
@@ -28,7 +29,6 @@ import type {
   RevertState,
   StashStore,
 } from "../working-copy.js";
-import type { RepositoryStateValue, StateCapabilities } from "../working-copy/repository-state.js";
 
 /**
  * CheckoutStore configuration
