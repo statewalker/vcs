@@ -20,7 +20,6 @@ import * as path from "node:path";
 import { createGitStore, Git } from "@statewalker/vcs-commands";
 import {
   createGitRepository,
-  createNodeFilesApi,
   FileMode,
   type GitRepository,
   type ObjectId,
@@ -28,7 +27,7 @@ import {
 } from "@statewalker/vcs-core";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { createNodeCompression, createNodeFilesApi } from "@statewalker/vcs-utils-node";
 
 // Initialize compression (required before any storage operations)
 setCompression(createNodeCompression());

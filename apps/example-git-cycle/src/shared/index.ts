@@ -20,7 +20,7 @@ import {
   type PersonIdent,
 } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { createNodeCompression } from "@statewalker/vcs-utils-node";
 
 // ============================================================================
 // Compression Setup
@@ -55,7 +55,7 @@ export function initCompression(): void {
  * For real file system usage, use createNodeFilesApi:
  * ```ts
  * import * as fs from "node:fs/promises";
- * import { createNodeFilesApi } from "@statewalker/vcs-core";
+ * import { createNodeFilesApi } from "@statewalker/vcs-utils-node";
  * const files = createNodeFilesApi({ fs, rootDir: "/" });
  * ```
  */
@@ -349,9 +349,9 @@ export function getModeType(mode: number): string {
 export type {
   Commit,
   GitRepository,
+  HistoryStore,
   ObjectId,
   PersonIdent,
-  Repository,
   TreeEntry,
 } from "@statewalker/vcs-core";
 export { FileMode, ObjectType } from "@statewalker/vcs-core";

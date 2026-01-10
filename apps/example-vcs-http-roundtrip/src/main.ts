@@ -19,7 +19,6 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
   createGitRepository,
-  createNodeFilesApi,
   FileMode,
   type GitRepository,
   indexPack,
@@ -27,8 +26,8 @@ import {
 } from "@statewalker/vcs-core";
 import { clone, type PushObject, push } from "@statewalker/vcs-transport";
 import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
+import { createNodeCompression, createNodeFilesApi } from "@statewalker/vcs-utils-node";
 
 import {
   atomicWriteFile,

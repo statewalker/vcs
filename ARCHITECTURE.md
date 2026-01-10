@@ -268,8 +268,8 @@ interface DeltaCandidateStrategy {
 The compression layer supports pluggable implementations:
 
 ```typescript
-import { setCompression } from "@statewalker/vcs-utils/compression";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { setCompression } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils-node";
 
 setCompression(createNodeCompression()); // Use native zlib
 ```

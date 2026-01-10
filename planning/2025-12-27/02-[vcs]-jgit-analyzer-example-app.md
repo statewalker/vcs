@@ -87,7 +87,7 @@ import { createGitRepository } from "@statewalker/vcs-core";
 import { Git, createGitStore } from "@statewalker/vcs-commands";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { createNodeCompression } from "@statewalker/vcs-utils-node";
 
 const JGIT_URL = "https://github.com/eclipse-jgit/jgit";
 const REPO_DIR = "/tmp/webrun-vcs-example/jgit-repo";
