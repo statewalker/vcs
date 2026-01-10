@@ -28,8 +28,6 @@ export * from "./pack/index.js";
 export * from "./person/index.js";
 // References
 export * from "./refs/index.js";
-// Repository access (for transport layer)
-export * from "./repository-access/index.js";
 // Staging area
 export * from "./staging/index.js";
 // Status calculation
