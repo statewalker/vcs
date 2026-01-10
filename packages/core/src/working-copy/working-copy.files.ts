@@ -21,7 +21,7 @@ import type {
   WorkingCopy,
   WorkingCopyConfig,
 } from "../working-copy.js";
-import type { WorkingTreeIterator } from "../worktree/index.js";
+import type { WorktreeStore } from "../worktree/index.js";
 
 import { type CherryPickStateFilesApi, readCherryPickState } from "./cherry-pick-state-reader.js";
 import { type MergeStateFilesApi, readMergeState } from "./merge-state-reader.js";
@@ -53,7 +53,7 @@ export interface WorkingCopyFilesApi
 export class GitWorkingCopy implements WorkingCopy {
   constructor(
     readonly repository: HistoryStore,
-    readonly worktree: WorkingTreeIterator,
+    readonly worktree: WorktreeStore,
     readonly staging: StagingStore,
     readonly stash: StashStore,
     readonly config: WorkingCopyConfig,

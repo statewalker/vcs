@@ -15,7 +15,7 @@ import type { ObjectId } from "./id/index.js";
 import type { StagingStore } from "./staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "./status/index.js";
 import type { RepositoryStateValue, StateCapabilities } from "./working-copy/repository-state.js";
-import type { WorkingTreeIterator } from "./worktree/index.js";
+import type { WorktreeStore } from "./worktree/index.js";
 
 /**
  * Working copy configuration
@@ -187,7 +187,7 @@ export interface WorkingCopy {
   readonly repository: HistoryStore;
 
   /** Working tree filesystem access */
-  readonly worktree: WorkingTreeIterator;
+  readonly worktree: WorktreeStore;
 
   /** Staging area (the index) */
   readonly staging: StagingStore;

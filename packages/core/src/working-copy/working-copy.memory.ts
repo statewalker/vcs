@@ -19,7 +19,7 @@ import type {
   WorkingCopy,
   WorkingCopyConfig,
 } from "../working-copy.js";
-import type { WorkingTreeIterator } from "../worktree/index.js";
+import type { WorktreeStore } from "../worktree/index.js";
 import {
   getStateCapabilities,
   RepositoryState,
@@ -48,7 +48,7 @@ export class MemoryWorkingCopy implements WorkingCopy {
 
   constructor(
     readonly repository: HistoryStore,
-    readonly worktree: WorkingTreeIterator,
+    readonly worktree: WorktreeStore,
     readonly staging: StagingStore,
     stash?: StashStore,
     config?: WorkingCopyConfig,
@@ -253,7 +253,7 @@ export class MemoryWorkingCopy implements WorkingCopy {
  */
 export function createMemoryWorkingCopy(
   repository: HistoryStore,
-  worktree: WorkingTreeIterator,
+  worktree: WorktreeStore,
   staging: StagingStore,
   stash?: StashStore,
   config?: WorkingCopyConfig,

@@ -1,21 +1,18 @@
 /**
- * Mock WorkingTreeIterator for testing
+ * Mock WorktreeStore for testing
  */
 
 import { vi } from "vitest";
 
-import type {
-  WorkingTreeEntry,
-  WorkingTreeIterator,
-} from "../../src/worktree/working-tree-iterator.js";
+import type { WorktreeEntry, WorktreeStore } from "../../src/worktree/worktree-store.js";
 
 /**
  * Create a working tree entry for tests.
  */
-export function createWorkingTreeEntry(
+export function createWorktreeEntry(
   path: string,
-  options: Partial<WorkingTreeEntry> = {},
-): WorkingTreeEntry {
+  options: Partial<WorktreeEntry> = {},
+): WorktreeEntry {
   return {
     path,
     name: path.split("/").pop() ?? path,
@@ -30,15 +27,15 @@ export function createWorkingTreeEntry(
 }
 
 /**
- * Create a mock WorkingTreeIterator for testing.
+ * Create a mock WorktreeStore for testing.
  *
  * @param entries Working tree entries
  * @param hashes Map of path -> object hash
  */
 export function createMockWorktree(
-  entries: WorkingTreeEntry[] = [],
+  entries: WorktreeEntry[] = [],
   hashes: Map<string, string> = new Map(),
-): WorkingTreeIterator {
+): WorktreeStore {
   return {
     walk: vi.fn().mockImplementation(async function* () {
       for (const entry of entries) {
@@ -54,5 +51,5 @@ export function createMockWorktree(
     readContent: vi.fn().mockImplementation(function* () {
       yield new Uint8Array([]);
     }),
-  } as unknown as WorkingTreeIterator;
+  } as unknown as WorktreeStore;
 }

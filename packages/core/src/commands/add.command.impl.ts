@@ -13,7 +13,7 @@ import type { BlobStore } from "../blob/blob-store.js";
 import { FileMode } from "../files/index.js";
 import { DeleteStagingEntry, UpdateStagingEntry } from "../staging/staging-edits.js";
 import type { StagingStore } from "../staging/staging-store.js";
-import type { WorkingTreeIterator } from "../worktree/working-tree-iterator.js";
+import type { WorktreeStore } from "../worktree/worktree-store.js";
 import type { Add, AddOptions, AddResult } from "./add.command.js";
 
 /**
@@ -21,7 +21,7 @@ import type { Add, AddOptions, AddResult } from "./add.command.js";
  */
 export interface AddCommandOptions {
   /** Working tree iterator */
-  worktree: WorkingTreeIterator;
+  worktree: WorktreeStore;
 
   /** Blob storage for file content */
   blobs: BlobStore;
@@ -96,7 +96,7 @@ function matchGlob(path: string, pattern: string): boolean {
  * AddCommand implementation.
  */
 export class AddCommand implements Add {
-  private readonly worktree: WorkingTreeIterator;
+  private readonly worktree: WorktreeStore;
   private readonly blobs: BlobStore;
   private readonly staging: StagingStore;
 

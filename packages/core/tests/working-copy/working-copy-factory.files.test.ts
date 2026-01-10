@@ -6,7 +6,7 @@ import {
   GitWorkingCopyFactory,
   type WorkingCopyFactoryFilesApi,
 } from "../../src/working-copy/working-copy-factory.files.js";
-import type { WorkingTreeIterator } from "../../src/worktree/working-tree-iterator.js";
+import type { WorktreeStore } from "../../src/worktree/worktree-store.js";
 
 /**
  * Create mock files API
@@ -57,13 +57,13 @@ function createMockStagingStore(): StagingStore {
 /**
  * Create mock working tree iterator
  */
-function createMockWorktree(): WorkingTreeIterator {
+function createMockWorktree(): WorktreeStore {
   return {
     walk: vi.fn().mockImplementation(async function* () {}),
     getEntry: vi.fn(),
     computeHash: vi.fn(),
     readContent: vi.fn(),
-  } as unknown as WorkingTreeIterator;
+  } as unknown as WorktreeStore;
 }
 
 /**

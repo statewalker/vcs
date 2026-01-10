@@ -25,7 +25,7 @@ import type { RefStore } from "../refs/ref-store.js";
 import { isSymbolicRef } from "../refs/ref-types.js";
 import type { StagingStore } from "../staging/staging-store.js";
 import type { TreeStore } from "../trees/tree-store.js";
-import type { WorkingTreeIterator } from "../worktree/working-tree-iterator.js";
+import type { WorktreeStore } from "../worktree/worktree-store.js";
 import type { IndexDiff } from "./index-diff.js";
 import { createIndexDiffCalculator } from "./index-diff-calculator.js";
 import {
@@ -70,7 +70,7 @@ interface WorktreeEntryInfo {
  */
 export interface StatusCalculatorOptions {
   /** Working tree iterator */
-  worktree: WorkingTreeIterator;
+  worktree: WorktreeStore;
 
   /** Staging area (index) */
   staging: StagingStore;
@@ -92,7 +92,7 @@ export interface StatusCalculatorOptions {
  * StatusCalculator implementation.
  */
 export class StatusCalculatorImpl implements StatusCalculator {
-  private readonly worktree: WorkingTreeIterator;
+  private readonly worktree: WorktreeStore;
   private readonly staging: StagingStore;
   private readonly trees: TreeStore;
   private readonly commits: CommitStore;

@@ -8,7 +8,7 @@ import {
   StageState,
 } from "../../src/status/index.js";
 import type { TreeEntry, TreeStore } from "../../src/trees/index.js";
-import type { WorkingTreeEntry, WorkingTreeIterator } from "../../src/worktree/index.js";
+import type { WorktreeEntry, WorktreeStore } from "../../src/worktree/index.js";
 
 /**
  * Helper to create mock tree store
@@ -62,9 +62,9 @@ function createMockStagingStore(entries: StagingEntry[]): StagingStore {
  * Helper to create mock working tree iterator
  */
 function createMockWorktree(
-  entries: WorkingTreeEntry[],
+  entries: WorktreeEntry[],
   hashes: Map<string, string>,
-): WorkingTreeIterator {
+): WorktreeStore {
   return {
     walk: vi.fn().mockImplementation(async function* () {
       for (const entry of entries) {
@@ -78,7 +78,7 @@ function createMockWorktree(
       return hashes.get(path) ?? "unknown-hash";
     }),
     readContent: vi.fn(),
-  } as unknown as WorkingTreeIterator;
+  } as unknown as WorktreeStore;
 }
 
 /**
@@ -104,10 +104,10 @@ function createStagingEntry(
 /**
  * Helper to create a working tree entry
  */
-function createWorkingTreeEntry(
+function createWorktreeEntry(
   path: string,
-  options: Partial<WorkingTreeEntry> = {},
-): WorkingTreeEntry {
+  options: Partial<WorktreeEntry> = {},
+): WorktreeEntry {
   return {
     path,
     name: path.split("/").pop() ?? path,
@@ -157,7 +157,7 @@ describe("IndexDiffCalculator", () => {
     });
 
     it("should detect untracked files when no HEAD", async () => {
-      const worktreeEntries = [createWorkingTreeEntry("file.txt")];
+      const worktreeEntries = [createWorktreeEntry("file.txt")];
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
         staging: createMockStagingStore([]),
@@ -178,7 +178,7 @@ describe("IndexDiffCalculator", () => {
 
       const stagingEntries = [createStagingEntry("new-file.txt", "abc123")];
 
-      const worktreeEntries = [createWorkingTreeEntry("new-file.txt")];
+      const worktreeEntries = [createWorktreeEntry("new-file.txt")];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
@@ -203,7 +203,7 @@ describe("IndexDiffCalculator", () => {
 
       const stagingEntries = [createStagingEntry("file.txt", "new-hash")];
 
-      const worktreeEntries = [createWorkingTreeEntry("file.txt")];
+      const worktreeEntries = [createWorktreeEntry("file.txt")];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
@@ -252,7 +252,7 @@ describe("IndexDiffCalculator", () => {
         createStagingEntry("file.txt", "index-hash", 0, { size: 100, mtime: 1000 }),
       ];
 
-      const worktreeEntries = [createWorkingTreeEntry("file.txt", { size: 200, mtime: 2000 })];
+      const worktreeEntries = [createWorktreeEntry("file.txt", { size: 200, mtime: 2000 })];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
@@ -276,7 +276,7 @@ describe("IndexDiffCalculator", () => {
         createStagingEntry("file.txt", "same-hash", 0, { size: 100, mtime: 1000 }),
       ];
 
-      const worktreeEntries = [createWorkingTreeEntry("file.txt", { size: 100, mtime: 1000 })];
+      const worktreeEntries = [createWorktreeEntry("file.txt", { size: 100, mtime: 1000 })];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
@@ -300,7 +300,7 @@ describe("IndexDiffCalculator", () => {
 
       const stagingEntries = [createStagingEntry("file.txt", "hash123")];
 
-      const worktreeEntries: WorkingTreeEntry[] = [];
+      const worktreeEntries: WorktreeEntry[] = [];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
@@ -322,7 +322,7 @@ describe("IndexDiffCalculator", () => {
 
       const stagingEntries: StagingEntry[] = [];
 
-      const worktreeEntries = [createWorkingTreeEntry("untracked.txt")];
+      const worktreeEntries = [createWorktreeEntry("untracked.txt")];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
@@ -340,7 +340,7 @@ describe("IndexDiffCalculator", () => {
       const treeEntries = new Map<string, TreeEntry[]>();
       treeEntries.set("head-tree", []);
 
-      const worktreeEntries = [createWorkingTreeEntry("new-folder/file.txt")];
+      const worktreeEntries = [createWorktreeEntry("new-folder/file.txt")];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
@@ -356,7 +356,7 @@ describe("IndexDiffCalculator", () => {
     });
 
     it("should exclude untracked when option disabled", async () => {
-      const worktreeEntries = [createWorkingTreeEntry("untracked.txt")];
+      const worktreeEntries = [createWorktreeEntry("untracked.txt")];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
@@ -373,7 +373,7 @@ describe("IndexDiffCalculator", () => {
 
   describe("ignored files", () => {
     it("should detect ignored files when option enabled", async () => {
-      const worktreeEntries = [createWorkingTreeEntry("ignored.txt", { isIgnored: true })];
+      const worktreeEntries = [createWorktreeEntry("ignored.txt", { isIgnored: true })];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
@@ -389,7 +389,7 @@ describe("IndexDiffCalculator", () => {
     });
 
     it("should exclude ignored files when option disabled", async () => {
-      const worktreeEntries = [createWorkingTreeEntry("ignored.txt", { isIgnored: true })];
+      const worktreeEntries = [createWorktreeEntry("ignored.txt", { isIgnored: true })];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
@@ -417,7 +417,7 @@ describe("IndexDiffCalculator", () => {
         createStagingEntry("conflict.txt", "theirs-hash", 3),
       ];
 
-      const worktreeEntries = [createWorkingTreeEntry("conflict.txt")];
+      const worktreeEntries = [createWorktreeEntry("conflict.txt")];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
@@ -438,7 +438,7 @@ describe("IndexDiffCalculator", () => {
         createStagingEntry("new-conflict.txt", "theirs-hash", 3),
       ];
 
-      const worktreeEntries = [createWorkingTreeEntry("new-conflict.txt")];
+      const worktreeEntries = [createWorktreeEntry("new-conflict.txt")];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
@@ -500,7 +500,7 @@ describe("IndexDiffCalculator", () => {
         createStagingEntry("assumed.txt", "hash123", 0, { assumeValid: true }),
       ];
 
-      const worktreeEntries = [createWorkingTreeEntry("assumed.txt")];
+      const worktreeEntries = [createWorktreeEntry("assumed.txt")];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
@@ -519,7 +519,7 @@ describe("IndexDiffCalculator", () => {
         createStagingEntry("assumed.txt", "old-hash", 0, { assumeValid: true, size: 100 }),
       ];
 
-      const worktreeEntries = [createWorkingTreeEntry("assumed.txt", { size: 200 })];
+      const worktreeEntries = [createWorktreeEntry("assumed.txt", { size: 200 })];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
@@ -538,7 +538,7 @@ describe("IndexDiffCalculator", () => {
         createStagingEntry("assumed.txt", "old-hash", 0, { assumeValid: true, size: 100 }),
       ];
 
-      const worktreeEntries = [createWorkingTreeEntry("assumed.txt", { size: 200 })];
+      const worktreeEntries = [createWorktreeEntry("assumed.txt", { size: 200 })];
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
@@ -568,8 +568,8 @@ describe("IndexDiffCalculator", () => {
       ];
 
       const worktreeEntries = [
-        createWorkingTreeEntry("src/lib/utils.ts"),
-        createWorkingTreeEntry("src/lib/new-file.ts"),
+        createWorktreeEntry("src/lib/utils.ts"),
+        createWorktreeEntry("src/lib/new-file.ts"),
       ];
 
       const deps: IndexDiffDependencies = {
@@ -612,8 +612,8 @@ describe("IndexDiffCalculator", () => {
       ];
 
       const worktreeEntries = [
-        createWorkingTreeEntry("src/file.ts"),
-        createWorkingTreeEntry("other/file.ts"),
+        createWorktreeEntry("src/file.ts"),
+        createWorktreeEntry("other/file.ts"),
       ];
 
       const deps: IndexDiffDependencies = {

@@ -13,7 +13,7 @@ import type { ObjectId } from "../id/object-id.js";
 import type { StagingStore } from "../staging/staging-store.js";
 import type { TreeEntry } from "../trees/tree-entry.js";
 import type { TreeStore } from "../trees/tree-store.js";
-import type { WorkingTreeIterator } from "../worktree/working-tree-iterator.js";
+import type { WorktreeStore } from "../worktree/worktree-store.js";
 
 import {
   type CheckoutConflict,
@@ -30,7 +30,7 @@ export interface CheckoutConflictDetectorDeps {
   /** Staging area (index) */
   staging: StagingStore;
   /** Working tree iterator for checking file status */
-  worktree: WorkingTreeIterator;
+  worktree: WorktreeStore;
 }
 
 /**
@@ -237,7 +237,7 @@ async function checkPathForConflict(
  * Check if a file in the working tree is modified compared to the index.
  */
 async function isWorktreeModified(
-  worktree: WorkingTreeIterator,
+  worktree: WorktreeStore,
   path: string,
   indexEntry: { objectId: ObjectId; size: number; mtime: number },
 ): Promise<boolean> {

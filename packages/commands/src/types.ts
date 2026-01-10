@@ -7,7 +7,7 @@ import type {
   TagStore,
   TreeStore,
   WorkingCopy,
-  WorkingTreeIterator,
+  WorktreeStore,
 } from "@statewalker/vcs-core";
 
 /**
@@ -95,7 +95,7 @@ export enum ListBranchMode {
  */
 export interface GitStoreWithWorkTree extends GitStore {
   /** Working tree iterator for filesystem operations */
-  readonly worktree: WorkingTreeIterator;
+  readonly worktree: WorktreeStore;
 }
 
 /**
@@ -109,7 +109,7 @@ export interface CreateGitStoreOptions {
   staging: StagingStore;
 
   /** Optional working tree iterator for filesystem operations */
-  worktree?: WorkingTreeIterator;
+  worktree?: WorktreeStore;
 }
 
 /**
@@ -133,7 +133,7 @@ export interface CreateGitStoreOptions {
  * @returns GitStore or GitStoreWithWorkTree if worktree is provided
  */
 export function createGitStore(
-  options: CreateGitStoreOptions & { worktree: WorkingTreeIterator },
+  options: CreateGitStoreOptions & { worktree: WorktreeStore },
 ): GitStoreWithWorkTree;
 export function createGitStore(options: CreateGitStoreOptions): GitStore;
 export function createGitStore(options: CreateGitStoreOptions): GitStore | GitStoreWithWorkTree {

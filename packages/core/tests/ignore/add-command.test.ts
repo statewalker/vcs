@@ -23,20 +23,20 @@ import type {
   StagingStore,
 } from "../src/interfaces/staging-store.js";
 import type {
-  WorkingTreeEntry,
-  WorkingTreeIterator,
-  WorkingTreeIteratorOptions,
-} from "../src/interfaces/working-tree-iterator.js";
+  WorktreeEntry,
+  WorktreeStore,
+  WorktreeStoreOptions,
+} from "../src/interfaces/worktree-store.js";
 
 /**
  * Mock working tree iterator.
  */
 function createMockWorktreeIterator() {
-  const entries = new Map<string, WorkingTreeEntry>();
+  const entries = new Map<string, WorktreeEntry>();
   const contents = new Map<string, Uint8Array>();
 
-  const iterator: WorkingTreeIterator = {
-    async *walk(options: WorkingTreeIteratorOptions = {}): AsyncIterable<WorkingTreeEntry> {
+  const iterator: WorktreeStore = {
+    async *walk(options: WorktreeStoreOptions = {}): AsyncIterable<WorktreeEntry> {
       const { includeIgnored = false, pathPrefix = "" } = options;
 
       const sortedEntries = [...entries.values()].sort((a, b) => a.path.localeCompare(b.path));
@@ -52,7 +52,7 @@ function createMockWorktreeIterator() {
       }
     },
 
-    async getEntry(path: string): Promise<WorkingTreeEntry | undefined> {
+    async getEntry(path: string): Promise<WorktreeEntry | undefined> {
       return entries.get(path);
     },
 

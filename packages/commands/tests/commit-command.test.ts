@@ -382,12 +382,12 @@ async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8A
 import {
   FileMode,
   type ObjectId,
-  type WorkingTreeEntry,
-  type WorkingTreeIterator,
-  type WorkingTreeIteratorOptions,
+  type WorktreeEntry,
+  type WorktreeStore,
+  type WorktreeStoreOptions,
 } from "@statewalker/vcs-core";
 
-class MockWorkingTree implements WorkingTreeIterator {
+class MockWorkingTree implements WorktreeStore {
   private files: Map<string, { content: Uint8Array; mode: number; mtime: number }> = new Map();
 
   addFile(path: string, content: string, mode = FileMode.REGULAR_FILE): void {
@@ -402,7 +402,7 @@ class MockWorkingTree implements WorkingTreeIterator {
     this.files.delete(path);
   }
 
-  async *walk(_options?: WorkingTreeIteratorOptions): AsyncIterable<WorkingTreeEntry> {
+  async *walk(_options?: WorktreeStoreOptions): AsyncIterable<WorktreeEntry> {
     for (const [path, file] of this.files) {
       yield {
         path,
@@ -416,7 +416,7 @@ class MockWorkingTree implements WorkingTreeIterator {
     }
   }
 
-  async getEntry(path: string): Promise<WorkingTreeEntry | undefined> {
+  async getEntry(path: string): Promise<WorktreeEntry | undefined> {
     const file = this.files.get(path);
     if (!file) return undefined;
     return {
@@ -477,7 +477,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
       .commit()
       .setMessage("commit all changes")
       .setAll(true)
-      .setWorkingTreeIterator(worktree)
+      .setWorktreeStore(worktree)
       .call();
 
     expect(commit.message).toBe("commit all changes");
@@ -512,7 +512,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
       .commit()
       .setMessage("delete file1")
       .setAll(true)
-      .setWorkingTreeIterator(worktree)
+      .setWorktreeStore(worktree)
       .call();
 
     expect(commit.message).toBe("delete file1");
@@ -569,7 +569,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
       .commit()
       .setMessage("update tracked only")
       .setAll(true)
-      .setWorkingTreeIterator(worktree)
+      .setWorktreeStore(worktree)
       .call();
 
     // Verify untracked file was NOT added

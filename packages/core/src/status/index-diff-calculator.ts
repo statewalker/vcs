@@ -18,7 +18,7 @@ import { FileMode } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 import type { MergeStageValue, StagingEntry, StagingStore } from "../staging/index.js";
 import type { TreeStore } from "../trees/index.js";
-import type { WorkingTreeEntry, WorkingTreeIterator } from "../worktree/index.js";
+import type { WorktreeEntry, WorktreeStore } from "../worktree/index.js";
 import type { IndexDiff, IndexDiffCalculator, IndexDiffOptions } from "./index-diff.js";
 import { createEmptyIndexDiff } from "./index-diff.js";
 import { getStageState, type StageStateValue } from "./status-calculator.js";
@@ -31,8 +31,8 @@ export interface IndexDiffDependencies {
   readonly trees: TreeStore;
   /** Staging area (index) */
   readonly staging: StagingStore;
-  /** Working tree iterator */
-  readonly worktree: WorkingTreeIterator;
+  /** Worktree store */
+  readonly worktree: WorktreeStore;
 }
 
 /**
@@ -280,7 +280,7 @@ class IndexDiffCalculatorImpl implements IndexDiffCalculator {
    * Check if a working tree file differs from index entry.
    */
   private async isFileModified(
-    wtEntry: WorkingTreeEntry,
+    wtEntry: WorktreeEntry,
     indexEntry: StagingEntry,
   ): Promise<boolean> {
     // Quick check: size mismatch

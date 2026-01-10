@@ -18,7 +18,7 @@ export interface CleanResult {
  * Based on JGit's CleanCommand.
  *
  * NOTE: Currently only supports dry-run mode as it requires WorkingTreeApi
- * for file deletion, which extends beyond the current WorkingTreeIterator.
+ * for file deletion, which extends beyond the current WorktreeStore.
  *
  * @example
  * ```typescript
@@ -110,13 +110,13 @@ export class CleanCommand extends GitCommand<CleanResult> {
 
     const worktree = (this.store as { worktree: unknown }).worktree;
     if (!worktree || typeof worktree !== "object") {
-      throw new Error("WorkingTreeIterator not available");
+      throw new Error("WorktreeStore not available");
     }
 
     // Walk the working tree to find untracked files
     const walkMethod = (worktree as { walk?: unknown }).walk;
     if (typeof walkMethod !== "function") {
-      throw new Error("WorkingTreeIterator.walk not available");
+      throw new Error("WorktreeStore.walk not available");
     }
 
     // Get entries from staging to compare

@@ -2,9 +2,9 @@ import type { FileModeValue } from "../files/index.js";
 import type { ObjectId } from "../id/index.js";
 
 /**
- * Represents a file or directory in the working tree.
+ * Represents a file or directory in the worktree (Part 2 of Three-Part Architecture).
  */
-export interface WorkingTreeEntry {
+export interface WorktreeEntry {
   /** Relative path from repository root */
   path: string;
   /** Entry name (last path component) */
@@ -22,9 +22,9 @@ export interface WorkingTreeEntry {
 }
 
 /**
- * Options for working tree iteration.
+ * Options for worktree iteration.
  */
-export interface WorkingTreeIteratorOptions {
+export interface WorktreeStoreOptions {
   /** Include ignored files (default: false) */
   includeIgnored?: boolean;
   /** Include directories in output (default: false) */
@@ -36,22 +36,27 @@ export interface WorkingTreeIteratorOptions {
 }
 
 /**
- * Iterates over working tree files.
+ * WorktreeStore interface - user's checked-out files (Part 2 of Three-Part Architecture)
  *
  * Provides a platform-agnostic way to walk the filesystem
  * and compute content hashes for version control operations.
+ *
+ * Implementations may use different backends:
+ * - Node.js filesystem
+ * - Browser OPFS
+ * - In-memory for testing
  */
-export interface WorkingTreeIterator {
+export interface WorktreeStore {
   /**
-   * Iterate all entries in working tree.
+   * Iterate all entries in worktree.
    *
    * Entries are yielded in sorted order (by path) for consistent results.
    * Directories are traversed recursively.
    *
    * @param options Iteration options
-   * @returns AsyncIterable of working tree entries
+   * @returns AsyncIterable of worktree entries
    */
-  walk(options?: WorkingTreeIteratorOptions): AsyncIterable<WorkingTreeEntry>;
+  walk(options?: WorktreeStoreOptions): AsyncIterable<WorktreeEntry>;
 
   /**
    * Get specific entry by path.
@@ -59,7 +64,7 @@ export interface WorkingTreeIterator {
    * @param path Relative path from repository root
    * @returns Entry or undefined if not found
    */
-  getEntry(path: string): Promise<WorkingTreeEntry | undefined>;
+  getEntry(path: string): Promise<WorktreeEntry | undefined>;
 
   /**
    * Compute content hash for a file (without storing).
@@ -79,3 +84,11 @@ export interface WorkingTreeIterator {
    */
   readContent(path: string): AsyncIterable<Uint8Array>;
 }
+
+// Backward compatibility aliases
+/** @deprecated Use WorktreeStore instead */
+export type WorkingTreeIterator = WorktreeStore;
+/** @deprecated Use WorktreeEntry instead */
+export type WorkingTreeEntry = WorktreeEntry;
+/** @deprecated Use WorktreeStoreOptions instead */
+export type WorkingTreeIteratorOptions = WorktreeStoreOptions;

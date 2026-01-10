@@ -11,7 +11,7 @@ import { GitStashStore } from "../../src/working-copy/stash-store.files.js";
 import { MockCommitStore } from "../mocks/mock-commit-store.js";
 import { createMockStagingStore, createStagingEntry } from "../mocks/mock-staging-store.js";
 import { createMockTreeStore } from "../mocks/mock-tree-store.js";
-import { createMockWorktree, createWorkingTreeEntry } from "../mocks/mock-worktree.js";
+import { createMockWorktree, createWorktreeEntry } from "../mocks/mock-worktree.js";
 
 /**
  * Create mock files API for testing.
@@ -128,7 +128,7 @@ describe("GitStashStore", () => {
     staging.readTree = vi.fn().mockResolvedValue(undefined);
 
     const worktree = createMockWorktree(
-      [createWorkingTreeEntry("file.txt")],
+      [createWorktreeEntry("file.txt")],
       new Map([["file.txt", "blob-1"]]),
     );
 
@@ -432,7 +432,7 @@ describe("GitStashStore", () => {
     it("should capture worktree changes in stash tree", async () => {
       // Create worktree with modified file
       const modifiedWorktree = createMockWorktree(
-        [createWorkingTreeEntry("file.txt", { size: 200 })],
+        [createWorktreeEntry("file.txt", { size: 200 })],
         new Map([["file.txt", "modified-blob"]]),
       );
 
@@ -472,8 +472,8 @@ describe("GitStashStore", () => {
       // Create worktree with both tracked and untracked files
       const worktreeWithUntracked = createMockWorktree(
         [
-          createWorkingTreeEntry("file.txt"), // tracked
-          createWorkingTreeEntry("untracked.txt"), // untracked
+          createWorktreeEntry("file.txt"), // tracked
+          createWorktreeEntry("untracked.txt"), // untracked
         ],
         new Map([
           ["file.txt", "blob-1"],
@@ -514,7 +514,7 @@ describe("GitStashStore", () => {
     it("should create stash with 2 parents when includeUntracked is true but no untracked files", async () => {
       // All worktree files are tracked
       const worktreeAllTracked = createMockWorktree(
-        [createWorkingTreeEntry("file.txt")],
+        [createWorktreeEntry("file.txt")],
         new Map([["file.txt", "blob-1"]]),
       );
 

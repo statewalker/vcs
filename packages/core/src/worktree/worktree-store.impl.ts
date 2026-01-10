@@ -1,8 +1,8 @@
 /**
- * FileTreeIterator - Working tree iterator implementation using FilesApi.
+ * FileTreeIterator - WorktreeStore implementation using FilesApi.
  *
  * Walks a filesystem directory tree and yields entries compatible with
- * Git's working tree operations. Supports:
+ * Git's worktree operations. Supports:
  * - Recursive directory traversal
  * - .gitignore pattern matching
  * - Content hashing in Git blob format
@@ -24,11 +24,7 @@ import {
 import type { ObjectId } from "../id/index.js";
 import { createIgnoreManager } from "../ignore/ignore-manager.impl.js";
 import type { IgnoreManager } from "../ignore/ignore-manager.js";
-import type {
-  WorkingTreeEntry,
-  WorkingTreeIterator,
-  WorkingTreeIteratorOptions,
-} from "./working-tree-iterator.js";
+import type { WorktreeEntry, WorktreeStore, WorktreeStoreOptions } from "./worktree-store.js";
 
 /**
  * Simplified file entry information for mode determination.
@@ -44,7 +40,7 @@ export interface FileTreeIteratorOptions {
   /** FilesApi instance for filesystem operations */
   files: FilesApi;
 
-  /** Root path of the working tree */
+  /** Root path of the worktree */
   rootPath: string;
 
   /** Pre-configured IgnoreManager (if not provided, one will be created) */
@@ -98,10 +94,10 @@ function createBlobHeader(size: number): Uint8Array {
 /**
  * FileTreeIterator implementation.
  *
- * Provides working tree iteration functionality using a platform-agnostic
+ * Provides worktree iteration functionality using a platform-agnostic
  * FilesApi for filesystem access.
  */
-export class FileTreeIterator implements WorkingTreeIterator {
+export class FileTreeIterator implements WorktreeStore {
   private readonly files: FilesApi;
   private readonly rootPath: string;
   private readonly ignoreManager: IgnoreManager;
@@ -122,12 +118,12 @@ export class FileTreeIterator implements WorkingTreeIterator {
   }
 
   /**
-   * Iterate all entries in working tree.
+   * Iterate all entries in worktree.
    *
    * Entries are yielded in sorted order (by path) for consistent results.
    * Directories are traversed recursively.
    */
-  async *walk(options?: WorkingTreeIteratorOptions): AsyncIterable<WorkingTreeEntry> {
+  async *walk(options?: WorktreeStoreOptions): AsyncIterable<WorktreeEntry> {
     const includeIgnored = options?.includeIgnored ?? false;
     const includeDirectories = options?.includeDirectories ?? false;
     const pathPrefix = options?.pathPrefix ?? "";
@@ -153,7 +149,7 @@ export class FileTreeIterator implements WorkingTreeIterator {
     relativePath: string,
     includeIgnored: boolean,
     includeDirectories: boolean,
-  ): AsyncIterable<WorkingTreeEntry> {
+  ): AsyncIterable<WorktreeEntry> {
     // Load .gitignore if auto-loading is enabled
     if (this.autoLoadGitignore) {
       await this.tryLoadGitignore(dirPath, relativePath);
@@ -205,7 +201,7 @@ export class FileTreeIterator implements WorkingTreeIterator {
       const stats = await this.getFileStats(fullPath, isDirectory);
 
       // Create entry
-      const workingEntry: WorkingTreeEntry = {
+      const worktreeEntry: WorktreeEntry = {
         path: entryPath,
         name: entry.name,
         mode,
@@ -217,12 +213,12 @@ export class FileTreeIterator implements WorkingTreeIterator {
 
       // Yield directory entry if requested
       if (isDirectory && includeDirectories) {
-        yield workingEntry;
+        yield worktreeEntry;
       }
 
       // For files, yield the entry
       if (!isDirectory) {
-        yield workingEntry;
+        yield worktreeEntry;
       }
 
       // Recursively process directories (unless gitlink)
@@ -235,7 +231,7 @@ export class FileTreeIterator implements WorkingTreeIterator {
   /**
    * Get specific entry by path.
    */
-  async getEntry(path: string): Promise<WorkingTreeEntry | undefined> {
+  async getEntry(path: string): Promise<WorktreeEntry | undefined> {
     const fullPath = joinPath(this.rootPath, path);
 
     try {
@@ -450,11 +446,15 @@ export class FileTreeIterator implements WorkingTreeIterator {
 }
 
 /**
- * Create a FileTreeIterator.
+ * Create a FileTreeIterator (WorktreeStore implementation).
  *
  * @param options Iterator options
  * @returns A new FileTreeIterator instance
  */
-export function createFileTreeIterator(options: FileTreeIteratorOptions): WorkingTreeIterator {
+export function createFileTreeIterator(options: FileTreeIteratorOptions): WorktreeStore {
   return new FileTreeIterator(options);
 }
+
+// Backward compatibility alias
+/** @deprecated Use createFileTreeIterator instead */
+export { createFileTreeIterator as createWorktreeStore };

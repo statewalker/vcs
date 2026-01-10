@@ -13,9 +13,9 @@ import {
   type WorkingCopyFilesApi,
 } from "../../src/working-copy/working-copy.files.js";
 import type {
-  WorkingTreeEntry,
-  WorkingTreeIterator,
-} from "../../src/worktree/working-tree-iterator.js";
+  WorktreeEntry,
+  WorktreeStore,
+} from "../../src/worktree/worktree-store.js";
 
 /**
  * Create mock files API
@@ -93,9 +93,9 @@ function createMockStagingStore(
  * Create mock working tree iterator
  */
 function createMockWorktree(
-  entries: WorkingTreeEntry[] = [],
+  entries: WorktreeEntry[] = [],
   hashes: Map<string, string> = new Map(),
-): WorkingTreeIterator {
+): WorktreeStore {
   return {
     walk: vi.fn().mockImplementation(async function* () {
       for (const entry of entries) {
@@ -109,7 +109,7 @@ function createMockWorktree(
       return hashes.get(path) ?? "unknown-hash";
     }),
     readContent: vi.fn(),
-  } as unknown as WorkingTreeIterator;
+  } as unknown as WorktreeStore;
 }
 
 /**
@@ -213,10 +213,10 @@ function createStagingEntry(
 /**
  * Create working tree entry helper
  */
-function createWorkingTreeEntry(
+function createWorktreeEntry(
   path: string,
-  options: Partial<WorkingTreeEntry> = {},
-): WorkingTreeEntry {
+  options: Partial<WorktreeEntry> = {},
+): WorktreeEntry {
   return {
     path,
     name: path.split("/").pop() ?? path,
@@ -232,7 +232,7 @@ function createWorkingTreeEntry(
 describe("GitWorkingCopy", () => {
   let workingCopy: GitWorkingCopy;
   let mockRepository: HistoryStore;
-  let mockWorktree: WorkingTreeIterator;
+  let mockWorktree: WorktreeStore;
   let mockStaging: StagingStore;
   let mockStash: MemoryStashStore;
   let mockFiles: WorkingCopyFilesApi;
@@ -327,7 +327,7 @@ describe("GitWorkingCopy", () => {
       mockStaging = createMockStagingStore(stagingEntries);
 
       // Add file to worktree
-      const worktreeEntries = [createWorkingTreeEntry("new-file.txt")];
+      const worktreeEntries = [createWorktreeEntry("new-file.txt")];
       const worktreeHashes = new Map([["new-file.txt", "new-hash"]]);
       mockWorktree = createMockWorktree(worktreeEntries, worktreeHashes);
 
@@ -351,7 +351,7 @@ describe("GitWorkingCopy", () => {
 
     it("should detect untracked files", async () => {
       // Add untracked file to worktree
-      const worktreeEntries = [createWorkingTreeEntry("untracked.txt")];
+      const worktreeEntries = [createWorktreeEntry("untracked.txt")];
       mockWorktree = createMockWorktree(worktreeEntries);
 
       workingCopy = new GitWorkingCopy(
@@ -377,7 +377,7 @@ describe("GitWorkingCopy", () => {
     it("should detect conflicts", async () => {
       mockStaging = createMockStagingStore([], ["conflict.txt"]);
 
-      const worktreeEntries = [createWorkingTreeEntry("conflict.txt")];
+      const worktreeEntries = [createWorktreeEntry("conflict.txt")];
       mockWorktree = createMockWorktree(worktreeEntries);
 
       workingCopy = new GitWorkingCopy(
@@ -396,7 +396,7 @@ describe("GitWorkingCopy", () => {
     });
 
     it("should respect status options like includeUntracked", async () => {
-      const worktreeEntries = [createWorkingTreeEntry("untracked.txt")];
+      const worktreeEntries = [createWorktreeEntry("untracked.txt")];
       mockWorktree = createMockWorktree(worktreeEntries);
 
       workingCopy = new GitWorkingCopy(
