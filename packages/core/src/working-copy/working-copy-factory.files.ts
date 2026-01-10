@@ -41,10 +41,10 @@ export interface GitWorkingCopyContext {
   repository: HistoryStore;
   /** Factory function to create the staging store */
   createStagingStore: (gitDir: string) => Promise<import("../staging/index.js").StagingStore>;
-  /** Factory function to create the working tree iterator */
+  /** Factory function to create the worktree store */
   createWorktreeIterator: (
     worktreePath: string,
-  ) => import("../worktree/index.js").WorkingTreeIterator;
+  ) => import("../worktree/index.js").WorktreeStore;
 }
 
 /**
