@@ -1,19 +1,19 @@
 /**
  * Repository Adapter
  *
- * Adapts the Repository interface from @statewalker/vcs-core to the
+ * Adapts the HistoryStore interface from @statewalker/vcs-core to the
  * RepositoryAccess interface used by HTTP protocol handlers.
  *
  * This adapter provides a clean integration layer that uses only the
- * standard Repository interface, making transport work with any
- * Repository implementation (Git, SQL, memory, etc.).
+ * standard HistoryStore interface, making transport work with any
+ * HistoryStore implementation (Git, SQL, memory, etc.).
  */
 
 import type {
   CommitStore,
   GitObjectStore,
+  HistoryStore,
   Ref,
-  Repository,
   SymbolicRef,
   TagStore,
   TreeStore,
@@ -28,12 +28,12 @@ import type {
 } from "../handlers/types.js";
 
 /**
- * Create RepositoryAccess from a Repository.
+ * Create RepositoryAccess from a HistoryStore.
  *
- * @param repository - Repository implementation from @statewalker/vcs-core
+ * @param repository - HistoryStore implementation from @statewalker/vcs-core
  * @returns RepositoryAccess interface for protocol handlers
  */
-export function createRepositoryAdapter(repository: Repository): RepositoryAccess {
+export function createRepositoryAdapter(repository: HistoryStore): RepositoryAccess {
   const { objects, refs, commits, trees, tags } = repository;
 
   const checkIsSymbolicRef = (ref: Ref | SymbolicRef): ref is SymbolicRef => {
@@ -314,12 +314,12 @@ function concatBytes(arrays: Uint8Array[]): Uint8Array {
 /**
  * Factory function type for resolving repository.
  */
-export type RepositoryResolver = (request: Request, repoPath: string) => Promise<Repository | null>;
+export type RepositoryResolver = (request: Request, repoPath: string) => Promise<HistoryStore | null>;
 
 /**
- * Create GitHttpServer options from Repository resolver.
+ * Create GitHttpServer options from HistoryStore resolver.
  *
- * Convenience factory for setting up server with Repository interface.
+ * Convenience factory for setting up server with HistoryStore interface.
  *
  * @example
  * ```typescript
