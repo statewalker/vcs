@@ -131,9 +131,3 @@ export interface GitStores {
   /** Tag object storage */
   readonly tags: TagStore;
 }
-
-// Backward compatibility aliases
-/** @deprecated Use HistoryStore instead */
-export type Repository = HistoryStore;
-/** @deprecated Use HistoryStoreConfig instead */
-export type RepositoryConfig = HistoryStoreConfig;
