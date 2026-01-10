@@ -7,7 +7,17 @@
  *
  * Corresponds to Fossil's "checkout database" concept.
  *
+ * @deprecated Use the Three-Part Store Architecture instead:
+ * - {@link HistoryStore} for immutable history (Part 1)
+ * - {@link WorktreeStore} for filesystem access (Part 2)
+ * - {@link CheckoutStore} for mutable local state (Part 3)
+ *
+ * WorkingCopy combines all three parts into a single interface.
+ * For new code, prefer using the separate stores with Git.fromStores().
+ *
  * @see HistoryStore for shared history storage
+ * @see CheckoutStore for local checkout state
+ * @see WorktreeStore for filesystem access
  */
 
 import type { HistoryStore } from "./history-store.js";
@@ -148,6 +158,10 @@ export interface RevertState {
  *
  * Links to a HistoryStore and adds local state.
  * Multiple WorkingCopies can share one HistoryStore.
+ *
+ * @deprecated Use the Three-Part Store Architecture instead.
+ * This interface is kept for backward compatibility.
+ * For new code, use HistoryStore + CheckoutStore + WorktreeStore separately.
  *
  * @example Checking branch and status
  * ```typescript
@@ -315,6 +329,9 @@ export interface AddWorktreeOptions {
 
 /**
  * Factory for creating working copies
+ *
+ * @deprecated Use the Three-Part Store Architecture instead.
+ * This interface is kept for backward compatibility.
  */
 export interface WorkingCopyFactory {
   /**
