@@ -4,12 +4,12 @@ import type { StagingStore } from "../../src/staging/staging-store.js";
 import { MemoryStashStore } from "../../src/working-copy/stash-store.memory.js";
 import { MemoryWorkingCopy } from "../../src/working-copy/working-copy.memory.js";
 import type { MergeState, RebaseState } from "../../src/working-copy.js";
-import type { WorkingTreeIterator } from "../../src/worktree/working-tree-iterator.js";
+import type { WorktreeStore } from "../../src/worktree/worktree-store.js";
 
 describe("MemoryWorkingCopy", () => {
   let workingCopy: MemoryWorkingCopy;
   let mockRepository: HistoryStore;
-  let mockWorktree: WorkingTreeIterator;
+  let mockWorktree: WorktreeStore;
   let mockStaging: StagingStore;
 
   beforeEach(() => {
@@ -30,7 +30,7 @@ describe("MemoryWorkingCopy", () => {
       isInitialized: vi.fn().mockResolvedValue(true),
     } as unknown as Repository;
 
-    mockWorktree = {} as WorkingTreeIterator;
+    mockWorktree = {} as WorktreeStore;
 
     mockStaging = {
       read: vi.fn().mockResolvedValue(undefined),

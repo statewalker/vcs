@@ -10,7 +10,7 @@ import {
   StageState,
 } from "../../src/status/index.js";
 import type { TreeEntry, TreeStore } from "../../src/trees/index.js";
-import type { WorkingTreeEntry, WorkingTreeIterator } from "../../src/worktree/index.js";
+import type { WorktreeEntry, WorktreeStore } from "../../src/worktree/index.js";
 
 /**
  * Helper to create mock tree store
@@ -76,9 +76,9 @@ function createMockStagingStore(
  * Helper to create mock working tree iterator
  */
 function createMockWorktree(
-  entries: WorkingTreeEntry[],
+  entries: WorktreeEntry[],
   hashes: Map<string, string>,
-): WorkingTreeIterator {
+): WorktreeStore {
   return {
     walk: vi.fn().mockImplementation(async function* () {
       for (const entry of entries) {
@@ -92,7 +92,7 @@ function createMockWorktree(
       return hashes.get(path) ?? "unknown-hash";
     }),
     readContent: vi.fn(),
-  } as unknown as WorkingTreeIterator;
+  } as unknown as WorktreeStore;
 }
 
 /**
@@ -161,10 +161,10 @@ function createStagingEntry(
 /**
  * Helper to create a working tree entry
  */
-function createWorkingTreeEntry(
+function createWorktreeEntry(
   path: string,
-  options: Partial<WorkingTreeEntry> = {},
-): WorkingTreeEntry {
+  options: Partial<WorktreeEntry> = {},
+): WorktreeEntry {
   return {
     path,
     name: path.split("/").pop() ?? path,
@@ -210,7 +210,7 @@ describe("StatusCalculator", () => {
 
       const stagingEntries = [createStagingEntry("new-file.txt", "abc123")];
 
-      const worktreeEntries = [createWorkingTreeEntry("new-file.txt")];
+      const worktreeEntries = [createWorktreeEntry("new-file.txt")];
 
       const trees = createMockTreeStore(treeEntries);
       const staging = createMockStagingStore(stagingEntries);
@@ -270,7 +270,7 @@ describe("StatusCalculator", () => {
 
       const stagingEntries = [createStagingEntry("file.txt", "new-hash")];
 
-      const worktreeEntries = [createWorkingTreeEntry("file.txt")];
+      const worktreeEntries = [createWorktreeEntry("file.txt")];
 
       const trees = createMockTreeStore(treeEntries);
       const staging = createMockStagingStore(stagingEntries);
@@ -297,7 +297,7 @@ describe("StatusCalculator", () => {
     it("should detect untracked file", async () => {
       const trees = createMockTreeStore(new Map());
       const staging = createMockStagingStore([]);
-      const worktree = createMockWorktree([createWorkingTreeEntry("untracked.txt")], new Map());
+      const worktree = createMockWorktree([createWorktreeEntry("untracked.txt")], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore();
 
@@ -322,7 +322,7 @@ describe("StatusCalculator", () => {
     it("should detect conflicts", async () => {
       const trees = createMockTreeStore(new Map());
       const staging = createMockStagingStore([], ["conflict.txt"]);
-      const worktree = createMockWorktree([createWorkingTreeEntry("conflict.txt")], new Map());
+      const worktree = createMockWorktree([createWorktreeEntry("conflict.txt")], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore();
 
@@ -383,8 +383,8 @@ describe("StatusCalculator", () => {
       ];
 
       const worktreeEntries = [
-        createWorkingTreeEntry("src/file.ts"),
-        createWorkingTreeEntry("docs/readme.md"),
+        createWorktreeEntry("src/file.ts"),
+        createWorktreeEntry("docs/readme.md"),
       ];
 
       const trees = createMockTreeStore(treeEntries);
@@ -417,7 +417,7 @@ describe("StatusCalculator", () => {
       const trees = createMockTreeStore(new Map());
       const staging = createMockStagingStore([]);
       const worktree = createMockWorktree(
-        [createWorkingTreeEntry("ignored.log", { isIgnored: true })],
+        [createWorktreeEntry("ignored.log", { isIgnored: true })],
         new Map(),
       );
       const commits = createMockCommitStore(new Map());
@@ -440,7 +440,7 @@ describe("StatusCalculator", () => {
       const trees = createMockTreeStore(new Map());
       const staging = createMockStagingStore([]);
       const worktree = createMockWorktree(
-        [createWorkingTreeEntry("ignored.log", { isIgnored: true })],
+        [createWorktreeEntry("ignored.log", { isIgnored: true })],
         new Map(),
       );
       const commits = createMockCommitStore(new Map());
@@ -474,7 +474,7 @@ describe("StatusCalculator", () => {
       const stagingEntries = [createStagingEntry("file.txt", "hash123")];
 
       const worktreeEntries = [
-        createWorkingTreeEntry("file.txt", { size: 100, mtime: Date.now() - 20000 }),
+        createWorktreeEntry("file.txt", { size: 100, mtime: Date.now() - 20000 }),
       ];
 
       const trees = createMockTreeStore(treeEntries);
@@ -504,7 +504,7 @@ describe("StatusCalculator", () => {
 
       const stagingEntries = [createStagingEntry("file.txt", "new-hash")];
 
-      const worktreeEntries = [createWorkingTreeEntry("file.txt")];
+      const worktreeEntries = [createWorktreeEntry("file.txt")];
 
       const trees = createMockTreeStore(treeEntries);
       const staging = createMockStagingStore(stagingEntries);
@@ -551,7 +551,7 @@ describe("StatusCalculator", () => {
     it("should return true for file in worktree but not in index", async () => {
       const trees = createMockTreeStore(new Map());
       const staging = createMockStagingStore([]);
-      const worktree = createMockWorktree([createWorkingTreeEntry("new-file.txt")], new Map());
+      const worktree = createMockWorktree([createWorktreeEntry("new-file.txt")], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore();
 

@@ -1,2 +1,2 @@
-export * from "./working-tree-iterator.impl.js";
-export * from "./working-tree-iterator.js";
+export * from "./worktree-store.impl.js";
+export * from "./worktree-store.js";

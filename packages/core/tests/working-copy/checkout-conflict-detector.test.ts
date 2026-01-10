@@ -7,7 +7,7 @@ import {
 import { CheckoutConflictType } from "../../src/working-copy/checkout-utils.js";
 import { createMockStagingStore, createStagingEntry } from "../mocks/mock-staging-store.js";
 import { createMockTreeStore } from "../mocks/mock-tree-store.js";
-import { createMockWorktree, createWorkingTreeEntry } from "../mocks/mock-worktree.js";
+import { createMockWorktree, createWorktreeEntry } from "../mocks/mock-worktree.js";
 
 describe("detectCheckoutConflicts", () => {
   describe("no conflicts", () => {
@@ -17,7 +17,7 @@ describe("detectCheckoutConflicts", () => {
       });
       const staging = createMockStagingStore([createStagingEntry("file.txt", "blob1")]);
       const worktree = createMockWorktree(
-        [createWorkingTreeEntry("file.txt")],
+        [createWorktreeEntry("file.txt")],
         new Map([["file.txt", "blob1"]]),
       );
 
@@ -51,7 +51,7 @@ describe("detectCheckoutConflicts", () => {
       });
       const staging = createMockStagingStore([createStagingEntry("file.txt", "blob1")]);
       const worktree = createMockWorktree(
-        [createWorkingTreeEntry("file.txt")],
+        [createWorktreeEntry("file.txt")],
         new Map([["file.txt", "blob1"]]),
       );
 
@@ -71,7 +71,7 @@ describe("detectCheckoutConflicts", () => {
         createStagingEntry("file.txt", "blob2"), // Staged different from HEAD
       ]);
       const worktree = createMockWorktree(
-        [createWorkingTreeEntry("file.txt")],
+        [createWorktreeEntry("file.txt")],
         new Map([["file.txt", "blob2"]]),
       );
 
@@ -95,7 +95,7 @@ describe("detectCheckoutConflicts", () => {
         createStagingEntry("file.txt", "blob1", 0, { size: 100 }),
       ]);
       const worktree = createMockWorktree(
-        [createWorkingTreeEntry("file.txt", { size: 200 })], // Different size
+        [createWorktreeEntry("file.txt", { size: 200 })], // Different size
         new Map([["file.txt", "modified-hash"]]),
       );
 
@@ -130,7 +130,7 @@ describe("detectCheckoutConflicts", () => {
         createStagingEntry("file.txt", "blob1", 0, { size: 100 }),
       ]);
       const worktree = createMockWorktree(
-        [createWorkingTreeEntry("file.txt", { size: 200 })], // Modified
+        [createWorktreeEntry("file.txt", { size: 200 })], // Modified
         new Map([["file.txt", "modified-hash"]]),
       );
 
@@ -149,7 +149,7 @@ describe("detectCheckoutConflicts", () => {
         target: [{ name: "new-file.txt", id: "blob1", mode: 0o100644 }],
       });
       const staging = createMockStagingStore([]);
-      const worktree = createMockWorktree([createWorkingTreeEntry("new-file.txt")], new Map());
+      const worktree = createMockWorktree([createWorktreeEntry("new-file.txt")], new Map());
 
       const result = await detectCheckoutConflicts({ trees, staging, worktree }, "head", "target");
 
@@ -166,7 +166,7 @@ describe("detectCheckoutConflicts", () => {
       });
       const staging = createMockStagingStore([]);
       const worktree = createMockWorktree(
-        [createWorkingTreeEntry("build/output.txt", { isIgnored: true })],
+        [createWorktreeEntry("build/output.txt", { isIgnored: true })],
         new Map(),
       );
 
@@ -182,7 +182,7 @@ describe("detectCheckoutConflicts", () => {
         target: [{ name: "new-file.txt", id: "blob1", mode: 0o100644 }],
       });
       const staging = createMockStagingStore([]);
-      const worktree = createMockWorktree([createWorkingTreeEntry("new-file.txt")], new Map());
+      const worktree = createMockWorktree([createWorktreeEntry("new-file.txt")], new Map());
 
       const result = await detectCheckoutConflicts({ trees, staging, worktree }, "head", "target", {
         skipUntracked: true,
@@ -204,7 +204,7 @@ describe("detectCheckoutConflicts", () => {
         createStagingEntry("src/file.txt", "modified", 0, { size: 100 }),
       ]);
       const worktree = createMockWorktree(
-        [createWorkingTreeEntry("src/file.txt", { size: 200 })],
+        [createWorktreeEntry("src/file.txt", { size: 200 })],
         new Map([["src/file.txt", "modified-hash"]]),
       );
 
@@ -242,9 +242,9 @@ describe("detectCheckoutConflicts", () => {
       ]);
       const worktree = createMockWorktree(
         [
-          createWorkingTreeEntry("staged.txt"),
-          createWorkingTreeEntry("modified.txt", { size: 200 }),
-          createWorkingTreeEntry("untracked.txt"),
+          createWorktreeEntry("staged.txt"),
+          createWorktreeEntry("modified.txt", { size: 200 }),
+          createWorktreeEntry("untracked.txt"),
         ],
         new Map([
           ["staged.txt", "staged-change"],
@@ -271,7 +271,7 @@ describe("createCheckoutConflictDetector", () => {
     });
     const staging = createMockStagingStore([createStagingEntry("file.txt", "blob1")]);
     const worktree = createMockWorktree(
-      [createWorkingTreeEntry("file.txt")],
+      [createWorktreeEntry("file.txt")],
       new Map([["file.txt", "blob1"]]),
     );
 

@@ -18,7 +18,7 @@ import type { PersonIdent } from "../person/person-ident.js";
 import type { StagingStore } from "../staging/index.js";
 import type { TreeEntry } from "../trees/tree-entry.js";
 import type { StashEntry, StashPushOptions, StashStore } from "../working-copy.js";
-import type { WorkingTreeIterator } from "../worktree/index.js";
+import type { WorktreeStore } from "../worktree/index.js";
 
 /**
  * Files API subset needed for stash operations
@@ -40,7 +40,7 @@ export interface GitStashStoreOptions {
   /** Staging area for index state */
   staging: StagingStore;
   /** Working tree iterator for reading files */
-  worktree: WorkingTreeIterator;
+  worktree: WorktreeStore;
   /** Files API for stash metadata */
   files: StashFilesApi;
   /** Path to .git directory */
@@ -66,7 +66,7 @@ export interface GitStashStoreOptions {
 export class GitStashStore implements StashStore {
   private readonly repository: HistoryStore;
   private readonly staging: StagingStore;
-  private readonly worktree: WorkingTreeIterator;
+  private readonly worktree: WorktreeStore;
   private readonly files: StashFilesApi;
   private readonly gitDir: string;
   private readonly getHead: () => Promise<ObjectId | undefined>;

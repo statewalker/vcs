@@ -35,7 +35,7 @@ import {
   DeleteStagingEntry,
   FileMode,
   UpdateStagingEntry,
-  type WorkingTreeIterator,
+  type WorktreeStore,
 } from "@statewalker/vcs-core";
 
 import {
@@ -145,7 +145,7 @@ export class AddCommand extends GitCommand<AddResult> {
   private all: boolean | undefined;
   private force = false;
   private intentToAdd = false;
-  private worktreeIterator: WorkingTreeIterator | undefined;
+  private worktreeIterator: WorktreeStore | undefined;
 
   /**
    * Add a path to a file/directory whose content should be added.
@@ -267,7 +267,7 @@ export class AddCommand extends GitCommand<AddResult> {
    * @param iterator Custom working tree iterator
    * @returns this for chaining
    */
-  setWorkingTreeIterator(iterator: WorkingTreeIterator): this {
+  setWorktreeStore(iterator: WorktreeStore): this {
     this.checkCallable();
     this.worktreeIterator = iterator;
     return this;
@@ -308,9 +308,9 @@ export class AddCommand extends GitCommand<AddResult> {
     const worktree = this.getWorktreeIterator();
     if (!worktree) {
       throw new StoreNotAvailableError(
-        "WorkingTreeIterator",
+        "WorktreeStore",
         "Working tree iterator not available. " +
-          "Use GitStoreWithWorkTree or call setWorkingTreeIterator().",
+          "Use GitStoreWithWorkTree or call setWorktreeStore().",
       );
     }
 
@@ -327,7 +327,7 @@ export class AddCommand extends GitCommand<AddResult> {
   /**
    * Get working tree iterator from store or explicitly set.
    */
-  private getWorktreeIterator(): WorkingTreeIterator | undefined {
+  private getWorktreeIterator(): WorktreeStore | undefined {
     if (this.worktreeIterator) {
       return this.worktreeIterator;
     }
@@ -341,7 +341,7 @@ export class AddCommand extends GitCommand<AddResult> {
    * Process files for staging.
    */
   private async processFiles(
-    worktree: WorkingTreeIterator,
+    worktree: WorktreeStore,
     patterns: string[],
     stageDeletions: boolean,
   ): Promise<AddResult> {
@@ -480,7 +480,7 @@ export class AddCommand extends GitCommand<AddResult> {
    *
    * Note: The object store handles blob header internally.
    */
-  private async storeFileContent(worktree: WorkingTreeIterator, path: string): Promise<string> {
+  private async storeFileContent(worktree: WorktreeStore, path: string): Promise<string> {
     // Read content from working tree
     const chunks: Uint8Array[] = [];
     for await (const chunk of worktree.readContent(path)) {

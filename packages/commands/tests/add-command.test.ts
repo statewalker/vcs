@@ -10,9 +10,9 @@
 
 import {
   FileMode,
-  type WorkingTreeEntry,
-  type WorkingTreeIterator,
-  type WorkingTreeIteratorOptions,
+  type WorktreeEntry,
+  type WorktreeStore,
+  type WorktreeStoreOptions,
 } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -26,7 +26,7 @@ import { backends, type GitStoreFactory } from "./test-helper.js";
  *
  * Simulates a filesystem with in-memory files.
  */
-class MockWorkingTree implements WorkingTreeIterator {
+class MockWorkingTree implements WorktreeStore {
   private files: Map<string, { content: Uint8Array; mode: number; mtime: number }> = new Map();
   private ignored: Set<string> = new Set();
 
@@ -54,9 +54,9 @@ class MockWorkingTree implements WorkingTreeIterator {
     return Array.from(this.files.keys()).sort();
   }
 
-  // WorkingTreeIterator implementation
+  // WorktreeStore implementation
 
-  async *walk(options?: WorkingTreeIteratorOptions): AsyncIterable<WorkingTreeEntry> {
+  async *walk(options?: WorktreeStoreOptions): AsyncIterable<WorktreeEntry> {
     const paths = Array.from(this.files.keys()).sort();
 
     for (const path of paths) {
@@ -86,7 +86,7 @@ class MockWorkingTree implements WorkingTreeIterator {
     }
   }
 
-  async getEntry(path: string): Promise<WorkingTreeEntry | undefined> {
+  async getEntry(path: string): Promise<WorktreeEntry | undefined> {
     const file = this.files.get(path);
     if (!file) return undefined;
 
@@ -644,7 +644,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       const result = await git
         .add()
         .addFilepattern(".")
-        .setWorkingTreeIterator(customWorktree)
+        .setWorktreeStore(customWorktree)
         .call();
 
       expect(result.added).toContain("custom.txt");

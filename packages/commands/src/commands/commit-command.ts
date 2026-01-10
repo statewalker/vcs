@@ -1,4 +1,4 @@
-import type { Commit, ObjectId, PersonIdent, WorkingTreeIterator } from "@statewalker/vcs-core";
+import type { Commit, ObjectId, PersonIdent, WorktreeStore } from "@statewalker/vcs-core";
 import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import {
@@ -79,7 +79,7 @@ function getTimezoneOffset(): string {
  * const commit = await git.commit()
  *   .setMessage("All changes")
  *   .setAll(true)
- *   .setWorkingTreeIterator(worktree)
+ *   .setWorktreeStore(worktree)
  *   .call();
  * ```
  */
@@ -92,7 +92,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
   private parents: ObjectId[] = [];
   private onlyPaths: string[] = [];
   private all = false;
-  private worktreeIterator: WorkingTreeIterator | undefined;
+  private worktreeIterator: WorktreeStore | undefined;
 
   /**
    * Set the commit message.
@@ -259,7 +259,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
    * @param iterator Custom working tree iterator
    * @returns this for chaining
    */
-  setWorkingTreeIterator(iterator: WorkingTreeIterator): this {
+  setWorktreeStore(iterator: WorktreeStore): this {
     this.checkCallable();
     this.worktreeIterator = iterator;
     return this;
@@ -493,9 +493,9 @@ export class CommitCommand extends GitCommand<CommitResult> {
     const worktree = this.getWorktreeIterator();
     if (!worktree) {
       throw new StoreNotAvailableError(
-        "WorkingTreeIterator",
+        "WorktreeStore",
         "Working tree iterator required for --all mode. " +
-          "Use GitStoreWithWorkTree or call setWorkingTreeIterator().",
+          "Use GitStoreWithWorkTree or call setWorktreeStore().",
       );
     }
 
@@ -503,14 +503,14 @@ export class CommitCommand extends GitCommand<CommitResult> {
     const addCommand = new AddCommand(this.store);
     addCommand.addFilepattern(".");
     addCommand.setUpdate(true);
-    addCommand.setWorkingTreeIterator(worktree);
+    addCommand.setWorktreeStore(worktree);
     await addCommand.call();
   }
 
   /**
    * Get working tree iterator from store or explicitly set.
    */
-  private getWorktreeIterator(): WorkingTreeIterator | undefined {
+  private getWorktreeIterator(): WorktreeStore | undefined {
     if (this.worktreeIterator) {
       return this.worktreeIterator;
     }
