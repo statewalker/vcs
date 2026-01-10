@@ -10,8 +10,9 @@
 
 import type {
   CommitStore,
-  RepositoryAccess as CoreRepositoryAccess,
+  GitObjectStore,
   ObjectTypeCode,
+  ObjectTypeString,
   Ref,
   RefStore,
   SymbolicRef,
@@ -31,8 +32,8 @@ import type {
  * Uses only interfaces from @statewalker/vcs-core package.
  */
 export interface VcsStores {
-  /** Repository access for object operations */
-  repositoryAccess: CoreRepositoryAccess;
+  /** Object content storage */
+  objects: GitObjectStore;
   /** Reference storage */
   refs: RefStore;
   /** Commit parsing/storage */
@@ -58,8 +59,9 @@ export type VcsRepositoryResolver = (
  * @returns RepositoryAccess interface for protocol handlers
  */
 export function createVcsRepositoryAdapter(stores: VcsStores): RepositoryAccess {
-  const { repositoryAccess, refs, commits, trees, tags } = stores;
+  const { objects, refs, commits, trees, tags } = stores;
 
+  // Import isSymbolicRef at runtime
   const checkIsSymbolicRef = (ref: Ref | SymbolicRef): ref is SymbolicRef => {
     return "target" in ref && typeof ref.target === "string";
   };
@@ -107,31 +109,38 @@ export function createVcsRepositoryAdapter(stores: VcsStores): RepositoryAccess 
      * Check if an object exists.
      */
     async hasObject(id: ObjectId): Promise<boolean> {
-      return repositoryAccess.has(id);
+      return objects.has(id);
     },
 
     /**
      * Get object type and size.
+     * Uses GitObjectStore.getHeader() for efficient header access.
      */
     async getObjectInfo(id: ObjectId): Promise<ObjectInfo | null> {
-      const info = await repositoryAccess.getInfo(id);
-      if (!info) return null;
-      return { type: info.type, size: info.size };
+      try {
+        const header = await objects.getHeader(id);
+        const type = stringToObjectType(header.type);
+        if (!type) return null;
+        return { type, size: header.size };
+      } catch {
+        return null;
+      }
     },
 
     /**
      * Load object content (raw with header).
      */
     async *loadObject(id: ObjectId): AsyncIterable<Uint8Array> {
-      const data = await repositoryAccess.loadWireFormat(id);
-      if (data) yield data;
+      yield* objects.loadRaw(id);
     },
 
     /**
      * Store an object.
+     * GitObjectStore handles header creation internally.
      */
     async storeObject(type: ObjectTypeCode, content: Uint8Array): Promise<ObjectId> {
-      return repositoryAccess.store(type, content);
+      const typeStr = objectTypeToString(type);
+      return objects.store(typeStr, [content]);
     },
 
     /**
@@ -171,7 +180,7 @@ export function createVcsRepositoryAdapter(stores: VcsStores): RepositoryAccess 
       const seen = new Set<ObjectId>();
 
       for (const wantId of wants) {
-        yield* walkObject(wantId, haveSet, seen, repositoryAccess, commits, trees, tags);
+        yield* walkObject(wantId, haveSet, seen, objects, commits, trees, tags);
       }
     },
   };
@@ -184,7 +193,7 @@ async function* walkObject(
   id: ObjectId,
   haveSet: Set<ObjectId>,
   seen: Set<ObjectId>,
-  repositoryAccess: CoreRepositoryAccess,
+  objects: GitObjectStore,
   commits: CommitStore,
   trees: TreeStore,
   tags?: TagStore,
@@ -192,9 +201,9 @@ async function* walkObject(
   if (seen.has(id) || haveSet.has(id)) return;
   seen.add(id);
 
-  const wireData = await repositoryAccess.loadWireFormat(id);
-  if (!wireData) return;
-  const { type, body } = parseGitObject(wireData);
+  // Load raw object with header
+  const content = await collectContent(objects.loadRaw(id));
+  const { type, body } = parseGitObject(content);
 
   yield { id, type, content: body };
 
@@ -204,9 +213,9 @@ async function* walkObject(
       // COMMIT
       try {
         const commit = await commits.loadCommit(id);
-        yield* walkObject(commit.tree, haveSet, seen, repositoryAccess, commits, trees, tags);
+        yield* walkObject(commit.tree, haveSet, seen, objects, commits, trees, tags);
         for (const parentId of commit.parents) {
-          yield* walkObject(parentId, haveSet, seen, repositoryAccess, commits, trees, tags);
+          yield* walkObject(parentId, haveSet, seen, objects, commits, trees, tags);
         }
       } catch {
         // Ignore errors loading commit details
@@ -218,7 +227,7 @@ async function* walkObject(
       // TREE
       try {
         for await (const entry of trees.loadTree(id)) {
-          yield* walkObject(entry.id, haveSet, seen, repositoryAccess, commits, trees, tags);
+          yield* walkObject(entry.id, haveSet, seen, objects, commits, trees, tags);
         }
       } catch {
         // Ignore errors loading tree entries
@@ -231,7 +240,7 @@ async function* walkObject(
       if (tags) {
         try {
           const tag = await tags.loadTag(id);
-          yield* walkObject(tag.object, haveSet, seen, repositoryAccess, commits, trees, tags);
+          yield* walkObject(tag.object, haveSet, seen, objects, commits, trees, tags);
         } catch {
           // Ignore errors loading tag details
         }
@@ -297,6 +306,52 @@ function stringToObjectType(str: string): ObjectTypeCode | null {
 }
 
 /**
+ * Convert ObjectTypeCode to type string.
+ */
+function objectTypeToString(type: ObjectTypeCode): ObjectTypeString {
+  switch (type) {
+    case 1:
+      return "commit";
+    case 2:
+      return "tree";
+    case 3:
+      return "blob";
+    case 4:
+      return "tag";
+    default:
+      throw new Error(`Unknown type code: ${type}`);
+  }
+}
+
+/**
+ * Collect all chunks from async iterable into single Uint8Array.
+ */
+async function collectContent(stream: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return concatBytes(chunks);
+}
+
+/**
+ * Concatenate byte arrays.
+ */
+function concatBytes(arrays: Uint8Array[]): Uint8Array {
+  if (arrays.length === 0) return new Uint8Array(0);
+  if (arrays.length === 1) return arrays[0];
+
+  const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+  return result;
+}
+
+/**
  * Create GitHttpServer options from VCS store resolver.
  *
  * Convenience factory for setting up server with VCS stores.
@@ -305,7 +360,7 @@ function stringToObjectType(str: string): ObjectTypeCode | null {
  * ```typescript
  * const server = createGitHttpServer(
  *   createVcsServerOptions(async (request, repoPath) => {
- *     return { repositoryAccess, refs, commits, trees };
+ *     return { objects, refs, commits, trees };
  *   })
  * );
  * ```

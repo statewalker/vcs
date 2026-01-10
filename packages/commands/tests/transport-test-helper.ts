@@ -10,16 +10,14 @@ import type {
   BlobStore,
   Commit,
   CommitStore,
-  RepositoryAccess as CoreRepositoryAccess,
   GitObjectHeader,
   GitObjectStore,
   ObjectId,
-  ObjectTypeCode,
   ObjectTypeString,
   TreeEntry,
   TreeStore,
 } from "@statewalker/vcs-core";
-import { ObjectType, serializeCommit, serializeTree } from "@statewalker/vcs-core";
+import { serializeCommit, serializeTree } from "@statewalker/vcs-core";
 import { MemoryRefStore, MemoryStagingStore, MemoryTagStore } from "@statewalker/vcs-store-mem";
 import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
@@ -173,88 +171,6 @@ class MemoryGitObjectStore implements GitObjectStore {
     for (const id of this.objects.keys()) {
       yield id;
     }
-  }
-
-  /**
-   * Create a CoreRepositoryAccess wrapper for this object store.
-   */
-  toRepositoryAccess(): CoreRepositoryAccess {
-    return {
-      has: (id: ObjectId) => this.has(id),
-      getInfo: async (id: ObjectId) => {
-        if (!this.objects.has(id)) return null;
-        const header = await this.getHeader(id);
-        return {
-          id,
-          type: stringToTypeCode(header.type),
-          size: header.size,
-        };
-      },
-      load: async (id: ObjectId) => {
-        if (!this.objects.has(id)) return null;
-        const data = this.objects.get(id)!;
-        const nullIndex = data.indexOf(0);
-        const header = await this.getHeader(id);
-        return {
-          type: stringToTypeCode(header.type),
-          content: data.subarray(nullIndex + 1),
-        };
-      },
-      loadWireFormat: async (id: ObjectId) => {
-        return this.objects.get(id) ?? null;
-      },
-      store: async (type: ObjectTypeCode, content: Uint8Array) => {
-        const typeStr = typeCodeToString(type);
-        const gitObject = createGitObject(typeStr, content);
-        const id = await sha1Hex(gitObject);
-        if (!this.objects.has(id)) {
-          this.objects.set(id, gitObject);
-        }
-        return id;
-      },
-      enumerate: async function* () {
-        // Not implemented for tests
-      },
-      enumerateWithInfo: async function* () {
-        // Not implemented for tests
-      },
-    };
-  }
-}
-
-/**
- * Map type string to ObjectTypeCode.
- */
-function stringToTypeCode(type: string): ObjectTypeCode {
-  switch (type) {
-    case "commit":
-      return ObjectType.COMMIT;
-    case "tree":
-      return ObjectType.TREE;
-    case "blob":
-      return ObjectType.BLOB;
-    case "tag":
-      return ObjectType.TAG;
-    default:
-      throw new Error(`Unknown type: ${type}`);
-  }
-}
-
-/**
- * Map ObjectTypeCode to type string.
- */
-function typeCodeToString(type: ObjectTypeCode): string {
-  switch (type) {
-    case ObjectType.COMMIT:
-      return "commit";
-    case ObjectType.TREE:
-      return "tree";
-    case ObjectType.BLOB:
-      return "blob";
-    case ObjectType.TAG:
-      return "tag";
-    default:
-      throw new Error(`Unknown type code: ${type}`);
   }
 }
 
@@ -631,7 +547,7 @@ export function createTestServer(serverStore?: TestGitStore): TestServer {
 
   // Use createVcsRepositoryAdapter from transport package
   const repositoryAccess = createVcsRepositoryAdapter({
-    repositoryAccess: store.objects.toRepositoryAccess(),
+    objects: store.objects,
     refs: store.refs,
     commits: store.commits,
     trees: store.trees,
@@ -691,7 +607,7 @@ export async function createInitializedTestServer(): Promise<
 
   // Use createVcsRepositoryAdapter from transport package
   const repositoryAccess = createVcsRepositoryAdapter({
-    repositoryAccess: store.objects.toRepositoryAccess(),
+    objects: store.objects,
     refs: store.refs,
     commits: store.commits,
     trees: store.trees,
