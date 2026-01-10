@@ -4,8 +4,8 @@
  * Manages local checkout state for a Git working directory.
  */
 
+import type { HistoryStore } from "../history-store.js";
 import type { ObjectId } from "../id/index.js";
-import type { Repository } from "../repository.js";
 import type { StagingStore } from "../staging/index.js";
 import {
   createStatusCalculator,
@@ -47,12 +47,12 @@ export interface WorkingCopyFilesApi
 /**
  * Git-compatible WorkingCopy implementation.
  *
- * Links a working directory to a Repository and manages local state
+ * Links a working directory to a HistoryStore and manages local state
  * including HEAD, staging area, merge/rebase state, and stash.
  */
 export class GitWorkingCopy implements WorkingCopy {
   constructor(
-    readonly repository: Repository,
+    readonly repository: HistoryStore,
     readonly worktree: WorkingTreeIterator,
     readonly staging: StagingStore,
     readonly stash: StashStore,

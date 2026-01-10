@@ -11,6 +11,8 @@ export * from "./delta/index.js";
 export * from "./files/index.js";
 // Format types (CommitEntry, TagEntry) and formatting functions
 export * from "./format/index.js";
+// HistoryStore interface (Part 1 of Three-Part Architecture)
+export * from "./history-store.js";
 // Object IDs
 export * from "./id/index.js";
 // Object types and formatting
@@ -24,8 +26,6 @@ export * from "./pack/index.js";
 export * from "./person/index.js";
 // References
 export * from "./refs/index.js";
-// Repository interface
-export * from "./repository.js";
 // Staging area
 export * from "./staging/index.js";
 // Status calculation

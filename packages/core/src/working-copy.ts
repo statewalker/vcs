@@ -1,17 +1,17 @@
 /**
  * WorkingCopy interface - local checkout state
  *
- * A WorkingCopy links a working directory to a Repository.
+ * A WorkingCopy links a working directory to a HistoryStore.
  * It manages all local state: HEAD, staging area, merge state.
- * Multiple WorkingCopies can share a single Repository.
+ * Multiple WorkingCopies can share a single HistoryStore.
  *
  * Corresponds to Fossil's "checkout database" concept.
  *
- * @see Repository for shared history storage
+ * @see HistoryStore for shared history storage
  */
 
+import type { HistoryStore } from "./history-store.js";
 import type { ObjectId } from "./id/index.js";
-import type { Repository } from "./repository.js";
 import type { StagingStore } from "./staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "./status/index.js";
 import type { RepositoryStateValue, StateCapabilities } from "./working-copy/repository-state.js";
@@ -146,8 +146,8 @@ export interface RevertState {
 /**
  * WorkingCopy - a checked-out working directory
  *
- * Links to a Repository and adds local state.
- * Multiple WorkingCopies can share one Repository.
+ * Links to a HistoryStore and adds local state.
+ * Multiple WorkingCopies can share one HistoryStore.
  *
  * @example Checking branch and status
  * ```typescript
@@ -183,8 +183,8 @@ export interface RevertState {
 export interface WorkingCopy {
   // ============ Links ============
 
-  /** The repository this working copy is linked to */
-  readonly repository: Repository;
+  /** The history store this working copy is linked to */
+  readonly repository: HistoryStore;
 
   /** Working tree filesystem access */
   readonly worktree: WorkingTreeIterator;
@@ -340,7 +340,7 @@ export interface WorkingCopyFactory {
    * @param options Worktree options
    */
   addWorktree(
-    repository: Repository,
+    repository: HistoryStore,
     worktreePath: string,
     options?: AddWorktreeOptions,
   ): Promise<WorkingCopy>;

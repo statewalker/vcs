@@ -12,9 +12,9 @@
  * - Parent 2: commit of current index state
  */
 
+import type { HistoryStore } from "../history-store.js";
 import type { ObjectId } from "../id/index.js";
 import type { PersonIdent } from "../person/person-ident.js";
-import type { Repository } from "../repository.js";
 import type { StagingStore } from "../staging/index.js";
 import type { TreeEntry } from "../trees/tree-entry.js";
 import type { StashEntry, StashPushOptions, StashStore } from "../working-copy.js";
@@ -35,8 +35,8 @@ export interface StashFilesApi {
  * Extended options for creating GitStashStore with full push/apply support.
  */
 export interface GitStashStoreOptions {
-  /** Repository for object storage */
-  repository: Repository;
+  /** HistoryStore for object storage */
+  repository: HistoryStore;
   /** Staging area for index state */
   staging: StagingStore;
   /** Working tree iterator for reading files */
@@ -64,7 +64,7 @@ export interface GitStashStoreOptions {
  * Tree contains working tree state.
  */
 export class GitStashStore implements StashStore {
-  private readonly repository: Repository;
+  private readonly repository: HistoryStore;
   private readonly staging: StagingStore;
   private readonly worktree: WorkingTreeIterator;
   private readonly files: StashFilesApi;

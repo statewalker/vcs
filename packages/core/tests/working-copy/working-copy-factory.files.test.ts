@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Repository } from "../../src/repository.js";
+import type { HistoryStore } from "../../src/history-store.js";
 import type { StagingStore } from "../../src/staging/staging-store.js";
 import {
   type GitWorkingCopyContext,
@@ -69,7 +69,7 @@ function createMockWorktree(): WorkingTreeIterator {
 /**
  * Create mock repository
  */
-function createMockRepository(options: { path?: string; headCommit?: string } = {}): Repository {
+function createMockRepository(options: { path?: string; headCommit?: string } = {}): HistoryStore {
   const { path, headCommit = "abc123" } = options;
 
   return {
