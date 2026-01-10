@@ -15,11 +15,16 @@ export default defineConfig({
   resolve: {
     alias: [
       // Subpath aliases MUST come before base package aliases for correct matching
-      // Utils subpath aliases
+      // Utils-node subpath aliases
       {
-        find: "@statewalker/vcs-utils/compression-node",
-        replacement: path.resolve(rootDir, "packages/utils/src/compression/compression-node"),
+        find: "@statewalker/vcs-utils-node/compression",
+        replacement: path.resolve(rootDir, "packages/utils-node/src/compression"),
       },
+      {
+        find: "@statewalker/vcs-utils-node/files",
+        replacement: path.resolve(rootDir, "packages/utils-node/src/files"),
+      },
+      // Utils subpath aliases
       {
         find: "@statewalker/vcs-utils/compression",
         replacement: path.resolve(rootDir, "packages/utils/src/compression/compression"),
@@ -104,6 +109,10 @@ export default defineConfig({
         replacement: path.resolve(rootDir, "packages/transport/src"),
       },
       { find: "@statewalker/vcs-utils", replacement: path.resolve(rootDir, "packages/utils/src") },
+      {
+        find: "@statewalker/vcs-utils-node",
+        replacement: path.resolve(rootDir, "packages/utils-node/src"),
+      },
     ],
   },
 });

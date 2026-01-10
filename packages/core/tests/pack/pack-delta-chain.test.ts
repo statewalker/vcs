@@ -7,8 +7,8 @@
  * Beads issue: webrun-vcs-vlbj
  */
 
-import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
 import {
@@ -23,7 +23,7 @@ import {
 
 // Set up Node.js compression before tests
 beforeAll(() => {
-  setCompression(createNodeCompression());
+  setCompressionUtils(createNodeCompression());
 });
 
 /**

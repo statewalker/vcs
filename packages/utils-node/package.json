@@ -1,5 +1,5 @@
 {
-  "name": "@statewalker/vcs-core",
+  "name": "@statewalker/vcs-utils-node",
   "version": "0.1.0",
   "private": false,
   "type": "module",
@@ -10,13 +10,13 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./staging": {
-      "types": "./dist/staging/index.d.ts",
-      "import": "./dist/staging/index.js"
+    "./compression": {
+      "types": "./dist/compression/index.d.ts",
+      "import": "./dist/compression/index.js"
     },
-    "./format": {
-      "types": "./dist/format/index.d.ts",
-      "import": "./dist/format/index.js"
+    "./files": {
+      "types": "./dist/files/index.d.ts",
+      "import": "./dist/files/index.js"
     }
   },
   "files": [
@@ -24,17 +24,17 @@
   ],
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "lint": "biome lint src tests"
   },
-  "dependencies": {
-    "@statewalker/vcs-utils": "workspace:*"
-  },
   "devDependencies": {
-    "@statewalker/vcs-utils-node": "workspace:*",
     "@types/node": "catalog:",
     "rolldown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@statewalker/vcs-utils": "workspace:*",
+    "@statewalker/webrun-files-node": "catalog:"
   }
 }

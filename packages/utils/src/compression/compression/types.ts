@@ -69,9 +69,12 @@ export type DecompressBlockPartialFunction = (
 ) => Promise<PartialDecompressionResult>;
 
 /**
- * Compression implementation interface for setCompression
+ * Compression utilities interface for setCompressionUtils
+ *
+ * Defines all compression/decompression functions that can be overridden
+ * with platform-specific implementations.
  */
-export interface CompressionImplementation {
+export interface CompressionUtils {
   deflate: DeflateFunction;
   inflate: InflateFunction;
   compressBlock: CompressBlockFunction;
@@ -79,3 +82,8 @@ export interface CompressionImplementation {
   /** Optional: decompress with bytes consumed tracking (for pack files) */
   decompressBlockPartial?: DecompressBlockPartialFunction;
 }
+
+/**
+ * @deprecated Use CompressionUtils instead
+ */
+export type CompressionImplementation = CompressionUtils;

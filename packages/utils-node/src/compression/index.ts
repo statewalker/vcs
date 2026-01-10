@@ -2,24 +2,24 @@
  * Node.js compression implementation
  *
  * Uses Node.js built-in zlib module for efficient compression/decompression.
- * Import this module and call setCompression() to use Node.js compression.
+ * Import this module and call setCompressionUtils() to use Node.js compression.
  *
  * @example
  * ```ts
- * import { setCompression } from "@statewalker/vcs-utils/compression";
- * import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+ * import { setCompressionUtils } from "@statewalker/vcs-utils/compression";
+ * import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
  *
- * setCompression(createNodeCompression());
+ * setCompressionUtils(createNodeCompression());
  * ```
  */
 import { promisify } from "node:util";
 import zlib from "node:zlib";
 import type {
   ByteStream,
-  CompressionImplementation,
+  CompressionUtils,
   StreamingCompressionOptions,
-} from "../compression/types.js";
-import { CompressionError } from "../compression/types.js";
+} from "@statewalker/vcs-utils/compression";
+import { CompressionError } from "@statewalker/vcs-utils/compression";
 
 /**
  * Compress a stream using DEFLATE (Node.js implementation)
@@ -266,17 +266,17 @@ export async function decompressBlockPartialNode(
 /**
  * Create a Node.js compression implementation
  *
- * @returns CompressionImplementation configured for Node.js
+ * @returns CompressionUtils configured for Node.js
  *
  * @example
  * ```ts
- * import { setCompression } from "@statewalker/vcs-utils/compression";
- * import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+ * import { setCompressionUtils } from "@statewalker/vcs-utils/compression";
+ * import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
  *
- * setCompression(createNodeCompression());
+ * setCompressionUtils(createNodeCompression());
  * ```
  */
-export function createNodeCompression(): CompressionImplementation {
+export function createNodeCompression(): CompressionUtils {
   return {
     deflate: deflateNode,
     inflate: inflateNode,

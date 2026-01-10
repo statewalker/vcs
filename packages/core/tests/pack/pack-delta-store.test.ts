@@ -5,8 +5,8 @@
  */
 
 import type { Delta } from "@statewalker/vcs-utils";
-import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DeltaInfo } from "../../src/delta/delta-store.js";
 import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
@@ -20,7 +20,7 @@ import {
 
 // Set up Node.js compression before tests
 beforeAll(() => {
-  setCompression(createNodeCompression());
+  setCompressionUtils(createNodeCompression());
 });
 
 /**

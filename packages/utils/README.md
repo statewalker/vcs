@@ -6,7 +6,36 @@ Foundation utilities for cryptographic hashing, compression, and diff/delta algo
 
 This package provides the low-level building blocks that power the StateWalker VCS ecosystem. It handles the fundamental operations needed for content-addressable storage: computing SHA-1 hashes to identify objects, compressing and decompressing data using zlib-compatible algorithms, and creating efficient binary deltas between similar content.
 
-The utilities are designed to work seamlessly in both Node.js and browser environments. Where platform-specific optimizations are available (like Node.js's native zlib), dedicated sub-exports provide better performance while maintaining the same API.
+### WinterTC/WinterCG Compliance
+
+This package is fully compliant with [WinterTC](https://tc39.es/proposal-wintercg/) Web Platform APIs, meaning it works out of the box in:
+
+- **Browsers** (Chrome, Firefox, Safari, Edge)
+- **Node.js** (v18+)
+- **Deno**
+- **Bun**
+- **Cloudflare Workers**
+- Any other JavaScript runtime supporting standard Web APIs
+
+The default implementations use:
+- **Web Crypto API** (`crypto.subtle`) for SHA-1 hashing
+- **pako** library for zlib compression (pure JavaScript)
+- **CompressionStream/DecompressionStream** for streaming compression
+- Standard **Uint8Array** and **AsyncIterator** interfaces
+
+### Pluggable Architecture
+
+All core utilities can be enhanced with optimized implementations via explicit setter methods:
+
+```typescript
+import { setCompressionUtils } from "@statewalker/vcs-utils/compression";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
+
+// Opt-in to Node.js zlib for better performance
+setCompressionUtils(createNodeCompression());
+```
+
+**Key principle**: The package works everywhere without any overloading. Node.js optimizations from `@statewalker/vcs-utils-node` are opt-in performance improvements, not requirements.
 
 All functions are pure and stateless, making them easy to test and compose. The streaming interfaces allow processing large files without loading them entirely into memory.
 
@@ -31,7 +60,6 @@ import { sha1, compress, decompress, createDelta, applyDelta } from "@statewalke
 | Export Path | Description |
 |-------------|-------------|
 | `@statewalker/vcs-utils/compression` | `compress()`, `decompress()` using pako (browser-compatible) |
-| `@statewalker/vcs-utils/compression-node` | Node.js-optimized compression using native zlib |
 | `@statewalker/vcs-utils/hash` | Hash algorithm registry and utilities |
 | `@statewalker/vcs-utils/hash/sha1` | SHA-1 hashing for Git object IDs |
 | `@statewalker/vcs-utils/hash/crc32` | CRC32 checksum calculation |
@@ -42,6 +70,7 @@ import { sha1, compress, decompress, createDelta, applyDelta } from "@statewalke
 | `@statewalker/vcs-utils/diff` | Delta encoding/decoding, text diff (Myers), and Git patch format |
 | `@statewalker/vcs-utils/cache` | LRU cache and intermediate caching utilities |
 | `@statewalker/vcs-utils/streams` | Async iterable utilities for streaming data |
+| `@statewalker/vcs-utils/files` | In-memory filesystem API and file utilities |
 
 ## Usage Examples
 
@@ -78,10 +107,14 @@ const compressed = compress(original);
 const restored = decompress(compressed);
 ```
 
-For Node.js environments, prefer the optimized version:
+For Node.js environments, use the optimized version from `@statewalker/vcs-utils-node`:
 
 ```typescript
-import { compress, decompress } from "@statewalker/vcs-utils/compression-node";
+import { setCompressionUtils } from "@statewalker/vcs-utils/compression";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
+
+// Register Node.js compression at application startup
+setCompressionUtils(createNodeCompression());
 ```
 
 ### Creating and Applying Binary Deltas
@@ -175,9 +208,14 @@ const transformed = mapStream(source, (chunk) => processChunk(chunk));
 
 ### Design Decisions
 
-The package prioritizes correctness and compatibility with Git's formats. All hashing and compression algorithms produce output that Git can read, enabling interoperability with standard Git tooling.
+The package prioritizes correctness, compatibility with Git's formats, and universal runtime support. All hashing and compression algorithms produce output that Git can read, enabling interoperability with standard Git tooling.
 
-Browser compatibility is achieved through pako for compression, while Node.js can use native zlib through the separate `/compression-node` export. This split allows bundlers to tree-shake the unused implementation.
+**Universal by default**: The package uses only Web Platform APIs that work across all modern JavaScript runtimes. No Node.js-specific code is included.
+
+**Explicit opt-in for optimizations**: Platform-specific optimizations are available in separate packages (like `@statewalker/vcs-utils-node`) and must be explicitly registered via setter methods. This ensures:
+- Tree-shaking works correctly for bundlers
+- No unexpected runtime dependencies
+- Clear separation between portable and optimized code
 
 ### Implementation Details
 

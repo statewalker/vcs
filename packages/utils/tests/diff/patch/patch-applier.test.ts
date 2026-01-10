@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createNodeCompression } from "../../../src/compression/compression-node/index.js";
-import { compressBlock, setCompression } from "../../../src/compression/index.js";
+import {
+  compressBlock,
+  createPakoCompression,
+  setCompressionUtils,
+} from "../../../src/compression/index.js";
 
-// Set up Node.js compression before tests
-setCompression(createNodeCompression());
+// Use pako compression (works in all environments)
+setCompressionUtils(createPakoCompression());
 
 import {
   BinaryComparator,

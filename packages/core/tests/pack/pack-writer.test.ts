@@ -4,11 +4,11 @@
  * Based on storage-git pack-writer tests and JGit BasePackWriterTest
  */
 
-import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { crc32 } from "@statewalker/vcs-utils/hash/crc32";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   PackObjectType,
@@ -19,7 +19,7 @@ import {
 
 // Set up Node.js compression before tests
 beforeAll(() => {
-  setCompression(createNodeCompression());
+  setCompressionUtils(createNodeCompression());
 });
 
 /**

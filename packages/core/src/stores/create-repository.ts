@@ -131,7 +131,7 @@ class GitRepository implements Repository {
  * const repo = await createGitRepository();
  *
  * // File-based repository
- * import { createNodeFilesApi } from "@statewalker/vcs-utils/files";
+ * import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
  * import * as fs from "node:fs/promises";
  *
  * const files = createNodeFilesApi({ fs, rootDir: "/path/to/project" });

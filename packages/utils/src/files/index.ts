@@ -11,5 +11,5 @@ export * from "./file-utils.js";
 export * from "./files-api.js";
 // Factory functions
 export { createInMemoryFilesApi } from "./mem-files-api.js";
-export { createNodeFilesApi } from "./node-files-api.js";
+// Node.js filesystem: use @statewalker/vcs-utils-node/files
 export * from "./path-utils.js";
