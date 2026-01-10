@@ -314,7 +314,10 @@ function concatBytes(arrays: Uint8Array[]): Uint8Array {
 /**
  * Factory function type for resolving repository.
  */
-export type RepositoryResolver = (request: Request, repoPath: string) => Promise<HistoryStore | null>;
+export type RepositoryResolver = (
+  request: Request,
+  repoPath: string,
+) => Promise<HistoryStore | null>;
 
 /**
  * Create GitHttpServer options from HistoryStore resolver.
