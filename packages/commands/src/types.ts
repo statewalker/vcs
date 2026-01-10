@@ -1,5 +1,6 @@
 import type {
   BlobStore,
+  CheckoutStore,
   CommitStore,
   HistoryStore,
   RefStore,
@@ -189,4 +190,68 @@ export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStor
     tags: repository.tags,
     worktree,
   };
+}
+
+// ============ Three-Part Store Architecture ============
+
+/**
+ * Three-part store configuration for Git operations.
+ *
+ * This represents the new architecture where stores are clearly separated:
+ * - HistoryStore: Immutable history (commits, trees, blobs, refs, tags)
+ * - CheckoutStore: Mutable local state (staging, HEAD, in-progress ops)
+ * - WorktreeStore: Filesystem access (working tree files)
+ *
+ * @example
+ * ```typescript
+ * const git = Git.fromStores({
+ *   history: myHistoryStore,
+ *   checkout: myCheckoutStore,
+ *   worktree: myWorktreeStore,
+ * });
+ * ```
+ */
+export interface GitStoresConfig {
+  /** Immutable history storage (Part 1) */
+  readonly history: HistoryStore;
+
+  /** Mutable checkout state (Part 3) - optional for read-only operations */
+  readonly checkout?: CheckoutStore;
+
+  /** Filesystem access (Part 2) - optional for bare repos */
+  readonly worktree?: WorktreeStore;
+
+  /** Staging store - required if checkout not provided */
+  readonly staging?: StagingStore;
+}
+
+/**
+ * Create a GitStore from the three-part store configuration.
+ *
+ * @param config Store configuration
+ * @returns GitStore for use with Git commands
+ */
+export function createGitStoreFromStores(config: GitStoresConfig): GitStore | GitStoreWithWorkTree {
+  const { history, checkout, worktree, staging } = config;
+
+  // Use staging from checkout if available, otherwise from config
+  const effectiveStaging = checkout?.staging ?? staging;
+  if (!effectiveStaging) {
+    throw new Error("Either checkout or staging must be provided");
+  }
+
+  const store: GitStore = {
+    blobs: history.blobs,
+    trees: history.trees,
+    commits: history.commits,
+    refs: history.refs,
+    staging: effectiveStaging,
+    tags: history.tags,
+  };
+
+  if (worktree) {
+    return { ...store, worktree } as GitStoreWithWorkTree;
+  }
+
+  return store;
 }
