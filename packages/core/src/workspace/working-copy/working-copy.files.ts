@@ -1,42 +1,43 @@
 /**
- * File-based CheckoutStore implementation.
+ * File-based WorkingCopy implementation.
  *
  * Manages local checkout state for a Git working directory.
- * Reads and writes Git state files (HEAD, MERGE_HEAD, etc.)
  */
 
-import type { ObjectId } from "../common/id/index.js";
-import type { RefStore } from "../history/refs/index.js";
+import type { ObjectId } from "../../common/id/index.js";
+import type { HistoryStore } from "../../history/history-store.js";
 import type { StagingStore } from "../staging/index.js";
 import {
-  type CherryPickStateFilesApi,
-  readCherryPickState,
-} from "../working-copy/cherry-pick-state-reader.js";
-import { type MergeStateFilesApi, readMergeState } from "../working-copy/merge-state-reader.js";
-import { type RebaseStateFilesApi, readRebaseState } from "../working-copy/rebase-state-reader.js";
-import {
-  getStateCapabilities,
-  type RepositoryStateValue,
-  type StateCapabilities,
-} from "../working-copy/repository-state.js";
-import {
-  detectRepositoryState,
-  type StateDetectorFilesApi,
-} from "../working-copy/repository-state-detector.js";
-import { type RevertStateFilesApi, readRevertState } from "../working-copy/revert-state-reader.js";
+  createStatusCalculator,
+  type RepositoryStatus,
+  type StatusOptions,
+} from "../status/index.js";
 import type {
   CherryPickState,
   MergeState,
   RebaseState,
   RevertState,
   StashStore,
+  WorkingCopy,
+  WorkingCopyConfig,
 } from "../working-copy.js";
-import type { CheckoutStore, CheckoutStoreConfig } from "./checkout-store.js";
+import type { WorktreeStore } from "../worktree/index.js";
+
+import { type CherryPickStateFilesApi, readCherryPickState } from "./cherry-pick-state-reader.js";
+import { type MergeStateFilesApi, readMergeState } from "./merge-state-reader.js";
+import { type RebaseStateFilesApi, readRebaseState } from "./rebase-state-reader.js";
+import {
+  getStateCapabilities,
+  type RepositoryStateValue,
+  type StateCapabilities,
+} from "./repository-state.js";
+import { detectRepositoryState, type StateDetectorFilesApi } from "./repository-state-detector.js";
+import { type RevertStateFilesApi, readRevertState } from "./revert-state-reader.js";
 
 /**
- * Files API subset needed for FileCheckoutStore
+ * Files API subset needed for GitWorkingCopy
  */
-export interface CheckoutStoreFilesApi
+export interface WorkingCopyFilesApi
   extends MergeStateFilesApi,
     RebaseStateFilesApi,
     CherryPickStateFilesApi,
@@ -44,18 +45,19 @@ export interface CheckoutStoreFilesApi
     StateDetectorFilesApi {}
 
 /**
- * Git-compatible CheckoutStore implementation.
+ * Git-compatible WorkingCopy implementation.
  *
- * Manages checkout state including HEAD, staging area, merge/rebase state, and stash.
- * Uses the RefStore for HEAD management and files for operation state.
+ * Links a working directory to a HistoryStore and manages local state
+ * including HEAD, staging area, merge/rebase state, and stash.
  */
-export class FileCheckoutStore implements CheckoutStore {
+export class GitWorkingCopy implements WorkingCopy {
   constructor(
+    readonly repository: HistoryStore,
+    readonly worktree: WorktreeStore,
     readonly staging: StagingStore,
     readonly stash: StashStore,
-    readonly config: CheckoutStoreConfig,
-    private readonly refs: RefStore,
-    private readonly files: CheckoutStoreFilesApi,
+    readonly config: WorkingCopyConfig,
+    private readonly files: WorkingCopyFilesApi,
     private readonly gitDir: string,
   ) {}
 
@@ -63,7 +65,7 @@ export class FileCheckoutStore implements CheckoutStore {
    * Get current HEAD commit ID.
    */
   async getHead(): Promise<ObjectId | undefined> {
-    const ref = await this.refs.resolve("HEAD");
+    const ref = await this.repository.refs.resolve("HEAD");
     return ref?.objectId;
   }
 
@@ -72,7 +74,7 @@ export class FileCheckoutStore implements CheckoutStore {
    * Returns undefined if HEAD is detached.
    */
   async getCurrentBranch(): Promise<string | undefined> {
-    const headRef = await this.refs.get("HEAD");
+    const headRef = await this.repository.refs.get("HEAD");
     if (headRef && "target" in headRef) {
       const target = headRef.target;
       if (target.startsWith("refs/heads/")) {
@@ -94,10 +96,10 @@ export class FileCheckoutStore implements CheckoutStore {
     if (isBranch) {
       // Symbolic reference to branch
       const ref = target.startsWith("refs/") ? target : `refs/heads/${target}`;
-      await this.refs.setSymbolic("HEAD", ref);
+      await this.repository.refs.setSymbolic("HEAD", ref);
     } else {
       // Direct reference to commit (detached HEAD)
-      await this.refs.set("HEAD", target);
+      await this.repository.refs.set("HEAD", target);
     }
   }
 
@@ -105,7 +107,7 @@ export class FileCheckoutStore implements CheckoutStore {
    * Check if HEAD is detached (pointing directly to commit, not branch).
    */
   async isDetachedHead(): Promise<boolean> {
-    const headRef = await this.refs.get("HEAD");
+    const headRef = await this.repository.refs.get("HEAD");
     return headRef !== undefined && !("target" in headRef);
   }
 
@@ -176,50 +178,34 @@ export class FileCheckoutStore implements CheckoutStore {
   }
 
   /**
-   * Refresh checkout store state from storage.
+   * Calculate full repository status.
+   *
+   * Compares HEAD, staging area, and working tree.
+   */
+  async getStatus(options?: StatusOptions): Promise<RepositoryStatus> {
+    const calculator = createStatusCalculator({
+      worktree: this.worktree,
+      staging: this.staging,
+      trees: this.repository.trees,
+      commits: this.repository.commits,
+      refs: this.repository.refs,
+      blobs: this.repository.blobs,
+    });
+
+    return calculator.calculateStatus(options);
+  }
+
+  /**
+   * Refresh working copy state from storage.
    */
   async refresh(): Promise<void> {
     await this.staging.read();
   }
 
   /**
-   * Close checkout store and release resources.
+   * Close working copy and release resources.
    */
   async close(): Promise<void> {
     // Release resources if needed
   }
-}
-
-/**
- * Options for creating a FileCheckoutStore
- */
-export interface CreateFileCheckoutStoreOptions {
-  /** Staging store */
-  staging: StagingStore;
-  /** Stash store */
-  stash: StashStore;
-  /** RefStore for HEAD management */
-  refs: RefStore;
-  /** Files API for reading state files */
-  files: CheckoutStoreFilesApi;
-  /** Path to .git directory */
-  gitDir: string;
-  /** Optional configuration */
-  config?: CheckoutStoreConfig;
-}
-
-/**
- * Create a FileCheckoutStore instance.
- */
-export function createFileCheckoutStore(
-  options: CreateFileCheckoutStoreOptions,
-): FileCheckoutStore {
-  return new FileCheckoutStore(
-    options.staging,
-    options.stash,
-    options.config ?? {},
-    options.refs,
-    options.files,
-    options.gitDir,
-  );
 }

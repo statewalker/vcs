@@ -1,5 +1,5 @@
-import type { FileModeValue } from "../common/files/index.js";
-import type { ObjectId } from "../common/id/index.js";
+import type { FileModeValue } from "../../common/files/index.js";
+import type { ObjectId } from "../../common/id/index.js";
 
 /**
  * Represents a file or directory in the worktree (Part 2 of Three-Part Architecture).

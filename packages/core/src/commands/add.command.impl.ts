@@ -11,9 +11,9 @@
 
 import type { BlobStore } from "../history/blobs/blob-store.js";
 import { FileMode } from "../common/files/index.js";
-import { DeleteStagingEntry, UpdateStagingEntry } from "../staging/staging-edits.js";
-import type { StagingStore } from "../staging/staging-store.js";
-import type { WorktreeStore } from "../worktree/worktree-store.js";
+import { DeleteStagingEntry, UpdateStagingEntry } from "../workspace/staging/staging-edits.js";
+import type { StagingStore } from "../workspace/staging/staging-store.js";
+import type { WorktreeStore } from "../workspace/worktree/worktree-store.js";
 import type { Add, AddOptions, AddResult } from "./add.command.js";
 
 /**

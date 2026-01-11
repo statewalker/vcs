@@ -9,10 +9,10 @@
  * Uses three-way comparison between HEAD, index, and target tree.
  */
 
-import type { ObjectId } from "../common/id/object-id.js";
+import type { ObjectId } from "../../common/id/object-id.js";
 import type { StagingStore } from "../staging/staging-store.js";
-import type { TreeEntry } from "../history/trees/tree-entry.js";
-import type { TreeStore } from "../history/trees/tree-store.js";
+import type { TreeEntry } from "../../history/trees/tree-entry.js";
+import type { TreeStore } from "../../history/trees/tree-store.js";
 import type { WorktreeStore } from "../worktree/worktree-store.js";
 
 import {

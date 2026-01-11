@@ -6,7 +6,7 @@
  * - .git/rebase-apply/: For apply-based rebase (git am)
  */
 
-import type { ObjectId } from "../common/id/index.js";
+import type { ObjectId } from "../../common/id/index.js";
 import type { RebaseState } from "../working-copy.js";
 
 /**

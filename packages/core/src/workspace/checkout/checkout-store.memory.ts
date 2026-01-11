@@ -1,40 +1,37 @@
 /**
- * In-memory WorkingCopy implementation for testing.
+ * In-memory CheckoutStore implementation for testing.
  *
- * Provides a fast, isolated WorkingCopy without filesystem access.
- * Useful for unit tests that need to verify WorkingCopy-dependent code
+ * Provides a fast, isolated CheckoutStore without filesystem access.
+ * Useful for unit tests that need to verify CheckoutStore-dependent code
  * without dealing with actual file operations.
  */
 
-import type { ObjectId } from "../common/id/index.js";
-import type { HistoryStore } from "../history/history-store.js";
+import type { ObjectId } from "../../common/id/index.js";
+import type { RefStore } from "../../history/refs/index.js";
 import type { StagingStore } from "../staging/index.js";
-import type { RepositoryStatus, StatusOptions } from "../status/index.js";
+import {
+  getStateCapabilities,
+  RepositoryState,
+  type RepositoryStateValue,
+  type StateCapabilities,
+} from "../working-copy/repository-state.js";
+import { MemoryStashStore } from "../working-copy/stash-store.memory.js";
 import type {
   CherryPickState,
   MergeState,
   RebaseState,
   RevertState,
   StashStore,
-  WorkingCopy,
-  WorkingCopyConfig,
 } from "../working-copy.js";
-import type { WorktreeStore } from "../worktree/index.js";
-import {
-  getStateCapabilities,
-  RepositoryState,
-  type RepositoryStateValue,
-  type StateCapabilities,
-} from "./repository-state.js";
-import { MemoryStashStore } from "./stash-store.memory.js";
+import type { CheckoutStore, CheckoutStoreConfig } from "./checkout-store.js";
 
 /**
- * In-memory WorkingCopy implementation.
+ * In-memory CheckoutStore implementation.
  *
- * Stores HEAD, merge state, and rebase state in memory.
+ * Stores HEAD, merge state, and other checkout state in memory.
  * Provides test helpers for setting these states directly.
  */
-export class MemoryWorkingCopy implements WorkingCopy {
+export class MemoryCheckoutStore implements CheckoutStore {
   private headRef = "refs/heads/main";
   private headCommit: ObjectId | undefined;
   private _mergeState: MergeState | undefined;
@@ -44,14 +41,21 @@ export class MemoryWorkingCopy implements WorkingCopy {
   private _repositoryState: RepositoryStateValue = RepositoryState.SAFE;
 
   readonly stash: StashStore;
-  readonly config: WorkingCopyConfig;
+  readonly config: CheckoutStoreConfig;
 
+  /**
+   * Create a new MemoryCheckoutStore.
+   *
+   * @param staging Staging store (required)
+   * @param refs RefStore for resolving branch refs (optional, for getHead support)
+   * @param stash Stash store (optional, defaults to MemoryStashStore)
+   * @param config Configuration (optional)
+   */
   constructor(
-    readonly repository: HistoryStore,
-    readonly worktree: WorktreeStore,
     readonly staging: StagingStore,
+    private readonly refs?: RefStore,
     stash?: StashStore,
-    config?: WorkingCopyConfig,
+    config?: CheckoutStoreConfig,
   ) {
     this.stash = stash ?? new MemoryStashStore();
     this.config = config ?? {};
@@ -59,15 +63,18 @@ export class MemoryWorkingCopy implements WorkingCopy {
 
   /**
    * Get current HEAD commit ID.
-   * Falls back to resolving HEAD from repository refs if not set locally.
+   * Falls back to resolving HEAD from refs if not set locally.
    */
   async getHead(): Promise<ObjectId | undefined> {
     if (this.headCommit) {
       return this.headCommit;
     }
-    // Try to resolve from refs
-    const resolved = await this.repository.refs.resolve(this.headRef);
-    return resolved?.objectId;
+    // Try to resolve from refs if available
+    if (this.refs) {
+      const resolved = await this.refs.resolve(this.headRef);
+      return resolved?.objectId;
+    }
+    return undefined;
   }
 
   /**
@@ -95,8 +102,18 @@ export class MemoryWorkingCopy implements WorkingCopy {
       const ref = target.startsWith("refs/") ? target : `refs/heads/${target}`;
       this.headRef = ref;
       this.headCommit = undefined;
+
+      // Update refs if available
+      if (this.refs) {
+        await this.refs.setSymbolic("HEAD", ref);
+      }
     } else {
       this.headCommit = target;
+
+      // Update refs if available
+      if (this.refs) {
+        await this.refs.set("HEAD", target);
+      }
     }
   }
 
@@ -104,7 +121,15 @@ export class MemoryWorkingCopy implements WorkingCopy {
    * Check if HEAD is detached.
    */
   async isDetachedHead(): Promise<boolean> {
-    return this.headCommit !== undefined;
+    if (this.headCommit !== undefined) {
+      return true;
+    }
+    // Check refs if available
+    if (this.refs) {
+      const headRef = await this.refs.get("HEAD");
+      return headRef !== undefined && !("target" in headRef);
+    }
+    return false;
   }
 
   /**
@@ -162,33 +187,14 @@ export class MemoryWorkingCopy implements WorkingCopy {
   }
 
   /**
-   * Calculate repository status.
-   * Returns a simplified status for testing.
-   */
-  async getStatus(_options?: StatusOptions): Promise<RepositoryStatus> {
-    const hasConflicts = await this.staging.hasConflicts();
-
-    return {
-      branch: await this.getCurrentBranch(),
-      head: await this.getHead(),
-      files: [],
-      isClean: true,
-      hasStaged: false,
-      hasUnstaged: false,
-      hasUntracked: false,
-      hasConflicts,
-    };
-  }
-
-  /**
-   * Refresh working copy state.
+   * Refresh checkout store state.
    */
   async refresh(): Promise<void> {
     await this.staging.read();
   }
 
   /**
-   * Close working copy.
+   * Close checkout store.
    * No-op for memory implementation.
    */
   async close(): Promise<void> {
@@ -249,14 +255,13 @@ export class MemoryWorkingCopy implements WorkingCopy {
 }
 
 /**
- * Create a MemoryWorkingCopy instance.
+ * Create a MemoryCheckoutStore instance.
  */
-export function createMemoryWorkingCopy(
-  repository: HistoryStore,
-  worktree: WorktreeStore,
+export function createMemoryCheckoutStore(
   staging: StagingStore,
+  refs?: RefStore,
   stash?: StashStore,
-  config?: WorkingCopyConfig,
-): MemoryWorkingCopy {
-  return new MemoryWorkingCopy(repository, worktree, staging, stash, config);
+  config?: CheckoutStoreConfig,
+): MemoryCheckoutStore {
+  return new MemoryCheckoutStore(staging, refs, stash, config);
 }

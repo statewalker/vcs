@@ -5,7 +5,7 @@
  * and to add additional worktrees to an existing repository.
  */
 
-import type { HistoryStore } from "../history/history-store.js";
+import type { HistoryStore } from "../../history/history-store.js";
 import type {
   AddWorktreeOptions,
   WorkingCopy,

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { MemoryStashStore } from "../../src/working-copy/stash-store.memory.js";
+import { MemoryStashStore } from "../../src/workspace/working-copy/stash-store.memory.js";
 
 describe("MemoryStashStore", () => {
   let stash: MemoryStashStore;
