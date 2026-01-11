@@ -9,15 +9,15 @@
 export { parseCommit, serializeCommit } from "../commits/commit-format.js";
 // Object type utilities
 export {
-	typeCodeToString,
-	typeStringToCode,
+  typeCodeToString,
+  typeStringToCode,
 } from "../objects/object-header.js";
 
 // Tag serialization
 export { parseTag, serializeTag } from "../tags/tag-format.js";
 // Tree serialization
 export {
-	parseTree,
-	parseTreeToArray,
-	serializeTree,
+  parseTree,
+  parseTreeToArray,
+  serializeTree,
 } from "../trees/tree-format.js";

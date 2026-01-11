@@ -1,11 +1,17 @@
 import type { Delta } from "@statewalker/vcs-utils";
-import { applyDelta, createDelta, createDeltaRanges, deserializeDeltaFromGit, slice } from "@statewalker/vcs-utils";
+import {
+  applyDelta,
+  createDelta,
+  createDeltaRanges,
+  deserializeDeltaFromGit,
+  slice,
+} from "@statewalker/vcs-utils";
 import { collect } from "@statewalker/vcs-utils/streams";
-import type { BestDeltaResult } from "./delta-engine.js";
 import type { RawStore } from "../binary/raw-store.js";
 import { encodeObjectHeader } from "../objects/object-header.js";
 import type { ObjectTypeString } from "../objects/object-types.js";
 import { EMPTY_TREE_ID } from "../trees/tree-format.js";
+import type { BestDeltaResult } from "./delta-engine.js";
 import type { DeltaChainDetails, DeltaStore, DeltaStoreUpdate } from "./delta-store.js";
 
 /**
