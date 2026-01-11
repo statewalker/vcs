@@ -5,9 +5,9 @@
  * Orchestrates storage analysis, candidate selection, and deltification.
  */
 
+import type { ObjectId } from "../../common/id/object-id.js";
 // import type { CommitStore, TagStore, TreeStore } from "../stores/index.js";
 import type { CommitStore } from "../../history/commits/commit-store.js";
-import type { ObjectId } from "../../common/id/object-id.js";
 import type { TagStore } from "../../history/tags/tag-store.js";
 import type { TreeStore } from "../../history/trees/tree-store.js";
 import type { RawStoreWithDelta } from "./raw-store-with-delta.js";

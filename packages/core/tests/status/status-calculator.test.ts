@@ -1,15 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CommitStore } from "../../src/history/commits/commit-store.js";
 import { FileMode } from "../../src/common/files/index.js";
+import type { CommitStore } from "../../src/history/commits/commit-store.js";
 import type { RefStore } from "../../src/history/refs/ref-store.js";
-import type { MergeStageValue, StagingEntry, StagingStore } from "../../src/workspace/staging/index.js";
+import type { TreeEntry, TreeStore } from "../../src/history/trees/index.js";
+import type {
+  MergeStageValue,
+  StagingEntry,
+  StagingStore,
+} from "../../src/workspace/staging/index.js";
 import {
   createStatusCalculator,
   FileStatus,
   getStageState,
   StageState,
 } from "../../src/workspace/status/index.js";
-import type { TreeEntry, TreeStore } from "../../src/history/trees/index.js";
 import type { WorktreeEntry, WorktreeStore } from "../../src/workspace/worktree/index.js";
 
 /**

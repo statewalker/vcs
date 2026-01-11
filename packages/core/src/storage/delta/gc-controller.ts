@@ -5,12 +5,12 @@
  * for delta storage systems.
  */
 
-import type { CommitStore } from "../../history/commits/commit-store.js";
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/object-id.js";
+import type { CommitStore } from "../../history/commits/commit-store.js";
 import { ObjectType } from "../../history/objects/object-types.js";
-import type { PackConsolidator } from "../pack/pack-consolidator.js";
 import type { TreeStore } from "../../history/trees/tree-store.js";
+import type { PackConsolidator } from "../pack/pack-consolidator.js";
 
 import type { DeltaTarget } from "./candidate-finder.js";
 import type { DeltaEngine } from "./delta-engine.js";

@@ -96,9 +96,12 @@ export const CheckoutConflictType = {
 export type CheckoutConflictType = (typeof CheckoutConflictType)[keyof typeof CheckoutConflictType];
 
 /**
- * Detailed checkout conflict information.
+ * Detailed worktree checkout conflict information.
+ *
+ * Internal type used by checkout conflict detection.
+ * Different from the public CheckoutConflict in commands/.
  */
-export interface CheckoutConflict {
+export interface WorktreeCheckoutConflict {
   /** Path with conflict */
   path: string;
   /** Type of conflict */

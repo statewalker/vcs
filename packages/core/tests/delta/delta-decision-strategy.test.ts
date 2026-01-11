@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { ObjectType } from "../../src/history/objects/object-types.js";
 import type { DeltaCandidate, DeltaTarget } from "../../src/storage/delta/candidate-finder.js";
 import type { DeltaResult } from "../../src/storage/delta/delta-compressor.js";
 import {
@@ -12,7 +13,6 @@ import {
   createPackStrategy,
   DefaultDeltaDecisionStrategy,
 } from "../../src/storage/delta/strategy/default-delta-decision-strategy.js";
-import { ObjectType } from "../../src/history/objects/object-types.js";
 
 describe("DefaultDeltaDecisionStrategy", () => {
   describe("shouldAttemptDelta", () => {

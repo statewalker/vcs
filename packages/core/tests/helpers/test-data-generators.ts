@@ -3,8 +3,8 @@
  */
 
 import type { Delta } from "@statewalker/vcs-utils";
-import type { Commit } from "../../src/history/commits/commit-store.js";
 import type { ObjectId, PersonIdent } from "../../src/common/id/index.js";
+import type { Commit } from "../../src/history/commits/commit-store.js";
 import type { TreeEntry } from "../../src/history/trees/tree-entry.js";
 
 /**

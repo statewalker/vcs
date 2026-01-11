@@ -6,7 +6,10 @@ import type { Delta } from "@statewalker/vcs-utils";
 import { describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
 import type { DeltaInfo } from "../../src/storage/delta/delta-store.js";
-import { estimateDeltaSize, RawStoreWithDelta } from "../../src/storage/delta/raw-store-with-delta.js";
+import {
+  estimateDeltaSize,
+  RawStoreWithDelta,
+} from "../../src/storage/delta/raw-store-with-delta.js";
 import { collectBytes } from "../helpers/assertion-helpers.js";
 import { MockDeltaStore } from "../mocks/mock-delta-store.js";
 

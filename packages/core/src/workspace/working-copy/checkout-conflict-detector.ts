@@ -10,15 +10,15 @@
  */
 
 import type { ObjectId } from "../../common/id/object-id.js";
-import type { StagingStore } from "../staging/staging-store.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
 import type { TreeStore } from "../../history/trees/tree-store.js";
+import type { StagingStore } from "../staging/staging-store.js";
 import type { WorktreeStore } from "../worktree/worktree-store.js";
 
 import {
-  type CheckoutConflict,
   CheckoutConflictType,
   collectThreeWayEntries,
+  type WorktreeCheckoutConflict,
 } from "./checkout-utils.js";
 
 /**
@@ -48,7 +48,7 @@ export interface DetectConflictsOptions {
  */
 export interface ConflictDetectionResult {
   /** List of conflicts found */
-  conflicts: CheckoutConflict[];
+  conflicts: WorktreeCheckoutConflict[];
   /** True if checkout can proceed safely */
   canCheckout: boolean;
   /** Summary of conflict types */
@@ -80,7 +80,7 @@ export async function detectCheckoutConflicts(
   targetTreeId: ObjectId,
   options: DetectConflictsOptions = {},
 ): Promise<ConflictDetectionResult> {
-  const conflicts: CheckoutConflict[] = [];
+  const conflicts: WorktreeCheckoutConflict[] = [];
   const summary = {
     dirtyWorktree: 0,
     dirtyIndex: 0,
@@ -183,7 +183,7 @@ async function checkPathForConflict(
   indexEntries: Map<string, { objectId: ObjectId; mode: number; size: number; mtime: number }>,
   headTreeId: ObjectId | undefined,
   targetTreeId: ObjectId,
-): Promise<CheckoutConflict | undefined> {
+): Promise<WorktreeCheckoutConflict | undefined> {
   // Get entry from all three trees
   const headEntry = headTreeId ? await getTreeEntry(deps.trees, headTreeId, path) : undefined;
   const targetEntry = await getTreeEntry(deps.trees, targetTreeId, path);

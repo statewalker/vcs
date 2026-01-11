@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { RefStore } from "../../src/history/refs/ref-store.js";
 import {
   createMemoryCheckoutStore,
   MemoryCheckoutStore,
 } from "../../src/workspace/checkout/checkout-store.memory.js";
-import type { RefStore } from "../../src/history/refs/ref-store.js";
 import type { StagingStore } from "../../src/workspace/staging/staging-store.js";
 import { RepositoryState } from "../../src/workspace/working-copy/repository-state.js";
 import { MemoryStashStore } from "../../src/workspace/working-copy/stash-store.memory.js";

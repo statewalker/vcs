@@ -4,8 +4,8 @@
 
 import { collect } from "@statewalker/vcs-utils";
 import { beforeEach, describe, expect, it } from "vitest";
-import { FileVolatileStore } from "../../src/storage/binary/volatile-store.files.js";
 import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
+import { FileVolatileStore } from "../../src/storage/binary/volatile-store.files.js";
 
 describe("FileVolatileStore", () => {
   let files: FilesApi;

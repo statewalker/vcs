@@ -3,15 +3,15 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
-import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
+import { FileMode } from "../../src/common/files/index.js";
 import { GitBlobStore } from "../../src/history/blobs/blob-store.impl.js";
 import { GitCommitStore } from "../../src/history/commits/commit-store.impl.js";
-import { FileMode } from "../../src/common/files/index.js";
 import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.js";
 import { ObjectType } from "../../src/history/objects/object-types.js";
 import { GitTagStore } from "../../src/history/tags/tag-store.impl.js";
 import { GitTreeStore } from "../../src/history/trees/tree-store.impl.js";
+import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
+import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
 import { collectBytes } from "../helpers/assertion-helpers.js";
 import {
   createTestCommit,

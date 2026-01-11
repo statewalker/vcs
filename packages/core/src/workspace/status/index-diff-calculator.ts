@@ -16,8 +16,8 @@
 
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
-import type { MergeStageValue, StagingEntry, StagingStore } from "../staging/index.js";
 import type { TreeStore } from "../../history/trees/index.js";
+import type { MergeStageValue, StagingEntry, StagingStore } from "../staging/index.js";
 import type { WorktreeEntry, WorktreeStore } from "../worktree/index.js";
 import type { IndexDiff, IndexDiffCalculator, IndexDiffOptions } from "./index-diff.js";
 import { createEmptyIndexDiff } from "./index-diff.js";

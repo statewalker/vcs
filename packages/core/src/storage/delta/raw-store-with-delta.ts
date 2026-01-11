@@ -7,10 +7,10 @@ import {
   slice,
 } from "@statewalker/vcs-utils";
 import { collect } from "@statewalker/vcs-utils/streams";
-import type { RawStore } from "../binary/raw-store.js";
 import { encodeObjectHeader } from "../../history/objects/object-header.js";
 import type { ObjectTypeString } from "../../history/objects/object-types.js";
 import { EMPTY_TREE_ID } from "../../history/trees/tree-format.js";
+import type { RawStore } from "../binary/raw-store.js";
 import type { BestDeltaResult } from "./delta-engine.js";
 import type { DeltaChainDetails, DeltaStore, DeltaStoreUpdate } from "./delta-store.js";
 

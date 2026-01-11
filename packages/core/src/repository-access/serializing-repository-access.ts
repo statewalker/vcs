@@ -8,10 +8,10 @@
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { collect } from "@statewalker/vcs-utils/streams";
+import type { ObjectId } from "../common/id/object-id.js";
 import type { BlobStore } from "../history/blobs/blob-store.js";
 import { serializeCommit } from "../history/commits/commit-format.js";
 import type { CommitStore } from "../history/commits/commit-store.js";
-import type { ObjectId } from "../common/id/object-id.js";
 import { ObjectType, type ObjectTypeCode } from "../history/objects/object-types.js";
 import { serializeTag } from "../history/tags/tag-format.js";
 import type { TagStore } from "../history/tags/tag-store.js";
