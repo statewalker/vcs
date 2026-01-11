@@ -383,7 +383,7 @@ AddCommand
     ↓ uses
 StagingStore.editor()     → Stage file changes
 BlobStore.store()         → Store file contents
-WorkingTreeIterator.walk() → Read filesystem
+WorktreeStore.walk()      → Read filesystem
 IgnoreManager.isIgnored() → Check ignore patterns
 ```
 

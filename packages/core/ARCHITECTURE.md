@@ -310,6 +310,23 @@ Commands encapsulate multi-step workflows:
 - `Add`: Hash files, update staging entries, handle ignore patterns
 - `Checkout`: Compare trees, detect conflicts, update worktree
 
+### checkout/
+
+CheckoutStore for managing local checkout state (Part 3 of Three-Part Architecture).
+
+| File | Purpose |
+|------|---------|
+| `checkout-store.ts` | `CheckoutStore` interface definition |
+| `checkout-store.files.ts` | File-based implementation |
+| `checkout-store.memory.ts` | In-memory implementation |
+
+The CheckoutStore manages local checkout state:
+- **HEAD Management**: Current branch or detached commit
+- **In-progress Operations**: Merge, rebase, cherry-pick, revert state
+- **Linked Stores**: Staging area and stash operations
+
+Multiple CheckoutStores can share a single HistoryStore (like git worktree).
+
 ### delta/
 
 Sophisticated delta compression system.
@@ -581,12 +598,12 @@ Tree entries are sorted canonically (directories sort as if they had trailing `/
 
 ### worktree/
 
-Working tree filesystem traversal.
+Working tree filesystem traversal and state.
 
 | File | Purpose |
 |------|---------|
-| `working-tree-iterator.ts` | `WorkingTreeIterator` interface |
-| `working-tree-iterator.impl.ts` | Implementation |
+| `worktree-store.ts` | `WorktreeStore` interface |
+| `worktree-store.impl.ts` | Implementation |
 
 Provides platform-agnostic filesystem iteration with:
 - Ignore pattern matching
