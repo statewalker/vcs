@@ -404,20 +404,25 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
 
     // Check .git directory was created
     const hasGit = await page.evaluate(() => {
-      return '.git' in (window as unknown as { __mockFileSystem: Record<string, unknown> }).__mockFileSystem;
+      return (
+        ".git" in
+        (window as unknown as { __mockFileSystem: Record<string, unknown> }).__mockFileSystem
+      );
     });
     expect(hasGit).toBe(true);
   });
 
   test("should detect existing .git repository", async ({ page }) => {
     // Setup mock with existing .git directory
-    await page.addInitScript(createMockFileSystem({
-      ".git": {
-        "HEAD": "ref: refs/heads/main",
-        "config": "[core]\\n\\trepositoryformatversion = 0",
-      },
-      "readme.txt": "Hello World",
-    }));
+    await page.addInitScript(
+      createMockFileSystem({
+        ".git": {
+          HEAD: "ref: refs/heads/main",
+          config: "[core]\\n\\trepositoryformatversion = 0",
+        },
+        "readme.txt": "Hello World",
+      }),
+    );
     await page.goto("/");
 
     // Switch to browser FS
@@ -430,14 +435,16 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
 
   test("should list existing files in working directory", async ({ page }) => {
     // Setup mock with existing files
-    await page.addInitScript(createMockFileSystem({
-      "readme.md": "# My Project",
-      "src": {
-        "main.ts": "console.log('hello');",
-        "utils.ts": "export const add = (a, b) => a + b;",
-      },
-      "package.json": "{}",
-    }));
+    await page.addInitScript(
+      createMockFileSystem({
+        "readme.md": "# My Project",
+        src: {
+          "main.ts": "console.log('hello');",
+          "utils.ts": "export const add = (a, b) => a + b;",
+        },
+        "package.json": "{}",
+      }),
+    );
     await page.goto("/");
 
     // Switch to browser FS
@@ -452,10 +459,12 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
 
   test("should show untracked status for new files", async ({ page }) => {
     // Setup mock with files but no .git
-    await page.addInitScript(createMockFileSystem({
-      "readme.md": "# My Project",
-      "app.js": "console.log('app');",
-    }));
+    await page.addInitScript(
+      createMockFileSystem({
+        "readme.md": "# My Project",
+        "app.js": "console.log('app');",
+      }),
+    );
     await page.goto("/");
 
     // Switch to browser FS and init repo
@@ -469,9 +478,11 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
 
   test("should stage file from working directory", async ({ page }) => {
     // Setup mock with files
-    await page.addInitScript(createMockFileSystem({
-      "readme.md": "# My Project",
-    }));
+    await page.addInitScript(
+      createMockFileSystem({
+        "readme.md": "# My Project",
+      }),
+    );
     await page.goto("/");
 
     // Switch to browser FS and init repo
@@ -496,10 +507,12 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
 
   test("should commit staged files from working directory", async ({ page }) => {
     // Setup mock with files
-    await page.addInitScript(createMockFileSystem({
-      "readme.md": "# My Project",
-      "index.js": "module.exports = {};",
-    }));
+    await page.addInitScript(
+      createMockFileSystem({
+        "readme.md": "# My Project",
+        "index.js": "module.exports = {};",
+      }),
+    );
     await page.goto("/");
 
     // Switch to browser FS and init repo
@@ -531,9 +544,11 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
 
   test("should show tracked status after commit", async ({ page }) => {
     // Setup mock with files
-    await page.addInitScript(createMockFileSystem({
-      "readme.md": "# My Project",
-    }));
+    await page.addInitScript(
+      createMockFileSystem({
+        "readme.md": "# My Project",
+      }),
+    );
     await page.goto("/");
 
     // Switch to browser FS and init repo
@@ -552,12 +567,14 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
   test("should open existing repository and show commits", async ({ page }) => {
     // This test verifies opening an existing repo
     // The mock needs proper git object structure for this to work fully
-    await page.addInitScript(createMockFileSystem({
-      ".git": {
-        "HEAD": "ref: refs/heads/main",
-      },
-      "readme.md": "# Existing Project",
-    }));
+    await page.addInitScript(
+      createMockFileSystem({
+        ".git": {
+          HEAD: "ref: refs/heads/main",
+        },
+        "readme.md": "# Existing Project",
+      }),
+    );
     await page.goto("/");
 
     // Switch to browser FS
@@ -568,7 +585,9 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
     await page.locator("#btn-init").click();
 
     // Should show as opened
-    await expect(page.locator(".activity-log")).toContainText(/Opened existing repository|Initialized/);
+    await expect(page.locator(".activity-log")).toContainText(
+      /Opened existing repository|Initialized/,
+    );
   });
 
   test("should add new file and write to filesystem", async ({ page }) => {
@@ -587,23 +606,30 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
     await page.locator("#btn-add-file").click();
 
     // Wait for activity log to confirm file added
-    await expect(page.locator(".activity-log")).toContainText(/Added file: newfile.txt|Failed to add/);
+    await expect(page.locator(".activity-log")).toContainText(
+      /Added file: newfile.txt|Failed to add/,
+    );
 
     // Check file appears in staging
     await expect(page.locator("#staging-tree")).toContainText("newfile.txt");
 
     // Check file was written to mock filesystem
     const fileExists = await page.evaluate(() => {
-      return 'newfile.txt' in (window as unknown as { __mockFileSystem: Record<string, unknown> }).__mockFileSystem;
+      return (
+        "newfile.txt" in
+        (window as unknown as { __mockFileSystem: Record<string, unknown> }).__mockFileSystem
+      );
     });
     expect(fileExists).toBe(true);
   });
 
   test("should refresh working directory", async ({ page }) => {
     // Setup mock with files
-    await page.addInitScript(createMockFileSystem({
-      "file1.txt": "content1",
-    }));
+    await page.addInitScript(
+      createMockFileSystem({
+        "file1.txt": "content1",
+      }),
+    );
     await page.goto("/");
 
     // Switch to browser FS
@@ -612,7 +638,9 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
 
     // Simulate adding a file externally
     await page.evaluate(() => {
-      (window as unknown as { __mockFileSystem: Record<string, string> }).__mockFileSystem["file2.txt"] = "content2";
+      (window as unknown as { __mockFileSystem: Record<string, string> }).__mockFileSystem[
+        "file2.txt"
+      ] = "content2";
     });
 
     // Click refresh
@@ -624,9 +652,11 @@ test.describe("Browser VCS App - Browser Filesystem Storage", () => {
 
   test("should switch back to memory storage", async ({ page }) => {
     // Setup mock
-    await page.addInitScript(createMockFileSystem({
-      "readme.md": "# Project",
-    }));
+    await page.addInitScript(
+      createMockFileSystem({
+        "readme.md": "# Project",
+      }),
+    );
     await page.goto("/");
 
     // Switch to browser FS

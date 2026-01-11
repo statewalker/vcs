@@ -9,6 +9,9 @@ catalogs:
     '@biomejs/biome':
       specifier: ^2.3.7
       version: 2.3.11
+    '@statewalker/webrun-files-browser':
+      specifier: ^0.7.0
+      version: 0.7.0
     '@types/node':
       specifier: ^24.10.1
       version: 24.10.4
@@ -97,6 +100,9 @@ importers:
       '@statewalker/webrun-files':
         specifier: link:../../../../webrun-files/packages/webrun-files
         version: link:../../../../webrun-files/packages/webrun-files
+      '@statewalker/webrun-files-browser':
+        specifier: 'catalog:'
+        version: 0.7.0
       '@statewalker/webrun-files-mem':
         specifier: link:../../../../webrun-files/packages/webrun-files-mem
         version: link:../../../../webrun-files/packages/webrun-files-mem
@@ -1401,6 +1407,9 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
+  '@statewalker/webrun-files-browser@0.7.0':
+    resolution: {integrity: sha512-ZkdafDQ3JtTSWseyzdu2y9VZcOuGjZCVIsu3ldjTh8FYX0pn/rN9mfsBbxXD2t1+CTcmicD8u63xP1do8iSZNw==}
+
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
 
@@ -2689,6 +2698,10 @@ snapshots:
     optional: true
 
   '@standard-schema/spec@1.1.0': {}
+
+  '@statewalker/webrun-files-browser@0.7.0':
+    dependencies:
+      '@statewalker/webrun-files': link:../webrun-files/packages/webrun-files
 
   '@tybys/wasm-util@0.10.1':
     dependencies:

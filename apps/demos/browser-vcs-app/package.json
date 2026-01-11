@@ -16,6 +16,7 @@
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-store-mem": "workspace:*",
     "@statewalker/webrun-files": "catalog:",
+    "@statewalker/webrun-files-browser": "catalog:",
     "@statewalker/webrun-files-mem": "catalog:"
   },
   "devDependencies": {
