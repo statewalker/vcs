@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  ContentMergeStrategy,
   FastForwardMode,
   InvalidMergeHeadsError,
   MergeStatus,
@@ -1909,84 +1910,312 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
   });
 
   /**
-   * JGit parity tests for UNION merge strategy.
-   * Ported from MergeAlgorithmUnionTest.java
+   * Content merge strategy integration tests.
    *
-   * UNION merge resolves conflicts by concatenating both sides instead of
-   * producing conflict markers. This is useful for files like .gitignore
-   * where ordering doesn't matter.
-   *
-   * TODO: UNION merge strategy is defined in ContentMergeStrategy but not
-   * implemented at the text-level merge algorithm. These tests document the
-   * expected behavior for when text-level UNION merge is implemented.
+   * Tests for OURS, THEIRS, and UNION content merge strategies using MergeCommand.
+   * These test the integration between MergeCommand and the merge algorithm.
    */
-  describe.skip("UNION merge strategy (JGit parity)", () => {
+  describe("content merge strategies", () => {
     /**
-     * JGit: testTwoConflictingModifications
-     * UNION merge concatenates both sides instead of producing conflict.
+     * Helper to convert single-character-per-line notation to actual content.
+     * Each character becomes a line: "abc" -> "a\nb\nc\n"
      */
-    it("should concatenate conflicting modifications", () => {
-      // With UNION, "abZdefghij" (ours: c->Z) + "aZZdefghij" (theirs: bc->ZZ)
-      // produces "abZZdefghij" (both changes included)
+    function toLines(text: string): string {
+      if (text === "") return "";
+      return `${text.split("").join("\n")}\n`;
+    }
+
+    /**
+     * Helper to collect bytes from an async iterable.
+     */
+    async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of iterable) {
+        chunks.push(chunk);
+      }
+      if (chunks.length === 0) return new Uint8Array(0);
+      if (chunks.length === 1) return chunks[0];
+      const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+      const result = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        result.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return result;
+    }
+
+    /**
+     * Test OURS content merge strategy resolves conflicts by taking our version.
+     */
+    it("should resolve conflicts using OURS content strategy", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base content
+      await addFile(store, "file.txt", toLines("abc"));
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify file on side (b -> Y)
+      await addFile(store, "file.txt", toLines("aYc"));
+      await git.commit().setMessage("side modification").call();
+
+      // Switch to main and modify differently (b -> Z)
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+      await addFile(store, "file.txt", toLines("aZc"));
+      await git.commit().setMessage("main modification").call();
+
+      // Merge with OURS content strategy - should resolve without conflict
+      const result = await git
+        .merge()
+        .include("refs/heads/side")
+        .setContentMergeStrategy(ContentMergeStrategy.OURS)
+        .call();
+
+      expect(result.status).toBe(MergeStatus.MERGED);
+      expect(result.conflicts).toBeUndefined();
+
+      // Verify merged content is ours (Z)
+      const entry = await store.staging.getEntry("file.txt");
+      expect(entry).toBeDefined();
+      const content = await collectBytes(store.blobs.load(entry?.objectId ?? ""));
+      expect(new TextDecoder().decode(content)).toBe(toLines("aZc"));
     });
 
     /**
-     * JGit: testConflictAtStart
+     * Test THEIRS content merge strategy resolves conflicts by taking their version.
      */
-    it("should handle conflicts at start of file", () => {
-      // base: "abcdefghij", ours: "Zbcdefghij", theirs: "Ybcdefghij"
-      // UNION result: "ZYbcdefghij" (both changes)
+    it("should resolve conflicts using THEIRS content strategy", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base content
+      await addFile(store, "file.txt", toLines("abc"));
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify file on side (b -> Y)
+      await addFile(store, "file.txt", toLines("aYc"));
+      await git.commit().setMessage("side modification").call();
+
+      // Switch to main and modify differently (b -> Z)
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+      await addFile(store, "file.txt", toLines("aZc"));
+      await git.commit().setMessage("main modification").call();
+
+      // Merge with THEIRS content strategy - should resolve without conflict
+      const result = await git
+        .merge()
+        .include("refs/heads/side")
+        .setContentMergeStrategy(ContentMergeStrategy.THEIRS)
+        .call();
+
+      expect(result.status).toBe(MergeStatus.MERGED);
+      expect(result.conflicts).toBeUndefined();
+
+      // Verify merged content is theirs (Y)
+      const entry = await store.staging.getEntry("file.txt");
+      expect(entry).toBeDefined();
+      const content = await collectBytes(store.blobs.load(entry?.objectId ?? ""));
+      expect(new TextDecoder().decode(content)).toBe(toLines("aYc"));
     });
 
     /**
-     * JGit: testConflictAtEnd
+     * Test UNION content merge strategy concatenates both sides.
      */
-    it("should handle conflicts at end of file", () => {
-      // base: "abcdefghij", ours: "abcdefghiZ", theirs: "abcdefghiY"
-      // UNION result: "abcdefghiZY" (both changes)
+    it("should resolve conflicts using UNION content strategy", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base content
+      await addFile(store, "file.txt", toLines("abc"));
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify file on side (b -> Y)
+      await addFile(store, "file.txt", toLines("aYc"));
+      await git.commit().setMessage("side modification").call();
+
+      // Switch to main and modify differently (b -> Z)
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+      await addFile(store, "file.txt", toLines("aZc"));
+      await git.commit().setMessage("main modification").call();
+
+      // Merge with UNION content strategy - should resolve without conflict
+      const result = await git
+        .merge()
+        .include("refs/heads/side")
+        .setContentMergeStrategy(ContentMergeStrategy.UNION)
+        .call();
+
+      expect(result.status).toBe(MergeStatus.MERGED);
+      expect(result.conflicts).toBeUndefined();
+
+      // Verify merged content has both Z and Y (union)
+      const entry = await store.staging.getEntry("file.txt");
+      expect(entry).toBeDefined();
+      const content = await collectBytes(store.blobs.load(entry?.objectId ?? ""));
+      const contentStr = new TextDecoder().decode(content);
+      // UNION puts ours first, then theirs (skipping duplicates)
+      expect(contentStr).toBe(toLines("aZYc"));
     });
 
     /**
-     * JGit: testDeleteVsModify
-     * With UNION, modification wins over deletion.
+     * Test UNION does not duplicate when both sides make same change.
      */
-    it("should keep modifications over deletions", () => {
-      // base: "abcdefghij", ours: "abdefghij" (c deleted), theirs: "abZdefghij" (c->Z)
-      // UNION result: "abZdefghij" (modification kept)
+    it("should not duplicate with UNION when both sides make same change", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base content
+      await addFile(store, "file.txt", toLines("abc"));
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify file on side (b -> Z)
+      await addFile(store, "file.txt", toLines("aZc"));
+      await git.commit().setMessage("side modification").call();
+
+      // Switch to main and make same modification (b -> Z)
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+      await addFile(store, "file.txt", toLines("aZc"));
+      await git.commit().setMessage("main modification").call();
+
+      // Merge with UNION - should not conflict and not duplicate
+      const result = await git
+        .merge()
+        .include("refs/heads/side")
+        .setContentMergeStrategy(ContentMergeStrategy.UNION)
+        .call();
+
+      expect(result.status).toBe(MergeStatus.MERGED);
+
+      // Verify no duplication
+      const entry = await store.staging.getEntry("file.txt");
+      const content = await collectBytes(store.blobs.load(entry?.objectId ?? ""));
+      expect(new TextDecoder().decode(content)).toBe(toLines("aZc"));
     });
 
     /**
-     * JGit: testInsertVsModify
+     * Test content merge still applies non-conflicting changes.
      */
-    it("should concatenate insert and modify", () => {
-      // base: "ab", ours: "abZ" (Z inserted), theirs: "aXY" (b->XY)
-      // UNION result: "abZXY" (both changes)
+    it("should merge non-conflicting changes with content strategy", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Base content with two files
+      await addFile(store, "file-a.txt", toLines("abc"));
+      await addFile(store, "file-b.txt", "original");
+      await git.commit().setMessage("base").call();
+
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify file-a on side (b -> Y) and file-b
+      await addFile(store, "file-a.txt", toLines("aYc"));
+      await addFile(store, "file-b.txt", "side version");
+      await git.commit().setMessage("side modifications").call();
+
+      // Switch to main
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+
+      // Modify file-a differently (b -> Z)
+      await addFile(store, "file-a.txt", toLines("aZc"));
+      await git.commit().setMessage("main modification").call();
+
+      // Merge with OURS - file-a conflict resolved with ours, file-b from theirs
+      const result = await git
+        .merge()
+        .include("refs/heads/side")
+        .setContentMergeStrategy(ContentMergeStrategy.OURS)
+        .call();
+
+      expect(result.status).toBe(MergeStatus.MERGED);
+
+      // file-a should have ours (Z)
+      const entryA = await store.staging.getEntry("file-a.txt");
+      const contentA = await collectBytes(store.blobs.load(entryA?.objectId ?? ""));
+      expect(new TextDecoder().decode(contentA)).toBe(toLines("aZc"));
+
+      // file-b should have theirs (side version) since only they changed it
+      const entryB = await store.staging.getEntry("file-b.txt");
+      const contentB = await collectBytes(store.blobs.load(entryB?.objectId ?? ""));
+      expect(new TextDecoder().decode(contentB)).toBe("side version");
     });
 
     /**
-     * JGit: testAdjacentModifications
+     * Test without content strategy - conflict is still reported.
      */
-    it("should handle adjacent modifications", () => {
-      // base: "abcd", ours: "aZcd" (b->Z), theirs: "abYd" (c->Y)
-      // UNION result: "aZcbYd" (both changes preserved)
-    });
+    it("should report conflict without content strategy", async () => {
+      const { git, store } = await createInitializedGit();
 
-    /**
-     * JGit: testEmptyTextModifiedAgainstDeletion
-     * When one side deletes and other modifies, UNION keeps modification.
-     */
-    it("should keep modification when one side deletes to empty", () => {
-      // base: "A", ours: "AB", theirs: ""
-      // UNION result: "AB"
-    });
+      // Base content
+      await addFile(store, "file.txt", toLines("abc"));
+      await git.commit().setMessage("base").call();
 
-    /**
-     * JGit: testEmptyTextDeletionAgainstDeletion
-     * When both sides delete, result is empty.
-     */
-    it("should produce empty when both sides delete", () => {
-      // base: "AB", ours: "", theirs: ""
-      // UNION result: ""
+      // Create side branch
+      await git.branchCreate().setName("side").call();
+      await store.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, sideCommit.tree);
+
+      // Modify file on side
+      await addFile(store, "file.txt", toLines("aYc"));
+      await git.commit().setMessage("side modification").call();
+
+      // Switch to main and modify differently
+      await store.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      await store.staging.readTree(store.trees, mainCommit.tree);
+      await addFile(store, "file.txt", toLines("aZc"));
+      await git.commit().setMessage("main modification").call();
+
+      // Merge WITHOUT content strategy - should conflict
+      const result = await git.merge().include("refs/heads/side").call();
+
+      expect(result.status).toBe(MergeStatus.CONFLICTING);
+      expect(result.conflicts).toContain("file.txt");
     });
   });
 });

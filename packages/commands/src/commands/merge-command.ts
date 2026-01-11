@@ -1,5 +1,9 @@
 import type { Commit, ObjectId, TreeEntry } from "@statewalker/vcs-core";
 import { FileMode, isSymbolicRef, MergeStage } from "@statewalker/vcs-core";
+import {
+  merge3Way,
+  MergeContentStrategy as UtilsMergeContentStrategy,
+} from "@statewalker/vcs-utils";
 
 import {
   InvalidMergeHeadsError,
@@ -9,6 +13,7 @@ import {
 import { NoHeadError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
 import {
+  ContentMergeStrategy,
   FastForwardMode,
   type MergeResult,
   MergeStatus,
@@ -58,6 +63,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
   private includes: string[] = [];
   private fastForwardMode = FastForwardMode.FF;
   private strategy = MergeStrategy.RECURSIVE;
+  private contentStrategy?: ContentMergeStrategy;
   private squash = false;
   private commit = true;
   private message?: string;
@@ -101,6 +107,24 @@ export class MergeCommand extends GitCommand<MergeResult> {
   setStrategy(strategy: MergeStrategy): this {
     this.checkCallable();
     this.strategy = strategy;
+    return this;
+  }
+
+  /**
+   * Set content merge strategy for handling file-level conflicts.
+   *
+   * - OURS: Take our version for conflicts
+   * - THEIRS: Take their version for conflicts
+   * - UNION: Concatenate both sides (ours first, then theirs)
+   *
+   * When set, conflicts are resolved automatically using this strategy
+   * instead of producing conflict markers.
+   *
+   * @param contentStrategy Content merge strategy
+   */
+  setContentMergeStrategy(contentStrategy: ContentMergeStrategy): this {
+    this.checkCallable();
+    this.contentStrategy = contentStrategy;
     return this;
   }
 
@@ -426,6 +450,19 @@ export class MergeCommand extends GitCommand<MergeResult> {
       const mergeEntry = this.mergeEntry(path, base, ours, theirs);
 
       if (mergeEntry.conflict) {
+        // Try content-level merge if contentStrategy is set
+        if (this.contentStrategy && ours && theirs) {
+          const contentMergeResult = await this.tryContentMerge(path, base, ours, theirs);
+          if (contentMergeResult) {
+            result.merged.push({
+              path,
+              entry: contentMergeResult,
+            });
+            continue;
+          }
+        }
+
+        // No content strategy or content merge not possible - mark as conflict
         result.conflicts.push(path);
         result.merged.push({
           path,
@@ -443,6 +480,92 @@ export class MergeCommand extends GitCommand<MergeResult> {
     }
 
     return result;
+  }
+
+  /**
+   * Try to perform content-level merge using the configured strategy.
+   *
+   * @returns Merged tree entry if successful, undefined if content merge not applicable
+   */
+  private async tryContentMerge(
+    _path: string,
+    base: TreeEntry | undefined,
+    ours: TreeEntry,
+    theirs: TreeEntry,
+  ): Promise<TreeEntry | undefined> {
+    // Only merge regular files (not symlinks, executables, etc. for now)
+    if (ours.mode !== FileMode.REGULAR_FILE || theirs.mode !== FileMode.REGULAR_FILE) {
+      return undefined;
+    }
+
+    // Content strategy must be set (caller should verify)
+    if (!this.contentStrategy) {
+      return undefined;
+    }
+
+    try {
+      // Load content from all three versions
+      const baseContent = base ? await this.collectBlobContent(base.id) : new Uint8Array(0);
+      const oursContent = await this.collectBlobContent(ours.id);
+      const theirsContent = await this.collectBlobContent(theirs.id);
+
+      // Convert ContentMergeStrategy to utils MergeContentStrategy
+      const strategy = this.convertContentStrategy(this.contentStrategy);
+
+      // Perform content-level merge
+      const mergeResult = merge3Way(baseContent, oursContent, theirsContent, strategy);
+
+      // If using OURS/THEIRS/UNION, conflicts are auto-resolved
+      // Store the merged content
+      const mergedBlobId = await this.store.blobs.store([mergeResult.content]);
+
+      return {
+        name: ours.name,
+        mode: ours.mode,
+        id: mergedBlobId,
+      };
+    } catch {
+      // Content merge failed - fall back to conflict
+      return undefined;
+    }
+  }
+
+  /**
+   * Collect all bytes from a blob into a single Uint8Array.
+   */
+  private async collectBlobContent(blobId: ObjectId): Promise<Uint8Array> {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of this.store.blobs.load(blobId)) {
+      chunks.push(chunk);
+    }
+    if (chunks.length === 0) {
+      return new Uint8Array(0);
+    }
+    if (chunks.length === 1) {
+      return chunks[0];
+    }
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return result;
+  }
+
+  /**
+   * Convert ContentMergeStrategy to utils MergeContentStrategy.
+   */
+  private convertContentStrategy(strategy: ContentMergeStrategy): UtilsMergeContentStrategy {
+    switch (strategy) {
+      case ContentMergeStrategy.OURS:
+        return UtilsMergeContentStrategy.OURS;
+      case ContentMergeStrategy.THEIRS:
+        return UtilsMergeContentStrategy.THEIRS;
+      case ContentMergeStrategy.UNION:
+        return UtilsMergeContentStrategy.UNION;
+    }
   }
 
   /**
