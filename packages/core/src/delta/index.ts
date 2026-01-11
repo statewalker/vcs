@@ -1,5 +1,5 @@
-export * from "./candidate-finder.js";
 export * from "./candidate-finder/index.js";
+export * from "./candidate-finder.js";
 export * from "./compressor/index.js";
 export * from "./delta-binary-format.js";
 export * from "./delta-compressor.js";
