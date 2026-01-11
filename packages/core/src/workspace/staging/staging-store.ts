@@ -1,6 +1,6 @@
-import type { FileModeValue } from "../common/files/index.js";
-import type { ObjectId } from "../common/id/index.js";
-import type { TreeStore } from "../history/trees/index.js";
+import type { FileModeValue } from "../../common/files/index.js";
+import type { ObjectId } from "../../common/id/index.js";
+import type { TreeStore } from "../../history/trees/index.js";
 
 /**
  * Merge stage for index entries.

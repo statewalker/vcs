@@ -5,7 +5,7 @@
  * All state is stored in memory and lost when the instance is destroyed.
  */
 
-import type { ObjectId } from "../common/id/index.js";
+import type { ObjectId } from "../../common/id/index.js";
 import type { StashEntry, StashPushOptions, StashStore } from "../working-copy.js";
 
 /**

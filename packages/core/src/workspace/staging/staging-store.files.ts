@@ -1,13 +1,12 @@
-/**
- * Memory-based staging store implementation.
- *
- * Pure in-memory StagingStore for testing and temporary operations.
- * No persistence - all entries are lost when the instance is garbage collected.
- */
-
-import { FileMode } from "../common/files/index.js";
-import type { ObjectId } from "../common/id/index.js";
-import type { TreeEntry, TreeStore } from "../history/trees/index.js";
+import { FileMode, type FilesApi, readFile } from "../../common/files/index.js";
+import type { ObjectId } from "../../common/id/index.js";
+import type { TreeEntry, TreeStore } from "../../history/trees/index.js";
+import {
+  INDEX_VERSION_2,
+  type IndexVersion,
+  parseIndexFile,
+  serializeIndexFile,
+} from "./index-format.js";
 import {
   MergeStage,
   type MergeStageValue,
@@ -20,17 +19,22 @@ import {
 } from "./staging-store.js";
 
 /**
- * Memory-based staging store implementation.
+ * File-based staging store implementation.
  *
- * All entries are kept sorted by (path, stage) for efficient lookup.
- * Useful for:
- * - Testing staging operations without file I/O
- * - Temporary staging during merge/rebase operations
- * - In-memory repository implementations
+ * Stores the index in Git-compatible DIRC format.
+ * Supports index versions 2, 3, and 4.
+ *
+ * All entries are kept sorted by (path, stage) for binary search.
  */
-export class MemoryStagingStore implements StagingStore {
+export class FileStagingStore implements StagingStore {
   private entries: StagingEntry[] = [];
   private updateTime = 0;
+  private version: IndexVersion = INDEX_VERSION_2;
+
+  constructor(
+    private readonly files: FilesApi,
+    private readonly indexPath: string,
+  ) {}
 
   // ============ Reading Operations ============
 
@@ -54,6 +58,7 @@ export class MemoryStagingStore implements StagingStore {
   }
 
   async hasEntry(path: string): Promise<boolean> {
+    // Check any stage
     for (const stage of [MergeStage.MERGED, MergeStage.BASE, MergeStage.OURS, MergeStage.THEIRS]) {
       if (this.findEntry(path, stage) >= 0) return true;
     }
@@ -96,25 +101,26 @@ export class MemoryStagingStore implements StagingStore {
   // ============ Writing Operations ============
 
   builder(): StagingBuilder {
-    return new MemoryStagingBuilder(this);
+    return new FileStagingBuilder(this);
   }
 
   editor(): StagingEditor {
-    return new MemoryStagingEditor(this);
+    return new FileStagingEditor(this);
   }
 
   async clear(): Promise<void> {
     this.entries = [];
-    this.updateTime = Date.now();
   }
 
   // ============ Tree Operations ============
 
   async writeTree(treeStore: TreeStore): Promise<ObjectId> {
+    // Check for conflicts
     if (await this.hasConflicts()) {
       throw new Error("Cannot write tree with unresolved conflicts");
     }
 
+    // Build tree from stage 0 entries only
     const stage0 = this.entries.filter((e) => e.stage === MergeStage.MERGED);
     return this.buildTreeRecursive(treeStore, stage0, "");
   }
@@ -128,16 +134,19 @@ export class MemoryStagingStore implements StagingStore {
     const subdirs = new Map<string, StagingEntry[]>();
 
     for (const entry of entries) {
+      // Get path relative to current prefix
       const relativePath = prefix ? entry.path.slice(prefix.length + 1) : entry.path;
       const slashIndex = relativePath.indexOf("/");
 
       if (slashIndex < 0) {
+        // Direct child - add to tree
         treeEntries.push({
           name: relativePath,
           mode: entry.mode,
           id: entry.objectId,
         });
       } else {
+        // In subdirectory - collect for recursive processing
         const dirName = relativePath.slice(0, slashIndex);
         if (!subdirs.has(dirName)) {
           subdirs.set(dirName, []);
@@ -146,6 +155,7 @@ export class MemoryStagingStore implements StagingStore {
       }
     }
 
+    // Recursively build subdirectories
     for (const [dirName, dirEntries] of subdirs) {
       const subPrefix = prefix ? `${prefix}/${dirName}` : dirName;
       const subtreeId = await this.buildTreeRecursive(treeStore, dirEntries, subPrefix);
@@ -163,7 +173,6 @@ export class MemoryStagingStore implements StagingStore {
     this.entries = [];
     await this.addTreeRecursive(treeStore, treeId, "", MergeStage.MERGED);
     this.sortEntries();
-    this.updateTime = Date.now();
   }
 
   private async addTreeRecursive(
@@ -190,20 +199,35 @@ export class MemoryStagingStore implements StagingStore {
     }
   }
 
-  // ============ Persistence (no-op for memory store) ============
+  // ============ Persistence ============
 
   async read(): Promise<void> {
-    // No-op: memory store has no persistence
+    const stats = await this.files.stats(this.indexPath);
+    if (!stats) {
+      // No index file - start empty
+      this.entries = [];
+      this.updateTime = 0;
+      return;
+    }
+
+    const data = await readFile(this.files, this.indexPath);
+    const parsed = await parseIndexFile(data);
+
+    this.entries = parsed.entries;
+    this.version = parsed.version;
+    this.updateTime = stats.lastModified ?? Date.now();
   }
 
   async write(): Promise<void> {
-    // No-op: memory store has no persistence
+    const data = await serializeIndexFile(this.entries, this.version);
+    await this.files.write(this.indexPath, [data]);
     this.updateTime = Date.now();
   }
 
   async isOutdated(): Promise<boolean> {
-    // Memory store is never outdated
-    return false;
+    const stats = await this.files.stats(this.indexPath);
+    if (!stats?.lastModified) return false;
+    return stats.lastModified > this.updateTime;
   }
 
   getUpdateTime(): number {
@@ -212,6 +236,10 @@ export class MemoryStagingStore implements StagingStore {
 
   // ============ Internal Methods ============
 
+  /**
+   * Binary search for entry by (path, stage).
+   * Returns index if found, or -(insertionPoint + 1) if not found.
+   */
   private findEntry(path: string, stage: MergeStageValue): number {
     let low = 0;
     let high = this.entries.length - 1;
@@ -250,23 +278,32 @@ export class MemoryStagingStore implements StagingStore {
   /** @internal - Used by builder/editor */
   _replaceEntries(newEntries: StagingEntry[]): void {
     this.entries = newEntries;
-    this.updateTime = Date.now();
   }
 
   /** @internal - Used by builder/editor */
   _getEntries(): StagingEntry[] {
     return this.entries;
   }
+
+  /** @internal - Get index version */
+  _getVersion(): IndexVersion {
+    return this.version;
+  }
+
+  /** @internal - Set index version */
+  _setVersion(version: IndexVersion): void {
+    this.version = version;
+  }
 }
 
 /**
  * Builder for bulk staging area modifications.
  */
-class MemoryStagingBuilder implements StagingBuilder {
+class FileStagingBuilder implements StagingBuilder {
   private entries: StagingEntry[] = [];
   private keeping: Array<{ start: number; count: number }> = [];
 
-  constructor(private readonly store: MemoryStagingStore) {}
+  constructor(private readonly store: FileStagingStore) {}
 
   add(options: StagingEntryOptions): void {
     const entry: StagingEntry = {
@@ -323,6 +360,7 @@ class MemoryStagingBuilder implements StagingBuilder {
   }
 
   async finish(): Promise<void> {
+    // Merge kept entries from existing index
     const existingEntries = this.store._getEntries();
     for (const { start, count } of this.keeping) {
       for (let i = 0; i < count; i++) {
@@ -332,12 +370,14 @@ class MemoryStagingBuilder implements StagingBuilder {
       }
     }
 
+    // Sort entries by (path, stage)
     this.entries.sort((a, b) => {
       const pathCmp = comparePaths(a.path, b.path);
       if (pathCmp !== 0) return pathCmp;
       return a.stage - b.stage;
     });
 
+    // Check for duplicates
     for (let i = 1; i < this.entries.length; i++) {
       const prev = this.entries[i - 1];
       const curr = this.entries[i];
@@ -346,11 +386,15 @@ class MemoryStagingBuilder implements StagingBuilder {
       }
     }
 
+    // Validate stage constraints
     this.validateStages();
+
+    // Replace store entries
     this.store._replaceEntries(this.entries);
   }
 
   private validateStages(): void {
+    // If stage 0 exists for a path, no other stages should exist
     const pathStages = new Map<string, Set<MergeStageValue>>();
 
     for (const entry of this.entries) {
@@ -371,16 +415,17 @@ class MemoryStagingBuilder implements StagingBuilder {
 /**
  * Editor for targeted staging area modifications.
  */
-class MemoryStagingEditor implements StagingEditor {
+class FileStagingEditor implements StagingEditor {
   private edits: StagingEdit[] = [];
 
-  constructor(private readonly store: MemoryStagingStore) {}
+  constructor(private readonly store: FileStagingStore) {}
 
   add(edit: StagingEdit): void {
     this.edits.push(edit);
   }
 
   async finish(): Promise<void> {
+    // Sort edits by path for efficient merge
     this.edits.sort((a, b) => comparePaths(a.path, b.path));
 
     const existingEntries = this.store._getEntries();
@@ -394,9 +439,11 @@ class MemoryStagingEditor implements StagingEditor {
       const edit = this.edits[editIndex];
 
       if (!edit) {
+        // No more edits, keep remaining entries
         newEntries.push(entry);
         entryIndex++;
       } else if (!entry) {
+        // No more entries, apply remaining edits (insertions)
         const result = edit.apply(undefined);
         if (result) newEntries.push(result);
         editIndex++;
@@ -404,19 +451,27 @@ class MemoryStagingEditor implements StagingEditor {
         const cmp = comparePaths(entry.path, edit.path);
 
         if (cmp < 0) {
+          // Entry before edit - keep entry
+          newEntries.push(entry);
+          entryIndex++;
+        } else if (cmp > 0) {
+          // Edit path comes before entry path
+          // Check if entry is under a tree being deleted
           if (isDeleteTree(edit) && entry.path.startsWith(`${edit.path}/`)) {
+            // Skip entry (deleted by tree)
             entryIndex++;
           } else {
-            newEntries.push(entry);
-            entryIndex++;
+            // Apply edit (insertion) and move to next edit
+            const result = edit.apply(undefined);
+            if (result) newEntries.push(result);
+            editIndex++;
           }
-        } else if (cmp > 0) {
-          const result = edit.apply(undefined);
-          if (result) newEntries.push(result);
-          editIndex++;
         } else {
+          // Edit applies to this entry
           if (isResolveConflict(edit)) {
+            // Handle conflict resolution
             this.applyConflictResolution(existingEntries, entryIndex, edit, newEntries);
+            // Skip all stages for this path
             while (
               entryIndex < existingEntries.length &&
               existingEntries[entryIndex].path === edit.path
@@ -442,6 +497,7 @@ class MemoryStagingEditor implements StagingEditor {
     edit: StagingEdit & { chooseStage?: MergeStageValue },
     output: StagingEntry[],
   ): void {
+    // Find the entry at the chosen stage
     let chosen: StagingEntry | undefined;
     let i = startIndex;
 
@@ -453,6 +509,7 @@ class MemoryStagingEditor implements StagingEditor {
     }
 
     if (chosen) {
+      // Create stage 0 entry from chosen stage
       output.push({
         ...chosen,
         stage: MergeStage.MERGED,
@@ -463,6 +520,7 @@ class MemoryStagingEditor implements StagingEditor {
 
 /**
  * Compare paths using Git's canonical ordering.
+ * Paths are compared byte-by-byte.
  */
 function comparePaths(a: string, b: string): number {
   const aLen = a.length;

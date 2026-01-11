@@ -15,7 +15,7 @@ import { createGitRepository } from "../../src/stores/create-repository.js";
 import {
   type ConfigFilesApi,
   GitWorkingCopyConfig,
-} from "../../src/working-copy/working-copy-config.files.js";
+} from "../../src/workspace/working-copy/working-copy-config.files.js";
 
 /**
  * Create mock files API for config tests

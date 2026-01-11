@@ -9,7 +9,7 @@ import {
   type MergeStageValue,
   type StagingEntry,
   type StagingStore,
-} from "../../src/staging/staging-store.js";
+} from "../../src/workspace/staging/staging-store.js";
 
 /**
  * Create a staging entry for tests.

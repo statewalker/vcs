@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createCheckoutConflictDetector,
   detectCheckoutConflicts,
-} from "../../src/working-copy/checkout-conflict-detector.js";
-import { CheckoutConflictType } from "../../src/working-copy/checkout-utils.js";
+} from "../../src/workspace/working-copy/checkout-conflict-detector.js";
+import { CheckoutConflictType } from "../../src/workspace/working-copy/checkout-utils.js";
 import { createMockStagingStore, createStagingEntry } from "../mocks/mock-staging-store.js";
 import { createMockTreeStore } from "../mocks/mock-tree-store.js";
 import { createMockWorktree, createWorktreeEntry } from "../mocks/mock-worktree.js";

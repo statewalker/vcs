@@ -18,8 +18,8 @@ import {
   type IndexVersion,
   parseIndexFile,
   serializeIndexFile,
-} from "../../src/staging/index-format.js";
-import type { StagingEntry } from "../../src/staging/staging-store.js";
+} from "../../src/workspace/staging/index-format.js";
+import type { StagingEntry } from "../../src/workspace/staging/staging-store.js";
 
 /**
  * Create a minimal valid index file for testing.

@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HistoryStore } from "../../src/history/history-store.js";
-import type { StagingStore } from "../../src/staging/staging-store.js";
+import type { StagingStore } from "../../src/workspace/staging/staging-store.js";
 import {
   type GitWorkingCopyContext,
   GitWorkingCopyFactory,
   type WorkingCopyFactoryFilesApi,
-} from "../../src/working-copy/working-copy-factory.files.js";
-import type { WorktreeStore } from "../../src/worktree/worktree-store.js";
+} from "../../src/workspace/working-copy/working-copy-factory.files.js";
+import type { WorktreeStore } from "../../src/workspace/worktree/worktree-store.js";
 
 /**
  * Create mock files API

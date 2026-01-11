@@ -9,7 +9,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/StatusCommand.java
  */
 
-import type { ObjectId } from "../common/id/index.js";
+import type { ObjectId } from "../../common/id/index.js";
 
 /**
  * File status categories for Git operations.

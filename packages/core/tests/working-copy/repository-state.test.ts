@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { readCherryPickState } from "../../src/working-copy/cherry-pick-state-reader.js";
-import { getStateCapabilities, RepositoryState } from "../../src/working-copy/repository-state.js";
-import { detectRepositoryState } from "../../src/working-copy/repository-state-detector.js";
-import { readRevertState } from "../../src/working-copy/revert-state-reader.js";
+import { readCherryPickState } from "../../src/workspace/working-copy/cherry-pick-state-reader.js";
+import { getStateCapabilities, RepositoryState } from "../../src/workspace/working-copy/repository-state.js";
+import { detectRepositoryState } from "../../src/workspace/working-copy/repository-state-detector.js";
+import { readRevertState } from "../../src/workspace/working-copy/revert-state-reader.js";
 
 describe("RepositoryState", () => {
   describe("enum values", () => {
