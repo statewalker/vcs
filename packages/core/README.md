@@ -140,6 +140,7 @@ import {
 |-----------|---------|
 | `Repository` | Shared history storage (objects + refs) |
 | `WorkingCopy` | Local checkout state (HEAD, staging, stash) |
+| `CheckoutStore` | Checkout state management (staging, stash, operation state) |
 | `GitObjectStore` | Store/load any Git object by type |
 | `BlobStore` | Binary file content storage |
 | `TreeStore` | Directory structure snapshots |
@@ -149,7 +150,7 @@ import {
 | `StagingStore` | Index with conflict support |
 | `StashStore` | Stash operations (push, pop, list) |
 | `StatusCalculator` | Three-way diff (HEAD/index/worktree) |
-| `WorkingTreeIterator` | Filesystem traversal |
+| `WorktreeStore` | Working tree filesystem access |
 
 ## Usage Examples
 
