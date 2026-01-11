@@ -5,14 +5,14 @@
  * No serialization overhead - just delegates to the underlying store.
  */
 
-import { collect } from "@statewalker/vcs-utils/streams";
-import type { ObjectId } from "../common/id/object-id.js";
-import type { GitObjectStore } from "../history/objects/object-store.js";
 import {
+  type GitObjectStore,
+  type ObjectId,
   ObjectType,
   type ObjectTypeCode,
   type ObjectTypeString,
-} from "../history/objects/object-types.js";
+} from "@statewalker/vcs-core";
+import { collect } from "@statewalker/vcs-utils/streams";
 import type {
   DeltaAwareRepositoryAccess,
   ObjectData,

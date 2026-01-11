@@ -5,18 +5,21 @@
  * serialize them to Git wire format for transport operations.
  */
 
+import {
+  type BlobStore,
+  type CommitStore,
+  type ObjectId,
+  ObjectType,
+  type ObjectTypeCode,
+  serializeCommit,
+  serializeTag,
+  serializeTree,
+  type TagStore,
+  type TreeStore,
+} from "@statewalker/vcs-core";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { collect } from "@statewalker/vcs-utils/streams";
-import type { ObjectId } from "../common/id/object-id.js";
-import type { BlobStore } from "../history/blobs/blob-store.js";
-import { serializeCommit } from "../history/commits/commit-format.js";
-import type { CommitStore } from "../history/commits/commit-store.js";
-import { ObjectType, type ObjectTypeCode } from "../history/objects/object-types.js";
-import { serializeTag } from "../history/tags/tag-format.js";
-import type { TagStore } from "../history/tags/tag-store.js";
-import { serializeTree } from "../history/trees/tree-format.js";
-import type { TreeStore } from "../history/trees/tree-store.js";
 import type { ObjectData, RepositoryAccess, RepositoryObjectInfo } from "./repository-access.js";
 
 /**

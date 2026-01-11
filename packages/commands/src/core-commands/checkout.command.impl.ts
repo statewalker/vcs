@@ -10,14 +10,18 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/CheckoutCommand.java
  */
 
-import { FileMode, type FilesApi, joinPath } from "../common/files/index.js";
-import type { ObjectId } from "../common/id/object-id.js";
-import type { BlobStore } from "../history/blobs/blob-store.js";
-import type { CommitStore } from "../history/commits/commit-store.js";
-import type { RefStore } from "../history/refs/ref-store.js";
-import type { TreeEntry } from "../history/trees/tree-entry.js";
-import type { TreeStore } from "../history/trees/tree-store.js";
-import type { StagingStore } from "../workspace/staging/staging-store.js";
+import {
+  type BlobStore,
+  type CommitStore,
+  FileMode,
+  type FilesApi,
+  joinPath,
+  type ObjectId,
+  type RefStore,
+  type StagingStore,
+  type TreeEntry,
+  type TreeStore,
+} from "@statewalker/vcs-core";
 import type { Checkout, CheckoutOptions, CheckoutResult } from "./checkout.command.js";
 
 /**

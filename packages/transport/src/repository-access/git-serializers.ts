@@ -6,18 +6,17 @@
  */
 
 // Commit serialization
-export { parseCommit, serializeCommit } from "../history/commits/commit-format.js";
 // Object type utilities
-export {
-  typeCodeToString,
-  typeStringToCode,
-} from "../history/objects/object-header.js";
-
 // Tag serialization
-export { parseTag, serializeTag } from "../history/tags/tag-format.js";
 // Tree serialization
 export {
+  parseCommit,
+  parseTag,
   parseTree,
   parseTreeToArray,
+  serializeCommit,
+  serializeTag,
   serializeTree,
-} from "../history/trees/tree-format.js";
+  typeCodeToString,
+  typeStringToCode,
+} from "@statewalker/vcs-core";
