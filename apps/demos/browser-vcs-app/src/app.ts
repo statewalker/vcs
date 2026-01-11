@@ -114,13 +114,13 @@ async function switchStorage(type: StorageType): Promise<void> {
         repoStatus.textContent = "Repository found - click to open";
         initBtn.textContent = "Open Repository";
         log("Existing .git directory found", "info");
-
-        // Load working directory files
-        await refreshWorkingDir();
       } else {
         repoStatus.textContent = "No repository";
         initBtn.textContent = "Initialize Repository";
       }
+
+      // Always load working directory files for browser FS
+      await refreshWorkingDir();
     } else {
       repoStatus.textContent = "No repository";
       initBtn.textContent = "Initialize Repository";
@@ -287,7 +287,7 @@ async function addFile(): Promise<void> {
 
     // Also write to filesystem if using browser FS
     if (currentStorage?.type === "browser-fs") {
-      await currentStorage.files.write(fileName, content);
+      await currentStorage.files.write(fileName, [data]);
     }
 
     // Track staged file
@@ -318,10 +318,19 @@ async function stageFile(fileName: string): Promise<void> {
 
   try {
     // Read file content
-    const content = await currentStorage.files.read(fileName);
-    if (!content) {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of currentStorage.files.read(fileName)) {
+      chunks.push(chunk);
+    }
+    if (chunks.length === 0) {
       log(`File not found: ${fileName}`, "error");
       return;
+    }
+    const content = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
+    let offset = 0;
+    for (const chunk of chunks) {
+      content.set(chunk, offset);
+      offset += chunk.length;
     }
 
     // Store blob
