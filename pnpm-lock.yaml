@@ -91,6 +91,9 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      '@statewalker/vcs-utils-node':
+        specifier: workspace:*
+        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -110,6 +113,9 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      '@statewalker/vcs-utils-node':
+        specifier: workspace:*
+        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -129,6 +135,9 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      '@statewalker/vcs-utils-node':
+        specifier: workspace:*
+        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -151,6 +160,9 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      '@statewalker/vcs-utils-node':
+        specifier: workspace:*
+        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -176,6 +188,9 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      '@statewalker/vcs-utils-node':
+        specifier: workspace:*
+        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -223,6 +238,9 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      '@statewalker/vcs-utils-node':
+        specifier: workspace:*
+        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -242,6 +260,9 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      '@statewalker/vcs-utils-node':
+        specifier: workspace:*
+        version: link:../../packages/utils-node
     devDependencies:
       tsx:
         specifier: 'catalog:'
