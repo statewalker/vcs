@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { ObjectType } from "../../src/objects/object-types.js";
+import { ObjectType } from "../../src/history/objects/object-types.js";
 import { createTestRepository, fsTick, type GCTestContext, hasObject } from "./gc-test-utils.js";
 
 describe("GcTagTest", () => {

@@ -6,9 +6,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
 import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
 import type { ObjectId } from "../../src/common/id/object-id.js";
-import { GitObjectStoreImpl } from "../../src/objects/object-store.impl.js";
-import type { GitObjectStore } from "../../src/objects/object-store.js";
-import { ObjectType } from "../../src/objects/object-types.js";
+import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.js";
+import type { GitObjectStore } from "../../src/history/objects/object-store.js";
+import { ObjectType } from "../../src/history/objects/object-types.js";
 import { GitNativeRepositoryAccess } from "../../src/repository-access/git-native-repository-access.js";
 
 function createTestObjectStore(): GitObjectStore {

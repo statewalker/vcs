@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { HistoryStore } from "../../src/history-store.js";
+import type { HistoryStore } from "../../src/history/history-store.js";
 import type { StashFilesApi } from "../../src/working-copy/stash-store.files.js";
 
 import { GitStashStore } from "../../src/working-copy/stash-store.files.js";

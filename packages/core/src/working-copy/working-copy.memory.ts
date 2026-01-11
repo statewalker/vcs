@@ -7,7 +7,7 @@
  */
 
 import type { ObjectId } from "../common/id/index.js";
-import type { HistoryStore } from "../history-store.js";
+import type { HistoryStore } from "../history/history-store.js";
 import type { StagingStore } from "../staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "../status/index.js";
 import type {

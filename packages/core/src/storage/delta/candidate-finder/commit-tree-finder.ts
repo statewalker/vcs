@@ -5,9 +5,9 @@
  * Uses commit relationships (parents) and tree structure to find candidates.
  */
 
-import type { CommitStore } from "../../../commits/commit-store.js";
-import { ObjectType, type ObjectTypeCode } from "../../../objects/object-types.js";
-import type { TreeStore } from "../../../trees/tree-store.js";
+import type { CommitStore } from "../../../history/commits/commit-store.js";
+import { ObjectType, type ObjectTypeCode } from "../../../history/objects/object-types.js";
+import type { TreeStore } from "../../../history/trees/tree-store.js";
 import type {
   CandidateFinder,
   CandidateFinderOptions,

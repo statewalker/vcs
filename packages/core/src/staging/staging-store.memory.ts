@@ -7,7 +7,7 @@
 
 import { FileMode } from "../common/files/index.js";
 import type { ObjectId } from "../common/id/index.js";
-import type { TreeEntry, TreeStore } from "../trees/index.js";
+import type { TreeEntry, TreeStore } from "../history/trees/index.js";
 import {
   MergeStage,
   type MergeStageValue,

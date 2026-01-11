@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { HistoryStore } from "../../src/history-store.js";
+import type { HistoryStore } from "../../src/history/history-store.js";
 import type { StagingStore } from "../../src/staging/staging-store.js";
 import { MemoryStashStore } from "../../src/working-copy/stash-store.memory.js";
 import { MemoryWorkingCopy } from "../../src/working-copy/working-copy.memory.js";

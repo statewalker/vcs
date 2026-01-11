@@ -23,8 +23,8 @@ import type {
   DeltaStoreUpdate,
   StoredDelta,
 } from "../delta/delta-store.js";
-import { parseHeader } from "../../objects/object-header.js";
-import type { ObjectTypeCode } from "../../objects/object-types.js";
+import { parseHeader } from "../../history/objects/object-header.js";
+import type { ObjectTypeCode } from "../../history/objects/object-types.js";
 import type { DeltaReverseIndex } from "./delta-reverse-index.js";
 import { PackDirectory } from "./pack-directory.js";
 import { PendingPack } from "./pending-pack.js";

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { parsePackedRefs } from "../../src/refs/packed-refs-reader.js";
+import { parsePackedRefs } from "../../src/history/refs/packed-refs-reader.js";
 import {
   createPeeledRef,
   createPeeledTagRef,
@@ -22,7 +22,7 @@ import {
   R_TAGS,
   RefStorage,
   SYMREF_PREFIX,
-} from "../../src/refs/ref-types.js";
+} from "../../src/history/refs/ref-types.js";
 
 describe("ref-types", () => {
   describe("createRef", () => {

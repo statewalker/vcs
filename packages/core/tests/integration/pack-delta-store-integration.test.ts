@@ -14,7 +14,7 @@ import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/in
 import type { DeltaInfo } from "../../src/storage/delta/delta-store.js";
 import { GCController } from "../../src/storage/delta/gc-controller.js";
 import { RawStoreWithDelta } from "../../src/storage/delta/raw-store-with-delta.js";
-import { encodeObjectHeader } from "../../src/objects/object-header.js";
+import { encodeObjectHeader } from "../../src/history/objects/object-header.js";
 import { PackConsolidator } from "../../src/storage/pack/pack-consolidator.js";
 import { PackDeltaStore } from "../../src/storage/pack/pack-delta-store.js";
 
