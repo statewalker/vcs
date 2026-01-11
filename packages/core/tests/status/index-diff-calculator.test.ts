@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { FileMode } from "../../src/files/index.js";
+import { FileMode } from "../../src/common/files/index.js";
 import type { MergeStageValue, StagingEntry, StagingStore } from "../../src/staging/index.js";
 import {
   createEmptyIndexDiff,

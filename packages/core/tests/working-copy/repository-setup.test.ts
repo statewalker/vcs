@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { createInMemoryFilesApi } from "../../src/files/index.js";
+import { createInMemoryFilesApi } from "../../src/common/files/index.js";
 import { createGitRepository } from "../../src/stores/create-repository.js";
 import {
   type ConfigFilesApi,

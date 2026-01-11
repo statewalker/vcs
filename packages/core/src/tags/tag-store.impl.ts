@@ -4,7 +4,7 @@
  * Wraps GitObjectStore with tag serialization/deserialization.
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { GitObjectStore } from "../objects/object-store.js";
 import { ObjectType } from "../objects/object-types.js";
 import { decodeTagEntries, encodeTagEntries, entriesToTag, tagToEntries } from "./tag-format.js";

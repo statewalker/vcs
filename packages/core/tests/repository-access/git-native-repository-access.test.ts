@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 import { MemoryVolatileStore } from "../../src/binary/volatile-store.memory.js";
-import type { ObjectId } from "../../src/id/object-id.js";
+import type { ObjectId } from "../../src/common/id/object-id.js";
 import { GitObjectStoreImpl } from "../../src/objects/object-store.impl.js";
 import type { GitObjectStore } from "../../src/objects/object-store.js";
 import { ObjectType } from "../../src/objects/object-types.js";

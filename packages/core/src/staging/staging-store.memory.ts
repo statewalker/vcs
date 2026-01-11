@@ -5,8 +5,8 @@
  * No persistence - all entries are lost when the instance is garbage collected.
  */
 
-import { FileMode } from "../files";
-import type { ObjectId } from "../id";
+import { FileMode } from "../common/files/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { TreeEntry, TreeStore } from "../trees/index.js";
 import {
   MergeStage,

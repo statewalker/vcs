@@ -10,7 +10,7 @@
  * Reference: JGit's CheckoutConflictException and TreeWalk
  */
 
-import type { ObjectId } from "../id/object-id.js";
+import type { ObjectId } from "../common/id/object-id.js";
 import type { TreeEntry } from "../trees/tree-entry.js";
 import type { TreeStore } from "../trees/tree-store.js";
 

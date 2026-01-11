@@ -6,7 +6,7 @@
  * SHA-1 hash is computed over the full object (header + content).
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { ObjectTypeString } from "./object-types.js";
 
 /**

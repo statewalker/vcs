@@ -7,7 +7,7 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/SymbolicRef.java
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 
 /**
  * Storage location of a reference

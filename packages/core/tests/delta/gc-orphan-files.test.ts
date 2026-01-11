@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import type { ObjectId } from "../../src/id/index.js";
+import type { ObjectId } from "../../src/common/id/index.js";
 import {
   createTestRepository,
   fsTick,

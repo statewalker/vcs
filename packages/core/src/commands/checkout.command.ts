@@ -10,7 +10,7 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/CheckoutCommand.java
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 
 /**
  * Options for checkout operations.

@@ -10,7 +10,7 @@
  */
 
 import type { ObjectId } from "@statewalker/vcs-core";
-import { dirname, type FilesApi, joinPath, readFile } from "../files/index.js";
+import { dirname, type FilesApi, joinPath, readFile } from "../common/files/index.js";
 import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-types.js";
 
 /**

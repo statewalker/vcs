@@ -19,8 +19,8 @@
 
 import type { BlobStore } from "../blob/blob-store.js";
 import type { CommitStore } from "../commits/commit-store.js";
-import { FileMode } from "../files/index.js";
-import type { ObjectId } from "../id/object-id.js";
+import { FileMode } from "../common/files/index.js";
+import type { ObjectId } from "../common/id/object-id.js";
 import type { RefStore } from "../refs/ref-store.js";
 import { isSymbolicRef } from "../refs/ref-types.js";
 import type { StagingStore } from "../staging/staging-store.js";

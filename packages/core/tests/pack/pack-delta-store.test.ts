@@ -8,8 +8,8 @@ import type { Delta } from "@statewalker/vcs-utils";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
 import type { DeltaInfo } from "../../src/delta/delta-store.js";
-import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
 import {
   PackDeltaStore,
   PackDirectory,

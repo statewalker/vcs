@@ -2,7 +2,7 @@ import { Sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import type { RawStore } from "../binary/raw-store.js";
 import type { VolatileStore } from "../binary/volatile-store.js";
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import { loadWithHeader } from "./load-with-header.js";
 import { encodeObjectHeader } from "./object-header.js";
 import type { GitObjectHeader, GitObjectStore } from "./object-store.js";

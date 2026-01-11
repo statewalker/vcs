@@ -5,8 +5,8 @@
  * Supports both loose refs and packed-refs.
  */
 
-import type { FilesApi } from "../files/index.js";
-import type { ObjectId } from "../id/index.js";
+import type { FilesApi } from "../common/files/index.js";
+import type { ObjectId } from "../common/id/index.js";
 
 import { packRefs } from "./packed-refs-writer.js";
 import { readAllRefs, readRef, resolveRef } from "./ref-reader.js";

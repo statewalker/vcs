@@ -2,7 +2,7 @@
  * Tree storage interface
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { TreeEntry } from "./tree-entry.js";
 
 /**

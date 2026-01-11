@@ -7,7 +7,7 @@
  * Based on jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/GC.java
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import { writePackIndexV2 } from "./pack-index-writer.js";
 import { PackWriterStream } from "./pack-writer.js";
 import type { PackObjectType } from "./types.js";

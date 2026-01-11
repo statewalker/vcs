@@ -6,8 +6,8 @@
  */
 
 import type { CommitStore } from "../commits/commit-store.js";
-import { FileMode } from "../files/index.js";
-import type { ObjectId } from "../id/object-id.js";
+import { FileMode } from "../common/files/index.js";
+import type { ObjectId } from "../common/id/object-id.js";
 import { ObjectType } from "../objects/object-types.js";
 import type { PackConsolidator } from "../pack/pack-consolidator.js";
 import type { TreeStore } from "../trees/tree-store.js";

@@ -12,9 +12,9 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ReflogReaderImpl.java
  */
 
-import type { FilesApi } from "../files/index.js";
-import { joinPath } from "../files/index.js";
-import { parsePersonIdent } from "../format/index.js";
+import type { FilesApi } from "../common/files/index.js";
+import { joinPath } from "../common/files/index.js";
+import { parsePersonIdent } from "../common/format/index.js";
 import type { ReflogEntry, ReflogReader } from "./reflog-types.js";
 
 const LOGS_DIR = "logs";

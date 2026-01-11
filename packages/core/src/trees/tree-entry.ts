@@ -1,5 +1,5 @@
-import type { FileModeValue } from "../files/index.js";
-import type { ObjectId } from "../id/object-id.js";
+import type { FileModeValue } from "../common/files/index.js";
+import type { ObjectId } from "../common/id/object-id.js";
 
 /**
  * Tree entry representing a file or subdirectory

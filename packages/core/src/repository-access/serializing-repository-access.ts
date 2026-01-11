@@ -11,7 +11,7 @@ import { collect } from "@statewalker/vcs-utils/streams";
 import type { BlobStore } from "../blob/blob-store.js";
 import { serializeCommit } from "../commits/commit-format.js";
 import type { CommitStore } from "../commits/commit-store.js";
-import type { ObjectId } from "../id/object-id.js";
+import type { ObjectId } from "../common/id/object-id.js";
 import { ObjectType, type ObjectTypeCode } from "../objects/object-types.js";
 import { serializeTag } from "../tags/tag-format.js";
 import type { TagStore } from "../tags/tag-store.js";

@@ -3,7 +3,7 @@
  */
 
 import type { AncestryOptions, Commit, CommitStore } from "../../src/commits/commit-store.js";
-import type { ObjectId, PersonIdent } from "../../src/id/index.js";
+import type { ObjectId, PersonIdent } from "../../src/common/id/index.js";
 
 /**
  * In-memory CommitStore implementation for testing

@@ -11,7 +11,7 @@
  * 4. Selects the best delta (strategy)
  */
 
-import type { ObjectId } from "../id/object-id.js";
+import type { ObjectId } from "../common/id/object-id.js";
 import type { DeltaTarget } from "./candidate-finder.js";
 
 /**

@@ -8,8 +8,8 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import { type FilesApi, joinPath, readFile } from "../files/index.js";
-import type { ObjectId } from "../id/index.js";
+import { type FilesApi, joinPath, readFile } from "../common/files/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import { findPackedRef, readPackedRefs } from "./packed-refs-reader.js";
 import {
   createRef,

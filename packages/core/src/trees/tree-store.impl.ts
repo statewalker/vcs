@@ -4,7 +4,7 @@
  * Wraps GitObjectStore with tree serialization/deserialization.
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { GitObjectStore } from "../objects/object-store.js";
 import type { TreeEntry } from "./tree-entry.js";
 import { decodeTreeEntries, EMPTY_TREE_ID, encodeTreeEntries } from "./tree-format.js";

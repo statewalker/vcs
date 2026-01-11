@@ -5,7 +5,7 @@
  * with no parsing or serialization needed.
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 
 /**
  * Blob storage with streaming API
