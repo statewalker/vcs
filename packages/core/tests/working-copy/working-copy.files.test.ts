@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FileMode } from "../../src/common/files/index.js";
 import type { BlobStore } from "../../src/history/blobs/blob-store.js";
 import type { CommitStore } from "../../src/history/commits/commit-store.js";
-import { FileMode } from "../../src/common/files/index.js";
 import type { HistoryStore } from "../../src/history/history-store.js";
 import type { RefStore } from "../../src/history/refs/ref-store.js";
+import type { TreeEntry, TreeStore } from "../../src/history/trees/tree-store.js";
 import type { StagingEntry, StagingStore } from "../../src/workspace/staging/staging-store.js";
 import { FileStatus } from "../../src/workspace/status/status-calculator.js";
-import type { TreeEntry, TreeStore } from "../../src/history/trees/tree-store.js";
 import { MemoryStashStore } from "../../src/workspace/working-copy/stash-store.memory.js";
 import {
   GitWorkingCopy,

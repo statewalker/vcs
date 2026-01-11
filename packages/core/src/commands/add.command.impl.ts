@@ -9,8 +9,8 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/AddCommand.java
  */
 
-import type { BlobStore } from "../history/blobs/blob-store.js";
 import { FileMode } from "../common/files/index.js";
+import type { BlobStore } from "../history/blobs/blob-store.js";
 import { DeleteStagingEntry, UpdateStagingEntry } from "../workspace/staging/staging-edits.js";
 import type { StagingStore } from "../workspace/staging/staging-store.js";
 import type { WorktreeStore } from "../workspace/worktree/worktree-store.js";

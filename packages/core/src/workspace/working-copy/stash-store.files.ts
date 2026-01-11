@@ -15,8 +15,8 @@
 import type { ObjectId } from "../../common/id/index.js";
 import type { PersonIdent } from "../../common/person/person-ident.js";
 import type { HistoryStore } from "../../history/history-store.js";
-import type { StagingStore } from "../staging/index.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
+import type { StagingStore } from "../staging/index.js";
 import type { StashEntry, StashPushOptions, StashStore } from "../working-copy.js";
 import type { WorktreeStore } from "../worktree/index.js";
 

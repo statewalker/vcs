@@ -5,23 +5,23 @@
  * for either file-based or memory-based storage.
  */
 
-import { CompressedRawStore } from "../storage/binary/raw-store.compressed.js";
-import { createFileRawStore } from "../storage/binary/raw-store.files.js";
-import { createFileVolatileStore } from "../storage/binary/volatile-store.files.js";
-import { GitBlobStore } from "../history/blobs/blob-store.impl.js";
-import { GitCommitStore } from "../history/commits/commit-store.impl.js";
 import { createInMemoryFilesApi, type FilesApi, joinPath } from "../common/files/index.js";
 import type { ObjectId } from "../common/id/object-id.js";
-import { GCController } from "../storage/delta/gc-controller.js";
-import { RawStoreWithDelta } from "../storage/delta/raw-store-with-delta.js";
+import { GitBlobStore } from "../history/blobs/blob-store.impl.js";
+import { GitCommitStore } from "../history/commits/commit-store.impl.js";
 import type { HistoryStore, HistoryStoreConfig } from "../history/history-store.js";
 import { GitObjectStoreImpl } from "../history/objects/object-store.impl.js";
-import { PackDeltaStore } from "../storage/pack/pack-delta-store.js";
 import { createFileRefStore, type FileRefStore } from "../history/refs/ref-store.files.js";
 import type { MemoryRefStore } from "../history/refs/ref-store.memory.js";
 import { createRefsStructure, writeSymbolicRef } from "../history/refs/ref-writer.js";
 import { GitTagStore } from "../history/tags/tag-store.impl.js";
 import { GitTreeStore } from "../history/trees/tree-store.impl.js";
+import { CompressedRawStore } from "../storage/binary/raw-store.compressed.js";
+import { createFileRawStore } from "../storage/binary/raw-store.files.js";
+import { createFileVolatileStore } from "../storage/binary/volatile-store.files.js";
+import { GCController } from "../storage/delta/gc-controller.js";
+import { RawStoreWithDelta } from "../storage/delta/raw-store-with-delta.js";
+import { PackDeltaStore } from "../storage/pack/pack-delta-store.js";
 
 /**
  * Options for creating a repository
