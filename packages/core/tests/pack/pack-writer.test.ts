@@ -15,7 +15,7 @@ import {
   type PackWriterObject,
   PackWriterStream,
   writePack,
-} from "../../src/pack/index.js";
+} from "../../src/storage/pack/index.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {

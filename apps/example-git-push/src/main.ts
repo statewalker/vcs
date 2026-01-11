@@ -17,7 +17,6 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
   createGitRepository,
-  createNodeFilesApi,
   extractGitObjectContent,
   FileMode,
   type GitRepository,
@@ -25,7 +24,8 @@ import {
 } from "@statewalker/vcs-core";
 import { type PushObject, push } from "@statewalker/vcs-transport";
 import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
+import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 
 import {
   BASE_DIR,

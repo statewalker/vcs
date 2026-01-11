@@ -7,12 +7,12 @@
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
-import { PackConsolidator } from "../../src/pack/pack-consolidator.js";
-import { PackDirectory } from "../../src/pack/pack-directory.js";
-import { writePackIndexV2 } from "../../src/pack/pack-index-writer.js";
-import { PackWriterStream } from "../../src/pack/pack-writer.js";
-import { PackObjectType } from "../../src/pack/types.js";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
+import { PackConsolidator } from "../../src/storage/pack/pack-consolidator.js";
+import { PackDirectory } from "../../src/storage/pack/pack-directory.js";
+import { writePackIndexV2 } from "../../src/storage/pack/pack-index-writer.js";
+import { PackWriterStream } from "../../src/storage/pack/pack-writer.js";
+import { PackObjectType } from "../../src/storage/pack/types.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {

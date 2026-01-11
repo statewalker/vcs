@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { HistoryStore } from "../../src/history-store.js";
-import type { StagingStore } from "../../src/staging/staging-store.js";
-import { MemoryStashStore } from "../../src/working-copy/stash-store.memory.js";
-import { MemoryWorkingCopy } from "../../src/working-copy/working-copy.memory.js";
-import type { MergeState, RebaseState } from "../../src/working-copy.js";
-import type { WorktreeStore } from "../../src/worktree/worktree-store.js";
+import type { HistoryStore } from "../../src/history/history-store.js";
+import type { StagingStore } from "../../src/workspace/staging/staging-store.js";
+import { MemoryStashStore } from "../../src/workspace/working-copy/stash-store.memory.js";
+import { MemoryWorkingCopy } from "../../src/workspace/working-copy/working-copy.memory.js";
+import type { MergeState, RebaseState } from "../../src/workspace/working-copy.js";
+import type { WorktreeStore } from "../../src/workspace/worktree/worktree-store.js";
 
 describe("MemoryWorkingCopy", () => {
   let workingCopy: MemoryWorkingCopy;

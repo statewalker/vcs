@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { FileMode } from "../../src/files/index.js";
-import type { ObjectId } from "../../src/id/index.js";
+import { FileMode } from "../../src/common/files/index.js";
+import type { ObjectId } from "../../src/common/id/index.js";
 import {
   type ConflictInfo,
   ConflictType,
@@ -16,8 +16,8 @@ import {
   ResolutionStrategy,
   resolveMarkersByStrategy,
   strategyToStage,
-} from "../../src/staging/conflict-utils.js";
-import { MergeStage, type StagingEntry } from "../../src/staging/staging-store.js";
+} from "../../src/workspace/staging/conflict-utils.js";
+import { MergeStage, type StagingEntry } from "../../src/workspace/staging/staging-store.js";
 
 const sampleObjectId = "0".repeat(40) as ObjectId;
 const anotherObjectId = "a".repeat(40) as ObjectId;

@@ -13,7 +13,7 @@ import {
   shouldTakeTheirs,
   ThreeWayChange,
   type ThreeWayEntry,
-} from "../../src/working-copy/checkout-utils.js";
+} from "../../src/workspace/working-copy/checkout-utils.js";
 import { createMockTreeStore } from "../mocks/mock-tree-store.js";
 
 describe("ThreeWayChange constants", () => {

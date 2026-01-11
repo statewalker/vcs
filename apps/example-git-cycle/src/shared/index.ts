@@ -20,7 +20,7 @@ import {
   type PersonIdent,
 } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 
 // ============================================================================
 // Compression Setup

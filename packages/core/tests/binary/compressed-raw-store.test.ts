@@ -5,8 +5,8 @@
 import { collect, setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { CompressedRawStore } from "../../src/binary/raw-store.compressed.js";
-import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
+import { CompressedRawStore } from "../../src/storage/binary/raw-store.compressed.js";
+import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {

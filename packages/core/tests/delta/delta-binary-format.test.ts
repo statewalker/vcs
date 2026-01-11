@@ -13,7 +13,7 @@ import {
   parseBinaryDelta,
   parseGitDelta,
   serializeDelta,
-} from "../../src/delta/delta-binary-format.js";
+} from "../../src/storage/delta/delta-binary-format.js";
 
 describe("delta-binary-format", () => {
   describe("serializeDelta", () => {

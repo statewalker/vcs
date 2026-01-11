@@ -5,9 +5,9 @@
 import type { Delta } from "@statewalker/vcs-utils";
 import { applyDelta } from "@statewalker/vcs-utils";
 import { expect } from "vitest";
-import type { RawStore } from "../../src/binary/raw-store.js";
-import type { ObjectId } from "../../src/id/index.js";
-import type { RefStore } from "../../src/refs/ref-store.js";
+import type { ObjectId } from "../../src/common/id/index.js";
+import type { RefStore } from "../../src/history/refs/ref-store.js";
+import type { RawStore } from "../../src/storage/binary/raw-store.js";
 
 /**
  * Collect all chunks from an async iterable into a single Uint8Array

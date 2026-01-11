@@ -4,9 +4,10 @@
 
 import * as fs from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { createNodeFilesApi, PackObjectType } from "@statewalker/vcs-core";
+import { PackObjectType } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
+import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 
 // Set up Node.js compression (required for pack file operations)
 setCompression(createNodeCompression());

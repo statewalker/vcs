@@ -4,7 +4,7 @@
 
 import { collect } from "@statewalker/vcs-utils";
 import { describe, expect, it } from "vitest";
-import { MemoryVolatileStore } from "../../src/binary/volatile-store.memory.js";
+import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
 
 describe("MemoryVolatileStore", () => {
   const encoder = new TextEncoder();

@@ -11,12 +11,12 @@
       "import": "./dist/index.js"
     },
     "./staging": {
-      "types": "./dist/staging/index.d.ts",
-      "import": "./dist/staging/index.js"
+      "types": "./dist/workspace/staging/index.d.ts",
+      "import": "./dist/workspace/staging/index.js"
     },
     "./format": {
-      "types": "./dist/format/index.d.ts",
-      "import": "./dist/format/index.js"
+      "types": "./dist/common/format/index.d.ts",
+      "import": "./dist/common/format/index.js"
     }
   },
   "files": [

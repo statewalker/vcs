@@ -4,7 +4,7 @@
 
 import { vi } from "vitest";
 
-import type { WorktreeEntry, WorktreeStore } from "../../src/worktree/worktree-store.js";
+import type { WorktreeEntry, WorktreeStore } from "../../src/workspace/worktree/worktree-store.js";
 
 /**
  * Create a working tree entry for tests.

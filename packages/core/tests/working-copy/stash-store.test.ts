@@ -4,10 +4,10 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { HistoryStore } from "../../src/history-store.js";
-import type { StashFilesApi } from "../../src/working-copy/stash-store.files.js";
+import type { HistoryStore } from "../../src/history/history-store.js";
+import type { StashFilesApi } from "../../src/workspace/working-copy/stash-store.files.js";
 
-import { GitStashStore } from "../../src/working-copy/stash-store.files.js";
+import { GitStashStore } from "../../src/workspace/working-copy/stash-store.files.js";
 import { MockCommitStore } from "../mocks/mock-commit-store.js";
 import { createMockStagingStore, createStagingEntry } from "../mocks/mock-staging-store.js";
 import { createMockTreeStore } from "../mocks/mock-tree-store.js";

@@ -1,7 +1,11 @@
 // Main entry point
 
-// Commands
+// Fluent API commands
 export * from "./commands/index.js";
+
+// Note: Core command implementations (Add, Checkout interfaces and their impl classes)
+// are available via direct import from "./core-commands/" to avoid naming conflicts
+// with the fluent API. Example: import { AddCommand } from "@statewalker/vcs-commands/core-commands";
 // Errors
 export * from "./errors/index.js";
 export { Git } from "./git.js";
