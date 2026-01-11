@@ -259,12 +259,8 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * JGit: testDeleteMiddleLines
      * Tests that when middle lines are added then removed,
      * the surrounding lines retain their blame to the first commit.
-     *
-     * TODO: This test requires tracking line position mappings through history,
-     * which the current simplified blame algorithm doesn't implement.
-     * See webrun-vcs-g692 for the follow-up task.
      */
-    it.skip("should correctly blame after deleting middle lines", async () => {
+    it("should correctly blame after deleting middle lines", async () => {
       const { git, store } = await createInitializedGit();
 
       // Step 1: Create file with 3 lines (a, c, e)
@@ -392,7 +388,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * JGit: testRename
      * Tests blame following a simple file rename.
      */
-    it.skip("should follow simple file rename", async () => {
+    it("should follow simple file rename", async () => {
       const { git, store } = await createInitializedGit();
 
       // Create file with 3 lines
@@ -433,7 +429,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * JGit: testRenameInSubDir
      * Tests blame following a file rename within the same subdirectory.
      */
-    it.skip("should follow rename in subdirectory", async () => {
+    it("should follow rename in subdirectory", async () => {
       const { git, store } = await createInitializedGit();
 
       // Create file in subdirectory
@@ -478,7 +474,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * JGit: testMoveToOtherDir
      * Tests blame following a file move to a different directory.
      */
-    it.skip("should follow move to different directory", async () => {
+    it("should follow move to different directory", async () => {
       const { git, store } = await createInitializedGit();
 
       // Create file in subdirectory
@@ -523,7 +519,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * JGit: testTwoRenames
      * Tests blame following a file through two consecutive renames.
      */
-    it.skip("should follow two consecutive renames", async () => {
+    it("should follow two consecutive renames", async () => {
       const { git, store } = await createInitializedGit();
 
       // Create file.txt
@@ -622,11 +618,9 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
     /**
      * Tests blame with only CR line endings (old Mac style).
-     *
-     * TODO: CR-only line endings are not currently supported by RawText.
-     * The algorithm only recognizes LF and CRLF as line endings.
+     * CR-only line endings are now supported by RawText.
      */
-    it.skip("should handle CR-only line endings", async () => {
+    it("should handle CR-only line endings", async () => {
       const { git, store } = await createInitializedGit();
 
       // File with old Mac-style line endings (CR only)
@@ -662,11 +656,8 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * JGit: testConflictingMerge1 pattern
      * Tests blame after resolving a merge conflict.
      * Lines from different sources should be attributed correctly.
-     *
-     * TODO: Requires multi-parent blame tracking to attribute lines
-     * from side branches correctly.
      */
-    it.skip("should correctly attribute lines after merge conflict resolution", async () => {
+    it("should correctly attribute lines after merge conflict resolution", async () => {
       const { git, store } = await createInitializedGit();
 
       // Base: create file with 5 lines
@@ -700,9 +691,18 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       await addFile(store, "file.txt", "0\n1\n2\n");
       await git.commit().setMessage("main removes lines").call();
 
+      // Get the main commit ID before merge
+      const mainModRef = await store.refs.resolve("HEAD");
+      const mainModCommitId = mainModRef?.objectId ?? "";
+
       // Resolve conflict manually - keep side's changes plus resolution
+      // This creates a merge commit with TWO parents (main + side)
       await addFile(store, "file.txt", "0\n1 side\n2\n3 resolved\n4\n");
-      await git.commit().setMessage("merge resolution").call();
+      await git
+        .commit()
+        .setMessage("merge resolution")
+        .setParentIds(mainModCommitId, sideModCommitId)
+        .call();
 
       const mergeRef = await store.refs.resolve("HEAD");
       const mergeCommitId = mergeRef?.objectId ?? "";
@@ -729,12 +729,8 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
     /**
      * Tests blame with multiple parents (merge commit).
-     *
-     * TODO: Requires multi-parent blame tracking. The current algorithm
-     * only follows first parent, so lines from merged branches are
-     * attributed to the merge commit instead of their original source.
      */
-    it.skip("should handle files modified in merge commits", async () => {
+    it("should handle files modified in merge commits", async () => {
       const { git, store } = await createInitializedGit();
 
       // Create base file
@@ -760,18 +756,291 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       // Switch back to main
       await store.refs.setSymbolic("HEAD", "refs/heads/main");
       const mainRef = await store.refs.resolve("refs/heads/main");
-      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+      const mainCommitId = mainRef?.objectId ?? "";
+      const mainCommit = await store.commits.loadCommit(mainCommitId);
       await store.staging.readTree(store.trees, mainCommit.tree);
 
       // Merge feature (should be clean merge)
+      // Create a merge commit with TWO parents (main + feature)
       await addFile(store, "file.txt", "base line\nfeature line\n");
-      await git.commit().setMessage("merge feature").call();
+      await git
+        .commit()
+        .setMessage("merge feature")
+        .setParentIds(mainCommitId, featureModCommitId)
+        .call();
 
       const result = await git.blame().setFilePath("file.txt").call();
 
       expect(result.lineCount).toBe(2);
       expect(result.getEntry(1)?.commitId).toBe(baseCommitId);
       expect(result.getEntry(2)?.commitId).toBe(featureModCommitId);
+    });
+  });
+
+  /**
+   * JGit parity tests from BlameGeneratorTest.java.
+   * Tests for advanced blame scenarios with boundary conditions.
+   */
+  describe("BlameGenerator advanced tests (JGit parity)", () => {
+    /**
+     * JGit: testBoundLineDelete
+     * Tests that when a line is inserted at the beginning, the original lines
+     * are correctly attributed to the first commit.
+     */
+    it("should correctly track lines when line inserted at beginning", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Step 1: Create file with 2 lines
+      await addFile(store, "file.txt", "first\nsecond\n");
+      await git.commit().setMessage("create file").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Step 2: Insert a line at the beginning (third, first, second)
+      await addFile(store, "file.txt", "third\nfirst\nsecond\n");
+      await git.commit().setMessage("add line at start").call();
+
+      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2 = commit2Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(3);
+
+      // Line 1 (third) should be from commit2
+      expect(result.getEntry(1)?.commitId).toBe(commit2);
+      expect(result.getEntry(1)?.resultStart).toBe(1);
+
+      // Lines 2 and 3 (first, second) should be from commit1
+      expect(result.getEntry(2)?.commitId).toBe(commit1);
+      expect(result.getEntry(3)?.commitId).toBe(commit1);
+    });
+
+    /**
+     * JGit: testRenamedBoundLineDelete
+     * Tests blame after rename with line insertion at beginning.
+     * Lines should be traced back through rename to original file.
+     */
+    it("should track lines through rename with insertion at start", async () => {
+      const { git, store } = await createInitializedGit();
+
+      const FILENAME_1 = "subdir/file1.txt";
+      const FILENAME_2 = "subdir/file2.txt";
+
+      // Step 1: Create file with 2 lines
+      await addFile(store, FILENAME_1, "first\nsecond\n");
+      await git.commit().setMessage("create file1").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Step 2: Rename file1.txt to file2.txt
+      // Need to implement renameFile helper
+      const entries: Array<{ path: string; objectId: string; mode: number }> = [];
+      for await (const entry of store.staging.listEntries()) {
+        if (entry.path !== FILENAME_1) {
+          entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
+        } else {
+          entries.push({ path: FILENAME_2, objectId: entry.objectId, mode: entry.mode });
+        }
+      }
+      const builder = store.staging.builder();
+      for (const entry of entries) {
+        builder.add({
+          path: entry.path,
+          objectId: entry.objectId as ReturnType<typeof entry.objectId.toString>,
+          mode: entry.mode,
+          stage: 0,
+          size: 100,
+          mtime: Date.now(),
+        });
+      }
+      await builder.finish();
+      await git.commit().setMessage("rename file1.txt to file2.txt").call();
+
+      // Step 3: Add line at beginning
+      await addFile(store, FILENAME_2, "third\nfirst\nsecond\n");
+      await git.commit().setMessage("change file2").call();
+
+      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3 = commit3Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath(FILENAME_2).setFollowRenames(true).call();
+
+      expect(result.lineCount).toBe(3);
+
+      // Line 1 (third) should be from commit3
+      expect(result.getEntry(1)?.commitId).toBe(commit3);
+      expect(result.getEntry(1)?.sourcePath).toBe(FILENAME_2);
+
+      // Lines 2 and 3 should be traced back to commit1 through rename
+      expect(result.getEntry(2)?.commitId).toBe(commit1);
+      expect(result.getEntry(2)?.sourcePath).toBe(FILENAME_1);
+
+      expect(result.getEntry(3)?.commitId).toBe(commit1);
+      expect(result.getEntry(3)?.sourcePath).toBe(FILENAME_1);
+    });
+
+    /**
+     * JGit: testLinesAllDeletedShortenedWalk
+     * Tests that when content is cleared and restored, blame correctly
+     * attributes to the restoration commit.
+     */
+    it("should attribute lines to restoration commit after clear", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Step 1: Create file with 3 lines
+      await addFile(store, "file.txt", "first\nsecond\nthird\n");
+      await git.commit().setMessage("create file").call();
+
+      // Step 2: Clear file (empty content)
+      await addFile(store, "file.txt", "");
+      await git.commit().setMessage("clear file").call();
+
+      // Step 3: Restore content
+      await addFile(store, "file.txt", "first\nsecond\nthird\n");
+      await git.commit().setMessage("restore file").call();
+
+      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3 = commit3Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(3);
+
+      // All lines should be from commit3 (restoration)
+      expect(result.getEntry(1)?.commitId).toBe(commit3);
+      expect(result.getEntry(2)?.commitId).toBe(commit3);
+      expect(result.getEntry(3)?.commitId).toBe(commit3);
+    });
+  });
+
+  /**
+   * JGit parity tests for NUL byte handling in blame.
+   * Ported from BlameCommandTest.java
+   */
+  describe("NUL byte handling (JGit parity)", () => {
+    /**
+     * Helper to add binary content to staging.
+     */
+    async function addBinaryFile(
+      store: Awaited<ReturnType<typeof createInitializedGit>>["store"],
+      filePath: string,
+      content: Uint8Array,
+    ): Promise<void> {
+      const objectId = await store.blobs.store([content]);
+      const editor = store.staging.editor();
+      editor.add({
+        path: filePath,
+        apply: () => ({
+          path: filePath,
+          objectId,
+          mode: 0o100644,
+          size: content.length,
+          mtime: Date.now(),
+          stage: 0,
+        }),
+      });
+      await editor.finish();
+    }
+
+    /**
+     * JGit: testBlameWithNulByteInHistory
+     * Tests blame when a NUL byte appears and is later removed.
+     */
+    it("should handle NUL byte appearing and being removed in history", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Step 1: Create file
+      await addFile(store, "file.txt", "First line\nAnother line\n");
+      await git.commit().setMessage("create file").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Step 2: Add line with NUL byte (using Uint8Array for binary control)
+      const encoder = new TextEncoder();
+      const line1 = encoder.encode("First line\n");
+      const lineWithNul = new Uint8Array([
+        ...encoder.encode("Second line with NUL >"),
+        0x00,
+        ...encoder.encode("<\n"),
+      ]);
+      const line3 = encoder.encode("Another line\n");
+      const contentWithNul = new Uint8Array([...line1, ...lineWithNul, ...line3]);
+      await addBinaryFile(store, "file.txt", contentWithNul);
+      await git.commit().setMessage("add line with NUL").call();
+
+      // Step 3: Modify third line
+      const line3Modified = encoder.encode("Third line\n");
+      const contentModified = new Uint8Array([...line1, ...lineWithNul, ...line3Modified]);
+      await addBinaryFile(store, "file.txt", contentModified);
+      await git.commit().setMessage("change third line").call();
+
+      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3 = commit3Ref?.objectId ?? "";
+
+      // Step 4: Fix NUL line
+      await addFile(store, "file.txt", "First line\nSecond line with NUL >\\000<\nThird line\n");
+      await git.commit().setMessage("fix NUL line").call();
+
+      const commit4Ref = await store.refs.resolve("HEAD");
+      const commit4 = commit4Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(3);
+      expect(result.getEntry(1)?.commitId).toBe(commit1);
+      expect(result.getEntry(2)?.commitId).toBe(commit4);
+      expect(result.getEntry(3)?.commitId).toBe(commit3);
+    });
+
+    /**
+     * JGit: testBlameWithNulByteInTopRevision
+     * Tests blame when the current revision contains a NUL byte.
+     */
+    it("should handle NUL byte in current revision", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Step 1: Create file
+      await addFile(store, "file.txt", "First line\nAnother line\n");
+      await git.commit().setMessage("create file").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1 = commit1Ref?.objectId ?? "";
+
+      // Step 2: Add line with NUL byte
+      const encoder = new TextEncoder();
+      const line1 = encoder.encode("First line\n");
+      const lineWithNul = new Uint8Array([
+        ...encoder.encode("Second line with NUL >"),
+        0x00,
+        ...encoder.encode("<\n"),
+      ]);
+      const line3 = encoder.encode("Another line\n");
+      const contentWithNul = new Uint8Array([...line1, ...lineWithNul, ...line3]);
+      await addBinaryFile(store, "file.txt", contentWithNul);
+      await git.commit().setMessage("add line with NUL").call();
+
+      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2 = commit2Ref?.objectId ?? "";
+
+      // Step 3: Change third line (keep NUL in second line)
+      const line3Modified = encoder.encode("Third line\n");
+      const contentModified = new Uint8Array([...line1, ...lineWithNul, ...line3Modified]);
+      await addBinaryFile(store, "file.txt", contentModified);
+      await git.commit().setMessage("change third line").call();
+
+      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3 = commit3Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.lineCount).toBe(3);
+      expect(result.getEntry(1)?.commitId).toBe(commit1);
+      expect(result.getEntry(2)?.commitId).toBe(commit2);
+      expect(result.getEntry(3)?.commitId).toBe(commit3);
     });
   });
 
@@ -815,6 +1084,127 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       const author = result.getSourceAuthor(1);
       expect(author?.name).toBe("Test Author");
       expect(author?.email).toBe("test@example.com");
+    });
+
+    it("getSourceLine should return original line number in source", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Create file with 3 lines
+      await addFile(store, "file.txt", "a\nc\ne\n");
+      await git.commit().setMessage("create file").call();
+
+      // Add middle lines (a, b, c, d, e)
+      await addFile(store, "file.txt", "a\nb\nc\nd\ne\n");
+      await git.commit().setMessage("edit file").call();
+
+      // Delete middle lines (back to a, c, e)
+      await addFile(store, "file.txt", "a\nc\ne\n");
+      await git.commit().setMessage("edit file").call();
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      // All lines should map back to their original positions in commit1
+      expect(result.getSourceLine(1)).toBe(1); // "a" -> line 1 in source
+      expect(result.getSourceLine(2)).toBe(2); // "c" -> line 2 in source
+      expect(result.getSourceLine(3)).toBe(3); // "e" -> line 3 in source
+    });
+
+    it("getSourcePath should return source path", async () => {
+      const { git, store } = await createInitializedGit();
+
+      await addFile(store, "file.txt", "line 1\n");
+      await git.commit().setMessage("Initial").call();
+
+      const result = await git.blame().setFilePath("file.txt").call();
+
+      expect(result.getSourcePath(1)).toBe("file.txt");
+    });
+
+    it("getLineTracking should return detailed tracking for all lines", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Create first commit with author A
+      await addFile(store, "file.txt", "line A\n");
+      await git.commit().setMessage("Commit by A").setAuthor("Author A", "a@test.com").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Id = commit1Ref?.objectId ?? "";
+
+      // Create second commit with author B adding a line
+      await addFile(store, "file.txt", "line A\nline B\n");
+      await git.commit().setMessage("Commit by B").setAuthor("Author B", "b@test.com").call();
+
+      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2Id = commit2Ref?.objectId ?? "";
+
+      const result = await git.blame().setFilePath("file.txt").call();
+      const tracking = result.getLineTracking();
+
+      expect(tracking).toHaveLength(2);
+
+      // Line 1 tracking
+      expect(tracking[0].resultLine).toBe(1);
+      expect(tracking[0].commitId).toBe(commit1Id);
+      expect(tracking[0].sourcePath).toBe("file.txt");
+      expect(tracking[0].sourceLine).toBe(1);
+      expect(tracking[0].commit.author.name).toBe("Author A");
+
+      // Line 2 tracking
+      expect(tracking[1].resultLine).toBe(2);
+      expect(tracking[1].commitId).toBe(commit2Id);
+      expect(tracking[1].sourcePath).toBe("file.txt");
+      expect(tracking[1].sourceLine).toBe(2);
+      expect(tracking[1].commit.author.name).toBe("Author B");
+    });
+
+    it("getLineTracking should track through renames", async () => {
+      const { git, store } = await createInitializedGit();
+
+      // Create file1.txt with 2 lines
+      await addFile(store, "file1.txt", "a\nb\n");
+      await git.commit().setMessage("create file").call();
+
+      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Id = commit1Ref?.objectId ?? "";
+
+      // Rename to file2.txt
+      const entries: Array<{ path: string; objectId: string; mode: number }> = [];
+      for await (const entry of store.staging.listEntries()) {
+        if (entry.path !== "file1.txt") {
+          entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
+        } else {
+          entries.push({ path: "file2.txt", objectId: entry.objectId, mode: entry.mode });
+        }
+      }
+      const builder = store.staging.builder();
+      for (const entry of entries) {
+        builder.add({
+          path: entry.path,
+          objectId: entry.objectId as ReturnType<typeof entry.objectId.toString>,
+          mode: entry.mode,
+          stage: 0,
+          size: 100,
+          mtime: Date.now(),
+        });
+      }
+      await builder.finish();
+      await git.commit().setMessage("rename file").call();
+
+      const result = await git.blame().setFilePath("file2.txt").setFollowRenames(true).call();
+      const tracking = result.getLineTracking();
+
+      expect(tracking).toHaveLength(2);
+
+      // Both lines should be traced back to file1.txt in commit1
+      expect(tracking[0].resultLine).toBe(1);
+      expect(tracking[0].commitId).toBe(commit1Id);
+      expect(tracking[0].sourcePath).toBe("file1.txt");
+      expect(tracking[0].sourceLine).toBe(1);
+
+      expect(tracking[1].resultLine).toBe(2);
+      expect(tracking[1].commitId).toBe(commit1Id);
+      expect(tracking[1].sourcePath).toBe("file1.txt");
+      expect(tracking[1].sourceLine).toBe(2);
     });
   });
 });
