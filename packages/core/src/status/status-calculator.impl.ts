@@ -17,14 +17,14 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/StatusCommand.java
  */
 
-import type { BlobStore } from "../blob/blob-store.js";
-import type { CommitStore } from "../commits/commit-store.js";
+import type { BlobStore } from "../history/blobs/blob-store.js";
+import type { CommitStore } from "../history/commits/commit-store.js";
 import { FileMode } from "../common/files/index.js";
 import type { ObjectId } from "../common/id/object-id.js";
-import type { RefStore } from "../refs/ref-store.js";
-import { isSymbolicRef } from "../refs/ref-types.js";
+import type { RefStore } from "../history/refs/ref-store.js";
+import { isSymbolicRef } from "../history/refs/ref-types.js";
 import type { StagingStore } from "../staging/staging-store.js";
-import type { TreeStore } from "../trees/tree-store.js";
+import type { TreeStore } from "../history/trees/tree-store.js";
 import type { WorktreeStore } from "../worktree/worktree-store.js";
 import type { IndexDiff } from "./index-diff.js";
 import { createIndexDiffCalculator } from "./index-diff-calculator.js";

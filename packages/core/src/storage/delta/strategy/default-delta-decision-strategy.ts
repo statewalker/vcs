@@ -4,7 +4,7 @@
  * Default implementation of DeltaDecisionStrategy with configurable thresholds.
  */
 
-import type { ObjectTypeCode } from "../../../objects/object-types.js";
+import type { ObjectTypeCode } from "../../../history/objects/object-types.js";
 import type { DeltaCandidate, DeltaTarget } from "../candidate-finder.js";
 import type { DeltaResult } from "../delta-compressor.js";
 import type { DeltaDecisionOptions, DeltaDecisionStrategy } from "../delta-decision-strategy.js";

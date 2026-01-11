@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CommitStore } from "../../src/commits/commit-store.js";
+import type { CommitStore } from "../../src/history/commits/commit-store.js";
 import { FileMode } from "../../src/common/files/index.js";
-import type { RefStore } from "../../src/refs/ref-store.js";
+import type { RefStore } from "../../src/history/refs/ref-store.js";
 import type { MergeStageValue, StagingEntry, StagingStore } from "../../src/staging/index.js";
 import {
   createStatusCalculator,
@@ -9,7 +9,7 @@ import {
   getStageState,
   StageState,
 } from "../../src/status/index.js";
-import type { TreeEntry, TreeStore } from "../../src/trees/index.js";
+import type { TreeEntry, TreeStore } from "../../src/history/trees/index.js";
 import type { WorktreeEntry, WorktreeStore } from "../../src/worktree/index.js";
 
 /**

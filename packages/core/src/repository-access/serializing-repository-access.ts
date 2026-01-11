@@ -8,15 +8,15 @@
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { collect } from "@statewalker/vcs-utils/streams";
-import type { BlobStore } from "../blob/blob-store.js";
-import { serializeCommit } from "../commits/commit-format.js";
-import type { CommitStore } from "../commits/commit-store.js";
+import type { BlobStore } from "../history/blobs/blob-store.js";
+import { serializeCommit } from "../history/commits/commit-format.js";
+import type { CommitStore } from "../history/commits/commit-store.js";
 import type { ObjectId } from "../common/id/object-id.js";
-import { ObjectType, type ObjectTypeCode } from "../objects/object-types.js";
-import { serializeTag } from "../tags/tag-format.js";
-import type { TagStore } from "../tags/tag-store.js";
-import { serializeTree } from "../trees/tree-format.js";
-import type { TreeStore } from "../trees/tree-store.js";
+import { ObjectType, type ObjectTypeCode } from "../history/objects/object-types.js";
+import { serializeTag } from "../history/tags/tag-format.js";
+import type { TagStore } from "../history/tags/tag-store.js";
+import { serializeTree } from "../history/trees/tree-format.js";
+import type { TreeStore } from "../history/trees/tree-store.js";
 import type { ObjectData, RepositoryAccess, RepositoryObjectInfo } from "./repository-access.js";
 
 /**

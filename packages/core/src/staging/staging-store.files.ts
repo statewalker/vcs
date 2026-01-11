@@ -1,6 +1,6 @@
 import { FileMode, type FilesApi, readFile } from "../common/files/index.js";
 import type { ObjectId } from "../common/id/index.js";
-import type { TreeEntry, TreeStore } from "../trees/index.js";
+import type { TreeEntry, TreeStore } from "../history/trees/index.js";
 import {
   INDEX_VERSION_2,
   type IndexVersion,

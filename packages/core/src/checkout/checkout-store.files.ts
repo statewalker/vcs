@@ -6,7 +6,7 @@
  */
 
 import type { ObjectId } from "../common/id/index.js";
-import type { RefStore } from "../refs/index.js";
+import type { RefStore } from "../history/refs/index.js";
 import type { StagingStore } from "../staging/index.js";
 import {
   type CherryPickStateFilesApi,

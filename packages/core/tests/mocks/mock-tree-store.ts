@@ -4,8 +4,8 @@
 
 import { vi } from "vitest";
 
-import type { TreeEntry } from "../../src/trees/tree-entry.js";
-import type { TreeStore } from "../../src/trees/tree-store.js";
+import type { TreeEntry } from "../../src/history/trees/tree-entry.js";
+import type { TreeStore } from "../../src/history/trees/tree-store.js";
 
 /**
  * Create a mock TreeStore for testing.

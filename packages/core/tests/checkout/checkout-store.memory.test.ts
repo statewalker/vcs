@@ -3,7 +3,7 @@ import {
   createMemoryCheckoutStore,
   MemoryCheckoutStore,
 } from "../../src/checkout/checkout-store.memory.js";
-import type { RefStore } from "../../src/refs/ref-store.js";
+import type { RefStore } from "../../src/history/refs/ref-store.js";
 import type { StagingStore } from "../../src/staging/staging-store.js";
 import { RepositoryState } from "../../src/working-copy/repository-state.js";
 import { MemoryStashStore } from "../../src/working-copy/stash-store.memory.js";

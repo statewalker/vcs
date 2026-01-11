@@ -6,18 +6,18 @@
  */
 
 // Commit serialization
-export { parseCommit, serializeCommit } from "../commits/commit-format.js";
+export { parseCommit, serializeCommit } from "../history/commits/commit-format.js";
 // Object type utilities
 export {
   typeCodeToString,
   typeStringToCode,
-} from "../objects/object-header.js";
+} from "../history/objects/object-header.js";
 
 // Tag serialization
-export { parseTag, serializeTag } from "../tags/tag-format.js";
+export { parseTag, serializeTag } from "../history/tags/tag-format.js";
 // Tree serialization
 export {
   parseTree,
   parseTreeToArray,
   serializeTree,
-} from "../trees/tree-format.js";
+} from "../history/trees/tree-format.js";

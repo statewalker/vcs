@@ -6,7 +6,7 @@
  */
 
 import type { ObjectId } from "../../../common/id/object-id.js";
-import type { ObjectTypeCode } from "../../../objects/object-types.js";
+import type { ObjectTypeCode } from "../../../history/objects/object-types.js";
 import type {
   CandidateFinder,
   CandidateFinderOptions,

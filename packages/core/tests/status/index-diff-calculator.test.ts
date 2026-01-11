@@ -7,7 +7,7 @@ import {
   type IndexDiffDependencies,
   StageState,
 } from "../../src/status/index.js";
-import type { TreeEntry, TreeStore } from "../../src/trees/index.js";
+import type { TreeEntry, TreeStore } from "../../src/history/trees/index.js";
 import type { WorktreeEntry, WorktreeStore } from "../../src/worktree/index.js";
 
 /**

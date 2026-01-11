@@ -2,7 +2,7 @@
  * Format types for Git object serialization
  */
 
-import type { ObjectTypeCode } from "../../objects/object-types.js";
+import type { ObjectTypeCode } from "../../history/objects/object-types.js";
 import type { PersonIdent } from "../person/person-ident.js";
 
 /**

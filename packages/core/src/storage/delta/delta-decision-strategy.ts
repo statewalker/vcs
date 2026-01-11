@@ -10,7 +10,7 @@
  * - Network transfer: Balance between compression time and bandwidth savings
  */
 
-import type { ObjectTypeCode } from "../../objects/object-types.js";
+import type { ObjectTypeCode } from "../../history/objects/object-types.js";
 import type { DeltaCandidate, DeltaTarget } from "./candidate-finder.js";
 import type { DeltaResult } from "./delta-compressor.js";
 

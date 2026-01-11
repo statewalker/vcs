@@ -7,8 +7,8 @@
 
 import { collect } from "@statewalker/vcs-utils/streams";
 import type { ObjectId } from "../common/id/object-id.js";
-import type { GitObjectStore } from "../objects/object-store.js";
-import { ObjectType, type ObjectTypeCode, type ObjectTypeString } from "../objects/object-types.js";
+import type { GitObjectStore } from "../history/objects/object-store.js";
+import { ObjectType, type ObjectTypeCode, type ObjectTypeString } from "../history/objects/object-types.js";
 import type {
   DeltaAwareRepositoryAccess,
   ObjectData,

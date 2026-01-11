@@ -12,7 +12,7 @@ import {
   createPackStrategy,
   DefaultDeltaDecisionStrategy,
 } from "../../src/storage/delta/strategy/default-delta-decision-strategy.js";
-import { ObjectType } from "../../src/objects/object-types.js";
+import { ObjectType } from "../../src/history/objects/object-types.js";
 
 describe("DefaultDeltaDecisionStrategy", () => {
   describe("shouldAttemptDelta", () => {
