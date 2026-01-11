@@ -1,6 +1,7 @@
 import type { Delta } from "@statewalker/vcs-utils";
-import { applyDelta, createDelta, createDeltaRanges, slice } from "@statewalker/vcs-utils";
+import { applyDelta, createDelta, createDeltaRanges, deserializeDeltaFromGit, slice } from "@statewalker/vcs-utils";
 import { collect } from "@statewalker/vcs-utils/streams";
+import type { BestDeltaResult } from "./delta-engine.js";
 import type { RawStore } from "../binary/raw-store.js";
 import { encodeObjectHeader } from "../objects/object-header.js";
 import type { ObjectTypeString } from "../objects/object-types.js";
@@ -469,6 +470,44 @@ export class RawStoreWithDelta implements RawStore {
     }
 
     return true;
+  }
+
+  /**
+   * Store a pre-computed delta result from DeltaEngine
+   *
+   * This method stores a delta that was already computed externally
+   * (e.g., by DeltaEngine.findBestDelta). The delta is in Git binary
+   * format and will be converted to Delta[] for storage.
+   *
+   * @param targetId Target object ID
+   * @param result Pre-computed delta result from DeltaEngine
+   */
+  async storeDeltaResult(targetId: string, result: BestDeltaResult): Promise<void> {
+    // Convert Git binary delta to Delta[] instructions
+    const delta = deserializeDeltaFromGit(result.delta);
+
+    // Store delta - use batch update if active, otherwise create individual update
+    if (this.batchUpdate) {
+      // Batch mode: add to existing update (will be committed with endBatch())
+      await this.batchUpdate.storeDelta(
+        {
+          targetKey: targetId,
+          baseKey: result.baseId,
+        },
+        delta,
+      );
+    } else {
+      // Individual mode: create and close update immediately
+      const update = this.deltas.startUpdate();
+      await update.storeDelta(
+        {
+          targetKey: targetId,
+          baseKey: result.baseId,
+        },
+        delta,
+      );
+      await update.close();
+    }
   }
 
   // ---------------------------------------------------------
