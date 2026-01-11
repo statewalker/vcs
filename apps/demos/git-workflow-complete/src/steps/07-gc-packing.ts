@@ -1,13 +1,8 @@
 /**
- * Step 05: Perform Garbage Collection
+ * Step 07: Garbage Collection & Packing
  *
  * Packs loose objects into a pack file using PackWriterStream.
  * This creates a valid Git pack file that can be read by native git.
- *
- * PackWriterStream handles:
- * - Writing objects to pack format
- * - Generating pack checksum
- * - Creating index entries for the pack index file
  */
 
 import {
@@ -34,7 +29,6 @@ import {
 
 /**
  * Read a loose object from the filesystem
- * Returns the type and content (decompressed, without Git header)
  */
 async function readLooseObject(
   objectId: string,
@@ -48,7 +42,6 @@ async function readLooseObject(
     const decompressed = await decompressBlock(compressed);
 
     // Parse Git object format: "type size\0content"
-    // Find the null byte that separates header from content
     let nullIndex = -1;
     for (let i = 0; i < decompressed.length; i++) {
       if (decompressed[i] === 0) {
@@ -104,10 +97,10 @@ async function deleteLooseObject(objectId: string): Promise<void> {
   try {
     await fs.unlink(objectPath);
   } catch {
-    // Ignore errors - object may already be deleted
+    // Ignore errors
   }
 
-  // Try to remove the parent directory if empty
+  // Try to remove parent directory if empty
   try {
     const parentDir = path.join(OBJECTS_DIR, prefix);
     const remaining = await fs.readdir(parentDir);
@@ -128,9 +121,7 @@ async function collectLooseObjectIds(): Promise<string[]> {
   try {
     const prefixes = await fs.readdir(OBJECTS_DIR);
     for (const prefix of prefixes) {
-      // Skip pack directory and info directory
       if (prefix === "pack" || prefix === "info") continue;
-      // Valid prefix is 2 hex characters
       if (prefix.length !== 2) continue;
 
       const prefixPath = path.join(OBJECTS_DIR, prefix);
@@ -139,21 +130,20 @@ async function collectLooseObjectIds(): Promise<string[]> {
 
       const suffixes = await fs.readdir(prefixPath);
       for (const suffix of suffixes) {
-        // Valid object ID suffix is 38 hex characters
         if (suffix.length === 38) {
           ids.push(prefix + suffix);
         }
       }
     }
   } catch {
-    // Ignore errors - directory may not exist
+    // Ignore errors
   }
 
   return ids;
 }
 
 export async function run(): Promise<void> {
-  logSection("Step 05: Perform Garbage Collection (GCController)");
+  logSection("Step 07: Garbage Collection & Packing");
 
   const repository = state.repository as GitRepository | undefined;
   if (!repository) {
@@ -201,7 +191,7 @@ export async function run(): Promise<void> {
 
   log(`\nPack created with ${objectsWritten} objects`);
 
-  // Generate pack filename from checksum (packChecksum is already computed by PackWriterStream)
+  // Generate pack filename from checksum
   const packName = `pack-${bytesToHex(result.packChecksum)}`;
 
   // Ensure pack directory exists
@@ -223,11 +213,10 @@ export async function run(): Promise<void> {
   log(`  Written: ${packName}.idx (${indexData.length} bytes)`);
 
   // Close repository before deleting loose objects
-  // This ensures any cached file handles are released
   await repository.close();
 
-  // Delete loose objects from filesystem
-  log("\nRemoving loose objects from filesystem...");
+  // Delete loose objects
+  log("\nRemoving loose objects...");
   let deleted = 0;
   for (const objectId of looseObjectIds) {
     await deleteLooseObject(objectId);
@@ -235,15 +224,19 @@ export async function run(): Promise<void> {
   }
   log(`  Deleted ${deleted} loose objects`);
 
-  // Reopen repository for subsequent steps
-  // We need to recreate the FilesApi and repository
+  // Reopen repository
   const { createGitRepository } = await import("@statewalker/vcs-core");
-  const { createFilesApi, GIT_DIR } = await import("../shared/index.js");
+  const { createFilesApi, GIT_DIR, initGitCommands } = await import("../shared/index.js");
 
   const files = createFilesApi();
   state.repository = (await createGitRepository(files, GIT_DIR, {
     create: false,
   })) as GitRepository;
+
+  // Reinitialize Git commands
+  const { store, git } = await initGitCommands(state.repository);
+  state.store = store;
+  state.git = git;
 
   // Get counts after GC
   const { count: looseAfter } = await countLooseObjects();

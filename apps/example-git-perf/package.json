@@ -17,7 +17,8 @@
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",
-    "@statewalker/vcs-utils": "workspace:*"
+    "@statewalker/vcs-utils": "workspace:*",
+    "@statewalker/vcs-utils-node": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
