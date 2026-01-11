@@ -1,0 +1,262 @@
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+#app {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+header .subtitle {
+  color: var(--text-muted);
+}
+
+main {
+  display: grid;
+  gap: 1.5rem;
+}
+
+section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+section h2 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: var(--primary-dark);
+}
+
+button:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.storage-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.storage-btn {
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--border);
+}
+
+.storage-btn:hover {
+  border-color: var(--primary);
+  background: var(--surface);
+}
+
+.storage-btn.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.status {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.repo-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.file-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+input[type="text"],
+textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+  font-family: var(--font-mono);
+}
+
+.file-tree {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  background: var(--bg);
+  padding: 1rem;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.file-tree .file-item {
+  padding: 0.25rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.file-tree .file-icon {
+  color: var(--text-muted);
+}
+
+.commit-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.commit-controls input {
+  flex: 1;
+}
+
+.commit-history {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  background: var(--bg);
+  padding: 1rem;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.commit-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.commit-item:last-child {
+  border-bottom: none;
+}
+
+.commit-hash {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.commit-message {
+  margin-top: 0.25rem;
+}
+
+.activity-log {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.log-entry {
+  margin-bottom: 0.25rem;
+}
+
+.log-entry.success {
+  color: #4ade80;
+}
+
+.log-entry.error {
+  color: #f87171;
+}
+
+.log-entry.info {
+  color: #60a5fa;
+}
+
+.empty-state {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+footer {
+  margin-top: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+footer a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+
+.browser-support {
+  margin-top: 0.5rem;
+}
+
+#fs-api-support.supported {
+  color: var(--success);
+}
+
+#fs-api-support.unsupported {
+  color: var(--error);
+}
