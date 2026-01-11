@@ -12,8 +12,7 @@
     "@statewalker/vcs-commands": "workspace:*",
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-store-mem": "workspace:*",
-    "@statewalker/vcs-utils": "workspace:*",
-    "@statewalker/vcs-utils-node": "workspace:*"
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
