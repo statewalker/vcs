@@ -6,10 +6,10 @@
  */
 
 // import type { CommitStore, TagStore, TreeStore } from "../stores/index.js";
-import type { CommitStore } from "../commits/commit-store.js";
-import type { ObjectId } from "../common/id/object-id.js";
-import type { TagStore } from "../tags/tag-store.js";
-import type { TreeStore } from "../trees/tree-store.js";
+import type { CommitStore } from "../../commits/commit-store.js";
+import type { ObjectId } from "../../common/id/object-id.js";
+import type { TagStore } from "../../tags/tag-store.js";
+import type { TreeStore } from "../../trees/tree-store.js";
 import type { RawStoreWithDelta } from "./raw-store-with-delta.js";
 import { StorageAnalyzer } from "./storage-analyzer.js";
 import type { PackingCandidate, PackingOptions, PackingProgress, PackingResult } from "./types.js";

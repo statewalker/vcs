@@ -4,7 +4,7 @@
 
 import { collect } from "@statewalker/vcs-utils";
 import { beforeEach, describe, expect, it } from "vitest";
-import { FileRawStore } from "../../src/binary/raw-store.files.js";
+import { FileRawStore } from "../../src/storage/binary/raw-store.files.js";
 import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
 
 describe("FileRawStore", () => {

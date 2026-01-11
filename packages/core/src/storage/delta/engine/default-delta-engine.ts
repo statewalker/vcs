@@ -7,7 +7,7 @@
  * - DeltaDecisionStrategy for deciding when to deltify
  */
 
-import type { ObjectId } from "../../common/id/object-id.js";
+import type { ObjectId } from "../../../common/id/object-id.js";
 import type { CandidateFinder, DeltaTarget } from "../candidate-finder.js";
 import type { DeltaCompressor } from "../delta-compressor.js";
 import type { DeltaDecisionStrategy } from "../delta-decision-strategy.js";

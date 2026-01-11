@@ -9,14 +9,14 @@ import type { Delta } from "@statewalker/vcs-utils";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
+import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
 import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
-import type { DeltaInfo } from "../../src/delta/delta-store.js";
-import { GCController } from "../../src/delta/gc-controller.js";
-import { RawStoreWithDelta } from "../../src/delta/raw-store-with-delta.js";
+import type { DeltaInfo } from "../../src/storage/delta/delta-store.js";
+import { GCController } from "../../src/storage/delta/gc-controller.js";
+import { RawStoreWithDelta } from "../../src/storage/delta/raw-store-with-delta.js";
 import { encodeObjectHeader } from "../../src/objects/object-header.js";
-import { PackConsolidator } from "../../src/pack/pack-consolidator.js";
-import { PackDeltaStore } from "../../src/pack/pack-delta-store.js";
+import { PackConsolidator } from "../../src/storage/pack/pack-consolidator.js";
+import { PackDeltaStore } from "../../src/storage/pack/pack-delta-store.js";
 
 /**
  * Helper to create blob content with Git header

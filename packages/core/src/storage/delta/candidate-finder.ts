@@ -9,8 +9,8 @@
  * - Commit-tree: Parent commits, same-tree objects
  */
 
-import type { ObjectId } from "../common/id/object-id.js";
-import type { ObjectTypeCode } from "../objects/object-types.js";
+import type { ObjectId } from "../../common/id/object-id.js";
+import type { ObjectTypeCode } from "../../objects/object-types.js";
 
 /**
  * Target object for delta compression

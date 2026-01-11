@@ -4,7 +4,7 @@
 
 import { collect } from "@statewalker/vcs-utils";
 import { describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
+import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
 
 describe("MemoryRawStore", () => {
   const encoder = new TextEncoder();
