@@ -83,14 +83,19 @@ graph TD
 
 ### Core Layer
 
-**@statewalker/vcs-core** - The heart of the VCS system. Contains:
-- Repository interface and factory (`createGitRepository`)
-- Object stores (blobs, trees, commits, tags)
-- Reference management (branches, tags, HEAD)
-- Staging/index area
-- Pack file support (reading, writing, indexing)
-- Delta compression engine
-- Worktree and ignore pattern handling
+**@statewalker/vcs-core** - The heart of the VCS system. Organized into four logical layers:
+
+```
+src/
+├── common/    - Shared types (id, person, format, files)
+├── storage/   - Binary storage (binary stores, pack files, delta compression)
+├── history/   - Version control objects (blobs, trees, commits, tags, refs)
+├── workspace/ - Working directory state (worktree, staging, status, checkout, ignore)
+├── commands/  - High-level operations (add, checkout)
+└── stores/    - Repository factory functions
+```
+
+Each layer builds on the ones below, with clear dependency boundaries
 
 **@statewalker/vcs-sandbox** - Isolated storage utilities for safe experimentation and testing.
 

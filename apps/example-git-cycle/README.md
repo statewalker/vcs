@@ -382,12 +382,12 @@ apps/example-git-cycle/
 
 | Interface/Class | Location | Purpose |
 |-----------------|----------|---------|
-| `Repository` | [repository.ts](../../packages/core/src/repository.ts) | Main repository interface |
-| `createGitRepository()` | [create-repository.ts](../../packages/core/src/stores/create-repository.ts) | Repository factory function |
-| `ObjectStore` | [stores/](../../packages/core/src/stores/) | Content-addressable storage |
-| `RefStore` | [refs/](../../packages/core/src/refs/) | Branch and tag references |
-| `CommitStore` | [commits/](../../packages/core/src/commits/) | Commit creation and traversal |
-| `TreeStore` | [trees/](../../packages/core/src/trees/) | Directory structure management |
+| `HistoryStore` | [history/history-store.ts](../../packages/core/src/history/history-store.ts) | Main repository interface |
+| `createGitRepository()` | [stores/create-repository.ts](../../packages/core/src/stores/create-repository.ts) | Repository factory function |
+| `GitObjectStore` | [history/objects/](../../packages/core/src/history/objects/) | Content-addressable storage |
+| `RefStore` | [history/refs/](../../packages/core/src/history/refs/) | Branch and tag references |
+| `CommitStore` | [history/commits/](../../packages/core/src/history/commits/) | Commit creation and traversal |
+| `TreeStore` | [history/trees/](../../packages/core/src/history/trees/) | Directory structure management |
 
 ### Types (packages/core)
 
