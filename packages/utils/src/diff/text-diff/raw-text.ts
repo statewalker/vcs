@@ -1,11 +1,15 @@
 import { Sequence } from "./sequence.js";
 
 /**
- * A Sequence supporting UNIX formatted text in Uint8Array format.
+ * A Sequence supporting text in Uint8Array format with various line endings.
  *
- * Elements of the sequence are the lines of the file, as delimited by the UNIX
- * newline character ('\n'). The file content is treated as 8 bit binary text,
- * with no assumptions or requirements on character encoding.
+ * Elements of the sequence are the lines of the file, as delimited by:
+ * - LF ('\n') - Unix style line endings
+ * - CRLF ('\r\n') - Windows style line endings (counts as one line ending)
+ * - CR ('\r') - Classic Mac style line endings (standalone CR)
+ *
+ * The file content is treated as 8 bit binary text, with no assumptions or
+ * requirements on character encoding.
  *
  * Note that the first line of the file is element 0, as defined by the Sequence
  * interface API. Traditionally in a text editor a patch file the first line is
@@ -42,6 +46,11 @@ export class RawText extends Sequence {
   /**
    * Build the line map from the content.
    *
+   * Recognizes three types of line endings:
+   * - LF (\n) - Unix style
+   * - CRLF (\r\n) - Windows style (counts as one line ending)
+   * - CR (\r) - Classic Mac style (standalone CR without following LF)
+   *
    * @returns Array with line start positions.
    *          Index 0 is sentinel (Integer.MIN_VALUE in Java, we use 0),
    *          Index 1 is start of line 0,
@@ -51,8 +60,17 @@ export class RawText extends Sequence {
     const lines: number[] = [0]; // Sentinel at index 0
     lines.push(0); // Line 0 starts at position 0
     for (let i = 0; i < this.content.length; i++) {
-      if (this.content[i] === 0x0a) {
-        // '\n'
+      const byte = this.content[i];
+      if (byte === 0x0a) {
+        // '\n' - LF (Unix) or second byte of CRLF (Windows)
+        lines.push(i + 1);
+      } else if (byte === 0x0d) {
+        // '\r' - Check if it's CRLF or standalone CR
+        if (i + 1 < this.content.length && this.content[i + 1] === 0x0a) {
+          // CRLF - skip the CR, the LF will be handled in next iteration
+          continue;
+        }
+        // Standalone CR (classic Mac style)
         lines.push(i + 1);
       }
     }
@@ -105,29 +123,37 @@ export class RawText extends Sequence {
   }
 
   /**
-   * Determine if the file ends with a LF ('\n').
+   * Determine if the file ends with a line ending (LF, CRLF, or CR).
    *
-   * @returns true if the last line has an LF; false otherwise
+   * @returns true if the last line is missing a line ending; false otherwise
    */
   isMissingNewlineAtEnd(): boolean {
     const end = this.lines[this.lines.length - 1];
     if (end === 0) {
       return true;
     }
-    return this.content[end - 1] !== 0x0a; // '\n'
+    const lastByte = this.content[end - 1];
+    // Check for LF (\n) or CR (\r)
+    return lastByte !== 0x0a && lastByte !== 0x0d;
   }
 
   /**
    * Get the text for a single line.
    *
    * @param i Index of the line to extract (0-based)
-   * @returns The text for the line, without a trailing LF
+   * @returns The text for the line, without trailing LF or CRLF
    */
   getString(i: number): string {
     const start = this.getStart(i);
     let end = this.getEnd(i);
-    if (end > 0 && this.content[end - 1] === 0x0a) {
+    // Strip trailing LF
+    if (end > start && this.content[end - 1] === 0x0a) {
       // '\n'
+      end--;
+    }
+    // Strip trailing CR (for CRLF line endings)
+    if (end > start && this.content[end - 1] === 0x0d) {
+      // '\r'
       end--;
     }
     return new TextDecoder().decode(this.content.slice(start, end));
@@ -137,13 +163,19 @@ export class RawText extends Sequence {
    * Get the raw bytes for a single line.
    *
    * @param i Index of the line to extract (0-based)
-   * @returns The bytes for the line, without a trailing LF
+   * @returns The bytes for the line, without trailing LF or CRLF
    */
   getRawString(i: number): Uint8Array {
     const start = this.getStart(i);
     let end = this.getEnd(i);
-    if (end > 0 && this.content[end - 1] === 0x0a) {
+    // Strip trailing LF
+    if (end > start && this.content[end - 1] === 0x0a) {
       // '\n'
+      end--;
+    }
+    // Strip trailing CR (for CRLF line endings)
+    if (end > start && this.content[end - 1] === 0x0d) {
+      // '\r'
       end--;
     }
     return this.content.slice(start, end);
