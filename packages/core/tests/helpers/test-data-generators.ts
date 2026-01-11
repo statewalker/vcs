@@ -3,9 +3,9 @@
  */
 
 import type { Delta } from "@statewalker/vcs-utils";
-import type { Commit } from "../../src/commits/commit-store.js";
-import type { ObjectId, PersonIdent } from "../../src/id/index.js";
-import type { TreeEntry } from "../../src/trees/tree-entry.js";
+import type { ObjectId, PersonIdent } from "../../src/common/id/index.js";
+import type { Commit } from "../../src/history/commits/commit-store.js";
+import type { TreeEntry } from "../../src/history/trees/tree-entry.js";
 
 /**
  * Seeded random number generator for reproducible tests

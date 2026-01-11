@@ -4,8 +4,8 @@
 
 import type { Delta } from "@statewalker/vcs-utils";
 import { describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
-import type { DeltaInfo } from "../../src/delta/delta-store.js";
+import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
+import type { DeltaInfo } from "../../src/storage/delta/delta-store.js";
 import { CommitGraphBuilder, MockCommitStore } from "./mock-commit-store.js";
 import { MockDeltaStore } from "./mock-delta-store.js";
 

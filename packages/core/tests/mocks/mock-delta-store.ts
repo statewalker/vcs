@@ -9,7 +9,7 @@ import type {
   DeltaStore,
   DeltaStoreUpdate,
   StoredDelta,
-} from "../../src/delta/delta-store.js";
+} from "../../src/storage/delta/delta-store.js";
 
 /**
  * Pending delta for batch update

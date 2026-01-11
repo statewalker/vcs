@@ -11,10 +11,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createIgnoreManager } from "../../src/ignore/ignore-manager.impl.js";
-import { MatchResult } from "../../src/ignore/ignore-manager.js";
-import { createIgnoreNode } from "../../src/ignore/ignore-node.js";
-import { createIgnoreRule } from "../../src/ignore/ignore-rule.js";
+import { createIgnoreManager } from "../../src/workspace/ignore/ignore-manager.impl.js";
+import { MatchResult } from "../../src/workspace/ignore/ignore-manager.js";
+import { createIgnoreNode } from "../../src/workspace/ignore/ignore-node.js";
+import { createIgnoreRule } from "../../src/workspace/ignore/ignore-rule.js";
 
 /**
  * Helper: Check if pattern matches path.

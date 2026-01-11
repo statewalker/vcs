@@ -253,119 +253,56 @@ The typed stores are thin wrappers that delegate to `GitObjectStore`. For exampl
 
 ## Directory Structure Deep Dive
 
-### binary/
+The package is organized into four logical layers, plus transversal modules:
 
-Low-level byte storage abstractions.
-
-| File | Purpose |
-|------|---------|
-| `raw-store.ts` | `RawStore` interface for key-value byte storage |
-| `raw-store.files.ts` | File-based RawStore implementation |
-| `raw-store.memory.ts` | In-memory RawStore implementation |
-| `raw-store.compressed.ts` | Zlib-compressed RawStore wrapper |
-| `volatile-store.ts` | `VolatileStore` interface for transient data |
-| `volatile-store.files.ts` | File-based VolatileStore implementation |
-| `volatile-store.memory.ts` | In-memory VolatileStore implementation |
-
-The `RawStore` interface is implemented by each storage backend. All higher layers build on this abstraction.
-
-### blob/
-
-Simplest object type - raw file contents.
-
-| File | Purpose |
-|------|---------|
-| `blob-store.ts` | `BlobStore` interface |
-| `blob-store.impl.ts` | Implementation delegating to `GitObjectStore` |
-
-Blobs have no internal structure to parse. They're stored as-is with a Git header.
-
-### commits/
-
-Commit objects with ancestry traversal.
-
-| File | Purpose |
-|------|---------|
-| `commit-store.ts` | `CommitStore` interface with traversal operations |
-| `commit-store.impl.ts` | Implementation with graph algorithms |
-| `commit-format.ts` | Serialization/deserialization |
-
-Key algorithms:
-- **walkAncestry**: Breadth-first traversal through parent links
-- **findMergeBase**: Common ancestor detection for three-way merges
-- **isAncestor**: Reachability test between commits
-
-### commands/
-
-High-level VCS operations exposed as interfaces.
-
-| File | Purpose |
-|------|---------|
-| `add.command.ts` | `Add` interface for staging files |
-| `add.command.impl.ts` | Implementation |
-| `checkout.command.ts` | `Checkout` interface for materializing trees |
-| `checkout.command.impl.ts` | Implementation with conflict detection |
-
-Commands encapsulate multi-step workflows:
-- `Add`: Hash files, update staging entries, handle ignore patterns
-- `Checkout`: Compare trees, detect conflicts, update worktree
-
-### checkout/
-
-CheckoutStore for managing local checkout state (Part 3 of Three-Part Architecture).
-
-| File | Purpose |
-|------|---------|
-| `checkout-store.ts` | `CheckoutStore` interface definition |
-| `checkout-store.files.ts` | File-based implementation |
-| `checkout-store.memory.ts` | In-memory implementation |
-
-The CheckoutStore manages local checkout state:
-- **HEAD Management**: Current branch or detached commit
-- **In-progress Operations**: Merge, rebase, cherry-pick, revert state
-- **Linked Stores**: Staging area and stash operations
-
-Multiple CheckoutStores can share a single HistoryStore (like git worktree).
-
-### delta/
-
-Sophisticated delta compression system.
-
-| File | Purpose |
-|------|---------|
-| `delta-store.ts` | `DeltaStore` interface |
-| `delta-binary-format.ts` | Delta instruction encoding |
-| `gc-controller.ts` | Garbage collection coordination |
-| `packing-orchestrator.ts` | Batch delta computation |
-| `raw-store-with-delta.ts` | Raw store with delta resolution |
-| `storage-analyzer.ts` | Analyze storage for optimization |
-| `types.ts` | Delta-related type definitions |
-| `strategies/` | Delta candidate selection strategies |
-
-Delta compression stores objects as differences from similar objects. The system manages:
-- **Delta chains**: A → B → C where C is delta of B, B is delta of A
-- **Chain depth limits**: Prevent excessively long chains
-- **Candidate selection**: Find good base objects for deltaification
-
-### files/
-
-File mode constants and filesystem abstractions.
-
-| File | Purpose |
-|------|---------|
-| `file-mode.ts` | `FileMode` constants matching Git |
-
-```typescript
-FileMode.TREE           // 0o040000
-FileMode.REGULAR_FILE   // 0o100644
-FileMode.EXECUTABLE_FILE // 0o100755
-FileMode.SYMLINK        // 0o120000
-FileMode.GITLINK        // 0o160000
+```
+src/
+├── common/           # Shared types: id, person, format, files
+├── storage/          # Binary storage: binary, pack, delta
+├── history/          # Version control objects: objects, commits, trees, blobs, tags, refs
+├── workspace/        # Working directory state: worktree, staging, status, checkout, working-copy, ignore
+├── commands/         # High-level operations: add, checkout
+├── repository-access/# Repository serialization and Git-native access
+└── stores/           # Repository factory functions
 ```
 
-### format/
+### common/ - Shared Types
 
-Streaming serialization utilities.
+Foundation types used across all layers.
+
+#### common/id/
+
+| File | Purpose |
+|------|---------|
+| `object-id.ts` | `ObjectId` type, format constants |
+
+```typescript
+type ObjectId = string; // 40-char hex for SHA-1
+
+const GitFormat = {
+  OBJECT_ID_LENGTH: 20,        // Bytes
+  OBJECT_ID_STRING_LENGTH: 40, // Hex characters
+};
+```
+
+#### common/person/
+
+| File | Purpose |
+|------|---------|
+| `person-ident.ts` | `PersonIdent` interface |
+
+```typescript
+interface PersonIdent {
+  name: string;
+  email: string;
+  timestamp: number;  // Unix seconds
+  tzOffset: string;   // "+0000" format
+}
+```
+
+Git format: `"Name <email> 1234567890 +0100"`
+
+#### common/format/
 
 | File | Purpose |
 |------|---------|
@@ -383,60 +320,39 @@ type CommitEntry =
   | { type: "message"; value: string };
 ```
 
-This allows incremental parsing without buffering entire objects.
-
-### id/
-
-Object identification.
+#### common/files/
 
 | File | Purpose |
 |------|---------|
-| `object-id.ts` | `ObjectId` type, format constants |
+| `file-mode.ts` | `FileMode` constants matching Git |
 
 ```typescript
-type ObjectId = string; // 40-char hex for SHA-1
-
-const GitFormat = {
-  OBJECT_ID_LENGTH: 20,        // Bytes
-  OBJECT_ID_STRING_LENGTH: 40, // Hex characters
-};
+FileMode.TREE           // 0o040000
+FileMode.REGULAR_FILE   // 0o100644
+FileMode.EXECUTABLE_FILE // 0o100755
+FileMode.SYMLINK        // 0o120000
+FileMode.GITLINK        // 0o160000
 ```
 
-### ignore/
+### storage/ - Binary Storage Layer
 
-Gitignore pattern matching.
+Low-level storage abstractions for bytes, packs, and deltas.
+
+#### storage/binary/
 
 | File | Purpose |
 |------|---------|
-| `ignore-manager.ts` | `IgnoreManager` interface |
-| `ignore-manager.impl.ts` | Implementation |
-| `ignore-node.ts` | Trie node for efficient matching |
-| `ignore-rule.ts` | Individual pattern parsing |
+| `raw-store.ts` | `RawStore` interface for key-value byte storage |
+| `raw-store.files.ts` | File-based RawStore implementation |
+| `raw-store.memory.ts` | In-memory RawStore implementation |
+| `raw-store.compressed.ts` | Zlib-compressed RawStore wrapper |
+| `volatile-store.ts` | `VolatileStore` interface for transient data |
+| `volatile-store.files.ts` | File-based VolatileStore implementation |
+| `volatile-store.memory.ts` | In-memory VolatileStore implementation |
 
-The implementation uses a trie structure for efficient path matching against potentially many ignore patterns.
+The `RawStore` interface is implemented by each storage backend. All higher layers build on this abstraction.
 
-### objects/
-
-Unified Git object storage.
-
-| File | Purpose |
-|------|---------|
-| `object-store.ts` | `GitObjectStore` interface |
-| `object-store.impl.ts` | Implementation |
-| `object-header.ts` | Header encoding/decoding |
-| `object-types.ts` | Type codes and strings |
-| `load-with-header.ts` | Combined header+content loading |
-
-Header format: `"<type> <size>\0"`
-
-```typescript
-encodeObjectHeader("blob", 1234) // Uint8Array of "blob 1234\0"
-parseHeader(data) // { type: "blob", size: 1234, contentOffset: 10 }
-```
-
-### pack/
-
-Pack file format support.
+#### storage/pack/
 
 | File | Purpose |
 |------|---------|
@@ -455,28 +371,91 @@ Pack file format support.
 
 Pack files bundle multiple objects efficiently for storage and transfer. The .idx file provides random access by object ID.
 
-### person/
-
-Author/committer identity.
+#### storage/delta/
 
 | File | Purpose |
 |------|---------|
-| `person-ident.ts` | `PersonIdent` interface |
+| `delta-store.ts` | `DeltaStore` interface |
+| `delta-binary-format.ts` | Delta instruction encoding |
+| `gc-controller.ts` | Garbage collection coordination |
+| `packing-orchestrator.ts` | Batch delta computation |
+| `raw-store-with-delta.ts` | Raw store with delta resolution |
+| `storage-analyzer.ts` | Analyze storage for optimization |
+| `types.ts` | Delta-related type definitions |
+| `strategies/` | Delta candidate selection strategies |
+
+Delta compression stores objects as differences from similar objects. The system manages:
+- **Delta chains**: A → B → C where C is delta of B, B is delta of A
+- **Chain depth limits**: Prevent excessively long chains
+- **Candidate selection**: Find good base objects for deltaification
+
+### history/ - Version Control Objects
+
+Git object model: objects, commits, trees, blobs, tags, and refs.
+
+#### history/objects/
+
+| File | Purpose |
+|------|---------|
+| `object-store.ts` | `GitObjectStore` interface |
+| `object-store.impl.ts` | Implementation |
+| `object-header.ts` | Header encoding/decoding |
+| `object-types.ts` | Type codes and strings |
+| `load-with-header.ts` | Combined header+content loading |
+
+Header format: `"<type> <size>\0"`
 
 ```typescript
-interface PersonIdent {
-  name: string;
-  email: string;
-  timestamp: number;  // Unix seconds
-  tzOffset: string;   // "+0000" format
-}
+encodeObjectHeader("blob", 1234) // Uint8Array of "blob 1234\0"
+parseHeader(data) // { type: "blob", size: 1234, contentOffset: 10 }
 ```
 
-Git format: `"Name <email> 1234567890 +0100"`
+#### history/blobs/
 
-### refs/
+Simplest object type - raw file contents.
 
-Reference management (branches, tags, HEAD).
+| File | Purpose |
+|------|---------|
+| `blob-store.ts` | `BlobStore` interface |
+| `blob-store.impl.ts` | Implementation delegating to `GitObjectStore` |
+
+Blobs have no internal structure to parse. They're stored as-is with a Git header.
+
+#### history/commits/
+
+| File | Purpose |
+|------|---------|
+| `commit-store.ts` | `CommitStore` interface with traversal operations |
+| `commit-store.impl.ts` | Implementation with graph algorithms |
+| `commit-format.ts` | Serialization/deserialization |
+
+Key algorithms:
+- **walkAncestry**: Breadth-first traversal through parent links
+- **findMergeBase**: Common ancestor detection for three-way merges
+- **isAncestor**: Reachability test between commits
+
+#### history/trees/
+
+| File | Purpose |
+|------|---------|
+| `tree-store.ts` | `TreeStore` interface |
+| `tree-store.impl.ts` | Implementation |
+| `tree-entry.ts` | `TreeEntry` type |
+| `tree-format.ts` | Binary format |
+
+Tree entries are sorted canonically (directories sort as if they had trailing `/`). This canonical ordering ensures identical trees always produce identical IDs.
+
+#### history/tags/
+
+| File | Purpose |
+|------|---------|
+| `tag-store.ts` | `TagStore` interface |
+| `tag-store.impl.ts` | Implementation |
+| `tag-format.ts` | Serialization |
+
+Annotated tags can point to any object type and optionally chain (tag pointing to tag). The `getTarget(id, peel)` method resolves chains to the final target.
+
+#### history/refs/
 
 | File | Purpose |
 |------|---------|
@@ -512,9 +491,27 @@ The `compareAndSwap` operation enables atomic updates:
 refs.compareAndSwap("refs/heads/main", expectedOldId, newId)
 ```
 
-### staging/
+#### history/history-store.ts
 
-Index/staging area with merge conflict support.
+Main entry point combining all history stores (HistoryStore interface).
+
+### workspace/ - Working Directory State
+
+Working tree, staging, status, checkout, and working copy management.
+
+#### workspace/worktree/
+
+| File | Purpose |
+|------|---------|
+| `worktree-store.ts` | `WorktreeStore` interface |
+| `worktree-store.impl.ts` | Implementation |
+
+Provides platform-agnostic filesystem iteration with:
+- Ignore pattern matching
+- File mode detection
+- Content hashing (Git blob format)
+
+#### workspace/staging/
 
 | File | Purpose |
 |------|---------|
@@ -550,9 +547,7 @@ const MergeStage = {
 };
 ```
 
-### status/
-
-Repository status calculation.
+#### workspace/status/
 
 | File | Purpose |
 |------|---------|
@@ -571,77 +566,74 @@ Working Tree (filesystem)
 
 Each file gets two statuses: `indexStatus` (vs HEAD) and `workTreeStatus` (vs index).
 
-### tags/
+#### workspace/checkout/
 
-Annotated tag objects.
-
-| File | Purpose |
-|------|---------|
-| `tag-store.ts` | `TagStore` interface |
-| `tag-store.impl.ts` | Implementation |
-| `tag-format.ts` | Serialization |
-
-Annotated tags can point to any object type and optionally chain (tag pointing to tag). The `getTarget(id, peel)` method resolves chains to the final target.
-
-### trees/
-
-Directory snapshot objects.
+CheckoutStore for managing local checkout state.
 
 | File | Purpose |
 |------|---------|
-| `tree-store.ts` | `TreeStore` interface |
-| `tree-store.impl.ts` | Implementation |
-| `tree-entry.ts` | `TreeEntry` type |
-| `tree-format.ts` | Binary format |
+| `checkout-store.ts` | `CheckoutStore` interface definition |
+| `checkout-store.files.ts` | File-based implementation |
+| `checkout-store.memory.ts` | In-memory implementation |
 
-Tree entries are sorted canonically (directories sort as if they had trailing `/`). This canonical ordering ensures identical trees always produce identical IDs.
+The CheckoutStore manages local checkout state:
+- **HEAD Management**: Current branch or detached commit
+- **In-progress Operations**: Merge, rebase, cherry-pick, revert state
+- **Linked Stores**: Staging area and stash operations
 
-### worktree/
+Multiple CheckoutStores can share a single HistoryStore (like git worktree).
 
-Working tree filesystem traversal and state.
+#### workspace/working-copy/
 
-| File | Purpose |
-|------|---------|
-| `worktree-store.ts` | `WorktreeStore` interface |
-| `worktree-store.impl.ts` | Implementation |
-
-Provides platform-agnostic filesystem iteration with:
-- Ignore pattern matching
-- File mode detection
-- Content hashing (Git blob format)
-
-### utils/
-
-Internal utilities.
+Working copy management, stash, and repository state detection.
 
 | File | Purpose |
 |------|---------|
-| `file-utils.ts` | File path utilities |
-| `varint.ts` | Variable-length integer encoding |
+| `working-copy.ts` | `WorkingCopy` interface |
+| `repository-state.ts` | Repository state detection (merge, rebase, etc.) |
+| `stash-store.ts` | `StashStore` interface |
+| `stash-store.files.ts` | File-based stash implementation |
+| `checkout-utils.ts` | Three-way merge utilities |
+| `checkout-conflict-detector.ts` | Conflict detection |
 
-Varint encoding is used in pack files and delta instructions.
+#### workspace/ignore/
 
-### repository.ts
+| File | Purpose |
+|------|---------|
+| `ignore-manager.ts` | `IgnoreManager` interface |
+| `ignore-manager.impl.ts` | Implementation |
+| `ignore-node.ts` | Trie node for efficient matching |
+| `ignore-rule.ts` | Individual pattern parsing |
 
-Main entry point combining all stores.
+The implementation uses a trie structure for efficient path matching against potentially many ignore patterns.
 
-```typescript
-interface Repository {
-  objects: GitObjectStore;
-  commits: CommitStore;
-  trees: TreeStore;
-  blobs: BlobStore;
-  tags: TagStore;
-  refs: RefStore;
-  config: RepositoryConfig;
+#### workspace/working-copy.ts
 
-  initialize(): Promise<void>;
-  close(): Promise<void>;
-  isInitialized(): Promise<boolean>;
-}
-```
+Main `WorkingCopy` interface definition.
 
-The `GitStores` type provides just object stores without refs/config for transport operations.
+### commands/ - High-Level Operations
+
+| File | Purpose |
+|------|---------|
+| `add.command.ts` | `Add` interface for staging files |
+| `add.command.impl.ts` | Implementation |
+| `checkout.command.ts` | `Checkout` interface for materializing trees |
+| `checkout.command.impl.ts` | Implementation with conflict detection |
+
+Commands encapsulate multi-step workflows:
+- `Add`: Hash files, update staging entries, handle ignore patterns
+- `Checkout`: Compare trees, detect conflicts, update worktree
+
+### repository-access/
+
+Repository serialization and Git-native filesystem access.
+
+| File | Purpose |
+|------|---------|
+| `repository-access.ts` | `RepositoryAccess` interface |
+| `git-native-repository-access.ts` | Git filesystem implementation |
+| `serializing-repository-access.ts` | Serialization utilities |
+| `git-serializers.ts` | Git object serializers |
 
 ### stores/
 
