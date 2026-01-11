@@ -10,7 +10,7 @@
  */
 
 import type { BlobStore } from "../blob/blob-store.js";
-import { FileMode } from "../files/index.js";
+import { FileMode } from "../common/files/index.js";
 import { DeleteStagingEntry, UpdateStagingEntry } from "../staging/staging-edits.js";
 import type { StagingStore } from "../staging/staging-store.js";
 import type { WorktreeStore } from "../worktree/worktree-store.js";

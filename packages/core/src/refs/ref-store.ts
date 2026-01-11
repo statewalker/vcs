@@ -5,7 +5,7 @@
  * The concrete Ref and SymbolicRef types are defined in ref-types.ts.
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { Ref, SymbolicRef } from "./ref-types.js";
 import type { ReflogReader } from "./reflog-types.js";
 

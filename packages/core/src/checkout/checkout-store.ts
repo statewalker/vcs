@@ -19,7 +19,7 @@
  * @see WorktreeStore for filesystem access (Part 2)
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { StagingStore } from "../staging/index.js";
 import type { RepositoryStateValue, StateCapabilities } from "../working-copy/repository-state.js";
 import type {

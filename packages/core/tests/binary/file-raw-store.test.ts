@@ -5,7 +5,7 @@
 import { collect } from "@statewalker/vcs-utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import { FileRawStore } from "../../src/binary/raw-store.files.js";
-import { createInMemoryFilesApi, type FilesApi } from "../../src/files/index.js";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
 
 describe("FileRawStore", () => {
   let files: FilesApi;

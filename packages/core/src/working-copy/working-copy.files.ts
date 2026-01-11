@@ -4,8 +4,8 @@
  * Manages local checkout state for a Git working directory.
  */
 
+import type { ObjectId } from "../common/id/index.js";
 import type { HistoryStore } from "../history-store.js";
-import type { ObjectId } from "../id/index.js";
 import type { StagingStore } from "../staging/index.js";
 import {
   createStatusCalculator,

@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { FileMode } from "../../src/files/index.js";
-import type { ObjectId } from "../../src/id/index.js";
+import { FileMode } from "../../src/common/files/index.js";
+import type { ObjectId } from "../../src/common/id/index.js";
 import {
   type ConflictInfo,
   ConflictType,

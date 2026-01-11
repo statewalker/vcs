@@ -5,7 +5,7 @@
  * Provides graph traversal operations for commit history.
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { GitObjectStore } from "../objects/object-store.js";
 import {
   commitToEntries,

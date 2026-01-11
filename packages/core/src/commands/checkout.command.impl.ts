@@ -12,8 +12,8 @@
 
 import type { BlobStore } from "../blob/blob-store.js";
 import type { CommitStore } from "../commits/commit-store.js";
-import { FileMode, type FilesApi, joinPath } from "../files/index.js";
-import type { ObjectId } from "../id/object-id.js";
+import { FileMode, type FilesApi, joinPath } from "../common/files/index.js";
+import type { ObjectId } from "../common/id/object-id.js";
 import type { RefStore } from "../refs/ref-store.js";
 import type { StagingStore } from "../staging/staging-store.js";
 import type { TreeEntry } from "../trees/tree-entry.js";

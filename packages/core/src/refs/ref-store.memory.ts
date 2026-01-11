@@ -5,7 +5,7 @@
  * No persistence - data is lost when the instance is garbage collected.
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { RefStore, RefUpdateResult } from "./ref-store.js";
 import type { Ref, SymbolicRef } from "./ref-types.js";
 import { RefStorage } from "./ref-types.js";

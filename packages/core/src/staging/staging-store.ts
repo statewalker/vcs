@@ -1,5 +1,5 @@
-import type { FileModeValue } from "../files/index.js";
-import type { ObjectId } from "../id/index.js";
+import type { FileModeValue } from "../common/files/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { TreeStore } from "../trees/index.js";
 
 /**

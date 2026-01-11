@@ -14,6 +14,7 @@
 
 import type { Delta } from "@statewalker/vcs-utils";
 import { collect, newByteSplitter, readHeader } from "@statewalker/vcs-utils/streams";
+import type { FilesApi } from "../common/files/index.js";
 import { parseBinaryDelta, serializeDelta } from "../delta/delta-binary-format.js";
 import type {
   DeltaChainDetails,
@@ -22,7 +23,6 @@ import type {
   DeltaStoreUpdate,
   StoredDelta,
 } from "../delta/delta-store.js";
-import type { FilesApi } from "../files/index.js";
 import { parseHeader } from "../objects/object-header.js";
 import type { ObjectTypeCode } from "../objects/object-types.js";
 import type { DeltaReverseIndex } from "./delta-reverse-index.js";

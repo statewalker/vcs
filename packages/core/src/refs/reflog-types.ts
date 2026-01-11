@@ -7,8 +7,8 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/lib/ReflogEntry.java
  */
 
-import type { ObjectId } from "../id/index.js";
-import type { PersonIdent } from "../person/index.js";
+import type { ObjectId } from "../common/id/index.js";
+import type { PersonIdent } from "../common/person/index.js";
 
 /**
  * Single reflog entry

@@ -7,7 +7,7 @@ import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
 import { MemoryVolatileStore } from "../../src/binary/volatile-store.memory.js";
 import { GitBlobStore } from "../../src/blob/blob-store.impl.js";
 import { GitCommitStore } from "../../src/commits/commit-store.impl.js";
-import { FileMode } from "../../src/files/index.js";
+import { FileMode } from "../../src/common/files/index.js";
 import { GitObjectStoreImpl } from "../../src/objects/object-store.impl.js";
 import { ObjectType } from "../../src/objects/object-types.js";
 import { GitTagStore } from "../../src/tags/tag-store.impl.js";

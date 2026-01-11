@@ -5,7 +5,7 @@
  * Uses path history to find previous versions of the same file.
  */
 
-import type { ObjectId } from "../../id/object-id.js";
+import type { ObjectId } from "../../common/id/object-id.js";
 import type { ObjectTypeCode } from "../../objects/object-types.js";
 import type {
   CandidateFinder,

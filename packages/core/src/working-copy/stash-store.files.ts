@@ -12,9 +12,9 @@
  * - Parent 2: commit of current index state
  */
 
+import type { ObjectId } from "../common/id/index.js";
+import type { PersonIdent } from "../common/person/person-ident.js";
 import type { HistoryStore } from "../history-store.js";
-import type { ObjectId } from "../id/index.js";
-import type { PersonIdent } from "../person/person-ident.js";
 import type { StagingStore } from "../staging/index.js";
 import type { TreeEntry } from "../trees/tree-entry.js";
 import type { StashEntry, StashPushOptions, StashStore } from "../working-copy.js";

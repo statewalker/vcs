@@ -7,16 +7,12 @@ export * from "./blob/blob-store.js";
 export * from "./checkout/index.js";
 // Stores
 export * from "./commits/index.js";
+// Common types: files, format, id, person
+export * from "./common/index.js";
 // Delta storage
 export * from "./delta/index.js";
-// Files and file modes
-export * from "./files/index.js";
-// Format types (CommitEntry, TagEntry) and formatting functions
-export * from "./format/index.js";
 // HistoryStore interface (Part 1 of Three-Part Architecture)
 export * from "./history-store.js";
-// Object IDs
-export * from "./id/index.js";
 // Object types and formatting
 export * from "./objects/object-header.js";
 export * from "./objects/object-store.impl.js";
@@ -24,8 +20,6 @@ export * from "./objects/object-store.js";
 export * from "./objects/object-types.js";
 // Pack file utilities
 export * from "./pack/index.js";
-// Person identity interface
-export * from "./person/index.js";
 // References
 export * from "./refs/index.js";
 // Staging area

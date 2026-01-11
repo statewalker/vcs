@@ -9,10 +9,10 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java (log method)
  */
 
-import { dirname, type FilesApi, joinPath } from "../files/index.js";
-import { formatPersonIdent } from "../format/index.js";
-import type { ObjectId } from "../id/index.js";
-import type { PersonIdent } from "../person/index.js";
+import { dirname, type FilesApi, joinPath } from "../common/files/index.js";
+import { formatPersonIdent } from "../common/format/index.js";
+import type { ObjectId } from "../common/id/index.js";
+import type { PersonIdent } from "../common/person/index.js";
 
 const LOGS_DIR = "logs";
 const ZERO_ID = "0".repeat(40);

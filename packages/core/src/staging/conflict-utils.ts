@@ -9,7 +9,7 @@
  * Based on Git's conflict handling patterns.
  */
 
-import type { ObjectId } from "../id/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import { ResolveStagingConflict } from "./staging-edits.js";
 import type { MergeStageValue, StagingEntry, StagingStore } from "./staging-store.js";
 import { MergeStage } from "./staging-store.js";
