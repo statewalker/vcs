@@ -1,26 +1,8 @@
 /**
- * Delta compression types and strategy interfaces
+ * Delta compression types and interfaces
  */
 
 import type { ObjectId } from "@statewalker/vcs-core";
-import type { RawStore } from "../binary";
-
-/**
- * Strategy for finding delta base candidates
- *
- * Implementations scan storage to find objects that might be good
- * delta bases for a target object.
- */
-export interface DeltaCandidateStrategy {
-  /**
-   * Find candidate base objects for deltification
-   *
-   * @param targetId Object to find bases for
-   * @param storage Object storage to search
-   * @returns Async iterable of candidate object IDs
-   */
-  findCandidates(targetId: ObjectId, storage: RawStore): AsyncIterable<ObjectId>;
-}
 
 /**
  * Progress information during packing

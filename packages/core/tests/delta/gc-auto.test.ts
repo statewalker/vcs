@@ -75,7 +75,7 @@ describe("AutoGcTest", () => {
       // Create context with low chain depth threshold
       const ctx = await createTestRepository({
         looseObjectThreshold: 1000, // High so we don't trigger on count
-        chainDepthThreshold: 5,
+        maxChainDepth: 5,
         minInterval: 0,
       });
 
@@ -161,14 +161,14 @@ describe("AutoGcTest", () => {
     it("getOptions returns current configuration", async () => {
       const ctx = await createTestRepository({
         looseObjectThreshold: 42,
-        chainDepthThreshold: 7,
+        maxChainDepth: 7,
         minInterval: 5000,
         quickPackThreshold: 3,
       });
 
       const options = ctx.gc.getOptions();
       expect(options.looseObjectThreshold).toBe(42);
-      expect(options.chainDepthThreshold).toBe(7);
+      expect(options.maxChainDepth).toBe(7);
       expect(options.minInterval).toBe(5000);
       expect(options.quickPackThreshold).toBe(3);
     });
@@ -178,7 +178,7 @@ describe("AutoGcTest", () => {
 
       const options = ctx.gc.getOptions();
       expect(options.looseObjectThreshold).toBe(100);
-      expect(options.chainDepthThreshold).toBe(50);
+      expect(options.maxChainDepth).toBe(50);
       expect(options.minInterval).toBe(60000);
       expect(options.quickPackThreshold).toBe(5);
     });

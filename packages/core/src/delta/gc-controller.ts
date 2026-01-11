@@ -8,23 +8,25 @@
 import type { CommitStore } from "../commits/commit-store.js";
 import { FileMode } from "../files/index.js";
 import type { ObjectId } from "../id/object-id.js";
+import { ObjectType } from "../objects/object-types.js";
 import type { PackConsolidator } from "../pack/pack-consolidator.js";
 import type { TreeStore } from "../trees/tree-store.js";
 
+import type { DeltaTarget } from "./candidate-finder.js";
+import type { DeltaEngine } from "./delta-engine.js";
 import type { RawStoreWithDelta } from "./raw-store-with-delta.js";
-import { SimilarSizeCandidateStrategy } from "./strategies/similar-size-candidate.js";
-import type { DeltaCandidateStrategy, RepackOptions, RepackResult } from "./types.js";
+import type { RepackOptions, RepackResult } from "./types.js";
 
 /**
  * GC scheduling options
  */
 export interface GCScheduleOptions {
-  /** Delta candidate strategy to use during GC */
-  deltaCandidateStrategy?: DeltaCandidateStrategy;
+  /** Delta engine for finding and computing deltas */
+  deltaEngine?: DeltaEngine;
   /** Trigger GC when loose objects exceed this count */
   looseObjectThreshold?: number;
-  /** Trigger GC when delta chains exceed this depth */
-  chainDepthThreshold?: number;
+  /** Maximum delta chain depth (for shouldRunGC check) */
+  maxChainDepth?: number;
   /** Minimum interval between GC runs (ms) */
   minInterval?: number;
   /** Number of pending commits before quick pack */
@@ -48,17 +50,18 @@ export interface GCResult {
 /**
  * Resolved GC options (with defaults applied)
  */
-type ResolvedGCOptions = Omit<Required<GCScheduleOptions>, "consolidator"> & {
+type ResolvedGCOptions = Omit<Required<GCScheduleOptions>, "consolidator" | "deltaEngine"> & {
   consolidator?: PackConsolidator;
+  deltaEngine?: DeltaEngine;
 };
 
 /**
  * Default GC options
  */
 const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
-  deltaCandidateStrategy: new SimilarSizeCandidateStrategy(),
+  deltaEngine: undefined,
   looseObjectThreshold: 100,
-  chainDepthThreshold: 50,
+  maxChainDepth: 50,
   minInterval: 60000, // 1 minute
   quickPackThreshold: 5,
   consolidator: undefined,
@@ -125,9 +128,9 @@ export class GCController {
    * @returns Number of objects deltified
    */
   async quickPack(): Promise<number> {
-    const getCandidates = this.options.deltaCandidateStrategy;
-    if (!getCandidates) {
-      // No strategies configured, skip
+    const deltaEngine = this.options.deltaEngine;
+    if (!deltaEngine) {
+      // No delta engine configured, skip
       this.pendingCommits = [];
       return 0;
     }
@@ -138,12 +141,22 @@ export class GCController {
 
     try {
       for (const commitId of this.pendingCommits) {
-        const candidateIds: ObjectId[] = [];
-        for await (const candidateId of getCandidates.findCandidates(commitId, this.storage)) {
-          candidateIds.push(candidateId);
+        // Get object size for the target
+        const size = await this.storage.size(commitId);
+
+        // Create target for delta engine
+        const target: DeltaTarget = {
+          id: commitId,
+          type: ObjectType.COMMIT,
+          size,
+        };
+
+        // Find best delta using the engine
+        const result = await deltaEngine.findBestDelta(target);
+        if (result) {
+          await this.storage.storeDeltaResult(commitId, result);
+          total++;
         }
-        const success = await this.storage.deltify(commitId, candidateIds);
-        if (success) total++;
       }
 
       // Commit all deltas to a single pack file
@@ -190,7 +203,7 @@ export class GCController {
         looseCount++;
       } else {
         const chainInfo = await this.storage.getDeltaChainInfo(objectId);
-        if (chainInfo && chainInfo.depth > this.options.chainDepthThreshold) {
+        if (chainInfo && chainInfo.depth > this.options.maxChainDepth) {
           deepChains++;
         }
       }
@@ -254,8 +267,8 @@ export class GCController {
    * to a single pack file with valid cross-references.
    */
   private async repack(options?: RepackOptions): Promise<RepackResult> {
-    const maxChainDepth = options?.maxChainDepth ?? this.options.chainDepthThreshold;
-    const windowSize = options?.windowSize ?? 10;
+    const maxChainDepth = options?.maxChainDepth ?? this.options.maxChainDepth;
+    const deltaEngine = this.options.deltaEngine;
 
     let objectsProcessed = 0;
     let deltasCreated = 0;
@@ -301,6 +314,19 @@ export class GCController {
     const progressCallback = options?.progressCallback;
     const total = looseIds.length;
 
+    // If no delta engine configured, skip deltification
+    if (!deltaEngine) {
+      return {
+        objectsProcessed: total,
+        deltasCreated: 0,
+        deltasRemoved,
+        looseObjectsPruned: 0,
+        spaceSaved: 0,
+        packsConsolidated: 0,
+        duration: 0,
+      };
+    }
+
     // Start batch to collect all objects into a single pack file
     this.storage.startBatch();
 
@@ -318,9 +344,8 @@ export class GCController {
         await batchUpdate.storeObject(id, this.storage.load(id));
       }
 
-      // Deltify using sliding window
-      for (let i = 0; i < looseIds.length; i++) {
-        const id = looseIds[i];
+      // Process each object with DeltaEngine
+      for (const id of looseIds) {
         objectsProcessed++;
 
         if (progressCallback) {
@@ -334,36 +359,28 @@ export class GCController {
           });
         }
 
-        // Skip if windowSize is 0 (deltification disabled)
-        if (windowSize === 0) {
-          continue;
-        }
+        try {
+          const sizeBefore = await this.storage.size(id);
 
-        // Get candidates from window
-        const windowStart = Math.max(0, i - windowSize);
-        const candidates = looseIds.slice(windowStart, i);
+          // Create target for delta engine
+          // Note: We use BLOB type as a default since we don't track object types
+          // The DeltaEngine will handle type appropriately via CandidateFinder
+          const target: DeltaTarget = {
+            id,
+            type: ObjectType.BLOB,
+            size: sizeBefore,
+          };
 
-        if (candidates.length > 0) {
-          try {
-            const sizeBefore = await this.storage.size(id);
-            const success = await this.storage.deltify(id, candidates);
-
-            if (success) {
-              deltasCreated++;
-              try {
-                const chainInfo = await this.storage.getDeltaChainInfo(id);
-                if (chainInfo) {
-                  spaceSaved += sizeBefore - chainInfo.compressedSize;
-                }
-              } catch {
-                // getDeltaChainInfo can fail for cross-pack deltas
-                // Space savings calculation is optional, continue processing
-              }
-            }
-          } catch {
-            // deltify can fail if object is not accessible
-            // Skip this object and continue with others
+          // Find best delta using the engine
+          const result = await deltaEngine.findBestDelta(target);
+          if (result) {
+            await this.storage.storeDeltaResult(id, result);
+            deltasCreated++;
+            spaceSaved += result.savings;
           }
+        } catch {
+          // Delta computation can fail if object is not accessible
+          // Skip this object and continue with others
         }
       }
 
