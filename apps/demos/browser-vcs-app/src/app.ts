@@ -4,8 +4,21 @@
  * Handles UI interactions and VCS operations.
  */
 
-import { createGitStore, Git, type GitStore } from "@statewalker/vcs-commands";
-import { createGitRepository, FileMode, type GitRepository } from "@statewalker/vcs-core";
+import {
+  createGitStore,
+  Git,
+  type GitStore,
+  type GitStoreWithWorkTree,
+} from "@statewalker/vcs-commands";
+import {
+  createFileTreeIterator,
+  createGitRepository,
+  FileMode,
+  FileStagingStore,
+  type GitRepository,
+  type StagingStore,
+  type WorktreeStore,
+} from "@statewalker/vcs-core";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 import {
   createBrowserFsStorage,
@@ -31,11 +44,13 @@ let initBtn: HTMLButtonElement;
 // App State
 let currentStorage: StorageBackend | null = null;
 let repository: GitRepository | null = null;
-let store: GitStore | null = null;
+let store: GitStore | GitStoreWithWorkTree | null = null;
 let git: Git | null = null;
+let staging: StagingStore | null = null;
+let worktree: WorktreeStore | null = null;
 const stagedFiles: Map<string, string> = new Map();
 let workingDirFiles: string[] = [];
-let trackedFiles: Set<string> = new Set();
+const trackedFiles: Set<string> = new Set();
 
 /**
  * Initialize the application
@@ -224,9 +239,24 @@ async function initOrOpenRepository(): Promise<void> {
       defaultBranch: "main",
     })) as GitRepository;
 
-    // Initialize commands API
-    const staging = new MemoryStagingStore();
-    store = createGitStore({ repository, staging });
+    // Initialize staging store - use file-based for browser FS, memory for in-memory
+    if (currentStorage.type === "browser-fs") {
+      const fileStaging = new FileStagingStore(currentStorage.files, ".git/index");
+      await fileStaging.read(); // Load existing index
+      staging = fileStaging;
+    } else {
+      staging = new MemoryStagingStore();
+    }
+
+    // Create worktree for porcelain commands (works with both MemFilesApi and browser FilesApi)
+    worktree = createFileTreeIterator({
+      files: currentStorage.files,
+      rootPath: "",
+      gitDir: ".git",
+    });
+
+    // Initialize commands API with worktree support
+    store = createGitStore({ repository, staging, worktree });
     git = Git.wrap(store);
 
     // Get current branch
@@ -244,7 +274,10 @@ async function initOrOpenRepository(): Promise<void> {
 
     log(repoExists ? "Opened existing repository" : "Initialized new repository", "success");
   } catch (error) {
-    log(`Failed to ${repository ? "open" : "initialize"} repository: ${(error as Error).message}`, "error");
+    log(
+      `Failed to ${repository ? "open" : "initialize"} repository: ${(error as Error).message}`,
+      "error",
+    );
   }
 }
 
@@ -252,7 +285,7 @@ async function initOrOpenRepository(): Promise<void> {
  * Add a file to staging
  */
 async function addFile(): Promise<void> {
-  if (!store) {
+  if (!store || !git || !currentStorage) {
     log("No repository initialized", "error");
     return;
   }
@@ -266,28 +299,21 @@ async function addFile(): Promise<void> {
   }
 
   try {
-    // Store blob
     const data = new TextEncoder().encode(content);
-    const objectId = await store.blobs.store([data]);
 
-    // Add to staging
-    const editor = store.staging.editor();
-    editor.add({
-      path: fileName,
-      apply: () => ({
-        path: fileName,
-        mode: FileMode.REGULAR_FILE,
-        objectId,
-        stage: 0,
-        size: data.length,
-        mtime: Date.now(),
-      }),
-    });
-    await editor.finish();
+    // Write the file to storage (works for both MemFilesApi and browser FilesApi)
+    await currentStorage.files.write(fileName, [data]);
 
-    // Also write to filesystem if using browser FS
-    if (currentStorage?.type === "browser-fs") {
-      await currentStorage.files.write(fileName, [data]);
+    // Use porcelain git.add() command
+    await git.add().addFilepattern(fileName).call();
+
+    // Write index file so native git sees staged files (browser FS only)
+    if (staging instanceof FileStagingStore) {
+      try {
+        await staging.write();
+      } catch (e) {
+        console.warn("Failed to write index file:", e);
+      }
     }
 
     // Track staged file
@@ -311,20 +337,28 @@ async function addFile(): Promise<void> {
  * Stage an existing file from working directory
  */
 async function stageFile(fileName: string): Promise<void> {
-  if (!store || !currentStorage) {
+  if (!store || !git || !currentStorage) {
     log("No repository initialized", "error");
     return;
   }
 
   try {
-    // Read file content
+    // Use porcelain git.add() command
+    await git.add().addFilepattern(fileName).call();
+
+    // Write index file so native git sees staged files (browser FS only)
+    if (staging instanceof FileStagingStore) {
+      try {
+        await staging.write();
+      } catch (e) {
+        console.warn("Failed to write index file:", e);
+      }
+    }
+
+    // Read file content for tracking in UI
     const chunks: Uint8Array[] = [];
     for await (const chunk of currentStorage.files.read(fileName)) {
       chunks.push(chunk);
-    }
-    if (chunks.length === 0) {
-      log(`File not found: ${fileName}`, "error");
-      return;
     }
     const content = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
     let offset = 0;
@@ -332,24 +366,6 @@ async function stageFile(fileName: string): Promise<void> {
       content.set(chunk, offset);
       offset += chunk.length;
     }
-
-    // Store blob
-    const objectId = await store.blobs.store([content]);
-
-    // Add to staging
-    const editor = store.staging.editor();
-    editor.add({
-      path: fileName,
-      apply: () => ({
-        path: fileName,
-        mode: FileMode.REGULAR_FILE,
-        objectId,
-        stage: 0,
-        size: content.length,
-        mtime: Date.now(),
-      }),
-    });
-    await editor.finish();
 
     // Track staged file
     stagedFiles.set(fileName, new TextDecoder().decode(content));
@@ -388,6 +404,20 @@ async function createCommit(): Promise<void> {
     // Create commit
     const commit = await git.commit().setMessage(message).call();
     const commitId = await store.commits.storeCommit(commit);
+
+    // For browser FS, sync staging with the committed tree and write to index
+    // This ensures native git sees the correct state
+    if (currentStorage?.type === "browser-fs" && staging instanceof FileStagingStore) {
+      try {
+        // Read the committed tree back into staging (this keeps staging in sync with git)
+        await staging.readTree(store.trees, commit.tree);
+        // Write the index file so native git sees the correct state
+        await staging.write();
+      } catch (syncError) {
+        // Index sync is best-effort - commit still succeeded
+        console.warn("Failed to sync index file:", syncError);
+      }
+    }
 
     // Clear staged files
     stagedFiles.clear();
