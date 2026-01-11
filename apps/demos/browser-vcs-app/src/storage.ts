@@ -192,31 +192,49 @@ function createBrowserFilesApi(dirHandle: FileSystemDirectoryHandle): FilesApi {
   }
 
   const files: FilesApi = {
-    async read(path: string): Promise<Uint8Array | undefined> {
+    async *read(path: string): AsyncIterable<Uint8Array> {
       const handle = await getFileHandle(path);
-      if (!handle) return undefined;
+      if (!handle) return;
       const file = await handle.getFile();
       const buffer = await file.arrayBuffer();
-      return new Uint8Array(buffer);
+      yield new Uint8Array(buffer);
     },
 
-    async write(path: string, content: Uint8Array | string): Promise<void> {
-      const data = typeof content === "string" ? encoder.encode(content) : content;
+    async write(path: string, content: Iterable<Uint8Array> | AsyncIterable<Uint8Array>): Promise<void> {
       const handle = await getFileHandle(path, true);
       if (!handle) {
         throw new Error(`Cannot create file: ${path}`);
       }
       const writable = await handle.createWritable();
-      await writable.write(data);
+      for await (const chunk of content) {
+        await writable.write(chunk);
+      }
       await writable.close();
     },
 
-    async *list(path: string): AsyncGenerator<string> {
+    async *list(path: string): AsyncIterable<{ name: string; path: string; kind: "file" | "directory"; size?: number; lastModified?: number }> {
       const handle = await getDirHandle(path || "/");
       if (!handle) return;
 
       for await (const entry of handle.values()) {
-        yield entry.name + (entry.kind === "directory" ? "/" : "");
+        const entryPath = path ? `${path}/${entry.name}` : entry.name;
+        if (entry.kind === "file") {
+          const fileHandle = entry as FileSystemFileHandle;
+          const file = await fileHandle.getFile();
+          yield {
+            name: entry.name,
+            path: entryPath,
+            kind: "file",
+            size: file.size,
+            lastModified: file.lastModified,
+          };
+        } else {
+          yield {
+            name: entry.name,
+            path: entryPath,
+            kind: "directory",
+          };
+        }
       }
     },
 
@@ -225,14 +243,15 @@ function createBrowserFilesApi(dirHandle: FileSystemDirectoryHandle): FilesApi {
       return type !== null;
     },
 
-    async delete(path: string): Promise<void> {
+    async remove(path: string): Promise<boolean> {
       const result = await getParentDir(path, false);
-      if (!result) return;
+      if (!result) return false;
 
       try {
         await result.parent.removeEntry(result.name, { recursive: true });
+        return true;
       } catch {
-        // Entry doesn't exist
+        return false;
       }
     },
 
@@ -241,14 +260,12 @@ function createBrowserFilesApi(dirHandle: FileSystemDirectoryHandle): FilesApi {
       await getDirHandle(path, true);
     },
 
-    async stat(
-      path: string,
-    ): Promise<{ size: number; mtime: number; isDirectory: boolean } | undefined> {
+    async stats(path: string): Promise<{ kind: "file" | "directory"; size?: number; lastModified?: number } | undefined> {
       const type = await getEntryType(path);
       if (type === null) return undefined;
 
       if (type === "directory") {
-        return { size: 0, mtime: Date.now(), isDirectory: true };
+        return { kind: "directory" };
       }
 
       const handle = await getFileHandle(path);
@@ -256,10 +273,33 @@ function createBrowserFilesApi(dirHandle: FileSystemDirectoryHandle): FilesApi {
 
       const file = await handle.getFile();
       return {
+        kind: "file",
         size: file.size,
-        mtime: file.lastModified,
-        isDirectory: false,
+        lastModified: file.lastModified,
       };
+    },
+
+    async move(source: string, target: string): Promise<boolean> {
+      // Read source, write to target, remove source
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of files.read(source)) {
+        chunks.push(chunk);
+      }
+      if (chunks.length === 0) return false;
+
+      await files.write(target, chunks);
+      return await files.remove(source);
+    },
+
+    async copy(source: string, target: string): Promise<boolean> {
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of files.read(source)) {
+        chunks.push(chunk);
+      }
+      if (chunks.length === 0) return false;
+
+      await files.write(target, chunks);
+      return true;
     },
   };
 
