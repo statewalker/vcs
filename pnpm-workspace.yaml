@@ -1,7 +1,6 @@
 packages:
   - "packages/*"
   - "apps/*"
-  - "apps/examples/*"
 
 catalog:
   "@biomejs/biome": "^2.3.7"

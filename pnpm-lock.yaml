@@ -91,9 +91,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -113,9 +110,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -135,9 +129,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -160,9 +151,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -188,9 +176,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -238,9 +223,6 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -260,64 +242,7 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
     devDependencies:
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/examples/01-quick-start:
-    dependencies:
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../../packages/core
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/examples/02-porcelain-commands:
-    dependencies:
-      '@statewalker/vcs-commands':
-        specifier: workspace:*
-        version: link:../../../packages/commands
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../../packages/core
-      '@statewalker/vcs-store-mem':
-        specifier: workspace:*
-        version: link:../../../packages/store-mem
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/examples/03-object-model:
-    dependencies:
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../../packages/core
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
