@@ -45,6 +45,7 @@ apps/
 │   └── 08-transport-basics/     # Clone, fetch, push fundamentals
 │
 ├── demos/                       # Complete workflow demonstrations
+│   ├── browser-vcs-app/         # Pure browser app with FilesApi backends
 │   ├── git-workflow-complete/   # Full Git lifecycle demo
 │   ├── http-server-scratch/     # HTTP Git server from scratch
 │   ├── versioned-documents/     # Document versioning in browser
@@ -257,12 +258,128 @@ const pack = await writer.finalize();
 
 ## Demo Applications
 
+### demos/browser-vcs-app/
+
+**Goal:** Pure browser-based VCS application using `@statewalker/webrun-files` with swappable storage backends.
+
+**Key Concept:** Demonstrate that the same VCS code works with different storage implementations by using the `FilesApi` abstraction from `@statewalker/webrun-files`.
+
+**Storage Backends:**
+
+| Package | Description | Use Case |
+|---------|-------------|----------|
+| `@statewalker/webrun-files` | Core FilesApi interface | Base abstraction |
+| `@statewalker/webrun-files-browser` | Browser File System Access API | Persistent local files |
+| `@statewalker/webrun-files-mem` | In-memory implementation | Testing, temporary storage |
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Browser VCS Application                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │                    @statewalker/vcs-core                    │ │
+│  │                    @statewalker/vcs-commands                │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                              ↓                                   │
+│                    FilesApi Interface                            │
+│                    (@statewalker/webrun-files)                   │
+│                              ↓                                   │
+│  ┌──────────────────────┬──────────────────────────────────────┐│
+│  │                      │                                       ││
+│  │  webrun-files-mem    │     webrun-files-browser              ││
+│  │  (In-Memory)         │     (File System Access API)          ││
+│  │                      │                                       ││
+│  │  - Quick testing     │     - Persistent storage              ││
+│  │  - No permission     │     - User picks directory            ││
+│  │  - Lost on refresh   │     - Survives refresh                ││
+│  │                      │     - Works with local files          ││
+│  └──────────────────────┴──────────────────────────────────────┘│
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+1. **Storage Switcher UI** - Toggle between in-memory and browser filesystem
+2. **Directory Picker** - Use File System Access API to pick local folder
+3. **Full Git Operations** - init, add, commit, branch, log, diff
+4. **Works Offline** - No server required
+5. **Portable Code** - Same VCS code works with any FilesApi implementation
+
+**Key Code:**
+```typescript
+import { createGitRepository } from "@statewalker/vcs-core";
+import { add, commit, log, status } from "@statewalker/vcs-commands";
+
+// Storage implementations
+import { createFilesApi as createMemoryFiles } from "@statewalker/webrun-files-mem";
+import { createFilesApi as createBrowserFiles } from "@statewalker/webrun-files-browser";
+
+// Option 1: In-memory storage (for testing/demos)
+const memFiles = createMemoryFiles();
+
+// Option 2: Browser File System Access API (persistent)
+const dirHandle = await window.showDirectoryPicker();
+const browserFiles = createBrowserFiles(dirHandle);
+
+// Same VCS code works with either storage!
+async function initRepo(files: FilesApi) {
+  const repo = await createGitRepository(files, "/.git", { create: true });
+
+  // Create a file
+  await files.write("/README.md", encode("# My Project\n"));
+
+  // Git operations
+  await add(repo, "README.md");
+  await commit(repo, { message: "Initial commit" });
+
+  // Show status
+  for await (const entry of log(repo)) {
+    console.log(`${entry.id.slice(0, 7)} - ${entry.message}`);
+  }
+
+  return repo;
+}
+
+// User can switch storage at runtime
+const files = useMemoryStorage ? memFiles : browserFiles;
+const repo = await initRepo(files);
+```
+
+**UI Components:**
+- Storage selector (Memory / Browser Filesystem)
+- Directory picker button (for browser filesystem)
+- File tree view
+- Commit history panel
+- Status indicator
+- Commit dialog
+
+**Browser Compatibility:**
+- File System Access API: Chrome 86+, Edge 86+, Opera 72+
+- Fallback to in-memory for unsupported browsers
+
+**Dependencies:**
+```json
+{
+  "@statewalker/vcs-core": "workspace:*",
+  "@statewalker/vcs-commands": "workspace:*",
+  "@statewalker/webrun-files": "^0.7.0",
+  "@statewalker/webrun-files-mem": "^0.7.0",
+  "@statewalker/webrun-files-browser": "^0.7.0"
+}
+```
+
+---
+
 ### demos/git-workflow-complete/
 
 **Goal:** Showcase complete Git workflow in browser environment.
 
+**Storage:** Uses `@statewalker/webrun-files-mem` for in-memory or `@statewalker/webrun-files-browser` for persistent storage.
+
 **Includes:**
-- In-browser repository with IndexedDB storage
+- In-browser repository with swappable storage
 - Visual commit graph
 - File tree browser
 - Diff viewer
@@ -345,6 +462,8 @@ await push({
 
 **Based on:** Marketing document use case #1
 
+**Storage:** Uses `@statewalker/webrun-files-mem` for in-memory storage or `@statewalker/webrun-files-browser` for persistent local storage.
+
 **Architecture:**
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -358,14 +477,18 @@ await push({
 │                               ▼                         │
 │                    ┌─────────────────────┐              │
 │                    │   VCS Repository    │              │
-│                    │   (IndexedDB)       │              │
+│                    │   (FilesApi)        │              │
 │                    │                     │              │
 │                    │   /document.xml     │              │
 │                    │   /styles.xml       │              │
 │                    │   /media/image1.png │              │
 │                    └─────────────────────┘              │
 │                               │                         │
-│                               ▼                         │
+│       ┌───────────────────────┼───────────────────────┐ │
+│       ▼                       ▼                       ▼ │
+│  webrun-files-mem      webrun-files-browser    (future) │
+│  (temporary)           (persistent local)     IndexedDB │
+│                                                         │
 │                    ┌─────────────────────┐              │
 │                    │   History View      │              │
 │                    │   Version Compare   │              │
@@ -382,6 +505,7 @@ await push({
 - View history
 - Restore previous versions
 - Reconstruct document from any version
+- **Storage options:** In-memory (quick demo) or browser filesystem (persistent)
 
 ---
 
@@ -390,6 +514,8 @@ await push({
 **Goal:** P2P repository synchronization using WebRTC with QR code signaling.
 
 **Based on:** WebRTC P2P sync proposal
+
+**Storage:** Uses `@statewalker/webrun-files-mem` for in-memory or `@statewalker/webrun-files-browser` for persistent storage. Both peers can use different storage backends.
 
 **Architecture:**
 ```
@@ -443,6 +569,9 @@ await push({
   "@statewalker/vcs-core": "workspace:*",
   "@statewalker/vcs-transport": "workspace:*",
   "@statewalker/vcs-transport-webrtc": "workspace:*",
+  "@statewalker/webrun-files": "^0.7.0",
+  "@statewalker/webrun-files-mem": "^0.7.0",
+  "@statewalker/webrun-files-browser": "^0.7.0",
   "simple-peer": "^9.11.1",
   "pako": "^2.1.0",
   "qrcode": "^1.5.3",
@@ -456,10 +585,13 @@ await push({
 
 **Goal:** Progressive Web App with complete offline Git operations.
 
+**Storage:** Uses `@statewalker/webrun-files-browser` for persistent storage via File System Access API. Falls back to `@statewalker/webrun-files-mem` on unsupported browsers.
+
 **Features:**
 - Works entirely offline
 - Service worker for caching
-- IndexedDB for repository storage
+- Persistent storage via File System Access API
+- Falls back to in-memory on unsupported browsers
 - Optional HTTP sync when online
 - Install as native app
 
@@ -514,39 +646,57 @@ await push({
 2. `examples/02-porcelain-commands/` - Main API showcase
 3. `examples/03-object-model/` - Conceptual foundation
 
-### Phase 2: Complete Demos
-4. `demos/http-server-scratch/` - Key differentiator (HTTP server from scratch)
+### Phase 2: Browser Demos (Key Differentiators)
+4. `demos/browser-vcs-app/` - Pure browser app with FilesApi backends (showcases webrun-files integration)
 5. `demos/git-workflow-complete/` - Polish existing example-git-cycle
 
-### Phase 3: Advanced Examples
-6. `examples/06-internal-storage/` - For integrators
-7. `demos/versioned-documents/` - Novel use case
+### Phase 3: Server & Integration
+6. `demos/http-server-scratch/` - HTTP Git server from scratch
+7. `examples/06-internal-storage/` - For integrators
 
-### Phase 4: P2P and Transport
-8. `demos/webrtc-p2p-sync/` - Revolutionary feature
-9. `examples/08-transport-basics/` - Transport fundamentals
+### Phase 4: Advanced Use Cases
+8. `demos/versioned-documents/` - Novel browser use case
+9. `demos/offline-first-pwa/` - PWA with offline Git
 
-### Phase 5: Performance
-10. `benchmarks/delta-compression/` - Validate performance claims
+### Phase 5: P2P and Transport
+10. `demos/webrtc-p2p-sync/` - Revolutionary P2P feature
+11. `examples/08-transport-basics/` - Transport fundamentals
+
+### Phase 6: Performance
+12. `benchmarks/delta-compression/` - Validate performance claims
 
 ---
 
 ## Required Package Development
 
-Some demos require new packages:
+### Already Available (External)
 
-### @statewalker/vcs-transport-webrtc
+The following packages from `@statewalker/webrun-files` ecosystem are already available:
+
+| Package | Description | Status |
+|---------|-------------|--------|
+| `@statewalker/webrun-files` | Core FilesApi interface | Published v0.7.0 |
+| `@statewalker/webrun-files-mem` | In-memory implementation | Published v0.7.0 |
+| `@statewalker/webrun-files-browser` | Browser File System Access API | Published v0.7.0 |
+| `@statewalker/webrun-files-node` | Node.js implementation | Published v0.7.0 |
+| `@statewalker/webrun-files-s3` | S3-compatible storage | Published v0.7.0 |
+
+### New Packages Needed
+
+#### @statewalker/vcs-transport-webrtc
 - WebRTC DataChannel stream adapter
 - Peer connection manager
 - QR code signaling utilities
 
-### @statewalker/vcs-storage-indexeddb
-- IndexedDB storage backend for browser
+#### @statewalker/webrun-files-indexeddb (Optional)
+- IndexedDB storage backend for browsers without File System Access API
+- Alternative to webrun-files-browser for older browsers
 - Optimized for VCS access patterns
 
-### @statewalker/vcs-storage-opfs
+#### @statewalker/webrun-files-opfs (Optional)
 - Origin Private File System backend
 - Better performance for large repositories
+- Available in modern browsers
 
 ---
 
@@ -588,11 +738,12 @@ Each example should:
 
 | Marketing Position | Primary Demo/Example |
 |-------------------|---------------------|
-| "Git for the Browser" | demos/git-workflow-complete |
+| "Git for the Browser" | demos/browser-vcs-app, demos/git-workflow-complete |
 | "Version Control as a Service Component" | examples/06-internal-storage |
 | "Portable Data Platform" | demos/versioned-documents |
 | "Edge-Native Version Control" | demos/http-server-scratch |
 | "Conflict-Free Collaboration Engine" | demos/webrtc-p2p-sync |
+| "Storage Independence" | demos/browser-vcs-app (shows swappable FilesApi backends) |
 
 ---
 
