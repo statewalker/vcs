@@ -3,9 +3,10 @@
  */
 
 import * as fs from "node:fs/promises";
-import { createGitRepository, createNodeFilesApi, type GitRepository } from "@statewalker/vcs-core";
+import { createGitRepository, type GitRepository } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
+import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 import { GIT_DIR, REPO_DIR } from "./config.js";
 
 let compressionInitialized = false;
