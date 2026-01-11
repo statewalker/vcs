@@ -6,16 +6,16 @@
  * commit chains, and verifying GC behavior.
  */
 
-import { MemoryRawStore } from "../../src/binary/raw-store.memory.js";
-import { MemoryVolatileStore } from "../../src/binary/volatile-store.memory.js";
+import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
+import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
 import { GitBlobStore } from "../../src/blob/blob-store.impl.js";
 import { GitCommitStore } from "../../src/commits/commit-store.impl.js";
 import type { Commit } from "../../src/commits/commit-store.js";
 import { FileMode } from "../../src/common/files/index.js";
 import type { ObjectId } from "../../src/common/id/index.js";
 import type { PersonIdent } from "../../src/common/person/person-ident.js";
-import { GCController, type GCScheduleOptions } from "../../src/delta/gc-controller.js";
-import { RawStoreWithDelta } from "../../src/delta/raw-store-with-delta.js";
+import { GCController, type GCScheduleOptions } from "../../src/storage/delta/gc-controller.js";
+import { RawStoreWithDelta } from "../../src/storage/delta/raw-store-with-delta.js";
 import { GitObjectStoreImpl } from "../../src/objects/object-store.impl.js";
 import { MemoryRefStore } from "../../src/refs/ref-store.memory.js";
 import { GitTagStore } from "../../src/tags/tag-store.impl.js";

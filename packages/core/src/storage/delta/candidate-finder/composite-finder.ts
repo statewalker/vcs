@@ -5,7 +5,7 @@
  * Allows combining different strategies (path-based, size-based, etc.)
  */
 
-import type { ObjectId } from "../../common/id/object-id.js";
+import type { ObjectId } from "../../../common/id/object-id.js";
 import type {
   CandidateFinder,
   CandidateFinderOptions,

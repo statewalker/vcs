@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { SizeSimilarityCandidateFinder } from "../../src/delta/candidate-finder/size-similarity-finder.js";
-import type { DeltaTarget } from "../../src/delta/candidate-finder.js";
+import { SizeSimilarityCandidateFinder } from "../../src/storage/delta/candidate-finder/size-similarity-finder.js";
+import type { DeltaTarget } from "../../src/storage/delta/candidate-finder.js";
 import { ObjectType } from "../../src/objects/object-types.js";
 import type {
   RepositoryAccess,

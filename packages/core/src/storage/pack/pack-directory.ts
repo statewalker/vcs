@@ -6,10 +6,10 @@
  * Based on jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/PackDirectory.java
  */
 
-import { basename, type FilesApi, joinPath, readFile } from "../common/files/index.js";
-import type { ObjectId } from "../common/id/index.js";
-import { createGitObject, typeCodeToString } from "../objects/object-header.js";
-import type { ObjectTypeCode } from "../objects/object-types.js";
+import { basename, type FilesApi, joinPath, readFile } from "../../common/files/index.js";
+import type { ObjectId } from "../../common/id/index.js";
+import { createGitObject, typeCodeToString } from "../../objects/object-header.js";
+import type { ObjectTypeCode } from "../../objects/object-types.js";
 import { DeltaReverseIndex } from "./delta-reverse-index.js";
 import { readPackIndex } from "./pack-index-reader.js";
 import { type PackDeltaChainInfo, PackReader } from "./pack-reader.js";

@@ -17,8 +17,8 @@
 
 import type { BlobStore } from "./blob/blob-store.js";
 import type { CommitStore } from "./commits/commit-store.js";
-import type { GCController } from "./delta/gc-controller.js";
-import type { RawStoreWithDelta } from "./delta/raw-store-with-delta.js";
+import type { GCController } from "./storage/delta/gc-controller.js";
+import type { RawStoreWithDelta } from "./storage/delta/raw-store-with-delta.js";
 import type { GitObjectStore } from "./objects/object-store.js";
 import type { RefStore } from "./refs/ref-store.js";
 import type { TagStore } from "./tags/tag-store.js";

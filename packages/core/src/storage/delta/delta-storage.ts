@@ -8,7 +8,7 @@
  * - Key-value stores
  */
 
-import type { ObjectId } from "../common/id/object-id.js";
+import type { ObjectId } from "../../common/id/object-id.js";
 import type { BestDeltaResult } from "./delta-engine.js";
 
 /**

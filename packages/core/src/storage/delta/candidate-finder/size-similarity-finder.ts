@@ -8,8 +8,8 @@
  * Replaces the legacy SimilarSizeCandidateStrategy with the new CandidateFinder interface.
  */
 
-import type { ObjectTypeCode } from "../../objects/object-types.js";
-import type { RepositoryAccess } from "../../repository-access/repository-access.js";
+import type { ObjectTypeCode } from "../../../objects/object-types.js";
+import type { RepositoryAccess } from "../../../repository-access/repository-access.js";
 import type {
   CandidateFinder,
   CandidateFinderOptions,

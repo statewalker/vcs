@@ -7,7 +7,7 @@
  * Based on jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/GC.java
  */
 
-import { type FilesApi, joinPath, readFile } from "../common/files/index.js";
+import { type FilesApi, joinPath, readFile } from "../../common/files/index.js";
 import type { PackDirectory } from "./pack-directory.js";
 import { PendingPack } from "./pending-pack.js";
 import type { PackObjectType } from "./types.js";

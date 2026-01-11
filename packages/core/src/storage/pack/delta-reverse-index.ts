@@ -21,7 +21,7 @@
  * See: jgit ObjectToPack.deltaBase (in-memory delta base tracking)
  */
 
-import type { ObjectId } from "../common/id/index.js";
+import type { ObjectId } from "../../common/id/index.js";
 
 /**
  * Delta relationship entry

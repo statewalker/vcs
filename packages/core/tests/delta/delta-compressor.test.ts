@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { GitDeltaCompressor } from "../../src/delta/compressor/git-delta-compressor.js";
+import { GitDeltaCompressor } from "../../src/storage/delta/compressor/git-delta-compressor.js";
 
 describe("GitDeltaCompressor", () => {
   const compressor = new GitDeltaCompressor();

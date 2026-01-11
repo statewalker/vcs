@@ -3,15 +3,15 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { DeltaCandidate, DeltaTarget } from "../../src/delta/candidate-finder.js";
-import type { DeltaResult } from "../../src/delta/delta-compressor.js";
+import type { DeltaCandidate, DeltaTarget } from "../../src/storage/delta/candidate-finder.js";
+import type { DeltaResult } from "../../src/storage/delta/delta-compressor.js";
 import {
   createBlobOnlyStrategy,
   createGitNativeStrategy,
   createNetworkStrategy,
   createPackStrategy,
   DefaultDeltaDecisionStrategy,
-} from "../../src/delta/strategy/default-delta-decision-strategy.js";
+} from "../../src/storage/delta/strategy/default-delta-decision-strategy.js";
 import { ObjectType } from "../../src/objects/object-types.js";
 
 describe("DefaultDeltaDecisionStrategy", () => {

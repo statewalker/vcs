@@ -1,5 +1,5 @@
-// Binary storage
-export * from "./binary/index.js";
+// Storage layer (binary, pack, delta)
+export * from "./storage/index.js";
 export * from "./blob/blob-store.impl.js";
 // Blob store
 export * from "./blob/blob-store.js";
@@ -9,8 +9,6 @@ export * from "./checkout/index.js";
 export * from "./commits/index.js";
 // Common types: files, format, id, person
 export * from "./common/index.js";
-// Delta storage
-export * from "./delta/index.js";
 // HistoryStore interface (Part 1 of Three-Part Architecture)
 export * from "./history-store.js";
 // Object types and formatting
@@ -18,8 +16,6 @@ export * from "./objects/object-header.js";
 export * from "./objects/object-store.impl.js";
 export * from "./objects/object-store.js";
 export * from "./objects/object-types.js";
-// Pack file utilities
-export * from "./pack/index.js";
 // References
 export * from "./refs/index.js";
 // Staging area
