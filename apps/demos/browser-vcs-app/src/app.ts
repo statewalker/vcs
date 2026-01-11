@@ -4,22 +4,14 @@
  * Handles UI interactions and VCS operations.
  */
 
+import { Git, type GitStore, type GitStoreWithWorkTree } from "@statewalker/vcs-commands";
 import {
-  createGitStore,
-  Git,
-  type GitStore,
-  type GitStoreWithWorkTree,
-} from "@statewalker/vcs-commands";
-import {
-  createFileTreeIterator,
-  createGitRepository,
   FileMode,
   FileStagingStore,
   type GitRepository,
   type StagingStore,
   type WorktreeStore,
 } from "@statewalker/vcs-core";
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 import {
   createBrowserFsStorage,
   createMemoryStorage,
@@ -47,7 +39,7 @@ let repository: GitRepository | null = null;
 let store: GitStore | GitStoreWithWorkTree | null = null;
 let git: Git | null = null;
 let staging: StagingStore | null = null;
-let worktree: WorktreeStore | null = null;
+let _worktree: WorktreeStore | null = null;
 const stagedFiles: Map<string, string> = new Map();
 let workingDirFiles: string[] = [];
 const trackedFiles: Set<string> = new Set();
@@ -233,31 +225,41 @@ async function initOrOpenRepository(): Promise<void> {
       repoExists = await hasGitDirectory(currentStorage.rootHandle);
     }
 
-    // Create or open repository
-    repository = (await createGitRepository(currentStorage.files, ".git", {
-      create: !repoExists,
-      defaultBranch: "main",
-    })) as GitRepository;
-
-    // Initialize staging store - use file-based for browser FS, memory for in-memory
+    // Configure staging store - use file-based for browser FS, memory for in-memory
+    let customStaging: StagingStore | undefined;
     if (currentStorage.type === "browser-fs") {
       const fileStaging = new FileStagingStore(currentStorage.files, ".git/index");
-      await fileStaging.read(); // Load existing index
+      if (repoExists) {
+        await fileStaging.read(); // Load existing index
+      }
+      customStaging = fileStaging;
       staging = fileStaging;
-    } else {
-      staging = new MemoryStagingStore();
     }
 
-    // Create worktree for porcelain commands (works with both MemFilesApi and browser FilesApi)
-    worktree = createFileTreeIterator({
-      files: currentStorage.files,
-      rootPath: "",
-      gitDir: ".git",
-    });
+    // Use Git.init() porcelain command to initialize or open the repository
+    const initCommand = Git.init()
+      .setFilesApi(currentStorage.files)
+      .setGitDir(".git")
+      .setInitialBranch("main")
+      .setWorktree(true);
 
-    // Initialize commands API with worktree support
-    store = createGitStore({ repository, staging, worktree });
-    git = Git.wrap(store);
+    // Use custom staging if provided (for native git compatibility)
+    if (customStaging) {
+      initCommand.setStagingStore(customStaging);
+    }
+
+    const result = await initCommand.call();
+
+    // Extract result
+    repository = result.repository as GitRepository;
+    store = result.store;
+    git = result.git;
+    _worktree = (store as GitStoreWithWorkTree).worktree;
+
+    // For memory storage, keep reference to staging
+    if (!customStaging) {
+      staging = result.store.staging;
+    }
 
     // Get current branch
     const headRef = await store.refs.resolve("HEAD");

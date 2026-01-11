@@ -1,9 +1,16 @@
-import { createGitRepository, createInMemoryFilesApi, type FilesApi } from "@statewalker/vcs-core";
+import {
+  createFileTreeIterator,
+  createGitRepository,
+  createInMemoryFilesApi,
+  type FilesApi,
+  type StagingStore,
+  type WorktreeStore,
+} from "@statewalker/vcs-core";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 
 import { Git } from "../git.js";
 import type { InitResult } from "../results/init-result.js";
-import { createGitStore, type GitStore } from "../types.js";
+import { createGitStore, type GitStore, type GitStoreWithWorkTree } from "../types.js";
 
 /**
  * Command to initialize a new Git repository.
@@ -33,6 +40,13 @@ import { createGitStore, type GitStore } from "../types.js";
  *   .setBare(true)
  *   .setInitialBranch("main")
  *   .call();
+ *
+ * // Initialize with custom staging store and worktree support
+ * const result = await new InitCommand()
+ *   .setFilesApi(files)
+ *   .setStagingStore(new FileStagingStore(files, ".git/index"))
+ *   .setWorktree(true)
+ *   .call();
  * ```
  */
 export class InitCommand {
@@ -41,6 +55,9 @@ export class InitCommand {
   private gitDir?: string;
   private bare = false;
   private initialBranch = "main";
+  private stagingStore?: StagingStore;
+  private worktreeEnabled = false;
+  private worktreeStore?: WorktreeStore;
   private callable = true;
 
   /**
@@ -118,6 +135,76 @@ export class InitCommand {
   }
 
   /**
+   * Set a custom staging store.
+   *
+   * If not set, a MemoryStagingStore will be used.
+   * Use FileStagingStore for native git compatibility.
+   *
+   * @param stagingStore The staging store to use
+   * @returns this for method chaining
+   *
+   * @example
+   * ```typescript
+   * // For native git compatibility
+   * const fileStaging = new FileStagingStore(files, ".git/index");
+   * await fileStaging.read(); // Load existing index if present
+   *
+   * const result = await new InitCommand()
+   *   .setFilesApi(files)
+   *   .setStagingStore(fileStaging)
+   *   .call();
+   * ```
+   */
+  setStagingStore(stagingStore: StagingStore): this {
+    this.checkCallable();
+    this.stagingStore = stagingStore;
+    return this;
+  }
+
+  /**
+   * Enable worktree support for porcelain commands like git.add().
+   *
+   * When enabled, creates a WorktreeStore from the FilesApi that allows
+   * commands like AddCommand to iterate and read files from the working tree.
+   *
+   * Ignored for bare repositories.
+   *
+   * @param enabled True to enable worktree support
+   * @returns this for method chaining
+   *
+   * @example
+   * ```typescript
+   * const result = await new InitCommand()
+   *   .setFilesApi(files)
+   *   .setWorktree(true)
+   *   .call();
+   *
+   * // Now git.add() works
+   * await result.git.add().addFilepattern("src/").call();
+   * ```
+   */
+  setWorktree(enabled: boolean): this {
+    this.checkCallable();
+    this.worktreeEnabled = enabled;
+    return this;
+  }
+
+  /**
+   * Set a custom worktree store.
+   *
+   * Alternative to setWorktree(true) when you need custom worktree configuration.
+   *
+   * @param worktree The worktree store to use
+   * @returns this for method chaining
+   */
+  setWorktreeStore(worktree: WorktreeStore): this {
+    this.checkCallable();
+    this.worktreeStore = worktree;
+    this.worktreeEnabled = true;
+    return this;
+  }
+
+  /**
    * Execute the init command and create a new repository.
    *
    * @returns InitResult containing the Git facade, store, and repository
@@ -140,13 +227,26 @@ export class InitCommand {
       bare: this.bare,
     });
 
-    // Create staging store
-    const staging = new MemoryStagingStore();
+    // Create staging store (use provided or default to MemoryStagingStore)
+    const staging = this.stagingStore ?? new MemoryStagingStore();
+
+    // Create worktree if enabled and not bare
+    let worktree: WorktreeStore | undefined;
+    if (this.worktreeEnabled && !this.bare) {
+      worktree =
+        this.worktreeStore ??
+        createFileTreeIterator({
+          files,
+          rootPath: "",
+          gitDir,
+        });
+    }
 
     // Create GitStore from repository
-    const store: GitStore = createGitStore({
+    const store: GitStore | GitStoreWithWorkTree = createGitStore({
       repository,
       staging,
+      worktree,
     });
 
     // Create Git facade
