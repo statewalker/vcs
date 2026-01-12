@@ -380,10 +380,6 @@ class MemoryStagingEditor implements StagingEditor {
     this.edits.push(edit);
   }
 
-  remove(path: string): void {
-    this.edits.push({ path, apply: () => undefined });
-  }
-
   async finish(): Promise<void> {
     this.edits.sort((a, b) => comparePaths(a.path, b.path));
 
