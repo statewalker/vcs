@@ -84,7 +84,7 @@ export async function step02StagingChanges(): Promise<void> {
 
   // Show current staging state
   console.log("\n--- Current staging area ---");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`  ${entry.path} -> ${shortId(entry.objectId)}`);
   }
 
@@ -112,7 +112,7 @@ export async function step02StagingChanges(): Promise<void> {
 
   // Show staging with updated file
   console.log("\n  Staging area after update:");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     const marker = entry.path === "src/version.ts" ? " (updated)" : "";
     console.log(`  ${entry.path} -> ${shortId(entry.objectId)}${marker}`);
   }
@@ -130,7 +130,7 @@ export async function step02StagingChanges(): Promise<void> {
   Low-level:
     store.staging.editor()     - Edit staging entries
     store.staging.builder()    - Build staging from scratch
-    store.staging.entries()    - Iterate entries
+    store.staging.listEntries()    - Iterate entries
 
   Entry fields:
     path, mode, objectId, stage, size, mtime

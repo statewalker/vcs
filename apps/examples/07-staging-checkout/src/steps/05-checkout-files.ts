@@ -145,7 +145,7 @@ export async function step05CheckoutFiles(): Promise<void> {
 
 // Helper: Get staging entry
 async function getEntry(store: Awaited<ReturnType<typeof getGit>>["store"], path: string) {
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     if (entry.path === path) return entry;
   }
   return undefined;

@@ -59,7 +59,7 @@ export async function step01StagingConcepts(): Promise<void> {
   console.log("\n--- Current staging area ---");
 
   let entryCount = 0;
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     entryCount++;
     console.log(`\n  Entry ${entryCount}:`);
     console.log(`    Path:     ${entry.path}`);
@@ -101,7 +101,7 @@ export async function step01StagingConcepts(): Promise<void> {
   console.log("  Added: src/utils.ts");
 
   console.log("\n  Staging area now contains:");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`    ${entry.path} -> ${shortId(entry.objectId)}`);
   }
 

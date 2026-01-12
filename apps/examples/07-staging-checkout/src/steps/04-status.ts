@@ -48,7 +48,7 @@ export async function step04Status(): Promise<void> {
 
   // Rebuild staging without README.md
   const entriesToKeep: Array<{ path: string; mode: number; objectId: string; stage: number }> = [];
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     if (entry.path !== "README.md") {
       entriesToKeep.push({
         path: entry.path,

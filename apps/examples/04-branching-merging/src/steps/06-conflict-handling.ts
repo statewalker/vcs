@@ -134,7 +134,7 @@ export async function step06ConflictHandling(): Promise<void> {
 
     // Show staging state
     console.log("\n--- Staging area with conflicts ---");
-    for await (const entry of store.staging.entries()) {
+    for await (const entry of store.staging.listEntries()) {
       const stageName =
         entry.stage === 0
           ? "MERGED"

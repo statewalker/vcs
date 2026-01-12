@@ -78,7 +78,7 @@ export async function step06CheckoutBranches(): Promise<void> {
 
   // Show staging contents
   console.log("\n  Staging area (feature branch):");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`    ${entry.path}`);
   }
 
@@ -93,7 +93,7 @@ export async function step06CheckoutBranches(): Promise<void> {
   }
 
   console.log("  Staging area (main branch):");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`    ${entry.path}`);
   }
 
