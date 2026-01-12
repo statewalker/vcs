@@ -48,7 +48,11 @@ export async function step03Unstaging(): Promise<void> {
   console.log("\n--- Method 2: Using staging editor ---");
 
   const editor = store.staging.editor();
-  editor.remove("src/remove.ts");
+  // To remove an entry, add an edit with apply returning undefined
+  editor.add({
+    path: "src/remove.ts",
+    apply: () => undefined,
+  });
   await editor.finish();
   console.log("  Removed: src/remove.ts");
 
