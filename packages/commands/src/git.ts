@@ -13,6 +13,7 @@ import {
   DiffCommand,
   FetchCommand,
   GarbageCollectCommand,
+  InitCommand,
   ListBranchCommand,
   ListTagCommand,
   LogCommand,
@@ -169,6 +170,44 @@ export class Git implements Disposable {
   static fromStores(config: GitStoresConfig): Git {
     const store = createGitStoreFromStores(config);
     return new Git(store);
+  }
+
+  /**
+   * Create an InitCommand for initializing a new Git repository.
+   *
+   * This static factory method provides convenient access to repository
+   * initialization without needing to import InitCommand directly.
+   *
+   * @example
+   * ```typescript
+   * // Initialize in-memory repository
+   * const result = await Git.init().call();
+   * const git = result.git;
+   *
+   * // Initialize file-based repository with worktree support
+   * const result = await Git.init()
+   *   .setFilesApi(files)
+   *   .setWorktree(true)
+   *   .call();
+   *
+   * // Now git.add() works
+   * await result.git.add().addFilepattern(".").call();
+   *
+   * // Initialize with custom staging for native git compatibility
+   * import { FileStagingStore } from "@statewalker/vcs-core";
+   * const staging = new FileStagingStore(files, ".git/index");
+   *
+   * const result = await Git.init()
+   *   .setFilesApi(files)
+   *   .setStagingStore(staging)
+   *   .setWorktree(true)
+   *   .call();
+   * ```
+   *
+   * @returns A new InitCommand instance
+   */
+  static init(): InitCommand {
+    return new InitCommand();
   }
 
   // ============ Add Operations ============

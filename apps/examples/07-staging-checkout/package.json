@@ -1,0 +1,28 @@
+{
+  "name": "@statewalker/vcs-example-07-staging-checkout",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Working directory and staging area operations",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "echo \"No tests specified\" && exit 0",
+    "step:01": "tsx src/steps/01-staging-concepts.ts",
+    "step:02": "tsx src/steps/02-staging-changes.ts",
+    "step:03": "tsx src/steps/03-unstaging.ts",
+    "step:04": "tsx src/steps/04-status.ts",
+    "step:05": "tsx src/steps/05-checkout-files.ts",
+    "step:06": "tsx src/steps/06-checkout-branches.ts",
+    "step:07": "tsx src/steps/07-clean-reset.ts"
+  },
+  "dependencies": {
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-commands": "workspace:*",
+    "@statewalker/vcs-store-mem": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

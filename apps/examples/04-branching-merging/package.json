@@ -1,0 +1,28 @@
+{
+  "name": "@statewalker/vcs-example-04-branching-merging",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deep dive into branch operations and merge strategies",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "echo \"No tests specified\" && exit 0",
+    "step:01": "tsx src/steps/01-branch-creation.ts",
+    "step:02": "tsx src/steps/02-head-management.ts",
+    "step:03": "tsx src/steps/03-fast-forward.ts",
+    "step:04": "tsx src/steps/04-three-way-merge.ts",
+    "step:05": "tsx src/steps/05-merge-strategies.ts",
+    "step:06": "tsx src/steps/06-conflict-handling.ts",
+    "step:07": "tsx src/steps/07-rebase-concepts.ts"
+  },
+  "dependencies": {
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-commands": "workspace:*",
+    "@statewalker/vcs-store-mem": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}
