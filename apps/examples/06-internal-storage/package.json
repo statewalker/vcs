@@ -1,0 +1,27 @@
+{
+  "name": "@statewalker/vcs-example-06-internal-storage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Low-level object and pack operations for application integration",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "step:01": "tsx src/main.ts --step=01",
+    "step:02": "tsx src/main.ts --step=02",
+    "step:03": "tsx src/main.ts --step=03",
+    "step:04": "tsx src/main.ts --step=04",
+    "step:05": "tsx src/main.ts --step=05",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "dependencies": {
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-commands": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*",
+    "@statewalker/vcs-utils-node": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}
