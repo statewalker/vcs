@@ -381,18 +381,6 @@ export interface StagingEditor {
   add(edit: StagingEdit): void;
 
   /**
-   * Remove an entry from the staging area.
-   *
-   * This is a convenience method equivalent to:
-   * ```typescript
-   * editor.add({ path, apply: () => undefined });
-   * ```
-   *
-   * @param path Path of the entry to remove
-   */
-  remove(path: string): void;
-
-  /**
    * Finalize all edits.
    *
    * Applies edits to index in path order, preserving
