@@ -23,7 +23,7 @@ export async function step03Unstaging(): Promise<void> {
   await addFileToStaging(store, "src/also-remove.ts", "// This will also be unstaged");
 
   console.log("  Staged files:");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`    ${entry.path}`);
   }
 
@@ -53,7 +53,7 @@ export async function step03Unstaging(): Promise<void> {
   console.log("  Removed: src/remove.ts");
 
   console.log("\n  Remaining staged files:");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`    ${entry.path}`);
   }
 
@@ -69,7 +69,7 @@ export async function step03Unstaging(): Promise<void> {
     stage: number;
   }> = [];
 
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     if (entry.path !== "src/also-remove.ts") {
       entriesToKeep.push({
         path: entry.path,
@@ -88,7 +88,7 @@ export async function step03Unstaging(): Promise<void> {
   await builder.finish();
 
   console.log("\n  Final staged files:");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`    ${entry.path}`);
   }
 
@@ -102,7 +102,7 @@ export async function step03Unstaging(): Promise<void> {
     console.log("  Reset staging to HEAD tree");
 
     console.log("\n  Staging now matches HEAD:");
-    for await (const entry of store.staging.entries()) {
+    for await (const entry of store.staging.listEntries()) {
       console.log(`    ${entry.path}`);
     }
   }

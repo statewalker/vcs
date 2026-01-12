@@ -73,7 +73,7 @@ export async function step07CleanReset(): Promise<void> {
 
   // Show staging
   console.log("\n  Staging area:");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`    ${entry.path} -> ${shortId(entry.objectId)}`);
   }
 
@@ -96,7 +96,7 @@ export async function step07CleanReset(): Promise<void> {
   console.log(`  HEAD after mixed reset: ${shortId(afterMixed?.objectId || "")}`);
 
   console.log("\n  Staging area (matches commit 2):");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`    ${entry.path} -> ${shortId(entry.objectId)}`);
   }
 
@@ -118,7 +118,7 @@ export async function step07CleanReset(): Promise<void> {
   console.log(`  HEAD after hard reset: ${shortId(afterHard?.objectId || "")}`);
 
   console.log("\n  Staging area (matches commit 1):");
-  for await (const entry of store.staging.entries()) {
+  for await (const entry of store.staging.listEntries()) {
     console.log(`    ${entry.path} -> ${shortId(entry.objectId)}`);
   }
 
