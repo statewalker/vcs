@@ -1,14 +1,11 @@
 packages:
   - "packages/*"
   - "apps/*"
-  - "apps/examples/*"
-  - "apps/demos/*"
 
 catalog:
   "@biomejs/biome": "^2.3.7"
   "@observablehq/framework": "^1.13.3"
   "@statewalker/webrun-files": "^0.7.0"
-  "@statewalker/webrun-files-browser": "^0.7.0"
   "@statewalker/webrun-files-mem": "^0.7.0"
   "@statewalker/webrun-files-node": "^0.7.0"
   "@types/node": "^24.10.1"
