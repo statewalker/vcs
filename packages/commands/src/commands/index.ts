@@ -10,7 +10,6 @@ export * from "./describe-command.js";
 export * from "./diff-command.js";
 export * from "./fetch-command.js";
 export * from "./gc-command.js";
-export * from "./init-command.js";
 export * from "./log-command.js";
 export * from "./ls-remote-command.js";
 export * from "./merge-command.js";
