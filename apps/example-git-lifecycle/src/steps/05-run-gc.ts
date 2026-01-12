@@ -1,17 +1,22 @@
 /**
  * Step 05: Perform Garbage Collection
  *
- * Runs garbage collection to pack loose objects into pack files.
- * Uses GCController for VCS-native garbage collection - NO NATIVE GIT.
+ * Packs loose objects into a pack file using PackWriterStream.
+ * This creates a valid Git pack file that can be read by native git.
  *
- * GCController handles:
- * - Collecting all loose objects
- * - Packing them into a single pack file
- * - Deltifying objects for compression
- * - Managing delta chains
+ * PackWriterStream handles:
+ * - Writing objects to pack format
+ * - Generating pack checksum
+ * - Creating index entries for the pack index file
  */
 
-import { GCController, type GitRepository, type PackingProgress } from "@statewalker/vcs-core";
+import {
+  type GitRepository,
+  ObjectType,
+  PackWriterStream,
+  writePackIndexV2,
+} from "@statewalker/vcs-core";
+import { bytesToHex, decompressBlock } from "@statewalker/vcs-utils";
 import {
   countLooseObjects,
   fs,
@@ -22,9 +27,71 @@ import {
   logSection,
   logSuccess,
   OBJECTS_DIR,
+  PACK_DIR,
   path,
   state,
 } from "../shared/index.js";
+
+/**
+ * Read a loose object from the filesystem
+ * Returns the type and content (decompressed, without Git header)
+ */
+async function readLooseObject(
+  objectId: string,
+): Promise<{ type: number; content: Uint8Array } | null> {
+  const prefix = objectId.substring(0, 2);
+  const suffix = objectId.substring(2);
+  const objectPath = path.join(OBJECTS_DIR, prefix, suffix);
+
+  try {
+    const compressed = await fs.readFile(objectPath);
+    const decompressed = await decompressBlock(compressed);
+
+    // Parse Git object format: "type size\0content"
+    // Find the null byte that separates header from content
+    let nullIndex = -1;
+    for (let i = 0; i < decompressed.length; i++) {
+      if (decompressed[i] === 0) {
+        nullIndex = i;
+        break;
+      }
+    }
+
+    if (nullIndex === -1) {
+      return null;
+    }
+
+    // Parse header
+    const header = new TextDecoder().decode(decompressed.subarray(0, nullIndex));
+    const [typeName] = header.split(" ");
+
+    // Map type name to ObjectType code
+    let type: number;
+    switch (typeName) {
+      case "commit":
+        type = ObjectType.COMMIT;
+        break;
+      case "tree":
+        type = ObjectType.TREE;
+        break;
+      case "blob":
+        type = ObjectType.BLOB;
+        break;
+      case "tag":
+        type = ObjectType.TAG;
+        break;
+      default:
+        return null;
+    }
+
+    // Content is after the null byte
+    const content = decompressed.subarray(nullIndex + 1);
+
+    return { type, content };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Delete loose object from filesystem
@@ -106,46 +173,60 @@ export async function run(): Promise<void> {
     return;
   }
 
-  // Collect loose object IDs before GC (for cleanup)
+  // Collect loose object IDs
   const looseObjectIds = await collectLooseObjectIds();
 
-  // Create GC controller with the delta storage
-  const gc = new GCController(repository.deltaStorage, {
-    looseObjectThreshold: 1, // Always run
-    minInterval: 0, // No minimum interval
-  });
+  log("\nPacking loose objects using PackWriterStream...");
 
-  // Progress callback for logging
-  const progressCallback = (progress: PackingProgress): void => {
-    if (progress.phase === "deltifying") {
-      if (
-        progress.processedObjects % 10 === 0 ||
-        progress.processedObjects === progress.totalObjects
-      ) {
-        log(`  Processing ${progress.processedObjects}/${progress.totalObjects} objects`);
-      }
-    } else if (progress.phase === "complete") {
-      log(`  Deltified ${progress.deltifiedObjects} objects`);
-      if (progress.bytesSaved > 0) {
-        log(`  Space saved: ${progress.bytesSaved} bytes`);
-      }
+  // Create pack writer
+  const packWriter = new PackWriterStream();
+  let objectsWritten = 0;
+
+  // Read and add each loose object to the pack
+  for (const objectId of looseObjectIds) {
+    const obj = await readLooseObject(objectId);
+    if (obj) {
+      await packWriter.addObject(objectId, obj.type, obj.content);
+      objectsWritten++;
     }
-  };
+  }
 
-  // Run GC with progress reporting
-  log("\nRunning GC...");
-  const result = await gc.runGC({
-    progressCallback,
-    pruneLoose: false, // We'll delete loose objects ourselves for cleaner control
-    windowSize: 10, // Enable deltification with sliding window
-  });
+  if (objectsWritten === 0) {
+    log("  No objects could be read, skipping pack creation.");
+    return;
+  }
 
-  log(`\nGC completed in ${result.duration}ms:`);
-  logInfo("  Objects processed", result.objectsProcessed);
-  logInfo("  Deltas created", result.deltasCreated);
+  // Finalize the pack
+  const result = await packWriter.finalize();
+
+  log(`\nPack created with ${objectsWritten} objects`);
+
+  // Generate pack filename from checksum (packChecksum is already computed by PackWriterStream)
+  const packName = `pack-${bytesToHex(result.packChecksum)}`;
+
+  // Ensure pack directory exists
+  try {
+    await fs.mkdir(PACK_DIR, { recursive: true });
+  } catch {
+    // Directory may already exist
+  }
+
+  // Write pack file
+  const packPath = path.join(PACK_DIR, `${packName}.pack`);
+  await fs.writeFile(packPath, result.packData);
+  log(`  Written: ${packName}.pack (${result.packData.length} bytes)`);
+
+  // Write pack index (V2 format)
+  const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
+  const indexPath = path.join(PACK_DIR, `${packName}.idx`);
+  await fs.writeFile(indexPath, indexData);
+  log(`  Written: ${packName}.idx (${indexData.length} bytes)`);
+
+  // Close repository before deleting loose objects
+  // This ensures any cached file handles are released
+  await repository.close();
 
   // Delete loose objects from filesystem
-  // (GCController writes to pack, we delete the originals)
   log("\nRemoving loose objects from filesystem...");
   let deleted = 0;
   for (const objectId of looseObjectIds) {
@@ -153,6 +234,16 @@ export async function run(): Promise<void> {
     deleted++;
   }
   log(`  Deleted ${deleted} loose objects`);
+
+  // Reopen repository for subsequent steps
+  // We need to recreate the FilesApi and repository
+  const { createGitRepository } = await import("@statewalker/vcs-core");
+  const { createFilesApi, GIT_DIR } = await import("../shared/index.js");
+
+  const files = createFilesApi();
+  state.repository = (await createGitRepository(files, GIT_DIR, {
+    create: false,
+  })) as GitRepository;
 
   // Get counts after GC
   const { count: looseAfter } = await countLooseObjects();
@@ -177,6 +268,6 @@ export async function run(): Promise<void> {
   }
 
   if (packsAfter.length > 0) {
-    logSuccess("Objects successfully packed using GCController!");
+    logSuccess("Objects successfully packed!");
   }
 }

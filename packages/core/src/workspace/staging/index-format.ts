@@ -366,7 +366,7 @@ function serializeEntry(
   // Version 2/3: uncompressed
   const infoLen = hasExtended ? INFO_LEN_EXTENDED : INFO_LEN;
   const baseLen = infoLen + pathBytes.length + 1; // +1 for null terminator
-  const alignedLen = (baseLen + 8) & ~7;
+  const alignedLen = (baseLen + 7) & ~7;
   const _padding = alignedLen - baseLen;
 
   const buffer = new Uint8Array(alignedLen);
