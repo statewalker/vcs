@@ -3,6 +3,7 @@ export * from "./clone-result.js";
 export * from "./diff-entry.js";
 export * from "./diff-formatter.js";
 export * from "./fetch-result.js";
+export * from "./init-result.js";
 export * from "./merge-result.js";
 export * from "./pull-result.js";
 export * from "./push-result.js";
