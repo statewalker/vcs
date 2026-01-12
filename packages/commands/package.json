@@ -33,13 +33,13 @@
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-store-mem": "workspace:*",
     "@statewalker/vcs-transport": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "@statewalker/vcs-utils-node": "workspace:*",
     "@types/node": "catalog:",
-    "@statewalker/vcs-store-mem": "workspace:*",
     "@statewalker/vcs-store-sql": "workspace:*",
     "rolldown": "catalog:",
     "typescript": "catalog:",
