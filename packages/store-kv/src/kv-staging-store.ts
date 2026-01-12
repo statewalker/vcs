@@ -520,6 +520,10 @@ class KVStagingEditor implements StagingEditor {
     this.edits.push(edit);
   }
 
+  remove(path: string): void {
+    this.edits.push({ path, apply: () => undefined });
+  }
+
   async finish(): Promise<void> {
     // Sort edits by path
     this.edits.sort((a, b) => comparePaths(a.path, b.path));
