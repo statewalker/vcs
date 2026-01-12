@@ -1,0 +1,347 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+  background: #f0f2f5;
+  color: #333;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Header */
+.app-header {
+  background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+  color: white;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.header-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-header h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4caf50;
+}
+
+.status-indicator.offline {
+  background: #ff9800;
+}
+
+.tagline {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+/* Main Content */
+.app-main {
+  flex: 1;
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Panels */
+.panel {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.panel h2 {
+  font-size: 1.1rem;
+  color: #1a73e8;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e8f0fe;
+}
+
+.panel h3 {
+  font-size: 0.95rem;
+  color: #555;
+  margin: 1rem 0 0.5rem;
+}
+
+/* Buttons */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #1a73e8;
+  color: white;
+  padding: 0.7rem 1.2rem;
+}
+
+.btn-primary:hover {
+  background: #1557b0;
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #e8f0fe;
+  color: #1a73e8;
+  padding: 0.5rem 1rem;
+}
+
+.btn-secondary:hover {
+  background: #d2e3fc;
+}
+
+/* Storage Options */
+.storage-options {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.storage-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.8rem;
+  background: #f5f5f5;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+
+.storage-btn:hover {
+  background: #e8f0fe;
+}
+
+.storage-btn.active {
+  background: #e8f0fe;
+  border-color: #1a73e8;
+}
+
+.storage-btn .icon {
+  font-size: 1.5rem;
+}
+
+.storage-status {
+  font-size: 0.85rem;
+  color: #666;
+  padding: 0.5rem;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+/* Repository Status */
+.repo-status {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  background: #f9f9f9;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+/* File Form */
+.file-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.file-form input,
+.file-form textarea {
+  padding: 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.file-form input:focus,
+.file-form textarea:focus {
+  outline: none;
+  border-color: #1a73e8;
+}
+
+.file-form textarea {
+  min-height: 100px;
+  resize: vertical;
+  font-family: monospace;
+}
+
+/* File List */
+.file-list {
+  margin-top: 1rem;
+}
+
+#staged-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f9f9f9;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.file-item .icon {
+  color: #1a73e8;
+}
+
+/* Commit Form */
+.commit-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.commit-form input {
+  flex: 1;
+  padding: 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.commit-form input:focus {
+  outline: none;
+  border-color: #1a73e8;
+}
+
+/* Commit List */
+.commit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.commit-item {
+  padding: 0.8rem;
+  background: #f9f9f9;
+  border-radius: 6px;
+  border-left: 3px solid #1a73e8;
+}
+
+.commit-id {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.commit-message {
+  font-weight: 500;
+  color: #333;
+  margin: 0.3rem 0;
+}
+
+.commit-date {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.empty {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem;
+}
+
+/* Footer */
+.app-footer {
+  background: white;
+  padding: 1rem;
+  text-align: center;
+  border-top: 1px solid #e0e0e0;
+}
+
+.pwa-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+#pwa-status {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.app-footer p {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.app-footer a {
+  color: #1a73e8;
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .app-header h1 {
+    font-size: 1.4rem;
+  }
+
+  .app-main {
+    padding: 1rem;
+    grid-template-columns: 1fr;
+  }
+
+  .commit-form {
+    flex-direction: column;
+  }
+}
