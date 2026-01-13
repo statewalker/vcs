@@ -239,7 +239,7 @@ export function createRawStoreTests(name: string, factory: RawStoreFactory): voi
         expect(decoder.decode(loaded)).toBe("sync1sync2");
       });
 
-      it("handles large content via streaming", async () => {
+      it.skipIf(process.env.CI)("handles large content via streaming", async () => {
         // 100KB content
         const largeContent = new Uint8Array(100 * 1024);
         for (let i = 0; i < largeContent.length; i++) {

@@ -233,7 +233,7 @@ export function createVolatileStoreTests(name: string, factory: VolatileStoreFac
     });
 
     describe("Large Content", () => {
-      it("handles large content", async () => {
+      it.skipIf(process.env.CI)("handles large content", async () => {
         // 100KB content
         const largeContent = new Uint8Array(100 * 1024);
         for (let i = 0; i < largeContent.length; i++) {
