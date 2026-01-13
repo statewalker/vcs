@@ -109,8 +109,10 @@ export async function initOrOpenRepository(ctx: Map<string, unknown>): Promise<b
     setGit(ctx, result.git);
 
     // Get current branch
+    const headSymRef = await result.store.refs.get("HEAD");
+    const branch =
+      headSymRef && "target" in headSymRef ? headSymRef.target.replace("refs/heads/", "") : "main";
     const headRef = await result.store.refs.resolve("HEAD");
-    const branch = headRef?.symbolicRef?.replace("refs/heads/", "") || "main";
     const headCommit = headRef?.objectId || "";
 
     repoModel.setReady(backend.folderName, branch, headCommit);

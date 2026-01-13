@@ -1,3 +1,11 @@
+/**
+ * Models Module
+ *
+ * Observable state containers for the application.
+ * Each model extends BaseClass and notifies views of state changes.
+ * Adapters provide typed context access for dependency injection.
+ */
+
 import { newAdapter } from "../utils/index.js";
 import { ActivityLogModel } from "./activity-log-model.js";
 import { CommitFormModel } from "./commit-form-model.js";

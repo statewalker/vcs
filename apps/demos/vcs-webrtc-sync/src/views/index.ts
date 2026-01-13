@@ -1,3 +1,11 @@
+/**
+ * Views Module
+ *
+ * UI components that render based on model state.
+ * Each view subscribes to models, renders HTML, and handles user events.
+ * All views return cleanup functions for proper teardown.
+ */
+
 export { createActivityLogView } from "./activity-log-view.js";
 export { createCommitFormView } from "./commit-form-view.js";
 export { createCommitHistoryView } from "./commit-history-view.js";
