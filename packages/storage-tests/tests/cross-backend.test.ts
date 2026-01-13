@@ -8,17 +8,30 @@
  * approach for the new architecture.
  */
 
-import { MemoryRawStore, MemoryVolatileStore } from "@statewalker/vcs-core";
+import {
+  createMemoryCheckoutStore,
+  createMemoryStashStore,
+  MemoryRawStore,
+  MemoryStorageBackend,
+  MemoryVolatileStore,
+} from "@statewalker/vcs-core";
 import { createKvObjectStores, MemoryKVAdapter } from "@statewalker/vcs-store-kv";
-import { createMemoryObjectStores } from "@statewalker/vcs-store-mem";
+import {
+  createMemoryObjectStores,
+  MemoryRefStore,
+  MemoryStagingStore,
+} from "@statewalker/vcs-store-mem";
 import { createSqlObjectStores } from "@statewalker/vcs-store-sql";
 import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 import {
   createBlobStoreTests,
+  createCheckoutStoreTests,
   createCrossBackendTests,
+  createDeltaApiTests,
   createGitCompatibilityTests,
   createGitObjectStoreTests,
   createRawStoreTests,
+  createStashStoreTests,
   createStreamingStoresTests,
   createVolatileStoreTests,
   type StreamingStoresFactory,
@@ -120,6 +133,32 @@ createRawStoreTests("Memory", async () => {
 // Run VolatileStore tests for memory backend
 createVolatileStoreTests("Memory", async () => {
   return { volatileStore: new MemoryVolatileStore() };
+});
+
+// Run CheckoutStore tests for memory backend
+createCheckoutStoreTests("Memory", async () => {
+  const staging = new MemoryStagingStore();
+  const refs = new MemoryRefStore();
+  const checkoutStore = createMemoryCheckoutStore(staging, refs);
+  return { checkoutStore, refStore: refs };
+});
+
+// Run StashStore tests for memory backend
+createStashStoreTests("Memory", async () => {
+  const stashStore = createMemoryStashStore();
+  return { stashStore };
+});
+
+// Run DeltaApi tests for memory backend
+createDeltaApiTests("Memory", async () => {
+  const backend = new MemoryStorageBackend({});
+  await backend.initialize();
+  return {
+    deltaApi: backend.delta,
+    cleanup: async () => {
+      await backend.close();
+    },
+  };
 });
 
 /**

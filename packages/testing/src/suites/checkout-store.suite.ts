@@ -26,9 +26,16 @@ export type CheckoutStoreFactory = () => Promise<CheckoutStoreTestContext>;
 
 /**
  * Helper function to generate a fake object ID (for testing)
+ * Converts seed to hex-only characters to create a valid SHA-1 format
  */
 function fakeObjectId(seed: string): string {
-  return seed.padEnd(40, "0").slice(0, 40);
+  // Convert each character to a 2-digit hex value
+  let hex = "";
+  for (let i = 0; i < seed.length && hex.length < 40; i++) {
+    hex += seed.charCodeAt(i).toString(16).padStart(2, "0");
+  }
+  // Pad with zeros to reach 40 characters
+  return hex.padEnd(40, "0").slice(0, 40);
 }
 
 /**
