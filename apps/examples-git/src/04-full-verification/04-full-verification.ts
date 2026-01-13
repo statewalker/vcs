@@ -27,6 +27,7 @@ import {
   printBanner,
   printInfo,
   printSection,
+  readFile,
   toHex,
 } from "../shared/utils.js";
 
@@ -124,7 +125,7 @@ async function main() {
 
   // Read and display pack header
   printSection("Pack File Header");
-  const packData = await files.readFile(packPath);
+  const packData = await readFile(files, packPath);
   printInfo("File size", formatSize(packData.length));
 
   // Parse magic
@@ -147,7 +148,7 @@ async function main() {
 
   // Read and display index header
   printSection("Index File Header");
-  const idxData = await files.readFile(idxPath);
+  const idxData = await readFile(files, idxPath);
   const index = readPackIndex(idxData);
 
   printInfo("Index version", index.version);
