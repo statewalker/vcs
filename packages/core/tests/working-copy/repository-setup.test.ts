@@ -175,7 +175,10 @@ describe("Bare Repository Detection (JGit parity)", () => {
       // Verify config file was written with bare=true
       const configContent = await readFileContent(files, ".git/config");
       expect(configContent).toBeDefined();
-      const configText = new TextDecoder().decode(configContent!);
+      if (!configContent) {
+        throw new Error("configContent should be defined");
+      }
+      const configText = new TextDecoder().decode(configContent);
       expect(configText).toContain("bare = true");
     });
 
@@ -190,7 +193,10 @@ describe("Bare Repository Detection (JGit parity)", () => {
       expect(repo.config.bare).toBe(false);
 
       const configContent = await readFileContent(files, ".git/config");
-      const configText = new TextDecoder().decode(configContent!);
+      if (!configContent) {
+        throw new Error("configContent should be defined");
+      }
+      const configText = new TextDecoder().decode(configContent);
       expect(configText).toContain("bare = false");
     });
 

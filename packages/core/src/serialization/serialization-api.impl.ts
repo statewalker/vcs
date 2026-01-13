@@ -433,7 +433,10 @@ class StreamingPackReader implements PackReaderApi {
 
   async *entries(): AsyncIterable<PackEntry> {
     await this.ensureLoaded();
-    const result = await parsePackEntries(this.packData!);
+    if (!this.packData) {
+      throw new Error("Pack data not loaded");
+    }
+    const result = await parsePackEntries(this.packData);
 
     for (const entry of result.entries) {
       const packEntry: PackEntry = {
@@ -453,7 +456,10 @@ class StreamingPackReader implements PackReaderApi {
 
   async getHeader(): Promise<PackHeader> {
     await this.ensureLoaded();
-    return this.header!;
+    if (!this.header) {
+      throw new Error("Pack header not loaded");
+    }
+    return this.header;
   }
 
   private async ensureLoaded(): Promise<void> {

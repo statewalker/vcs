@@ -357,8 +357,11 @@ describe("computeDeltaInstructions", () => {
     const instructions = computeDeltaInstructions(src, target);
 
     expect(instructions).not.toBeNull();
+    if (!instructions) {
+      throw new Error("Instructions should not be null");
+    }
     // Verify we can reconstruct target from instructions
-    const reconstructed = applyInstructions(src, instructions!);
+    const reconstructed = applyInstructions(src, instructions);
     expect(reconstructed).toEqual(target);
   });
 
@@ -385,7 +388,10 @@ describe("computeDeltaInstructions", () => {
     const instructions = computeDeltaInstructions(src, target);
 
     expect(instructions).not.toBeNull();
-    const reconstructed = applyInstructions(src, instructions!);
+    if (!instructions) {
+      throw new Error("Instructions should not be null");
+    }
+    const reconstructed = applyInstructions(src, instructions);
     expect(reconstructed).toEqual(target);
   });
 
@@ -400,7 +406,10 @@ describe("computeDeltaInstructions", () => {
     const instructions = computeDeltaInstructions(src, target);
 
     expect(instructions).not.toBeNull();
-    const reconstructed = applyInstructions(src, instructions!);
+    if (!instructions) {
+      throw new Error("Instructions should not be null");
+    }
+    const reconstructed = applyInstructions(src, instructions);
     expect(reconstructed).toEqual(target);
   });
 

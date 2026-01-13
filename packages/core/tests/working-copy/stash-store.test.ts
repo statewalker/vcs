@@ -153,7 +153,10 @@ describe("GitStashStore", () => {
       // Verify refs/stash was written
       const stashRef = filesApi.files.get(".git/refs/stash");
       expect(stashRef).toBeDefined();
-      expect(new TextDecoder().decode(stashRef!).trim()).toBe(stashId);
+      if (!stashRef) {
+        throw new Error("stashRef should be defined");
+      }
+      expect(new TextDecoder().decode(stashRef).trim()).toBe(stashId);
     });
 
     it("should create stash commit with default message", async () => {
@@ -173,8 +176,11 @@ describe("GitStashStore", () => {
 
       const reflog = filesApi.files.get(".git/logs/refs/stash");
       expect(reflog).toBeDefined();
+      if (!reflog) {
+        throw new Error("reflog should be defined");
+      }
 
-      const content = new TextDecoder().decode(reflog!);
+      const content = new TextDecoder().decode(reflog);
       expect(content).toContain("stash: My stash");
     });
 
@@ -198,7 +204,10 @@ describe("GitStashStore", () => {
 
       // refs/stash should point to most recent
       const stashRef = filesApi.files.get(".git/refs/stash");
-      expect(new TextDecoder().decode(stashRef!).trim()).toBe(secondId);
+      if (!stashRef) {
+        throw new Error("stashRef should be defined");
+      }
+      expect(new TextDecoder().decode(stashRef).trim()).toBe(secondId);
       expect(secondId).not.toBe(firstId);
     });
   });
@@ -379,7 +388,10 @@ describe("GitStashStore", () => {
       // refs/stash should now point to first
       const stashRef = filesApi.files.get(".git/refs/stash");
       expect(stashRef).toBeDefined();
-      expect(new TextDecoder().decode(stashRef!).trim()).not.toBe(secondId);
+      if (!stashRef) {
+        throw new Error("stashRef should be defined");
+      }
+      expect(new TextDecoder().decode(stashRef).trim()).not.toBe(secondId);
     });
   });
 
