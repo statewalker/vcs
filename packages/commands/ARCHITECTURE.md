@@ -63,6 +63,7 @@ GitCommand<T> (abstract base)
 │   ├── RevertCommand
 │   ├── LogCommand
 │   ├── DiffCommand
+│   ├── BlameCommand
 │   ├── TagCommand
 │   ├── DeleteTagCommand
 │   ├── ListTagCommand
