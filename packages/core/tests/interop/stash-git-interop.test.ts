@@ -107,7 +107,7 @@ describe("Stash Git Interoperability", () => {
       expect(stashRef?.objectId).toBeDefined();
 
       // Load stash commit
-      const stashCommit = await repo.commits.loadCommit(stashRef?.objectId!);
+      const stashCommit = await repo.commits.loadCommit(stashRef?.objectId);
       expect(stashCommit).toBeDefined();
 
       // Verify stash commit structure (2-3 parents)
@@ -151,7 +151,7 @@ describe("Stash Git Interoperability", () => {
 
       // Load stash commit
       const stashRef = await repo.refs.resolve("refs/stash");
-      const stashCommit = await repo.commits.loadCommit(stashRef?.objectId!);
+      const stashCommit = await repo.commits.loadCommit(stashRef?.objectId);
 
       // Load stash tree
       const entries: Array<{ name: string; id: string }> = [];
@@ -404,7 +404,7 @@ describe("Stash Git Interoperability", () => {
         const repo = await createGitRepository(files, ".git", { create: false });
 
         const stashRef = await repo.refs.resolve("refs/stash");
-        const stashCommit = await repo.commits.loadCommit(stashRef?.objectId!);
+        const stashCommit = await repo.commits.loadCommit(stashRef?.objectId);
 
         // Without --include-untracked, stash has 2 parents
         expect(stashCommit.parents.length).toBe(2);
@@ -438,7 +438,7 @@ describe("Stash Git Interoperability", () => {
       const repo = await createGitRepository(files, ".git", { create: false });
 
       const stashRef = await repo.refs.resolve("refs/stash");
-      const stashCommit = await repo.commits.loadCommit(stashRef?.objectId!);
+      const stashCommit = await repo.commits.loadCommit(stashRef?.objectId);
 
       // With --include-untracked (-u), stash has 3 parents
       expect(stashCommit.parents.length).toBe(3);
@@ -486,7 +486,7 @@ describe("Stash Git Interoperability", () => {
       expect(gitStashRef).toBeDefined();
       expect(gitStashRef?.objectId).toBeDefined();
 
-      const gitStashCommit = await repo.commits.loadCommit(gitStashRef?.objectId!);
+      const gitStashCommit = await repo.commits.loadCommit(gitStashRef?.objectId);
       expect(gitStashCommit.message).toContain("Git stash 1");
 
       // Step 4: VCS adds a new stash
@@ -551,7 +551,7 @@ describe("Stash Git Interoperability", () => {
       repo = await createGitRepository(files, ".git", { create: false });
 
       const topStashRef = await repo.refs.resolve("refs/stash");
-      const topStash = await repo.commits.loadCommit(topStashRef?.objectId!);
+      const topStash = await repo.commits.loadCommit(topStashRef?.objectId);
       expect(topStash.message).toContain("VCS stash 2");
 
       await repo.close();
