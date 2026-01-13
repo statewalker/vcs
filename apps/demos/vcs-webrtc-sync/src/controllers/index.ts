@@ -1,3 +1,14 @@
+/**
+ * Controllers Module
+ *
+ * Business logic layer that interacts with external systems:
+ * - StorageController: File System Access API and memory storage
+ * - RepositoryController: Git operations (staging, commits, history)
+ * - WebRtcController: Peer-to-peer connection management
+ * - SyncController: Repository synchronization over WebRTC
+ * - MainController: Orchestration and startup sequence
+ */
+
 // Re-export all controller functionality from main-controller
 export {
   type AppContext,
