@@ -122,8 +122,8 @@ async function initRepo(
     },
   });
 
-  // Set HEAD
-  await store.refs.set("HEAD", `ref: refs/heads/main`);
+  // Set HEAD (symbolic ref pointing to main branch)
+  await store.refs.setSymbolic("HEAD", "refs/heads/main");
   await store.refs.set("refs/heads/main", commitId);
 
   logFn(`Repository initialized with commit ${commitId.slice(0, 8)}`);
@@ -138,11 +138,12 @@ async function addFile(
   const encoder = new TextEncoder();
 
   // Get current HEAD
-  const head = await store.refs.get("refs/heads/main");
-  if (!head) {
+  const headRef = await store.refs.get("refs/heads/main");
+  if (!headRef || !("objectId" in headRef)) {
     logFn("Error: No HEAD commit");
     return;
   }
+  const head = headRef.objectId;
 
   // Load current tree
   const commit = await store.commits.loadCommit(head);
@@ -185,10 +186,10 @@ async function addFile(
 }
 
 async function listFiles(store: GitStore): Promise<string[]> {
-  const head = await store.refs.get("refs/heads/main");
-  if (!head) return [];
+  const headRef = await store.refs.get("refs/heads/main");
+  if (!headRef || !("objectId" in headRef)) return [];
 
-  const commit = await store.commits.loadCommit(head);
+  const commit = await store.commits.loadCommit(headRef.objectId);
   const files: string[] = [];
 
   for await (const entry of store.trees.loadTree(commit.tree)) {
