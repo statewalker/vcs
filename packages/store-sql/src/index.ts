@@ -49,6 +49,10 @@ export * from "./object-repository.js";
 // Object storage (new architecture)
 export * from "./object-storage/index.js";
 export * from "./ref-store.js";
+// Storage backend (unified interface)
+export * from "./register-backend.js";
+export * from "./sql-delta-api.js";
+export * from "./sql-storage-backend.js";
 export * from "./staging-store.js";
 // Synchronization utilities
 export * from "./sync.js";

@@ -5,36 +5,14 @@
  */
 
 import type { AnnotatedTag, ObjectId, ObjectTypeCode, TagStore } from "@statewalker/vcs-core";
-import { ObjectType } from "@statewalker/vcs-core";
+import { computeTagHash, ObjectType } from "@statewalker/vcs-core";
+
 import type { DatabaseClient } from "./database-client.js";
 
 /**
  * Maximum depth for following tag chains to prevent infinite loops.
  */
 const MAX_TAG_CHAIN_DEPTH = 100;
-
-/**
- * Simple hash function for generating deterministic object IDs.
- */
-function computeTagHash(tag: AnnotatedTag): ObjectId {
-  const content = JSON.stringify({
-    object: tag.object,
-    objectType: tag.objectType,
-    tag: tag.tag,
-    tagger: tag.tagger,
-    message: tag.message,
-    encoding: tag.encoding,
-  });
-
-  let hash = 2166136261;
-  for (let i = 0; i < content.length; i++) {
-    hash ^= content.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  const hex = (hash >>> 0).toString(16).padStart(8, "0");
-  return `tag${hex}${"0".repeat(29)}`;
-}
 
 /**
  * Database row type for tag queries

@@ -467,6 +467,9 @@ export class AddCommand extends GitCommand<AddResult> {
     // Apply changes
     await editor.finish();
 
+    // Persist staging changes (required for FileStagingStore)
+    await this.store.staging.write();
+
     return {
       added,
       skipped,

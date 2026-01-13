@@ -5,7 +5,8 @@
  */
 
 import type { ObjectId, TreeEntry, TreeStore } from "@statewalker/vcs-core";
-import { FileMode } from "@statewalker/vcs-core";
+import { computeTreeHash, FileMode } from "@statewalker/vcs-core";
+
 import type { KVStore } from "./kv-store.js";
 
 /**
@@ -34,22 +35,6 @@ function compareTreeEntries(a: TreeEntry, b: TreeEntry): number {
   const aName = a.mode === FileMode.TREE ? `${a.name}/` : a.name;
   const bName = b.mode === FileMode.TREE ? `${b.name}/` : b.name;
   return aName < bName ? -1 : aName > bName ? 1 : 0;
-}
-
-/**
- * Simple hash function for generating deterministic object IDs.
- */
-function computeTreeHash(entries: TreeEntry[]): ObjectId {
-  const content = entries.map((e) => `${e.mode.toString(8)} ${e.name}\0${e.id}`).join("");
-
-  let hash = 2166136261;
-  for (let i = 0; i < content.length; i++) {
-    hash ^= content.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  const hex = (hash >>> 0).toString(16).padStart(8, "0");
-  return `tree${hex}${"0".repeat(28)}`;
 }
 
 /**

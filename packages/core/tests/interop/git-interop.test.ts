@@ -310,10 +310,13 @@ describe("Git Interoperability", () => {
 
         const vcsHead1 = await repo.getHead();
         expect(vcsHead1).toBe(gitCommit1);
+        if (!vcsHead1) {
+          throw new Error("vcsHead1 should be defined");
+        }
 
         // Step 3: VCS adds a new commit
         const encoder = new TextEncoder();
-        const existingCommit = await repo.commits.loadCommit(vcsHead1!);
+        const existingCommit = await repo.commits.loadCommit(vcsHead1);
 
         // Load existing tree and add new file
         const existingEntries: Array<{ mode: number; name: string; id: string }> = [];
@@ -330,7 +333,7 @@ describe("Git Interoperability", () => {
         const now = Math.floor(Date.now() / 1000);
         const vcsCommit = await repo.commits.storeCommit({
           tree: newTree,
-          parents: [vcsHead1!],
+          parents: [vcsHead1],
           author: { name: "VCS", email: "vcs@test.com", timestamp: now, tzOffset: "+0000" },
           committer: { name: "VCS", email: "vcs@test.com", timestamp: now, tzOffset: "+0000" },
           message: "Add file via VCS",

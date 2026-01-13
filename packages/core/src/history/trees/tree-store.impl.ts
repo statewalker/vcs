@@ -30,8 +30,16 @@ export class GitTreeStore implements TreeStore {
 
   /**
    * Load tree entries as stream
+   *
+   * Handles the well-known empty tree ID specially since it doesn't need
+   * to be stored - it's a virtual constant representing an empty directory.
    */
   async *loadTree(id: ObjectId): AsyncIterable<TreeEntry> {
+    // Handle empty tree specially - no need to look it up in storage
+    if (id === EMPTY_TREE_ID) {
+      return;
+    }
+
     const [header, content] = await this.objects.loadWithHeader(id);
     try {
       if (header.type !== "tree") {
@@ -58,8 +66,13 @@ export class GitTreeStore implements TreeStore {
 
   /**
    * Check if tree exists
+   *
+   * The empty tree is always considered to exist.
    */
   hasTree(id: ObjectId): Promise<boolean> {
+    if (id === EMPTY_TREE_ID) {
+      return Promise.resolve(true);
+    }
     return this.objects.has(id);
   }
 
