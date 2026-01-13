@@ -255,7 +255,7 @@ export async function refreshFiles(ctx: Map<string, unknown>): Promise<void> {
     // Get staged files from staging store
     const stagedFiles = new Map<string, string>();
     if ("staging" in store && store.staging) {
-      for await (const entry of store.staging.entries()) {
+      for await (const entry of store.staging.listEntries()) {
         stagedFiles.set(entry.path, entry.objectId);
       }
     }
@@ -265,12 +265,8 @@ export async function refreshFiles(ctx: Map<string, unknown>): Promise<void> {
     if (backend.type === "browser-fs" && backend.rootHandle) {
       await listFilesRecursive(backend.rootHandle, "", workingFiles);
     } else {
-      // For memory storage, list from files API
-      for await (const entry of backend.files.list("")) {
-        if (entry.type === "file") {
-          workingFiles.push(entry.name);
-        }
-      }
+      // For memory storage, list from files API recursively
+      await listFilesFromApi(backend.files, "", workingFiles);
     }
 
     // Build file entries with status
@@ -530,6 +526,24 @@ async function listFilesRecursive(
     } else if (entry.kind === "directory" && entry.name !== ".git") {
       const subHandle = await handle.getDirectoryHandle(entry.name);
       await listFilesRecursive(subHandle, path, files);
+    }
+  }
+}
+
+async function listFilesFromApi(
+  files: {
+    list: (
+      path: string,
+    ) => AsyncIterable<{ name: string; path: string; kind: "file" | "directory" }>;
+  },
+  prefix: string,
+  result: string[],
+): Promise<void> {
+  for await (const entry of files.list(prefix)) {
+    if (entry.kind === "file") {
+      result.push(entry.path);
+    } else if (entry.kind === "directory" && entry.name !== ".git") {
+      await listFilesFromApi(files, entry.path, result);
     }
   }
 }
