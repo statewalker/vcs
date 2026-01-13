@@ -1,0 +1,33 @@
+{
+  "name": "@statewalker/vcs-transport-webrtc",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "WebRTC transport for peer-to-peer Git synchronization",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run --passWithNoTests",
+    "lint": "biome lint src tests"
+  },
+  "dependencies": {
+    "@statewalker/vcs-transport": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "rolldown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -66,7 +66,7 @@ importers:
         version: 24.10.4
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(@vitest/browser@4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)
+        version: 4.0.16(@vitest/browser@4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)
       pnpm:
         specifier: 'catalog:'
         version: 10.27.0
@@ -692,6 +692,28 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../core
+      '@statewalker/vcs-utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.4
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.58
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(terser@5.44.1)(tsx@4.21.0)
+
+  packages/transport-webrtc:
+    dependencies:
+      '@statewalker/vcs-transport':
+        specifier: workspace:*
+        version: link:../transport
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../utils
@@ -4985,20 +5007,6 @@ snapshots:
 
   '@types/trusted-types@2.0.7': {}
 
-  '@vitest/browser-playwright@4.0.16(playwright@1.57.0)(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)':
-    dependencies:
-      '@vitest/browser': 4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
-      '@vitest/mocker': 4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))
-      playwright: 1.57.0
-      tinyrainbow: 3.0.3
-      vitest: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(terser@5.44.1)(tsx@4.21.0)
-    transitivePeerDependencies:
-      - bufferutil
-      - msw
-      - utf-8-validate
-      - vite
-    optional: true
-
   '@vitest/browser-playwright@4.0.16(playwright@1.57.0)(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)':
     dependencies:
       '@vitest/browser': 4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
@@ -5011,24 +5019,6 @@ snapshots:
       - msw
       - utf-8-validate
       - vite
-
-  '@vitest/browser@4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)':
-    dependencies:
-      '@vitest/mocker': 4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))
-      '@vitest/utils': 4.0.16
-      magic-string: 0.30.21
-      pixelmatch: 7.1.0
-      pngjs: 7.0.0
-      sirv: 3.0.2
-      tinyrainbow: 3.0.3
-      vitest: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(terser@5.44.1)(tsx@4.21.0)
-      ws: 8.19.0
-    transitivePeerDependencies:
-      - bufferutil
-      - msw
-      - utf-8-validate
-      - vite
-    optional: true
 
   '@vitest/browser@4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)':
     dependencies:
@@ -5047,7 +5037,7 @@ snapshots:
       - utf-8-validate
       - vite
 
-  '@vitest/coverage-v8@4.0.16(@vitest/browser@4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)':
+  '@vitest/coverage-v8@4.0.16(@vitest/browser@4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/utils': 4.0.16
@@ -5062,7 +5052,7 @@ snapshots:
       tinyrainbow: 3.0.3
       vitest: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(terser@5.44.1)(tsx@4.21.0)
     optionalDependencies:
-      '@vitest/browser': 4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
+      '@vitest/browser': 4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
     transitivePeerDependencies:
       - supports-color
 
@@ -6635,7 +6625,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.10.4
-      '@vitest/browser-playwright': 4.0.16(playwright@1.57.0)(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
+      '@vitest/browser-playwright': 4.0.16(playwright@1.57.0)(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
     transitivePeerDependencies:
       - jiti
       - less
