@@ -66,7 +66,7 @@ importers:
         version: 24.10.4
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(@vitest/browser@4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)
+        version: 4.0.16(@vitest/browser@4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)
       pnpm:
         specifier: 'catalog:'
         version: 10.27.0
@@ -241,194 +241,6 @@ importers:
         specifier: ^6.0.0
         version: 6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0)
 
-  apps/example-git-cycle:
-    dependencies:
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/example-git-lifecycle:
-    dependencies:
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/example-git-perf:
-    dependencies:
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/example-git-push:
-    dependencies:
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@statewalker/vcs-transport':
-        specifier: workspace:*
-        version: link:../../packages/transport
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/example-pack-gc:
-    dependencies:
-      '@statewalker/vcs-commands':
-        specifier: workspace:*
-        version: link:../../packages/commands
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@statewalker/vcs-store-mem':
-        specifier: workspace:*
-        version: link:../../packages/store-mem
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/example-readme-scripts:
-    dependencies:
-      '@statewalker/vcs-commands':
-        specifier: workspace:*
-        version: link:../../packages/commands
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@statewalker/vcs-store-mem':
-        specifier: workspace:*
-        version: link:../../packages/store-mem
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/example-vcs-http-roundtrip:
-    dependencies:
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@statewalker/vcs-transport':
-        specifier: workspace:*
-        version: link:../../packages/transport
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/examples-git:
-    dependencies:
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../packages/utils-node
-    devDependencies:
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
   apps/examples/01-quick-start:
     dependencies:
       '@statewalker/vcs-core':
@@ -563,22 +375,6 @@ importers:
       '@statewalker/vcs-store-mem':
         specifier: workspace:*
         version: link:../../../packages/store-mem
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  apps/perf-bench:
-    dependencies:
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -809,8 +605,8 @@ importers:
         specifier: 'catalog:'
         version: 1.0.0-beta.58
       sql.js:
-        specifier: ^1.12.0
-        version: 1.13.0
+        specifier: 1.11.0
+        version: 1.11.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -3369,6 +3165,9 @@ packages:
   sprintf-js@1.0.3:
     resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==}
 
+  sql.js@1.11.0:
+    resolution: {integrity: sha512-GsLUDU3vhOo14Pd5ME0y2te49JQyby6HuoCuadevEV+CGgTUjmYRrm7B7lhRyzOgrmcWmspUfyjNb6sOAEqdsA==}
+
   sql.js@1.13.0:
     resolution: {integrity: sha512-RJbVP1HRDlUUXahJ7VMTcu9Rm1Nzw+EBpoPr94vnbD4LwR715F3CcxE2G2k45PewcaZ57pjetYa+LoSJLAASgA==}
 
@@ -5135,6 +4934,20 @@ snapshots:
 
   '@types/trusted-types@2.0.7': {}
 
+  '@vitest/browser-playwright@4.0.16(playwright@1.57.0)(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)':
+    dependencies:
+      '@vitest/browser': 4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
+      '@vitest/mocker': 4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))
+      playwright: 1.57.0
+      tinyrainbow: 3.0.3
+      vitest: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(terser@5.44.1)(tsx@4.21.0)
+    transitivePeerDependencies:
+      - bufferutil
+      - msw
+      - utf-8-validate
+      - vite
+    optional: true
+
   '@vitest/browser-playwright@4.0.16(playwright@1.57.0)(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)':
     dependencies:
       '@vitest/browser': 4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
@@ -5147,6 +4960,24 @@ snapshots:
       - msw
       - utf-8-validate
       - vite
+
+  '@vitest/browser@4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)':
+    dependencies:
+      '@vitest/mocker': 4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))
+      '@vitest/utils': 4.0.16
+      magic-string: 0.30.21
+      pixelmatch: 7.1.0
+      pngjs: 7.0.0
+      sirv: 3.0.2
+      tinyrainbow: 3.0.3
+      vitest: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(terser@5.44.1)(tsx@4.21.0)
+      ws: 8.19.0
+    transitivePeerDependencies:
+      - bufferutil
+      - msw
+      - utf-8-validate
+      - vite
+    optional: true
 
   '@vitest/browser@4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)':
     dependencies:
@@ -5165,7 +4996,7 @@ snapshots:
       - utf-8-validate
       - vite
 
-  '@vitest/coverage-v8@4.0.16(@vitest/browser@4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)':
+  '@vitest/coverage-v8@4.0.16(@vitest/browser@4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/utils': 4.0.16
@@ -5180,7 +5011,7 @@ snapshots:
       tinyrainbow: 3.0.3
       vitest: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(terser@5.44.1)(tsx@4.21.0)
     optionalDependencies:
-      '@vitest/browser': 4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
+      '@vitest/browser': 4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
     transitivePeerDependencies:
       - supports-color
 
@@ -6446,6 +6277,8 @@ snapshots:
 
   sprintf-js@1.0.3: {}
 
+  sql.js@1.11.0: {}
+
   sql.js@1.13.0: {}
 
   stackback@0.0.2: {}
@@ -6751,7 +6584,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.10.4
-      '@vitest/browser-playwright': 4.0.16(playwright@1.57.0)(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
+      '@vitest/browser-playwright': 4.0.16(playwright@1.57.0)(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
     transitivePeerDependencies:
       - jiti
       - less
