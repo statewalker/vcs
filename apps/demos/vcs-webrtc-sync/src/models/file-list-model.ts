@@ -30,8 +30,24 @@ export class FileListModel extends BaseClass {
   }
 
   setFiles(files: FileEntry[]): void {
-    this.#files = [...files].sort((a, b) => a.path.localeCompare(b.path));
-    this.notify();
+    const sorted = [...files].sort((a, b) => a.path.localeCompare(b.path));
+    if (!this.#filesEqual(sorted)) {
+      this.#files = sorted;
+      this.notify();
+    }
+  }
+
+  #filesEqual(newFiles: FileEntry[]): boolean {
+    if (this.#files.length !== newFiles.length) return false;
+    for (let i = 0; i < this.#files.length; i++) {
+      if (
+        this.#files[i].path !== newFiles[i].path ||
+        this.#files[i].status !== newFiles[i].status
+      ) {
+        return false;
+      }
+    }
+    return true;
   }
 
   setLoading(loading: boolean): void {

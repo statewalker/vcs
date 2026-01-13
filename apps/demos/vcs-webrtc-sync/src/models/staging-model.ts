@@ -47,8 +47,24 @@ export class StagingModel extends BaseClass {
   }
 
   setStagedFiles(files: StagedFile[]): void {
-    this.#stagedFiles = [...files].sort((a, b) => a.path.localeCompare(b.path));
-    this.notify();
+    const sorted = [...files].sort((a, b) => a.path.localeCompare(b.path));
+    if (!this.#filesEqual(sorted)) {
+      this.#stagedFiles = sorted;
+      this.notify();
+    }
+  }
+
+  #filesEqual(newFiles: StagedFile[]): boolean {
+    if (this.#stagedFiles.length !== newFiles.length) return false;
+    for (let i = 0; i < this.#stagedFiles.length; i++) {
+      if (
+        this.#stagedFiles[i].path !== newFiles[i].path ||
+        this.#stagedFiles[i].objectId !== newFiles[i].objectId
+      ) {
+        return false;
+      }
+    }
+    return true;
   }
 
   clear(): void {
