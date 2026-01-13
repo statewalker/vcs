@@ -6,13 +6,16 @@
  */
 
 import {
+  createBlobStoreTests,
   createCommitStoreTests,
+  createGitObjectStoreTests,
   createRefStoreTests,
   createStagingStoreTests,
   createTagStoreTests,
   createTreeStoreTests,
 } from "@statewalker/vcs-testing";
 import {
+  createMemoryObjectStores,
   MemoryCommitStore,
   MemoryRefStore,
   MemoryStagingStore,
@@ -45,3 +48,15 @@ createStagingStoreTests("Memory", async () => ({
   stagingStore: new MemoryStagingStore(),
   treeStore: new MemoryTreeStore(),
 }));
+
+// BlobStore tests
+createBlobStoreTests("Memory", async () => {
+  const stores = createMemoryObjectStores();
+  return { blobStore: stores.blobs };
+});
+
+// GitObjectStore tests
+createGitObjectStoreTests("Memory", async () => {
+  const stores = createMemoryObjectStores();
+  return { objectStore: stores.objects };
+});
