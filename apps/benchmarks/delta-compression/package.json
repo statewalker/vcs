@@ -1,0 +1,19 @@
+{
+  "name": "@statewalker/vcs-benchmark-delta-compression",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Delta compression algorithm benchmarks - measuring encoding/decoding performance",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "dependencies": {
+    "@statewalker/vcs-utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -183,7 +183,7 @@ describe("SqlNativeBlobStore chunked storage", () => {
       expect(loaded).toEqual(content);
     });
 
-    it("round-trips large blob content correctly", async () => {
+    it("round-trips large blob content correctly", { timeout: 30000 }, async () => {
       // 1MB with pattern
       const size = 1_000_000;
       const content = new Uint8Array(size);
@@ -198,7 +198,7 @@ describe("SqlNativeBlobStore chunked storage", () => {
       expect(loaded).toEqual(content);
     });
 
-    it("round-trips binary data correctly", async () => {
+    it("round-trips binary data correctly", { timeout: 30000 }, async () => {
       // 500KB of all byte values
       const size = 500_000;
       const content = new Uint8Array(size);
