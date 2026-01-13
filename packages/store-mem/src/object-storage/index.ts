@@ -14,9 +14,9 @@ import {
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
+  MemoryRawStore,
   MemoryVolatileStore,
 } from "@statewalker/vcs-core";
-import { MemRawStore } from "../binary-storage/index.js";
 
 /**
  * Collection of memory-backed object stores
@@ -40,9 +40,9 @@ export interface MemoryObjectStores {
 export interface CreateMemoryObjectStoresOptions {
   /**
    * Optional RawStore to use for persistence
-   * If not provided, a new MemRawStore is created
+   * If not provided, a new MemoryRawStore is created
    */
-  rawStore?: MemRawStore;
+  rawStore?: MemoryRawStore;
 }
 
 /**
@@ -74,7 +74,7 @@ export interface CreateMemoryObjectStoresOptions {
 export function createMemoryObjectStores(
   options: CreateMemoryObjectStoresOptions = {},
 ): MemoryObjectStores {
-  const rawStore = options.rawStore ?? new MemRawStore();
+  const rawStore = options.rawStore ?? new MemoryRawStore();
   const volatileStore = new MemoryVolatileStore();
 
   const objects = new GitObjectStoreImpl(volatileStore, rawStore);

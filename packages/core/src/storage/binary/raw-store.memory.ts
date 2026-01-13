@@ -61,4 +61,14 @@ export class MemoryRawStore implements RawStore {
   getData(): Map<string, Uint8Array[]> {
     return this.data;
   }
+
+  /** Clear all stored data */
+  clear(): void {
+    this.data.clear();
+  }
+
+  /** Get number of stored items */
+  get count(): number {
+    return this.data.size;
+  }
 }

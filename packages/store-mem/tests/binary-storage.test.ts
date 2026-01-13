@@ -1,7 +1,7 @@
 /**
  * Tests for binary-storage implementations (new architecture)
  *
- * Tests MemRawStore, MemDeltaStore, and MemBinStore.
+ * Tests MemoryRawStore, MemDeltaStore, and MemBinStore.
  */
 
 import type { Delta } from "@statewalker/vcs-utils";
@@ -10,7 +10,7 @@ import {
   createMemBinStore,
   MemBinStore,
   MemDeltaStore,
-  MemRawStore,
+  MemoryRawStore,
 } from "../src/binary-storage/index.js";
 
 const encoder = new TextEncoder();
@@ -43,10 +43,10 @@ async function toArray<T>(input: AsyncIterable<T>): Promise<T[]> {
   return result;
 }
 
-describe("MemRawStore", () => {
+describe("MemoryRawStore", () => {
   describe("store", () => {
     it("stores content and returns byte count", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       const bytesStored = await store.store("key1", chunks("Hello World"));
 
       expect(bytesStored).toBe(11);
@@ -54,7 +54,7 @@ describe("MemRawStore", () => {
     });
 
     it("stores multiple items", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       await store.store("a", chunks("Content A"));
       await store.store("b", chunks("Content B"));
       await store.store("c", chunks("Content C"));
@@ -63,7 +63,7 @@ describe("MemRawStore", () => {
     });
 
     it("overwrites existing content", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       await store.store("key", chunks("Original"));
       const newSize = await store.store("key", chunks("Updated"));
 
@@ -73,7 +73,7 @@ describe("MemRawStore", () => {
     });
 
     it("handles empty content", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       const size = await store.store("empty", chunks());
 
       expect(size).toBe(0);
@@ -82,7 +82,7 @@ describe("MemRawStore", () => {
     });
 
     it("concatenates multiple chunks", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       const size = await store.store("multi", chunks("Hello", " ", "World"));
 
       expect(size).toBe(11);
@@ -93,7 +93,7 @@ describe("MemRawStore", () => {
 
   describe("load", () => {
     it("loads stored content", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       await store.store("key", chunks("Hello", " ", "World"));
 
       const loaded = await collect(store.load("key"));
@@ -101,7 +101,7 @@ describe("MemRawStore", () => {
     });
 
     it("throws for non-existing key", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
 
       await expect(async () => {
         await collect(store.load("missing"));
@@ -109,7 +109,7 @@ describe("MemRawStore", () => {
     });
 
     it("loads binary content correctly", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       const binary = new Uint8Array([0, 1, 2, 255, 254, 253]);
 
       async function* binaryStream(): AsyncIterable<Uint8Array> {
@@ -125,14 +125,14 @@ describe("MemRawStore", () => {
 
   describe("has", () => {
     it("returns true for existing key", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       await store.store("exists", chunks("content"));
 
       expect(await store.has("exists")).toBe(true);
     });
 
     it("returns false for non-existing key", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
 
       expect(await store.has("missing")).toBe(false);
     });
@@ -140,7 +140,7 @@ describe("MemRawStore", () => {
 
   describe("delete", () => {
     it("deletes existing key", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       await store.store("key", chunks("content"));
 
       const deleted = await store.delete("key");
@@ -150,7 +150,7 @@ describe("MemRawStore", () => {
     });
 
     it("returns false for non-existing key", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
 
       const deleted = await store.delete("missing");
 
@@ -160,7 +160,7 @@ describe("MemRawStore", () => {
 
   describe("keys", () => {
     it("lists all keys", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       await store.store("a", chunks("A"));
       await store.store("b", chunks("B"));
       await store.store("c", chunks("C"));
@@ -174,7 +174,7 @@ describe("MemRawStore", () => {
     });
 
     it("returns empty for empty store", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
 
       const keys = await toArray(store.keys());
 
@@ -184,7 +184,7 @@ describe("MemRawStore", () => {
 
   describe("size", () => {
     it("returns content size for existing key", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       await store.store("key", chunks("Hello World"));
 
       const size = await store.size("key");
@@ -193,7 +193,7 @@ describe("MemRawStore", () => {
     });
 
     it("returns -1 for non-existing key", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
 
       const size = await store.size("missing");
 
@@ -203,7 +203,7 @@ describe("MemRawStore", () => {
 
   describe("clear", () => {
     it("removes all items", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       await store.store("a", chunks("A"));
       await store.store("b", chunks("B"));
 
@@ -217,7 +217,7 @@ describe("MemRawStore", () => {
 
   describe("count", () => {
     it("returns number of items", async () => {
-      const store = new MemRawStore();
+      const store = new MemoryRawStore();
       expect(store.count).toBe(0);
 
       await store.store("a", chunks("A"));

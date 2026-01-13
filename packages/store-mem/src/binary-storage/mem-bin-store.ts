@@ -6,8 +6,9 @@
  */
 
 import type { BinStore, DeltaStore, RawStore } from "@statewalker/vcs-core";
+import { MemoryRawStore } from "@statewalker/vcs-core";
+
 import { MemDeltaStore } from "./mem-delta-store.js";
-import { MemRawStore } from "./mem-raw-store.js";
 
 /**
  * In-memory composite binary storage
@@ -19,11 +20,11 @@ export class MemBinStore implements BinStore {
   readonly raw: RawStore;
   readonly delta: DeltaStore;
 
-  private readonly _rawStore: MemRawStore;
+  private readonly _rawStore: MemoryRawStore;
   private readonly _deltaStore: MemDeltaStore;
 
   constructor() {
-    this._rawStore = new MemRawStore();
+    this._rawStore = new MemoryRawStore();
     this._deltaStore = new MemDeltaStore();
     this.raw = this._rawStore;
     this.delta = this._deltaStore;
