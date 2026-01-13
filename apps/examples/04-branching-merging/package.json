@@ -6,7 +6,6 @@
   "description": "Deep dive into branch operations and merge strategies",
   "scripts": {
     "start": "tsx src/main.ts",
-    "test": "echo \"No tests specified\" && exit 0",
     "step:01": "tsx src/steps/01-branch-creation.ts",
     "step:02": "tsx src/steps/02-head-management.ts",
     "step:03": "tsx src/steps/03-fast-forward.ts",

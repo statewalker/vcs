@@ -5,8 +5,7 @@
   "type": "module",
   "description": "Transport Basics: Clone, fetch, and push operations",
   "scripts": {
-    "start": "tsx src/main.ts",
-    "test": "echo \"No tests specified\" && exit 0"
+    "start": "tsx src/main.ts"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",

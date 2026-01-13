@@ -6,7 +6,6 @@
   "description": "Working with repository history - log, diff, blame, ancestry",
   "scripts": {
     "start": "tsx src/main.ts",
-    "test": "echo \"No tests specified\" && exit 0",
     "step:01": "tsx src/steps/01-log-traversal.ts",
     "step:02": "tsx src/steps/02-commit-ancestry.ts",
     "step:03": "tsx src/steps/03-diff-commits.ts",

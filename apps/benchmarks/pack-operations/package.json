@@ -5,8 +5,7 @@
   "type": "module",
   "description": "Pack file read/write performance benchmarks",
   "scripts": {
-    "start": "tsx src/main.ts",
-    "test": "echo \"No tests specified\" && exit 0"
+    "start": "tsx src/main.ts"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",
