@@ -2,24 +2,24 @@
  * Step 02: Create Initial Project with Files in Multiple Folders
  *
  * Creates a realistic project structure with multiple directories
- * and files to demonstrate tree handling.
+ * and files using the FilesAPI and git.add() porcelain command.
  */
 
 import {
-  addFileToStaging,
   log,
   logInfo,
   logSection,
   logSuccess,
   shortId,
   state,
+  writeFileToWorktree,
 } from "../shared/index.js";
 
 export async function run(): Promise<void> {
   logSection("Step 02: Create Initial Project with Files");
 
-  const { store, git } = state;
-  if (!store || !git) {
+  const { git, files } = state;
+  if (!git || !files) {
     throw new Error("Repository not initialized. Run step 01 first.");
   }
 
@@ -143,28 +143,31 @@ Multiplies two numbers.
 `,
   );
 
-  // Add all files to staging
+  // Write all files to working tree using FilesAPI
   for (const [filePath, content] of projectFiles) {
-    await addFileToStaging(store, filePath, content);
-    log(`  Added: ${filePath}`);
+    await writeFileToWorktree(files, filePath, content);
+    log(`  Created: ${filePath}`);
   }
+
+  // Stage all files using git.add()
+  log("\nStaging files with git.add()...");
+  await git.add().addFilepattern(".").call();
 
   // Create initial commit
   const commit = await git
     .commit()
     .setMessage("Initial commit\n\nCreate project structure with multiple directories")
     .call();
-  const commitId = await store.commits.storeCommit(commit);
 
   // Store in state
   state.commits.push({
-    id: commitId,
+    id: commit.id,
     message: "Initial commit",
     files: projectFiles,
     branch: "main",
   });
   state.initialFiles = projectFiles;
 
-  logSuccess(`Created initial commit: ${shortId(commitId)}`);
+  logSuccess(`Created initial commit: ${shortId(commit.id)}`);
   logInfo("Files created", projectFiles.size);
 }

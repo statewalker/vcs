@@ -1,7 +1,7 @@
 /**
  * Step 05: Merge Operations
  *
- * Demonstrates different merge scenarios:
+ * Demonstrates different merge scenarios using git.merge():
  * - Fast-forward merge
  * - Three-way merge
  * - Merge strategies
@@ -13,19 +13,14 @@ import { log, logInfo, logSection, logSuccess, shortId, state } from "../shared/
 export async function run(): Promise<void> {
   logSection("Step 05: Merge Operations");
 
-  const { store, git } = state;
-  if (!store || !git) {
+  const { git } = state;
+  if (!git) {
     throw new Error("Repository not initialized. Run step 01 first.");
   }
 
-  // Ensure we're on main branch
+  // Ensure we're on main branch using git.checkout()
   log("\nEnsuring we're on 'main' branch...");
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
-  const mainRef = await store.refs.resolve("refs/heads/main");
-  if (mainRef?.objectId) {
-    const commit = await store.commits.loadCommit(mainRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
-  }
+  await git.checkout().setName("main").call();
   logSuccess("On 'main' branch");
 
   // Fast-forward merge of bugfix branch
@@ -56,7 +51,7 @@ export async function run(): Promise<void> {
   console.log(`    - ${MergeStrategy.OURS} (keep our changes)`);
   console.log(`    - ${MergeStrategy.THEIRS} (keep their changes)`);
 
-  // Show commit history after merges
+  // Show commit history after merges using git.log()
   log("\nCommit history after merges:");
   let count = 0;
   for await (const commit of await git.log().call()) {

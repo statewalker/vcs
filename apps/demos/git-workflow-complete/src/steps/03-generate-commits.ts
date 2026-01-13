@@ -2,17 +2,17 @@
  * Step 03: Generate Commits with Incremental Changes
  *
  * Creates a series of commits that modify files incrementally,
- * demonstrating commit history building.
+ * using git.add() and git.commit() porcelain commands.
  */
 
 import {
-  addFileToStaging,
   log,
   logInfo,
   logSection,
   logSuccess,
   shortId,
   state,
+  writeFileToWorktree,
 } from "../shared/index.js";
 
 const TOTAL_COMMITS = 10;
@@ -20,8 +20,8 @@ const TOTAL_COMMITS = 10;
 export async function run(): Promise<void> {
   logSection("Step 03: Generate Commits with Changes");
 
-  const { store, git } = state;
-  if (!store || !git) {
+  const { git, files } = state;
+  if (!git || !files) {
     throw new Error("Repository not initialized. Run step 01 first.");
   }
 
@@ -46,7 +46,7 @@ export async function run(): Promise<void> {
         const newFileName = `src/feature${i}.ts`;
         const content = generateFeatureFile(i);
         updatedFiles.set(newFileName, content);
-        await addFileToStaging(store, newFileName, content);
+        await writeFileToWorktree(files, newFileName, content);
         message = `Add feature ${i}`;
         break;
       }
@@ -60,7 +60,7 @@ export function power${i}(base: number): number {
 `;
         const newContent = mathContent + newFunction;
         updatedFiles.set("src/utils/math.ts", newContent);
-        await addFileToStaging(store, "src/utils/math.ts", newContent);
+        await writeFileToWorktree(files, "src/utils/math.ts", newContent);
         message = `Add power${i} function to math utils`;
         break;
       }
@@ -74,7 +74,7 @@ Added new features in this version.
 `;
         const newContent = readme + newSection;
         updatedFiles.set("README.md", newContent);
-        await addFileToStaging(store, "README.md", newContent);
+        await writeFileToWorktree(files, "README.md", newContent);
         message = `Update README for version ${i}`;
         break;
       }
@@ -83,7 +83,7 @@ Added new features in this version.
         const testFileName = `tests/feature${i}.test.ts`;
         const testContent = generateTestFile(i);
         updatedFiles.set(testFileName, testContent);
-        await addFileToStaging(store, testFileName, testContent);
+        await writeFileToWorktree(files, testFileName, testContent);
         message = `Add tests for feature ${i}`;
         break;
       }
@@ -91,18 +91,20 @@ Added new features in this version.
         message = `Commit ${i}`;
     }
 
+    // Stage changes using git.add()
+    await git.add().addFilepattern(".").call();
+
     // Create the commit
     const commit = await git.commit().setMessage(message).call();
-    const commitId = await store.commits.storeCommit(commit);
 
     state.commits.push({
-      id: commitId,
+      id: commit.id,
       message,
       files: updatedFiles,
       branch: "main",
     });
 
-    log(`  Commit ${i}: ${shortId(commitId)} - ${message}`);
+    log(`  Commit ${i}: ${shortId(commit.id)} - ${message}`);
 
     currentFiles = updatedFiles;
   }
