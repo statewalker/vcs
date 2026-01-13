@@ -6,7 +6,9 @@
  */
 
 import {
+  createBlobStoreTests,
   createCommitStoreTests,
+  createGitObjectStoreTests,
   createRefStoreTests,
   createStagingStoreTests,
   createTagStoreTests,
@@ -18,6 +20,7 @@ import { KVRefStore } from "../src/kv-ref-store.js";
 import { KVStagingStore } from "../src/kv-staging-store.js";
 import { KVTagStore } from "../src/kv-tag-store.js";
 import { KVTreeStore } from "../src/kv-tree-store.js";
+import { createKvObjectStores } from "../src/object-storage/index.js";
 
 // TreeStore tests
 createTreeStoreTests("KV", async () => {
@@ -73,4 +76,18 @@ createStagingStoreTests("KV", async () => {
       await kv.close();
     },
   };
+});
+
+// BlobStore tests
+createBlobStoreTests("KV", async () => {
+  const kv = new MemoryKVAdapter();
+  const stores = createKvObjectStores({ kv });
+  return { blobStore: stores.blobs };
+});
+
+// GitObjectStore tests
+createGitObjectStoreTests("KV", async () => {
+  const kv = new MemoryKVAdapter();
+  const stores = createKvObjectStores({ kv });
+  return { objectStore: stores.objects };
 });

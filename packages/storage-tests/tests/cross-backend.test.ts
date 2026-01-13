@@ -8,14 +8,19 @@
  * approach for the new architecture.
  */
 
+import { MemoryRawStore, MemoryVolatileStore } from "@statewalker/vcs-core";
 import { createKvObjectStores, MemoryKVAdapter } from "@statewalker/vcs-store-kv";
 import { createMemoryObjectStores } from "@statewalker/vcs-store-mem";
 import { createSqlObjectStores } from "@statewalker/vcs-store-sql";
 import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 import {
+  createBlobStoreTests,
   createCrossBackendTests,
   createGitCompatibilityTests,
+  createGitObjectStoreTests,
+  createRawStoreTests,
   createStreamingStoresTests,
+  createVolatileStoreTests,
   type StreamingStoresFactory,
 } from "@statewalker/vcs-testing";
 import { describe, expect, it } from "vitest";
@@ -64,6 +69,58 @@ createGitCompatibilityTests("SQL", sqlFactory);
 
 // Run cross-backend roundtrip tests
 createCrossBackendTests(backends);
+
+// Run BlobStore tests for each backend
+createBlobStoreTests("Memory", async () => {
+  const stores = createMemoryObjectStores();
+  return { blobStore: stores.blobs };
+});
+createBlobStoreTests("KV", async () => {
+  const kv = new MemoryKVAdapter();
+  const stores = createKvObjectStores({ kv });
+  return { blobStore: stores.blobs };
+});
+createBlobStoreTests("SQL", async () => {
+  const db = await SqlJsAdapter.create();
+  const stores = createSqlObjectStores({ db });
+  return {
+    blobStore: stores.blobs,
+    cleanup: async () => {
+      await db.close();
+    },
+  };
+});
+
+// Run GitObjectStore tests for each backend
+createGitObjectStoreTests("Memory", async () => {
+  const stores = createMemoryObjectStores();
+  return { objectStore: stores.objects };
+});
+createGitObjectStoreTests("KV", async () => {
+  const kv = new MemoryKVAdapter();
+  const stores = createKvObjectStores({ kv });
+  return { objectStore: stores.objects };
+});
+createGitObjectStoreTests("SQL", async () => {
+  const db = await SqlJsAdapter.create();
+  const stores = createSqlObjectStores({ db });
+  return {
+    objectStore: stores.objects,
+    cleanup: async () => {
+      await db.close();
+    },
+  };
+});
+
+// Run RawStore tests for memory backend
+createRawStoreTests("Memory", async () => {
+  return { rawStore: new MemoryRawStore() };
+});
+
+// Run VolatileStore tests for memory backend
+createVolatileStoreTests("Memory", async () => {
+  return { volatileStore: new MemoryVolatileStore() };
+});
 
 /**
  * Additional SHA-1 consistency tests

@@ -6,7 +6,9 @@
  */
 
 import {
+  createBlobStoreTests,
   createCommitStoreTests,
+  createGitObjectStoreTests,
   createRefStoreTests,
   createStagingStoreTests,
   createTagStoreTests,
@@ -15,6 +17,7 @@ import {
 import { SqlJsAdapter } from "../src/adapters/sql-js-adapter.js";
 import { SQLCommitStore } from "../src/commit-store.js";
 import { initializeSchema } from "../src/migrations/index.js";
+import { createSqlObjectStores } from "../src/object-storage/index.js";
 import { SQLRefStore } from "../src/ref-store.js";
 import { SQLStagingStore } from "../src/staging-store.js";
 import { SQLTagStore } from "../src/tag-store.js";
@@ -79,6 +82,30 @@ createStagingStoreTests("SQL", async () => {
   return {
     stagingStore: new SQLStagingStore(db),
     treeStore: new SQLTreeStore(db),
+    cleanup: async () => {
+      await db.close();
+    },
+  };
+});
+
+// BlobStore tests
+createBlobStoreTests("SQL", async () => {
+  const db = await createTestDb();
+  const stores = createSqlObjectStores({ db });
+  return {
+    blobStore: stores.blobs,
+    cleanup: async () => {
+      await db.close();
+    },
+  };
+});
+
+// GitObjectStore tests
+createGitObjectStoreTests("SQL", async () => {
+  const db = await createTestDb();
+  const stores = createSqlObjectStores({ db });
+  return {
+    objectStore: stores.objects,
     cleanup: async () => {
       await db.close();
     },
