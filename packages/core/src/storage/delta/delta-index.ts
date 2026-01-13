@@ -258,35 +258,58 @@ export function computeDeltaInstructions(
   let targetPos = 0;
   let insertStart = 0;
 
-  // Initial hash of first block
-  let hash = hashBlock(target, 0);
+  // Track hash position for rolling - JGit rolling hash diverges after multiple steps,
+  // so we recompute with hashBlock when position changes by more than 1
+  let hashPos = -1;
+  let hash = 0;
 
   while (targetPos <= target.length - BLKSZ) {
+    // Update hash - recompute if position jumped (after match) or first iteration
+    // Use rolling update only for single-step advances to match JGit behavior
+    if (hashPos === targetPos - 1 && hashPos >= 0) {
+      // Single-step advance - use rolling hash (accurate for 1 step)
+      hash = step(hash, target[hashPos], target[targetPos + BLKSZ - 1]);
+    } else {
+      // Position jumped or first iteration - recompute hash
+      hash = hashBlock(target, targetPos);
+    }
+    hashPos = targetPos;
+
     let bestMatchSrcOffset = -1;
     let bestMatchLen = BLKSZ - 1; // Must beat minimum block size
+    let bestBackwardLen = 0;
 
     // Look for matches
     for (const srcOffset of index.findMatches(hash)) {
       // Extend match forward
       const forwardLen = index.matchLength(srcOffset, target, targetPos, target.length - targetPos);
 
-      // Extend match backward
-      const backwardLen = index.matchLengthBackward(srcOffset, target, targetPos);
+      // Extend match backward, but not past insertStart to avoid overlap
+      const maxBackward = Math.min(srcOffset, targetPos - insertStart);
+      let backwardLen = 0;
+      while (
+        backwardLen < maxBackward &&
+        index.getSource()[srcOffset - backwardLen - 1] === target[targetPos - backwardLen - 1]
+      ) {
+        backwardLen++;
+      }
 
       const totalLen = forwardLen + backwardLen;
 
       if (totalLen > bestMatchLen) {
         bestMatchLen = totalLen;
         bestMatchSrcOffset = srcOffset - backwardLen;
+        bestBackwardLen = backwardLen;
       }
     }
 
     if (bestMatchSrcOffset >= 0 && bestMatchLen >= BLKSZ) {
-      // Found a good match - flush pending inserts
-      if (insertStart < targetPos) {
+      // Found a good match - flush pending inserts up to where the match starts
+      const matchStartInTarget = targetPos - bestBackwardLen;
+      if (insertStart < matchStartInTarget) {
         instructions.push({
           type: "insert",
-          data: target.slice(insertStart, targetPos),
+          data: target.slice(insertStart, matchStartInTarget),
         });
       }
 
@@ -297,19 +320,12 @@ export function computeDeltaInstructions(
         length: bestMatchLen,
       });
 
-      targetPos += bestMatchLen;
+      // Advance past the entire match (including backward extension)
+      targetPos = matchStartInTarget + bestMatchLen;
       insertStart = targetPos;
-
-      // Reset hash for next block if there's enough data
-      if (targetPos <= target.length - BLKSZ) {
-        hash = hashBlock(target, targetPos);
-      }
     } else {
       // No match, advance by one byte
       targetPos++;
-      if (targetPos <= target.length - BLKSZ) {
-        hash = step(hash, target[targetPos - BLKSZ - 1], target[targetPos + BLKSZ - 1]);
-      }
     }
   }
 

@@ -153,6 +153,7 @@ export function jgitHashBlock(data: Uint8Array, offset: number): number {
  * Rolling hash step - update hash when sliding window by one byte
  *
  * O(1) update instead of recomputing the full 16-byte hash.
+ * Formula from JGit: ((oldHash << 8) | in) ^ T[(oldHash >>> 23)] ^ U[out]
  *
  * @param hash Current hash value
  * @param toRemove Byte falling off the window (at position -16)
@@ -160,10 +161,10 @@ export function jgitHashBlock(data: Uint8Array, offset: number): number {
  * @returns Updated hash value
  */
 export function jgitHashStep(hash: number, toRemove: number, toAdd: number): number {
-  // Remove contribution of outgoing byte
-  hash ^= U[toRemove & 0xff];
-  // Shift left, add new byte, apply mixing
-  return (((hash << 8) | (toAdd & 0xff)) ^ T[hash >>> 23]) >>> 0;
+  // JGit formula: ((oldHash << 8) | in) ^ T[(oldHash >>> 23)] ^ U[out]
+  return (
+    (((hash << 8) | (toAdd & 0xff)) ^ T[hash >>> 23] ^ U[toRemove & 0xff]) >>> 0
+  );
 }
 
 /**
