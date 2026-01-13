@@ -5,13 +5,21 @@
  * data channels with manual QR code-style signaling.
  */
 
-import { MemoryGitStore } from "@statewalker/vcs-store-mem";
+import { MemoryRefStore } from "@statewalker/vcs-core";
+import { createMemoryObjectStores, type MemoryObjectStores } from "@statewalker/vcs-store-mem";
 import {
   createWebRtcStream,
   PeerManager,
   QrSignaling,
   type SignalingMessage,
 } from "@statewalker/vcs-transport-webrtc";
+
+/**
+ * Simple in-memory Git store combining object stores and refs.
+ */
+interface GitStore extends MemoryObjectStores {
+  refs: MemoryRefStore;
+}
 
 // UI Elements
 const statusA = document.getElementById("status-a")!;
@@ -35,8 +43,8 @@ const syncABtn = document.getElementById("sync-a") as HTMLButtonElement;
 const syncBBtn = document.getElementById("sync-b") as HTMLButtonElement;
 
 // State
-let storeA: MemoryGitStore | null = null;
-let storeB: MemoryGitStore | null = null;
+let storeA: GitStore | null = null;
+let storeB: GitStore | null = null;
 let peerA: PeerManager | null = null;
 let peerB: PeerManager | null = null;
 let signalingA: QrSignaling | null = null;
@@ -69,9 +77,18 @@ function setStatus(
   element.textContent = status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+// Helper to create a GitStore
+function createGitStore(): GitStore {
+  const stores = createMemoryObjectStores();
+  return {
+    ...stores,
+    refs: new MemoryRefStore(),
+  };
+}
+
 // Repository functions
 async function initRepo(
-  store: MemoryGitStore,
+  store: GitStore,
   _label: string,
   logFn: (msg: string) => void,
 ): Promise<void> {
@@ -83,24 +100,25 @@ async function initRepo(
   const blobId = await store.blobs.store([content]);
 
   // Create tree
-  const treeId = await store.trees.store([{ name: "README.md", mode: 0o100644, id: blobId }]);
+  const treeId = await store.trees.storeTree([{ name: "README.md", mode: 0o100644, id: blobId }]);
 
   // Create commit
-  const commitId = await store.commits.store({
-    treeId,
+  const now = Math.floor(Date.now() / 1000);
+  const commitId = await store.commits.storeCommit({
+    tree: treeId,
     parents: [],
     message: "Initial commit",
     author: {
       name: "Demo User",
       email: "demo@example.com",
-      timestamp: Date.now(),
-      timezoneOffset: 0,
+      timestamp: now,
+      tzOffset: "+0000",
     },
     committer: {
       name: "Demo User",
       email: "demo@example.com",
-      timestamp: Date.now(),
-      timezoneOffset: 0,
+      timestamp: now,
+      tzOffset: "+0000",
     },
   });
 
@@ -112,7 +130,7 @@ async function initRepo(
 }
 
 async function addFile(
-  store: MemoryGitStore,
+  store: GitStore,
   name: string,
   content: string,
   logFn: (msg: string) => void,
@@ -129,7 +147,7 @@ async function addFile(
   // Load current tree
   const commit = await store.commits.loadCommit(head);
   const currentEntries: Array<{ name: string; mode: number; id: string }> = [];
-  for await (const entry of store.trees.loadTree(commit.treeId)) {
+  for await (const entry of store.trees.loadTree(commit.tree)) {
     currentEntries.push({ name: entry.name, mode: entry.mode, id: entry.id });
   }
 
@@ -138,24 +156,25 @@ async function addFile(
   currentEntries.push({ name, mode: 0o100644, id: blobId });
 
   // Create new tree
-  const treeId = await store.trees.store(currentEntries);
+  const treeId = await store.trees.storeTree(currentEntries);
 
   // Create commit
-  const commitId = await store.commits.store({
-    treeId,
+  const now = Math.floor(Date.now() / 1000);
+  const commitId = await store.commits.storeCommit({
+    tree: treeId,
     parents: [head],
     message: `Add ${name}`,
     author: {
       name: "Demo User",
       email: "demo@example.com",
-      timestamp: Date.now(),
-      timezoneOffset: 0,
+      timestamp: now,
+      tzOffset: "+0000",
     },
     committer: {
       name: "Demo User",
       email: "demo@example.com",
-      timestamp: Date.now(),
-      timezoneOffset: 0,
+      timestamp: now,
+      tzOffset: "+0000",
     },
   });
 
@@ -165,21 +184,21 @@ async function addFile(
   logFn(`Added ${name} in commit ${commitId.slice(0, 8)}`);
 }
 
-async function listFiles(store: MemoryGitStore): Promise<string[]> {
+async function listFiles(store: GitStore): Promise<string[]> {
   const head = await store.refs.get("refs/heads/main");
   if (!head) return [];
 
   const commit = await store.commits.loadCommit(head);
   const files: string[] = [];
 
-  for await (const entry of store.trees.loadTree(commit.treeId)) {
+  for await (const entry of store.trees.loadTree(commit.tree)) {
     files.push(entry.name);
   }
 
   return files;
 }
 
-async function updateFileList(store: MemoryGitStore | null, element: HTMLElement): Promise<void> {
+async function updateFileList(store: GitStore | null, element: HTMLElement): Promise<void> {
   if (!store) {
     element.innerHTML = "No repository";
     return;
@@ -196,7 +215,7 @@ async function updateFileList(store: MemoryGitStore | null, element: HTMLElement
 
 // Peer A: Initialize
 initABtn.onclick = async () => {
-  storeA = new MemoryGitStore();
+  storeA = createGitStore();
   await initRepo(storeA, "A", logPeerA);
   await updateFileList(storeA, filesA);
   initABtn.disabled = true;
@@ -217,7 +236,7 @@ addFileABtn.disabled = true;
 
 // Peer B: Initialize
 initBBtn.onclick = async () => {
-  storeB = new MemoryGitStore();
+  storeB = createGitStore();
   await initRepo(storeB, "B", logPeerB);
   await updateFileList(storeB, filesB);
   initBBtn.disabled = true;
