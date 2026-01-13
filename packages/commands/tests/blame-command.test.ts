@@ -345,8 +345,8 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
    * JGit parity tests for rename tracking.
    * Ported from BlameCommandTest.java
    *
-   * Tests verify that setFollowRenames(true) correctly tracks file history
-   * across renames using content similarity detection.
+   * TODO: These tests require implementing actual rename tracking in BlameCommand.
+   * Currently setFollowRenames(true) is a no-op.
    */
   describe("rename tracking (JGit parity)", () => {
     /**
@@ -643,8 +643,13 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
    * Ported from BlameCommandTest.java
    *
    * Tests that blame correctly tracks authorship after merges,
-   * especially when conflicts were resolved. The implementation uses
-   * multi-parent blame tracking similar to JGit's BlameGenerator approach.
+   * especially when conflicts were resolved.
+   *
+   * TODO: The current blame algorithm walks commit history linearly and
+   * doesn't implement proper multi-parent blame tracking. JGit's BlameGenerator
+   * uses a more sophisticated approach that follows all parent commits and
+   * tracks line origins across merge boundaries. These tests document the
+   * expected behavior for when multi-parent blame is implemented.
    */
   describe("merge conflict tracking (JGit parity)", () => {
     /**
