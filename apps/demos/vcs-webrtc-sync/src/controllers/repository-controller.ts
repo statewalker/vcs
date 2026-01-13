@@ -71,16 +71,8 @@ export async function initOrOpenRepository(ctx: Map<string, unknown>): Promise<b
   }
 
   try {
-    // Check if repository already exists (for browser FS)
-    let repoExists = false;
-    if (backend.type === "browser-fs" && backend.rootHandle) {
-      try {
-        await backend.rootHandle.getDirectoryHandle(".git");
-        repoExists = true;
-      } catch {
-        repoExists = false;
-      }
-    }
+    // Check if repository already exists using FilesApi
+    const repoExists = await backend.files.exists(".git");
 
     // Configure staging store
     let customStaging: FileStagingStore | undefined;
@@ -277,14 +269,9 @@ export async function refreshFiles(ctx: Map<string, unknown>): Promise<void> {
       }
     }
 
-    // List working directory files
+    // List working directory files using FilesApi
     const workingFiles: string[] = [];
-    if (backend.type === "browser-fs" && backend.rootHandle) {
-      await listFilesRecursive(backend.rootHandle, "", workingFiles);
-    } else {
-      // For memory storage, list from files API recursively
-      await listFilesFromApi(backend.files, "", workingFiles);
-    }
+    await listFilesFromApi(backend.files, "", workingFiles);
 
     // Build file entries with status
     const fileEntries: FileEntry[] = [];
@@ -538,20 +525,11 @@ async function collectTreeFiles(
   }
 }
 
-async function listFilesRecursive(
-  handle: FileSystemDirectoryHandle,
-  prefix: string,
-  files: string[],
-): Promise<void> {
-  for await (const entry of handle.values()) {
-    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.kind === "file") {
-      files.push(path);
-    } else if (entry.kind === "directory" && entry.name !== ".git") {
-      const subHandle = await handle.getDirectoryHandle(entry.name);
-      await listFilesRecursive(subHandle, path, files);
-    }
-  }
+/**
+ * Normalize file path to Git format (no leading slash).
+ */
+function normalizePath(path: string): string {
+  return path.startsWith("/") ? path.slice(1) : path;
 }
 
 async function listFilesFromApi(
@@ -564,10 +542,11 @@ async function listFilesFromApi(
   result: string[],
 ): Promise<void> {
   for await (const entry of files.list(prefix)) {
+    const normalizedPath = normalizePath(entry.path);
     if (entry.kind === "file") {
-      result.push(entry.path);
+      result.push(normalizedPath);
     } else if (entry.kind === "directory" && entry.name !== ".git") {
-      await listFilesFromApi(files, entry.path, result);
+      await listFilesFromApi(files, normalizedPath, result);
     }
   }
 }

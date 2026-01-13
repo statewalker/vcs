@@ -23,7 +23,6 @@ export interface StorageBackend {
   type: StorageType;
   files: FilesApi;
   folderName: string;
-  rootHandle?: FileSystemDirectoryHandle;
 }
 
 // Adapter for storing current storage backend
@@ -33,15 +32,10 @@ export const [getStorageBackend, setStorageBackend] = newAdapter<StorageBackend 
 );
 
 /**
- * Check if .git directory exists in a browser filesystem directory.
+ * Check if .git directory exists using FilesApi.
  */
-async function hasGitDirectory(rootHandle: FileSystemDirectoryHandle): Promise<boolean> {
-  try {
-    const handle = await rootHandle.getDirectoryHandle(".git");
-    return handle.kind === "directory";
-  } catch {
-    return false;
-  }
+async function hasGitDirectory(files: FilesApi): Promise<boolean> {
+  return files.exists(".git");
 }
 
 /**
@@ -90,13 +84,12 @@ export async function openFolder(ctx: Map<string, unknown>): Promise<StorageBack
       type: "browser-fs",
       files,
       folderName: rootHandle.name,
-      rootHandle,
     };
 
     setStorageBackend(ctx, backend);
 
-    // Check if repository exists
-    const hasRepo = await hasGitDirectory(rootHandle);
+    // Check if repository exists using FilesApi
+    const hasRepo = await hasGitDirectory(files);
     if (hasRepo) {
       logModel.info(`Opened folder: ${rootHandle.name} (repository found)`);
       // Don't set ready yet - RepositoryController will do that after opening
@@ -158,11 +151,6 @@ export async function hasRepository(ctx: Map<string, unknown>): Promise<boolean>
   const backend = getStorageBackend(ctx);
   if (!backend) return false;
 
-  if (backend.type === "browser-fs" && backend.rootHandle) {
-    return hasGitDirectory(backend.rootHandle);
-  }
-
-  // For memory storage, we need to check differently
-  // This will be handled by RepositoryController
-  return false;
+  // Use FilesApi to check for .git directory (works for both browser-fs and memory)
+  return hasGitDirectory(backend.files);
 }
