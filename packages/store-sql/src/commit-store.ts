@@ -6,6 +6,8 @@
  */
 
 import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@statewalker/vcs-core";
+import { computeCommitHash } from "@statewalker/vcs-core";
+
 import type { DatabaseClient } from "./database-client.js";
 
 /**
@@ -14,29 +16,6 @@ import type { DatabaseClient } from "./database-client.js";
 interface CommitEntry {
   id: ObjectId;
   timestamp: number;
-}
-
-/**
- * Simple hash function for generating deterministic object IDs.
- */
-function computeCommitHash(commit: Commit): ObjectId {
-  const content = JSON.stringify({
-    tree: commit.tree,
-    parents: commit.parents,
-    author: commit.author,
-    committer: commit.committer,
-    message: commit.message,
-    encoding: commit.encoding,
-  });
-
-  let hash = 2166136261;
-  for (let i = 0; i < content.length; i++) {
-    hash ^= content.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  const hex = (hash >>> 0).toString(16).padStart(8, "0");
-  return `commit${hex}${"0".repeat(26)}`;
 }
 
 /**
