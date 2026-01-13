@@ -77,8 +77,10 @@ The type system and algorithms align with Eclipse JGit, a mature Java implementa
 
 **@statewalker/vcs-utils** provides pure algorithmic implementations with zero VCS-specific dependencies:
 - Cryptographic hashing (SHA-1, CRC32, rolling checksums)
+- JGit-compatible rolling hash (16-byte blocks with T[]/U[] lookup tables)
 - Compression (zlib via pako, optional Node.js native)
 - Diff algorithms (Myers text diff, binary delta encoding)
+- Git delta format encoding/decoding
 - Streaming utilities
 
 **@statewalker/vcs-core** defines the VCS contracts and object model:
@@ -192,6 +194,72 @@ This provides:
 - **Integrity verification**: Corrupted objects have wrong IDs
 - **Efficient sync**: Only transfer objects not already present
 - **Immutability**: Changing content changes the ID
+
+## Unified Storage Architecture
+
+The storage layer is organized into three main APIs accessed through the `StorageBackend` interface:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     StorageBackend                           │
+│  Unified entry point for all storage operations              │
+├─────────────────────────────────────────────────────────────┤
+│  StructuredStores   │   DeltaApi      │   SerializationApi   │
+│  (semantic objects) │   (compression) │   (format handling)  │
+├─────────────────────┼─────────────────┼─────────────────────┤
+│  BlobStore          │   BlobDeltaApi  │   Pack encoding      │
+│  TreeStore          │   Batch ops     │   Object serializing │
+│  CommitStore        │   Chain queries │   Format conversion  │
+│  TagStore           │                 │                      │
+│  RefStore           │                 │                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### StructuredStores - Semantic Object Access
+
+Bundles all five Git object stores under a single interface:
+
+```typescript
+interface StructuredStores {
+  readonly blobs: BlobStore;     // File content (streaming)
+  readonly trees: TreeStore;     // Directory snapshots
+  readonly commits: CommitStore; // Version history
+  readonly tags: TagStore;       // Annotated tags
+  readonly refs: RefStore;       // Branch/tag references
+}
+```
+
+### DeltaApi - Compression Operations
+
+Provides delta compression with a blobs-only strategy:
+
+```typescript
+interface DeltaApi {
+  readonly blobs: BlobDeltaApi;  // Blob-specific delta operations
+
+  isDelta(id: ObjectId): Promise<boolean>;
+  getDeltaChain(id: ObjectId): Promise<DeltaChainInfo | undefined>;
+  listDeltas(): AsyncIterable<DeltaRelationship>;
+  getDependents(baseId: ObjectId): AsyncIterable<ObjectId>;
+
+  // Batch operations for efficient packing
+  startBatch(): void;
+  endBatch(): Promise<void>;
+  cancelBatch(): void;
+}
+```
+
+### Blobs-Only Delta Strategy
+
+Delta compression is applied only to blob objects, not trees or commits:
+
+**Rationale:**
+- **90%+ of storage is blobs**: File content dominates repository size
+- **Trees/commits are small**: Typically < 1KB, delta overhead exceeds savings
+- **Simpler GC**: No tree delta chains to manage during garbage collection
+- **Faster access**: Commits/trees don't require delta reconstruction
+
+This matches Git's internal behavior where pack files primarily deltify blobs.
 
 ## Delta Compression
 
