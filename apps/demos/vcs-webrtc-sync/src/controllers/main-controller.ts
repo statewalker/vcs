@@ -94,17 +94,6 @@ export function createMainController(ctx: AppContext): () => void {
   return cleanup;
 }
 
-/**
- * Initialize the application.
- * Creates context, controllers, and returns cleanup function.
- */
-export function initializeApp(): { ctx: AppContext; cleanup: () => void } {
-  const ctx = createAppContext();
-  const cleanup = createMainController(ctx);
-
-  return { ctx, cleanup };
-}
-
 export {
   commit,
   createSampleFiles,

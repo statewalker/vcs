@@ -348,7 +348,9 @@ export async function unstageFile(ctx: Map<string, unknown>, path: string): Prom
   }
 
   try {
-    await store.staging.remove(path);
+    const editor = store.staging.editor();
+    editor.remove(path);
+    await editor.finish();
     logModel.info(`Unstaged: ${path}`);
     await refreshFiles(ctx);
   } catch (error) {
