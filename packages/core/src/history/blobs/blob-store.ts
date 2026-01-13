@@ -60,4 +60,18 @@ export interface BlobStore {
    * @throws Error if blob not found
    */
   size(id: ObjectId): Promise<number>;
+
+  /**
+   * Delete a blob from storage
+   *
+   * Removes a blob permanently. Used by garbage collection to remove
+   * unreachable objects.
+   *
+   * Note: Callers must ensure the blob is not referenced by any tree
+   * or used as a delta base before deletion.
+   *
+   * @param id ObjectId of the blob to delete
+   * @returns True if the blob was deleted, false if it didn't exist
+   */
+  delete(id: ObjectId): Promise<boolean>;
 }

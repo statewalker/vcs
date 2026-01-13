@@ -395,13 +395,14 @@ export class GCController {
         // which is not yet part of the BlobStore interface
       }
 
-      // For now, just count - actual deletion would need additional API
+      // Delete unreachable blob
       try {
         const size = await blobs.size(id);
-        // NOTE: BlobStore doesn't have a delete method yet
-        // This is tracked as a separate task
-        blobsRemoved++;
-        bytesFreed += size;
+        const deleted = await blobs.delete(id);
+        if (deleted) {
+          blobsRemoved++;
+          bytesFreed += size;
+        }
       } catch {
         // Skip inaccessible blobs
       }

@@ -39,15 +39,11 @@
  */
 
 import type { StructuredStores } from "../history/structured-stores.js";
+import type { SerializationApi } from "../serialization/serialization-api.js";
 import type { DeltaApi } from "../storage/delta/delta-api.js";
 
-/**
- * Serialization API placeholder
- *
- * Full implementation will be added in a later task.
- * For now, defines the interface shape.
- */
-export type SerializationApi = {};
+// Re-export SerializationApi for convenience
+export type { SerializationApi } from "../serialization/serialization-api.js";
 
 /**
  * Backend capability flags
