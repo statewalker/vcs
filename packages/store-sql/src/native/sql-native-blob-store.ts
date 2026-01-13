@@ -191,4 +191,15 @@ export class SqlNativeBlobStoreImpl implements SqlNativeBlobStore {
 
     return rows[0].size;
   }
+
+  /**
+   * Delete a blob from storage
+   */
+  async delete(id: ObjectId): Promise<boolean> {
+    await this.ensureTable();
+
+    const result = await this.db.execute(`DELETE FROM ${BLOB_TABLE} WHERE blob_id = ?`, [id]);
+
+    return result.changes > 0;
+  }
 }

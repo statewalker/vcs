@@ -12,13 +12,15 @@ import type { RefStore } from "../history/refs/ref-store.js";
 import type { StructuredStores } from "../history/structured-stores.js";
 import type { TagStore } from "../history/tags/tag-store.js";
 import type { TreeStore } from "../history/trees/tree-store.js";
+import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
+import type { SerializationApi } from "../serialization/serialization-api.js";
 import type {
   BlobDeltaApi,
   BlobDeltaChainInfo,
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
-import type { BackendCapabilities, SerializationApi, StorageBackend } from "./storage-backend.js";
+import type { BackendCapabilities, StorageBackend } from "./storage-backend.js";
 
 /**
  * Configuration for creating MemoryStorageBackend
@@ -181,7 +183,7 @@ class MemoryDeltaApi implements DeltaApi {
 export class MemoryStorageBackend implements StorageBackend {
   readonly structured: StructuredStores;
   readonly delta: DeltaApi;
-  readonly serialization: SerializationApi = {};
+  readonly serialization: SerializationApi;
   readonly capabilities: BackendCapabilities = {
     nativeBlobDeltas: false,
     randomAccess: true,
@@ -201,6 +203,10 @@ export class MemoryStorageBackend implements StorageBackend {
     };
 
     this.delta = new MemoryDeltaApi(config.blobs, config.deltaTracker);
+    this.serialization = new DefaultSerializationApi({
+      stores: this.structured,
+      blobDeltaApi: this.delta.blobs,
+    });
   }
 
   async initialize(): Promise<void> {

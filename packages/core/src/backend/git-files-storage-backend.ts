@@ -16,6 +16,8 @@ import type { RefStore } from "../history/refs/ref-store.js";
 import type { StructuredStores } from "../history/structured-stores.js";
 import type { TagStore } from "../history/tags/tag-store.js";
 import type { TreeStore } from "../history/trees/tree-store.js";
+import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
+import type { SerializationApi } from "../serialization/serialization-api.js";
 import type {
   BlobDeltaApi,
   BlobDeltaChainInfo,
@@ -23,7 +25,7 @@ import type {
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
 import type { PackDeltaStore } from "../storage/pack/pack-delta-store.js";
-import type { BackendCapabilities, SerializationApi, StorageBackend } from "./storage-backend.js";
+import type { BackendCapabilities, StorageBackend } from "./storage-backend.js";
 
 /**
  * Configuration for GitFilesStorageBackend
@@ -224,7 +226,7 @@ class GitFilesDeltaApi implements DeltaApi {
 export class GitFilesStorageBackend implements StorageBackend {
   readonly structured: StructuredStores;
   readonly delta: DeltaApi;
-  readonly serialization: SerializationApi = {};
+  readonly serialization: SerializationApi;
   readonly capabilities: BackendCapabilities = {
     nativeBlobDeltas: true,
     randomAccess: true,
@@ -246,6 +248,10 @@ export class GitFilesStorageBackend implements StorageBackend {
 
     this.packDeltaStore = config.packDeltaStore;
     this.delta = new GitFilesDeltaApi(config.packDeltaStore, config.blobs);
+    this.serialization = new DefaultSerializationApi({
+      stores: this.structured,
+      blobDeltaApi: this.delta.blobs,
+    });
   }
 
   async initialize(): Promise<void> {
