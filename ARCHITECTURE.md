@@ -119,7 +119,6 @@ Note: `@statewalker/vcs-core` includes Git filesystem storage, staging/index are
 - Clone, fetch, push
 - Commit, checkout
 - Branch management
-- Blame (line-by-line authorship tracking with rename following)
 
 ## Layered Store Architecture
 

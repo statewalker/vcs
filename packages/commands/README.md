@@ -97,7 +97,7 @@ The `Git` class provides factory methods for all commands:
 | **Branches** | `branchCreate()`, `branchDelete()`, `branchList()`, `branchRename()`, `checkout()` |
 | **Tags** | `tag()`, `tagDelete()`, `tagList()` |
 | **History** | `reset()`, `rebase()`, `merge()`, `cherryPick()`, `revert()` |
-| **Inspection** | `diff()`, `describe()`, `blame()` |
+| **Inspection** | `diff()`, `describe()` |
 | **Remote** | `fetch()`, `push()`, `pull()`, `clone()`, `lsRemote()` |
 | **Remotes** | `remoteAdd()`, `remoteRemove()`, `remoteList()`, `remoteSetUrl()` |
 | **Stash** | `stashCreate()`, `stashApply()`, `stashDrop()`, `stashList()` |
@@ -255,82 +255,6 @@ await git.revert()
   .include("def5678")
   .setNoCommit(true)
   .call();
-```
-
-### Blame Operations
-
-The blame command tracks line-by-line authorship through a file's history:
-
-```typescript
-// Basic blame - see who wrote each line
-const result = await git.blame()
-  .setFilePath("src/main.ts")
-  .call();
-
-console.log(`${result.lineCount} lines in ${result.path}`);
-
-// Iterate through blame entries
-for (const entry of result.entries) {
-  console.log(
-    `Lines ${entry.resultStart}-${entry.resultStart + entry.lineCount - 1}: ` +
-    `${entry.commit.author.name} (${entry.commitId.slice(0, 7)})`
-  );
-}
-
-// Query specific lines
-const line10 = result.getEntry(10);
-if (line10) {
-  console.log(`Line 10 author: ${line10.commit.author.name}`);
-}
-
-// Follow file renames through history
-const renamedResult = await git.blame()
-  .setFilePath("new-name.ts")
-  .setFollowRenames(true)
-  .call();
-
-// Check if lines came from a differently-named file
-for (const entry of renamedResult.entries) {
-  if (entry.sourcePath !== renamedResult.path) {
-    console.log(`Lines from renamed file: ${entry.sourcePath}`);
-  }
-}
-
-// Blame at a specific commit
-const historicalBlame = await git.blame()
-  .setFilePath("file.ts")
-  .setStartCommit("abc1234")
-  .call();
-```
-
-The blame result provides several query methods:
-
-```typescript
-const result = await git.blame().setFilePath("file.ts").call();
-
-// Get blame entry for a line (1-based)
-const entry = result.getEntry(5);
-
-// Get source commit for a line
-const commit = result.getSourceCommit(5);
-
-// Get author of a line
-const author = result.getSourceAuthor(5);
-
-// Get original line number (before insertions/deletions)
-const sourceLine = result.getSourceLine(5);
-
-// Get original file path (useful with rename tracking)
-const sourcePath = result.getSourcePath(5);
-
-// Get detailed tracking for all lines
-const tracking = result.getLineTracking();
-for (const line of tracking) {
-  console.log(
-    `Result line ${line.resultLine} came from ` +
-    `${line.sourcePath}:${line.sourceLine} in ${line.commitId.slice(0, 7)}`
-  );
-}
 ```
 
 ### Remote Operations
