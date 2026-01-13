@@ -7,34 +7,15 @@
 
 import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@statewalker/vcs-core";
 import { computeCommitHash } from "@statewalker/vcs-core";
+import { insertByTimestamp, type TimestampEntry } from "@statewalker/vcs-utils";
 
 import type { DatabaseClient } from "./database-client.js";
 
 /**
  * Priority queue entry for commit traversal
  */
-interface CommitEntry {
+interface CommitEntry extends TimestampEntry {
   id: ObjectId;
-  timestamp: number;
-}
-
-/**
- * Insert entry into queue maintaining timestamp order (newest first)
- */
-function insertByTimestamp(queue: CommitEntry[], entry: CommitEntry): void {
-  let low = 0;
-  let high = queue.length;
-
-  while (low < high) {
-    const mid = (low + high) >>> 1;
-    if (queue[mid].timestamp > entry.timestamp) {
-      low = mid + 1;
-    } else {
-      high = mid;
-    }
-  }
-
-  queue.splice(low, 0, entry);
 }
 
 /**
