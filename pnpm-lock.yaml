@@ -12,7 +12,16 @@ catalogs:
     '@observablehq/framework':
       specifier: ^1.13.3
       version: 1.13.3
+    '@statewalker/webrun-files':
+      specifier: ^0.7.0
+      version: 0.7.0
     '@statewalker/webrun-files-browser':
+      specifier: ^0.7.0
+      version: 0.7.0
+    '@statewalker/webrun-files-mem':
+      specifier: ^0.7.0
+      version: 0.7.0
+    '@statewalker/webrun-files-node':
       specifier: ^0.7.0
       version: 0.7.0
     '@types/node':
@@ -51,11 +60,6 @@ catalogs:
     vitest:
       specifier: ^4.0.12
       version: 4.0.16
-
-overrides:
-  '@statewalker/webrun-files': link:../webrun-files/packages/webrun-files
-  '@statewalker/webrun-files-mem': link:../webrun-files/packages/webrun-files-mem
-  '@statewalker/webrun-files-node': link:../webrun-files/packages/webrun-files-node
 
 importers:
 
@@ -155,14 +159,14 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/store-mem
       '@statewalker/webrun-files':
-        specifier: link:../../../../webrun-files/packages/webrun-files
-        version: link:../../../../webrun-files/packages/webrun-files
+        specifier: 'catalog:'
+        version: 0.7.0
       '@statewalker/webrun-files-browser':
         specifier: 'catalog:'
         version: 0.7.0
       '@statewalker/webrun-files-mem':
-        specifier: link:../../../../webrun-files/packages/webrun-files-mem
-        version: link:../../../../webrun-files/packages/webrun-files-mem
+        specifier: 'catalog:'
+        version: 0.7.0
     devDependencies:
       '@playwright/test':
         specifier: ^1.57.0
@@ -242,14 +246,14 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/store-mem
       '@statewalker/webrun-files':
-        specifier: link:../../../../webrun-files/packages/webrun-files
-        version: link:../../../../webrun-files/packages/webrun-files
+        specifier: 'catalog:'
+        version: 0.7.0
       '@statewalker/webrun-files-browser':
         specifier: 'catalog:'
         version: 0.7.0
       '@statewalker/webrun-files-mem':
-        specifier: link:../../../../webrun-files/packages/webrun-files-mem
-        version: link:../../../../webrun-files/packages/webrun-files-mem
+        specifier: 'catalog:'
+        version: 0.7.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -279,14 +283,14 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/transport-webrtc
       '@statewalker/webrun-files':
-        specifier: link:../../../../webrun-files/packages/webrun-files
-        version: link:../../../../webrun-files/packages/webrun-files
+        specifier: 'catalog:'
+        version: 0.7.0
       '@statewalker/webrun-files-browser':
         specifier: 'catalog:'
         version: 0.7.0
       '@statewalker/webrun-files-mem':
-        specifier: link:../../../../webrun-files/packages/webrun-files-mem
-        version: link:../../../../webrun-files/packages/webrun-files-mem
+        specifier: 'catalog:'
+        version: 0.7.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -310,14 +314,14 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/store-mem
       '@statewalker/webrun-files':
-        specifier: link:../../../../webrun-files/packages/webrun-files
-        version: link:../../../../webrun-files/packages/webrun-files
+        specifier: 'catalog:'
+        version: 0.7.0
       '@statewalker/webrun-files-browser':
         specifier: 'catalog:'
         version: 0.7.0
       '@statewalker/webrun-files-mem':
-        specifier: link:../../../../webrun-files/packages/webrun-files-mem
-        version: link:../../../../webrun-files/packages/webrun-files-mem
+        specifier: 'catalog:'
+        version: 0.7.0
       jszip:
         specifier: ^3.10.1
         version: 3.10.1
@@ -834,11 +838,11 @@ importers:
   packages/utils:
     dependencies:
       '@statewalker/webrun-files':
-        specifier: link:../../../webrun-files/packages/webrun-files
-        version: link:../../../webrun-files/packages/webrun-files
+        specifier: 'catalog:'
+        version: 0.7.0
       '@statewalker/webrun-files-mem':
-        specifier: link:../../../webrun-files/packages/webrun-files-mem
-        version: link:../../../webrun-files/packages/webrun-files-mem
+        specifier: 'catalog:'
+        version: 0.7.0
       pako:
         specifier: ^2.1.0
         version: 2.1.0
@@ -874,8 +878,8 @@ importers:
         specifier: workspace:*
         version: link:../utils
       '@statewalker/webrun-files-node':
-        specifier: link:../../../webrun-files/packages/webrun-files-node
-        version: link:../../../webrun-files/packages/webrun-files-node
+        specifier: 'catalog:'
+        version: 0.7.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -2376,6 +2380,15 @@ packages:
 
   '@statewalker/webrun-files-browser@0.7.0':
     resolution: {integrity: sha512-ZkdafDQ3JtTSWseyzdu2y9VZcOuGjZCVIsu3ldjTh8FYX0pn/rN9mfsBbxXD2t1+CTcmicD8u63xP1do8iSZNw==}
+
+  '@statewalker/webrun-files-mem@0.7.0':
+    resolution: {integrity: sha512-bEQG3rUgsjvv5CwjYZp9N0MzX/HuRGx3y/PILgXkQbe9Rt+T/JjCWRjgEYa4tZI0ZoKGQazy6EFCkYESJ2UBSQ==}
+
+  '@statewalker/webrun-files-node@0.7.0':
+    resolution: {integrity: sha512-nheoto/fEEdCFuETQTIDPI8lEG9c9o43Zj4tZsL6wzFPUIvNWnUs+IJ2cRjrxZf1ag9yS1UhJUlxzxwi94wUDA==}
+
+  '@statewalker/webrun-files@0.7.0':
+    resolution: {integrity: sha512-NHrlyRzcmzXQ3arf4OqDrVE+FJpLaiR/EwTJkcpPmcmfII9MKAcjV8DNmKDYcmHOYhcMmhdBtY8Yb41qR0TZAw==}
 
   '@surma/rollup-plugin-off-main-thread@2.2.3':
     resolution: {integrity: sha512-lR8q/9W7hZpMWweNiAKU7NQerBnzQQLvi8qnTDU/fxItPhtZVMbPV3lbCwjhIlNBe9Bbr5V+KHshvWmVSG9cxQ==}
@@ -6061,7 +6074,17 @@ snapshots:
 
   '@statewalker/webrun-files-browser@0.7.0':
     dependencies:
-      '@statewalker/webrun-files': link:../webrun-files/packages/webrun-files
+      '@statewalker/webrun-files': 0.7.0
+
+  '@statewalker/webrun-files-mem@0.7.0':
+    dependencies:
+      '@statewalker/webrun-files': 0.7.0
+
+  '@statewalker/webrun-files-node@0.7.0':
+    dependencies:
+      '@statewalker/webrun-files': 0.7.0
+
+  '@statewalker/webrun-files@0.7.0': {}
 
   '@surma/rollup-plugin-off-main-thread@2.2.3':
     dependencies:
