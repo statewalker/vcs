@@ -18,6 +18,7 @@ import {
   printBanner,
   printInfo,
   printSection,
+  readFile,
   toHex,
 } from "../shared/utils.js";
 
@@ -60,7 +61,7 @@ async function main() {
 
   // Read the original index
   printSection("Reading Original Index");
-  const origIdxData = await files.readFile(idxPath);
+  const origIdxData = await readFile(files, idxPath);
   const origIndex = readPackIndex(origIdxData);
 
   printInfo("File size", formatSize(origIdxData.length));

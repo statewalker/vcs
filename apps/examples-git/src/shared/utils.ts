@@ -5,12 +5,21 @@
 import * as fs from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { PackObjectType } from "@statewalker/vcs-core";
-import { setCompression } from "@statewalker/vcs-utils";
+import { type FilesApi, setCompression } from "@statewalker/vcs-utils";
+import { readFile as readFileUtil } from "@statewalker/vcs-utils/files";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 
 // Set up Node.js compression (required for pack file operations)
 setCompression(createNodeCompression());
+
+/**
+ * Read entire file content as Uint8Array.
+ * Wrapper around the utility function for convenience.
+ */
+export async function readFile(files: FilesApi, path: string): Promise<Uint8Array> {
+  return readFileUtil(files, path);
+}
 
 /**
  * Create a FilesApi instance for the given base path

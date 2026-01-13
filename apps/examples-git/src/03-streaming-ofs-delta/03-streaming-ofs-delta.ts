@@ -21,6 +21,7 @@ import {
   printBanner,
   printInfo,
   printSection,
+  readFile,
   toHex,
 } from "../shared/utils.js";
 
@@ -229,7 +230,7 @@ async function main() {
 
   // Read the index file
   printSection("Reading Source Pack");
-  const idxData = await files.readFile(idxPath);
+  const idxData = await readFile(files, idxPath);
   const index = readPackIndex(idxData);
 
   printInfo("Object count", index.objectCount);
@@ -352,7 +353,7 @@ async function main() {
 
   // Compare with original
   printSection("Size Comparison");
-  const origPackData = await files.readFile(packPath);
+  const origPackData = await readFile(files, packPath);
 
   printInfo("Original pack", formatSize(origPackData.length));
   printInfo("New pack", formatSize(result.packData.length));
