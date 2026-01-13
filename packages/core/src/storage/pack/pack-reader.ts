@@ -12,7 +12,6 @@ import { decompressBlockPartial } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { type FilesApi, readAt } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
-import type { RandomAccessReader } from "./random-access-delta.js";
 
 /**
  * Pack-specific delta chain information
@@ -381,74 +380,6 @@ export class PackReader {
 
     // Decompress delta data
     return this.decompress(offset + header.headerLength, header.size);
-  }
-
-  /**
-   * Get a random access reader for an object
-   *
-   * Enables partial reads from delta-reconstructed content without
-   * full reconstruction. For delta objects, only the portions needed
-   * for the requested range are read and reconstructed.
-   *
-   * @param id Object ID
-   * @returns RandomAccessReader, or undefined if not found
-   */
-  async getRandomAccess(id: ObjectId): Promise<RandomAccessReader | undefined> {
-    const offset = this.index.findOffset(id);
-    if (offset === -1) return undefined;
-    return this.createRandomAccessReader(offset);
-  }
-
-  /**
-   * Create a random access reader for an object at offset
-   *
-   * @param offset Object offset in pack file
-   * @returns RandomAccessReader for the object
-   */
-  async createRandomAccessReader(offset: number): Promise<RandomAccessReader> {
-    // Lazy import to avoid circular dependency
-    const { RandomAccessDeltaReader } = await import("./random-access-delta-reader.js");
-    return new RandomAccessDeltaReader(this, offset);
-  }
-
-  /**
-   * Decompress data at a specific offset in the pack file
-   *
-   * Public method for use by random access readers.
-   *
-   * @param offset Offset in pack file where compressed data starts
-   * @param expectedSize Expected uncompressed size
-   * @returns Decompressed data
-   */
-  async decompressAt(offset: number, expectedSize: number): Promise<Uint8Array> {
-    return this.decompress(offset, expectedSize);
-  }
-
-  /**
-   * Read bytes from pack file at a specific position
-   *
-   * Public method for use by random access readers.
-   *
-   * @param buffer Buffer to read into
-   * @param bufferOffset Offset in buffer to start writing
-   * @param length Number of bytes to read
-   * @param position Position in pack file to read from
-   * @returns Number of bytes read
-   */
-  async readBytesAt(
-    buffer: Uint8Array,
-    bufferOffset: number,
-    length: number,
-    position: number,
-  ): Promise<number> {
-    return this.read(buffer, bufferOffset, length, position);
-  }
-
-  /**
-   * Get the pack file length
-   */
-  get packLength(): number {
-    return this.length;
   }
 
   /**
