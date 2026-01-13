@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebRTC P2P Git Sync</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+      }
+
+      .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
+      .peer {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .peer h2 {
+        margin-top: 0;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #eee;
+      }
+
+      .peer-a h2 {
+        color: #2196f3;
+        border-color: #2196f3;
+      }
+
+      .peer-b h2 {
+        color: #4caf50;
+        border-color: #4caf50;
+      }
+
+      .section {
+        margin: 15px 0;
+      }
+
+      .section h3 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        color: #666;
+        text-transform: uppercase;
+      }
+
+      button {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+
+      button:hover {
+        background: #1976d2;
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      button.secondary {
+        background: #4caf50;
+      }
+
+      button.secondary:hover {
+        background: #388e3c;
+      }
+
+      textarea {
+        width: 100%;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        resize: vertical;
+      }
+
+      .status {
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 14px;
+        margin: 10px 0;
+      }
+
+      .status.connected {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+
+      .status.disconnected {
+        background: #ffebee;
+        color: #c62828;
+      }
+
+      .status.connecting {
+        background: #fff3e0;
+        color: #e65100;
+      }
+
+      .log {
+        background: #263238;
+        color: #eceff1;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 15px;
+        border-radius: 4px;
+        height: 200px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .file-list {
+        background: #fafafa;
+        padding: 10px;
+        border-radius: 4px;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+
+      .file-item {
+        padding: 5px 10px;
+        margin: 2px 0;
+        background: white;
+        border-radius: 2px;
+        font-family: monospace;
+        font-size: 13px;
+      }
+
+      input[type="text"] {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        margin-right: 10px;
+        width: 200px;
+      }
+
+      .signal-area {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 10px 0;
+      }
+
+      .instructions {
+        background: #e3f2fd;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        line-height: 1.6;
+      }
+
+      .instructions h3 {
+        margin-top: 0;
+        color: #1565c0;
+      }
+
+      .instructions ol {
+        margin: 0;
+        padding-left: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>WebRTC P2P Git Sync</h1>
+    <p class="subtitle">
+      Peer-to-peer repository synchronization without a server
+    </p>
+
+    <div class="instructions">
+      <h3>How It Works</h3>
+      <ol>
+        <li>
+          <strong>Peer A</strong> creates a repository and adds some files
+        </li>
+        <li>
+          <strong>Peer A</strong> clicks "Create Offer" to generate connection
+          data
+        </li>
+        <li>
+          Copy the offer signal and paste it into <strong>Peer B's</strong>
+          input
+        </li>
+        <li>
+          <strong>Peer B</strong> clicks "Accept Offer" to generate an answer
+        </li>
+        <li>
+          Copy the answer signal and paste it into <strong>Peer A's</strong>
+          input
+        </li>
+        <li>
+          <strong>Peer A</strong> clicks "Accept Answer" to complete the
+          connection
+        </li>
+        <li>Once connected, click "Sync" to transfer the repository!</li>
+      </ol>
+    </div>
+
+    <div class="container">
+      <div class="peer peer-a">
+        <h2>Peer A (Initiator)</h2>
+
+        <div class="section">
+          <h3>Status</h3>
+          <div id="status-a" class="status disconnected">Disconnected</div>
+        </div>
+
+        <div class="section">
+          <h3>Repository</h3>
+          <button id="init-a">Initialize Repo</button>
+          <button id="add-file-a">Add Sample File</button>
+          <div id="files-a" class="file-list">No repository</div>
+        </div>
+
+        <div class="section">
+          <h3>Connection</h3>
+          <button id="create-offer">Create Offer</button>
+          <button id="accept-answer" disabled>Accept Answer</button>
+          <button id="sync-a" disabled>Sync to Peer B</button>
+        </div>
+
+        <div class="section signal-area">
+          <h3>Your Signal (copy this)</h3>
+          <textarea
+            id="signal-out-a"
+            rows="4"
+            readonly
+            placeholder="Signal will appear here..."
+          ></textarea>
+        </div>
+
+        <div class="section signal-area">
+          <h3>Peer's Signal (paste here)</h3>
+          <textarea
+            id="signal-in-a"
+            rows="4"
+            placeholder="Paste answer from Peer B..."
+          ></textarea>
+        </div>
+
+        <div class="section">
+          <h3>Log</h3>
+          <div id="log-a" class="log"></div>
+        </div>
+      </div>
+
+      <div class="peer peer-b">
+        <h2>Peer B (Responder)</h2>
+
+        <div class="section">
+          <h3>Status</h3>
+          <div id="status-b" class="status disconnected">Disconnected</div>
+        </div>
+
+        <div class="section">
+          <h3>Repository</h3>
+          <button id="init-b">Initialize Repo</button>
+          <div id="files-b" class="file-list">No repository</div>
+        </div>
+
+        <div class="section">
+          <h3>Connection</h3>
+          <button id="accept-offer" disabled>Accept Offer</button>
+          <button id="sync-b" disabled>Sync from Peer A</button>
+        </div>
+
+        <div class="section signal-area">
+          <h3>Your Signal (copy this)</h3>
+          <textarea
+            id="signal-out-b"
+            rows="4"
+            readonly
+            placeholder="Signal will appear here..."
+          ></textarea>
+        </div>
+
+        <div class="section signal-area">
+          <h3>Peer's Signal (paste here)</h3>
+          <textarea
+            id="signal-in-b"
+            rows="4"
+            placeholder="Paste offer from Peer A..."
+          ></textarea>
+        </div>
+
+        <div class="section">
+          <h3>Log</h3>
+          <div id="log-b" class="log"></div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
