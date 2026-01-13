@@ -39,29 +39,28 @@ This content-addressable design means identical content always produces identica
 The package organizes storage in layers, from raw bytes to semantic objects:
 
 ```
-Repository (unified entry point)
+HistoryStore (unified entry point for shared history)
 ├── GitObjectStore (unified object storage with type headers)
 │   ├── BlobStore (file contents)
 │   ├── TreeStore (directory snapshots)
 │   ├── CommitStore (history with ancestry traversal)
 │   └── TagStore (annotated tags)
 ├── RefStore (branches, tags, HEAD)
-├── StagingStore (index/staging area)
 └── Config (repository settings)
 ```
 
 Lower layers handle raw storage and compression, while higher layers provide semantic operations like commit ancestry traversal or reference resolution.
 
-### Repository vs WorkingCopy
+### HistoryStore vs WorkingCopy
 
 The package separates shared history storage from local checkout state:
 
 | Concept | Purpose | Examples |
 |---------|---------|----------|
-| **Repository** | Immutable shared history | Commits, trees, blobs, tags, branches |
+| **HistoryStore** | Immutable shared history | Commits, trees, blobs, tags, branches |
 | **WorkingCopy** | Local checkout state | HEAD, staging area, merge state, stash |
 
-Multiple WorkingCopies can share a single Repository, similar to `git worktree`. This separation enables:
+Multiple WorkingCopies can share a single HistoryStore, similar to `git worktree`. This separation enables:
 
 - Clean architectural boundaries
 - Multiple parallel checkouts
@@ -74,7 +73,7 @@ WorkingCopy (local checkout state)
 ├── worktree (filesystem)
 ├── stash
 ├── config (per-worktree settings)
-└── Repository (shared history)
+└── HistoryStore (shared history)
         ├── objects (commits, trees, blobs, tags)
         ├── refs (branches, tags, remotes)
         └── config (shared settings)
@@ -86,10 +85,10 @@ WorkingCopy (local checkout state)
 
 ```typescript
 import {
-  // Repository interface
-  type Repository,
+  // HistoryStore interface (immutable shared history)
+  type HistoryStore,
   type GitStores,
-  type RepositoryConfig,
+  type HistoryStoreConfig,
 
   // Object stores
   type GitObjectStore,
@@ -138,7 +137,7 @@ import {
 
 | Interface | Purpose |
 |-----------|---------|
-| `Repository` | Shared history storage (objects + refs) |
+| `HistoryStore` | Shared history storage (objects + refs) |
 | `WorkingCopy` | Local checkout state (HEAD, staging, stash) |
 | `CheckoutStore` | Checkout state management (staging, stash, operation state) |
 | `GitObjectStore` | Store/load any Git object by type |
@@ -154,14 +153,14 @@ import {
 
 ## Usage Examples
 
-### Working with the Repository Interface
+### Working with the HistoryStore Interface
 
-The `Repository` interface provides unified access to all VCS operations:
+The `HistoryStore` interface provides unified access to all VCS operations:
 
 ```typescript
-import type { Repository, Commit } from "@statewalker/vcs-core";
+import type { HistoryStore, Commit } from "@statewalker/vcs-core";
 
-async function createCommit(repo: Repository, message: string): Promise<ObjectId> {
+async function createCommit(repo: HistoryStore, message: string): Promise<ObjectId> {
   // Get current HEAD
   const headRef = await repo.refs.resolve("HEAD");
   const parentId = headRef?.objectId;
