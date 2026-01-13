@@ -383,6 +383,11 @@ export async function commit(ctx: Map<string, unknown>, message: string): Promis
     const commitData = await git.commit().setMessage(message).call();
     const commitId = await store.commits.storeCommit(commitData);
 
+    // Clear the Git staging store after commit
+    if ("staging" in store && store.staging) {
+      await store.staging.clear();
+    }
+
     // Update HEAD
     repoModel.updateHead(commitId);
     commitFormModel.clear();
