@@ -4,17 +4,14 @@
  * Based on JGit's DeltaIndexTest patterns.
  */
 
-import { describe, expect, it } from "vitest";
 import {
-  jgitHashBlock,
-  jgitHashStep,
   JGIT_BLOCK_SIZE,
   JgitRollingHash,
+  jgitHashBlock,
+  jgitHashStep,
 } from "@statewalker/vcs-utils";
-import {
-  computeDeltaInstructions,
-  DeltaIndex,
-} from "../../src/storage/delta/delta-index.js";
+import { describe, expect, it } from "vitest";
+import { computeDeltaInstructions, DeltaIndex } from "../../src/storage/delta/delta-index.js";
 
 describe("JGit Rolling Hash", () => {
   describe("jgitHashBlock", () => {
@@ -316,7 +313,7 @@ describe("computeDeltaInstructions", () => {
 
     expect(instructions).not.toBeNull();
     // Should have only insert instructions (no matches found)
-    const inserts = instructions!.filter((i) => i.type === "insert");
+    const inserts = instructions?.filter((i) => i.type === "insert");
     expect(inserts.length).toBeGreaterThan(0);
   });
 
@@ -331,7 +328,7 @@ describe("computeDeltaInstructions", () => {
 
     expect(instructions).not.toBeNull();
     // Should have at least one copy instruction
-    const copies = instructions!.filter((i) => i.type === "copy");
+    const copies = instructions?.filter((i) => i.type === "copy");
     expect(copies.length).toBeGreaterThan(0);
   });
 
@@ -348,8 +345,8 @@ describe("computeDeltaInstructions", () => {
     const instructions = computeDeltaInstructions(src, target);
 
     expect(instructions).not.toBeNull();
-    expect(instructions!.length).toBe(1);
-    expect(instructions![0].type).toBe("insert");
+    expect(instructions?.length).toBe(1);
+    expect(instructions?.[0].type).toBe("insert");
   });
 
   it("produces valid instructions for content with shared prefix", () => {
@@ -369,7 +366,7 @@ describe("computeDeltaInstructions", () => {
     // Use larger blocks to ensure the algorithm can find matches
     const block = "x".repeat(64);
     const src = new TextEncoder().encode(block + block);
-    const target = new TextEncoder().encode(block + "INSERTED" + block);
+    const target = new TextEncoder().encode(`${block}INSERTED${block}`);
 
     const instructions = computeDeltaInstructions(src, target);
 
@@ -382,7 +379,7 @@ describe("computeDeltaInstructions", () => {
 
   it("handles content with deletions", () => {
     const block = "x".repeat(32);
-    const src = new TextEncoder().encode(block + "DELETED" + block);
+    const src = new TextEncoder().encode(`${block}DELETED${block}`);
     const target = new TextEncoder().encode(block + block);
 
     const instructions = computeDeltaInstructions(src, target);

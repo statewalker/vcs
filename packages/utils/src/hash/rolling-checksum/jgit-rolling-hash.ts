@@ -162,9 +162,7 @@ export function jgitHashBlock(data: Uint8Array, offset: number): number {
  */
 export function jgitHashStep(hash: number, toRemove: number, toAdd: number): number {
   // JGit formula: ((oldHash << 8) | in) ^ T[(oldHash >>> 23)] ^ U[out]
-  return (
-    (((hash << 8) | (toAdd & 0xff)) ^ T[hash >>> 23] ^ U[toRemove & 0xff]) >>> 0
-  );
+  return (((hash << 8) | (toAdd & 0xff)) ^ T[hash >>> 23] ^ U[toRemove & 0xff]) >>> 0;
 }
 
 /**
