@@ -248,8 +248,9 @@ async function isWorktreeModified(
     return true;
   }
 
-  // Quick check: if size differs, definitely modified
-  if (wtEntry.size !== indexEntry.size) {
+  // Quick check: if size differs and index size is known (>0), definitely modified
+  // Note: index size may be 0 when staging was reset from a tree (trees don't store sizes)
+  if (indexEntry.size > 0 && wtEntry.size !== indexEntry.size) {
     return true;
   }
 

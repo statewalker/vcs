@@ -25,9 +25,8 @@ export async function run(): Promise<void> {
   log(`  Message: ${firstCommit.message}`);
 
   // Use git.checkout() to checkout the first commit (detached HEAD)
-  // Using setForce(true) because the worktree has files from later commits
   log("\nRunning git.checkout()...");
-  const result = await git.checkout().setName(firstCommit.id).setForced(true).call();
+  const result = await git.checkout().setName(firstCommit.id).call();
 
   log(`  Checkout status: ${result.status}`);
   logInfo("Files updated", result.updated.length);
