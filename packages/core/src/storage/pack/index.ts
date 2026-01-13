@@ -5,6 +5,7 @@
  * for efficient storage of multiple objects.
  */
 
+export * from "./delta-instruction-analyzer.js";
 export * from "./delta-reverse-index.js";
 export * from "./pack-consolidator.js";
 export * from "./pack-delta-store.js";
@@ -16,4 +17,6 @@ export * from "./pack-indexer.js";
 export * from "./pack-reader.js";
 export * from "./pack-writer.js";
 export * from "./pending-pack.js";
+export * from "./random-access-delta.js";
+export * from "./random-access-delta-reader.js";
 export * from "./types.js";
