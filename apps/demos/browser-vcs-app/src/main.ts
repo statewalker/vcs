@@ -10,7 +10,10 @@ import { createApp } from "./app.js";
 // Wait for DOM to be ready
 document.addEventListener("DOMContentLoaded", async () => {
   // Check File System Access API support
-  const fsApiSupport = document.getElementById("fs-api-support")!;
+  const fsApiSupport = document.getElementById("fs-api-support");
+  if (!fsApiSupport) {
+    throw new Error("fs-api-support element not found");
+  }
   const isSupported = "showDirectoryPicker" in window;
 
   if (isSupported) {

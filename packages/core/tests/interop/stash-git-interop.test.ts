@@ -507,11 +507,14 @@ describe("Stash Git Interoperability", () => {
       };
 
       // Get original tree for index commit
-      const headTreeId = (await repo.commits.loadCommit(headCommit!)).tree;
+      if (!headCommit) {
+        throw new Error("headCommit should be defined");
+      }
+      const headTreeId = (await repo.commits.loadCommit(headCommit)).tree;
 
       const indexCommit = await repo.commits.storeCommit({
         tree: headTreeId,
-        parents: [headCommit!],
+        parents: [headCommit],
         author,
         committer: author,
         message: "index on main: Initial commit",
@@ -519,7 +522,7 @@ describe("Stash Git Interoperability", () => {
 
       const vcsStashCommit = await repo.commits.storeCommit({
         tree: vcsTree,
-        parents: [headCommit!, indexCommit],
+        parents: [headCommit, indexCommit],
         author,
         committer: author,
         message: "WIP on main: VCS stash 2",

@@ -54,18 +54,21 @@ export class MockCommitStore implements CommitStore {
     const limit = options?.limit ?? Infinity;
 
     while (queue.length > 0 && count < limit) {
-      const id = queue.shift()!;
+      const id = queue.shift();
+      if (!id) continue;
       if (visited.has(id) || stopAt.has(id)) continue;
       visited.add(id);
 
-      if (!this.commits.has(id)) continue;
+      const commit = this.commits.get(id);
+      if (!commit) continue;
 
       yield id;
       count++;
-
-      const commit = this.commits.get(id)!;
-      if (options?.firstParentOnly && commit.parents.length > 0) {
-        queue.push(commit.parents[0]);
+      if (options?.firstParentOnly) {
+        const firstParent = commit.parents[0];
+        if (firstParent) {
+          queue.push(firstParent);
+        }
       } else {
         queue.push(...commit.parents);
       }
@@ -207,6 +210,9 @@ export class CommitGraphBuilder {
    * @returns ObjectId of the newest commit (tip)
    */
   async linearChain(...names: string[]): Promise<ObjectId> {
+    if (names.length === 0) {
+      throw new Error("linearChain requires at least one commit name");
+    }
     let lastId: ObjectId | undefined;
     for (const name of names) {
       if (lastId) {
@@ -216,7 +222,7 @@ export class CommitGraphBuilder {
         lastId = await this.commit(name);
       }
     }
-    return lastId!;
+    return lastId as ObjectId;
   }
 
   private generateTreeId(name: string): ObjectId {
