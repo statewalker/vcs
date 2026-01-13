@@ -4,24 +4,26 @@
  * Browser-based Git repository management with WebRTC P2P synchronization.
  */
 
-import { initializeApp } from "./controllers/index.js";
+import { createAppContext } from "./controllers/index.js";
+import { createMainController } from "./controllers/main-controller.js";
+import { newRegistry } from "./utils/registry.js";
 import { createMainView } from "./views/index.js";
 
 /**
  * Main application entry point.
  */
 async function main(): Promise<void> {
-  // Initialize the application (models and controllers)
-  const { ctx, cleanup: cleanupControllers } = initializeApp();
+  const [record, cleanup] = newRegistry();
+  // Store cleanup for potential hot reload or app shutdown
+  (window as unknown as { __appCleanup?: () => void }).__appCleanup = cleanup;
+
+  const ctx = createAppContext();
+  const cleanupController = createMainController(ctx);
+  record(cleanupController);
 
   // Set up the UI views
   const cleanupViews = createMainView(ctx);
-
-  // Store cleanup for potential hot reload or app shutdown
-  (window as unknown as { __appCleanup?: () => void }).__appCleanup = () => {
-    cleanupViews();
-    cleanupControllers();
-  };
+  record(cleanupViews);
 
   console.log("VCS WebRTC Sync Demo initialized");
 }
