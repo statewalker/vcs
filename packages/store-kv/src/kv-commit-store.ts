@@ -5,6 +5,8 @@
  */
 
 import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@statewalker/vcs-core";
+import { computeCommitHash } from "@statewalker/vcs-core";
+
 import type { KVStore } from "./kv-store.js";
 
 /**
@@ -37,29 +39,6 @@ interface SerializedCommit {
   m: string; // message
   e?: string; // encoding
   g?: string; // gpgSignature
-}
-
-/**
- * Simple hash function for generating deterministic object IDs.
- */
-function computeCommitHash(commit: Commit): ObjectId {
-  const content = JSON.stringify({
-    tree: commit.tree,
-    parents: commit.parents,
-    author: commit.author,
-    committer: commit.committer,
-    message: commit.message,
-    encoding: commit.encoding,
-  });
-
-  let hash = 2166136261;
-  for (let i = 0; i < content.length; i++) {
-    hash ^= content.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  const hex = (hash >>> 0).toString(16).padStart(8, "0");
-  return `commit${hex}${"0".repeat(26)}`;
 }
 
 /**
