@@ -57,7 +57,11 @@ export function createStorageView(ctx: AppContext, container: HTMLElement): () =
   openFolderBtn.addEventListener("click", async () => {
     openFolderBtn.disabled = true;
     try {
-      await openFolder(ctx);
+      const backend = await openFolder(ctx);
+      if (backend) {
+        // Automatically initialize/open repository after folder selection
+        await initOrOpenRepository(ctx);
+      }
     } finally {
       openFolderBtn.disabled = !isFileSystemAccessSupported();
     }
@@ -65,6 +69,8 @@ export function createStorageView(ctx: AppContext, container: HTMLElement): () =
 
   memoryBtn.addEventListener("click", async () => {
     await useMemoryStorage(ctx);
+    // Automatically initialize repository for memory storage
+    await initOrOpenRepository(ctx);
   });
 
   initRepoBtn.addEventListener("click", async () => {
