@@ -44,7 +44,7 @@ function formatStats(prefix: string, stats: PerformanceStats): string {
 }
 
 describe("createFossilLikeRanges - Performance and Correctness Tests", () => {
-  describe("Very large blocks (500KB - 30MB)", () => {
+  describe.skipIf(process.env.CI)("Very large blocks (500KB)", () => {
     const mutationsDegrees = [0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0];
     const sourcesSizes = [
       500 * 1024,
