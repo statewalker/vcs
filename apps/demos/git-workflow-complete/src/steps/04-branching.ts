@@ -1,25 +1,25 @@
 /**
  * Step 04: Branch Operations
  *
- * Demonstrates branch creation, listing, switching, and deletion
- * using the VCS Commands API.
+ * Demonstrates branch creation, listing, switching using
+ * git.checkout() and git.branchCreate() porcelain commands.
  */
 
 import {
-  addFileToStaging,
   log,
   logInfo,
   logSection,
   logSuccess,
   shortId,
   state,
+  writeFileToWorktree,
 } from "../shared/index.js";
 
 export async function run(): Promise<void> {
   logSection("Step 04: Branch Operations");
 
-  const { store, git } = state;
-  if (!store || !git) {
+  const { git, files } = state;
+  if (!git || !files) {
     throw new Error("Repository not initialized. Run step 01 first.");
   }
 
@@ -41,16 +41,9 @@ export async function run(): Promise<void> {
     console.log(`    - ${branch.name}${marker}`);
   }
 
-  // Switch to feature branch
+  // Switch to feature branch using git.checkout()
   log("\nSwitching to 'feature' branch...");
-  await store.refs.setSymbolic("HEAD", "refs/heads/feature");
-
-  // Reset staging to feature branch's tree
-  const featureRef = await store.refs.resolve("refs/heads/feature");
-  if (featureRef?.objectId) {
-    const commit = await store.commits.loadCommit(featureRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
-  }
+  await git.checkout().setName("feature").call();
   logSuccess("Switched to 'feature' branch");
 
   // Add a file on feature branch
@@ -75,29 +68,22 @@ export function createAdvancedFeature(name: string): AdvancedFeature {
   return new AdvancedFeature(name);
 }
 `;
-  await addFileToStaging(store, "src/advanced-feature.ts", featureContent);
-  const featureCommitObj = await git.commit().setMessage("Add advanced feature").call();
-  const featureCommitId = await store.commits.storeCommit(featureCommitObj);
+  await writeFileToWorktree(files, "src/advanced-feature.ts", featureContent);
+  await git.add().addFilepattern("src/advanced-feature.ts").call();
+  const featureCommit = await git.commit().setMessage("Add advanced feature").call();
 
   state.commits.push({
-    id: featureCommitId,
+    id: featureCommit.id,
     message: "Add advanced feature",
     files: new Map([["src/advanced-feature.ts", featureContent]]),
     branch: "feature",
   });
 
-  logSuccess(`Created commit on feature: ${shortId(featureCommitId)}`);
+  logSuccess(`Created commit on feature: ${shortId(featureCommit.id)}`);
 
-  // Switch to bugfix branch and add a fix
+  // Switch to bugfix branch using git.checkout()
   log("\nSwitching to 'bugfix' branch...");
-  await store.refs.setSymbolic("HEAD", "refs/heads/bugfix");
-
-  // Reset staging to bugfix branch's tree (same as main before feature branch commits)
-  const bugfixRef = await store.refs.resolve("refs/heads/bugfix");
-  if (bugfixRef?.objectId) {
-    const commit = await store.commits.loadCommit(bugfixRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
-  }
+  await git.checkout().setName("bugfix").call();
   logSuccess("Switched to 'bugfix' branch");
 
   // Add a bugfix file
@@ -110,31 +96,25 @@ export function fixCriticalBug(): void {
   console.log("Critical bug fixed!");
 }
 `;
-  await addFileToStaging(store, "src/bugfix.ts", bugfixContent);
-  const bugfixCommitObj = await git.commit().setMessage("Fix critical bug").call();
-  const bugfixCommitId = await store.commits.storeCommit(bugfixCommitObj);
+  await writeFileToWorktree(files, "src/bugfix.ts", bugfixContent);
+  await git.add().addFilepattern("src/bugfix.ts").call();
+  const bugfixCommit = await git.commit().setMessage("Fix critical bug").call();
 
   state.commits.push({
-    id: bugfixCommitId,
+    id: bugfixCommit.id,
     message: "Fix critical bug",
     files: new Map([["src/bugfix.ts", bugfixContent]]),
     branch: "bugfix",
   });
 
-  logSuccess(`Created commit on bugfix: ${shortId(bugfixCommitId)}`);
+  logSuccess(`Created commit on bugfix: ${shortId(bugfixCommit.id)}`);
 
-  // Switch back to main
+  // Switch back to main using git.checkout()
   log("\nSwitching back to 'main' branch...");
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
-
-  const mainRef = await store.refs.resolve("refs/heads/main");
-  if (mainRef?.objectId) {
-    const commit = await store.commits.loadCommit(mainRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
-  }
+  await git.checkout().setName("main").call();
   logSuccess("Switched to 'main' branch");
 
-  // Delete the bugfix branch (will be demonstrated but we keep it for merge demo)
+  // Show branch status
   log("\nBranch status:");
   const finalBranches = await git.branchList().call();
   logInfo("Total branches", finalBranches.length);

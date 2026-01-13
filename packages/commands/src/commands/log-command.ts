@@ -3,6 +3,16 @@ import type { Commit, ObjectId } from "@statewalker/vcs-core";
 import { GitCommand } from "../git-command.js";
 
 /**
+ * Result of a log command iteration.
+ *
+ * Extends Commit with the object ID.
+ */
+export interface LogResult extends Commit {
+  /** The SHA-1 object ID of the commit */
+  id: ObjectId;
+}
+
+/**
  * Revision filter for LogCommand.
  *
  * Based on JGit's RevFilter.
@@ -70,7 +80,7 @@ export enum RevFilter {
  *   .call();
  * ```
  */
-export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
+export class LogCommand extends GitCommand<AsyncIterable<LogResult>> {
   private startCommits: ObjectId[] = [];
   private excludeCommits: ObjectId[] = [];
   private paths: string[] = [];
@@ -271,7 +281,7 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
    *
    * @returns AsyncIterable of commits in reverse chronological order
    */
-  async call(): Promise<AsyncIterable<Commit>> {
+  async call(): Promise<AsyncIterable<LogResult>> {
     this.checkCallable();
     this.setCallable(false);
 
@@ -305,7 +315,7 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
   /**
    * Walk commits and yield them.
    */
-  private async *walkCommits(starts: ObjectId[]): AsyncIterable<Commit> {
+  private async *walkCommits(starts: ObjectId[]): AsyncIterable<LogResult> {
     let count = 0;
     let skipped = 0;
 
@@ -378,7 +388,7 @@ export class LogCommand extends GitCommand<AsyncIterable<Commit>> {
       }
 
       count++;
-      yield commit;
+      yield { ...commit, id: commitId };
     }
   }
 
