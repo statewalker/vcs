@@ -252,11 +252,28 @@ export async function refreshFiles(ctx: Map<string, unknown>): Promise<void> {
       await collectTreeFiles(store, commit.tree, "", trackedFiles);
     }
 
-    // Get staged files from staging store
-    const stagedFiles = new Map<string, string>();
+    // Get files from staging store (index)
+    // Note: In Git, the index contains ALL tracked files, not just staged changes
+    const indexFiles = new Map<string, string>();
     if ("staging" in store && store.staging) {
       for await (const entry of store.staging.listEntries()) {
-        stagedFiles.set(entry.path, entry.objectId);
+        indexFiles.set(entry.path, entry.objectId);
+      }
+    }
+
+    // Determine which files are actually "staged" (different from HEAD)
+    const stagedFiles = new Map<string, string>();
+    for (const [path, objectId] of indexFiles) {
+      const headObjectId = trackedFiles.get(path);
+      // File is staged if: new file (not in HEAD) OR modified (different objectId)
+      if (!headObjectId || headObjectId !== objectId) {
+        stagedFiles.set(path, objectId);
+      }
+    }
+    // Also check for deleted files (in HEAD but not in index)
+    for (const [path] of trackedFiles) {
+      if (!indexFiles.has(path)) {
+        stagedFiles.set(path, "deleted");
       }
     }
 
