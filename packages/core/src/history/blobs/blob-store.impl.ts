@@ -46,4 +46,34 @@ export class GitBlobStore implements BlobStore {
   has(id: ObjectId): Promise<boolean> {
     return this.objects.has(id);
   }
+
+  /**
+   * List all blob object IDs
+   *
+   * Iterates over all objects in storage and yields only those
+   * that are blobs. Used for GC and storage analysis.
+   */
+  async *keys(): AsyncGenerator<ObjectId> {
+    for await (const id of this.objects.list()) {
+      try {
+        const header = await this.objects.getHeader(id);
+        if (header.type === "blob") {
+          yield id;
+        }
+      } catch {
+        // Skip objects that can't be read (corrupted, etc.)
+      }
+    }
+  }
+
+  /**
+   * Get blob size in bytes
+   */
+  async size(id: ObjectId): Promise<number> {
+    const header = await this.objects.getHeader(id);
+    if (header.type !== "blob") {
+      throw new Error(`Object ${id} is not a blob (found type: ${header.type})`);
+    }
+    return header.size;
+  }
 }

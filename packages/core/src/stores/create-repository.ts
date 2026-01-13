@@ -5,6 +5,8 @@
  * for either file-based or memory-based storage.
  */
 
+import { GitFilesStorageBackend } from "../backend/git-files-storage-backend.js";
+import type { StorageBackend } from "../backend/storage-backend.js";
 import { createInMemoryFilesApi, type FilesApi, joinPath } from "../common/files/index.js";
 import type { ObjectId } from "../common/id/object-id.js";
 import { GitBlobStore } from "../history/blobs/blob-store.impl.js";
@@ -16,11 +18,11 @@ import type { MemoryRefStore } from "../history/refs/ref-store.memory.js";
 import { createRefsStructure, writeSymbolicRef } from "../history/refs/ref-writer.js";
 import { GitTagStore } from "../history/tags/tag-store.impl.js";
 import { GitTreeStore } from "../history/trees/tree-store.impl.js";
+import { CombinedRawStore } from "../storage/binary/combined-raw-store.js";
 import { CompressedRawStore } from "../storage/binary/raw-store.compressed.js";
 import { createFileRawStore } from "../storage/binary/raw-store.files.js";
 import { createFileVolatileStore } from "../storage/binary/volatile-store.files.js";
 import { GCController } from "../storage/delta/gc-controller.js";
-import { RawStoreWithDelta } from "../storage/delta/raw-store-with-delta.js";
 import { PackDeltaStore } from "../storage/pack/pack-delta-store.js";
 
 /**
@@ -69,10 +71,10 @@ class GitRepository implements HistoryStore {
     readonly refs: FileRefStore | MemoryRefStore,
     private readonly _isInitialized: boolean,
     config: HistoryStoreConfig,
-    readonly deltaStorage: RawStoreWithDelta,
+    readonly backend: StorageBackend,
   ) {
     this.config = config;
-    this.gc = new GCController(deltaStorage);
+    this.gc = new GCController(backend);
   }
 
   async initialize(): Promise<void> {
@@ -159,10 +161,7 @@ export async function createGitRepository(
   });
 
   // Combined raw store: loose objects + pack file support
-  const rawStore = new RawStoreWithDelta({
-    objects: compressedStore,
-    deltas: packDeltaStore,
-  });
+  const rawStore = new CombinedRawStore(compressedStore, packDeltaStore);
 
   const volatileStore = createFileVolatileStore(files, joinPath(gitDir, "tmp"));
   const refStore = createFileRefStore(files, gitDir);
@@ -213,6 +212,16 @@ export async function createGitRepository(
     bare,
   };
 
+  // Create StorageBackend for GC operations with native Git delta support
+  const backend = new GitFilesStorageBackend({
+    blobs,
+    trees,
+    commits,
+    tags,
+    refs: refStore,
+    packDeltaStore,
+  });
+
   return new GitRepository(
     objectStore,
     commits,
@@ -222,7 +231,7 @@ export async function createGitRepository(
     refStore,
     isInitialized,
     config,
-    rawStore,
+    backend,
   );
 }
 
