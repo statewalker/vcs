@@ -10,8 +10,5 @@ export * from "./delta-engine.js";
 export * from "./delta-store.js";
 export * from "./engine/index.js";
 export * from "./gc-controller.js";
-export * from "./packing-orchestrator.js";
-export * from "./raw-store-with-delta.js";
-export * from "./storage-analyzer.js";
 export * from "./strategy/index.js";
 export * from "./types.js";
