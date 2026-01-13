@@ -128,9 +128,15 @@ export class FileRawStore implements RawStore {
    */
   async *keys(): AsyncIterable<string> {
     try {
+      // Track seen prefix directories to avoid duplicates
+      // (some FilesApi implementations may yield the same directory multiple times)
+      const seenPrefixes = new Set<string>();
+
       for await (const prefixEntry of this.files.list(this.basePath)) {
         if (prefixEntry.kind !== "directory") continue;
         if (prefixEntry.name.length !== 2) continue;
+        if (seenPrefixes.has(prefixEntry.name)) continue;
+        seenPrefixes.add(prefixEntry.name);
 
         const prefixPath = joinPath(this.basePath, prefixEntry.name);
         try {
