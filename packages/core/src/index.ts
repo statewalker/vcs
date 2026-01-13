@@ -1,3 +1,5 @@
+// Backend layer (unified storage contract)
+export * from "./backend/index.js";
 // Common types: files, format, id, person
 export * from "./common/index.js";
 // History layer (objects, commits, trees, blobs, tags, refs, history-store)

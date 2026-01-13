@@ -1,4 +1,4 @@
-import type { DeltaStore } from "../delta/index.js";
+import type { DeltaStore } from "../delta/delta-store.js";
 
 /**
  * Raw byte storage interface

@@ -15,8 +15,8 @@
  * @see WorkingCopy for local checkout state management
  */
 
+import type { StorageBackend } from "../backend/storage-backend.js";
 import type { GCController } from "../storage/delta/gc-controller.js";
-import type { RawStoreWithDelta } from "../storage/delta/raw-store-with-delta.js";
 import type { BlobStore } from "./blobs/blob-store.js";
 import type { CommitStore } from "./commits/commit-store.js";
 import type { GitObjectStore } from "./objects/object-store.js";
@@ -67,18 +67,18 @@ export interface HistoryStore {
   readonly config: HistoryStoreConfig;
 
   /**
-   * Delta storage for garbage collection (optional)
+   * Storage backend for unified access (optional)
    *
-   * Provides access to the underlying delta-aware storage
-   * for running GCController operations.
+   * Provides access to the underlying storage backend
+   * for GC and delta operations.
    */
-  readonly deltaStorage?: RawStoreWithDelta;
+  readonly backend?: StorageBackend;
 
   /**
    * Garbage collection controller (optional)
    *
    * Provides GC operations like repacking, pruning unreachable objects,
-   * and storage optimization. Created from deltaStorage when available.
+   * and storage optimization.
    */
   readonly gc?: GCController;
 

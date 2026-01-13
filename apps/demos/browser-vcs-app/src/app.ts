@@ -49,12 +49,30 @@ const trackedFiles: Set<string> = new Set();
  */
 export async function createApp(): Promise<void> {
   // Get UI elements
-  storageStatus = document.getElementById("storage-status")!;
-  repoStatus = document.getElementById("repo-status")!;
-  workingDirTree = document.getElementById("working-dir-tree")!;
-  stagingTree = document.getElementById("staging-tree")!;
-  commitHistory = document.getElementById("commit-history")!;
-  activityLog = document.getElementById("activity-log")!;
+  const storageStatusEl = document.getElementById("storage-status");
+  const repoStatusEl = document.getElementById("repo-status");
+  const workingDirTreeEl = document.getElementById("working-dir-tree");
+  const stagingTreeEl = document.getElementById("staging-tree");
+  const commitHistoryEl = document.getElementById("commit-history");
+  const activityLogEl = document.getElementById("activity-log");
+
+  if (
+    !storageStatusEl ||
+    !repoStatusEl ||
+    !workingDirTreeEl ||
+    !stagingTreeEl ||
+    !commitHistoryEl ||
+    !activityLogEl
+  ) {
+    throw new Error("Required UI elements not found");
+  }
+
+  storageStatus = storageStatusEl;
+  repoStatus = repoStatusEl;
+  workingDirTree = workingDirTreeEl;
+  stagingTree = stagingTreeEl;
+  commitHistory = commitHistoryEl;
+  activityLog = activityLogEl;
   fileNameInput = document.getElementById("file-name") as HTMLInputElement;
   fileContentInput = document.getElementById("file-content") as HTMLTextAreaElement;
   commitMessageInput = document.getElementById("commit-message") as HTMLInputElement;
@@ -144,8 +162,12 @@ async function switchStorage(type: StorageType): Promise<void> {
 }
 
 function updateStorageButtons(active: StorageType): void {
-  const memoryBtn = document.getElementById("btn-memory")!;
-  const browserBtn = document.getElementById("btn-browser-fs")!;
+  const memoryBtn = document.getElementById("btn-memory");
+  const browserBtn = document.getElementById("btn-browser-fs");
+
+  if (!memoryBtn || !browserBtn) {
+    throw new Error("Storage buttons not found");
+  }
 
   memoryBtn.classList.toggle("active", active === "memory");
   browserBtn.classList.toggle("active", active === "browser-fs");
@@ -583,8 +605,8 @@ function log(message: string, type: "info" | "success" | "error" = "info"): void
   activityLog.insertBefore(entry, activityLog.firstChild);
 
   // Keep only last 50 entries
-  while (activityLog.children.length > 50) {
-    activityLog.removeChild(activityLog.lastChild!);
+  while (activityLog.children.length > 50 && activityLog.lastChild) {
+    activityLog.removeChild(activityLog.lastChild);
   }
 }
 

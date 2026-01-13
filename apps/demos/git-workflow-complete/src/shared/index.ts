@@ -1,13 +1,14 @@
 /**
  * Shared utilities for the complete Git workflow demo
+ *
+ * This demo uses ONLY porcelain commands from @statewalker/vcs-commands
+ * and FilesAPI for all operations. No low-level API or native git calls.
  */
 
-import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { createGitStore, Git, type GitStore } from "@statewalker/vcs-commands";
-import type { GitRepository, ObjectId, PersonIdent } from "@statewalker/vcs-core";
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
+import type { Git, GitStore } from "@statewalker/vcs-commands";
+import type { GitRepository, ObjectId } from "@statewalker/vcs-core";
 import { setCompression } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi, type FilesApi } from "@statewalker/vcs-utils-node/files";
@@ -32,6 +33,7 @@ export interface AppState {
   repository?: GitRepository;
   store?: GitStore;
   git?: Git;
+  files?: FilesApi;
   commits: CommitInfo[];
   initialFiles: Map<string, string>;
 }
@@ -83,8 +85,24 @@ export function createFilesApi(): FilesApi {
   return createNodeFilesApi({ fs, rootDir: REPO_DIR });
 }
 
-export function createTestFile(name: string, content: string): { name: string; content: string } {
-  return { name, content };
+/**
+ * Write a file to the working tree using FilesAPI.
+ * Creates parent directories as needed.
+ */
+export async function writeFileToWorktree(
+  files: FilesApi,
+  filePath: string,
+  content: string,
+): Promise<void> {
+  // Create parent directories if needed
+  const dir = filePath.includes("/") ? filePath.substring(0, filePath.lastIndexOf("/")) : "";
+  if (dir) {
+    await files.mkdir(dir);
+  }
+
+  // Write file content (files.write expects Iterable<Uint8Array>)
+  const data = new TextEncoder().encode(content);
+  await files.write(filePath, [data]);
 }
 
 export function formatBytes(bytes: number): string {
@@ -95,93 +113,6 @@ export function formatBytes(bytes: number): string {
 
 export function shortId(id: ObjectId): string {
   return id.substring(0, 7);
-}
-
-// ============================================================================
-// Repository utilities
-// ============================================================================
-
-export function createAuthor(
-  name = "Demo User",
-  email = "demo@example.com",
-  timestamp = Math.floor(Date.now() / 1000),
-): PersonIdent {
-  return {
-    name,
-    email,
-    timestamp,
-    tzOffset: "+0000",
-  };
-}
-
-export async function storeBlob(repository: GitRepository, content: string): Promise<ObjectId> {
-  const bytes = new TextEncoder().encode(content);
-  return repository.blobs.store([bytes]);
-}
-
-export async function readBlob(repository: GitRepository, id: ObjectId): Promise<string> {
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of repository.blobs.load(id)) {
-    chunks.push(chunk);
-  }
-  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return new TextDecoder().decode(result);
-}
-
-export async function collectTreeEntries(
-  repository: GitRepository,
-  treeId: ObjectId,
-): Promise<{ mode: number; name: string; id: ObjectId }[]> {
-  const entries: { mode: number; name: string; id: ObjectId }[] = [];
-  for await (const entry of repository.trees.loadTree(treeId)) {
-    entries.push({ mode: entry.mode, name: entry.name, id: entry.id });
-  }
-  return entries;
-}
-
-// ============================================================================
-// Git Commands utilities
-// ============================================================================
-
-export async function initGitCommands(
-  repository: GitRepository,
-): Promise<{ store: GitStore; git: Git }> {
-  const staging = new MemoryStagingStore();
-  const store = createGitStore({ repository, staging });
-  const git = Git.wrap(store);
-  return { store, git };
-}
-
-export async function addFileToStaging(
-  store: GitStore,
-  filePath: string,
-  content: string,
-): Promise<string> {
-  const { FileMode } = await import("@statewalker/vcs-core");
-  const data = new TextEncoder().encode(content);
-  const objectId = await store.blobs.store([data]);
-
-  const editor = store.staging.editor();
-  editor.add({
-    path: filePath,
-    apply: () => ({
-      path: filePath,
-      mode: FileMode.REGULAR_FILE,
-      objectId,
-      stage: 0,
-      size: data.length,
-      mtime: Date.now(),
-    }),
-  });
-  await editor.finish();
-
-  return objectId;
 }
 
 // ============================================================================
@@ -267,31 +198,8 @@ export async function getPackFileStats(): Promise<
   return stats;
 }
 
-// ============================================================================
-// Native git utilities
-// ============================================================================
-
-export function runGitCommand(cmd: string): string {
-  try {
-    return execSync(cmd, { cwd: REPO_DIR, encoding: "utf-8" }).trim();
-  } catch (error) {
-    const e = error as { stderr?: string; message?: string };
-    return `ERROR: ${e.stderr || e.message}`;
-  }
-}
-
-export function isGitAvailable(): boolean {
-  try {
-    execSync("git --version", { encoding: "utf-8" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Re-export fs and path for steps that need direct access
+// Re-export fs and path for cleanup step
 export { fs, path };
 
-export type { Git, GitStore } from "@statewalker/vcs-commands";
 // Re-export types
-export { FileMode } from "@statewalker/vcs-core";
+export type { Git, GitStore } from "@statewalker/vcs-commands";

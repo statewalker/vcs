@@ -106,7 +106,7 @@ The package organizes stores in layers, each building on the one below:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Repository                              │
+│                      HistoryStore                            │
 │  Unified entry point with lifecycle management               │
 ├─────────────────────────────────────────────────────────────┤
 │  CommitStore    TreeStore    BlobStore    TagStore           │
@@ -125,7 +125,7 @@ The package organizes stores in layers, each building on the one below:
 
 ### Two-Tier API Design
 
-The Repository exposes both `GitObjectStore` and typed stores (`blobs`, `trees`, `commits`, `tags`) because they serve different purposes:
+The HistoryStore exposes both `GitObjectStore` and typed stores (`blobs`, `trees`, `commits`, `tags`) because they serve different purposes:
 
 **GitObjectStore** provides low-level, type-agnostic, format-aware access. It works with raw Git objects including their headers (`"blob 123\0content"`), enabling operations that need the wire format: transport protocols, pack file generation, and object introspection.
 
@@ -196,7 +196,7 @@ Built on GitObjectStore, these provide domain-specific operations:
 
 ### Why `objects` is Exposed in the Public API
 
-The `Repository` and `GitStores` interfaces expose `objects: GitObjectStore` alongside the typed stores. This design choice enables several important use cases:
+The `HistoryStore` and `GitStores` interfaces expose `objects: GitObjectStore` alongside the typed stores. This design choice enables several important use cases:
 
 **Transport and Protocol Operations**
 
@@ -218,7 +218,7 @@ const repositoryAccess = createVcsRepositoryAdapter({
 Sometimes you need to query an object's type and size without parsing its content. The `getHeader()` method provides this efficiently:
 
 ```typescript
-const header = await repository.objects.getHeader(unknownId);
+const header = await historyStore.objects.getHeader(unknownId);
 console.log(`Type: ${header.type}, Size: ${header.size} bytes`);
 ```
 
@@ -228,7 +228,7 @@ The `loadRaw()` method streams objects with their Git headers intact, essential 
 
 ```typescript
 // Collect raw object for push operation
-for await (const chunk of repository.objects.loadRaw(id)) {
+for await (const chunk of historyStore.objects.loadRaw(id)) {
   chunks.push(chunk);
 }
 const rawData = concatBytes(chunks);
@@ -241,8 +241,8 @@ const content = extractGitObjectContent(rawData);
 The `list()` method returns all object IDs regardless of type, useful for garbage collection, repository analysis, and migration tools:
 
 ```typescript
-for await (const id of repository.objects.list()) {
-  const header = await repository.objects.getHeader(id);
+for await (const id of historyStore.objects.list()) {
+  const header = await historyStore.objects.getHeader(id);
   console.log(`${id}: ${header.type}`);
 }
 ```
@@ -626,7 +626,7 @@ Commands encapsulate multi-step workflows:
 
 ### repository-access/
 
-Repository serialization and Git-native filesystem access.
+Repository serialization and Git-native filesystem access for transport operations.
 
 | File | Purpose |
 |------|---------|
@@ -634,6 +634,38 @@ Repository serialization and Git-native filesystem access.
 | `git-native-repository-access.ts` | Git filesystem implementation |
 | `serializing-repository-access.ts` | Serialization utilities |
 | `git-serializers.ts` | Git object serializers |
+
+#### RepositoryAccess Interface
+
+The `RepositoryAccess` interface provides byte-level access to Git objects in wire format for transport operations (fetch, push, clone):
+
+```typescript
+interface RepositoryAccess {
+  has(id: ObjectId): Promise<boolean>;
+  getInfo(id: ObjectId): Promise<RepositoryObjectInfo | null>;
+  load(id: ObjectId): Promise<ObjectData | null>;
+  store(type: ObjectTypeCode, content: Uint8Array): Promise<ObjectId>;
+  enumerate(): AsyncIterable<ObjectId>;
+  loadWireFormat(id: ObjectId): Promise<Uint8Array | null>;
+}
+```
+
+The extended `DeltaAwareRepositoryAccess` adds delta chain information:
+
+```typescript
+interface DeltaAwareRepositoryAccess extends RepositoryAccess {
+  isDelta(id: ObjectId): Promise<boolean>;
+  getDeltaBase(id: ObjectId): Promise<ObjectId | null>;
+  getChainDepth(id: ObjectId): Promise<number>;
+}
+```
+
+Two implementations are provided:
+
+| Implementation | Use Case |
+|----------------|----------|
+| `GitNativeRepositoryAccess` | Git filesystem storage - direct passthrough with no serialization overhead |
+| `SerializingRepositoryAccess` | SQL/KV backends - converts typed objects to Git wire format |
 
 ### stores/
 
@@ -691,6 +723,162 @@ When loading a deltified object:
 2. Load base content
 3. Apply delta instructions sequentially
 4. Cache intermediate results for efficiency
+
+## Delta Compression Architecture
+
+The package provides a composition-based delta compression system with clear separation of concerns.
+
+### DeltaEngine Interface
+
+The `DeltaEngine` orchestrates delta compression by combining a compressor, candidate finder, and decision strategy:
+
+```typescript
+interface DeltaEngine {
+  findBestDelta(target: DeltaTarget): Promise<BestDeltaResult | null>;
+  processBatch(targets: AsyncIterable<DeltaTarget>): AsyncIterable<DeltaProcessResult>;
+}
+```
+
+The `DefaultDeltaEngine` implementation:
+1. Checks if target should be deltified (via `DeltaDecisionStrategy`)
+2. Finds candidate base objects (via `CandidateFinder`)
+3. Computes deltas for each candidate (via `DeltaCompressor`)
+4. Selects the best delta based on ratio/savings
+
+### Component Interfaces
+
+| Interface | Purpose | Key Methods |
+|-----------|---------|-------------|
+| `DeltaCompressor` | Pure delta algorithm | `computeDelta()`, `applyDelta()`, `estimateDeltaQuality()` |
+| `CandidateFinder` | Find delta base candidates | `findCandidates()` returns similarity-ordered candidates |
+| `DeltaDecisionStrategy` | Decide when to deltify | `shouldAttemptDelta()`, `shouldUseDelta()`, `maxChainDepth` |
+
+### Pre-configured Strategies
+
+The package provides factory functions for common use cases:
+
+```typescript
+import {
+  createGitNativeStrategy,
+  createBlobOnlyStrategy,
+  createPackStrategy,
+  createNetworkStrategy,
+} from "@statewalker/vcs-core";
+
+// Standard Git behavior - all object types, balanced thresholds
+const gitStrategy = createGitNativeStrategy();
+
+// Blobs only - higher compression ratio threshold (2.0)
+const blobStrategy = createBlobOnlyStrategy();
+
+// Aggressive - for pack file generation (1.1 ratio threshold)
+const packStrategy = createPackStrategy();
+
+// Network-optimized - balanced for streaming transfers
+const networkStrategy = createNetworkStrategy();
+```
+
+### DeltaApi and BlobDeltaApi
+
+The `DeltaApi` provides storage operations for delta-compressed objects:
+
+```typescript
+interface DeltaApi {
+  blobs: BlobDeltaApi;
+  isDelta(id: ObjectId): Promise<boolean>;
+  getDeltaChain(id: ObjectId): Promise<BlobDeltaChainInfo | undefined>;
+  listDeltas(): AsyncIterable<StorageDeltaRelationship>;
+  getDependents(baseId: ObjectId): AsyncIterable<ObjectId>;
+  startBatch(): void;
+  endBatch(): Promise<void>;
+}
+```
+
+The `BlobDeltaApi` handles blob-specific delta operations (trees and commits are not deltified):
+
+```typescript
+interface BlobDeltaApi {
+  findBlobDelta(targetId, candidates): Promise<StreamingDeltaResult | null>;
+  deltifyBlob(targetId, baseId, delta): Promise<void>;
+  undeltifyBlob(id): Promise<void>;
+  isBlobDelta(id): Promise<boolean>;
+  getBlobDeltaChain(id): Promise<BlobDeltaChainInfo | undefined>;
+}
+```
+
+## Garbage Collection
+
+The `GCController` manages storage optimization through delta compression and unreachable object removal.
+
+### GCController
+
+```typescript
+class GCController {
+  // Track new blobs for quick-pack threshold
+  onBlob(blobId: ObjectId): Promise<void>;
+
+  // Lightweight deltification of pending blobs
+  quickPack(): Promise<number>;
+
+  // Check if GC should run based on thresholds
+  shouldRunGC(): Promise<boolean>;
+
+  // Run GC if thresholds are met
+  maybeRunGC(options?: RepackOptions): Promise<RepackResult | null>;
+
+  // Force GC run
+  runGC(options?: RepackOptions): Promise<RepackResult>;
+
+  // Remove blobs unreachable from roots
+  collectGarbage(roots: ObjectId[], expire?: Date): Promise<GCResult>;
+}
+```
+
+### Configuration
+
+```typescript
+interface GCScheduleOptions {
+  deltaEngine: DeltaEngine;
+  looseBlobThreshold?: number;  // Default: 100
+  maxChainDepth?: number;       // Default: 50
+  minInterval?: number;         // Default: 60000ms
+  quickPackThreshold?: number;  // Default: 5
+}
+```
+
+### GC Results
+
+```typescript
+interface RepackResult {
+  objectsProcessed: number;
+  deltasCreated: number;
+  deltasRemoved: number;
+  spaceSaved: number;
+  duration: number;
+}
+
+interface GCResult {
+  blobsRemoved: number;
+  bytesFreed: number;
+  durationMs: number;
+}
+```
+
+### GC Workflow
+
+1. **Quick Pack**: Triggered when `quickPackThreshold` loose blobs accumulate
+   - Deltifies recent blobs using the DeltaEngine
+   - Lightweight, runs frequently during writes
+
+2. **Full GC**: Triggered when `looseBlobThreshold` is exceeded
+   - Analyzes all blobs for delta opportunities
+   - May recompute deltas for better compression
+   - Respects `minInterval` to avoid repeated runs
+
+3. **Garbage Collection**: On-demand removal of unreachable objects
+   - Walks from provided root commits
+   - Removes blobs not reachable from any root
+   - Supports expiration time for safety
 
 ## Extension Points
 

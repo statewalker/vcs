@@ -1,3 +1,4 @@
+export * from "./combined-raw-store.js";
 export * from "./raw-store.compressed.js";
 export * from "./raw-store.files.js";
 export * from "./raw-store.js";

@@ -161,4 +161,45 @@ export class SqlNativeBlobStoreImpl implements SqlNativeBlobStore {
     );
     return result[0].total || 0;
   }
+
+  /**
+   * List all blob object IDs
+   */
+  async *keys(): AsyncIterable<ObjectId> {
+    await this.ensureTable();
+
+    const rows = await this.db.query<{ blob_id: ObjectId }>(`SELECT blob_id FROM ${BLOB_TABLE}`);
+    for (const row of rows) {
+      yield row.blob_id;
+    }
+  }
+
+  /**
+   * Get blob size in bytes
+   */
+  async size(id: ObjectId): Promise<number> {
+    await this.ensureTable();
+
+    const rows = await this.db.query<{ size: number }>(
+      `SELECT size FROM ${BLOB_TABLE} WHERE blob_id = ?`,
+      [id],
+    );
+
+    if (rows.length === 0) {
+      throw new Error(`Blob ${id} not found`);
+    }
+
+    return rows[0].size;
+  }
+
+  /**
+   * Delete a blob from storage
+   */
+  async delete(id: ObjectId): Promise<boolean> {
+    await this.ensureTable();
+
+    const result = await this.db.execute(`DELETE FROM ${BLOB_TABLE} WHERE blob_id = ?`, [id]);
+
+    return result.changes > 0;
+  }
 }

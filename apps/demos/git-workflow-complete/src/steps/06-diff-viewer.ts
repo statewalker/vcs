@@ -1,8 +1,8 @@
 /**
  * Step 06: Diff Viewer
  *
- * Demonstrates viewing differences between commits using the
- * VCS diff command.
+ * Demonstrates viewing differences between commits using
+ * git.log() and git.diff() porcelain commands.
  */
 
 import { log, logInfo, logSection, logSuccess, shortId, state } from "../shared/index.js";
@@ -10,23 +10,17 @@ import { log, logInfo, logSection, logSuccess, shortId, state } from "../shared/
 export async function run(): Promise<void> {
   logSection("Step 06: Diff Viewer");
 
-  const { store, git } = state;
-  if (!store || !git) {
+  const { git } = state;
+  if (!git) {
     throw new Error("Repository not initialized. Run step 01 first.");
   }
 
-  // Get commits for diff comparison
+  // Get commits for diff comparison using git.log()
   log("\nGathering commits for diff comparison...");
 
-  const headRef = await store.refs.resolve("HEAD");
-  if (!headRef?.objectId) {
-    throw new Error("No HEAD commit found");
-  }
-
-  // Collect commit IDs using walkAncestry
   const commitIds: string[] = [];
-  for await (const commitId of store.commits.walkAncestry(headRef.objectId, { limit: 5 })) {
-    commitIds.push(commitId);
+  for await (const commit of await git.log().setMaxCount(5).call()) {
+    commitIds.push(commit.id);
   }
 
   log(`  Found ${commitIds.length} recent commits`);

@@ -117,15 +117,18 @@ describe("FileVolatileStore", () => {
         break;
       }
       expect(tempFilePath).toBeDefined();
+      if (!tempFilePath) {
+        throw new Error("tempFilePath should be defined");
+      }
 
       // Verify file exists before dispose
-      const statsBefore = await files.stats(tempFilePath!);
+      const statsBefore = await files.stats(tempFilePath);
       expect(statsBefore).toBeDefined();
 
       await content.dispose();
 
       // Verify file is removed after dispose
-      const statsAfter = await files.stats(tempFilePath!);
+      const statsAfter = await files.stats(tempFilePath);
       expect(statsAfter).toBeUndefined();
     });
   });

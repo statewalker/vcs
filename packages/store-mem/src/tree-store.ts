@@ -9,7 +9,7 @@
  */
 
 import type { ObjectId, TreeEntry, TreeStore } from "@statewalker/vcs-core";
-import { FileMode } from "@statewalker/vcs-core";
+import { computeTreeHash, FileMode } from "@statewalker/vcs-core";
 
 /**
  * Well-known empty tree SHA-1 hash
@@ -26,28 +26,6 @@ function compareTreeEntries(a: TreeEntry, b: TreeEntry): number {
   const aName = a.mode === FileMode.TREE ? `${a.name}/` : a.name;
   const bName = b.mode === FileMode.TREE ? `${b.name}/` : b.name;
   return aName < bName ? -1 : aName > bName ? 1 : 0;
-}
-
-/**
- * Simple hash function for generating deterministic object IDs.
- *
- * This is not cryptographically secure, but provides consistent
- * content-addressable IDs for in-memory use.
- */
-function computeTreeHash(entries: TreeEntry[]): ObjectId {
-  // Build a string representation of the tree
-  const content = entries.map((e) => `${e.mode.toString(8)} ${e.name}\0${e.id}`).join("");
-
-  // Simple hash (FNV-1a inspired)
-  let hash = 2166136261;
-  for (let i = 0; i < content.length; i++) {
-    hash ^= content.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  // Convert to hex and pad to 40 characters
-  const hex = (hash >>> 0).toString(16).padStart(8, "0");
-  return `tree${hex}${"0".repeat(28)}`;
 }
 
 /**

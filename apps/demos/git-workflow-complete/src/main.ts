@@ -1,16 +1,19 @@
 /**
- * Demo: Complete Git Workflow
+ * Demo: Complete Git Workflow using Porcelain Commands
  *
- * This demo showcases a complete Git workflow including:
- * 1. Initialize repository with FilesApi
- * 2. Create initial project with files in multiple folders
- * 3. Generate commits with incremental changes
- * 4. Create and manage branches
- * 5. Perform merge operations (fast-forward and three-way)
- * 6. View diffs between commits
- * 7. Perform garbage collection and pack files
- * 8. Checkout a specific version
- * 9. Verify checkout matches stored version
+ * This demo uses ONLY porcelain commands from @statewalker/vcs-commands:
+ *
+ * - Git.init() for repository initialization
+ * - git.add() for staging files from working tree
+ * - git.commit() for creating commits
+ * - git.checkout() for switching branches
+ * - git.merge() for merging branches
+ * - git.log() for viewing commit history
+ * - git.diff() for comparing commits
+ * - git.gc() for repository maintenance
+ * - git.status() for staging area status
+ *
+ * NO low-level API or native git commands are used.
  *
  * Run with: pnpm start
  * Run individual step: pnpm step:01 (through step:09)
@@ -47,7 +50,7 @@ function printBanner(): void {
 ║                                                                              ║
 ║              WebRun VCS: Complete Git Workflow Demo                          ║
 ║                                                                              ║
-║  Demonstrates: branching, merging, diffs, GC, packing, and checkout         ║
+║  Using ONLY porcelain commands: Git.init(), add(), commit(), checkout()     ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 `);
@@ -56,27 +59,25 @@ function printBanner(): void {
 function printSummary(): void {
   console.log(`
 ══════════════════════════════════════════════════════════════════════════════
-  SUMMARY
+  SUMMARY - Porcelain Commands Demo
 ══════════════════════════════════════════════════════════════════════════════
 
-  This demo demonstrated the complete Git workflow:
+  This demo used ONLY porcelain commands from @statewalker/vcs-commands:
 
-  ✓ Step 01: Created Git repository using VCS with FilesApi
-  ✓ Step 02: Created project structure with ${state.initialFiles.size} files
-  ✓ Step 03: Generated ${state.commits.filter((c) => c.branch === "main" || !c.branch).length} commits on main branch
-  ✓ Step 04: Created and managed branches (feature, bugfix)
-  ✓ Step 05: Performed merge operations (fast-forward and three-way)
-  ✓ Step 06: Displayed diffs between commits
-  ✓ Step 07: Performed garbage collection and packing
-  ✓ Step 08: Checked out first commit using native git
-  ✓ Step 09: Verified checkout matches original content
+  ✓ Step 01: Git.init() - Created repository with FilesAPI and worktree
+  ✓ Step 02: git.add() + git.commit() - Created ${state.initialFiles.size} files
+  ✓ Step 03: git.add() + git.commit() - Generated ${state.commits.filter((c) => c.branch === "main" || !c.branch).length} commits
+  ✓ Step 04: git.checkout() - Created and switched branches
+  ✓ Step 05: git.merge() - Fast-forward and three-way merges
+  ✓ Step 06: git.log() + git.diff() - Viewed commit history and diffs
+  ✓ Step 07: git.gc() - Repository maintenance (packed refs)
+  ✓ Step 08: git.checkout() - Checked out first commit
+  ✓ Step 09: git.status() - Verified staging area and content
 
-  The VCS library successfully:
-  - Created a valid Git repository
-  - Managed branches and merges
-  - Generated diffs between versions
-  - Packed objects efficiently
-  - Maintained compatibility with native git
+  All operations used the fluent builder API:
+    await git.add().addFilepattern(".").call();
+    await git.checkout().setName("feature").call();
+    await git.merge().include("feature").call();
 
 ══════════════════════════════════════════════════════════════════════════════
 `);

@@ -1,11 +1,12 @@
 /**
  * Shared utilities for GC tests
  *
- * Ported from JGit's GcTestCase.java
  * Provides helper functions for creating test repositories,
  * commit chains, and verifying GC behavior.
  */
 
+import { MemoryStorageBackend } from "../../src/backend/memory-storage-backend.js";
+import type { StorageBackend } from "../../src/backend/storage-backend.js";
 import { FileMode } from "../../src/common/files/index.js";
 import type { ObjectId } from "../../src/common/id/index.js";
 import type { PersonIdent } from "../../src/common/person/person-ident.js";
@@ -19,8 +20,6 @@ import { GitTreeStore } from "../../src/history/trees/tree-store.impl.js";
 import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
 import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
 import { GCController, type GCScheduleOptions } from "../../src/storage/delta/gc-controller.js";
-import { RawStoreWithDelta } from "../../src/storage/delta/raw-store-with-delta.js";
-import { MockDeltaStore } from "../mocks/mock-delta-store.js";
 
 /**
  * Simple in-memory repository for GC tests
@@ -35,15 +34,15 @@ interface TestRepository {
 }
 
 /**
- * Test context with repository, GC controller, and storage
+ * Test context with repository, GC controller, and storage backend
  */
 export interface GCTestContext {
   /** Repository stores */
   repo: TestRepository;
   /** GC controller */
   gc: GCController;
-  /** Delta storage for direct access */
-  deltaStorage: RawStoreWithDelta;
+  /** Storage backend for delta operations */
+  backend: StorageBackend;
   /** Create a test person identity */
   createPerson: (name?: string, email?: string) => PersonIdent;
   /** Store a blob and return its ID */
@@ -77,22 +76,15 @@ export interface CommitOptions {
 /**
  * Create a test repository with GC controller
  *
- * Uses in-memory stores with MockDeltaStore for reliable testing.
+ * Uses in-memory stores with MemoryStorageBackend for reliable testing.
  */
 export async function createTestRepository(gcOptions?: GCScheduleOptions): Promise<GCTestContext> {
   // Create raw storage
   const rawStore = new MemoryRawStore();
   const volatileStore = new MemoryVolatileStore();
-  const mockDeltaStore = new MockDeltaStore();
-
-  // Create delta-aware raw store with mock delta store
-  const deltaStorage = new RawStoreWithDelta({
-    objects: rawStore,
-    deltas: mockDeltaStore,
-  });
 
   // Create object store
-  const objectStore = new GitObjectStoreImpl(volatileStore, deltaStorage);
+  const objectStore = new GitObjectStoreImpl(volatileStore, rawStore);
 
   // Create typed stores
   const commits = new GitCommitStore(objectStore);
@@ -110,7 +102,16 @@ export async function createTestRepository(gcOptions?: GCScheduleOptions): Promi
     refs,
   };
 
-  const gc = new GCController(deltaStorage, gcOptions);
+  // Create StorageBackend for GC
+  const backend = new MemoryStorageBackend({
+    blobs,
+    trees,
+    commits,
+    tags,
+    refs,
+  });
+
+  const gc = new GCController(backend, gcOptions);
 
   let commitCounter = 0;
 
@@ -176,7 +177,7 @@ export async function createTestRepository(gcOptions?: GCScheduleOptions): Promi
   return {
     repo,
     gc,
-    deltaStorage,
+    backend,
     createPerson,
     blob,
     tree,
@@ -284,14 +285,10 @@ export async function fsTick(): Promise<void> {
  * Statistics about repository state
  */
 export interface RepoStatistics {
-  /** Number of loose objects */
-  numberOfLooseObjects: number;
-  /** Number of packed objects (in delta storage) */
-  numberOfPackedObjects: number;
-  /** Number of pack files */
-  numberOfPackFiles: number;
-  /** Number of bitmaps */
-  numberOfBitmaps: number;
+  /** Number of loose blobs (not stored as delta) */
+  numberOfLooseBlobs: number;
+  /** Number of deltified blobs */
+  numberOfDeltifiedBlobs: number;
 }
 
 /**
@@ -301,38 +298,67 @@ export async function getStatistics(ctx: GCTestContext): Promise<RepoStatistics>
   let looseCount = 0;
   let deltaCount = 0;
 
-  for await (const id of ctx.deltaStorage.keys()) {
-    if (await ctx.deltaStorage.isDelta(id)) {
+  for await (const id of ctx.backend.structured.blobs.keys()) {
+    if (await ctx.backend.delta.isDelta(id)) {
       deltaCount++;
     } else {
       looseCount++;
     }
   }
 
-  // Note: Our implementation doesn't have pack files in the same way as JGit
-  // We use delta storage instead
   return {
-    numberOfLooseObjects: looseCount,
-    numberOfPackedObjects: deltaCount,
-    numberOfPackFiles: 0, // Not applicable to our implementation
-    numberOfBitmaps: 0, // Not implemented
+    numberOfLooseBlobs: looseCount,
+    numberOfDeltifiedBlobs: deltaCount,
   };
 }
 
 /**
- * Count all objects in the repository
+ * Count all blobs in the repository
  */
-export async function countObjects(ctx: GCTestContext): Promise<number> {
+export async function countBlobs(ctx: GCTestContext): Promise<number> {
   let count = 0;
-  for await (const _ of ctx.deltaStorage.keys()) {
+  for await (const _ of ctx.backend.structured.blobs.keys()) {
     count++;
   }
   return count;
 }
 
 /**
- * Check if repository has an object
+ * Check if repository has a blob
+ */
+export async function hasBlob(ctx: GCTestContext, blobId: ObjectId): Promise<boolean> {
+  return ctx.backend.structured.blobs.has(blobId);
+}
+
+/**
+ * Check if repository has any object (commit, tree, or blob)
  */
 export async function hasObject(ctx: GCTestContext, objectId: ObjectId): Promise<boolean> {
-  return ctx.deltaStorage.has(objectId);
+  // Check commits
+  try {
+    await ctx.repo.commits.loadCommit(objectId);
+    return true;
+  } catch {
+    // Not a commit
+  }
+
+  // Check trees
+  try {
+    const iter = ctx.repo.trees.loadTree(objectId);
+    await iter[Symbol.asyncIterator]().next();
+    return true;
+  } catch {
+    // Not a tree
+  }
+
+  // Check blobs
+  return ctx.backend.structured.blobs.has(objectId);
+}
+
+/**
+ * Count all objects in the repository
+ */
+export async function countObjects(ctx: GCTestContext): Promise<number> {
+  // This is an approximation - we only count blobs since that's what we can easily enumerate
+  return countBlobs(ctx);
 }

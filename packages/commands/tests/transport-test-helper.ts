@@ -235,6 +235,27 @@ class GitFormatBlobStore implements BlobStore {
   async has(id: ObjectId): Promise<boolean> {
     return this.objectStore.has(id);
   }
+
+  async *keys(): AsyncIterable<ObjectId> {
+    for await (const id of this.objectStore.list()) {
+      try {
+        const [header] = await this.objectStore.loadWithHeader(id);
+        if (header.type === "blob") {
+          yield id;
+        }
+      } catch {
+        // Skip invalid objects
+      }
+    }
+  }
+
+  async size(id: ObjectId): Promise<number> {
+    const [header] = await this.objectStore.loadWithHeader(id);
+    if (header.type !== "blob") {
+      throw new Error(`Object ${id} is not a blob`);
+    }
+    return header.size;
+  }
 }
 
 /**

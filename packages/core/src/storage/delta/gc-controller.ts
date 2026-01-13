@@ -1,46 +1,41 @@
 /**
  * GC Controller
  *
- * Provides automatic garbage collection and maintenance scheduling
- * for delta storage systems.
+ * Garbage collection controller that uses StorageBackend.
+ * Focuses on blob-only delta compression as per the unified architecture.
  */
 
+import type { StorageBackend } from "../../backend/storage-backend.js";
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/object-id.js";
-import type { CommitStore } from "../../history/commits/commit-store.js";
 import { ObjectType } from "../../history/objects/object-types.js";
-import type { TreeStore } from "../../history/trees/tree-store.js";
-import type { PackConsolidator } from "../pack/pack-consolidator.js";
 
 import type { DeltaTarget } from "./candidate-finder.js";
-import type { DeltaEngine } from "./delta-engine.js";
-import type { RawStoreWithDelta } from "./raw-store-with-delta.js";
+import type { BestDeltaResult, DeltaEngine } from "./delta-engine.js";
 import type { RepackOptions, RepackResult } from "./types.js";
 
 /**
- * GC scheduling options
+ * GC scheduling options for V2 controller
  */
 export interface GCScheduleOptions {
   /** Delta engine for finding and computing deltas */
   deltaEngine?: DeltaEngine;
-  /** Trigger GC when loose objects exceed this count */
-  looseObjectThreshold?: number;
-  /** Maximum delta chain depth (for shouldRunGC check) */
+  /** Trigger GC when loose blob count exceeds this */
+  looseBlobThreshold?: number;
+  /** Maximum delta chain depth */
   maxChainDepth?: number;
   /** Minimum interval between GC runs (ms) */
   minInterval?: number;
-  /** Number of pending commits before quick pack */
+  /** Number of pending blobs before quick pack */
   quickPackThreshold?: number;
-  /** Optional pack consolidator for consolidating pack files */
-  consolidator?: PackConsolidator;
 }
 
 /**
  * GC result
  */
 export interface GCResult {
-  /** Number of objects removed */
-  objectsRemoved: number;
+  /** Number of blobs removed */
+  blobsRemoved: number;
   /** Bytes freed */
   bytesFreed: number;
   /** Duration in ms */
@@ -50,8 +45,7 @@ export interface GCResult {
 /**
  * Resolved GC options (with defaults applied)
  */
-type ResolvedGCOptions = Omit<Required<GCScheduleOptions>, "consolidator" | "deltaEngine"> & {
-  consolidator?: PackConsolidator;
+type ResolvedGCOptions = Omit<Required<GCScheduleOptions>, "deltaEngine"> & {
   deltaEngine?: DeltaEngine;
 };
 
@@ -60,41 +54,42 @@ type ResolvedGCOptions = Omit<Required<GCScheduleOptions>, "consolidator" | "del
  */
 const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
   deltaEngine: undefined,
-  looseObjectThreshold: 100,
+  looseBlobThreshold: 100,
   maxChainDepth: 50,
   minInterval: 60000, // 1 minute
   quickPackThreshold: 5,
-  consolidator: undefined,
 };
 
 /**
- * GC controller for automatic maintenance
+ * GC Controller V2 - Uses StorageBackend
  *
- * Monitors the delta storage and automatically triggers
- * garbage collection when thresholds are exceeded.
+ * Simplified GC controller that focuses on blob-only delta compression.
+ * Uses the unified StorageBackend interface instead of RawStoreWithDelta.
+ *
+ * Key differences from V1:
+ * - Only processes blobs (trees and commits are not deltified)
+ * - Uses StorageBackend.delta API for all delta operations
+ * - Uses StorageBackend.structured for object access
  *
  * @example
  * ```typescript
- * const gc = new GCController(deltaStorage, {
- *   looseObjectThreshold: 100,
- *   minInterval: 60000,
+ * const gc = new GCController(backend, {
+ *   deltaEngine: myDeltaEngine,
+ *   looseBlobThreshold: 100,
  * });
- *
- * // Notify of new commits
- * await gc.onCommit(commitId);
  *
  * // Check and run GC if needed
  * const result = await gc.maybeRunGC();
  * ```
  */
 export class GCController {
-  private readonly storage: RawStoreWithDelta;
+  private readonly backend: StorageBackend;
   private readonly options: ResolvedGCOptions;
   private lastGC = 0;
-  private pendingCommits: ObjectId[] = [];
+  private pendingBlobs: ObjectId[] = [];
 
-  constructor(storage: RawStoreWithDelta, options: GCScheduleOptions = {}) {
-    this.storage = storage;
+  constructor(backend: StorageBackend, options: GCScheduleOptions = {}) {
+    this.backend = backend;
     this.options = {
       ...DEFAULT_GC_OPTIONS,
       ...options,
@@ -102,114 +97,99 @@ export class GCController {
   }
 
   /**
-   * Notify controller of a new commit
+   * Notify controller of a new blob
    *
-   * Tracks the commit for quick packing. When enough commits
+   * Tracks the blob for quick packing. When enough blobs
    * accumulate, triggers a quick pack operation.
    *
-   * @param commitId The ID of the new commit
+   * @param blobId The ID of the new blob
    */
-  async onCommit(commitId: ObjectId): Promise<void> {
-    this.pendingCommits.push(commitId);
+  async onBlob(blobId: ObjectId): Promise<void> {
+    this.pendingBlobs.push(blobId);
 
-    // Quick pack for recent commits
-    if (this.pendingCommits.length >= this.options.quickPackThreshold) {
+    if (this.pendingBlobs.length >= this.options.quickPackThreshold) {
       await this.quickPack();
     }
   }
 
   /**
-   * Quick pack pending commits
+   * Quick pack pending blobs
    *
-   * Performs lightweight deltification of objects from
-   * recently created commits without full repository repack.
-   * All deltified objects are written to a single pack file.
+   * Performs lightweight deltification of recently created blobs
+   * without full repository repack.
    *
-   * @returns Number of objects deltified
+   * @returns Number of blobs deltified
    */
   async quickPack(): Promise<number> {
     const deltaEngine = this.options.deltaEngine;
     if (!deltaEngine) {
-      // No delta engine configured, skip
-      this.pendingCommits = [];
+      this.pendingBlobs = [];
       return 0;
     }
 
-    // Start batch to collect all deltas into a single pack file
-    this.storage.startBatch();
+    const deltaApi = this.backend.delta;
+    deltaApi.startBatch();
+
     let total = 0;
 
     try {
-      for (const commitId of this.pendingCommits) {
-        // Get object size for the target
-        const size = await this.storage.size(commitId);
+      for (const blobId of this.pendingBlobs) {
+        const size = await this.backend.structured.blobs.size(blobId);
 
-        // Create target for delta engine
         const target: DeltaTarget = {
-          id: commitId,
-          type: ObjectType.COMMIT,
+          id: blobId,
+          type: ObjectType.BLOB,
           size,
         };
 
-        // Find best delta using the engine
         const result = await deltaEngine.findBestDelta(target);
         if (result) {
-          await this.storage.storeDeltaResult(commitId, result);
+          await this.storeDeltaResult(blobId, result);
           total++;
         }
       }
 
-      // Commit all deltas to a single pack file
-      await this.storage.endBatch();
+      await deltaApi.endBatch();
     } catch (e) {
-      // Cancel batch on error
-      this.storage.cancelBatch();
+      deltaApi.cancelBatch();
       throw e;
     }
 
-    this.pendingCommits = [];
+    this.pendingBlobs = [];
     return total;
   }
 
   /**
-   * Get pending commits count
-   *
-   * @returns Number of commits waiting for quick pack
+   * Get pending blobs count
    */
-  getPendingCommitsCount(): number {
-    return this.pendingCommits.length;
+  getPendingBlobsCount(): number {
+    return this.pendingBlobs.length;
   }
 
   /**
    * Check if GC should run
    *
-   * Evaluates the current repository state against configured
-   * thresholds to determine if garbage collection is needed.
-   *
-   * @returns True if GC should run
+   * Evaluates current state against thresholds.
    */
   async shouldRunGC(): Promise<boolean> {
-    // Check interval
     if (Date.now() - this.lastGC < this.options.minInterval) {
       return false;
     }
 
-    // Count loose objects
     let looseCount = 0;
     let deepChains = 0;
 
-    for await (const objectId of this.storage.keys()) {
-      if (!(await this.storage.isDelta(objectId))) {
+    for await (const id of this.backend.structured.blobs.keys()) {
+      if (!(await this.backend.delta.isDelta(id))) {
         looseCount++;
       } else {
-        const chainInfo = await this.storage.getDeltaChainInfo(objectId);
+        const chainInfo = await this.backend.delta.getDeltaChain(id);
         if (chainInfo && chainInfo.depth > this.options.maxChainDepth) {
           deepChains++;
         }
       }
 
-      // Early exit if thresholds exceeded
-      if (looseCount >= this.options.looseObjectThreshold || deepChains > 0) {
+      if (looseCount >= this.options.looseBlobThreshold || deepChains > 0) {
         return true;
       }
     }
@@ -219,34 +199,21 @@ export class GCController {
 
   /**
    * Run GC if needed
-   *
-   * Checks thresholds and runs garbage collection only if
-   * conditions are met and enough time has passed since last run.
-   *
-   * @param options Repack options to use if GC runs
-   * @returns Repack result if GC ran, null otherwise
    */
   async maybeRunGC(options?: RepackOptions): Promise<RepackResult | null> {
     if (!(await this.shouldRunGC())) {
       return null;
     }
-
     return this.runGC(options);
   }
 
   /**
    * Force GC run
-   *
-   * Runs garbage collection regardless of thresholds or timing.
-   *
-   * @param options Repack options
-   * @returns Repack result
    */
   async runGC(options?: RepackOptions): Promise<RepackResult> {
     const startTime = Date.now();
 
-    // First, pack any pending commits
-    if (this.pendingCommits.length > 0) {
+    if (this.pendingBlobs.length > 0) {
       await this.quickPack();
     }
 
@@ -260,61 +227,54 @@ export class GCController {
   }
 
   /**
-   * Repack storage
-   *
-   * Deltifies loose objects and optionally prunes loose objects
-   * that have been converted to deltas. All new deltas are written
-   * to a single pack file with valid cross-references.
+   * Repack storage - blob-only deltification
    */
   private async repack(options?: RepackOptions): Promise<RepackResult> {
     const maxChainDepth = options?.maxChainDepth ?? this.options.maxChainDepth;
     const deltaEngine = this.options.deltaEngine;
+    const deltaApi = this.backend.delta;
+    const blobs = this.backend.structured.blobs;
 
     let objectsProcessed = 0;
     let deltasCreated = 0;
     let deltasRemoved = 0;
-    let looseObjectsPruned = 0;
+    const looseObjectsPruned = 0;
     let spaceSaved = 0;
 
-    // Collect loose objects
+    // Collect loose blobs (not stored as delta)
     const looseIds: ObjectId[] = [];
-    for await (const id of this.storage.keys()) {
-      if (!(await this.storage.isDelta(id))) {
+    for await (const id of blobs.keys()) {
+      if (!(await deltaApi.isDelta(id))) {
         looseIds.push(id);
       }
     }
 
     // Break deep chains first
-    for await (const id of this.storage.keys()) {
-      if (await this.storage.isDelta(id)) {
+    for await (const id of blobs.keys()) {
+      if (await deltaApi.isDelta(id)) {
         try {
-          const chainInfo = await this.storage.getDeltaChainInfo(id);
+          const chainInfo = await deltaApi.getDeltaChain(id);
           if (chainInfo && chainInfo.depth > maxChainDepth) {
-            await this.storage.undeltify(id);
+            await deltaApi.blobs.undeltifyBlob(id);
             deltasRemoved++;
             looseIds.push(id);
           }
         } catch {
-          // getDeltaChainInfo can fail if base object is not in the same pack
-          // (e.g., REF_DELTA with base in loose storage or different pack)
-          // In this case, undeltify the object to ensure it can be processed
+          // Chain info unavailable - undeltify to be safe
           try {
-            await this.storage.undeltify(id);
+            await deltaApi.blobs.undeltifyBlob(id);
             deltasRemoved++;
             looseIds.push(id);
           } catch {
-            // Object might already be undeltified or not accessible
-            // Skip it and continue with other objects
+            // Skip if undeltify fails
           }
         }
       }
     }
 
-    // Progress callback
     const progressCallback = options?.progressCallback;
     const total = looseIds.length;
 
-    // If no delta engine configured, skip deltification
     if (!deltaEngine) {
       return {
         objectsProcessed: total,
@@ -327,24 +287,9 @@ export class GCController {
       };
     }
 
-    // Start batch to collect all objects into a single pack file
-    this.storage.startBatch();
+    deltaApi.startBatch();
 
     try {
-      // Get batch update handle for direct object storage
-      const batchUpdate = this.storage.getBatchUpdate();
-      if (!batchUpdate) {
-        throw new Error("Failed to get batch update handle");
-      }
-
-      // Add ALL objects as full objects first - this ensures bases are in pack
-      // When deltified later, full objects are replaced with delta entries
-      // This allows PendingPack to use OFS_DELTA instead of REF_DELTA
-      for (const id of looseIds) {
-        await batchUpdate.storeObject(id, this.storage.load(id));
-      }
-
-      // Process each object with DeltaEngine
       for (const id of looseIds) {
         objectsProcessed++;
 
@@ -360,64 +305,29 @@ export class GCController {
         }
 
         try {
-          const sizeBefore = await this.storage.size(id);
+          const sizeBefore = await blobs.size(id);
 
-          // Create target for delta engine
-          // Note: We use BLOB type as a default since we don't track object types
-          // The DeltaEngine will handle type appropriately via CandidateFinder
           const target: DeltaTarget = {
             id,
             type: ObjectType.BLOB,
             size: sizeBefore,
           };
 
-          // Find best delta using the engine
           const result = await deltaEngine.findBestDelta(target);
           if (result) {
-            await this.storage.storeDeltaResult(id, result);
+            await this.storeDeltaResult(id, result);
             deltasCreated++;
             spaceSaved += result.savings;
           }
         } catch {
-          // Delta computation can fail if object is not accessible
-          // Skip this object and continue with others
+          // Skip objects that fail
         }
       }
 
-      // Commit all new deltas to a single pack file with proper cross-references
-      await this.storage.endBatch();
+      await deltaApi.endBatch();
     } catch (e) {
-      // Cancel batch on error
-      this.storage.cancelBatch();
+      deltaApi.cancelBatch();
       throw e;
-    }
-
-    // Prune loose objects if requested
-    if (options?.pruneLoose) {
-      for await (const id of this.storage.objects.keys()) {
-        if (await this.storage.isDelta(id)) {
-          await this.storage.objects.delete(id);
-          looseObjectsPruned++;
-        }
-      }
-    }
-
-    // Consolidate packs if consolidator is configured
-    let packsConsolidated = 0;
-    if (this.options.consolidator) {
-      if (progressCallback) {
-        progressCallback({
-          phase: "consolidating",
-          totalObjects: total,
-          processedObjects: objectsProcessed,
-          deltifiedObjects: deltasCreated,
-          bytesSaved: spaceSaved,
-        });
-      }
-
-      const consolidateResult = await this.options.consolidator.consolidate();
-      packsConsolidated = consolidateResult.packsRemoved;
-      spaceSaved += consolidateResult.bytesReclaimed;
     }
 
     if (progressCallback) {
@@ -436,129 +346,115 @@ export class GCController {
       deltasRemoved,
       looseObjectsPruned,
       spaceSaved,
-      packsConsolidated,
-      duration: 0, // Set by caller
+      packsConsolidated: 0,
+      duration: 0,
     };
   }
 
   /**
-   * Remove unreachable objects
+   * Store a delta result using the new API
    *
-   * Walks the object graph from all ref roots to determine reachability,
-   * then deletes any objects not reachable and older than the expiration time.
-   *
-   * @param roots Commit IDs to start reachability walk from
-   * @param commits CommitStore for reading commit objects
-   * @param trees TreeStore for reading tree objects
-   * @param expire Optional expiration date - only delete objects older than this
-   * @returns GC result
+   * Converts BestDeltaResult.delta (Uint8Array) to AsyncIterable
+   * as expected by BlobDeltaApi.deltifyBlob.
    */
-  async collectGarbage(
-    roots: ObjectId[],
-    commits: CommitStore,
-    trees: TreeStore,
-    expire?: Date,
-  ): Promise<GCResult> {
+  private async storeDeltaResult(targetId: ObjectId, result: BestDeltaResult): Promise<void> {
+    const deltaStream = toAsyncIterable(result.delta);
+    await this.backend.delta.blobs.deltifyBlob(targetId, result.baseId, deltaStream);
+  }
+
+  /**
+   * Remove unreachable blobs
+   *
+   * Walks from ref roots to find reachable blobs, then removes unreachable ones.
+   */
+  async collectGarbage(roots: ObjectId[], expire?: Date): Promise<GCResult> {
     const startTime = Date.now();
     const expireTime = expire?.getTime() ?? 0;
 
-    // 1. Find all reachable objects by walking from roots
+    const { blobs } = this.backend.structured;
+
+    // Find all reachable blobs
     const reachable = new Set<string>();
 
     for (const root of roots) {
-      await this.walkCommit(root, commits, trees, reachable);
+      await this.walkCommit(root, reachable);
     }
 
-    // 2. Find and delete unreachable objects
-    let objectsRemoved = 0;
+    // Count and potentially remove unreachable blobs
+    let blobsRemoved = 0;
     let bytesFreed = 0;
 
-    for await (const id of this.storage.keys()) {
+    for await (const id of blobs.keys()) {
       if (reachable.has(id)) {
-        continue; // Object is reachable, keep it
+        continue;
       }
 
-      // Check expiration time if set
+      // Check expiration if set
       if (expireTime > 0) {
-        // Note: getModificationTime is not available on all storage backends
-        // For now, we skip expiration checks if not available
-        // This could be enhanced in the future with storage interface extensions
+        // Note: expiration check would require modification time tracking
+        // which is not yet part of the BlobStore interface
       }
 
-      // Delete unreachable object
+      // Delete unreachable blob
       try {
-        const objectSize = await this.storage.size(id);
-        await this.storage.delete(id);
-        objectsRemoved++;
-        bytesFreed += objectSize;
+        const size = await blobs.size(id);
+        const deleted = await blobs.delete(id);
+        if (deleted) {
+          blobsRemoved++;
+          bytesFreed += size;
+        }
       } catch {
-        // Object might have been deleted concurrently or not accessible
-        // Continue processing other objects
+        // Skip inaccessible blobs
       }
     }
 
     return {
-      objectsRemoved,
+      blobsRemoved,
       bytesFreed,
       durationMs: Date.now() - startTime,
     };
   }
 
   /**
-   * Walk a commit and all its ancestors, marking objects as reachable
+   * Walk a commit and mark reachable objects
    */
-  private async walkCommit(
-    commitId: ObjectId,
-    commits: CommitStore,
-    trees: TreeStore,
-    reachable: Set<string>,
-  ): Promise<void> {
+  private async walkCommit(commitId: ObjectId, reachable: Set<string>): Promise<void> {
     if (reachable.has(commitId)) return;
     reachable.add(commitId);
 
     try {
-      const commit = await commits.loadCommit(commitId);
+      const commit = await this.backend.structured.commits.loadCommit(commitId);
+      await this.walkTree(commit.tree, reachable);
 
-      // Mark tree and all children
-      await this.walkTree(commit.tree, trees, reachable);
-
-      // Walk parent commits (recursive)
       for (const parent of commit.parents) {
-        await this.walkCommit(parent, commits, trees, reachable);
+        await this.walkCommit(parent, reachable);
       }
     } catch {
-      // Commit might not exist or be corrupted, skip it
+      // Skip invalid commits
     }
   }
 
   /**
-   * Walk a tree and all its entries, marking objects as reachable
+   * Walk a tree and mark reachable objects
    */
-  private async walkTree(
-    treeId: ObjectId,
-    trees: TreeStore,
-    reachable: Set<string>,
-  ): Promise<void> {
+  private async walkTree(treeId: ObjectId, reachable: Set<string>): Promise<void> {
     if (reachable.has(treeId)) return;
     reachable.add(treeId);
 
     try {
-      for await (const entry of trees.loadTree(treeId)) {
+      for await (const entry of this.backend.structured.trees.loadTree(treeId)) {
         reachable.add(entry.id);
         if (entry.mode === FileMode.TREE) {
-          await this.walkTree(entry.id, trees, reachable);
+          await this.walkTree(entry.id, reachable);
         }
-        // Blobs are already marked, no need to recurse
       }
     } catch {
-      // Tree might not exist or be corrupted, skip it
+      // Skip invalid trees
     }
   }
 
   /**
    * Get time since last GC
-   *
-   * @returns Milliseconds since last GC run, or -1 if never run
    */
   getTimeSinceLastGC(): number {
     if (this.lastGC === 0) {
@@ -569,10 +465,15 @@ export class GCController {
 
   /**
    * Get current options
-   *
-   * @returns The GC scheduling options
    */
   getOptions(): Readonly<ResolvedGCOptions> {
     return { ...this.options };
   }
+}
+
+/**
+ * Convert Uint8Array to AsyncIterable
+ */
+async function* toAsyncIterable(buffer: Uint8Array): AsyncIterable<Uint8Array> {
+  yield buffer;
 }
