@@ -5,6 +5,9 @@
     },
     {
       "path": "../webrun-files"
+    },
+    {
+      "path": "../statewalker/packages/statewalker-site-fsm"
     }
   ],
   "settings": {

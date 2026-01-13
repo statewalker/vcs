@@ -258,6 +258,40 @@ importers:
         specifier: ^0.21.0
         version: 0.21.2(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(workbox-build@7.4.0)(workbox-window@7.4.0)
 
+  apps/demos/vcs-webrtc-sync:
+    dependencies:
+      '@statewalker/vcs-commands':
+        specifier: workspace:*
+        version: link:../../../packages/commands
+      '@statewalker/vcs-core':
+        specifier: workspace:*
+        version: link:../../../packages/core
+      '@statewalker/vcs-transport':
+        specifier: workspace:*
+        version: link:../../../packages/transport
+      '@statewalker/vcs-transport-webrtc':
+        specifier: workspace:*
+        version: link:../../../packages/transport-webrtc
+      '@statewalker/webrun-files':
+        specifier: link:../../../../webrun-files/packages/webrun-files
+        version: link:../../../../webrun-files/packages/webrun-files
+      '@statewalker/webrun-files-browser':
+        specifier: 'catalog:'
+        version: 0.7.0
+      '@statewalker/webrun-files-mem':
+        specifier: link:../../../../webrun-files/packages/webrun-files-mem
+        version: link:../../../../webrun-files/packages/webrun-files-mem
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0)
+
   apps/demos/versioned-documents:
     dependencies:
       '@statewalker/vcs-commands':
