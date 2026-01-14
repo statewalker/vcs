@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "In-memory storage backend for StateWalker VCS",
   "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
