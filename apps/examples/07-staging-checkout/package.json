@@ -6,7 +6,6 @@
   "description": "Working directory and staging area operations",
   "scripts": {
     "start": "tsx src/main.ts",
-    "test": "echo \"No tests specified\" && exit 0",
     "step:01": "tsx src/steps/01-staging-concepts.ts",
     "step:02": "tsx src/steps/02-staging-changes.ts",
     "step:03": "tsx src/steps/03-unstaging.ts",

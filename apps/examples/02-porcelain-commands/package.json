@@ -6,7 +6,6 @@
   "description": "Complete Git workflow using the Commands API (porcelain layer)",
   "scripts": {
     "start": "tsx src/main.ts",
-    "test": "echo \"No tests specified\" && exit 0",
     "step:01": "tsx src/steps/01-init-and-commit.ts",
     "step:02": "tsx src/steps/02-branching.ts",
     "step:03": "tsx src/steps/03-checkout.ts",

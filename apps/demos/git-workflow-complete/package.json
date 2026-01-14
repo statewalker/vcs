@@ -14,8 +14,7 @@
     "step:06": "tsx src/main.ts --step=06",
     "step:07": "tsx src/main.ts --step=07",
     "step:08": "tsx src/main.ts --step=08",
-    "step:09": "tsx src/main.ts --step=09",
-    "test": "echo \"No tests specified\" && exit 0"
+    "step:09": "tsx src/main.ts --step=09"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",

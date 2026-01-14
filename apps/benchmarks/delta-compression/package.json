@@ -5,8 +5,7 @@
   "type": "module",
   "description": "Delta compression algorithm benchmarks - measuring encoding/decoding performance",
   "scripts": {
-    "start": "tsx src/main.ts",
-    "test": "echo \"No tests specified\" && exit 0"
+    "start": "tsx src/main.ts"
   },
   "dependencies": {
     "@statewalker/vcs-utils": "workspace:*"
