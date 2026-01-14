@@ -8,12 +8,6 @@ export default defineConfig({
     entryFileNames: "[name].js",
     chunkFileNames: "[name]-[hash].js",
   },
-  external: [
-    "@statewalker/vcs-core",
-    /^@statewalker\/vcs-core\//,
-    "@statewalker/vcs-sandbox",
-    /^@statewalker\/vcs-sandbox\//,
-    "vitest",
-  ],
+  external: ["@statewalker/vcs-core", /^@statewalker\/vcs-core\//, "vitest"],
   treeshake: true,
 });

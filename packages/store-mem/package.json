@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",
-    "@statewalker/vcs-sandbox": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {

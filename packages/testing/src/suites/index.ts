@@ -2,8 +2,7 @@
  * Parametrized test suites for storage implementations
  *
  * These test suites verify implementations of the storage interfaces
- * defined in @statewalker/vcs-core and repository interfaces from
- * @statewalker/vcs-sandbox.
+ * defined in @statewalker/vcs-core.
  *
  * ## Standardized Test Factory Pattern
  *
@@ -87,11 +86,8 @@ export * from "./blob-store.suite.js";
 export * from "./checkout-store.suite.js";
 export * from "./commit-store.suite.js";
 export * from "./delta-api.suite.js";
-export * from "./delta-repository.suite.js";
 export * from "./git-compatibility.suite.js";
 export * from "./git-object-store.suite.js";
-export * from "./metadata-repository.suite.js";
-export * from "./object-repository.suite.js";
 export * from "./raw-store.suite.js";
 export * from "./ref-store.suite.js";
 export * from "./staging-store.suite.js";

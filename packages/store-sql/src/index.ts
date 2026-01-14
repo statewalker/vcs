@@ -34,18 +34,13 @@ export * from "./binary-storage/index.js";
 // High-level store implementations
 export * from "./commit-store.js";
 // Factory functions
-export * from "./create-sql-storage.js";
 export * from "./create-streaming-stores.js";
 // Database client interface
 export * from "./database-client.js";
-// Repository implementations
-export * from "./delta-repository.js";
-export * from "./metadata-repository.js";
 // Migrations
 export * from "./migrations/index.js";
 // Native SQL stores with query capabilities
 export * from "./native/index.js";
-export * from "./object-repository.js";
 // Object storage (new architecture)
 export * from "./object-storage/index.js";
 export * from "./ref-store.js";
