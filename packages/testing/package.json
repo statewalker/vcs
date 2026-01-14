@@ -18,8 +18,7 @@
     "lint": "biome lint src"
   },
   "dependencies": {
-    "@statewalker/vcs-core": "workspace:*",
-    "@statewalker/vcs-sandbox": "workspace:*"
+    "@statewalker/vcs-core": "workspace:*"
   },
   "peerDependencies": {
     "vitest": "^4.0.0"
