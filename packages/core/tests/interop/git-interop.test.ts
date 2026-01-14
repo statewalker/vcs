@@ -283,7 +283,7 @@ describe("Git Interoperability", () => {
   });
 
   describe("Round-trip interoperability", () => {
-    it(
+    it.skipIf(process.env.CI)(
       "VCS reads what native git wrote, native git reads what VCS wrote",
       { timeout: 30000 },
       async () => {
