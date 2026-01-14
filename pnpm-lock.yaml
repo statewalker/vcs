@@ -627,28 +627,6 @@ importers:
         specifier: 'catalog:'
         version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
 
-  packages/sandbox:
-    dependencies:
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../core
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../utils
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.58
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
-
   packages/storage-tests:
     devDependencies:
       '@statewalker/vcs-core':
@@ -712,9 +690,6 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../core
-      '@statewalker/vcs-sandbox':
-        specifier: workspace:*
-        version: link:../sandbox
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../utils
@@ -740,9 +715,6 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../core
-      '@statewalker/vcs-sandbox':
-        specifier: workspace:*
-        version: link:../sandbox
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../utils
@@ -774,9 +746,6 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../core
-      '@statewalker/vcs-sandbox':
-        specifier: workspace:*
-        version: link:../sandbox
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
