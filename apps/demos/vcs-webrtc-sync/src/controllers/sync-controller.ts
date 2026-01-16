@@ -373,5 +373,10 @@ async function collectFileIds(
 
 async function sendMessage(transport: TransportConnection, message: SyncMessage): Promise<void> {
   const data = new TextEncoder().encode(JSON.stringify(message));
-  await transport.send(data);
+  // Use sendRaw for raw bytes (available on WebRTC transport)
+  if (transport.sendRaw) {
+    await transport.sendRaw(data);
+  } else {
+    throw new Error("Transport does not support raw message sending");
+  }
 }

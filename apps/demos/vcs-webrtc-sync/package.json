@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "catalog:"
   }
 }
