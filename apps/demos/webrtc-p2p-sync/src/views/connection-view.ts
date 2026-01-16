@@ -57,7 +57,7 @@ export function createConnectionView(ctx: AppContext, container: HTMLElement): (
         <div class="share-url-section">
           <label>Share URL:</label>
           <div class="url-copy-group">
-            <code id="display-share-url" class="share-url"></code>
+            <a id="display-share-url" class="share-url" href="#" target="_blank" rel="noopener noreferrer"></a>
             <button id="btn-copy-url" class="btn-small" title="Copy URL">Copy</button>
           </div>
         </div>
@@ -93,7 +93,7 @@ export function createConnectionView(ctx: AppContext, container: HTMLElement): (
   const copyUrlBtn = container.querySelector("#btn-copy-url") as HTMLButtonElement;
 
   const sessionIdDisplay = container.querySelector("#display-session-id") as HTMLElement;
-  const shareUrlDisplay = container.querySelector("#display-share-url") as HTMLElement;
+  const shareUrlDisplay = container.querySelector("#display-share-url") as HTMLAnchorElement;
   const joinedSessionIdDisplay = container.querySelector(
     "#display-joined-session-id",
   ) as HTMLElement;
@@ -169,6 +169,7 @@ export function createConnectionView(ctx: AppContext, container: HTMLElement): (
     if (state.mode === "hosting") {
       sessionIdDisplay.textContent = state.sessionId ?? "";
       shareUrlDisplay.textContent = state.shareUrl ?? "";
+      shareUrlDisplay.href = state.shareUrl ?? "#";
 
       // Update QR code
       if (state.qrCodeDataUrl) {
