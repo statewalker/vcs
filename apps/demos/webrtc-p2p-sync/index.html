@@ -34,297 +34,636 @@
         margin-bottom: 30px;
       }
 
-      .container {
+      /* Main Layout */
+      .app-layout {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 350px 1fr 300px;
+        grid-template-rows: auto auto 1fr;
         gap: 20px;
+        min-height: calc(100vh - 150px);
       }
 
-      .peer {
+      /* Panel Styles */
+      .panel {
         background: white;
         border-radius: 8px;
-        padding: 20px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
       }
 
-      .peer h2 {
-        margin-top: 0;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #eee;
-      }
-
-      .peer-a h2 {
-        color: #2196f3;
-        border-color: #2196f3;
-      }
-
-      .peer-b h2 {
-        color: #4caf50;
-        border-color: #4caf50;
-      }
-
-      .section {
-        margin: 15px 0;
-      }
-
-      .section h3 {
-        margin: 0 0 10px 0;
+      .panel h3 {
+        margin: 0;
+        padding: 12px 16px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
         font-size: 14px;
-        color: #666;
-        text-transform: uppercase;
+        color: #495057;
       }
 
-      button {
-        background: #2196f3;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        margin-right: 10px;
-        margin-bottom: 10px;
+      .panel-content {
+        padding: 16px;
       }
 
-      button:hover {
-        background: #1976d2;
+      /* Connection Panel */
+      #connection-panel {
+        grid-column: 1;
+        grid-row: 1 / 3;
       }
 
-      button:disabled {
-        background: #ccc;
-        cursor: not-allowed;
+      .connection-panel .panel-section {
+        padding: 16px;
       }
 
-      button.secondary {
-        background: #4caf50;
+      .connection-panel h3 {
+        margin: 0 0 8px 0;
+        font-size: 15px;
+        color: #333;
       }
 
-      button.secondary:hover {
-        background: #388e3c;
+      .connection-panel .hint {
+        color: #6c757d;
+        font-size: 13px;
+        margin: 0 0 12px 0;
       }
 
-      textarea {
-        width: 100%;
-        font-family: monospace;
+      .connection-panel .divider {
+        text-align: center;
+        color: #adb5bd;
+        font-size: 13px;
+        margin: 16px 0;
+        position: relative;
+      }
+
+      .connection-panel .divider::before,
+      .connection-panel .divider::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        width: 40%;
+        height: 1px;
+        background: #dee2e6;
+      }
+
+      .connection-panel .divider::before {
+        left: 0;
+      }
+
+      .connection-panel .divider::after {
+        right: 0;
+      }
+
+      .join-input-group {
+        display: flex;
+        gap: 8px;
+      }
+
+      .join-input-group input {
+        flex: 1;
+      }
+
+      /* Session Info */
+      .session-info {
+        margin-bottom: 16px;
+      }
+
+      .session-info label {
+        display: block;
         font-size: 12px;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        resize: vertical;
+        color: #6c757d;
+        margin-bottom: 4px;
       }
 
-      .status {
-        padding: 10px;
-        border-radius: 4px;
-        font-size: 14px;
-        margin: 10px 0;
-      }
-
-      .status.connected {
-        background: #e8f5e9;
-        color: #2e7d32;
-      }
-
-      .status.disconnected {
-        background: #ffebee;
-        color: #c62828;
-      }
-
-      .status.connecting {
-        background: #fff3e0;
-        color: #e65100;
-      }
-
-      .log {
-        background: #263238;
-        color: #eceff1;
+      .session-id {
         font-family: monospace;
-        font-size: 12px;
-        padding: 15px;
+        font-size: 14px;
+        background: #f8f9fa;
+        padding: 8px 12px;
         border-radius: 4px;
-        height: 200px;
-        overflow-y: auto;
-        white-space: pre-wrap;
+        display: block;
         word-break: break-all;
       }
 
-      .file-list {
-        background: #fafafa;
-        padding: 10px;
+      /* QR Code */
+      .qr-container {
+        text-align: center;
+        margin: 16px 0;
+      }
+
+      .qr-code {
+        max-width: 200px;
+        border: 1px solid #dee2e6;
         border-radius: 4px;
-        max-height: 150px;
+      }
+
+      .qr-placeholder {
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+        background: #f8f9fa;
+        border: 1px dashed #dee2e6;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #adb5bd;
+        font-size: 13px;
+      }
+
+      /* Share URL */
+      .share-url-section {
+        margin-bottom: 16px;
+      }
+
+      .share-url-section label {
+        display: block;
+        font-size: 12px;
+        color: #6c757d;
+        margin-bottom: 4px;
+      }
+
+      .url-copy-group {
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+      }
+
+      .share-url {
+        flex: 1;
+        font-family: monospace;
+        font-size: 11px;
+        background: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 4px;
+        word-break: break-all;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Error Display */
+      .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 12px;
+        border-radius: 4px;
+        margin-top: 16px;
+        font-size: 13px;
+      }
+
+      /* Sharing/Peers Panel */
+      #sharing-panel {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .peers-panel h3 {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        color: #333;
+      }
+
+      .peer-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .peer-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 4px;
+      }
+
+      .peer-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .peer-name {
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .peer-status {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      .status-connected {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .status-connecting {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      .peer-role {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        background: #e2e3e5;
+        color: #383d41;
+      }
+
+      .peer-meta {
+        font-size: 12px;
+        color: #6c757d;
+      }
+
+      .peer-actions {
+        margin-top: 8px;
+      }
+
+      /* Sync Progress */
+      .sync-progress {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .sync-progress .phase {
+        font-size: 12px;
+        color: #6c757d;
+        text-transform: capitalize;
+      }
+
+      .progress-bar {
+        flex: 1;
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: #007bff;
+        transition: width 0.3s ease;
+      }
+
+      /* Repository Panels */
+      #storage-panel {
+        grid-column: 2;
+        grid-row: 2;
+      }
+
+      #files-panel {
+        grid-column: 2;
+        grid-row: 3;
+      }
+
+      #history-panel {
+        grid-column: 3;
+        grid-row: 1 / 3;
+      }
+
+      .storage-panel h3,
+      .files-panel h3,
+      .history-panel h3 {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        color: #333;
+      }
+
+      .repo-info {
+        margin-bottom: 16px;
+      }
+
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid #f1f3f4;
+        font-size: 13px;
+      }
+
+      .info-row label {
+        color: #6c757d;
+      }
+
+      .info-row code {
+        font-family: monospace;
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      /* File List */
+      .file-list {
+        max-height: 300px;
         overflow-y: auto;
       }
 
       .file-item {
-        padding: 5px 10px;
-        margin: 2px 0;
-        background: white;
-        border-radius: 2px;
-        font-family: monospace;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 4px;
         font-size: 13px;
       }
 
-      input[type="text"] {
+      .file-icon {
+        font-size: 16px;
+      }
+
+      .file-name {
+        font-family: monospace;
+      }
+
+      .file-actions {
+        margin-top: 12px;
+      }
+
+      /* Commit History */
+      .commit-list {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .commit-item {
+        padding: 12px;
+        border-bottom: 1px solid #f1f3f4;
+      }
+
+      .commit-item:last-child {
+        border-bottom: none;
+      }
+
+      .commit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+      }
+
+      .commit-id {
+        font-family: monospace;
+        font-size: 12px;
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      .commit-date {
+        font-size: 11px;
+        color: #6c757d;
+      }
+
+      .commit-message {
+        font-size: 13px;
+        color: #333;
+        margin-bottom: 4px;
+      }
+
+      .commit-author {
+        font-size: 11px;
+        color: #6c757d;
+      }
+
+      /* Log Panel */
+      #log-panel {
+        grid-column: 3;
+        grid-row: 3;
+      }
+
+      .log-panel h3 {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        color: #333;
+      }
+
+      .log-entries {
+        background: #263238;
+        color: #eceff1;
+        font-family: monospace;
+        font-size: 11px;
+        padding: 12px;
+        border-radius: 4px;
+        height: 250px;
+        overflow-y: auto;
+      }
+
+      .log-entry {
+        margin-bottom: 4px;
+        line-height: 1.4;
+      }
+
+      .log-time {
+        color: #78909c;
+      }
+
+      .log-info .log-message {
+        color: #eceff1;
+      }
+
+      .log-warn .log-message {
+        color: #ffb74d;
+      }
+
+      .log-error .log-message {
+        color: #ef5350;
+      }
+
+      /* Buttons */
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.2s;
+      }
+
+      button:hover {
+        background: #0056b3;
+      }
+
+      button:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .btn-primary {
+        background: #007bff;
+      }
+
+      .btn-primary:hover {
+        background: #0056b3;
+      }
+
+      .btn-secondary {
+        background: #6c757d;
+      }
+
+      .btn-secondary:hover {
+        background: #545b62;
+      }
+
+      .btn-danger {
+        background: #dc3545;
+      }
+
+      .btn-danger:hover {
+        background: #c82333;
+      }
+
+      .btn-small {
+        padding: 4px 8px;
+        font-size: 12px;
+      }
+
+      .btn-sync {
+        background: #28a745;
+      }
+
+      .btn-sync:hover {
+        background: #218838;
+      }
+
+      .btn-cancel {
+        background: #ffc107;
+        color: #212529;
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+
+      /* Inputs */
+      input[type="text"],
+      textarea {
         padding: 8px 12px;
-        border: 1px solid #ddd;
+        border: 1px solid #ced4da;
         border-radius: 4px;
-        font-size: 14px;
-        margin-right: 10px;
-        width: 200px;
+        font-size: 13px;
+        width: 100%;
       }
 
-      .signal-area {
-        background: #f5f5f5;
-        padding: 15px;
-        border-radius: 4px;
-        margin: 10px 0;
+      input[type="text"]:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
       }
 
-      .instructions {
-        background: #e3f2fd;
-        padding: 15px;
-        border-radius: 4px;
-        margin-bottom: 20px;
-        line-height: 1.6;
+      /* Empty State */
+      .empty-state {
+        color: #6c757d;
+        font-size: 13px;
+        text-align: center;
+        padding: 20px;
       }
 
-      .instructions h3 {
-        margin-top: 0;
-        color: #1565c0;
+      /* Responsive */
+      @media (max-width: 1200px) {
+        .app-layout {
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: auto auto auto auto;
+        }
+
+        #connection-panel {
+          grid-column: 1;
+          grid-row: 1;
+        }
+
+        #sharing-panel {
+          grid-column: 2;
+          grid-row: 1;
+        }
+
+        #storage-panel {
+          grid-column: 1;
+          grid-row: 2;
+        }
+
+        #files-panel {
+          grid-column: 2;
+          grid-row: 2;
+        }
+
+        #history-panel {
+          grid-column: 1;
+          grid-row: 3;
+        }
+
+        #log-panel {
+          grid-column: 2;
+          grid-row: 3;
+        }
       }
 
-      .instructions ol {
-        margin: 0;
-        padding-left: 20px;
+      @media (max-width: 768px) {
+        .app-layout {
+          grid-template-columns: 1fr;
+        }
+
+        #connection-panel,
+        #sharing-panel,
+        #storage-panel,
+        #files-panel,
+        #history-panel,
+        #log-panel {
+          grid-column: 1;
+          grid-row: auto;
+        }
       }
     </style>
   </head>
   <body>
     <h1>WebRTC P2P Git Sync</h1>
     <p class="subtitle">
-      Peer-to-peer repository synchronization without a server
+      Share and synchronize repositories peer-to-peer using WebRTC
     </p>
 
-    <div class="instructions">
-      <h3>How It Works</h3>
-      <ol>
-        <li>
-          <strong>Peer A</strong> creates a repository and adds some files
-        </li>
-        <li>
-          <strong>Peer A</strong> clicks "Create Offer" to generate connection
-          data
-        </li>
-        <li>
-          Copy the offer signal and paste it into <strong>Peer B's</strong>
-          input
-        </li>
-        <li>
-          <strong>Peer B</strong> clicks "Accept Offer" to generate an answer
-        </li>
-        <li>
-          Copy the answer signal and paste it into <strong>Peer A's</strong>
-          input
-        </li>
-        <li>
-          <strong>Peer A</strong> clicks "Accept Answer" to complete the
-          connection
-        </li>
-        <li>Once connected, click "Sync" to transfer the repository!</li>
-      </ol>
-    </div>
+    <div class="app-layout">
+      <!-- Connection Panel -->
+      <div id="connection-panel" class="panel">
+        <!-- Content injected by connection-view.ts -->
+      </div>
 
-    <div class="container">
-      <div class="peer peer-a">
-        <h2>Peer A (Initiator)</h2>
-
-        <div class="section">
-          <h3>Status</h3>
-          <div id="status-a" class="status disconnected">Disconnected</div>
-        </div>
-
-        <div class="section">
-          <h3>Repository</h3>
-          <button id="init-a">Initialize Repo</button>
-          <button id="add-file-a">Add Sample File</button>
-          <div id="files-a" class="file-list">No repository</div>
-        </div>
-
-        <div class="section">
-          <h3>Connection</h3>
-          <button id="create-offer">Create Offer</button>
-          <button id="accept-answer" disabled>Accept Answer</button>
-          <button id="sync-a" disabled>Sync to Peer B</button>
-        </div>
-
-        <div class="section signal-area">
-          <h3>Your Signal (copy this)</h3>
-          <textarea
-            id="signal-out-a"
-            rows="4"
-            readonly
-            placeholder="Signal will appear here..."
-          ></textarea>
-        </div>
-
-        <div class="section signal-area">
-          <h3>Peer's Signal (paste here)</h3>
-          <textarea
-            id="signal-in-a"
-            rows="4"
-            placeholder="Paste answer from Peer B..."
-          ></textarea>
-        </div>
-
-        <div class="section">
-          <h3>Log</h3>
-          <div id="log-a" class="log"></div>
+      <!-- Sharing/Peers Panel -->
+      <div id="sharing-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by sharing-view.ts -->
         </div>
       </div>
 
-      <div class="peer peer-b">
-        <h2>Peer B (Responder)</h2>
-
-        <div class="section">
-          <h3>Status</h3>
-          <div id="status-b" class="status disconnected">Disconnected</div>
+      <!-- Storage Panel -->
+      <div id="storage-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by storage-view.ts -->
         </div>
+      </div>
 
-        <div class="section">
-          <h3>Repository</h3>
-          <button id="init-b">Initialize Repo</button>
-          <div id="files-b" class="file-list">No repository</div>
+      <!-- Files Panel -->
+      <div id="files-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by file-list-view.ts -->
         </div>
+      </div>
 
-        <div class="section">
-          <h3>Connection</h3>
-          <button id="accept-offer" disabled>Accept Offer</button>
-          <button id="sync-b" disabled>Sync from Peer A</button>
+      <!-- History Panel -->
+      <div id="history-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by commit-history-view.ts -->
         </div>
+      </div>
 
-        <div class="section signal-area">
-          <h3>Your Signal (copy this)</h3>
-          <textarea
-            id="signal-out-b"
-            rows="4"
-            readonly
-            placeholder="Signal will appear here..."
-          ></textarea>
-        </div>
-
-        <div class="section signal-area">
-          <h3>Peer's Signal (paste here)</h3>
-          <textarea
-            id="signal-in-b"
-            rows="4"
-            placeholder="Paste offer from Peer A..."
-          ></textarea>
-        </div>
-
-        <div class="section">
-          <h3>Log</h3>
-          <div id="log-b" class="log"></div>
+      <!-- Log Panel -->
+      <div id="log-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by activity-log-view.ts -->
         </div>
       </div>
     </div>
