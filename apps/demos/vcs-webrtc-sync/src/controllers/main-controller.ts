@@ -3,6 +3,7 @@
  *
  * Orchestrates all other controllers and manages the application startup sequence.
  * Sets up inter-model coordination and initializes the app context.
+ * Subscribes to UserActionsModel to handle user-initiated actions.
  */
 
 import {
@@ -14,12 +15,28 @@ import {
   getRepositoryModel,
   getSharingFormModel,
   getStagingModel,
+  getUserActionsModel,
 } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
-import { createRepositoryController } from "./repository-controller.js";
-import { createStorageController } from "./storage-controller.js";
-import { createSyncController } from "./sync-controller.js";
-import { createWebRtcController } from "./webrtc-controller.js";
+import {
+  commit,
+  createRepositoryController,
+  createSampleFiles,
+  initOrOpenRepository,
+  refreshFiles,
+  restoreToCommit,
+  stageFile,
+  unstageFile,
+} from "./repository-controller.js";
+import { createStorageController, openFolder, useMemoryStorage } from "./storage-controller.js";
+import { createSyncController, fetchFromRemote, pushToRemote } from "./sync-controller.js";
+import {
+  acceptAnswer,
+  acceptOffer,
+  closeConnection,
+  createOffer,
+  createWebRtcController,
+} from "./webrtc-controller.js";
 
 /**
  * Application context type.
@@ -41,6 +58,7 @@ export function createAppContext(): AppContext {
   getConnectionModel(ctx);
   getSharingFormModel(ctx);
   getActivityLogModel(ctx);
+  getUserActionsModel(ctx);
 
   return ctx;
 }
@@ -89,9 +107,103 @@ export function createMainController(ctx: AppContext): () => void {
     }),
   );
 
+  // Subscribe to UserActionsModel and handle user-initiated actions
+  const actionsModel = getUserActionsModel(ctx);
+  register(
+    actionsModel.onUpdate(() => {
+      // Handle storage actions
+      const storageAction = actionsModel.storageAction;
+      if (storageAction) {
+        actionsModel.clearStorageAction();
+        handleStorageAction(ctx, storageAction.type);
+      }
+
+      // Handle file actions
+      const fileAction = actionsModel.fileAction;
+      if (fileAction) {
+        actionsModel.clearFileAction();
+        if (fileAction.type === "refresh") {
+          refreshFiles(ctx);
+        } else if (fileAction.type === "stage") {
+          stageFile(ctx, fileAction.path);
+        } else if (fileAction.type === "unstage") {
+          unstageFile(ctx, fileAction.path);
+        }
+      }
+
+      // Handle commit actions
+      const commitAction = actionsModel.commitAction;
+      if (commitAction) {
+        actionsModel.clearCommitAction();
+        if (commitAction.type === "commit") {
+          commit(ctx, commitAction.message);
+        } else if (commitAction.type === "restore") {
+          restoreToCommit(ctx, commitAction.commitId);
+        }
+      }
+
+      // Handle connection actions
+      const connectionAction = actionsModel.connectionAction;
+      if (connectionAction) {
+        actionsModel.clearConnectionAction();
+        if (connectionAction.type === "create-offer") {
+          createOffer(ctx);
+        } else if (connectionAction.type === "accept-offer") {
+          acceptOffer(ctx, connectionAction.payload);
+        } else if (connectionAction.type === "accept-answer") {
+          acceptAnswer(ctx, connectionAction.payload);
+        } else if (connectionAction.type === "close-connection") {
+          closeConnection(ctx);
+        }
+      }
+
+      // Handle sync actions
+      const syncAction = actionsModel.syncAction;
+      if (syncAction) {
+        actionsModel.clearSyncAction();
+        if (syncAction.type === "push") {
+          pushToRemote(ctx);
+        } else if (syncAction.type === "fetch") {
+          fetchFromRemote(ctx);
+        }
+      }
+    }),
+  );
+
   logModel.info("Application initialized");
 
   return cleanup;
+}
+
+/**
+ * Handle storage-related actions.
+ */
+async function handleStorageAction(
+  ctx: AppContext,
+  actionType: "open-folder" | "use-memory" | "init-repository" | "create-samples",
+): Promise<void> {
+  switch (actionType) {
+    case "open-folder": {
+      const backend = await openFolder(ctx);
+      if (backend) {
+        await initOrOpenRepository(ctx);
+      }
+      break;
+    }
+    case "use-memory": {
+      await useMemoryStorage(ctx);
+      await initOrOpenRepository(ctx);
+      break;
+    }
+    case "init-repository": {
+      await initOrOpenRepository(ctx);
+      break;
+    }
+    case "create-samples": {
+      await createSampleFiles(ctx);
+      break;
+    }
+  }
 }
 
 export {
