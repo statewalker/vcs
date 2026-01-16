@@ -2,16 +2,11 @@
  * File List View
  *
  * Renders the working directory file list with status indicators and stage buttons.
- * Updates UserActionsModel on user interactions instead of calling controllers directly.
  */
 
 import type { AppContext } from "../controllers/index.js";
-import {
-  type FileStatus,
-  getFileListModel,
-  getRepositoryModel,
-  getUserActionsModel,
-} from "../models/index.js";
+import { refreshFiles, stageFile } from "../controllers/index.js";
+import { type FileStatus, getFileListModel, getRepositoryModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 
 /**
@@ -22,7 +17,6 @@ export function createFileListView(ctx: AppContext, container: HTMLElement): () 
   const [register, cleanup] = newRegistry();
   const fileListModel = getFileListModel(ctx);
   const repoModel = getRepositoryModel(ctx);
-  const actionsModel = getUserActionsModel(ctx);
 
   // Create UI structure
   container.innerHTML = `
@@ -35,18 +29,25 @@ export function createFileListView(ctx: AppContext, container: HTMLElement): () 
   const refreshBtn = container.querySelector("#btn-refresh") as HTMLButtonElement;
   const fileList = container.querySelector("#file-list") as HTMLElement;
 
-  // Refresh button handler - update model instead of calling controller
-  refreshBtn.addEventListener("click", () => {
-    actionsModel.requestRefresh();
+  // Refresh button handler
+  refreshBtn.addEventListener("click", async () => {
+    refreshBtn.disabled = true;
+    try {
+      await refreshFiles(ctx);
+    } finally {
+      refreshBtn.disabled = false;
+    }
   });
 
-  // Stage button handler (delegated) - update model instead of calling controller
-  fileList.addEventListener("click", (e) => {
+  // Stage button handler (delegated)
+  fileList.addEventListener("click", async (e) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains("btn-stage")) {
       const path = target.dataset.path;
       if (path) {
-        actionsModel.requestStage(path);
+        target.classList.add("disabled");
+        (target as HTMLButtonElement).disabled = true;
+        await stageFile(ctx, path);
       }
     }
   });

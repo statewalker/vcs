@@ -2,11 +2,11 @@
  * Staging View
  *
  * Renders the staging area with staged files and unstage buttons.
- * Updates UserActionsModel on user interactions instead of calling controllers directly.
  */
 
 import type { AppContext } from "../controllers/index.js";
-import { getStagingModel, getUserActionsModel } from "../models/index.js";
+import { unstageFile } from "../controllers/index.js";
+import { getStagingModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 
 /**
@@ -16,20 +16,20 @@ import { newRegistry } from "../utils/index.js";
 export function createStagingView(ctx: AppContext, container: HTMLElement): () => void {
   const [register, cleanup] = newRegistry();
   const stagingModel = getStagingModel(ctx);
-  const actionsModel = getUserActionsModel(ctx);
 
   // Create UI structure
   container.innerHTML = `<div id="staging-list" class="file-list"></div>`;
 
   const stagingList = container.querySelector("#staging-list") as HTMLElement;
 
-  // Unstage button handler (delegated) - update model instead of calling controller
-  stagingList.addEventListener("click", (e) => {
+  // Unstage button handler (delegated)
+  stagingList.addEventListener("click", async (e) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains("btn-unstage")) {
       const path = target.dataset.path;
       if (path) {
-        actionsModel.requestUnstage(path);
+        (target as HTMLButtonElement).disabled = true;
+        await unstageFile(ctx, path);
       }
     }
   });
