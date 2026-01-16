@@ -2,12 +2,17 @@
  * Storage View
  *
  * Renders the storage selection UI (Open Folder / Memory Storage buttons).
- * Updates UserActionsModel on user interactions instead of calling controllers directly.
  */
 
 import type { AppContext } from "../controllers/index.js";
-import { isFileSystemAccessSupported } from "../controllers/index.js";
-import { getRepositoryModel, getUserActionsModel } from "../models/index.js";
+import {
+  createSampleFiles,
+  initOrOpenRepository,
+  isFileSystemAccessSupported,
+  openFolder,
+  useMemoryStorage,
+} from "../controllers/index.js";
+import { getRepositoryModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 
 /**
@@ -17,7 +22,6 @@ import { newRegistry } from "../utils/index.js";
 export function createStorageView(ctx: AppContext, container: HTMLElement): () => void {
   const [register, cleanup] = newRegistry();
   const repoModel = getRepositoryModel(ctx);
-  const actionsModel = getUserActionsModel(ctx);
 
   // Create UI elements
   container.innerHTML = `
@@ -49,21 +53,45 @@ export function createStorageView(ctx: AppContext, container: HTMLElement): () =
     openFolderBtn.title = "File System Access API not supported";
   }
 
-  // Event handlers - update model instead of calling controllers
-  openFolderBtn.addEventListener("click", () => {
-    actionsModel.requestOpenFolder();
+  // Event handlers
+  openFolderBtn.addEventListener("click", async () => {
+    openFolderBtn.disabled = true;
+    try {
+      const backend = await openFolder(ctx);
+      if (backend) {
+        // Automatically initialize/open repository after folder selection
+        await initOrOpenRepository(ctx);
+      }
+    } finally {
+      openFolderBtn.disabled = !isFileSystemAccessSupported();
+    }
   });
 
-  memoryBtn.addEventListener("click", () => {
-    actionsModel.requestUseMemory();
+  memoryBtn.addEventListener("click", async () => {
+    await useMemoryStorage(ctx);
+    // Automatically initialize repository for memory storage
+    await initOrOpenRepository(ctx);
   });
 
-  initRepoBtn.addEventListener("click", () => {
-    actionsModel.requestInitRepository();
+  initRepoBtn.addEventListener("click", async () => {
+    initRepoBtn.disabled = true;
+    try {
+      const success = await initOrOpenRepository(ctx);
+      if (success && repoModel.status === "ready") {
+        createSamplesBtn.style.display = "inline-block";
+      }
+    } finally {
+      initRepoBtn.disabled = false;
+    }
   });
 
-  createSamplesBtn.addEventListener("click", () => {
-    actionsModel.requestCreateSamples();
+  createSamplesBtn.addEventListener("click", async () => {
+    createSamplesBtn.disabled = true;
+    try {
+      await createSampleFiles(ctx);
+    } finally {
+      createSamplesBtn.disabled = false;
+    }
   });
 
   // Render function

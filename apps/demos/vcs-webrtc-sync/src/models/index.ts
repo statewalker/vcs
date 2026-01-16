@@ -15,7 +15,6 @@ import { FileListModel } from "./file-list-model.js";
 import { RepositoryModel } from "./repository-model.js";
 import { SharingFormModel } from "./sharing-form-model.js";
 import { StagingModel } from "./staging-model.js";
-import { UserActionsModel } from "./user-actions-model.js";
 
 export type { LogEntry, LogLevel } from "./activity-log-model.js";
 export { ActivityLogModel } from "./activity-log-model.js";
@@ -33,14 +32,6 @@ export type { SharingMode } from "./sharing-form-model.js";
 export { SharingFormModel } from "./sharing-form-model.js";
 export type { StagedFile } from "./staging-model.js";
 export { StagingModel } from "./staging-model.js";
-export type {
-  CommitAction,
-  ConnectionAction,
-  FileAction,
-  StorageAction,
-  SyncAction,
-} from "./user-actions-model.js";
-export { UserActionsModel } from "./user-actions-model.js";
 
 // Adapters for dependency injection
 export const [getRepositoryModel, setRepositoryModel] = newAdapter<RepositoryModel>(
@@ -81,9 +72,4 @@ export const [getSharingFormModel, setSharingFormModel] = newAdapter<SharingForm
 export const [getActivityLogModel, setActivityLogModel] = newAdapter<ActivityLogModel>(
   "activity-log-model",
   () => new ActivityLogModel(),
-);
-
-export const [getUserActionsModel, setUserActionsModel] = newAdapter<UserActionsModel>(
-  "user-actions-model",
-  () => new UserActionsModel(),
 );
