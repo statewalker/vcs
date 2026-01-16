@@ -2,11 +2,16 @@
  * Commit Form View
  *
  * Renders the commit message input and commit button.
+ * Updates UserActionsModel on user interactions instead of calling controllers directly.
  */
 
 import type { AppContext } from "../controllers/index.js";
-import { commit } from "../controllers/index.js";
-import { getCommitFormModel, getRepositoryModel, getStagingModel } from "../models/index.js";
+import {
+  getCommitFormModel,
+  getRepositoryModel,
+  getStagingModel,
+  getUserActionsModel,
+} from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 
 /**
@@ -18,6 +23,7 @@ export function createCommitFormView(ctx: AppContext, container: HTMLElement): (
   const commitFormModel = getCommitFormModel(ctx);
   const stagingModel = getStagingModel(ctx);
   const repoModel = getRepositoryModel(ctx);
+  const actionsModel = getUserActionsModel(ctx);
 
   // Create UI structure
   container.innerHTML = `
@@ -30,22 +36,22 @@ export function createCommitFormView(ctx: AppContext, container: HTMLElement): (
   const messageInput = container.querySelector("#commit-message") as HTMLInputElement;
   const commitBtn = container.querySelector("#btn-commit") as HTMLButtonElement;
 
-  // Input handler
+  // Input handler - update model
   messageInput.addEventListener("input", () => {
     commitFormModel.setMessage(messageInput.value);
   });
 
-  // Commit handler
-  commitBtn.addEventListener("click", async () => {
+  // Commit handler - update actions model instead of calling controller
+  commitBtn.addEventListener("click", () => {
     const message = commitFormModel.message.trim();
     if (message && !stagingModel.isEmpty) {
-      await commit(ctx, message);
+      actionsModel.requestCommit(message);
       messageInput.value = "";
     }
   });
 
   // Enter key handler
-  messageInput.addEventListener("keydown", async (e) => {
+  messageInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !commitBtn.disabled) {
       commitBtn.click();
     }

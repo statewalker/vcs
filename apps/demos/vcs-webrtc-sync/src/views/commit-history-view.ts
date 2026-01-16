@@ -2,11 +2,11 @@
  * Commit History View
  *
  * Renders the commit history with restore buttons.
+ * Updates UserActionsModel on user interactions instead of calling controllers directly.
  */
 
 import type { AppContext } from "../controllers/index.js";
-import { restoreToCommit } from "../controllers/index.js";
-import { getCommitHistoryModel, getRepositoryModel } from "../models/index.js";
+import { getCommitHistoryModel, getRepositoryModel, getUserActionsModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 
 /**
@@ -17,22 +17,23 @@ export function createCommitHistoryView(ctx: AppContext, container: HTMLElement)
   const [register, cleanup] = newRegistry();
   const historyModel = getCommitHistoryModel(ctx);
   const repoModel = getRepositoryModel(ctx);
+  const actionsModel = getUserActionsModel(ctx);
 
   // Create UI structure
   container.innerHTML = `<div id="commit-list" class="commit-list"></div>`;
 
   const commitList = container.querySelector("#commit-list") as HTMLElement;
 
-  // Restore button handler (delegated)
-  commitList.addEventListener("click", async (e) => {
+  // Restore button handler (delegated) - update model instead of calling controller
+  commitList.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains("btn-restore")) {
       const commitId = target.dataset.commitId;
       if (commitId) {
+        // confirm() is a UI operation, acceptable in views
         const confirmed = confirm(`Restore to commit ${commitId.slice(0, 7)}?`);
         if (confirmed) {
-          (target as HTMLButtonElement).disabled = true;
-          await restoreToCommit(ctx, commitId);
+          actionsModel.requestRestore(commitId);
         }
       }
     }
