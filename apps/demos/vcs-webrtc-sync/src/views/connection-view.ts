@@ -2,11 +2,11 @@
  * Connection View
  *
  * Renders the WebRTC connection status indicator.
- * Updates UserActionsModel on user interactions instead of calling controllers directly.
  */
 
 import type { AppContext } from "../controllers/index.js";
-import { type ConnectionState, getConnectionModel, getUserActionsModel } from "../models/index.js";
+import { closeConnection } from "../controllers/index.js";
+import { type ConnectionState, getConnectionModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 
 /**
@@ -16,7 +16,6 @@ import { newRegistry } from "../utils/index.js";
 export function createConnectionView(ctx: AppContext, container: HTMLElement): () => void {
   const [register, cleanup] = newRegistry();
   const connectionModel = getConnectionModel(ctx);
-  const actionsModel = getUserActionsModel(ctx);
 
   // Create UI structure
   container.innerHTML = `
@@ -29,9 +28,9 @@ export function createConnectionView(ctx: AppContext, container: HTMLElement): (
   const indicator = container.querySelector("#connection-indicator") as HTMLElement;
   const disconnectBtn = container.querySelector("#btn-disconnect") as HTMLButtonElement;
 
-  // Disconnect handler - update model instead of calling controller
+  // Disconnect handler
   disconnectBtn.addEventListener("click", () => {
-    actionsModel.requestCloseConnection();
+    closeConnection(ctx);
   });
 
   // Get status text
