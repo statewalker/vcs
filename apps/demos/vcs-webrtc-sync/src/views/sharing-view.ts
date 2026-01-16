@@ -2,17 +2,16 @@
  * Sharing View
  *
  * Renders the Share/Connect UI for establishing WebRTC connections.
+ * Updates UserActionsModel on user interactions instead of calling controllers directly.
  */
 
 import type { AppContext } from "../controllers/index.js";
 import {
-  acceptAnswer,
-  acceptOffer,
-  createOffer,
-  fetchFromRemote,
-  pushToRemote,
-} from "../controllers/index.js";
-import { getConnectionModel, getRepositoryModel, getSharingFormModel } from "../models/index.js";
+  getConnectionModel,
+  getRepositoryModel,
+  getSharingFormModel,
+  getUserActionsModel,
+} from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 
 /**
@@ -24,6 +23,7 @@ export function createSharingView(ctx: AppContext, container: HTMLElement): () =
   const sharingModel = getSharingFormModel(ctx);
   const connectionModel = getConnectionModel(ctx);
   const repoModel = getRepositoryModel(ctx);
+  const actionsModel = getUserActionsModel(ctx);
 
   // Create UI structure
   container.innerHTML = `
@@ -84,17 +84,16 @@ export function createSharingView(ctx: AppContext, container: HTMLElement): () =
   const pushBtn = container.querySelector("#btn-push") as HTMLButtonElement;
   const fetchBtn = container.querySelector("#btn-fetch") as HTMLButtonElement;
 
-  // Event handlers
-  shareBtn.addEventListener("click", async () => {
-    shareBtn.disabled = true;
-    await createOffer(ctx);
-    shareBtn.disabled = false;
+  // Event handlers - update model instead of calling controllers
+  shareBtn.addEventListener("click", () => {
+    actionsModel.requestCreateOffer();
   });
 
   connectBtn.addEventListener("click", () => {
     sharingModel.startConnect();
   });
 
+  // Clipboard operations are UI operations, acceptable in views
   copySignalBtn.addEventListener("click", async () => {
     await navigator.clipboard.writeText(localSignal.value);
     copySignalBtn.textContent = "Copied!";
@@ -111,6 +110,7 @@ export function createSharingView(ctx: AppContext, container: HTMLElement): () =
     }, 2000);
   });
 
+  // Input handlers - update model
   remoteSignal.addEventListener("input", () => {
     sharingModel.setRemoteSignal(remoteSignal.value);
     acceptAnswerBtn.disabled = remoteSignal.value.trim().length === 0;
@@ -121,27 +121,22 @@ export function createSharingView(ctx: AppContext, container: HTMLElement): () =
     acceptOfferBtn.disabled = offerInput.value.trim().length === 0;
   });
 
-  acceptAnswerBtn.addEventListener("click", async () => {
-    acceptAnswerBtn.disabled = true;
-    await acceptAnswer(ctx, remoteSignal.value);
+  // Accept handlers - update actions model instead of calling controllers
+  acceptAnswerBtn.addEventListener("click", () => {
+    actionsModel.requestAcceptAnswer(remoteSignal.value);
   });
 
-  acceptOfferBtn.addEventListener("click", async () => {
-    acceptOfferBtn.disabled = true;
-    await acceptOffer(ctx, offerInput.value);
-    acceptOfferBtn.disabled = false;
+  acceptOfferBtn.addEventListener("click", () => {
+    actionsModel.requestAcceptOffer(offerInput.value);
   });
 
-  pushBtn.addEventListener("click", async () => {
-    pushBtn.disabled = true;
-    await pushToRemote(ctx);
-    pushBtn.disabled = false;
+  // Sync handlers - update actions model instead of calling controllers
+  pushBtn.addEventListener("click", () => {
+    actionsModel.requestPush();
   });
 
-  fetchBtn.addEventListener("click", async () => {
-    fetchBtn.disabled = true;
-    await fetchFromRemote(ctx);
-    fetchBtn.disabled = false;
+  fetchBtn.addEventListener("click", () => {
+    actionsModel.requestFetch();
   });
 
   // Render function
