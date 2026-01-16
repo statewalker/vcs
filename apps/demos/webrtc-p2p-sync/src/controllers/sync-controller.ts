@@ -63,6 +63,10 @@ export function createSyncController(ctx: AppContext): () => void {
   // Track ID mappings for each peer during sync (sent ID -> stored ID)
   const peerIdMappings = new Map<string, Map<string, string>>();
 
+  // Message queues for serializing message processing per peer
+  const messageQueues = new Map<string, SyncMessage[]>();
+  const processingFlags = new Map<string, boolean>();
+
   // Set up message handlers when peers update
   register(
     peersModel.onUpdate(() => {
@@ -80,7 +84,11 @@ export function createSyncController(ctx: AppContext): () => void {
     if (handlersSet.has(peerId)) return;
     handlersSet.add(peerId);
 
-    conn.on("data", async (data: unknown) => {
+    // Initialize queue for this peer
+    messageQueues.set(peerId, []);
+    processingFlags.set(peerId, false);
+
+    conn.on("data", (data: unknown) => {
       try {
         // Parse message
         let message: SyncMessage;
@@ -94,7 +102,12 @@ export function createSyncController(ctx: AppContext): () => void {
           return; // Unknown format
         }
 
-        await handleIncomingMessage(peerId, conn, message);
+        // Add to queue and process
+        const queue = messageQueues.get(peerId);
+        if (queue) {
+          queue.push(message);
+          processMessageQueue(peerId, conn);
+        }
       } catch {
         // Ignore parse errors - might be non-sync data
       }
@@ -102,7 +115,35 @@ export function createSyncController(ctx: AppContext): () => void {
 
     conn.on("close", () => {
       handlersSet.delete(peerId);
+      messageQueues.delete(peerId);
+      processingFlags.delete(peerId);
     });
+  }
+
+  /**
+   * Process messages from the queue one at a time.
+   */
+  async function processMessageQueue(
+    peerId: string,
+    conn: PeerConnection,
+  ): Promise<void> {
+    // Check if already processing
+    if (processingFlags.get(peerId)) return;
+    processingFlags.set(peerId, true);
+
+    const queue = messageQueues.get(peerId);
+    while (queue && queue.length > 0) {
+      const message = queue.shift();
+      if (message) {
+        try {
+          await handleIncomingMessage(peerId, conn, message);
+        } catch (e) {
+          logModel.error(`Error processing message: ${(e as Error).message}`);
+        }
+      }
+    }
+
+    processingFlags.set(peerId, false);
   }
 
   /**
