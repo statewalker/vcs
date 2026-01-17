@@ -17,7 +17,6 @@ export type UserActionType =
   // Repository actions
   | "repo:init"
   | "repo:refresh"
-  | "repo:checkout"
   // File actions
   | "file:add"
   | "file:stage"
@@ -123,11 +122,6 @@ export class UserActionsModel extends BaseClass {
   /** Request to refresh repository state. */
   requestRefreshRepo(): void {
     this.request("repo:refresh");
-  }
-
-  /** Request to checkout HEAD (update working directory from commit). */
-  requestCheckoutHead(): void {
-    this.request("repo:checkout");
   }
 
   // File actions

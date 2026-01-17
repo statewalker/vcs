@@ -67,7 +67,7 @@
       /* Connection Panel */
       #connection-panel {
         grid-column: 1;
-        grid-row: 1;
+        grid-row: 1 / 3;
       }
 
       .connection-panel .panel-section {
@@ -223,10 +223,6 @@
         grid-row: 1;
       }
 
-      .peers-panel {
-        padding-bottom: 0.5em;
-      }
-
       .peers-panel h3 {
         margin: 0 0 12px 0;
         font-size: 15px;
@@ -322,22 +318,18 @@
 
       /* Repository Panels */
       #storage-panel {
-        grid-column: 1;
-        grid-row: 2 / 4;
+        grid-column: 2;
+        grid-row: 2;
       }
 
       #files-panel {
         grid-column: 2;
-        grid-row: 2 / 4;
+        grid-row: 3;
       }
 
       #history-panel {
         grid-column: 3;
         grid-row: 1 / 3;
-      }
-
-      .storage-panel {
-        padding: 16px;
       }
 
       .storage-panel h3,
@@ -593,14 +585,14 @@
           grid-row: 1;
         }
 
-        #storage-panel {
-          grid-column: 1;
-          grid-row: 2;
-        }
-
         #sharing-panel {
           grid-column: 2;
           grid-row: 1;
+        }
+
+        #storage-panel {
+          grid-column: 1;
+          grid-row: 2;
         }
 
         #files-panel {

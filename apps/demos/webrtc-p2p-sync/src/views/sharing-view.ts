@@ -105,10 +105,8 @@ export function createSharingView(ctx: AppContext, container: HTMLElement): () =
     // Bind sync button events
     container.querySelectorAll(".btn-sync").forEach((btn) => {
       btn.addEventListener("click", (e) => {
-        const peerId = (e.target as HTMLElement).dataset.peerId;
-        if (peerId) {
-          actionsModel.requestSync(peerId);
-        }
+        const peerId = (e.target as HTMLElement).dataset.peerId!;
+        actionsModel.requestSync(peerId);
       });
     });
 
