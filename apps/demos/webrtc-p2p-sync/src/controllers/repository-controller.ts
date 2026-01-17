@@ -276,7 +276,7 @@ export function createRepositoryController(ctx: AppContext): () => void {
       // Get commit log
       const commits: CommitEntry[] = [];
       try {
-        for await (const commit of await git.log().setMaxCount(20).call()) {
+        for await (const commit of await git.log().call()) {
           commits.push({
             id: commit.id,
             message: commit.message,
