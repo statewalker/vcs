@@ -13,6 +13,16 @@
 
 import type { Git } from "@statewalker/vcs-commands";
 import {
+  listenAddFile,
+  listenCheckout,
+  listenCreateCommit,
+  listenInitRepo,
+  listenRefreshRepo,
+  listenStageAll,
+  listenStageFile,
+  listenUnstageFile,
+} from "../actions/index.js";
+import {
   type CommitEntry,
   type FileEntry,
   getActivityLogModel,
@@ -37,45 +47,60 @@ export function createRepositoryController(ctx: AppContext): () => void {
   const logModel = getActivityLogModel(ctx);
   const actionsModel = getUserActionsModel(ctx);
 
-  // Listen to user actions
+  // Listen to user actions via typed action adapters
   register(
-    actionsModel.onUpdate(() => {
-      // Handle init request
-      for (const _action of actionsModel.consume("repo:init")) {
-        handleInit();
-      }
+    listenInitRepo(actionsModel, () => {
+      handleInit();
+    }),
+  );
 
-      // Handle refresh request
-      for (const _action of actionsModel.consume("repo:refresh")) {
-        handleRefresh();
-      }
+  register(
+    listenRefreshRepo(actionsModel, () => {
+      handleRefresh();
+    }),
+  );
 
-      // Handle file add
-      for (const action of actionsModel.consume("file:add")) {
-        const { name, content } = action.payload as { name: string; content: string };
+  register(
+    listenCheckout(actionsModel, () => {
+      handleCheckoutHead();
+    }),
+  );
+
+  register(
+    listenAddFile(actionsModel, (actions) => {
+      for (const { name, content } of actions) {
         handleAddFile(name, content);
       }
+    }),
+  );
 
-      // Handle commit
-      for (const action of actionsModel.consume("commit:create")) {
-        const { message } = action.payload as { message: string };
+  register(
+    listenCreateCommit(actionsModel, (actions) => {
+      for (const { message } of actions) {
         handleCommit(message);
       }
+    }),
+  );
 
-      // Handle staging actions
-      for (const action of actionsModel.consume("file:stage")) {
-        const { path } = action.payload as { path: string };
+  register(
+    listenStageFile(actionsModel, (actions) => {
+      for (const { path } of actions) {
         handleStageFile(path);
       }
+    }),
+  );
 
-      for (const action of actionsModel.consume("file:unstage")) {
-        const { path } = action.payload as { path: string };
+  register(
+    listenUnstageFile(actionsModel, (actions) => {
+      for (const { path } of actions) {
         handleUnstageFile(path);
       }
+    }),
+  );
 
-      for (const _action of actionsModel.consume("stage:all")) {
-        handleStageAll();
-      }
+  register(
+    listenStageAll(actionsModel, () => {
+      handleStageAll();
     }),
   );
 
@@ -139,6 +164,29 @@ export function createRepositoryController(ctx: AppContext): () => void {
     }
 
     await refreshRepositoryState(git);
+  }
+
+  /**
+   * Checkout main branch - update working directory from current main branch.
+   * Uses the porcelain checkout API to write files to the working directory.
+   *
+   * Note: We checkout "main" instead of "HEAD" because checkout("HEAD") would
+   * detach HEAD, breaking subsequent syncs. The sync controller updates
+   * refs/heads/main, so we need to checkout that branch directly.
+   */
+  async function handleCheckoutHead(): Promise<void> {
+    const git = getGit(ctx);
+    if (!git) {
+      logModel.warn("Repository not initialized for checkout");
+      return;
+    }
+    try {
+      await git.checkout().setName("main").call();
+      logModel.info("Checked out main branch to working directory");
+      await refreshRepositoryState(git);
+    } catch (error) {
+      logModel.error(`Failed to checkout main: ${(error as Error).message}`);
+    }
   }
 
   /**
@@ -276,7 +324,7 @@ export function createRepositoryController(ctx: AppContext): () => void {
       // Get commit log
       const commits: CommitEntry[] = [];
       try {
-        for await (const commit of await git.log().setMaxCount(20).call()) {
+        for await (const commit of await git.log().call()) {
           commits.push({
             id: commit.id,
             message: commit.message,
@@ -301,22 +349,20 @@ export function createRepositoryController(ctx: AppContext): () => void {
         // No branches yet
       }
 
-      // Get files from HEAD tree
+      // Get files from HEAD tree (recursive)
       const fileList: FileEntry[] = [];
       if (commits.length > 0) {
         const headCommit = await repository.commits.loadCommit(commits[0].id);
         if (headCommit.tree) {
-          for await (const entry of repository.trees.loadTree(headCommit.tree)) {
-            fileList.push({
-              name: entry.name,
-              path: entry.name,
-              type: entry.mode === 0o040000 ? "directory" : "file",
-              mode: entry.mode,
-              id: entry.id,
-            });
-          }
+          await collectFilesFromTree(repository, headCommit.tree, "", fileList);
         }
       }
+      // Sort files: directories first, then alphabetically by path
+      fileList.sort((a, b) => {
+        if (a.type === "directory" && b.type !== "directory") return -1;
+        if (a.type !== "directory" && b.type === "directory") return 1;
+        return a.path.localeCompare(b.path);
+      });
 
       // Get staging status
       // Note: Status shows staged changes vs HEAD (added, changed, removed)
@@ -350,4 +396,39 @@ export function createRepositoryController(ctx: AppContext): () => void {
   }
 
   return cleanup;
+}
+
+/**
+ * Recursively collect files from a tree.
+ *
+ * @param repository The history store to read trees from
+ * @param treeId The tree ID to read
+ * @param basePath The base path for entries in this tree
+ * @param fileList The array to append entries to
+ */
+async function collectFilesFromTree(
+  repository: {
+    trees: { loadTree(id: string): AsyncIterable<{ name: string; mode: number; id: string }> };
+  },
+  treeId: string,
+  basePath: string,
+  fileList: FileEntry[],
+): Promise<void> {
+  for await (const entry of repository.trees.loadTree(treeId)) {
+    const fullPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+    const isDirectory = entry.mode === 0o040000;
+
+    fileList.push({
+      name: entry.name,
+      path: fullPath,
+      type: isDirectory ? "directory" : "file",
+      mode: entry.mode,
+      id: entry.id,
+    });
+
+    // Recursively process subdirectories
+    if (isDirectory) {
+      await collectFilesFromTree(repository, entry.id, fullPath, fileList);
+    }
+  }
 }
