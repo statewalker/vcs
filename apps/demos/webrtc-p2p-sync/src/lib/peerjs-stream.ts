@@ -133,7 +133,10 @@ export class PeerJsStream implements TransportConnection {
   private nextMessage(): Promise<Uint8Array | null> {
     // If we have queued messages, return one
     if (this.messageQueue.length > 0) {
-      return Promise.resolve(this.messageQueue.shift()!);
+      const message = this.messageQueue.shift();
+      if (message !== undefined) {
+        return Promise.resolve(message);
+      }
     }
 
     // If closed, return null
