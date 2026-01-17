@@ -104,7 +104,7 @@ async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
   });
 
   // 5. Create GitStore combining repository + staging + worktree
-  const store = createGitStore({ repository, staging, worktree });
+  const store = createGitStore({ repository, staging, worktree, files, workTreeRoot: "" });
   setGitStore(ctx, store);
 
   // 6. Create Git porcelain API
