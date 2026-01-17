@@ -56,10 +56,7 @@ async function fileExists(files: FilesApi, path: string): Promise<boolean> {
 /**
  * Create a GitStore with files and workTreeRoot for working directory tests.
  */
-function createStoreWithFiles(
-  files: FilesApi,
-  workTreeRoot: string,
-): GitStoreWithFiles {
+function createStoreWithFiles(files: FilesApi, workTreeRoot: string): GitStoreWithFiles {
   const stores = createMemoryObjectStores();
   const staging = new MemoryStagingStore();
   const worktree = createFileTreeIterator({

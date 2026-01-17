@@ -295,7 +295,12 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       await git.commit().setMessage("Second").call();
 
       // Create new branch at first commit
-      await git.checkout().setCreateBranch(true).setName("from-first").setStartPoint(first.id).call();
+      await git
+        .checkout()
+        .setCreateBranch(true)
+        .setName("from-first")
+        .setStartPoint(first.id)
+        .call();
 
       // Verify branch points to first commit
       const branchRef = await store.refs.resolve("refs/heads/from-first");
