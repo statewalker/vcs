@@ -7,7 +7,6 @@
  * - Joined: Connected to host, disconnect button
  */
 
-import { enqueueDisconnect, enqueueJoin, enqueueShare } from "../actions/index.js";
 import type { AppContext } from "../controllers/index.js";
 import { getSessionModel, getUserActionsModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
@@ -102,7 +101,7 @@ export function createConnectionView(ctx: AppContext, container: HTMLElement): (
 
   // Bind events → update UserActionsModel
   shareBtn.onclick = () => {
-    enqueueShare(actionsModel);
+    actionsModel.requestShare();
   };
 
   joinInput.oninput = () => {
@@ -113,7 +112,7 @@ export function createConnectionView(ctx: AppContext, container: HTMLElement): (
     if (e.key === "Enter") {
       const sessionId = sessionModel.getState().joinInputValue.trim();
       if (sessionId) {
-        enqueueJoin(actionsModel, { sessionId });
+        actionsModel.requestJoin(sessionId);
       }
     }
   };
@@ -121,16 +120,16 @@ export function createConnectionView(ctx: AppContext, container: HTMLElement): (
   joinBtn.onclick = () => {
     const sessionId = sessionModel.getState().joinInputValue.trim();
     if (sessionId) {
-      enqueueJoin(actionsModel, { sessionId });
+      actionsModel.requestJoin(sessionId);
     }
   };
 
   stopSharingBtn.onclick = () => {
-    enqueueDisconnect(actionsModel);
+    actionsModel.requestDisconnect();
   };
 
   disconnectBtn.onclick = () => {
-    enqueueDisconnect(actionsModel);
+    actionsModel.requestDisconnect();
   };
 
   copyUrlBtn.onclick = async () => {

@@ -6,24 +6,11 @@
  * - Add file button
  */
 
-import { enqueueAddFile } from "../actions/index.js";
 import type { AppContext } from "../controllers/index.js";
 import { getRepositoryModel, getUserActionsModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 
-/**
- * Generate a unique file suffix using timestamp and random string.
- * Format: HHMMSS-XXXX where X is a random alphanumeric character.
- * This ensures unique file names across peers for easier merging.
- */
-function generateUniqueFileSuffix(): string {
-  const now = new Date();
-  const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
-    .map((n) => n.toString().padStart(2, "0"))
-    .join("");
-  const random = Math.random().toString(36).substring(2, 6);
-  return `${time}-${random}`;
-}
+let fileCounter = 1;
 
 /**
  * Create the file list view.
@@ -80,9 +67,9 @@ export function createFileListView(ctx: AppContext, container: HTMLElement): () 
     // Bind add file button
     const addFileBtn = container.querySelector("#btn-add-file") as HTMLButtonElement;
     addFileBtn.onclick = () => {
-      const name = `file-${generateUniqueFileSuffix()}.txt`;
+      const name = `file-${fileCounter++}.txt`;
       const content = `File created at ${new Date().toISOString()}\n`;
-      enqueueAddFile(actionsModel, { name, content });
+      actionsModel.requestAddFile(name, content);
     };
   }
 

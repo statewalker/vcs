@@ -46,5 +46,7 @@ export {
 export {
   getUserActionsModel,
   setUserActionsModel,
+  type UserAction,
   UserActionsModel,
+  type UserActionType,
 } from "./user-actions-model.js";
