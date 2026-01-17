@@ -209,10 +209,11 @@ export function createSessionController(ctx: AppContext): () => void {
       logModel.info(`Peer ${displayName} disconnected`);
     });
 
-    // Handle errors
+    // Handle errors - remove peer since connection is no longer usable
     conn.on("error", (err: Error) => {
       logModel.error(`Connection error with ${displayName}: ${err.message}`);
-      peersModel.updatePeer(peerId, { status: "disconnected" });
+      connections.delete(peerId);
+      peersModel.removePeer(peerId);
     });
   }
 
@@ -256,10 +257,18 @@ export function createSessionController(ctx: AppContext): () => void {
       }, 100);
     });
 
-    // Handle errors
+    // Handle errors - remove peer and reset session since host connection is broken
     conn.on("error", (err: Error) => {
       logModel.error(`Connection error with host: ${err.message}`);
-      peersModel.updatePeer(hostId, { status: "disconnected" });
+      connections.delete(hostId);
+      peersModel.removePeer(hostId);
+
+      // Go back to disconnected state since we lost the host
+      timerApi.setTimeout(() => {
+        if (sessionModel.getState().mode === "joined" && peersModel.count === 0) {
+          sessionModel.setMode("disconnected");
+        }
+      }, 100);
     });
   }
 
