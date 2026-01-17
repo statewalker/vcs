@@ -1,5 +1,5 @@
 /**
- * Controllers factory - orchestrates all controllers.
+ * Main controller - orchestrates all other controllers.
  *
  * This is the entry point for the controller layer.
  * It initializes all controllers and provides a single cleanup function.
@@ -12,12 +12,12 @@ import { createSessionController } from "./session-controller.js";
 import { createSyncController } from "./sync-controller.js";
 
 /**
- * Create all application controllers.
+ * Create the main controller that orchestrates all other controllers.
  *
  * @param ctx The application context
  * @returns Cleanup function to destroy all controllers
  */
-export function createControllers(ctx: AppContext): () => void {
+export function createMainController(ctx: AppContext): () => void {
   const [register, cleanup] = newRegistry();
 
   // Initialize all controllers
