@@ -121,10 +121,7 @@ export class WebRtcStream implements TransportConnection {
   private nextMessage(): Promise<Uint8Array | null> {
     // If we have queued messages, return one
     if (this.messageQueue.length > 0) {
-      const message = this.messageQueue.shift();
-      if (message !== undefined) {
-        return Promise.resolve(message);
-      }
+      return Promise.resolve(this.messageQueue.shift()!);
     }
 
     // If closed, return null
