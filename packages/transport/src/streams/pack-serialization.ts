@@ -5,32 +5,87 @@
  * fixed-size binary blocks suitable for transport with backpressure,
  * and to deserialize them back on the receiving end.
  *
- * The serialization process:
- * 1. Packets (pkt-line) -> Binary stream (via pktLineWriter)
- * 2. Binary stream -> Fixed-size blocks (via toChunks)
+ * ## Architecture
  *
- * The deserialization process:
- * 1. Fixed-size blocks -> Binary stream (via concat)
- * 2. Binary stream -> Packets (via pktLineReader)
+ * The transport layer converts between high-level git protocol packets
+ * and low-level binary blocks optimized for network transmission:
  *
- * This enables efficient transport over MessagePort with ACK-based
- * backpressure, preventing memory exhaustion when the receiver is
- * slower than the sender.
+ * ```
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │                      Application Layer                         │
+ * │  Packet stream: want, have, ACK, NAK, pack data, etc.          │
+ * └─────────────────────────────────────────────────────────────────┘
+ *                              │
+ *                    serializePacks() / deserializePacks()
+ *                              │
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │                      Transport Layer                           │
+ * │  Fixed-size binary blocks (128KB default) with ACK flow ctrl   │
+ * └─────────────────────────────────────────────────────────────────┘
+ *                              │
+ *                    sendPortStream() / receivePortStream()
+ *                              │
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │                      MessagePort Layer                         │
+ * │  postMessage() with transferable ArrayBuffers                  │
+ * └─────────────────────────────────────────────────────────────────┘
+ * ```
+ *
+ * ## Serialization Process
+ *
+ * 1. **Packets → pkt-line binary**: Each packet is encoded with 4-byte
+ *    hex length prefix per git protocol specification
+ * 2. **Binary → Fixed blocks**: Stream is chunked into predictable
+ *    block sizes for efficient transmission and memory management
+ *
+ * ## Deserialization Process
+ *
+ * 1. **Fixed blocks → Binary stream**: Blocks are concatenated
+ *    (pktLineReader handles buffering internally)
+ * 2. **Binary → Packets**: pkt-line format is parsed to extract packets
+ *
+ * ## Backpressure Flow Control
+ *
+ * When combined with `sendPortStream()`/`receivePortStream()` from
+ * `@statewalker/vcs-utils`, the transport implements ACK-based flow
+ * control:
+ *
+ * 1. Sender sends a block and waits for ACK
+ * 2. Receiver processes block and sends ACK when ready for next
+ * 3. This prevents memory exhaustion when receiver is slower
+ *
+ * ## Integration with MessagePort
  *
  * @example
  * ```typescript
- * // Sender side
- * const packets = createPacketStream();
- * for await (const block of serializePacks(packets)) {
- *   await sendOverPort(block);
+ * import { createPortStreamPair } from "@statewalker/vcs-utils";
+ * import { serializePacks, deserializePacks } from "@statewalker/vcs-transport";
+ *
+ * // Create connected port pair
+ * const [port1, port2] = createPortStreamPair();
+ *
+ * // Sender side: packets → blocks → port
+ * async function send(packets: AsyncIterable<Packet>) {
+ *   const blocks = serializePacks(packets);
+ *   await port1.send(blocks);
  * }
  *
- * // Receiver side
- * const receivedBlocks = receiveFromPort();
- * for await (const packet of deserializePacks(receivedBlocks)) {
- *   await processPacket(packet);
+ * // Receiver side: port → blocks → packets
+ * async function* receive(): AsyncGenerator<Packet> {
+ *   const blocks = port2.receive();
+ *   yield* deserializePacks(blocks);
  * }
  * ```
+ *
+ * ## Block Size Considerations
+ *
+ * The default block size of 128KB balances:
+ * - **Backpressure granularity**: Smaller blocks = finer control
+ * - **Throughput**: Larger blocks = fewer ACK round-trips
+ * - **Memory usage**: Block size × queue depth = memory consumption
+ *
+ * For high-latency connections, larger blocks reduce ACK overhead.
+ * For memory-constrained environments, smaller blocks limit buffering.
  */
 
 import { toChunks } from "@statewalker/vcs-utils";
