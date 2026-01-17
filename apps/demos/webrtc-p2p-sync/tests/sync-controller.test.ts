@@ -447,6 +447,47 @@ describe("SyncController", () => {
       }
     });
 
+    it("should have matching files list after sync", async () => {
+      const actionsModel1 = getUserActionsModel(ctx1);
+      const actionsModel2 = getUserActionsModel(ctx2);
+      const repoModel1 = getRepositoryModel(ctx1);
+      const repoModel2 = getRepositoryModel(ctx2);
+
+      // Initialize and create commits on peer1
+      actionsModel1.requestInitRepo();
+      await waitFor(() => repoModel1.getState().initialized);
+
+      await createCommits(ctx1, 5);
+      await flushPromises(20);
+
+      // Verify peer1 has files
+      const peer1Files = repoModel1.getState().files;
+      expect(peer1Files.length).toBeGreaterThan(1); // README.md + 5 files
+
+      // Initialize peer2
+      actionsModel2.requestInitRepo();
+      await waitFor(() => repoModel2.getState().initialized);
+
+      // Peer2 starts with only README.md
+      expect(repoModel2.getState().files.length).toBe(1);
+
+      // Sync
+      await simulateSync(ctx1, ctx2, "peer1", "peer2");
+      await flushPromises(50);
+
+      actionsModel2.requestRefreshRepo();
+      await flushPromises(20);
+
+      // Verify peer2 now has the same files as peer1
+      const peer2Files = repoModel2.getState().files;
+      expect(peer2Files.length).toBe(peer1Files.length);
+
+      // Check that all file names match
+      const peer1FileNames = peer1Files.map((f) => f.name).sort();
+      const peer2FileNames = peer2Files.map((f) => f.name).sort();
+      expect(peer2FileNames).toEqual(peer1FileNames);
+    });
+
     it("should have matching HEAD commit IDs after sync", async () => {
       const actionsModel1 = getUserActionsModel(ctx1);
       const actionsModel2 = getUserActionsModel(ctx2);
