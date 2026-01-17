@@ -276,8 +276,8 @@ export function createSyncController(ctx: AppContext): () => void {
 
         logModel.info(`Received ${info?.objectCount || 0} objects from ${displayName}`);
 
-        // Refresh repository state
-        actionsModel.requestRefreshRepo();
+        // Checkout HEAD to update working directory with synced files
+        actionsModel.requestCheckoutHead();
         break;
       }
 

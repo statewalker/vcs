@@ -50,6 +50,11 @@ export function createRepositoryController(ctx: AppContext): () => void {
         handleRefresh();
       }
 
+      // Handle checkout request (update working directory from HEAD)
+      for (const _action of actionsModel.consume("repo:checkout")) {
+        handleCheckoutHead();
+      }
+
       // Handle file add
       for (const action of actionsModel.consume("file:add")) {
         const { name, content } = action.payload as { name: string; content: string };
@@ -139,6 +144,47 @@ export function createRepositoryController(ctx: AppContext): () => void {
     }
 
     await refreshRepositoryState(git);
+  }
+
+  /**
+   * Checkout HEAD - update working directory from HEAD commit.
+   * Writes all files from the commit tree to the working directory.
+   */
+  async function handleCheckoutHead(): Promise<void> {
+    const files = getFilesApi(ctx);
+    const repository = getRepository(ctx);
+    const git = getGit(ctx);
+
+    if (!files || !repository || !git) {
+      logModel.warn("Repository not initialized for checkout");
+      return;
+    }
+
+    try {
+      // Get HEAD commit
+      const headRef = await repository.refs.resolve("HEAD");
+      if (!headRef?.objectId) {
+        logModel.warn("No HEAD commit to checkout");
+        return;
+      }
+
+      // Load commit and get tree
+      const commit = await repository.commits.loadCommit(headRef.objectId);
+      if (!commit.tree) {
+        logModel.warn("HEAD commit has no tree");
+        return;
+      }
+
+      // Checkout all files from tree to working directory
+      await checkoutTreeToWorkdir(repository, files, commit.tree, "");
+
+      logModel.info(`Checked out HEAD ${headRef.objectId.slice(0, 7)} to working directory`);
+
+      // Refresh state to update UI
+      await refreshRepositoryState(git);
+    } catch (error) {
+      logModel.error(`Failed to checkout HEAD: ${(error as Error).message}`);
+    }
   }
 
   /**
@@ -381,6 +427,44 @@ async function collectFilesFromTree(
     // Recursively process subdirectories
     if (isDirectory) {
       await collectFilesFromTree(repository, entry.id, fullPath, fileList);
+    }
+  }
+}
+
+/**
+ * Checkout a tree to the working directory.
+ * Writes all files from the tree to the filesystem.
+ *
+ * @param repository The history store to read trees and blobs from
+ * @param files The files API to write to
+ * @param treeId The tree ID to checkout
+ * @param basePath The base path for entries in this tree
+ */
+async function checkoutTreeToWorkdir(
+  repository: {
+    trees: { loadTree(id: string): AsyncIterable<{ name: string; mode: number; id: string }> };
+    blobs: { load(id: string): AsyncIterable<Uint8Array> };
+  },
+  files: {
+    write(path: string, content: Iterable<Uint8Array> | AsyncIterable<Uint8Array>): Promise<void>;
+  },
+  treeId: string,
+  basePath: string,
+): Promise<void> {
+  for await (const entry of repository.trees.loadTree(treeId)) {
+    const fullPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+    const isDirectory = entry.mode === 0o040000;
+
+    if (isDirectory) {
+      // Recursively process subdirectories
+      await checkoutTreeToWorkdir(repository, files, entry.id, fullPath);
+    } else {
+      // Load blob content and write to file
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of repository.blobs.load(entry.id)) {
+        chunks.push(chunk);
+      }
+      await files.write(fullPath, chunks);
     }
   }
 }
