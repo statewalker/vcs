@@ -301,22 +301,20 @@ export function createRepositoryController(ctx: AppContext): () => void {
         // No branches yet
       }
 
-      // Get files from HEAD tree
+      // Get files from HEAD tree (recursive)
       const fileList: FileEntry[] = [];
       if (commits.length > 0) {
         const headCommit = await repository.commits.loadCommit(commits[0].id);
         if (headCommit.tree) {
-          for await (const entry of repository.trees.loadTree(headCommit.tree)) {
-            fileList.push({
-              name: entry.name,
-              path: entry.name,
-              type: entry.mode === 0o040000 ? "directory" : "file",
-              mode: entry.mode,
-              id: entry.id,
-            });
-          }
+          await collectFilesFromTree(repository, headCommit.tree, "", fileList);
         }
       }
+      // Sort files: directories first, then alphabetically by path
+      fileList.sort((a, b) => {
+        if (a.type === "directory" && b.type !== "directory") return -1;
+        if (a.type !== "directory" && b.type === "directory") return 1;
+        return a.path.localeCompare(b.path);
+      });
 
       // Get staging status
       // Note: Status shows staged changes vs HEAD (added, changed, removed)
@@ -350,4 +348,39 @@ export function createRepositoryController(ctx: AppContext): () => void {
   }
 
   return cleanup;
+}
+
+/**
+ * Recursively collect files from a tree.
+ *
+ * @param repository The history store to read trees from
+ * @param treeId The tree ID to read
+ * @param basePath The base path for entries in this tree
+ * @param fileList The array to append entries to
+ */
+async function collectFilesFromTree(
+  repository: {
+    trees: { loadTree(id: string): AsyncIterable<{ name: string; mode: number; id: string }> };
+  },
+  treeId: string,
+  basePath: string,
+  fileList: FileEntry[],
+): Promise<void> {
+  for await (const entry of repository.trees.loadTree(treeId)) {
+    const fullPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+    const isDirectory = entry.mode === 0o040000;
+
+    fileList.push({
+      name: entry.name,
+      path: fullPath,
+      type: isDirectory ? "directory" : "file",
+      mode: entry.mode,
+      id: entry.id,
+    });
+
+    // Recursively process subdirectories
+    if (isDirectory) {
+      await collectFilesFromTree(repository, entry.id, fullPath, fileList);
+    }
+  }
 }
