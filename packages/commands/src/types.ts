@@ -2,7 +2,6 @@ import type {
   BlobStore,
   CheckoutStore,
   CommitStore,
-  FilesApi,
   HistoryStore,
   RefStore,
   StagingStore,
@@ -101,38 +100,6 @@ export interface GitStoreWithWorkTree extends GitStore {
 }
 
 /**
- * Extended GitStore interface with file system write support.
- *
- * Required for commands that need to write files to the working tree:
- * - CheckoutCommand: Write files from commits to working tree
- * - ResetCommand (hard mode): Reset working tree files
- *
- * If these properties are not provided, the repository is treated as "bare"
- * and working directory updates are skipped.
- *
- * @example
- * ```typescript
- * // Create a store with file write support
- * const store: GitStoreWithFiles = {
- *   ...baseStore,
- *   worktree: createFileTreeIterator(files, ""),
- *   files,
- *   workTreeRoot: "",
- * };
- *
- * // Use with Git facade
- * const git = Git.wrap(store);
- * await git.checkout().setName("feature").call(); // Writes files!
- * ```
- */
-export interface GitStoreWithFiles extends GitStoreWithWorkTree {
-  /** FilesApi for writing files to the working tree */
-  readonly files: FilesApi;
-  /** Root path of the working tree (relative or absolute) */
-  readonly workTreeRoot: string;
-}
-
-/**
  * Options for creating a GitStore from a HistoryStore.
  */
 export interface CreateGitStoreOptions {
@@ -144,12 +111,6 @@ export interface CreateGitStoreOptions {
 
   /** Optional working tree iterator for filesystem operations */
   worktree?: WorktreeStore;
-
-  /** Optional FilesApi for writing files to the working tree */
-  files?: FilesApi;
-
-  /** Optional root path of the working tree (required if files is provided) */
-  workTreeRoot?: string;
 }
 
 /**
@@ -167,35 +128,17 @@ export interface CreateGitStoreOptions {
  * const staging = new MemoryStagingStore();
  * const store = createGitStore({ repository: repo, staging });
  * const git = Git.wrap(store);
- *
- * // With file write support for checkout
- * const storeWithFiles = createGitStore({
- *   repository: repo,
- *   staging,
- *   worktree,
- *   files,
- *   workTreeRoot: "",
- * });
  * ```
  *
- * @param options Repository, staging store, and optional worktree/files
- * @returns GitStore, GitStoreWithWorkTree, or GitStoreWithFiles depending on options
+ * @param options Repository, staging store, and optional worktree
+ * @returns GitStore or GitStoreWithWorkTree if worktree is provided
  */
-export function createGitStore(
-  options: CreateGitStoreOptions & {
-    worktree: WorktreeStore;
-    files: FilesApi;
-    workTreeRoot: string;
-  },
-): GitStoreWithFiles;
 export function createGitStore(
   options: CreateGitStoreOptions & { worktree: WorktreeStore },
 ): GitStoreWithWorkTree;
 export function createGitStore(options: CreateGitStoreOptions): GitStore;
-export function createGitStore(
-  options: CreateGitStoreOptions,
-): GitStore | GitStoreWithWorkTree | GitStoreWithFiles {
-  const { repository, staging, worktree, files, workTreeRoot } = options;
+export function createGitStore(options: CreateGitStoreOptions): GitStore | GitStoreWithWorkTree {
+  const { repository, staging, worktree } = options;
 
   const store: GitStore = {
     blobs: repository.blobs,
@@ -205,10 +148,6 @@ export function createGitStore(
     staging,
     tags: repository.tags,
   };
-
-  if (worktree && files && workTreeRoot !== undefined) {
-    return { ...store, worktree, files, workTreeRoot } as GitStoreWithFiles;
-  }
 
   if (worktree) {
     return { ...store, worktree } as GitStoreWithWorkTree;
