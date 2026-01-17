@@ -52,9 +52,15 @@ export function createPeerJsPort(conn: DataConnection): MessagePortLikeExtended 
         if (data instanceof ArrayBuffer) {
           buffer = data;
         } else if (data instanceof Uint8Array) {
-          buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+          buffer = data.buffer.slice(
+            data.byteOffset,
+            data.byteOffset + data.byteLength,
+          ) as ArrayBuffer;
         } else if (ArrayBuffer.isView(data)) {
-          buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+          buffer = data.buffer.slice(
+            data.byteOffset,
+            data.byteOffset + data.byteLength,
+          ) as ArrayBuffer;
         } else {
           // Fallback: encode as UTF-8
           buffer = new TextEncoder().encode(String(data)).buffer as ArrayBuffer;
@@ -77,7 +83,9 @@ export function createPeerJsPort(conn: DataConnection): MessagePortLikeExtended 
  * @param conn The PeerJS DataConnection to wrap
  * @returns Promise resolving to MessagePortLikeExtended when connection is open
  */
-export async function createPeerJsPortAsync(conn: DataConnection): Promise<MessagePortLikeExtended> {
+export async function createPeerJsPortAsync(
+  conn: DataConnection,
+): Promise<MessagePortLikeExtended> {
   if (conn.open) {
     return createPeerJsPort(conn);
   }

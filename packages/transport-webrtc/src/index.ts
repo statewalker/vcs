@@ -59,6 +59,8 @@
  * @packageDocumentation
  */
 
+// MessagePortLike adapter
+export { createDataChannelPort, createDataChannelPortAsync } from "./datachannel-port.js";
 export { PeerManager, waitForConnection } from "./peer-manager.js";
 // Signaling utilities
 export {
@@ -74,5 +76,3 @@ export {
 export * from "./types.js";
 // Core components
 export { createWebRtcStream, WebRtcStream, type WebRtcStreamOptions } from "./webrtc-stream.js";
-// MessagePortLike adapter
-export { createDataChannelPort, createDataChannelPortAsync } from "./datachannel-port.js";

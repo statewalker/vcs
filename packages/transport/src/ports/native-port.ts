@@ -39,7 +39,10 @@ export function createNativePort(port: MessagePort): MessagePortLikeExtended {
         throw new Error("Port is closed");
       }
       // Transfer the buffer for efficiency
-      const buffer = data instanceof ArrayBuffer ? data : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+      const buffer =
+        data instanceof ArrayBuffer
+          ? data
+          : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
       port.postMessage(buffer, [buffer]);
     },
 

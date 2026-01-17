@@ -2,9 +2,9 @@
  * Tests for PeerJS port adapter.
  */
 
+import type { DataConnection } from "peerjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPeerJsPort } from "../src/peerjs-port.js";
-import type { DataConnection } from "peerjs";
 
 // Mock PeerJS DataConnection for testing
 function createMockConnection(): DataConnection & {
