@@ -17,14 +17,6 @@ import {
   setPeerJsApi,
   setTimerApi,
 } from "../apis/index.js";
-import {
-  getActivityLogModel,
-  getPeersModel,
-  getRepositoryModel,
-  getSessionModel,
-  getSyncModel,
-  getUserActionsModel,
-} from "../models/index.js";
 import { newAdapter } from "../utils/index.js";
 
 /**
@@ -115,22 +107,15 @@ async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
 /**
  * Create and initialize the application context.
  *
- * This sets up all models and injects the real API implementations.
+ * This sets up APIs and Git infrastructure used by controllers.
+ * Models are lazy-created by adapters when first accessed.
  *
  * @returns Initialized application context
  */
 export async function createAppContext(): Promise<AppContext> {
   const ctx: AppContext = {};
 
-  // Initialize all models (lazy-created by adapters)
-  getSessionModel(ctx);
-  getPeersModel(ctx);
-  getSyncModel(ctx);
-  getRepositoryModel(ctx);
-  getActivityLogModel(ctx);
-  getUserActionsModel(ctx);
-
-  // Initialize state storage
+  // Initialize state storage for peer connections
   getPeerInstance(ctx);
   getPeerConnections(ctx);
 
@@ -148,21 +133,14 @@ export async function createAppContext(): Promise<AppContext> {
  * Create a test context with mock APIs.
  *
  * Use this in unit tests to inject mock implementations.
+ * Models are lazy-created by adapters when first accessed.
  *
  * @returns Test context (without real APIs - you must inject mocks)
  */
 export function createTestContext(): AppContext {
   const ctx: AppContext = {};
 
-  // Initialize all models
-  getSessionModel(ctx);
-  getPeersModel(ctx);
-  getSyncModel(ctx);
-  getRepositoryModel(ctx);
-  getActivityLogModel(ctx);
-  getUserActionsModel(ctx);
-
-  // Initialize state storage
+  // Initialize state storage for peer connections
   getPeerInstance(ctx);
   getPeerConnections(ctx);
 
@@ -174,7 +152,7 @@ export function createTestContext(): AppContext {
 // Re-export types for convenience
 export type { GitStoreWithWorkTree } from "@statewalker/vcs-commands";
 // Re-export controller factories
-export { createMainController } from "./main-controller.js";
+export { createControllers } from "./main-controller.js";
 export { createRepositoryController } from "./repository-controller.js";
 export { createSessionController } from "./session-controller.js";
 export { createSyncController } from "./sync-controller.js";
