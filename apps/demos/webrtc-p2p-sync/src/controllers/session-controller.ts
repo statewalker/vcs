@@ -211,8 +211,7 @@ export function createSessionController(ctx: AppContext): () => void {
 
       // Monitor ICE connection state for faster disconnection detection
       // PeerJS's close event can be slow or not fire at all when tab closes
-      const rtcConn = (conn as unknown as { peerConnection?: RTCPeerConnection })
-        .peerConnection;
+      const rtcConn = (conn as unknown as { peerConnection?: RTCPeerConnection }).peerConnection;
       if (rtcConn) {
         rtcConn.addEventListener("iceconnectionstatechange", () => {
           const state = rtcConn.iceConnectionState;
@@ -279,8 +278,7 @@ export function createSessionController(ctx: AppContext): () => void {
 
       // Monitor ICE connection state for faster disconnection detection
       // PeerJS's close event can be slow or not fire at all when tab closes
-      const rtcConn = (conn as unknown as { peerConnection?: RTCPeerConnection })
-        .peerConnection;
+      const rtcConn = (conn as unknown as { peerConnection?: RTCPeerConnection }).peerConnection;
       if (rtcConn) {
         rtcConn.addEventListener("iceconnectionstatechange", () => {
           const state = rtcConn.iceConnectionState;

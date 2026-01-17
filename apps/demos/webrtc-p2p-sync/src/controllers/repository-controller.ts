@@ -412,4 +412,3 @@ async function collectFilesFromTree(
     }
   }
 }
-

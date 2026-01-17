@@ -276,8 +276,8 @@ export function createSyncController(ctx: AppContext): () => void {
 
         logModel.info(`Received ${info?.objectCount || 0} objects from ${displayName}`);
 
-        // Refresh repository state
-        actionsModel.requestRefreshRepo();
+        // Checkout HEAD to update working directory with synced files
+        actionsModel.requestCheckoutHead();
         break;
       }
 
@@ -412,12 +412,10 @@ async function sendRepoData(
   const objects: Array<{ type: string; id: string; data: Uint8Array }> = [];
   const seen = new Set<string>();
 
-  // Walk commits (limit to 50 for demo)
+  // Walk all commits in history
   let currentId: string | undefined = head;
-  let commitCount = 0;
-  while (currentId && !seen.has(currentId) && commitCount < 50) {
+  while (currentId && !seen.has(currentId)) {
     seen.add(currentId);
-    commitCount++;
 
     const commit = await store.commits.loadCommit(currentId);
 
