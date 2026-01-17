@@ -74,3 +74,5 @@ export {
 export * from "./types.js";
 // Core components
 export { createWebRtcStream, WebRtcStream, type WebRtcStreamOptions } from "./webrtc-stream.js";
+// MessagePortLike adapter
+export { createDataChannelPort, createDataChannelPortAsync } from "./datachannel-port.js";
