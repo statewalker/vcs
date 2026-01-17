@@ -274,10 +274,12 @@ export class PeerManager {
     await pc.setLocalDescription(offer);
 
     // Emit offer
-    this.emit("signal", {
-      type: "offer",
-      sdp: offer.sdp!,
-    });
+    if (offer.sdp) {
+      this.emit("signal", {
+        type: "offer",
+        sdp: offer.sdp,
+      });
+    }
   }
 
   /**
@@ -325,10 +327,12 @@ export class PeerManager {
     await pc.setLocalDescription(answer);
 
     // Emit answer
-    this.emit("signal", {
-      type: "answer",
-      sdp: answer.sdp!,
-    });
+    if (answer.sdp) {
+      this.emit("signal", {
+        type: "answer",
+        sdp: answer.sdp,
+      });
+    }
   }
 
   /**
