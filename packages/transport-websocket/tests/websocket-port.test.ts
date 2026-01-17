@@ -152,8 +152,6 @@ describe("createWebSocketPortFromOpen", () => {
     const mockWs = new MockWebSocket();
     mockWs.readyState = MockWebSocket.CONNECTING;
 
-    expect(() => createWebSocketPortFromOpen(mockWs as unknown as WebSocket)).toThrow(
-      "OPEN state",
-    );
+    expect(() => createWebSocketPortFromOpen(mockWs as unknown as WebSocket)).toThrow("OPEN state");
   });
 });
