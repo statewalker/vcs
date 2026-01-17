@@ -5,7 +5,6 @@
  * This view is a placeholder for future manual commit functionality.
  */
 
-import { enqueueCreateCommit } from "../actions/index.js";
 import type { AppContext } from "../controllers/index.js";
 import { getRepositoryModel, getUserActionsModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
@@ -55,7 +54,7 @@ export function createCommitFormView(ctx: AppContext, container: HTMLElement): (
     commitBtn.onclick = () => {
       const message = messageInput.value.trim();
       if (message) {
-        enqueueCreateCommit(actionsModel, { message });
+        actionsModel.requestCommit(message);
         messageInput.value = "";
         commitBtn.disabled = true;
       }
