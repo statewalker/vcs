@@ -76,7 +76,7 @@ importers:
         version: 24.10.4
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(@vitest/browser@4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)
+        version: 4.0.16(@vitest/browser@4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)
       pnpm:
         specifier: 'catalog:'
         version: 10.27.0
@@ -276,12 +276,12 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@statewalker/vcs-port-webrtc':
+        specifier: workspace:*
+        version: link:../../../packages/port-webrtc
       '@statewalker/vcs-transport':
         specifier: workspace:*
         version: link:../../../packages/transport
-      '@statewalker/vcs-transport-webrtc':
-        specifier: workspace:*
-        version: link:../../../packages/transport-webrtc
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.7.0
@@ -347,15 +347,18 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@statewalker/vcs-port-peerjs':
+        specifier: workspace:*
+        version: link:../../../packages/port-peerjs
+      '@statewalker/vcs-port-webrtc':
+        specifier: workspace:*
+        version: link:../../../packages/port-webrtc
       '@statewalker/vcs-store-mem':
         specifier: workspace:*
         version: link:../../../packages/store-mem
       '@statewalker/vcs-transport':
         specifier: workspace:*
         version: link:../../../packages/transport
-      '@statewalker/vcs-transport-webrtc':
-        specifier: workspace:*
-        version: link:../../../packages/transport-webrtc
       peerjs:
         specifier: ^1.5.4
         version: 1.5.5
@@ -645,6 +648,66 @@ importers:
         specifier: 'catalog:'
         version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
 
+  packages/port-peerjs:
+    dependencies:
+      '@statewalker/vcs-utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.4
+      peerjs:
+        specifier: ^1.5.4
+        version: 1.5.5
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.58
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
+
+  packages/port-webrtc:
+    dependencies:
+      '@statewalker/vcs-utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.4
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.58
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
+
+  packages/port-websocket:
+    dependencies:
+      '@statewalker/vcs-utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.4
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.58
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
+
   packages/storage-tests:
     devDependencies:
       '@statewalker/vcs-core':
@@ -783,28 +846,6 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../core
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../utils
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.58
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
-
-  packages/transport-webrtc:
-    dependencies:
-      '@statewalker/vcs-transport':
-        specifier: workspace:*
-        version: link:../transport
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../utils
@@ -6272,7 +6313,7 @@ snapshots:
       - utf-8-validate
       - vite
 
-  '@vitest/coverage-v8@4.0.16(@vitest/browser@4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)':
+  '@vitest/coverage-v8@4.0.16(@vitest/browser@4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16))(vitest@4.0.16)':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/utils': 4.0.16
@@ -6287,7 +6328,7 @@ snapshots:
       tinyrainbow: 3.0.3
       vitest: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
     optionalDependencies:
-      '@vitest/browser': 4.0.16(vite@7.3.0(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
+      '@vitest/browser': 4.0.16(vite@6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0))(vitest@4.0.16)
     transitivePeerDependencies:
       - supports-color
 
