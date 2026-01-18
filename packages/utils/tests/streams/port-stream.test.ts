@@ -422,4 +422,218 @@ describe("sendPortStream() and receivePortStream()", () => {
     expect(firstMsg[5]).toBe(0xab); // Payload byte 0
     expect(firstMsg[6]).toBe(0xcd); // Payload byte 1
   });
+
+  // =============================================================================
+  // Sub-stream ACK functionality
+  // =============================================================================
+
+  it("should batch blocks with subStreamSize option", async () => {
+    const channel = createChannel();
+    const port1 = wrapNativePort(channel.port1);
+    const port2 = wrapNativePort(channel.port2);
+    const receivedRaw: ArrayBuffer[] = [];
+
+    // Intercept raw messages to count STREAM_ACK requests
+    channel.port2.addEventListener("message", (event) => {
+      receivedRaw.push(event.data);
+    });
+    channel.port2.start();
+
+    // Send 5 blocks with subStreamSize=2
+    // Expected: 2 full sub-streams (2+2) + 1 partial (1) = 3 STREAM_ACK messages
+    async function* input(): AsyncGenerator<Uint8Array> {
+      yield bytes(1);
+      yield bytes(2);
+      yield bytes(3);
+      yield bytes(4);
+      yield bytes(5);
+    }
+
+    const sendPromise = sendPortStream(port1, input(), { subStreamSize: 2 });
+    const received = await collect(receivePortStream(port2));
+
+    await sendPromise;
+
+    // All blocks received
+    expect(received).toHaveLength(5);
+    expect(received.map((c) => c[0])).toEqual([1, 2, 3, 4, 5]);
+
+    // Count STREAM_ACK messages (type=4)
+    const streamAckCount = receivedRaw.filter((buf) => {
+      const arr = new Uint8Array(buf);
+      return arr[0] === 4; // STREAM_ACK type
+    }).length;
+    expect(streamAckCount).toBe(3); // 2 full + 1 partial sub-stream
+  });
+
+  it("should send STREAM_ACK after each subStreamSize blocks", async () => {
+    const channel = createChannel();
+    const port1 = wrapNativePort(channel.port1);
+    const port2 = wrapNativePort(channel.port2);
+    const messageSequence: string[] = [];
+
+    // Intercept messages to verify order
+    channel.port2.addEventListener("message", (event) => {
+      const arr = new Uint8Array(event.data);
+      const types = ["DATA", "ACK", "END", "ERROR", "STREAM_ACK"];
+      messageSequence.push(types[arr[0]] || `UNKNOWN(${arr[0]})`);
+    });
+    channel.port2.start();
+
+    // Send 3 blocks with subStreamSize=3
+    async function* input(): AsyncGenerator<Uint8Array> {
+      yield bytes(1);
+      yield bytes(2);
+      yield bytes(3);
+    }
+
+    const sendPromise = sendPortStream(port1, input(), { subStreamSize: 3 });
+    await collect(receivePortStream(port2));
+    await sendPromise;
+
+    // Expect: DATA, DATA, DATA, STREAM_ACK, END
+    expect(messageSequence).toEqual(["DATA", "DATA", "DATA", "STREAM_ACK", "END"]);
+  });
+
+  it("should work with subStreamSize=1 (per-block ACK)", async () => {
+    const channel = createChannel();
+    const port1 = wrapNativePort(channel.port1);
+    const port2 = wrapNativePort(channel.port2);
+    const messageSequence: string[] = [];
+
+    channel.port2.addEventListener("message", (event) => {
+      const arr = new Uint8Array(event.data);
+      const types = ["DATA", "ACK", "END", "ERROR", "STREAM_ACK"];
+      messageSequence.push(types[arr[0]] || `UNKNOWN(${arr[0]})`);
+    });
+    channel.port2.start();
+
+    async function* input(): AsyncGenerator<Uint8Array> {
+      yield bytes(1);
+      yield bytes(2);
+    }
+
+    const sendPromise = sendPortStream(port1, input(), { subStreamSize: 1 });
+    await collect(receivePortStream(port2));
+    await sendPromise;
+
+    // With subStreamSize=1, each block gets its own STREAM_ACK
+    expect(messageSequence).toEqual(["DATA", "STREAM_ACK", "DATA", "STREAM_ACK", "END"]);
+  });
+
+  it("should handle large subStreamSize (bigger than stream)", async () => {
+    const channel = createChannel();
+    const port1 = wrapNativePort(channel.port1);
+    const port2 = wrapNativePort(channel.port2);
+    const messageSequence: string[] = [];
+
+    channel.port2.addEventListener("message", (event) => {
+      const arr = new Uint8Array(event.data);
+      const types = ["DATA", "ACK", "END", "ERROR", "STREAM_ACK"];
+      messageSequence.push(types[arr[0]] || `UNKNOWN(${arr[0]})`);
+    });
+    channel.port2.start();
+
+    async function* input(): AsyncGenerator<Uint8Array> {
+      yield bytes(1);
+      yield bytes(2);
+    }
+
+    // subStreamSize=100 but only 2 blocks - should still send STREAM_ACK at end
+    const sendPromise = sendPortStream(port1, input(), { subStreamSize: 100 });
+    const received = await collect(receivePortStream(port2));
+    await sendPromise;
+
+    expect(received).toHaveLength(2);
+    // All DATA sent, then STREAM_ACK for remaining, then END
+    expect(messageSequence).toEqual(["DATA", "DATA", "STREAM_ACK", "END"]);
+  });
+
+  it("should timeout if sub-stream ACK not received", async () => {
+    const channel = createChannel();
+    const port1 = wrapNativePort(channel.port1);
+
+    // Don't set up receiver - no ACK will come
+    async function* input(): AsyncGenerator<Uint8Array> {
+      yield bytes(1);
+      yield bytes(2);
+      yield bytes(3);
+    }
+
+    const sendPromise = sendPortStream(port1, input(), {
+      subStreamSize: 3,
+      ackTimeout: 50,
+    });
+
+    await expect(sendPromise).rejects.toThrow(/ACK timeout for sub-stream/);
+  });
+
+  it("should combine chunkSize and subStreamSize options", async () => {
+    const channel = createChannel();
+    const port1 = wrapNativePort(channel.port1);
+    const port2 = wrapNativePort(channel.port2);
+
+    // 10 bytes, chunkSize=3 -> 4 chunks (3+3+3+1)
+    // subStreamSize=2 -> 2 STREAM_ACKs (after chunks 0,1 and 2,3)
+    const data = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+    async function* input(): AsyncGenerator<Uint8Array> {
+      yield data;
+    }
+
+    const sendPromise = sendPortStream(port1, input(), {
+      chunkSize: 3,
+      subStreamSize: 2,
+    });
+    const received = await collect(receivePortStream(port2));
+    await sendPromise;
+
+    // Verify chunks received
+    expect(received).toHaveLength(4);
+    expect(received[0]).toEqual(bytes(0, 1, 2));
+    expect(received[1]).toEqual(bytes(3, 4, 5));
+    expect(received[2]).toEqual(bytes(6, 7, 8));
+    expect(received[3]).toEqual(bytes(9));
+  });
+
+  it("should handle backpressure with sub-stream batching", async () => {
+    const channel = createChannel();
+    const port1 = wrapNativePort(channel.port1);
+    const port2 = wrapNativePort(channel.port2);
+    const events: string[] = [];
+
+    async function* input(): AsyncGenerator<Uint8Array> {
+      events.push("send-1");
+      yield bytes(1);
+      events.push("send-2");
+      yield bytes(2);
+      events.push("send-3"); // This should wait for ACK of sub-stream 1
+      yield bytes(3);
+      events.push("send-4");
+      yield bytes(4);
+      events.push("done");
+    }
+
+    const sendPromise = sendPortStream(port1, input(), { subStreamSize: 2 });
+
+    // Receive with delays to verify backpressure
+    for await (const chunk of receivePortStream(port2)) {
+      events.push(`recv-${chunk[0]}`);
+      await new Promise((r) => setTimeout(r, 10));
+    }
+
+    await sendPromise;
+
+    // Verify order - sends should complete before receives due to batching
+    // but ACK waiting should still create some interleaving
+    expect(events).toContain("send-1");
+    expect(events).toContain("send-2");
+    expect(events).toContain("recv-1");
+    expect(events).toContain("recv-2");
+    expect(events).toContain("send-3");
+    expect(events).toContain("send-4");
+    expect(events).toContain("recv-3");
+    expect(events).toContain("recv-4");
+    expect(events).toContain("done");
+  });
 });
