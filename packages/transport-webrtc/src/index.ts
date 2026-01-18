@@ -59,13 +59,6 @@
  * @packageDocumentation
  */
 
-export type { MessagePortLike } from "@statewalker/vcs-utils";
-// MessagePortLike adapter
-export {
-  createDataChannelPort,
-  createDataChannelPortAsync,
-  type DataChannelPort,
-} from "./datachannel-port.js";
 export { PeerManager, waitForConnection } from "./peer-manager.js";
 // Signaling utilities
 export {
