@@ -211,19 +211,15 @@ export async function* sendWithAcknowledgement(
   const chunkSize = options.chunkSize ?? DEFAULT_CHUNK_SIZE;
   let loadedSize = 0;
 
-  const streamOfStreams = splitStream(
-    stream,
-    (block) => {
-      const pos = Math.min(chunkSize, loadedSize + block.length) - loadedSize;
-      if (pos < block.length) {
-        loadedSize = 0;
-        return pos;
-      }
-      loadedSize += block.length;
-      return -1;
-    },
-    { reSplitRemainder: true },
-  );
+  const streamOfStreams = splitStream(stream, (block) => {
+    const pos = Math.min(chunkSize, loadedSize + block.length) - loadedSize;
+    if (pos < block.length) {
+      loadedSize = 0;
+      return pos;
+    }
+    loadedSize += block.length;
+    return -1;
+  });
 
   let isFirst = true;
   for await (const substream of streamOfStreams) {
