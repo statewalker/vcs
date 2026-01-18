@@ -7,10 +7,6 @@
  * This adapter provides a clean integration layer that uses only the
  * standard HistoryStore interface, making transport work with any
  * HistoryStore implementation (Git, SQL, memory, etc.).
- *
- * @deprecated Use VcsRepositoryAccess from implementations/vcs-repository-access.ts instead.
- * VcsRepositoryAccess uses high-level stores (BlobStore, TreeStore, etc.) directly,
- * without requiring HistoryStore or GitObjectStore. This file is kept for backward compatibility.
  */
 
 import type {
@@ -23,14 +19,13 @@ import type {
   TreeStore,
 } from "@statewalker/vcs-core";
 import type {
-  GitHttpServerOptions,
   HeadInfo,
   ObjectId,
   ObjectInfo,
   ObjectTypeCode,
   RefInfo,
   RepositoryAccess,
-} from "@statewalker/vcs-transport";
+} from "../handlers/types.js";
 
 /**
  * Create RepositoryAccess from a HistoryStore.
@@ -355,9 +350,12 @@ export function createRepositoryServerOptions(
 /**
  * Base options without resolveRepository (for spreading).
  */
-type GitHttpServerOptionsBase = Omit<GitHttpServerOptions, "resolveRepository">;
+type GitHttpServerOptionsBase = Omit<
+  import("../http-server/types.js").GitHttpServerOptions,
+  "resolveRepository"
+>;
 
 /**
  * Options with resolveRepository.
  */
-type GitHttpServerOptionsWithResolver = GitHttpServerOptions;
+type GitHttpServerOptionsWithResolver = import("../http-server/types.js").GitHttpServerOptions;

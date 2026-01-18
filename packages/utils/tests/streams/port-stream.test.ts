@@ -516,15 +516,19 @@ describe("splitStream with large blocks", () => {
     const block = new Uint8Array(10).fill(42);
     let loadedSize = 0;
 
-    const stream = splitStream(toAsyncIterable([block]), (b) => {
-      const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
-      if (pos < b.length) {
-        loadedSize = 0;
-        return pos;
-      }
-      loadedSize += b.length;
-      return -1;
-    });
+    const stream = splitStream(
+      toAsyncIterable([block]),
+      (b) => {
+        const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
+        if (pos < b.length) {
+          loadedSize = 0;
+          return pos;
+        }
+        loadedSize += b.length;
+        return -1;
+      },
+      { reSplitRemainder: true },
+    );
 
     const substreams: Uint8Array[][] = [];
     for await (const sub of stream) {
@@ -543,15 +547,19 @@ describe("splitStream with large blocks", () => {
     const largeBlock = new Uint8Array(100_000).fill(42);
     let loadedSize = 0;
 
-    const stream = splitStream(toAsyncIterable([largeBlock]), (b) => {
-      const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
-      if (pos < b.length) {
-        loadedSize = 0;
-        return pos;
-      }
-      loadedSize += b.length;
-      return -1;
-    });
+    const stream = splitStream(
+      toAsyncIterable([largeBlock]),
+      (b) => {
+        const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
+        if (pos < b.length) {
+          loadedSize = 0;
+          return pos;
+        }
+        loadedSize += b.length;
+        return -1;
+      },
+      { reSplitRemainder: true },
+    );
 
     const substreams: Uint8Array[][] = [];
     for await (const sub of stream) {
@@ -571,15 +579,19 @@ describe("splitStream with large blocks", () => {
     const block2 = new Uint8Array(50).fill(2);
     let loadedSize = 0;
 
-    const stream = splitStream(toAsyncIterable([block1, block2]), (b) => {
-      const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
-      if (pos < b.length) {
-        loadedSize = 0;
-        return pos;
-      }
-      loadedSize += b.length;
-      return -1;
-    });
+    const stream = splitStream(
+      toAsyncIterable([block1, block2]),
+      (b) => {
+        const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
+        if (pos < b.length) {
+          loadedSize = 0;
+          return pos;
+        }
+        loadedSize += b.length;
+        return -1;
+      },
+      { reSplitRemainder: true },
+    );
 
     const substreams: Uint8Array[][] = [];
     for await (const sub of stream) {
@@ -599,15 +611,19 @@ describe("splitStream with large blocks", () => {
     const blocks = [bytes(5, 5, 5), bytes(10, 10), bytes(25, 25, 25, 25, 25)]; // 3 + 2 + 5 = 10 items
     let loadedSize = 0;
 
-    const stream = splitStream(toAsyncIterable(blocks), (b) => {
-      const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
-      if (pos < b.length) {
-        loadedSize = 0;
-        return pos;
-      }
-      loadedSize += b.length;
-      return -1;
-    });
+    const stream = splitStream(
+      toAsyncIterable(blocks),
+      (b) => {
+        const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
+        if (pos < b.length) {
+          loadedSize = 0;
+          return pos;
+        }
+        loadedSize += b.length;
+        return -1;
+      },
+      { reSplitRemainder: true },
+    );
 
     const substreams: Uint8Array[][] = [];
     for await (const sub of stream) {
@@ -627,15 +643,19 @@ describe("splitStream with large blocks", () => {
     const block = bytes(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
     let loadedSize = 0;
 
-    const stream = splitStream(toAsyncIterable([block]), (b) => {
-      const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
-      if (pos < b.length) {
-        loadedSize = 0;
-        return pos;
-      }
-      loadedSize += b.length;
-      return -1;
-    });
+    const stream = splitStream(
+      toAsyncIterable([block]),
+      (b) => {
+        const pos = Math.min(chunkSize, loadedSize + b.length) - loadedSize;
+        if (pos < b.length) {
+          loadedSize = 0;
+          return pos;
+        }
+        loadedSize += b.length;
+        return -1;
+      },
+      { reSplitRemainder: true },
+    );
 
     const substreams: Uint8Array[][] = [];
     for await (const sub of stream) {
