@@ -5,7 +5,11 @@
  * enabling use with port-stream for Git protocol communication.
  */
 
-import type { MessagePortLike } from "@statewalker/vcs-utils";
+import type {
+  MessagePortEventListener,
+  MessagePortEventType,
+  MessagePortLike,
+} from "@statewalker/vcs-utils";
 import type { DataConnection } from "peerjs";
 
 /**
@@ -26,16 +30,11 @@ export interface PeerJsPort extends MessagePortLike {
  */
 export function createPeerJsPort(conn: DataConnection): PeerJsPort {
   let started = false;
+  const messageListeners = new Set<(event: MessageEvent<ArrayBuffer>) => void>();
+  const closeListeners = new Set<() => void>();
+  const errorListeners = new Set<(error: Error) => void>();
 
   const port: PeerJsPort = {
-    onmessage: null,
-    onclose: null,
-    onerror: null,
-
-    get isOpen() {
-      return conn.open;
-    },
-
     get bufferedAmount() {
       // Access internal RTCDataChannel for bufferedAmount
       const dc = (conn as unknown as { _dc?: RTCDataChannel })._dc;
@@ -77,11 +76,49 @@ export function createPeerJsPort(conn: DataConnection): PeerJsPort {
           buffer = new TextEncoder().encode(String(data)).buffer as ArrayBuffer;
         }
 
-        port.onmessage?.({ data: buffer } as MessageEvent<ArrayBuffer>);
+        const event = { data: buffer } as MessageEvent<ArrayBuffer>;
+        for (const listener of messageListeners) {
+          listener(event);
+        }
       });
 
-      conn.on("close", () => port.onclose?.());
-      conn.on("error", (err: Error) => port.onerror?.(err));
+      conn.on("close", () => {
+        for (const listener of closeListeners) {
+          listener();
+        }
+      });
+
+      conn.on("error", (err: Error) => {
+        for (const listener of errorListeners) {
+          listener(err);
+        }
+      });
+    },
+
+    addEventListener<T extends MessagePortEventType>(
+      type: T,
+      listener: MessagePortEventListener<T>,
+    ) {
+      if (type === "message") {
+        messageListeners.add(listener as (event: MessageEvent<ArrayBuffer>) => void);
+      } else if (type === "close") {
+        closeListeners.add(listener as () => void);
+      } else if (type === "error") {
+        errorListeners.add(listener as (error: Error) => void);
+      }
+    },
+
+    removeEventListener<T extends MessagePortEventType>(
+      type: T,
+      listener: MessagePortEventListener<T>,
+    ) {
+      if (type === "message") {
+        messageListeners.delete(listener as (event: MessageEvent<ArrayBuffer>) => void);
+      } else if (type === "close") {
+        closeListeners.delete(listener as () => void);
+      } else if (type === "error") {
+        errorListeners.delete(listener as (error: Error) => void);
+      }
     },
   };
 

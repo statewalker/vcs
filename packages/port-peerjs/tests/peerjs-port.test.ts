@@ -80,7 +80,12 @@ describe("createPeerJsPort", () => {
   it("should create port from DataConnection", () => {
     const port = createPeerJsPort(mockConn);
 
-    expect(port.isOpen).toBe(true);
+    expect(port).toBeDefined();
+    expect(port.postMessage).toBeDefined();
+    expect(port.close).toBeDefined();
+    expect(port.start).toBeDefined();
+    expect(port.addEventListener).toBeDefined();
+    expect(port.removeEventListener).toBeDefined();
   });
 
   it("should forward postMessage to conn.send", () => {
@@ -113,19 +118,10 @@ describe("createPeerJsPort", () => {
     expect(port.bufferedAmount).toBe(0);
   });
 
-  it("should report isOpen based on conn.open", () => {
-    const port = createPeerJsPort(mockConn);
-
-    expect(port.isOpen).toBe(true);
-
-    mockConn.open = false;
-    expect(port.isOpen).toBe(false);
-  });
-
-  it("should forward incoming ArrayBuffer data to onmessage", () => {
+  it("should forward incoming ArrayBuffer data via addEventListener", () => {
     const port = createPeerJsPort(mockConn);
     const handler = vi.fn();
-    port.onmessage = handler;
+    port.addEventListener("message", handler);
     port.start();
 
     const data = new ArrayBuffer(8);
@@ -138,7 +134,7 @@ describe("createPeerJsPort", () => {
   it("should convert Uint8Array data to ArrayBuffer", () => {
     const port = createPeerJsPort(mockConn);
     const handler = vi.fn();
-    port.onmessage = handler;
+    port.addEventListener("message", handler);
     port.start();
 
     const data = new Uint8Array([1, 2, 3]);
@@ -149,10 +145,10 @@ describe("createPeerJsPort", () => {
     expect(received).toEqual(data);
   });
 
-  it("should call onclose when connection closes", () => {
+  it("should call close listeners when connection closes", () => {
     const port = createPeerJsPort(mockConn);
     const handler = vi.fn();
-    port.onclose = handler;
+    port.addEventListener("close", handler);
     port.start();
 
     mockConn.simulateClose();
@@ -160,10 +156,10 @@ describe("createPeerJsPort", () => {
     expect(handler).toHaveBeenCalled();
   });
 
-  it("should call onerror on connection error", () => {
+  it("should call error listeners on connection error", () => {
     const port = createPeerJsPort(mockConn);
     const handler = vi.fn();
-    port.onerror = handler;
+    port.addEventListener("error", handler);
     port.start();
 
     const err = new Error("Connection failed");
@@ -178,5 +174,33 @@ describe("createPeerJsPort", () => {
     port.close();
 
     expect(mockConn.close).toHaveBeenCalled();
+  });
+
+  it("should support multiple message listeners", () => {
+    const port = createPeerJsPort(mockConn);
+    const handler1 = vi.fn();
+    const handler2 = vi.fn();
+    port.addEventListener("message", handler1);
+    port.addEventListener("message", handler2);
+    port.start();
+
+    const data = new ArrayBuffer(8);
+    mockConn.simulateData(data);
+
+    expect(handler1).toHaveBeenCalled();
+    expect(handler2).toHaveBeenCalled();
+  });
+
+  it("should support removeEventListener", () => {
+    const port = createPeerJsPort(mockConn);
+    const handler = vi.fn();
+    port.addEventListener("message", handler);
+    port.removeEventListener("message", handler);
+    port.start();
+
+    const data = new ArrayBuffer(8);
+    mockConn.simulateData(data);
+
+    expect(handler).not.toHaveBeenCalled();
   });
 });

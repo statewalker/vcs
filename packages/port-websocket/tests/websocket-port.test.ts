@@ -38,7 +38,12 @@ describe("createWebSocketPort", () => {
   it("should create port from WebSocket", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
 
-    expect(port.isOpen).toBe(true);
+    expect(port).toBeDefined();
+    expect(port.postMessage).toBeDefined();
+    expect(port.close).toBeDefined();
+    expect(port.start).toBeDefined();
+    expect(port.addEventListener).toBeDefined();
+    expect(port.removeEventListener).toBeDefined();
   });
 
   it("should set binaryType to arraybuffer on start", () => {
@@ -80,25 +85,10 @@ describe("createWebSocketPort", () => {
     expect(port.bufferedAmount).toBe(12345);
   });
 
-  it("should report isOpen based on readyState", () => {
-    const port = createWebSocketPort(mockWs as unknown as WebSocket);
-
-    expect(port.isOpen).toBe(true);
-
-    mockWs.readyState = MockWebSocket.CLOSING;
-    expect(port.isOpen).toBe(false);
-
-    mockWs.readyState = MockWebSocket.CLOSED;
-    expect(port.isOpen).toBe(false);
-
-    mockWs.readyState = MockWebSocket.CONNECTING;
-    expect(port.isOpen).toBe(false);
-  });
-
-  it("should forward incoming ArrayBuffer messages to onmessage", () => {
+  it("should forward incoming ArrayBuffer messages via addEventListener", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
     const handler = vi.fn();
-    port.onmessage = handler;
+    port.addEventListener("message", handler);
     port.start();
 
     const data = new ArrayBuffer(8);
@@ -107,10 +97,10 @@ describe("createWebSocketPort", () => {
     expect(handler).toHaveBeenCalledWith({ data });
   });
 
-  it("should call onclose when WebSocket closes", () => {
+  it("should call close listeners when WebSocket closes", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
     const handler = vi.fn();
-    port.onclose = handler;
+    port.addEventListener("close", handler);
     port.start();
 
     mockWs.close();
@@ -118,10 +108,10 @@ describe("createWebSocketPort", () => {
     expect(handler).toHaveBeenCalled();
   });
 
-  it("should call onerror on WebSocket error", () => {
+  it("should call error listeners on WebSocket error", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
     const handler = vi.fn();
-    port.onerror = handler;
+    port.addEventListener("error", handler);
     port.start();
 
     mockWs.onerror?.();
@@ -136,6 +126,34 @@ describe("createWebSocketPort", () => {
 
     expect(mockWs.close).toHaveBeenCalled();
   });
+
+  it("should support multiple message listeners", () => {
+    const port = createWebSocketPort(mockWs as unknown as WebSocket);
+    const handler1 = vi.fn();
+    const handler2 = vi.fn();
+    port.addEventListener("message", handler1);
+    port.addEventListener("message", handler2);
+    port.start();
+
+    const data = new ArrayBuffer(8);
+    mockWs.onmessage?.({ data });
+
+    expect(handler1).toHaveBeenCalledWith({ data });
+    expect(handler2).toHaveBeenCalledWith({ data });
+  });
+
+  it("should support removeEventListener", () => {
+    const port = createWebSocketPort(mockWs as unknown as WebSocket);
+    const handler = vi.fn();
+    port.addEventListener("message", handler);
+    port.removeEventListener("message", handler);
+    port.start();
+
+    const data = new ArrayBuffer(8);
+    mockWs.onmessage?.({ data });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
 });
 
 describe("createWebSocketPortFromOpen", () => {
@@ -145,7 +163,8 @@ describe("createWebSocketPortFromOpen", () => {
 
     const port = createWebSocketPortFromOpen(mockWs as unknown as WebSocket);
 
-    expect(port.isOpen).toBe(true);
+    expect(port).toBeDefined();
+    expect(port.bufferedAmount).toBe(0);
   });
 
   it("should throw if WebSocket is not open", () => {

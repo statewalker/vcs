@@ -2,7 +2,7 @@
 
 ## Overview
 
-The port-stream module provides bidirectional streaming over `MessagePortLike` with ACK-based backpressure. This ensures reliable data transfer where the receiver controls the flow rate.
+The port-stream module provides bidirectional streaming over `MessagePortLike` with byte-based sub-stream ACK backpressure. Blocks are sent until `chunkSize` bytes are reached, then acknowledgment is requested before continuing. This reduces round-trip overhead while still preventing memory exhaustion.
 
 ## API Reference
 
@@ -13,23 +13,38 @@ interface MessagePortLike {
   /** Post binary data to the remote endpoint */
   postMessage(data: ArrayBuffer | Uint8Array): void;
 
-  /** Handler for incoming binary messages */
-  onmessage: ((event: MessageEvent<ArrayBuffer>) => void) | null;
-
-  /** Handler for errors */
-  onerror: ((error: Error) => void) | null;
-
-  /** Handler for connection close */
-  onclose: (() => void) | null;
-
   /** Close the port */
   close(): void;
 
   /** Start receiving messages (required by MessagePort spec) */
   start(): void;
 
-  /** Whether the port is currently open */
-  readonly isOpen: boolean;
+  /** Add event listener for message events */
+  addEventListener(type: "message", listener: (event: MessageEvent<ArrayBuffer>) => void): void;
+
+  /** Remove event listener */
+  removeEventListener(type: "message", listener: (event: MessageEvent<ArrayBuffer>) => void): void;
+}
+```
+
+### writeStream / readStream
+
+Core functions for streaming data over MessagePort:
+
+```typescript
+async function writeStream(
+  port: MessagePortLike,
+  stream: AsyncIterable<Uint8Array>,
+  options?: PortStreamOptions
+): Promise<void>;
+
+function readStream(port: MessagePortLike): AsyncIterable<Uint8Array>;
+
+interface PortStreamOptions {
+  /** Byte threshold for sub-stream splitting (default: 64KB) */
+  chunkSize?: number;
+  /** Timeout for ACK response in milliseconds (default: 5000) */
+  ackTimeout?: number;
 }
 ```
 
@@ -43,13 +58,6 @@ function createPortStream(
   options?: PortStreamOptions
 ): PortStream;
 
-interface PortStreamOptions {
-  /** Timeout for ACK response in milliseconds (default: 30000) */
-  ackTimeout?: number;
-  /** Chunk size for splitting the stream in bytes (default: no chunking) */
-  chunkSize?: number;
-}
-
 interface PortStream {
   /** Send a binary stream with backpressure */
   send(stream: AsyncIterable<Uint8Array>): Promise<void>;
@@ -62,20 +70,27 @@ interface PortStream {
 }
 ```
 
-### sendPortStream / receivePortStream
+### createAwaitAckFunction
 
-Lower-level functions for one-directional streaming:
+Factory for creating ACK wait functions:
 
 ```typescript
-async function sendPortStream(
+function createAwaitAckFunction(
   port: MessagePortLike,
-  stream: AsyncIterable<Uint8Array>,
-  options?: PortStreamOptions
-): Promise<void>;
+  options?: { ackTimeout?: number }
+): () => Promise<void>;
+```
 
-function receivePortStream(
-  port: MessagePortLike
-): AsyncIterable<Uint8Array>;
+### sendWithAcknowledgement
+
+Transform stream that splits into byte-based sub-streams and awaits ACK between them:
+
+```typescript
+async function* sendWithAcknowledgement(
+  stream: AsyncIterable<Uint8Array>,
+  awaitAck: () => Promise<void>,
+  options?: { chunkSize?: number }
+): AsyncGenerator<Uint8Array>;
 ```
 
 ### wrapNativePort
@@ -98,34 +113,33 @@ function createPortStreamPair(
 
 ## Binary Protocol Specification
 
-### Message Format
+### Message Format (9-byte header)
 
-Each message is encoded as a `Uint8Array`:
+Each message is encoded as an `ArrayBuffer`:
 
 ```
-┌──────────┬────────────────────┬─────────────────┐
-│ Type     │ ID                 │ Payload         │
-│ (1 byte) │ (4 bytes BE)       │ (variable)      │
-└──────────┴────────────────────┴─────────────────┘
+┌──────────┬────────────────────┬────────────────────┬─────────────────┐
+│ Type     │ ID                 │ Length             │ Payload         │
+│ (1 byte) │ (4 bytes LE)       │ (4 bytes LE)       │ (variable)      │
+└──────────┴────────────────────┴────────────────────┴─────────────────┘
 ```
+
+Total header: 9 bytes
 
 ### Message Types
 
 | Type | Value | Payload | Description |
 |------|-------|---------|-------------|
-| DATA | 0 | Binary data | Block to transfer |
-| ACK | 1 | 1 byte (0/1) | Acknowledgment |
-| END | 2 | (none) | Stream complete |
-| ERROR | 3 | JSON string | Error message |
-
-### ACK Payload
-
-- `0x01`: Block handled successfully
-- `0x00`: Block rejected (stream closing)
+| REQUEST_ACK | 1 | (none) | Request acknowledgment from receiver |
+| ACKNOWLEDGE | 2 | (none) | Acknowledgment response |
+| DATA | 3 | Binary data | Block to transfer |
+| END | 4 | (none) | Stream complete |
 
 ## Backpressure Mechanism
 
-### Flow Diagram
+### Flow Diagram (Byte-based Sub-stream Splitting)
+
+With `chunkSize=64KB`, the protocol looks like:
 
 ```
 Sender                                    Receiver
@@ -133,43 +147,58 @@ Sender                                    Receiver
   │  ┌────────────────────────┐             │
   │  │ DATA [id=0] [payload]  │─────────────►│
   │  └────────────────────────┘             │
+  │  ┌────────────────────────┐             │
+  │  │ DATA [id=1] [payload]  │─────────────►│  (cumulative bytes < chunkSize)
+  │  └────────────────────────┘             │
+  │              ...                         │
+  │  ┌────────────────────────┐             │
+  │  │ DATA [id=N] [payload]  │─────────────►│  (cumulative bytes >= chunkSize)
+  │  └────────────────────────┘             │
+  │  ┌────────────────────────┐             │
+  │  │ REQUEST_ACK [id=0]     │─────────────►│
+  │  └────────────────────────┘             │
   │                                          │
   │              (Receiver processes data)   │
   │                                          │
   │             ┌──────────────────┐        │
-  │◄────────────│ ACK [id=0] [0x01]│        │
+  │◄────────────│ ACKNOWLEDGE [id=0]│        │
   │             └──────────────────┘        │
   │                                          │
   │  ┌────────────────────────┐             │
-  │  │ DATA [id=1] [payload]  │─────────────►│
+  │  │ DATA [id=N+1] [payload]│─────────────►│
   │  └────────────────────────┘             │
   │              ...                         │
+  │  ┌────────────────────────┐             │
+  │  │ REQUEST_ACK [id=K]     │─────────────►│  (final ACK)
+  │  └────────────────────────┘             │
+  │             ┌──────────────────┐        │
+  │◄────────────│ ACKNOWLEDGE [id=K]│        │
+  │             └──────────────────┘        │
   │  ┌──────────────┐                       │
-  │  │ END [id=N]   │───────────────────────►│
+  │  │ END [id=M]   │───────────────────────►│
   │  └──────────────┘                       │
 ```
 
 ### Key Properties
 
-1. **Flow Control**: Sender waits for ACK before sending next block
-2. **Memory Safety**: Prevents buffer overflow on slow receivers
-3. **Error Propagation**: Errors are sent via ERROR message type
-4. **Timeout Protection**: ACK timeout prevents indefinite blocking
+1. **Byte-based Splitting**: Sub-streams are split by byte count (chunkSize), not block count
+2. **Reduced Round-trips**: Multiple blocks sent before waiting for ACK
+3. **Flow Control**: Sender waits for ACK after each sub-stream
+4. **Memory Safety**: Limits buffering to chunkSize bytes
+5. **Timeout Protection**: ACK timeout prevents indefinite blocking
+6. **Uses addEventListener**: Allows multiple pending ACK requests without interference
 
 ## Usage Examples
 
 ### Basic Send/Receive
 
 ```typescript
-import { createPortStream, wrapNativePort } from "@statewalker/vcs-utils";
+import { writeStream, readStream, wrapNativePort } from "@statewalker/vcs-utils";
 
 // Create channel
 const channel = new MessageChannel();
 const port1 = wrapNativePort(channel.port1);
 const port2 = wrapNativePort(channel.port2);
-
-const stream1 = createPortStream(port1);
-const stream2 = createPortStream(port2);
 
 // Send data
 async function* generateData() {
@@ -177,70 +206,108 @@ async function* generateData() {
   yield new Uint8Array([4, 5, 6]);
 }
 
-const sendPromise = stream1.send(generateData());
+const sendPromise = writeStream(port1, generateData());
 
 // Receive data
-for await (const chunk of stream2.receive()) {
+for await (const chunk of readStream(port2)) {
   console.log("Received:", chunk);
 }
 
 await sendPromise;
 ```
 
-### With Chunking
+### Using PortStream Interface
+
+```typescript
+import { createPortStream, wrapNativePort } from "@statewalker/vcs-utils";
+
+const channel = new MessageChannel();
+const stream1 = createPortStream(wrapNativePort(channel.port1));
+const stream2 = createPortStream(wrapNativePort(channel.port2));
+
+// Send
+await stream1.send(generateData());
+
+// Receive
+for await (const chunk of stream2.receive()) {
+  console.log("Received:", chunk);
+}
+
+// Cleanup
+stream1.close();
+stream2.close();
+```
+
+### With Byte-based Chunking
 
 ```typescript
 const stream = createPortStream(port, {
-  chunkSize: 1024,  // Split large blocks into 1KB chunks
+  chunkSize: 64 * 1024,  // Request ACK after every 64KB
+  ackTimeout: 10000,     // 10 second timeout
 });
 
-// Even if you send a 1MB block, it will be split into 1KB chunks
+// Large data will be split and ACK requested after each 64KB
 await stream.send(generateLargeData());
 ```
 
-### Error Handling
+### Using Lower-level Functions
 
 ```typescript
-try {
-  await stream.send(data);
-} catch (error) {
-  if (error.message.includes("ACK timeout")) {
-    console.error("Receiver not responding");
-  } else if (error.message.includes("closed")) {
-    console.error("Connection closed");
-  }
+import {
+  createAwaitAckFunction,
+  sendWithAcknowledgement
+} from "@statewalker/vcs-utils";
+
+// Create ACK function
+const awaitAck = createAwaitAckFunction(port, { ackTimeout: 5000 });
+
+// Transform stream with acknowledgement
+for await (const chunk of sendWithAcknowledgement(dataStream, awaitAck, { chunkSize: 32768 })) {
+  // Each chunk is part of a sub-stream
+  // awaitAck() is called between sub-streams
+  sendData(chunk);
 }
 ```
 
 ## Performance Considerations
 
-### Block Size Selection
+### Chunk Size Selection
 
-| Block Size | Overhead | Latency | Use Case |
-|------------|----------|---------|----------|
-| 1 KB | High | Low | Interactive |
-| 64 KB | Medium | Medium | General |
-| 256 KB | Low | Higher | Bulk transfer |
+| Chunk Size | Round-trips | Latency | Use Case |
+|------------|-------------|---------|----------|
+| 1 KB | Very high | Low | Interactive, small data |
+| 64 KB | Medium | Medium | General purpose (default) |
+| 256 KB | Low | Higher | Bulk transfer, low latency networks |
+| 1 MB | Very low | High | High bandwidth, reliable networks |
 
 ### ACK Timeout
 
-- **Short timeout (5s)**: Fast failure detection, may fail on slow networks
-- **Default (30s)**: Balanced for most use cases
-- **Long timeout (60s+)**: For high-latency networks
+- **Short timeout (1-5s)**: Fast failure detection, may fail on slow networks
+- **Default (5s)**: Balanced for most use cases
+- **Long timeout (30s+)**: For high-latency or unreliable networks
 
 ### Memory Usage
 
-The backpressure mechanism ensures that at most one block is buffered at the sender while waiting for ACK. The receiver processes blocks one at a time.
+The sender buffers at most `chunkSize` bytes before waiting for ACK. Choose `chunkSize` based on:
+- Available memory
+- Network latency (larger = fewer round-trips)
+- Desired responsiveness (smaller = faster backpressure)
 
 ## Implementation Notes
 
-### Handler Management
+### Why addEventListener for ACK
 
-The port stream temporarily overrides `onmessage` during send/receive operations, restoring the previous handler on completion.
+The ACK waiting mechanism uses `addEventListener` instead of `onmessage` because:
+- Allows multiple pending ACK requests simultaneously
+- Does not interfere with other message handlers
+- Clean listener cleanup after each ACK received or timeout
 
-### Thread Safety
+### Byte-based vs Block-based Splitting
 
-Port streams are designed for single-threaded use. Do not share a single PortStream between concurrent operations.
+Previous versions used block count (`subStreamSize`) for splitting. The new API uses byte count (`chunkSize`) because:
+- More predictable memory usage
+- Works correctly with variable-sized blocks
+- Handles blocks larger than the threshold correctly (splits them)
 
 ### Cleanup
 
