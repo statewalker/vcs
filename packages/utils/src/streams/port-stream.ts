@@ -1,10 +1,10 @@
 /**
- * MessagePort-based binary stream with sub-stream ACK-based backpressure.
+ * MessagePort-based binary stream with ACK-based backpressure.
  *
  * This module provides bidirectional streaming over MessagePort with proper
- * flow control. Blocks are sent in batches (sub-streams), and acknowledgment
- * is requested after each sub-stream completes. This reduces round-trip
- * overhead while still preventing memory exhaustion.
+ * flow control. Each sent block requires acknowledgment from the receiver
+ * before the next block is sent, preventing memory exhaustion when the
+ * receiver is slower than the sender.
  *
  * Binary Protocol Format:
  * Each message is a Uint8Array with the structure:
@@ -15,13 +15,6 @@
  *   - ACK (1): payload is 1 byte (1=handled, 0=not handled)
  *   - END (2): no payload
  *   - ERROR (3): payload is JSON-encoded error message
- *   - STREAM_ACK (4): request ACK after sub-stream (no payload)
- *
- * Sub-stream Flow:
- *   1. Sender sends DATA[0], DATA[1], ..., DATA[N-1] (subStreamSize blocks)
- *   2. Sender sends STREAM_ACK request
- *   3. Receiver processes all DATA blocks and sends ACK
- *   4. Sender continues with next sub-stream
  *
  * Based on principles from @statewalker/webrun-ports library.
  *
@@ -30,15 +23,13 @@
  * // Create a channel
  * const channel = new MessageChannel();
  *
- * // Sender side with sub-stream batching
- * const stream1 = createPortStream(wrapNativePort(channel.port1), {
- *   subStreamSize: 10, // Send 10 blocks before waiting for ACK
- * });
- * await stream1.send(dataStream);
+ * // Sender side
+ * const sender = createPortSender(channel.port1);
+ * await sender.send(dataStream);
  *
  * // Receiver side
- * const stream2 = createPortStream(wrapNativePort(channel.port2));
- * for await (const block of stream2.receive()) {
+ * const receiver = createPortReceiver(channel.port2);
+ * for await (const block of receiver.receive()) {
  *   await processBlock(block);
  * }
  * ```
@@ -84,7 +75,6 @@ const MessageType = {
   ACK: 1,
   END: 2,
   ERROR: 3,
-  STREAM_ACK: 4,
 } as const;
 
 type MessageTypeValue = (typeof MessageType)[keyof typeof MessageType];
@@ -97,12 +87,6 @@ export interface PortStreamOptions {
   ackTimeout?: number;
   /** Chunk size for splitting the stream in bytes (default: no chunking) */
   chunkSize?: number;
-  /**
-   * Number of blocks per sub-stream before requesting ACK (default: 1).
-   * When > 1, multiple blocks are sent before waiting for acknowledgment,
-   * reducing round-trip overhead at the cost of more receiver-side buffering.
-   */
-  subStreamSize?: number;
 }
 
 const DEFAULT_ACK_TIMEOUT = 30000;
@@ -153,38 +137,32 @@ function decodeMessage(data: Uint8Array): {
 }
 
 /**
- * Send a binary stream over MessagePortLike with sub-stream ACK-based backpressure.
+ * Send a binary stream over MessagePortLike with ACK-based backpressure.
  *
- * Blocks are sent in batches (sub-streams). After each sub-stream, a STREAM_ACK
- * request is sent and the sender waits for acknowledgment before proceeding.
- * This reduces round-trip overhead compared to per-block ACKs.
+ * Each block is sent and waits for acknowledgment before sending the next.
+ * This ensures the receiver controls the flow rate.
  *
  * @param port MessagePortLike to send over (MessagePort, WebSocket adapter, etc.)
  * @param stream Binary stream to send
  * @param options Configuration options
- * @throws Error if receiver closes, ACK timeout occurs, or port closes/errors
+ * @throws Error if receiver closes or ACK timeout occurs
  */
 export async function sendPortStream(
   port: MessagePortLike,
   stream: AsyncIterable<Uint8Array>,
   options: PortStreamOptions = {},
 ): Promise<void> {
-  const { ackTimeout = DEFAULT_ACK_TIMEOUT, chunkSize, subStreamSize = 1 } = options;
+  const { ackTimeout = DEFAULT_ACK_TIMEOUT, chunkSize } = options;
 
   // Apply chunking if specified
   const chunkedStream = chunkSize ? toChunks(stream, chunkSize) : stream;
 
   let blockId = 0;
-  let streamId = 0;
   let currentTimer: ReturnType<typeof setTimeout> | null = null;
   let currentResolve: ((handled: boolean) => void) | null = null;
-  let currentReject: ((error: Error) => void) | null = null;
-  let portClosed = false;
 
-  // Save previous handlers to restore later
+  // Save previous handler to restore later
   const previousHandler = port.onmessage;
-  const previousCloseHandler = port.onclose;
-  const previousErrorHandler = port.onerror;
 
   // Handle ACK messages
   port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
@@ -196,6 +174,7 @@ export async function sendPortStream(
 
     try {
       const msg = decodeMessage(data);
+      // TODO: check that the ACK id matches the sent block id
       if (msg.type === MessageType.ACK && currentResolve) {
         if (currentTimer) {
           clearTimeout(currentTimer);
@@ -203,7 +182,6 @@ export async function sendPortStream(
         }
         const resolve = currentResolve;
         currentResolve = null;
-        currentReject = null;
         // Payload byte: 1=handled, 0=not handled
         const handled = msg.payload.length > 0 && msg.payload[0] === 1;
         resolve(handled);
@@ -213,101 +191,33 @@ export async function sendPortStream(
     }
   };
 
-  // Handle port closure during ACK wait
-  port.onclose = () => {
-    portClosed = true;
-    if (currentReject) {
-      if (currentTimer) {
-        clearTimeout(currentTimer);
-        currentTimer = null;
-      }
-      const reject = currentReject;
-      currentResolve = null;
-      currentReject = null;
-      reject(new Error("Port closed during ACK wait"));
-    }
-    previousCloseHandler?.();
-  };
-
-  // Handle port errors during ACK wait
-  port.onerror = (error: Error) => {
-    if (currentReject) {
-      if (currentTimer) {
-        clearTimeout(currentTimer);
-        currentTimer = null;
-      }
-      const reject = currentReject;
-      currentResolve = null;
-      currentReject = null;
-      reject(new Error(`Port error during ACK wait: ${error.message}`));
-    }
-    previousErrorHandler?.(error);
-  };
-
   port.start();
 
-  // Helper to wait for ACK with timeout
-  const waitForAck = (id: number): Promise<boolean> => {
-    return new Promise<boolean>((resolve, reject) => {
-      if (portClosed) {
-        reject(new Error("Port closed during ACK wait"));
-        return;
-      }
-
-      currentTimer = setTimeout(() => {
-        currentTimer = null;
-        currentResolve = null;
-        currentReject = null;
-        reject(new Error(`ACK timeout for sub-stream ${id}`));
-      }, ackTimeout);
-
-      currentResolve = resolve;
-      currentReject = reject;
-    });
-  };
-
   try {
-    let blocksInSubStream = 0;
-
     for await (const block of chunkedStream) {
-      if (portClosed) {
-        throw new Error("Port closed during send");
-      }
-
       const id = blockId++;
 
-      // Send DATA message
-      const message = encodeMessage(MessageType.DATA, id, block);
-      const buffer = message.buffer.slice(
-        message.byteOffset,
-        message.byteOffset + message.byteLength,
-      ) as ArrayBuffer;
-      port.postMessage(buffer);
+      // Send block and wait for ACK
+      const handled = await new Promise<boolean>((resolve, reject) => {
+        currentTimer = setTimeout(() => {
+          currentTimer = null;
+          currentResolve = null;
+          reject(new Error(`ACK timeout for block ${id}`));
+        }, ackTimeout);
 
-      blocksInSubStream++;
+        currentResolve = resolve;
 
-      // Request ACK after subStreamSize blocks
-      if (blocksInSubStream >= subStreamSize) {
-        // Send STREAM_ACK request
-        const ackReqMessage = encodeMessage(MessageType.STREAM_ACK, streamId);
-        port.postMessage(ackReqMessage.buffer.slice(0) as ArrayBuffer);
+        // Create message: DATA type with block as payload
+        const message = encodeMessage(MessageType.DATA, id, block);
 
-        const handled = await waitForAck(streamId);
-        if (!handled) {
-          throw new Error("Receiver closed the stream");
-        }
+        // Send as ArrayBuffer
+        const buffer = message.buffer.slice(
+          message.byteOffset,
+          message.byteOffset + message.byteLength,
+        ) as ArrayBuffer;
+        port.postMessage(buffer);
+      });
 
-        streamId++;
-        blocksInSubStream = 0;
-      }
-    }
-
-    // Send ACK request for remaining blocks in last sub-stream
-    if (blocksInSubStream > 0) {
-      const ackReqMessage = encodeMessage(MessageType.STREAM_ACK, streamId);
-      port.postMessage(ackReqMessage.buffer.slice(0) as ArrayBuffer);
-
-      const handled = await waitForAck(streamId);
       if (!handled) {
         throw new Error("Receiver closed the stream");
       }
@@ -325,8 +235,6 @@ export async function sendPortStream(
     throw error;
   } finally {
     port.onmessage = previousHandler;
-    port.onclose = previousCloseHandler;
-    port.onerror = previousErrorHandler;
     if (currentTimer) {
       clearTimeout(currentTimer);
     }
@@ -334,10 +242,10 @@ export async function sendPortStream(
 }
 
 /**
- * Receive a binary stream from MessagePortLike with sub-stream ACK-based backpressure.
+ * Receive a binary stream from MessagePortLike with ACK-based backpressure.
  *
- * Uses newAsyncGenerator to create proper backpressure. ACKs are sent only when
- * STREAM_ACK requests are received, not for individual DATA blocks.
+ * Uses newAsyncGenerator to create proper backpressure - the sender only
+ * receives ACK after the consumer processes each block.
  *
  * @param port MessagePortLike to receive from (MessagePort, WebSocket adapter, etc.)
  * @returns AsyncIterable yielding received binary blocks
@@ -346,9 +254,6 @@ export function receivePortStream(port: MessagePortLike): AsyncIterable<Uint8Arr
   return newAsyncGenerator<Uint8Array>((next, done) => {
     // Save previous handler to restore on cleanup
     const previousHandler = port.onmessage;
-
-    // Track cumulative handled status for the current sub-stream
-    let handled = true;
 
     port.onmessage = async (event: MessageEvent<ArrayBuffer>) => {
       const rawData = event.data;
@@ -362,19 +267,14 @@ export function receivePortStream(port: MessagePortLike): AsyncIterable<Uint8Arr
 
         switch (msg.type) {
           case MessageType.DATA: {
-            // Process block and track handled status
-            // If any block in the sub-stream fails, the whole sub-stream is marked as not handled
-            const blockHandled = await next(msg.payload);
-            handled = handled && blockHandled;
-            break;
-          }
-          case MessageType.STREAM_ACK: {
-            // Send ACK with cumulative handled status for the sub-stream
+            // Wait for consumer to process before sending ACK
+            // This is the key to backpressure - sender blocks until ACK
+            const handled = await next(msg.payload);
+
+            // Send ACK with handled status
             const ackPayload = new Uint8Array([handled ? 1 : 0]);
             const ackMessage = encodeMessage(MessageType.ACK, msg.id, ackPayload);
             port.postMessage(ackMessage.buffer.slice(0) as ArrayBuffer);
-            // Reset for next sub-stream
-            handled = true;
             break;
           }
           case MessageType.END: {
