@@ -1,11 +1,9 @@
-// Re-export from the new transport-peerjs package
+// Re-export from the port-peerjs package
 export {
   createPeerJsPort,
   createPeerJsPortAsync,
-  createPeerJsStream,
-  PeerJsStream,
-  type PeerJsStreamOptions,
-} from "@statewalker/vcs-transport-peerjs";
+  type PeerJsPort,
+} from "@statewalker/vcs-port-peerjs";
 
 export { generateQrCodeDataUrl, renderQrCodeToCanvas } from "./qr-generator.js";
 export {
