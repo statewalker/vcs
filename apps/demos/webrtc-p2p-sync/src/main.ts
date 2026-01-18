@@ -11,7 +11,7 @@
  * - Controllers: Business logic, API interactions, update Models
  */
 
-import { type AppContext, createAppContext, createControllers } from "./controllers/index.js";
+import { type AppContext, createAppContext, createMainController } from "./controllers/index.js";
 import { parseSessionIdFromUrl } from "./lib/index.js";
 import { getActivityLogModel, getSessionModel } from "./models/index.js";
 import { newRegistry } from "./utils/index.js";
@@ -25,14 +25,20 @@ import {
 } from "./views/index.js";
 
 /**
- * Create all application views and bind them to DOM elements.
- *
- * @param ctx The application context
- * @returns Cleanup function to destroy all views
+ * Initialize the application.
  */
-function createViews(ctx: AppContext): () => void {
+async function initializeApp(): Promise<() => void> {
+  // Create application context with all models and APIs
+  const ctx: AppContext = await createAppContext();
+
+  // Registry for cleanup
   const [register, cleanup] = newRegistry();
 
+  // Get models for initialization
+  const sessionModel = getSessionModel(ctx);
+  const logModel = getActivityLogModel(ctx);
+
+  // Create views (bind to DOM elements)
   const connectionPanel = document.getElementById("connection-panel");
   const sharingPanel = document.getElementById("sharing-panel");
   const storagePanel = document.getElementById("storage-panel");
@@ -64,29 +70,10 @@ function createViews(ctx: AppContext): () => void {
     register(createActivityLogView(ctx, logPanel));
   }
 
-  return cleanup;
-}
-
-/**
- * Initialize the application.
- */
-async function initializeApp(): Promise<() => void> {
-  // Create application context with APIs
-  const ctx: AppContext = await createAppContext();
-
-  // Registry for cleanup
-  const [register, cleanup] = newRegistry();
-
   // Create controllers (handle business logic)
-  register(createControllers(ctx));
-
-  // Create views (bind to DOM elements)
-  register(createViews(ctx));
+  register(createMainController(ctx));
 
   // Pre-fill session ID from URL if present
-  const sessionModel = getSessionModel(ctx);
-  const logModel = getActivityLogModel(ctx);
-
   const urlSessionId = parseSessionIdFromUrl(window.location.href);
   if (urlSessionId) {
     sessionModel.setJoinInputValue(urlSessionId);
