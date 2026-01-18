@@ -1,192 +1,167 @@
 /**
- * User actions model.
+ * User Actions Model and Action Adapter Pattern
  *
- * Views update this model to request actions. Controllers listen and execute.
- * This enables Views to be completely isolated from APIs and business logic.
+ * This module provides a type-safe, decoupled communication pattern between
+ * Views and Controllers in the application architecture.
+ *
+ * ## Pattern Overview
+ *
+ * The action adapter pattern creates paired enqueue/listen functions that:
+ * - **Encapsulate action types** - No string literals scattered across the codebase
+ * - **Provide type safety** - Payload types are enforced at compile time
+ * - **Enable multi-listener** - Multiple controllers can respond to the same action
+ * - **Support batching** - Multiple enqueues in the same tick are delivered together
+ *
+ * ## Usage
+ *
+ * ### 1. Define Action Adapters (in actions/*.ts)
+ *
+ * ```typescript
+ * // actions/file-actions.ts
+ * import { newUserAction } from "../models/user-actions-model.js";
+ *
+ * // Action with typed payload
+ * type AddFilePayload = { name: string; content: string };
+ * export const [enqueueAddFileAction, listenAddFileAction] =
+ *   newUserAction<AddFilePayload>("file:add");
+ *
+ * // Action without payload (void)
+ * export const [enqueueRefreshAction, listenRefreshAction] =
+ *   newUserAction("repo:refresh");
+ * ```
+ *
+ * ### 2. Enqueue from Views
+ *
+ * ```typescript
+ * // views/file-form-view.ts
+ * import { enqueueAddFileAction } from "../actions/file-actions.js";
+ *
+ * class FileFormView {
+ *   private handleSubmit(name: string, content: string): void {
+ *     enqueueAddFileAction(this.actionsModel, { name, content });
+ *   }
+ * }
+ * ```
+ *
+ * ### 3. Listen in Controllers
+ *
+ * ```typescript
+ * // controllers/file-controller.ts
+ * import { listenAddFileAction } from "../actions/file-actions.js";
+ *
+ * function createFileController(ctx: AppContext): () => void {
+ *   const actionsModel = getUserActionsModel(ctx);
+ *
+ *   const unsubscribe = listenAddFileAction(actionsModel, (actions) => {
+ *     for (const { name, content } of actions) {
+ *       await this.writeFile(name, content);
+ *     }
+ *   });
+ *
+ *   return unsubscribe;
+ * }
+ * ```
+ *
+ * ## Key Benefits
+ *
+ * - **Centralized declarations**: All action types in one place (`actions/`)
+ * - **Refactoring safety**: Rename adapter → compiler finds all usages
+ * - **IDE support**: Autocomplete for enqueue/listen and payloads
+ * - **Testing**: Easy to test action flow in isolation
  */
 
 import { BaseClass, newAdapter } from "../utils/index.js";
 
 /**
- * Types of user actions that can be requested.
+ * Handler function for action listeners.
  */
-export type UserActionType =
-  // Storage actions
-  | "storage:open"
-  | "storage:clear"
-  // Repository actions
-  | "repo:init"
-  | "repo:refresh"
-  // File actions
-  | "file:add"
-  | "file:stage"
-  | "file:unstage"
-  // Staging actions
-  | "stage:all"
-  // Commit actions
-  | "commit:create"
-  // Connection actions
-  | "connection:share"
-  | "connection:join"
-  | "connection:disconnect"
-  // Sync actions
-  | "sync:start"
-  | "sync:cancel";
+export type ActionListener<T> = (actions: T[]) => void;
 
 /**
- * A user action request.
- */
-export interface UserAction {
-  /** Action type. */
-  type: UserActionType;
-  /** Action payload (depends on type). */
-  payload?: unknown;
-  /** When the action was requested. */
-  timestamp: number;
-}
-
-/**
- * User actions model - communication channel from Views to Controllers.
+ * User actions model - type-safe action queue with multi-listener support.
  *
- * Views call methods like `requestSync(peerId)` which adds an action to the queue.
- * Controllers listen via `onUpdate()` and consume actions.
- *
- * This pattern ensures Views never call APIs directly.
+ * Actions are enqueued via `enqueue()` and dispatched to listeners via `onActionUpdate()`.
+ * Multiple enqueues in the same tick are batched together.
+ * All listeners for a type receive the same actions, then actions are cleared.
  */
 export class UserActionsModel extends BaseClass {
-  private pendingActions: UserAction[] = [];
+  private pendingActionsByType: Map<string, unknown[]> = new Map();
+  private typeListeners: Map<string, Set<(actions: unknown[]) => void>> = new Map();
+  private dispatchScheduled = false;
 
   /**
-   * Get all pending actions.
+   * Enqueue an action of a specific type.
+   * Called by action adapters created with `newUserAction()`.
+   *
+   * @param type - The action type string
+   * @param payload - The action payload (type depends on action)
+   * @internal
    */
-  getPending(): ReadonlyArray<UserAction> {
-    return this.pendingActions;
+  enqueue(type: string, payload: unknown): void {
+    const actions = this.pendingActionsByType.get(type) ?? [];
+    actions.push(payload);
+    this.pendingActionsByType.set(type, actions);
+    this.scheduleDispatch();
   }
 
   /**
-   * Get and remove all pending actions.
+   * Subscribe to actions of a specific type.
+   * All listeners for a type receive the same actions.
+   * Actions are cleared after all listeners are notified.
+   *
+   * @param type - Action type to listen for
+   * @param handler - Callback receiving array of action payloads
+   * @returns Unsubscribe function
+   * @internal
    */
-  consumeAll(): UserAction[] {
-    const actions = this.pendingActions;
-    this.pendingActions = [];
-    return actions;
+  onActionUpdate(type: string, handler: (actions: unknown[]) => void): () => void {
+    let listeners = this.typeListeners.get(type);
+    if (!listeners) {
+      listeners = new Set();
+      this.typeListeners.set(type, listeners);
+    }
+    listeners.add(handler);
+    return () => listeners.delete(handler);
   }
 
   /**
-   * Get and remove pending actions of a specific type.
+   * Schedule dispatch for next microtask (enables batching).
    */
-  consume(type: UserActionType): UserAction[] {
-    const matching = this.pendingActions.filter((a) => a.type === type);
-    this.pendingActions = this.pendingActions.filter((a) => a.type !== type);
-    return matching;
-  }
-
-  /**
-   * Check if there are any pending actions.
-   */
-  get hasPending(): boolean {
-    return this.pendingActions.length > 0;
-  }
-
-  /**
-   * Add an action to the queue and notify listeners.
-   */
-  private request(type: UserActionType, payload?: unknown): void {
-    this.pendingActions.push({
-      type,
-      payload,
-      timestamp: Date.now(),
+  private scheduleDispatch(): void {
+    if (this.dispatchScheduled) return;
+    this.dispatchScheduled = true;
+    queueMicrotask(() => {
+      this.dispatchScheduled = false;
+      this.dispatchAll();
     });
+  }
+
+  /**
+   * Dispatch all pending actions to their listeners, then clear.
+   */
+  private dispatchAll(): void {
+    for (const [type, actions] of this.pendingActionsByType) {
+      if (actions.length === 0) continue;
+      const listeners = this.typeListeners.get(type);
+      if (listeners && listeners.size > 0) {
+        for (const handler of listeners) {
+          try {
+            handler([...actions]); // Copy to prevent mutation
+          } catch (error) {
+            console.error(`Error in action handler for "${type}":`, error);
+          }
+        }
+      }
+    }
+    this.pendingActionsByType.clear();
     this.notify();
-  }
-
-  // Storage actions
-
-  /** Request to open storage (IndexedDB). */
-  requestOpenStorage(): void {
-    this.request("storage:open");
-  }
-
-  /** Request to clear storage. */
-  requestClearStorage(): void {
-    this.request("storage:clear");
-  }
-
-  // Repository actions
-
-  /** Request to initialize a new repository. */
-  requestInitRepo(): void {
-    this.request("repo:init");
-  }
-
-  /** Request to refresh repository state. */
-  requestRefreshRepo(): void {
-    this.request("repo:refresh");
-  }
-
-  // File actions
-
-  /** Request to add a new file. */
-  requestAddFile(name: string, content: string): void {
-    this.request("file:add", { name, content });
-  }
-
-  /** Request to stage a file for commit. */
-  requestStageFile(path: string): void {
-    this.request("file:stage", { path });
-  }
-
-  /** Request to unstage a file. */
-  requestUnstageFile(path: string): void {
-    this.request("file:unstage", { path });
-  }
-
-  /** Request to stage all changes. */
-  requestStageAll(): void {
-    this.request("stage:all");
-  }
-
-  // Commit actions
-
-  /** Request to create a commit. */
-  requestCommit(message: string): void {
-    this.request("commit:create", { message });
-  }
-
-  // Connection actions
-
-  /** Request to start sharing (hosting). */
-  requestShare(): void {
-    this.request("connection:share");
-  }
-
-  /** Request to join a session. */
-  requestJoin(sessionId: string): void {
-    this.request("connection:join", { sessionId });
-  }
-
-  /** Request to disconnect from session. */
-  requestDisconnect(): void {
-    this.request("connection:disconnect");
-  }
-
-  // Sync actions
-
-  /** Request to start sync with a peer. */
-  requestSync(peerId: string): void {
-    this.request("sync:start", { peerId });
-  }
-
-  /** Request to cancel ongoing sync. */
-  requestCancelSync(): void {
-    this.request("sync:cancel");
   }
 
   /**
    * Clear all pending actions.
    */
   clear(): void {
-    this.pendingActions = [];
+    this.pendingActionsByType.clear();
   }
 }
 
@@ -197,3 +172,40 @@ export const [getUserActionsModel, setUserActionsModel] = newAdapter<UserActions
   "user-actions-model",
   () => new UserActionsModel(),
 );
+
+/**
+ * Creates a type-safe action adapter for enqueueing and listening to actions.
+ *
+ * @param type - The unique action type string (e.g., "repo:init", "file:add")
+ * @returns Tuple of [enqueue, listen] functions
+ *
+ * @example
+ * ```typescript
+ * // Action with payload
+ * type CommitPayload = { message: string };
+ * const [enqueueCommitAction, listenCommitAction] = newUserAction<CommitPayload>("commit:create");
+ * enqueueCommitAction(model, { message: "Initial commit" });
+ *
+ * // Action without payload (void)
+ * const [enqueueRefreshAction, listenRefreshAction] = newUserAction("repo:refresh");
+ * enqueueRefreshAction(model);
+ * ```
+ */
+export function newUserAction<T = void>(
+  type: string,
+): [
+  enqueue: T extends void
+    ? (model: UserActionsModel) => void
+    : (model: UserActionsModel, payload: T) => void,
+  listen: (model: UserActionsModel, handler: ActionListener<T>) => () => void,
+] {
+  function enqueue(model: UserActionsModel, payload?: T): void {
+    model.enqueue(type, payload);
+  }
+
+  function listen(model: UserActionsModel, handler: ActionListener<T>): () => void {
+    return model.onActionUpdate(type, handler as ActionListener<unknown>);
+  }
+
+  return [enqueue as never, listen];
+}
