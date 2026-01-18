@@ -209,7 +209,7 @@ export class SqlNativeTreeStoreImpl implements SqlNativeTreeStore {
   /**
    * Check if tree exists
    */
-  async hasTree(id: ObjectId): Promise<boolean> {
+  async has(id: ObjectId): Promise<boolean> {
     // Empty tree always exists
     if (id === EMPTY_TREE_ID) {
       return true;
@@ -221,6 +221,16 @@ export class SqlNativeTreeStoreImpl implements SqlNativeTreeStore {
     );
 
     return result[0].cnt > 0;
+  }
+
+  /**
+   * Enumerate all tree object IDs
+   */
+  async *keys(): AsyncIterable<ObjectId> {
+    const trees = await this.db.query<{ tree_id: string }>("SELECT tree_id FROM tree");
+    for (const row of trees) {
+      yield row.tree_id;
+    }
   }
 
   /**

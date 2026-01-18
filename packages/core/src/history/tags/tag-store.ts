@@ -82,5 +82,12 @@ export interface TagStore {
    * @param id ObjectId of the tag
    * @returns True if tag exists
    */
-  hasTag(id: ObjectId): Promise<boolean>;
+  has(id: ObjectId): Promise<boolean>;
+
+  /**
+   * Enumerate all annotated tag object IDs
+   *
+   * @returns Async iterable of tag ObjectIds
+   */
+  keys(): AsyncIterable<ObjectId>;
 }
