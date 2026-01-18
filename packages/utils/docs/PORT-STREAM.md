@@ -2,7 +2,7 @@
 
 ## Overview
 
-The port-stream module provides bidirectional streaming over `MessagePortLike` with sub-stream ACK-based backpressure. Blocks are sent in batches (sub-streams), and acknowledgment is requested after each sub-stream completes. This reduces round-trip overhead while still preventing memory exhaustion.
+The port-stream module provides bidirectional streaming over `MessagePortLike` with ACK-based backpressure. This ensures reliable data transfer where the receiver controls the flow rate.
 
 ## API Reference
 
@@ -48,8 +48,6 @@ interface PortStreamOptions {
   ackTimeout?: number;
   /** Chunk size for splitting the stream in bytes (default: no chunking) */
   chunkSize?: number;
-  /** Number of blocks per sub-stream before requesting ACK (default: 1) */
-  subStreamSize?: number;
 }
 
 interface PortStream {
@@ -119,7 +117,6 @@ Each message is encoded as a `Uint8Array`:
 | ACK | 1 | 1 byte (0/1) | Acknowledgment |
 | END | 2 | (none) | Stream complete |
 | ERROR | 3 | JSON string | Error message |
-| STREAM_ACK | 4 | (none) | Request ACK after sub-stream |
 
 ### ACK Payload
 
@@ -128,24 +125,13 @@ Each message is encoded as a `Uint8Array`:
 
 ## Backpressure Mechanism
 
-### Flow Diagram (Sub-stream Batching)
-
-With `subStreamSize=3`, the protocol looks like:
+### Flow Diagram
 
 ```
 Sender                                    Receiver
   │                                          │
   │  ┌────────────────────────┐             │
   │  │ DATA [id=0] [payload]  │─────────────►│
-  │  └────────────────────────┘             │
-  │  ┌────────────────────────┐             │
-  │  │ DATA [id=1] [payload]  │─────────────►│
-  │  └────────────────────────┘             │
-  │  ┌────────────────────────┐             │
-  │  │ DATA [id=2] [payload]  │─────────────►│
-  │  └────────────────────────┘             │
-  │  ┌────────────────────────┐             │
-  │  │ STREAM_ACK [id=0]      │─────────────►│
   │  └────────────────────────┘             │
   │                                          │
   │              (Receiver processes data)   │
@@ -155,7 +141,7 @@ Sender                                    Receiver
   │             └──────────────────┘        │
   │                                          │
   │  ┌────────────────────────┐             │
-  │  │ DATA [id=3] [payload]  │─────────────►│
+  │  │ DATA [id=1] [payload]  │─────────────►│
   │  └────────────────────────┘             │
   │              ...                         │
   │  ┌──────────────┐                       │
@@ -165,11 +151,10 @@ Sender                                    Receiver
 
 ### Key Properties
 
-1. **Reduced Round-trips**: Multiple blocks sent before waiting for ACK
-2. **Flow Control**: Sender waits for ACK after each sub-stream
-3. **Memory Safety**: Limits buffering to subStreamSize blocks
-4. **Error Propagation**: Errors are sent via ERROR message type
-5. **Timeout Protection**: ACK timeout prevents indefinite blocking
+1. **Flow Control**: Sender waits for ACK before sending next block
+2. **Memory Safety**: Prevents buffer overflow on slow receivers
+3. **Error Propagation**: Errors are sent via ERROR message type
+4. **Timeout Protection**: ACK timeout prevents indefinite blocking
 
 ## Usage Examples
 
@@ -213,29 +198,6 @@ const stream = createPortStream(port, {
 await stream.send(generateLargeData());
 ```
 
-### With Sub-stream Batching
-
-```typescript
-const stream = createPortStream(port, {
-  subStreamSize: 10,  // Send 10 blocks before waiting for ACK
-});
-
-// Reduces round-trips for high-latency connections
-await stream.send(generateManyBlocks());
-```
-
-### Combining Options
-
-```typescript
-const stream = createPortStream(port, {
-  chunkSize: 64 * 1024,   // 64KB chunks
-  subStreamSize: 8,       // 8 chunks per sub-stream (512KB)
-  ackTimeout: 60000,      // 60 second timeout for slow networks
-});
-
-await stream.send(generateLargeData());
-```
-
 ### Error Handling
 
 ```typescript
@@ -260,14 +222,6 @@ try {
 | 64 KB | Medium | Medium | General |
 | 256 KB | Low | Higher | Bulk transfer |
 
-### Sub-stream Size Selection
-
-| subStreamSize | Round-trips | Buffer Size | Use Case |
-|---------------|-------------|-------------|----------|
-| 1 | Per block | Minimal | Low latency, small transfers |
-| 10 | Per 10 blocks | 10 blocks | General purpose |
-| 100 | Per 100 blocks | 100 blocks | High latency, bulk transfer |
-
 ### ACK Timeout
 
 - **Short timeout (5s)**: Fast failure detection, may fail on slow networks
@@ -276,7 +230,7 @@ try {
 
 ### Memory Usage
 
-With sub-stream batching, at most `subStreamSize` blocks are buffered at the receiver while waiting for processing. Choose `subStreamSize` based on available memory and network latency trade-offs.
+The backpressure mechanism ensures that at most one block is buffered at the sender while waiting for ACK. The receiver processes blocks one at a time.
 
 ## Implementation Notes
 
