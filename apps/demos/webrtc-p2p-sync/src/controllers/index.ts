@@ -17,6 +17,14 @@ import {
   setPeerJsApi,
   setTimerApi,
 } from "../apis/index.js";
+import {
+  getActivityLogModel,
+  getPeersModel,
+  getRepositoryModel,
+  getSessionModel,
+  getSyncModel,
+  getUserActionsModel,
+} from "../models/index.js";
 import { newAdapter } from "../utils/index.js";
 
 /**
@@ -96,7 +104,7 @@ async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
   });
 
   // 5. Create GitStore combining repository + staging + worktree
-  const store = createGitStore({ repository, staging, worktree, files, workTreeRoot: "" });
+  const store = createGitStore({ repository, staging, worktree });
   setGitStore(ctx, store);
 
   // 6. Create Git porcelain API
@@ -107,15 +115,22 @@ async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
 /**
  * Create and initialize the application context.
  *
- * This sets up APIs and Git infrastructure used by controllers.
- * Models are lazy-created by adapters when first accessed.
+ * This sets up all models and injects the real API implementations.
  *
  * @returns Initialized application context
  */
 export async function createAppContext(): Promise<AppContext> {
   const ctx: AppContext = {};
 
-  // Initialize state storage for peer connections
+  // Initialize all models (lazy-created by adapters)
+  getSessionModel(ctx);
+  getPeersModel(ctx);
+  getSyncModel(ctx);
+  getRepositoryModel(ctx);
+  getActivityLogModel(ctx);
+  getUserActionsModel(ctx);
+
+  // Initialize state storage
   getPeerInstance(ctx);
   getPeerConnections(ctx);
 
@@ -133,14 +148,21 @@ export async function createAppContext(): Promise<AppContext> {
  * Create a test context with mock APIs.
  *
  * Use this in unit tests to inject mock implementations.
- * Models are lazy-created by adapters when first accessed.
  *
  * @returns Test context (without real APIs - you must inject mocks)
  */
 export function createTestContext(): AppContext {
   const ctx: AppContext = {};
 
-  // Initialize state storage for peer connections
+  // Initialize all models
+  getSessionModel(ctx);
+  getPeersModel(ctx);
+  getSyncModel(ctx);
+  getRepositoryModel(ctx);
+  getActivityLogModel(ctx);
+  getUserActionsModel(ctx);
+
+  // Initialize state storage
   getPeerInstance(ctx);
   getPeerConnections(ctx);
 
@@ -152,7 +174,7 @@ export function createTestContext(): AppContext {
 // Re-export types for convenience
 export type { GitStoreWithWorkTree } from "@statewalker/vcs-commands";
 // Re-export controller factories
-export { createControllers } from "./main-controller.js";
+export { createMainController } from "./main-controller.js";
 export { createRepositoryController } from "./repository-controller.js";
 export { createSessionController } from "./session-controller.js";
 export { createSyncController } from "./sync-controller.js";
