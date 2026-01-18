@@ -18,7 +18,7 @@ import type {
   ObjectData,
   RepositoryAccess,
   RepositoryObjectInfo,
-} from "./types.js";
+} from "./repository-access.js";
 
 /**
  * Map from ObjectTypeString to ObjectTypeCode
