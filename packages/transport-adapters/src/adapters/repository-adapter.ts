@@ -7,6 +7,10 @@
  * This adapter provides a clean integration layer that uses only the
  * standard HistoryStore interface, making transport work with any
  * HistoryStore implementation (Git, SQL, memory, etc.).
+ *
+ * @deprecated Use VcsRepositoryAccess from implementations/vcs-repository-access.ts instead.
+ * VcsRepositoryAccess uses high-level stores (BlobStore, TreeStore, etc.) directly,
+ * without requiring HistoryStore or GitObjectStore. This file is kept for backward compatibility.
  */
 
 import type {

@@ -881,6 +881,9 @@ importers:
         specifier: workspace:*
         version: link:../utils
     devDependencies:
+      '@statewalker/vcs-store-mem':
+        specifier: workspace:*
+        version: link:../store-mem
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.4
