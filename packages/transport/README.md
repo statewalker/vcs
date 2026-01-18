@@ -24,9 +24,6 @@ pnpm add @statewalker/vcs-transport
 import {
   // HTTP Server
   createGitHttpServer,
-  createVcsRepositoryAdapter,
-  createVcsServerOptions,
-  createStorageAdapter,
   // Protocol handlers
   UploadPackHandler,
   ReceivePackHandler,
@@ -35,10 +32,17 @@ import {
   // Protocol utilities
   PktLineCodec,
   // Types
-  type VcsStores,
   type RepositoryAccess,
   type GitHttpServerOptions,
 } from "@statewalker/vcs-transport";
+
+// Storage adapters are in the separate transport-adapters package
+import {
+  createVcsRepositoryAdapter,
+  createVcsServerOptions,
+  createStorageAdapter,
+  type VcsStores,
+} from "@statewalker/vcs-transport-adapters/adapters";
 ```
 
 ### Sub-exports
@@ -62,9 +66,8 @@ import {
 | `ProtocolV2Handler` | Protocol v2 support |
 | `NegotiationState` | Negotiation state machine |
 | `createGitHttpServer` | Create HTTP server instance |
-| `createVcsRepositoryAdapter` | Adapt VCS stores to RepositoryAccess |
-| `createVcsServerOptions` | Helper for server configuration |
-| `createStorageAdapter` | Legacy adapter for MinimalStorage |
+
+**Note:** Storage adapters (`createVcsRepositoryAdapter`, `createVcsServerOptions`, `createStorageAdapter`) are now in `@statewalker/vcs-transport-adapters`.
 
 ## Usage Examples
 
@@ -124,7 +127,8 @@ if (result.success) {
 The transport package includes a complete HTTP server implementation that responds to Git smart protocol requests. The server works with any storage backend that implements the VCS interfaces.
 
 ```typescript
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
+import { createGitHttpServer } from "@statewalker/vcs-transport";
+import { createVcsRepositoryAdapter } from "@statewalker/vcs-transport-adapters/adapters";
 
 const server = createGitHttpServer({
   async resolveRepository(request, repoPath) {
@@ -159,7 +163,8 @@ The server uses Web Standard APIs (`Request`/`Response`), making it portable acr
 **Cloudflare Workers:**
 
 ```typescript
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
+import { createGitHttpServer } from "@statewalker/vcs-transport";
+import { createVcsRepositoryAdapter } from "@statewalker/vcs-transport-adapters/adapters";
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -177,7 +182,8 @@ export default {
 **Deno:**
 
 ```typescript
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
+import { createGitHttpServer } from "@statewalker/vcs-transport";
+import { createVcsRepositoryAdapter } from "@statewalker/vcs-transport-adapters/adapters";
 
 const server = createGitHttpServer({ /* ... */ });
 Deno.serve((request) => server.fetch(request));
@@ -187,7 +193,8 @@ Deno.serve((request) => server.fetch(request));
 
 ```typescript
 import { createServer } from "node:http";
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
+import { createGitHttpServer } from "@statewalker/vcs-transport";
+import { createVcsRepositoryAdapter } from "@statewalker/vcs-transport-adapters/adapters";
 
 const gitServer = createGitHttpServer({ /* ... */ });
 
@@ -211,7 +218,8 @@ createServer(async (req, res) => {
 For convenience, you can also use `createVcsServerOptions` to configure the server:
 
 ```typescript
-import { createGitHttpServer, createVcsServerOptions } from "@statewalker/vcs-transport";
+import { createGitHttpServer } from "@statewalker/vcs-transport";
+import { createVcsServerOptions } from "@statewalker/vcs-transport-adapters/adapters";
 
 const server = createGitHttpServer(
   createVcsServerOptions(
@@ -231,7 +239,8 @@ const server = createGitHttpServer(
 The server supports flexible authentication through callback hooks:
 
 ```typescript
-import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
+import { createGitHttpServer } from "@statewalker/vcs-transport";
+import { createVcsRepositoryAdapter } from "@statewalker/vcs-transport-adapters/adapters";
 
 const server = createGitHttpServer({
   async resolveRepository(request, repoPath) {
