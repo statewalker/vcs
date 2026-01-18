@@ -20,6 +20,10 @@ export function newRegistry(): [
         cleanups.delete(cleanup);
       };
     },
-    () => cleanups.forEach((fn) => fn()),
+    () => {
+      for (const fn of cleanups) {
+        fn();
+      }
+    },
   ];
 }

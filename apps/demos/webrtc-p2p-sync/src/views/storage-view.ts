@@ -6,6 +6,7 @@
  * - Storage info and controls
  */
 
+import { enqueueInitRepoAction, enqueueRefreshRepoAction } from "../actions/index.js";
 import type { AppContext } from "../controllers/index.js";
 import { getRepositoryModel, getUserActionsModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
@@ -40,7 +41,7 @@ export function createStorageView(ctx: AppContext, container: HTMLElement): () =
       // Bind init button
       const initBtn = container.querySelector("#btn-init-repo") as HTMLButtonElement;
       initBtn.onclick = () => {
-        actionsModel.requestInitRepo();
+        enqueueInitRepoAction(actionsModel);
       };
     } else {
       container.innerHTML = `
@@ -67,7 +68,7 @@ export function createStorageView(ctx: AppContext, container: HTMLElement): () =
       // Bind refresh button
       const refreshBtn = container.querySelector("#btn-refresh-repo") as HTMLButtonElement;
       refreshBtn.onclick = () => {
-        actionsModel.requestRefreshRepo();
+        enqueueRefreshRepoAction(actionsModel);
       };
     }
   }
