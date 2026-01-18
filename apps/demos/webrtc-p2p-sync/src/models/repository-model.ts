@@ -46,7 +46,7 @@ export interface RepositoryState {
   branch: string | null;
   /** Number of commits in history. */
   commitCount: number;
-  /** Files in the working tree. */
+  /** Files in the HEAD commit tree. */
   files: FileEntry[];
   /** HEAD commit ID. */
   headCommitId: string | null;
