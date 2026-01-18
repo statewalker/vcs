@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createPortTransportConnection,
   PortTransportConnection,
-} from "../src/ports/transport-connection";
+} from "../src/connection/port-transport-connection";
 import type { Packet } from "../src/protocol/types";
 
 describe("PortTransportConnection", () => {
