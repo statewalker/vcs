@@ -9,6 +9,12 @@
  */
 
 import type { HistoryStore } from "@statewalker/vcs-core";
+import {
+  enqueueCheckoutAction,
+  enqueueRefreshRepoAction,
+  listenCancelSyncAction,
+  listenStartSyncAction,
+} from "../actions/index.js";
 import type { PeerConnection } from "../apis/index.js";
 import { getTimerApi } from "../apis/index.js";
 import {
@@ -276,8 +282,8 @@ export function createSyncController(ctx: AppContext): () => void {
 
         logModel.info(`Received ${info?.objectCount || 0} objects from ${displayName}`);
 
-        // Refresh repository state
-        actionsModel.requestRefreshRepo();
+        // Checkout HEAD to update working directory with synced files
+        enqueueCheckoutAction(actionsModel);
         break;
       }
 
@@ -288,19 +294,18 @@ export function createSyncController(ctx: AppContext): () => void {
     }
   }
 
-  // Listen to user actions
+  // Listen to user actions via typed action adapters
   register(
-    actionsModel.onUpdate(() => {
-      // Handle sync request
-      for (const action of actionsModel.consume("sync:start")) {
-        const { peerId } = action.payload as { peerId: string };
+    listenStartSyncAction(actionsModel, (actions) => {
+      for (const { peerId } of actions) {
         handleSyncStart(peerId);
       }
+    }),
+  );
 
-      // Handle sync cancel
-      for (const _action of actionsModel.consume("sync:cancel")) {
-        handleSyncCancel();
-      }
+  register(
+    listenCancelSyncAction(actionsModel, () => {
+      handleSyncCancel();
     }),
   );
 
@@ -358,7 +363,7 @@ export function createSyncController(ctx: AppContext): () => void {
       }, COMPLETE_DISPLAY_MS);
 
       // Refresh repository state
-      actionsModel.requestRefreshRepo();
+      enqueueRefreshRepoAction(actionsModel);
     } catch (error) {
       const message = (error as Error).message;
       syncModel.fail(message);
@@ -412,12 +417,10 @@ async function sendRepoData(
   const objects: Array<{ type: string; id: string; data: Uint8Array }> = [];
   const seen = new Set<string>();
 
-  // Walk commits (limit to 50 for demo)
+  // Walk all commits in history
   let currentId: string | undefined = head;
-  let commitCount = 0;
-  while (currentId && !seen.has(currentId) && commitCount < 50) {
+  while (currentId && !seen.has(currentId)) {
     seen.add(currentId);
-    commitCount++;
 
     const commit = await store.commits.loadCommit(currentId);
 

@@ -1,0 +1,45 @@
+{
+  "name": "@statewalker/vcs-transport-peerjs",
+  "version": "0.1.0",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "description": "PeerJS transport for peer-to-peer Git synchronization",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run",
+    "lint": "biome lint src tests"
+  },
+  "dependencies": {
+    "@statewalker/vcs-transport": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
+  },
+  "peerDependencies": {
+    "peerjs": "^1.5.0"
+  },
+  "peerDependenciesMeta": {
+    "peerjs": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "peerjs": "^1.5.4",
+    "rolldown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
