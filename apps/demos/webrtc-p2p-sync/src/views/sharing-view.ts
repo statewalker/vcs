@@ -7,6 +7,7 @@
  * - Sync progress when active
  */
 
+import { enqueueCancelSyncAction, enqueueStartSyncAction } from "../actions/index.js";
 import type { AppContext } from "../controllers/index.js";
 import { getPeersModel, getSyncModel, getUserActionsModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
@@ -105,15 +106,17 @@ export function createSharingView(ctx: AppContext, container: HTMLElement): () =
     // Bind sync button events
     container.querySelectorAll(".btn-sync").forEach((btn) => {
       btn.addEventListener("click", (e) => {
-        const peerId = (e.target as HTMLElement).dataset.peerId!;
-        actionsModel.requestSync(peerId);
+        const peerId = (e.target as HTMLElement).dataset.peerId;
+        if (peerId) {
+          enqueueStartSyncAction(actionsModel, { peerId });
+        }
       });
     });
 
     // Bind cancel button events
     container.querySelectorAll(".btn-cancel").forEach((btn) => {
       btn.addEventListener("click", () => {
-        actionsModel.requestCancelSync();
+        enqueueCancelSyncAction(actionsModel);
       });
     });
   }

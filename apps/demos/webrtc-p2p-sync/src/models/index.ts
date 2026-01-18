@@ -44,9 +44,9 @@ export {
 
 // User actions model
 export {
+  type ActionListener,
   getUserActionsModel,
+  newUserAction,
   setUserActionsModel,
-  type UserAction,
   UserActionsModel,
-  type UserActionType,
 } from "./user-actions-model.js";
