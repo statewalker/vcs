@@ -59,8 +59,6 @@
  * @packageDocumentation
  */
 
-// MessagePortLike adapter
-export { createDataChannelPort, createDataChannelPortAsync } from "./datachannel-port.js";
 export { PeerManager, waitForConnection } from "./peer-manager.js";
 // Signaling utilities
 export {
