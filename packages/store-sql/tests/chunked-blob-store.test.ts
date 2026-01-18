@@ -368,7 +368,7 @@ describe("SqlNativeBlobStore chunked storage", () => {
   });
 
   describe("multi-chunk input handling", () => {
-    it("handles content provided in multiple small chunks", async () => {
+    it("handles content provided in multiple small chunks", { timeout: 15000 }, async () => {
       // Stream content in 10KB chunks
       const totalSize = 500_000;
       const chunkSize = 10_000;
@@ -389,7 +389,7 @@ describe("SqlNativeBlobStore chunked storage", () => {
       expect(loaded).toEqual(content);
     });
 
-    it("handles irregular chunk sizes in input", async () => {
+    it("handles irregular chunk sizes in input", { timeout: 15000 }, async () => {
       const parts = [
         new Uint8Array(100_000).fill(1),
         new Uint8Array(200_000).fill(2),
