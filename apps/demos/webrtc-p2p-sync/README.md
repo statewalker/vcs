@@ -1,10 +1,10 @@
 # WebRTC P2P Git Sync Demo
 
-A demonstration of peer-to-peer Git repository synchronization using WebRTC data channels with manual signaling (QR code compatible).
+A demonstration of peer-to-peer Git repository synchronization using WebRTC data channels with PeerJS for signaling.
 
 ## Overview
 
-This demo shows how two peers can establish a direct WebRTC connection without a signaling server by manually exchanging connection data. In a real application, this exchange could happen via QR codes.
+This demo shows how two peers can synchronize Git repositories directly over WebRTC without a central server. One peer hosts a session, shares a session ID (or QR code), and other peers can join to sync their repositories.
 
 ## Running the Demo
 
@@ -14,85 +14,120 @@ pnpm dev
 
 Then open http://localhost:5173 in your browser.
 
+## Features
+
+- **P2P Connection** - Direct WebRTC data channels via PeerJS
+- **Session Sharing** - Share via session ID, URL, or QR code
+- **Full Git Sync** - Transfer commits, trees, and blobs between peers
+- **In-Memory Storage** - Repositories are stored in memory (no persistence)
+- **Real-Time Progress** - Track sync progress with object/byte counts
+
 ## How It Works
 
-### 1. Connection Establishment
+### 1. Session Establishment
 
-The WebRTC connection uses a manual signaling process:
+1. **Host** creates a session and receives a unique session ID
+2. Session ID is shared via URL or QR code
+3. **Guest** enters the session ID to connect
+4. PeerJS handles WebRTC signaling automatically
 
-1. **Peer A (Initiator)** creates an offer containing:
-   - SDP (Session Description Protocol) data
-   - ICE candidates for NAT traversal
+### 2. Repository Sync
 
-2. The offer is encoded into a compact JSON format suitable for QR codes
+Once connected, peers can sync their repositories:
 
-3. **Peer B (Responder)** receives the offer and creates an answer
+1. Exchange repository metadata (HEAD, branch, object count)
+2. Send local Git objects (commits, trees, blobs)
+3. Receive and store remote objects
+4. Update refs and checkout working directory
 
-4. The answer is sent back to Peer A to complete the connection
+### 3. Git Operations
 
-### 2. Data Channel
+The demo uses a full Git implementation:
+- Create files and add to staging
+- Commit changes with author information
+- View commit history
+- Checkout branches
 
-Once connected, a reliable data channel is established for bidirectional communication. This channel can carry Git protocol messages for repository synchronization.
+## Architecture
 
-### 3. Repository Sync
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed documentation of:
+- MVC pattern with Models, Views, and Controllers
+- Strategic patterns (Context Adapters, User Actions)
+- Tactical patterns (Registry, Observable Base)
+- API usage and data flow
 
-The demo includes a simplified sync that shows repository metadata being transferred. A full implementation would:
+### Quick Overview
 
-1. Use the Git pack protocol over the data channel
-2. Transfer only objects the peer doesn't have
-3. Update refs on the receiving side
+```
+Views ──enqueue actions──▶ UserActionsModel ──dispatch──▶ Controllers
+  ▲                                                           │
+  │                                                           ▼
+  └────────────── subscribe to ◀─────────── update ───── Models
+```
+
+**Key principles:**
+- Views communicate **only via models** (easy to test, swap UI frameworks)
+- Controllers listen to typed actions, perform logic, update models
+- Context adapters provide dependency injection without framework overhead
 
 ## Key Components
 
-### PeerManager
-
-Manages the WebRTC peer connection lifecycle:
+### Git Infrastructure
 
 ```typescript
-const peer = new PeerManager("initiator");
-peer.on("signal", (msg) => sendToPeer(msg));
-peer.on("open", () => console.log("Connected!"));
-await peer.connect();
+import { Git, createGitStore } from "@statewalker/vcs-commands";
+import { createGitRepository, createInMemoryFilesApi } from "@statewalker/vcs-core";
+
+const files = createInMemoryFilesApi();
+const repository = await createGitRepository(files, ".git", { create: true });
+const git = Git.wrap(createGitStore({ repository, staging, worktree, files }));
 ```
 
-### QrSignaling
-
-Compresses signaling data for QR code exchange:
+### PeerJS Integration
 
 ```typescript
-const signaling = new QrSignaling();
-const payload = signaling.createPayload(
-  "initiator",
-  peer.getLocalDescription(),
-  peer.getCollectedCandidates()
-);
-// payload is ~200-500 bytes, suitable for QR code
+import { Peer } from "peerjs";
+
+// Host creates a peer with generated ID
+const peer = new Peer(sessionId);
+peer.on("connection", (conn) => {
+  conn.on("data", handleMessage);
+});
+
+// Guest connects to host
+const conn = peer.connect(hostSessionId);
+conn.on("open", () => startSync(conn));
 ```
 
-### WebRtcStream
+## Project Structure
 
-Adapts the data channel to the TransportConnection interface:
-
-```typescript
-const transport = createWebRtcStream(channel);
-// Now use transport.send() and transport.receive() for Git protocol
+```
+src/
+├── main.ts           # Entry point
+├── controllers/      # Business logic
+├── models/           # State containers
+├── views/            # UI rendering
+├── actions/          # Action type definitions
+├── apis/             # External API adapters
+├── utils/            # Shared utilities
+└── lib/              # Helper functions
 ```
 
 ## Network Requirements
 
-- Both peers need to be able to reach each other via STUN/TURN
-- The demo uses public Google STUN servers by default
-- For connections behind restrictive NATs, a TURN server may be needed
+- Both peers need WebRTC support (modern browsers)
+- Uses PeerJS cloud server for signaling (fallback available)
+- For restrictive NATs, TURN server may be needed
 
 ## Limitations
 
-This demo is simplified to illustrate the concepts:
-
-- Sync shows metadata only (not full Git pack transfer)
-- Both peers run in the same browser tab (for ease of demonstration)
-- No persistence - repositories are in memory only
+- **No persistence** - Repositories are in memory only
+- **Single branch** - Syncs only the main branch
+- **No conflict resolution** - Remote changes overwrite local on divergence
 
 ## See Also
 
-- [@statewalker/vcs-transport-webrtc](../../../packages/transport-webrtc/) - The WebRTC transport package
-- [Example 08: Transport Basics](../../examples/08-transport-basics/) - HTTP-based transport operations
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Detailed architecture documentation
+- [@statewalker/vcs-commands](../../../packages/commands/) - Git porcelain API
+- [@statewalker/vcs-core](../../../packages/core/) - Core Git primitives
+- [@statewalker/vcs-transport-webrtc](../../../packages/transport-webrtc/) - WebRTC transport
