@@ -70,31 +70,7 @@ export class GitTagStore implements TagStore {
   /**
    * Check if tag exists
    */
-  async has(id: ObjectId): Promise<boolean> {
-    if (!(await this.objects.has(id))) {
-      return false;
-    }
-    try {
-      const header = await this.objects.getHeader(id);
-      return header.type === "tag";
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Enumerate all tag object IDs
-   */
-  async *keys(): AsyncIterable<ObjectId> {
-    for await (const id of this.objects.list()) {
-      try {
-        const header = await this.objects.getHeader(id);
-        if (header.type === "tag") {
-          yield id;
-        }
-      } catch {
-        // Skip invalid objects
-      }
-    }
+  hasTag(id: ObjectId): Promise<boolean> {
+    return this.objects.has(id);
   }
 }

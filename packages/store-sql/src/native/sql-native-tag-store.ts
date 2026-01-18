@@ -192,22 +192,12 @@ export class SqlNativeTagStoreImpl implements SqlNativeTagStore {
   /**
    * Check if tag exists
    */
-  async has(id: ObjectId): Promise<boolean> {
+  async hasTag(id: ObjectId): Promise<boolean> {
     const result = await this.db.query<{ cnt: number }>(
       "SELECT COUNT(*) as cnt FROM vcs_tag WHERE tag_id = ?",
       [id],
     );
     return result[0].cnt > 0;
-  }
-
-  /**
-   * Enumerate all tag object IDs
-   */
-  async *keys(): AsyncIterable<ObjectId> {
-    const tags = await this.db.query<{ tag_id: string }>("SELECT tag_id FROM vcs_tag");
-    for (const row of tags) {
-      yield row.tag_id;
-    }
   }
 
   // --- Extended query methods ---

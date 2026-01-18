@@ -123,14 +123,7 @@ export interface CommitStore {
    * @param id ObjectId of the commit
    * @returns True if commit exists
    */
-  has(id: ObjectId): Promise<boolean>;
-
-  /**
-   * Enumerate all commit object IDs
-   *
-   * @returns Async iterable of commit ObjectIds
-   */
-  keys(): AsyncIterable<ObjectId>;
+  hasCommit(id: ObjectId): Promise<boolean>;
 
   /**
    * Check if commitA is ancestor of commitB

@@ -264,7 +264,7 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
     }
 
     // Try as commit ID
-    if (await this.store.commits.has(refName)) {
+    if (await this.store.commits.hasCommit(refName)) {
       return refName;
     }
 

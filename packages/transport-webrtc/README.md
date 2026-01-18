@@ -1,6 +1,6 @@
-# @statewalker/vcs-port-webrtc
+# @statewalker/vcs-transport-webrtc
 
-WebRTC MessagePortLike adapter for peer-to-peer Git synchronization without servers.
+WebRTC transport layer for peer-to-peer Git synchronization without servers.
 
 ## Goals
 
@@ -21,9 +21,9 @@ This package enables **completely serverless** peer-to-peer Git repository synch
 ## Installation
 
 ```bash
-npm install @statewalker/vcs-port-webrtc
+npm install @statewalker/vcs-transport-webrtc
 # or
-pnpm add @statewalker/vcs-port-webrtc
+pnpm add @statewalker/vcs-transport-webrtc
 ```
 
 ## Quick Start
@@ -33,10 +33,9 @@ pnpm add @statewalker/vcs-port-webrtc
 ```typescript
 import {
   PeerManager,
-  createDataChannelPort,
+  createWebRtcStream,
   waitForConnection
-} from "@statewalker/vcs-port-webrtc";
-import { createPortTransportConnection } from "@statewalker/vcs-transport";
+} from "@statewalker/vcs-transport-webrtc";
 
 // === PEER A (Initiator) ===
 const peerA = new PeerManager("initiator");
@@ -67,9 +66,8 @@ receiveFromPeerA((msg) => {
 // === Both peers: wait for connection ===
 const channel = await waitForConnection(peerA); // or peerB
 
-// Create port and transport for Git protocol
-const port = createDataChannelPort(channel);
-const transport = createPortTransportConnection(port);
+// Create transport for Git protocol
+const transport = createWebRtcStream(channel);
 
 // Now use transport.send() and transport.receive() for Git operations
 ```
@@ -82,7 +80,7 @@ For completely serverless connections using QR codes:
 import {
   PeerManager,
   QrSignaling
-} from "@statewalker/vcs-port-webrtc";
+} from "@statewalker/vcs-transport-webrtc";
 
 // === PEER A: Create offer QR code ===
 const signaling = new QrSignaling();
@@ -148,11 +146,11 @@ for (const candidate of answer.candidates) {
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    DataChannelPort                               │
-│  Adapts RTCDataChannel to MessagePortLike interface             │
-│  - Binary message handling                                       │
-│  - Connection state tracking                                     │
-│  - Backpressure via bufferedAmount                              │
+│                    WebRtcStream                                  │
+│  Adapts RTCDataChannel to TransportConnection interface         │
+│  - Bidirectional packet streaming                               │
+│  - pkt-line protocol framing                                    │
+│  - Backpressure handling                                        │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -203,25 +201,18 @@ Compression techniques:
 
 #### 3. Data Channel Adaptation
 
-The `DataChannelPort` adapter bridges WebRTC and the transport layer:
+The `WebRtcStream` class bridges WebRTC and the Git transport layer:
 
 ```
-RTCDataChannel                    MessagePortLike
+RTCDataChannel                    TransportConnection
      │                                    │
-     │  Binary messages                   │  postMessage/onmessage
-     │  ArrayBuffer                       │  ArrayBuffer
+     │  Binary messages                   │  Packets (pkt-line)
+     │  ArrayBuffer                       │  AsyncIterable<Packet>
      │                                    │
-     └──────────── DataChannelPort ───────┘
-           - Binary message handling
-           - Connection state (isOpen)
-           - Backpressure (bufferedAmount)
-```
-
-Use with `createPortTransportConnection` from `@statewalker/vcs-transport`:
-
-```typescript
-const port = createDataChannelPort(channel);
-const transport = createPortTransportConnection(port);
+     └──────────── WebRtcStream ──────────┘
+           - Message framing
+           - Backpressure handling
+           - Error propagation
 ```
 
 ## API Reference
@@ -251,31 +242,25 @@ await peer.getStats();                   // Get connection statistics
 peer.close();                            // Close connection
 ```
 
-### DataChannelPort
+### WebRtcStream
 
-Adapts RTCDataChannel to MessagePortLike interface.
+Adapts RTCDataChannel to TransportConnection interface.
 
 ```typescript
-import { createDataChannelPort, createDataChannelPortAsync } from "@statewalker/vcs-port-webrtc";
+import { createWebRtcStream } from "@statewalker/vcs-transport-webrtc";
 
-// Synchronous (channel must be open)
-const port = createDataChannelPort(channel: RTCDataChannel);
+const transport = createWebRtcStream(channel: RTCDataChannel, options?: WebRtcStreamOptions);
 
-// Async (waits for channel to open)
-const port = await createDataChannelPortAsync(channel: RTCDataChannel);
-
-// MessagePortLike interface
-port.postMessage(data: ArrayBuffer | Uint8Array);
-port.onmessage = (event: MessageEvent<ArrayBuffer>) => void;
-port.onclose = () => void;
-port.onerror = (error: Error) => void;
-port.close();
-port.start();
+// TransportConnection interface
+await transport.send(packets: AsyncIterable<Packet>);
+await transport.sendRaw(bytes: Uint8Array);
+const packets = transport.receive();  // AsyncIterable<Packet>
+await transport.close();
 
 // Additional properties
-port.isOpen;          // boolean
-port.bufferedAmount;  // number
-port.readyState;      // RTCDataChannelState
+transport.isClosed;       // boolean
+transport.bufferedAmount; // number
+transport.readyState;     // RTCDataChannelState
 ```
 
 ### QrSignaling
@@ -283,7 +268,7 @@ port.readyState;      // RTCDataChannelState
 Helper for QR code-based serverless signaling.
 
 ```typescript
-import { QrSignaling } from "@statewalker/vcs-port-webrtc";
+import { QrSignaling } from "@statewalker/vcs-transport-webrtc";
 
 const signaling = new QrSignaling(sessionId?: string);
 
@@ -313,7 +298,7 @@ import {
   decodeSignal,
   estimateQrVersion,
   waitForConnection,
-} from "@statewalker/vcs-port-webrtc";
+} from "@statewalker/vcs-transport-webrtc";
 
 // Generate random session ID
 const sessionId = generateSessionId();
@@ -428,9 +413,8 @@ No polyfills or additional dependencies required.
 ## See Also
 
 - [WebRTC P2P Sync Demo](../../apps/demos/webrtc-p2p-sync/) - Interactive browser demo
-- [@statewalker/vcs-port-peerjs](../port-peerjs/) - PeerJS adapter
-- [@statewalker/vcs-port-websocket](../port-websocket/) - WebSocket adapter
-- [@statewalker/vcs-transport](../transport/) - Transport layer interfaces
+- [@statewalker/vcs-transport](../transport/) - Base transport interfaces
+- [Example 08: Transport Basics](../../apps/examples/08-transport-basics/) - HTTP transport examples
 
 ## License
 

@@ -226,15 +226,15 @@ export class DefaultSerializationApi implements SerializationApi {
       return { type: "blob", content: this.stores.blobs.load(id) };
     }
 
-    if (await this.stores.trees.has(id)) {
+    if (await this.stores.trees.hasTree(id)) {
       return { type: "tree", content: this.serializeTree(id) };
     }
 
-    if (await this.stores.commits.has(id)) {
+    if (await this.stores.commits.hasCommit(id)) {
       return { type: "commit", content: this.serializeCommit(id) };
     }
 
-    if (await this.stores.tags.has(id)) {
+    if (await this.stores.tags.hasTag(id)) {
       return { type: "tag", content: this.serializeTag(id) };
     }
 
@@ -397,7 +397,7 @@ class DefaultPackBuilder implements PackBuilder {
       return { type: PackObjectType.BLOB, content: concatBytes(chunks) };
     }
 
-    if (await this.stores.trees.has(id)) {
+    if (await this.stores.trees.hasTree(id)) {
       const { serializeTree } = await import("../history/trees/tree-format.js");
       const entries: import("../history/trees/tree-entry.js").TreeEntry[] = [];
       for await (const entry of this.stores.trees.loadTree(id)) {
@@ -406,13 +406,13 @@ class DefaultPackBuilder implements PackBuilder {
       return { type: PackObjectType.TREE, content: serializeTree(entries) };
     }
 
-    if (await this.stores.commits.has(id)) {
+    if (await this.stores.commits.hasCommit(id)) {
       const { serializeCommit } = await import("../history/commits/commit-format.js");
       const commit = await this.stores.commits.loadCommit(id);
       return { type: PackObjectType.COMMIT, content: serializeCommit(commit) };
     }
 
-    if (await this.stores.tags.has(id)) {
+    if (await this.stores.tags.hasTag(id)) {
       const { serializeTag } = await import("../history/tags/tag-format.js");
       const tag = await this.stores.tags.loadTag(id);
       return { type: PackObjectType.TAG, content: serializeTag(tag) };

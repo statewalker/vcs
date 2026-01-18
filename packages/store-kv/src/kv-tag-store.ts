@@ -144,16 +144,7 @@ export class KVTagStore implements TagStore {
   /**
    * Check if tag exists.
    */
-  async has(id: ObjectId): Promise<boolean> {
+  async hasTag(id: ObjectId): Promise<boolean> {
     return this.kv.has(`${TAG_PREFIX}${id}`);
-  }
-
-  /**
-   * Enumerate all tag object IDs.
-   */
-  async *keys(): AsyncIterable<ObjectId> {
-    for await (const key of this.kv.list(TAG_PREFIX)) {
-      yield key.slice(TAG_PREFIX.length);
-    }
   }
 }

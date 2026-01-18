@@ -99,14 +99,14 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
         expect(id1).not.toBe(id2);
       });
 
-      it("checks existence via has", async () => {
+      it("checks existence via hasTree", async () => {
         const entries: TreeEntry[] = [
           { mode: FileMode.REGULAR_FILE, name: "test.txt", id: fakeObjectId("test") },
         ];
         const id = await ctx.treeStore.storeTree(entries);
 
-        expect(await ctx.treeStore.has(id)).toBe(true);
-        expect(await ctx.treeStore.has("nonexistent-tree-id-000000000000")).toBe(false);
+        expect(await ctx.treeStore.hasTree(id)).toBe(true);
+        expect(await ctx.treeStore.hasTree("nonexistent-tree-id-000000000000")).toBe(false);
       });
     });
 
@@ -171,7 +171,7 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
       });
 
       it("reports empty tree as existing", async () => {
-        expect(await ctx.treeStore.has(EMPTY_TREE_ID)).toBe(true);
+        expect(await ctx.treeStore.hasTree(EMPTY_TREE_ID)).toBe(true);
       });
 
       it("loads empty tree as empty iterable", async () => {

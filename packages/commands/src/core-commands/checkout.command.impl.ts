@@ -403,7 +403,7 @@ export class CheckoutCommand implements Checkout {
     }
 
     // Try as commit ID
-    if (await this.commits.has(target)) {
+    if (await this.commits.hasCommit(target)) {
       return target;
     }
 
