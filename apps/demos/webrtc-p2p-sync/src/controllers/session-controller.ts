@@ -8,7 +8,6 @@
  * - Disconnecting and cleanup
  */
 
-import { listenDisconnectAction, listenJoinAction, listenShareAction } from "../actions/index.js";
 import {
   getPeerJsApi,
   getTimerApi,
@@ -48,24 +47,24 @@ export function createSessionController(ctx: AppContext): () => void {
   // Get connection storage
   const connections = getPeerConnections(ctx);
 
-  // Listen to user actions via typed action adapters
+  // Listen to user actions
   register(
-    listenShareAction(actionsModel, () => {
-      handleShare();
-    }),
-  );
+    actionsModel.onUpdate(() => {
+      // Handle share request
+      for (const _action of actionsModel.consume("connection:share")) {
+        handleShare();
+      }
 
-  register(
-    listenJoinAction(actionsModel, (actions) => {
-      for (const { sessionId } of actions) {
+      // Handle join request
+      for (const action of actionsModel.consume("connection:join")) {
+        const { sessionId } = action.payload as { sessionId: string };
         handleJoin(sessionId);
       }
-    }),
-  );
 
-  register(
-    listenDisconnectAction(actionsModel, () => {
-      handleDisconnect();
+      // Handle disconnect request
+      for (const _action of actionsModel.consume("connection:disconnect")) {
+        handleDisconnect();
+      }
     }),
   );
 
@@ -196,44 +195,24 @@ export function createSessionController(ctx: AppContext): () => void {
       lastSyncAt: null,
     });
 
-    // Helper to remove peer (called from multiple places)
-    function removePeer(): void {
-      if (connections.has(peerId)) {
-        connections.delete(peerId);
-        peersModel.removePeer(peerId);
-      }
-    }
-
     // Handle connection open
     conn.on("open", () => {
       connections.set(peerId, conn);
       peersModel.updatePeer(peerId, { status: "connected" });
       logModel.info(`Peer ${displayName} connected`);
-
-      // Monitor ICE connection state for faster disconnection detection
-      // PeerJS's close event can be slow or not fire at all when tab closes
-      const rtcConn = (conn as unknown as { peerConnection?: RTCPeerConnection }).peerConnection;
-      if (rtcConn) {
-        rtcConn.addEventListener("iceconnectionstatechange", () => {
-          const state = rtcConn.iceConnectionState;
-          if (state === "disconnected" || state === "failed" || state === "closed") {
-            logModel.info(`Peer ${displayName} ICE state: ${state}`);
-            removePeer();
-          }
-        });
-      }
     });
 
     // Handle connection close
     conn.on("close", () => {
+      connections.delete(peerId);
+      peersModel.removePeer(peerId);
       logModel.info(`Peer ${displayName} disconnected`);
-      removePeer();
     });
 
-    // Handle errors - remove peer since connection is no longer usable
+    // Handle errors
     conn.on("error", (err: Error) => {
       logModel.error(`Connection error with ${displayName}: ${err.message}`);
-      removePeer();
+      peersModel.updatePeer(peerId, { status: "disconnected" });
     });
   }
 
@@ -256,51 +235,31 @@ export function createSessionController(ctx: AppContext): () => void {
       lastSyncAt: null,
     });
 
-    // Helper to remove host and reset session (called from multiple places)
-    function removeHostAndResetSession(): void {
-      if (connections.has(hostId)) {
-        connections.delete(hostId);
-        peersModel.removePeer(hostId);
-
-        // Go back to disconnected state since we lost the host
-        timerApi.setTimeout(() => {
-          if (sessionModel.getState().mode === "joined" && peersModel.count === 0) {
-            sessionModel.setMode("disconnected");
-          }
-        }, 100);
-      }
-    }
-
     // Handle connection open
     conn.on("open", () => {
       connections.set(hostId, conn);
       peersModel.updatePeer(hostId, { status: "connected" });
       logModel.info(`Connected to host ${displayName}`);
-
-      // Monitor ICE connection state for faster disconnection detection
-      // PeerJS's close event can be slow or not fire at all when tab closes
-      const rtcConn = (conn as unknown as { peerConnection?: RTCPeerConnection }).peerConnection;
-      if (rtcConn) {
-        rtcConn.addEventListener("iceconnectionstatechange", () => {
-          const state = rtcConn.iceConnectionState;
-          if (state === "disconnected" || state === "failed" || state === "closed") {
-            logModel.info(`Host ${displayName} ICE state: ${state}`);
-            removeHostAndResetSession();
-          }
-        });
-      }
     });
 
     // Handle connection close
     conn.on("close", () => {
+      connections.delete(hostId);
+      peersModel.removePeer(hostId);
       logModel.info(`Disconnected from host ${displayName}`);
-      removeHostAndResetSession();
+
+      // If we lose connection to host, go back to disconnected state
+      timerApi.setTimeout(() => {
+        if (sessionModel.getState().mode === "joined" && peersModel.count === 0) {
+          sessionModel.setMode("disconnected");
+        }
+      }, 100);
     });
 
-    // Handle errors - remove peer and reset session since host connection is broken
+    // Handle errors
     conn.on("error", (err: Error) => {
       logModel.error(`Connection error with host: ${err.message}`);
-      removeHostAndResetSession();
+      peersModel.updatePeer(hostId, { status: "disconnected" });
     });
   }
 
