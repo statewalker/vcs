@@ -64,7 +64,7 @@ export async function importToNative(
     switch (type) {
       case "commit": {
         // Skip if already exists
-        if (await nativeStores.commits.hasCommit(id)) continue;
+        if (await nativeStores.commits.has(id)) continue;
 
         // Load from Git store and convert to Commit object
         const commit = await gitStores.commits.loadCommit(id);
@@ -75,7 +75,7 @@ export async function importToNative(
 
       case "tree": {
         // Skip if already exists
-        if (await nativeStores.trees.hasTree(id)) continue;
+        if (await nativeStores.trees.has(id)) continue;
 
         // Load entries from Git store
         const entries = gitStores.trees.loadTree(id);
@@ -97,7 +97,7 @@ export async function importToNative(
 
       case "tag": {
         // Skip if already exists
-        if (await nativeStores.tags.hasTag(id)) continue;
+        if (await nativeStores.tags.has(id)) continue;
 
         // Load from Git store and convert to AnnotatedTag object
         const tag = await gitStores.tags.loadTag(id);
@@ -150,7 +150,7 @@ export async function exportToGit(
     switch (type) {
       case "commit": {
         // Skip if already exists in Git store
-        if (await gitStores.commits.hasCommit(id)) continue;
+        if (await gitStores.commits.has(id)) continue;
 
         // Load from native store and store to Git store
         const commit = await nativeStores.commits.loadCommit(id);
@@ -161,7 +161,7 @@ export async function exportToGit(
 
       case "tree": {
         // Skip if already exists in Git store
-        if (await gitStores.trees.hasTree(id)) continue;
+        if (await gitStores.trees.has(id)) continue;
 
         // Load entries from native store
         const entries = nativeStores.trees.loadTree(id);
@@ -183,7 +183,7 @@ export async function exportToGit(
 
       case "tag": {
         // Skip if already exists in Git store
-        if (await gitStores.tags.hasTag(id)) continue;
+        if (await gitStores.tags.has(id)) continue;
 
         // Load from native store and store to Git store
         const tag = await nativeStores.tags.loadTag(id);

@@ -348,8 +348,8 @@ describe("GitCommitStore", () => {
     const { commitStore } = createTestStores();
     const id = await commitStore.storeCommit(createTestCommit());
 
-    expect(await commitStore.hasCommit(id)).toBe(true);
-    expect(await commitStore.hasCommit("nonexistent")).toBe(false);
+    expect(await commitStore.has(id)).toBe(true);
+    expect(await commitStore.has("nonexistent")).toBe(false);
   });
 
   it("checks ancestry", async () => {
@@ -386,7 +386,7 @@ describe("GitTreeStore", () => {
 
     // Verify tree was stored
     expect(id).toMatch(/^[0-9a-f]{40}$/);
-    expect(await treeStore.hasTree(id)).toBe(true);
+    expect(await treeStore.has(id)).toBe(true);
   });
 
   it("stores and sorts entries canonically", async () => {
@@ -428,7 +428,7 @@ describe("GitTreeStore", () => {
 
     // Verify tree was stored
     expect(treeId).toMatch(/^[0-9a-f]{40}$/);
-    expect(await treeStore.hasTree(treeId)).toBe(true);
+    expect(await treeStore.has(treeId)).toBe(true);
   });
 
   it("checks if tree exists", async () => {
@@ -437,8 +437,8 @@ describe("GitTreeStore", () => {
       { mode: FileMode.REGULAR_FILE, name: "file.txt", id: randomObjectId(1) },
     ]);
 
-    expect(await treeStore.hasTree(id)).toBe(true);
-    expect(await treeStore.hasTree("nonexistent")).toBe(false);
+    expect(await treeStore.has(id)).toBe(true);
+    expect(await treeStore.has("nonexistent")).toBe(false);
   });
 
   it("returns empty tree ID", () => {
@@ -557,8 +557,8 @@ describe("GitTagStore", () => {
       message: "Tag exists",
     });
 
-    expect(await tagStore.hasTag(id)).toBe(true);
-    expect(await tagStore.hasTag("nonexistent")).toBe(false);
+    expect(await tagStore.has(id)).toBe(true);
+    expect(await tagStore.has("nonexistent")).toBe(false);
   });
 
   it("throws when loading wrong object type", async () => {

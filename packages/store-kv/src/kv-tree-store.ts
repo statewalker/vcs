@@ -148,13 +148,22 @@ export class KVTreeStore implements TreeStore {
   /**
    * Check if tree exists.
    */
-  async hasTree(id: ObjectId): Promise<boolean> {
+  async has(id: ObjectId): Promise<boolean> {
     // Empty tree always exists
     if (id === EMPTY_TREE_ID) {
       return true;
     }
 
     return this.kv.has(`${TREE_PREFIX}${id}`);
+  }
+
+  /**
+   * Enumerate all tree object IDs.
+   */
+  async *keys(): AsyncIterable<ObjectId> {
+    for await (const key of this.kv.list(TREE_PREFIX)) {
+      yield key.slice(TREE_PREFIX.length);
+    }
   }
 
   /**

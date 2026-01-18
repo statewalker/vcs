@@ -92,8 +92,14 @@ export class MockCommitStore implements CommitStore {
     return bases;
   }
 
-  async hasCommit(id: ObjectId): Promise<boolean> {
+  async has(id: ObjectId): Promise<boolean> {
     return this.commits.has(id);
+  }
+
+  async *keys(): AsyncIterable<ObjectId> {
+    for (const id of this.commits.keys()) {
+      yield id;
+    }
   }
 
   async isAncestor(ancestorId: ObjectId, descendantId: ObjectId): Promise<boolean> {

@@ -116,13 +116,22 @@ export class MemoryTreeStore implements TreeStore {
   /**
    * Check if tree exists.
    */
-  async hasTree(id: ObjectId): Promise<boolean> {
+  async has(id: ObjectId): Promise<boolean> {
     // Empty tree always exists
     if (id === EMPTY_TREE_ID) {
       return true;
     }
 
     return this.trees.has(id);
+  }
+
+  /**
+   * Enumerate all tree object IDs.
+   */
+  async *keys(): AsyncIterable<ObjectId> {
+    for (const id of this.trees.keys()) {
+      yield id;
+    }
   }
 
   /**

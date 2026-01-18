@@ -120,12 +120,12 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
         expect(id1).not.toBe(id2);
       });
 
-      it("checks existence via hasTag", async () => {
+      it("checks existence via has", async () => {
         const tag = createTag({ tag: "v1.0.0", message: "Test" });
         const id = await ctx.tagStore.storeTag(tag);
 
-        expect(await ctx.tagStore.hasTag(id)).toBe(true);
-        expect(await ctx.tagStore.hasTag("nonexistent-tag-id-0000000000")).toBe(false);
+        expect(await ctx.tagStore.has(id)).toBe(true);
+        expect(await ctx.tagStore.has("nonexistent-tag-id-0000000000")).toBe(false);
       });
     });
 
