@@ -151,8 +151,17 @@ export class KVCommitStore implements CommitStore {
   /**
    * Check if commit exists.
    */
-  async hasCommit(id: ObjectId): Promise<boolean> {
+  async has(id: ObjectId): Promise<boolean> {
     return this.kv.has(`${COMMIT_PREFIX}${id}`);
+  }
+
+  /**
+   * Enumerate all commit object IDs.
+   */
+  async *keys(): AsyncIterable<ObjectId> {
+    for await (const key of this.kv.list(COMMIT_PREFIX)) {
+      yield key.slice(COMMIT_PREFIX.length);
+    }
   }
 
   /**

@@ -37,6 +37,7 @@ import {
   DeleteStagingEntry,
   detectCheckoutConflicts,
   FileMode,
+  joinPath,
   type ObjectId,
   type Ref,
   UpdateStagingEntry,
@@ -50,7 +51,7 @@ import {
   RefNotFoundError,
 } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
-import type { GitStoreWithWorkTree } from "../types.js";
+import type { GitStoreWithFiles, GitStoreWithWorkTree } from "../types.js";
 
 /**
  * Stage to check out for conflicting files.
@@ -377,6 +378,11 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
       const result = await this.resetStagingToTree(targetTreeId);
       updated.push(...result.updated);
       removed.push(...result.removed);
+
+      // Write files to working directory if not a bare repository
+      if (this.hasFileWriteSupport()) {
+        await this.writeTreeToWorkdir(targetTreeId, "");
+      }
     }
 
     // Update HEAD
@@ -401,6 +407,57 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
       conflicts: [],
       ref: ref ?? null,
     };
+  }
+
+  /**
+   * Check if the store supports file writes (not a bare repository).
+   *
+   * A repository is considered "bare" if it doesn't have a FilesApi
+   * and workTreeRoot configured for writing files.
+   */
+  private hasFileWriteSupport(): boolean {
+    const storeWithFiles = this.store as GitStoreWithFiles;
+    return !!(storeWithFiles.files && storeWithFiles.workTreeRoot !== undefined);
+  }
+
+  /**
+   * Write all files from a tree to the working directory.
+   *
+   * @param treeId The tree ID to checkout
+   * @param basePath The base path prefix for entries in this tree
+   */
+  private async writeTreeToWorkdir(treeId: ObjectId, basePath: string): Promise<void> {
+    const storeWithFiles = this.store as GitStoreWithFiles;
+    const { files, workTreeRoot } = storeWithFiles;
+
+    for await (const entry of this.store.trees.loadTree(treeId)) {
+      const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
+      const isDirectory = entry.mode === FileMode.TREE;
+
+      if (isDirectory) {
+        // Recursively process subdirectories
+        await this.writeTreeToWorkdir(entry.id, relativePath);
+      } else {
+        // Load blob content and write to file
+        const absolutePath = joinPath(workTreeRoot, relativePath);
+
+        // Ensure parent directory exists
+        const lastSlash = relativePath.lastIndexOf("/");
+        if (lastSlash > 0) {
+          const parentDir = joinPath(workTreeRoot, relativePath.substring(0, lastSlash));
+          await files.mkdir(parentDir);
+        }
+
+        // Load blob content
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of this.store.blobs.load(entry.id)) {
+          chunks.push(chunk);
+        }
+
+        // Write file
+        await files.write(absolutePath, chunks);
+      }
+    }
   }
 
   /**
@@ -606,7 +663,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     if (ref?.objectId) return ref.objectId;
 
     // Try as commit ID
-    if (await this.store.commits.hasCommit(refName)) {
+    if (await this.store.commits.has(refName)) {
       return refName;
     }
 
