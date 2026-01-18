@@ -1,12 +1,12 @@
 {
-  "name": "@statewalker/vcs-transport-websocket",
+  "name": "@statewalker/vcs-port-websocket",
   "version": "0.1.0",
   "private": false,
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
-  "description": "WebSocket transport for Git synchronization",
+  "description": "WebSocket MessagePortLike adapter for VCS transport",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

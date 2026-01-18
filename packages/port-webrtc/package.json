@@ -1,12 +1,12 @@
 {
-  "name": "@statewalker/vcs-transport-webrtc",
+  "name": "@statewalker/vcs-port-webrtc",
   "version": "0.1.0",
   "private": false,
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
-  "description": "WebRTC transport for peer-to-peer Git synchronization",
+  "description": "WebRTC MessagePortLike adapter for VCS transport",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -24,7 +24,6 @@
     "lint": "biome lint src tests"
   },
   "dependencies": {
-    "@statewalker/vcs-transport": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
