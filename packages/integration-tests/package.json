@@ -14,7 +14,6 @@
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-store-mem": "workspace:*",
     "@statewalker/vcs-store-sql": "workspace:*",
-    "@statewalker/vcs-transport": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*",
     "@statewalker/vcs-utils-node": "workspace:*",
     "@types/node": "catalog:",
