@@ -312,7 +312,7 @@ describe("RepositoryController", () => {
 
       // Add a file
       enqueueAddFileAction(actionsModel, { name: "test-file.txt", content: "Hello, World!" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().commitCount === 2);
 
       // Verify commit count increased
       const state = repoModel.getState();
@@ -327,17 +327,17 @@ describe("RepositoryController", () => {
 
       // Add first file
       enqueueAddFileAction(actionsModel, { name: "file1.txt", content: "Content 1" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().commitCount === 2);
       expect(repoModel.getState().commitCount).toBe(2);
 
       // Add second file
       enqueueAddFileAction(actionsModel, { name: "file2.txt", content: "Content 2" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().commitCount === 3);
       expect(repoModel.getState().commitCount).toBe(3);
 
       // Add third file
       enqueueAddFileAction(actionsModel, { name: "file3.txt", content: "Content 3" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().commitCount === 4);
       expect(repoModel.getState().commitCount).toBe(4);
 
       // Verify all commits are in history
@@ -359,7 +359,7 @@ describe("RepositoryController", () => {
 
       // Add a file
       enqueueAddFileAction(actionsModel, { name: "new-file.txt", content: "Content" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().files.length === 2);
 
       // Verify files list updated
       const files = repoModel.getState().files;
@@ -377,7 +377,7 @@ describe("RepositoryController", () => {
 
       // Add a file
       enqueueAddFileAction(actionsModel, { name: "test.txt", content: "Content" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().headCommitId !== initialHeadId);
 
       const newHeadId = repoModel.getState().headCommitId;
       expect(newHeadId).toBeTruthy();
@@ -404,12 +404,14 @@ describe("RepositoryController", () => {
 
       // Add a file
       enqueueAddFileAction(actionsModel, { name: "test.txt", content: "Content" });
-      await flushPromises();
+
+      // Wait for the commit to complete (state change)
+      await waitFor(() => repoModel.getState().commitCount === 2);
 
       // Listener should have been called
       expect(listener).toHaveBeenCalled();
 
-      // Verify the state at time of last call
+      // Verify the state
       const state = repoModel.getState();
       expect(state.commitCount).toBe(2);
     });
@@ -433,7 +435,7 @@ describe("RepositoryController", () => {
 
       // Add a file
       enqueueAddFileAction(actionsModel, { name: "test.txt", content: "Content" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().commitCount === 2);
 
       // All listeners should have been called
       expect(listener1).toHaveBeenCalled();
