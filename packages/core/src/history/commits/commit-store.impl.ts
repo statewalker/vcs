@@ -126,7 +126,7 @@ export class GitCommitStore implements CommitStore {
   /**
    * Check if commit exists and is actually a commit object
    */
-  async has(id: ObjectId): Promise<boolean> {
+  async hasCommit(id: ObjectId): Promise<boolean> {
     if (!(await this.objects.has(id))) {
       return false;
     }
@@ -135,22 +135,6 @@ export class GitCommitStore implements CommitStore {
       return header.type === "commit";
     } catch {
       return false;
-    }
-  }
-
-  /**
-   * Enumerate all commit object IDs
-   */
-  async *keys(): AsyncIterable<ObjectId> {
-    for await (const id of this.objects.list()) {
-      try {
-        const header = await this.objects.getHeader(id);
-        if (header.type === "commit") {
-          yield id;
-        }
-      } catch {
-        // Skip invalid objects
-      }
     }
   }
 

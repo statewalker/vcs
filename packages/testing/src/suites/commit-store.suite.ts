@@ -118,12 +118,12 @@ export function createCommitStoreTests(name: string, factory: CommitStoreFactory
         expect(id1).not.toBe(id2);
       });
 
-      it("checks existence via has", async () => {
+      it("checks existence via hasCommit", async () => {
         const commit = createCommit({ message: "Test" });
         const id = await ctx.commitStore.storeCommit(commit);
 
-        expect(await ctx.commitStore.has(id)).toBe(true);
-        expect(await ctx.commitStore.has("nonexistent-commit-id-00000000")).toBe(false);
+        expect(await ctx.commitStore.hasCommit(id)).toBe(true);
+        expect(await ctx.commitStore.hasCommit("nonexistent-commit-id-00000000")).toBe(false);
       });
     });
 

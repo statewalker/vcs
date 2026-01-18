@@ -69,27 +69,11 @@ export class GitTreeStore implements TreeStore {
    *
    * The empty tree is always considered to exist.
    */
-  has(id: ObjectId): Promise<boolean> {
+  hasTree(id: ObjectId): Promise<boolean> {
     if (id === EMPTY_TREE_ID) {
       return Promise.resolve(true);
     }
     return this.objects.has(id);
-  }
-
-  /**
-   * Enumerate all tree object IDs
-   */
-  async *keys(): AsyncIterable<ObjectId> {
-    for await (const id of this.objects.list()) {
-      try {
-        const header = await this.objects.getHeader(id);
-        if (header.type === "tree") {
-          yield id;
-        }
-      } catch {
-        // Skip invalid objects
-      }
-    }
   }
 
   /**

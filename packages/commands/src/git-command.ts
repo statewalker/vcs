@@ -113,7 +113,7 @@ export abstract class GitCommand<T> {
     }
 
     // Try as direct commit ID
-    if (await this.store.commits.has(refName)) {
+    if (await this.store.commits.hasCommit(refName)) {
       return refName;
     }
 
@@ -169,7 +169,7 @@ export abstract class GitCommand<T> {
    */
   private async peelToCommit(objectId: ObjectId): Promise<ObjectId> {
     // If it's already a commit, return it
-    if (await this.store.commits.has(objectId)) {
+    if (await this.store.commits.hasCommit(objectId)) {
       return objectId;
     }
 

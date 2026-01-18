@@ -2,19 +2,16 @@
  * WebRTC Controller
  *
  * Manages WebRTC peer-to-peer connections for repository synchronization.
- * Uses PeerManager and QrSignaling from vcs-port-webrtc.
+ * Uses PeerManager and QrSignaling from vcs-transport-webrtc.
  */
 
+import type { TransportConnection } from "@statewalker/vcs-transport";
 import {
-  createDataChannelPort,
+  createWebRtcStream,
   PeerManager,
   QrSignaling,
   type SignalingMessage,
-} from "@statewalker/vcs-port-webrtc";
-import {
-  createPortTransportConnection,
-  type TransportConnection,
-} from "@statewalker/vcs-transport";
+} from "@statewalker/vcs-transport-webrtc";
 import { getActivityLogModel, getConnectionModel, getSharingFormModel } from "../models/index.js";
 import { newAdapter, newRegistry } from "../utils/index.js";
 
@@ -105,8 +102,7 @@ export async function createOffer(ctx: Map<string, unknown>): Promise<string | n
       const channel = peer.getDataChannel();
       if (channel) {
         setDataChannel(ctx, channel);
-        const port = createDataChannelPort(channel);
-        const transport = createPortTransportConnection(port);
+        const transport = createWebRtcStream(channel);
         setTransport(ctx, transport);
       }
     });
@@ -193,8 +189,7 @@ export async function acceptOffer(
       const channel = peer.getDataChannel();
       if (channel) {
         setDataChannel(ctx, channel);
-        const port = createDataChannelPort(channel);
-        const transport = createPortTransportConnection(port);
+        const transport = createWebRtcStream(channel);
         setTransport(ctx, transport);
       }
     });

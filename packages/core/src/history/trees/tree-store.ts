@@ -62,14 +62,7 @@ export interface TreeStore {
    * @param id ObjectId of the tree
    * @returns True if tree exists
    */
-  has(id: ObjectId): Promise<boolean>;
-
-  /**
-   * Enumerate all tree object IDs
-   *
-   * @returns Async iterable of tree ObjectIds
-   */
-  keys(): AsyncIterable<ObjectId>;
+  hasTree(id: ObjectId): Promise<boolean>;
 
   /**
    * Get the empty tree ObjectId

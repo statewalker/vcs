@@ -106,17 +106,8 @@ export class MemoryCommitStore implements CommitStore {
   /**
    * Check if commit exists.
    */
-  async has(id: ObjectId): Promise<boolean> {
+  async hasCommit(id: ObjectId): Promise<boolean> {
     return this.commits.has(id);
-  }
-
-  /**
-   * Enumerate all commit object IDs.
-   */
-  async *keys(): AsyncIterable<ObjectId> {
-    for (const id of this.commits.keys()) {
-      yield id;
-    }
   }
 
   /**

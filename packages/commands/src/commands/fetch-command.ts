@@ -357,7 +357,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       onProgressMessage: this.progressMessageCallback,
       localHas: async (objectId: Uint8Array) => {
         const hex = bytesToHex(objectId);
-        return this.store.commits.has(hex);
+        return this.store.commits.hasCommit(hex);
       },
       localCommits: () => this.getLocalCommits(),
     };

@@ -103,16 +103,7 @@ export class MemoryTagStore implements TagStore {
   /**
    * Check if tag exists.
    */
-  async has(id: ObjectId): Promise<boolean> {
+  async hasTag(id: ObjectId): Promise<boolean> {
     return this.tags.has(id);
-  }
-
-  /**
-   * Enumerate all tag object IDs.
-   */
-  async *keys(): AsyncIterable<ObjectId> {
-    for (const id of this.tags.keys()) {
-      yield id;
-    }
   }
 }
