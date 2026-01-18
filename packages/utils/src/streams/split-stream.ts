@@ -1,4 +1,22 @@
 /**
+ * Options for splitStream.
+ */
+export interface SplitStreamOptions {
+  /**
+   * If true, all generators will finish when the input ends.
+   * Otherwise, the last generator may remain open.
+   */
+  finishOnEnd?: boolean;
+  /**
+   * If true, remainder blocks from a split will be re-processed through the
+   * split function. This is useful for byte-based splitting where a large
+   * block may need to be split multiple times.
+   * Default: false (for backwards compatibility).
+   */
+  reSplitRemainder?: boolean;
+}
+
+/**
  * Splits an async iterable stream into multiple async generators.
  * The `split` function determines the split point within each block.
  * When a split point is found - the returned split position value is
@@ -6,13 +24,19 @@
  * one starts.
  * @param input The input async iterable stream
  * @param split Function that determines the split point within each block.
- * @param finishOnEnd If true, all generators will finish when the input ends. Otherwise, the last generator may remain open.
+ * @param options Configuration options (or boolean for backwards compat with finishOnEnd)
  */
 export async function* splitStream(
   input: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   split: (block: Uint8Array) => number,
-  finishOnEnd = false,
+  options: SplitStreamOptions | boolean = false,
 ): AsyncGenerator<AsyncGenerator<Uint8Array>> {
+  // Handle backwards compatibility: options can be boolean (finishOnEnd)
+  const opts: SplitStreamOptions =
+    typeof options === "boolean" ? { finishOnEnd: options } : options;
+  const finishOnEnd = opts.finishOnEnd ?? false;
+  const reSplitRemainder = opts.reSplitRemainder ?? false;
+
   const iterator = (async function* () {
     yield* input;
   })();
@@ -30,27 +54,38 @@ export async function* splitStream(
   }
   async function* readNextGenerator(): AsyncGenerator<Uint8Array> {
     while (!finished) {
+      let block: Uint8Array;
+      let shouldCallSplit: boolean;
+
       if (lastBlock !== null) {
-        yield lastBlock;
+        block = lastBlock;
         lastBlock = null;
-        continue;
-      }
-      const slot = await iterator.next();
-      if (slot.done) {
-        finished = true;
-        break;
-      }
-      const splitPoint = split(slot.value);
-      if (splitPoint >= 0) {
-        // Split point found
-        lastBlock = slot.value.subarray(splitPoint);
-        yield slot.value.subarray(0, splitPoint);
-        // Stop current generator and start a new one
-        break;
+        shouldCallSplit = reSplitRemainder;
       } else {
-        // No split point, yield entire block
-        yield slot.value;
+        const slot = await iterator.next();
+        if (slot.done) {
+          finished = true;
+          break;
+        }
+        block = slot.value;
+        shouldCallSplit = true;
       }
+
+      if (shouldCallSplit) {
+        const splitPoint = split(block);
+        if (splitPoint >= 0) {
+          // Split point found
+          lastBlock = block.subarray(splitPoint);
+          // Only yield if there's something before the split point
+          if (splitPoint > 0) {
+            yield block.subarray(0, splitPoint);
+          }
+          // Stop current generator and start a new one
+          break;
+        }
+      }
+      // No split point (or not checking), yield entire block
+      yield block;
     }
   }
 }

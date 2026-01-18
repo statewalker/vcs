@@ -496,9 +496,8 @@ describe("stream-utils", () => {
 
       expect(results.length).toBe(2);
       expect(new TextDecoder().decode(results[0][0])).toBe("hello");
-      // First generator yields "hello" then empty (from split at position 0)
-      expect(results[0].length).toBe(2);
-      expect(new TextDecoder().decode(results[0][1])).toBe("");
+      // First generator yields "hello" only (no empty chunk when split at position 0)
+      expect(results[0].length).toBe(1);
       // Second generator yields the remainder "world"
       expect(new TextDecoder().decode(results[1][0])).toBe("world");
     });
@@ -709,7 +708,7 @@ describe("stream-utils", () => {
       );
 
       expect(results.length).toBe(2);
-      expect(results[0][0]).toEqual(new Uint8Array([])); // Empty before split
+      expect(results[0].length).toBe(0); // Empty sub-stream (no chunks yielded when split at 0)
       expect(new TextDecoder().decode(results[1][0])).toBe("abc");
     });
 

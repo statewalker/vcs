@@ -5,7 +5,11 @@
  * enabling use with port-stream for Git protocol communication.
  */
 
-import type { MessagePortLike } from "@statewalker/vcs-utils";
+import type {
+  MessagePortEventListener,
+  MessagePortEventType,
+  MessagePortLike,
+} from "@statewalker/vcs-utils";
 
 /**
  * Options for creating a WebSocket port.
@@ -37,16 +41,11 @@ export function createWebSocketPort(
   options: WebSocketPortOptions = {},
 ): WebSocketPort {
   let started = false;
+  const messageListeners = new Set<(event: MessageEvent<ArrayBuffer>) => void>();
+  const closeListeners = new Set<() => void>();
+  const errorListeners = new Set<(error: Error) => void>();
 
   const port: WebSocketPort = {
-    onmessage: null,
-    onclose: null,
-    onerror: null,
-
-    get isOpen() {
-      return ws.readyState === WebSocket.OPEN;
-    },
-
     get bufferedAmount() {
       return ws.bufferedAmount;
     },
@@ -69,22 +68,68 @@ export function createWebSocketPort(
       ws.binaryType = options.binaryType ?? "arraybuffer";
 
       ws.onmessage = (e) => {
+        let buffer: ArrayBuffer;
         if (e.data instanceof ArrayBuffer) {
-          port.onmessage?.({ data: e.data } as MessageEvent<ArrayBuffer>);
+          buffer = e.data;
         } else if (e.data instanceof Blob) {
           // Convert Blob to ArrayBuffer
-          e.data.arrayBuffer().then((buffer) => {
-            port.onmessage?.({ data: buffer } as MessageEvent<ArrayBuffer>);
+          e.data.arrayBuffer().then((buf) => {
+            const event = { data: buf } as MessageEvent<ArrayBuffer>;
+            for (const listener of messageListeners) {
+              listener(event);
+            }
           });
+          return;
         } else if (typeof e.data === "string") {
           // Convert string to ArrayBuffer
-          const buffer = new TextEncoder().encode(e.data).buffer;
-          port.onmessage?.({ data: buffer as ArrayBuffer } as MessageEvent<ArrayBuffer>);
+          buffer = new TextEncoder().encode(e.data).buffer as ArrayBuffer;
+        } else {
+          return;
+        }
+        const event = { data: buffer } as MessageEvent<ArrayBuffer>;
+        for (const listener of messageListeners) {
+          listener(event);
         }
       };
 
-      ws.onclose = () => port.onclose?.();
-      ws.onerror = () => port.onerror?.(new Error("WebSocket error"));
+      ws.onclose = () => {
+        for (const listener of closeListeners) {
+          listener();
+        }
+      };
+
+      ws.onerror = () => {
+        const error = new Error("WebSocket error");
+        for (const listener of errorListeners) {
+          listener(error);
+        }
+      };
+    },
+
+    addEventListener<T extends MessagePortEventType>(
+      type: T,
+      listener: MessagePortEventListener<T>,
+    ) {
+      if (type === "message") {
+        messageListeners.add(listener as (event: MessageEvent<ArrayBuffer>) => void);
+      } else if (type === "close") {
+        closeListeners.add(listener as () => void);
+      } else if (type === "error") {
+        errorListeners.add(listener as (error: Error) => void);
+      }
+    },
+
+    removeEventListener<T extends MessagePortEventType>(
+      type: T,
+      listener: MessagePortEventListener<T>,
+    ) {
+      if (type === "message") {
+        messageListeners.delete(listener as (event: MessageEvent<ArrayBuffer>) => void);
+      } else if (type === "close") {
+        closeListeners.delete(listener as () => void);
+      } else if (type === "error") {
+        errorListeners.delete(listener as (error: Error) => void);
+      }
     },
   };
 
