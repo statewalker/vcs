@@ -180,12 +180,22 @@ export class SQLCommitStore implements CommitStore {
   /**
    * Check if commit exists.
    */
-  async hasCommit(id: ObjectId): Promise<boolean> {
+  async has(id: ObjectId): Promise<boolean> {
     const result = await this.db.query<{ cnt: number }>(
       "SELECT COUNT(*) as cnt FROM vcs_commit WHERE commit_id = ?",
       [id],
     );
     return result[0].cnt > 0;
+  }
+
+  /**
+   * Enumerate all commit object IDs.
+   */
+  async *keys(): AsyncIterable<ObjectId> {
+    const commits = await this.db.query<{ commit_id: string }>("SELECT commit_id FROM vcs_commit");
+    for (const row of commits) {
+      yield row.commit_id;
+    }
   }
 
   /**

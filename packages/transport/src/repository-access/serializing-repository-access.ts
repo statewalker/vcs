@@ -45,10 +45,10 @@ export class SerializingRepositoryAccess implements RepositoryAccess {
 
   async has(id: ObjectId): Promise<boolean> {
     // Check each store
-    if (await this.commits.hasCommit(id)) return true;
-    if (await this.trees.hasTree(id)) return true;
+    if (await this.commits.has(id)) return true;
+    if (await this.trees.has(id)) return true;
     if (await this.blobs.has(id)) return true;
-    if (await this.tags.hasTag(id)) return true;
+    if (await this.tags.has(id)) return true;
     return false;
   }
 
@@ -65,7 +65,7 @@ export class SerializingRepositoryAccess implements RepositoryAccess {
     }
 
     try {
-      if (await this.trees.hasTree(id)) {
+      if (await this.trees.has(id)) {
         const entries: { mode: number; name: string; id: string }[] = [];
         for await (const entry of this.trees.loadTree(id)) {
           entries.push(entry);
@@ -112,7 +112,7 @@ export class SerializingRepositoryAccess implements RepositoryAccess {
     }
 
     try {
-      if (await this.trees.hasTree(id)) {
+      if (await this.trees.has(id)) {
         const entries: { mode: number; name: string; id: string }[] = [];
         for await (const entry of this.trees.loadTree(id)) {
           entries.push(entry);

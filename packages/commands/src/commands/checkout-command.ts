@@ -663,7 +663,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     if (ref?.objectId) return ref.objectId;
 
     // Try as commit ID
-    if (await this.store.commits.hasCommit(refName)) {
+    if (await this.store.commits.has(refName)) {
       return refName;
     }
 
