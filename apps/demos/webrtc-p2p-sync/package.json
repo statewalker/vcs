@@ -15,7 +15,6 @@
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-store-mem": "workspace:*",
     "@statewalker/vcs-transport": "workspace:*",
-    "@statewalker/vcs-transport-peerjs": "workspace:*",
     "@statewalker/vcs-transport-webrtc": "workspace:*",
     "peerjs": "^1.5.4",
     "qrcode": "^1.5.4"
