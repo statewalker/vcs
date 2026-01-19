@@ -36,6 +36,7 @@
     "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
+    "@statewalker/vcs-store-mem": "workspace:*",
     "rolldown": "catalog:",
     "vitest": "catalog:",
     "typescript": "catalog:",

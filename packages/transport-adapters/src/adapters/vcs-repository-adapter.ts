@@ -6,6 +6,10 @@
  *
  * This adapter provides a clean integration layer that uses only interfaces from
  * @statewalker/vcs-core, eliminating dependencies on implementation-specific storage types.
+ *
+ * @deprecated Use VcsRepositoryAccess from implementations/vcs-repository-access.ts instead.
+ * VcsRepositoryAccess uses high-level stores (BlobStore, TreeStore, etc.) directly,
+ * without requiring GitObjectStore. This file is kept for backward compatibility.
  */
 
 import type {
