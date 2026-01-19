@@ -2,7 +2,6 @@ export * from "./ack-nak.js";
 export * from "./capabilities.js";
 export * from "./constants.js";
 export * from "./errors.js";
-export * from "./git-request-parser.js";
 export * from "./pkt-line-codec.js";
 export * from "./report-status.js";
 export * from "./sideband.js";
