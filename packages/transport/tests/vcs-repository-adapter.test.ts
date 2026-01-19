@@ -24,7 +24,7 @@ import {
   createVcsRepositoryAdapter,
   createVcsServerOptions,
   type VcsStores,
-} from "../src/adapters/vcs-repository-adapter.js";
+} from "../src/storage-adapters/vcs-repository-adapter.js";
 
 // Object type codes
 const OBJ_COMMIT = 1 as ObjectTypeCode;

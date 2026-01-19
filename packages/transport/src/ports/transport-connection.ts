@@ -12,9 +12,9 @@ import {
   type PortStream,
   toChunks,
 } from "@statewalker/vcs-utils";
+import type { TransportConnection } from "../connection/types.js";
 import { pktLineReader, pktLineWriter } from "../protocol/pkt-line-codec.js";
 import type { Packet } from "../protocol/types.js";
-import type { TransportConnection } from "./types.js";
 
 /**
  * Options for creating a PortTransportConnection.
