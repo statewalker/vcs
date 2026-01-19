@@ -4,6 +4,5 @@ export * from "./http-server/index.js";
 export * from "./negotiation/index.js";
 export * from "./operations/index.js";
 export * from "./peer/index.js";
-export * from "./ports/index.js";
 export * from "./protocol/index.js";
 export * from "./streams/index.js";
