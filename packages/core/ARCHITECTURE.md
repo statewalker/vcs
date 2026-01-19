@@ -624,48 +624,28 @@ Commands encapsulate multi-step workflows:
 - `Add`: Hash files, update staging entries, handle ignore patterns
 - `Checkout`: Compare trees, detect conflicts, update worktree
 
-### repository-access/
+### Repository Access (Moved)
 
-Repository serialization and Git-native filesystem access for transport operations.
+**Note:** The `RepositoryAccess` interface and its implementations (`GitNativeRepositoryAccess`, `SerializingRepositoryAccess`) have been moved to the `@statewalker/vcs-transport-adapters` package.
 
-| File | Purpose |
-|------|---------|
-| `repository-access.ts` | `RepositoryAccess` interface |
-| `git-native-repository-access.ts` | Git filesystem implementation |
-| `serializing-repository-access.ts` | Serialization utilities |
-| `git-serializers.ts` | Git object serializers |
+These provide byte-level access to Git objects in wire format for transport operations (fetch, push, clone). See the transport-adapters package for:
 
-#### RepositoryAccess Interface
-
-The `RepositoryAccess` interface provides byte-level access to Git objects in wire format for transport operations (fetch, push, clone):
+- `RepositoryAccess` interface
+- `createVcsRepositoryAccess` - adapts VCS stores to RepositoryAccess
+- `createCoreRepositoryAccess` - adapts GitObjectStore + RefStore to RepositoryAccess
+- `GitNativeRepositoryAccess` - direct passthrough for object-only operations
 
 ```typescript
-interface RepositoryAccess {
-  has(id: ObjectId): Promise<boolean>;
-  getInfo(id: ObjectId): Promise<RepositoryObjectInfo | null>;
-  load(id: ObjectId): Promise<ObjectData | null>;
-  store(type: ObjectTypeCode, content: Uint8Array): Promise<ObjectId>;
-  enumerate(): AsyncIterable<ObjectId>;
-  loadWireFormat(id: ObjectId): Promise<Uint8Array | null>;
-}
+import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
+
+const repositoryAccess = createVcsRepositoryAccess({
+  blobs: store.blobs,
+  trees: store.trees,
+  commits: store.commits,
+  tags: store.tags,
+  refs: store.refs,
+});
 ```
-
-The extended `DeltaAwareRepositoryAccess` adds delta chain information:
-
-```typescript
-interface DeltaAwareRepositoryAccess extends RepositoryAccess {
-  isDelta(id: ObjectId): Promise<boolean>;
-  getDeltaBase(id: ObjectId): Promise<ObjectId | null>;
-  getChainDepth(id: ObjectId): Promise<number>;
-}
-```
-
-Two implementations are provided:
-
-| Implementation | Use Case |
-|----------------|----------|
-| `GitNativeRepositoryAccess` | Git filesystem storage - direct passthrough with no serialization overhead |
-| `SerializingRepositoryAccess` | SQL/KV backends - converts typed objects to Git wire format |
 
 ### stores/
 
