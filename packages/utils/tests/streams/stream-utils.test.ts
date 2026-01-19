@@ -531,9 +531,8 @@ describe("stream-utils", () => {
       expect(new TextDecoder().decode(results[1][1])).toBe("world");
     });
 
-    it("splits once per input block (remainder not re-split)", async () => {
-      // With single input block "a|b|c", only one split occurs
-      // The remainder "b|c" is yielded as-is without re-splitting
+    it("splits all delimiters in a single block (always re-split)", async () => {
+      // With single input block "a|b|c", all delimiters are found (always re-split)
       const input = fromArray([encode("a|b|c")]);
       const parts = await collectSplitStreamAsStrings(
         splitStream(input, (block) => {
@@ -543,7 +542,7 @@ describe("stream-utils", () => {
         }),
       );
 
-      expect(parts).toEqual(["a|", "b|c"]);
+      expect(parts).toEqual(["a|", "b|", "c"]);
     });
 
     it("splits each input block independently", async () => {
@@ -568,7 +567,7 @@ describe("stream-utils", () => {
         }),
       );
 
-      // Single block "||" splits at first |, remainder "|" is not re-split
+      // "||" splits at each |, empty remainder is skipped
       expect(parts).toEqual(["|", "|"]);
     });
 
@@ -581,8 +580,8 @@ describe("stream-utils", () => {
         }),
       );
 
-      // Single block, one split at first \n
-      expect(parts).toEqual(["line1\n", "line2\nline3"]);
+      // Remainder blocks are always re-split, so all newlines are found
+      expect(parts).toEqual(["line1\n", "line2\n", "line3"]);
     });
 
     it("handles split on newline with multiple input blocks", async () => {
@@ -775,7 +774,7 @@ describe("stream-utils", () => {
       expect(parts).toEqual(["para1\n\n", "para2\n\n", "para3"]);
     });
 
-    it("remainder from split is yielded without calling split function", async () => {
+    it("remainder from split is re-split", async () => {
       const splitCalls: string[] = [];
       const input = fromArray([encode("abc|def")]);
 
@@ -787,8 +786,8 @@ describe("stream-utils", () => {
         }),
       );
 
-      // Split function only called on original block, not on remainder "def"
-      expect(splitCalls).toEqual(["abc|def"]);
+      // Split function is called on original block AND remainder "def"
+      expect(splitCalls).toEqual(["abc|def", "def"]);
     });
 
     it("handles empty input blocks", async () => {
@@ -1531,8 +1530,9 @@ describe("stream-utils", () => {
       const input = fromArray([encode("a|b|c")]);
       const splitter = newByteSplitter(124); // |
 
+      // With always-re-split behavior, all delimiters are found
       const parts = await collectSplitStreamAsStrings(splitStream(input, splitter));
-      expect(parts).toEqual(["a|", "b|c"]);
+      expect(parts).toEqual(["a|", "b|", "c"]);
     });
 
     it("integrates with readHeader", async () => {
