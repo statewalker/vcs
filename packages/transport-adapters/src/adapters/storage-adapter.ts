@@ -12,7 +12,7 @@ import type {
   ObjectTypeCode,
   RefInfo,
   RepositoryAccess,
-} from "../handlers/types.js";
+} from "@statewalker/vcs-transport";
 
 /**
  * Minimal storage interface matching GitStorage.

@@ -1,41 +1,68 @@
 /**
- * Repository Adapter
+ * VCS Repository Adapter
  *
- * Adapts the HistoryStore interface from @statewalker/vcs-core to the
- * RepositoryAccess interface used by HTTP protocol handlers.
+ * Adapts VCS package interfaces (GitObjectStore, RefStore, CommitStore, TreeStore, TagStore)
+ * to the RepositoryAccess interface used by HTTP protocol handlers.
  *
- * This adapter provides a clean integration layer that uses only the
- * standard HistoryStore interface, making transport work with any
- * HistoryStore implementation (Git, SQL, memory, etc.).
+ * This adapter provides a clean integration layer that uses only interfaces from
+ * @statewalker/vcs-core, eliminating dependencies on implementation-specific storage types.
  */
 
 import type {
   CommitStore,
   GitObjectStore,
-  HistoryStore,
+  ObjectTypeCode,
+  ObjectTypeString,
   Ref,
+  RefStore,
   SymbolicRef,
   TagStore,
   TreeStore,
 } from "@statewalker/vcs-core";
 import type {
+  GitHttpServerOptions,
   HeadInfo,
   ObjectId,
   ObjectInfo,
-  ObjectTypeCode,
   RefInfo,
   RepositoryAccess,
-} from "../handlers/types.js";
+} from "@statewalker/vcs-transport";
 
 /**
- * Create RepositoryAccess from a HistoryStore.
+ * VCS stores required for HTTP server operations.
+ * Uses only interfaces from @statewalker/vcs-core package.
+ */
+export interface VcsStores {
+  /** Object content storage */
+  objects: GitObjectStore;
+  /** Reference storage */
+  refs: RefStore;
+  /** Commit parsing/storage */
+  commits: CommitStore;
+  /** Tree parsing/storage */
+  trees: TreeStore;
+  /** Tag parsing/storage (optional) */
+  tags?: TagStore;
+}
+
+/**
+ * Factory function type for resolving repository using VCS stores.
+ */
+export type VcsRepositoryResolver = (
+  request: Request,
+  repoPath: string,
+) => Promise<VcsStores | null>;
+
+/**
+ * Create RepositoryAccess from VCS stores.
  *
- * @param repository - HistoryStore implementation from @statewalker/vcs-core
+ * @param stores - VCS store implementations
  * @returns RepositoryAccess interface for protocol handlers
  */
-export function createRepositoryAdapter(repository: HistoryStore): RepositoryAccess {
-  const { objects, refs, commits, trees, tags } = repository;
+export function createVcsRepositoryAdapter(stores: VcsStores): RepositoryAccess {
+  const { objects, refs, commits, trees, tags } = stores;
 
+  // Import isSymbolicRef at runtime
   const checkIsSymbolicRef = (ref: Ref | SymbolicRef): ref is SymbolicRef => {
     return "target" in ref && typeof ref.target === "string";
   };
@@ -43,10 +70,12 @@ export function createRepositoryAdapter(repository: HistoryStore): RepositoryAcc
   return {
     /**
      * List all refs in the repository.
+     * Maps RefStore.list() to the handler's expected format.
      */
     async *listRefs(): AsyncIterable<RefInfo> {
       for await (const ref of refs.list()) {
         if (checkIsSymbolicRef(ref)) {
+          // For symbolic refs, resolve to get the actual objectId
           const resolved = await refs.resolve(ref.name);
           if (resolved?.objectId) {
             yield {
@@ -86,6 +115,7 @@ export function createRepositoryAdapter(repository: HistoryStore): RepositoryAcc
 
     /**
      * Get object type and size.
+     * Uses GitObjectStore.getHeader() for efficient header access.
      */
     async getObjectInfo(id: ObjectId): Promise<ObjectInfo | null> {
       try {
@@ -107,6 +137,7 @@ export function createRepositoryAdapter(repository: HistoryStore): RepositoryAcc
 
     /**
      * Store an object.
+     * GitObjectStore handles header creation internally.
      */
     async storeObject(type: ObjectTypeCode, content: Uint8Array): Promise<ObjectId> {
       const typeStr = objectTypeToString(type);
@@ -115,6 +146,7 @@ export function createRepositoryAdapter(repository: HistoryStore): RepositoryAcc
 
     /**
      * Update a ref.
+     * Uses compareAndSwap for atomic updates when oldId is provided.
      */
     async updateRef(
       name: string,
@@ -122,20 +154,24 @@ export function createRepositoryAdapter(repository: HistoryStore): RepositoryAcc
       newId: ObjectId | null,
     ): Promise<boolean> {
       if (newId === null) {
+        // Delete ref
         return refs.delete(name);
       }
 
       if (oldId !== null) {
+        // Compare-and-swap update for atomic updates
         const result = await refs.compareAndSwap(name, oldId, newId);
         return result.success;
       }
 
+      // Simple set (create or overwrite)
       await refs.set(name, newId);
       return true;
     },
 
     /**
      * Walk object graph from starting points.
+     * Collects all objects reachable from wants, excluding haves.
      */
     async *walkObjects(
       wants: ObjectId[],
@@ -166,11 +202,13 @@ async function* walkObject(
   if (seen.has(id) || haveSet.has(id)) return;
   seen.add(id);
 
+  // Load raw object with header
   const content = await collectContent(objects.loadRaw(id));
   const { type, body } = parseGitObject(content);
 
   yield { id, type, content: body };
 
+  // Recursively walk referenced objects based on type
   switch (type) {
     case 1: {
       // COMMIT
@@ -210,6 +248,8 @@ async function* walkObject(
       }
       break;
     }
+
+    // BLOB (type 3) has no references to walk
   }
 }
 
@@ -217,6 +257,7 @@ async function* walkObject(
  * Parse Git object to extract type and body content.
  */
 function parseGitObject(data: Uint8Array): { type: ObjectTypeCode; body: Uint8Array } {
+  // Find null byte after header
   let nullIdx = -1;
   for (let i = 0; i < Math.min(data.length, 32); i++) {
     if (data[i] === 0x00) {
@@ -268,7 +309,7 @@ function stringToObjectType(str: string): ObjectTypeCode | null {
 /**
  * Convert ObjectTypeCode to type string.
  */
-function objectTypeToString(type: ObjectTypeCode): "commit" | "tree" | "blob" | "tag" {
+function objectTypeToString(type: ObjectTypeCode): ObjectTypeString {
   switch (type) {
     case 1:
       return "commit";
@@ -312,37 +353,29 @@ function concatBytes(arrays: Uint8Array[]): Uint8Array {
 }
 
 /**
- * Factory function type for resolving repository.
- */
-export type RepositoryResolver = (
-  request: Request,
-  repoPath: string,
-) => Promise<HistoryStore | null>;
-
-/**
- * Create GitHttpServer options from HistoryStore resolver.
+ * Create GitHttpServer options from VCS store resolver.
  *
- * Convenience factory for setting up server with HistoryStore interface.
+ * Convenience factory for setting up server with VCS stores.
  *
  * @example
  * ```typescript
  * const server = createGitHttpServer(
- *   createRepositoryServerOptions(async (request, repoPath) => {
- *     return await openRepository(repoPath);
+ *   createVcsServerOptions(async (request, repoPath) => {
+ *     return { objects, refs, commits, trees };
  *   })
  * );
  * ```
  */
-export function createRepositoryServerOptions(
-  resolveRepository: RepositoryResolver,
+export function createVcsServerOptions(
+  resolveStores: VcsRepositoryResolver,
   options?: Partial<GitHttpServerOptionsBase>,
 ): GitHttpServerOptionsWithResolver {
   return {
     ...options,
     resolveRepository: async (request, repoPath) => {
-      const repository = await resolveRepository(request, repoPath);
-      if (!repository) return null;
-      return createRepositoryAdapter(repository);
+      const stores = await resolveStores(request, repoPath);
+      if (!stores) return null;
+      return createVcsRepositoryAdapter(stores);
     },
   };
 }
@@ -350,12 +383,9 @@ export function createRepositoryServerOptions(
 /**
  * Base options without resolveRepository (for spreading).
  */
-type GitHttpServerOptionsBase = Omit<
-  import("../http-server/types.js").GitHttpServerOptions,
-  "resolveRepository"
->;
+type GitHttpServerOptionsBase = Omit<GitHttpServerOptions, "resolveRepository">;
 
 /**
  * Options with resolveRepository.
  */
-type GitHttpServerOptionsWithResolver = import("../http-server/types.js").GitHttpServerOptions;
+type GitHttpServerOptionsWithResolver = GitHttpServerOptions;

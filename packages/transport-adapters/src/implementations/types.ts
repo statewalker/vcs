@@ -1,18 +1,11 @@
 /**
- * RepositoryAccess interface - Abstract object storage for transport operations
+ * Repository access types for implementations
  *
- * This interface provides byte-level access to Git objects in wire format,
- * abstracting away the underlying storage implementation (Git files, SQL, KV, etc).
- *
- * For transport layer operations (pack generation, object enumeration),
- * use RepositoryAccess. For typed object manipulation, use HistoryStore's
- * commits, trees, blobs stores directly.
- *
- * @see HistoryStore for typed object access
+ * These types define the contract for byte-level access to Git objects
+ * in wire format, abstracting the underlying storage implementation.
  */
 
-import type { ObjectId } from "../common/id/object-id.js";
-import type { ObjectTypeCode } from "../history/objects/object-types.js";
+import type { ObjectId, ObjectTypeCode } from "@statewalker/vcs-core";
 
 /**
  * Information about a stored object with type
