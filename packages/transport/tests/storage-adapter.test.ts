@@ -6,7 +6,10 @@
 
 import type { ObjectTypeCode } from "@statewalker/vcs-core";
 import { describe, expect, it } from "vitest";
-import { createStorageAdapter, type MinimalStorage } from "../src/adapters/storage-adapter.js";
+import {
+  createStorageAdapter,
+  type MinimalStorage,
+} from "../src/storage-adapters/storage-adapter.js";
 
 // Object type codes
 const OBJ_COMMIT = 1 as ObjectTypeCode;

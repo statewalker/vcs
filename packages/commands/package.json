@@ -41,7 +41,6 @@
     "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
-    "@statewalker/vcs-transport-adapters": "workspace:*",
     "@statewalker/vcs-utils-node": "workspace:*",
     "@types/node": "catalog:",
     "@statewalker/vcs-store-sql": "workspace:*",
