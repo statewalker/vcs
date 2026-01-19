@@ -20,7 +20,7 @@ import {
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { collect } from "@statewalker/vcs-utils/streams";
-import type { ObjectData, RepositoryAccess, RepositoryObjectInfo } from "./types.js";
+import type { ObjectData, RepositoryAccess, RepositoryObjectInfo } from "./repository-access.js";
 
 /**
  * SerializingRepositoryAccess implementation
@@ -31,6 +31,9 @@ import type { ObjectData, RepositoryAccess, RepositoryObjectInfo } from "./types
  * Use this for storage backends that store objects in structured format
  * rather than Git's wire format.
  *
+ * Note: This implementation does not support enumeration since the
+ * underlying stores don't provide list methods. Use GitNativeRepositoryAccess
+ * for full enumeration support.
  */
 export class SerializingRepositoryAccess implements RepositoryAccess {
   constructor(
