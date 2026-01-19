@@ -5,11 +5,12 @@
  * (e.g., different versions of same file). This is a common heuristic used by
  * Git during pack generation.
  *
- * Replaces the legacy SimilarSizeCandidateStrategy with the new CandidateFinder interface.
+ * Only supports blobs since delta compression only applies to blobs per DeltaApi design.
+ * Trees and commits are stored as-is without delta compression.
  */
 
-import type { ObjectTypeCode } from "../../../history/objects/object-types.js";
-import type { RepositoryAccess } from "../../repository-access.js";
+import type { BlobStore } from "../../../history/blobs/blob-store.js";
+import { ObjectType } from "../../../history/objects/object-types.js";
 import type {
   CandidateFinder,
   CandidateFinderOptions,
@@ -20,7 +21,7 @@ import type {
 /**
  * Options for SizeSimilarityCandidateFinder
  */
-export interface SizeSimilarityFinderOptions extends CandidateFinderOptions {
+export interface SizeSimilarityFinderOptions extends Omit<CandidateFinderOptions, "allowedTypes"> {
   /** Size tolerance ratio (default: 0.5 = 50% difference allowed) */
   tolerance?: number;
 }
@@ -30,7 +31,6 @@ export interface SizeSimilarityFinderOptions extends CandidateFinderOptions {
  */
 interface ScoredCandidate {
   id: string;
-  type: ObjectTypeCode;
   size: number;
   similarity: number;
 }
@@ -41,21 +41,21 @@ interface ScoredCandidate {
  * Uses size similarity as a heuristic for content similarity.
  * Objects within the tolerance range are returned, sorted by
  * similarity (closest size first).
+ *
+ * Only supports blobs since delta compression only applies to blobs.
  */
 export class SizeSimilarityCandidateFinder implements CandidateFinder {
   private readonly tolerance: number;
   private readonly maxCandidates: number;
   private readonly minSimilarity: number;
-  private readonly allowedTypes?: ObjectTypeCode[];
 
   constructor(
-    private readonly storage: RepositoryAccess,
+    private readonly blobs: BlobStore,
     options: SizeSimilarityFinderOptions = {},
   ) {
     this.tolerance = options.tolerance ?? 0.5;
     this.maxCandidates = options.maxCandidates ?? 10;
     this.minSimilarity = options.minSimilarity ?? 0;
-    this.allowedTypes = options.allowedTypes;
   }
 
   async *findCandidates(target: DeltaTarget): AsyncIterable<DeltaCandidate> {
@@ -67,29 +67,27 @@ export class SizeSimilarityCandidateFinder implements CandidateFinder {
     const candidates: ScoredCandidate[] = [];
     const bufferSize = this.maxCandidates * 2; // Collect extra for sorting
 
-    for await (const info of this.storage.enumerateWithInfo()) {
+    // Enumerate blobs directly - only blobs have delta support
+    for await (const id of this.blobs.keys()) {
       // Skip the target itself
-      if (info.id === target.id) continue;
+      if (id === target.id) continue;
 
-      // Check type filter
-      if (this.allowedTypes && !this.allowedTypes.includes(info.type)) {
-        continue;
-      }
+      // Get blob size directly from BlobStore
+      const size = await this.blobs.size(id);
 
       // Check size within tolerance range
-      if (info.size < minSize || info.size > maxSize) continue;
+      if (size < minSize || size > maxSize) continue;
 
       // Calculate similarity based on size difference
       // Closer sizes = higher similarity
-      const sizeDiff = Math.abs(info.size - target.size);
+      const sizeDiff = Math.abs(size - target.size);
       const similarity = 1 - sizeDiff / Math.max(target.size, 1);
 
       if (similarity < this.minSimilarity) continue;
 
       candidates.push({
-        id: info.id,
-        type: info.type,
-        size: info.size,
+        id,
+        size,
         similarity,
       });
 
@@ -109,7 +107,7 @@ export class SizeSimilarityCandidateFinder implements CandidateFinder {
 
       const result: DeltaCandidate = {
         id: candidate.id,
-        type: candidate.type,
+        type: ObjectType.BLOB, // Always BLOB since we're iterating blobs
         size: candidate.size,
         similarity: candidate.similarity,
         reason: "similar-size",
