@@ -19,8 +19,7 @@ import type {
 } from "@statewalker/vcs-core";
 import { serializeCommit, serializeTree } from "@statewalker/vcs-core";
 import { MemoryRefStore, MemoryStagingStore, MemoryTagStore } from "@statewalker/vcs-store-mem";
-import { createGitHttpServer } from "@statewalker/vcs-transport";
-import { createVcsRepositoryAdapter } from "@statewalker/vcs-transport-adapters/adapters";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 import { Git, type GitStore } from "../src/index.js";
 import { testAuthor } from "./test-helper.js";

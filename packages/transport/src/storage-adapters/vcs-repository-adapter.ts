@@ -6,10 +6,6 @@
  *
  * This adapter provides a clean integration layer that uses only interfaces from
  * @statewalker/vcs-core, eliminating dependencies on implementation-specific storage types.
- *
- * @deprecated Use VcsRepositoryAccess from implementations/vcs-repository-access.ts instead.
- * VcsRepositoryAccess uses high-level stores (BlobStore, TreeStore, etc.) directly,
- * without requiring GitObjectStore. This file is kept for backward compatibility.
  */
 
 import type {
@@ -24,13 +20,12 @@ import type {
   TreeStore,
 } from "@statewalker/vcs-core";
 import type {
-  GitHttpServerOptions,
   HeadInfo,
   ObjectId,
   ObjectInfo,
   RefInfo,
   RepositoryAccess,
-} from "@statewalker/vcs-transport";
+} from "../handlers/types.js";
 
 /**
  * VCS stores required for HTTP server operations.
@@ -387,9 +382,12 @@ export function createVcsServerOptions(
 /**
  * Base options without resolveRepository (for spreading).
  */
-type GitHttpServerOptionsBase = Omit<GitHttpServerOptions, "resolveRepository">;
+type GitHttpServerOptionsBase = Omit<
+  import("../http-server/types.js").GitHttpServerOptions,
+  "resolveRepository"
+>;
 
 /**
  * Options with resolveRepository.
  */
-type GitHttpServerOptionsWithResolver = GitHttpServerOptions;
+type GitHttpServerOptionsWithResolver = import("../http-server/types.js").GitHttpServerOptions;
