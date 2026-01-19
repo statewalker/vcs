@@ -125,7 +125,7 @@ describe("ServerProtocolSession", () => {
         service: "git-upload-pack",
       });
 
-      await expect(session.readHeader()).rejects.toThrow("Unknown service");
+      await expect(session.readHeader()).rejects.toThrow("Unknown git service");
     });
 
     it("should throw on flush packet as header", async () => {

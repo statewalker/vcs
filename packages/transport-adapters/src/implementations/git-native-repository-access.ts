@@ -13,12 +13,28 @@ import {
   type ObjectTypeString,
 } from "@statewalker/vcs-core";
 import { collect } from "@statewalker/vcs-utils/streams";
-import type {
-  DeltaAwareRepositoryAccess,
-  ObjectData,
-  RepositoryAccess,
-  RepositoryObjectInfo,
-} from "./repository-access.js";
+
+/**
+ * Information about a stored object with type
+ */
+export interface RepositoryObjectInfo {
+  /** Object ID (SHA-1 hash) */
+  id: ObjectId;
+  /** Object type (commit, tree, blob, tag) */
+  type: ObjectTypeCode;
+  /** Object size in bytes (uncompressed content, without header) */
+  size: number;
+}
+
+/**
+ * Object data with type and content
+ */
+export interface ObjectData {
+  /** Object type code */
+  type: ObjectTypeCode;
+  /** Object content (raw bytes, without Git header) */
+  content: Uint8Array;
+}
 
 /**
  * Map from ObjectTypeString to ObjectTypeCode
@@ -41,12 +57,35 @@ const TYPE_CODE_TO_STRING: Record<ObjectTypeCode, ObjectTypeString> = {
 };
 
 /**
+ * Interface for object-only storage access (no refs).
+ * Used by GitNativeRepositoryAccess for direct object store operations.
+ */
+export interface ObjectStoreAccess {
+  has(id: ObjectId): Promise<boolean>;
+  getInfo(id: ObjectId): Promise<RepositoryObjectInfo | null>;
+  load(id: ObjectId): Promise<ObjectData | null>;
+  store(type: ObjectTypeCode, content: Uint8Array): Promise<ObjectId>;
+  enumerate(): AsyncIterable<ObjectId>;
+  enumerateWithInfo(): AsyncIterable<RepositoryObjectInfo>;
+  loadWireFormat(id: ObjectId): Promise<Uint8Array | null>;
+}
+
+/**
+ * Interface for delta-aware object storage.
+ */
+export interface DeltaAwareRepositoryAccess extends ObjectStoreAccess {
+  isDelta(id: ObjectId): Promise<boolean>;
+  getDeltaBase(id: ObjectId): Promise<ObjectId | null>;
+  getChainDepth(id: ObjectId): Promise<number>;
+}
+
+/**
  * GitNativeRepositoryAccess implementation
  *
  * Direct passthrough to GitObjectStore - no serialization overhead.
  * Uses the existing GitObjectStore for all operations.
  */
-export class GitNativeRepositoryAccess implements RepositoryAccess {
+export class GitNativeRepositoryAccess implements ObjectStoreAccess {
   constructor(protected readonly objectStore: GitObjectStore) {}
 
   async has(id: ObjectId): Promise<boolean> {
