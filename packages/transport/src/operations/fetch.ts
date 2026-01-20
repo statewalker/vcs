@@ -13,7 +13,7 @@
 
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { openUploadPack } from "../connection/connection-factory.js";
-import type { Credentials } from "../connection/types.js";
+import type { Credentials, DiscoverableConnection } from "../connection/types.js";
 import {
   buildFetchRequest,
   buildWants,
@@ -31,10 +31,16 @@ import { receivePack } from "../streams/pack-receiver.js";
 
 /**
  * Options for fetch operation.
+ *
+ * Either `url` or `connection` must be provided, but not both.
+ * Use `url` for standard remote fetching.
+ * Use `connection` for P2P communication with pre-established sockets.
  */
 export interface FetchOptions {
-  /** Remote URL */
-  url: string;
+  /** Remote URL (mutually exclusive with connection) */
+  url?: string;
+  /** Pre-created connection for P2P (mutually exclusive with url) */
+  connection?: DiscoverableConnection;
   /** Refspecs to fetch (default: +refs/heads/*:refs/remotes/origin/*) */
   refspecs?: string[];
   /** Authentication credentials */
@@ -73,10 +79,21 @@ export interface FetchResult {
 
 /**
  * Fetch objects from a remote repository.
+ *
+ * @example
+ * // Fetch from URL
+ * const result = await fetch({ url: "https://github.com/user/repo.git" });
+ *
+ * @example
+ * // Fetch from P2P socket connection
+ * const socket = createBidirectionalSocket(port);
+ * const connection = openUploadPackFromSocket(socket, "/repo.git");
+ * const result = await fetch({ connection });
  */
 export async function fetch(options: FetchOptions): Promise<FetchResult> {
   const {
     url,
+    connection: providedConnection,
     refspecs = ["+refs/heads/*:refs/remotes/origin/*"],
     auth,
     headers,
@@ -88,15 +105,20 @@ export async function fetch(options: FetchOptions): Promise<FetchResult> {
     localCommits,
   } = options;
 
+  // Validate options
+  if (!url && !providedConnection) {
+    throw new Error("Either url or connection must be provided");
+  }
+  if (url && providedConnection) {
+    throw new Error("Cannot specify both url and connection");
+  }
+
   // Parse refspecs
   const parsedRefspecs = refspecs.map(parseRefSpec);
 
-  // Open connection
-  const connection = await openUploadPack(url, {
-    auth,
-    headers,
-    timeout,
-  });
+  // Use provided connection or create from URL
+  const connection = providedConnection ?? (await openUploadPack(url!, { auth, headers, timeout }));
+  const shouldClose = !providedConnection; // Only close if we created it
 
   try {
     // Discover refs
@@ -161,7 +183,10 @@ export async function fetch(options: FetchOptions): Promise<FetchResult> {
       isEmpty: false,
     };
   } finally {
-    await connection.close();
+    // Only close connection if we created it
+    if (shouldClose) {
+      await connection.close();
+    }
   }
 }
 

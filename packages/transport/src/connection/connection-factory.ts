@@ -1,13 +1,20 @@
 /**
  * Connection factory for creating appropriate connections based on URL.
+ *
+ * Supports multiple transport types:
+ * - HTTP/HTTPS: Uses HttpConnection
+ * - git://: Uses GitConnection with TCP socket factory
+ * - Socket: Uses createGitSocketClient for P2P communication
  */
 
+import { HttpConnection } from "../http/client.js";
 import { parseGitUrl } from "../negotiation/uri.js";
 import { SERVICE_RECEIVE_PACK, SERVICE_UPLOAD_PACK } from "../protocol/constants.js";
 import { TransportError } from "../protocol/errors.js";
 import type { GitUrl } from "../protocol/types.js";
+import { createGitSocketClient } from "../socket/client.js";
+import type { BidirectionalSocket } from "../socket/types.js";
 import { GitConnection, type TcpSocket } from "./git-connection.js";
-import { HttpConnection } from "./http-connection.js";
 import type { Credentials, DiscoverableConnection } from "./types.js";
 
 /**
@@ -147,4 +154,54 @@ export async function openReceivePack(
 ): Promise<DiscoverableConnection> {
   const factory = createConnection(url, options);
   return factory.openReceivePack();
+}
+
+// =============================================================================
+// Socket-based connections (for P2P communication)
+// =============================================================================
+
+/**
+ * Open upload-pack connection from an existing socket.
+ *
+ * Use this for P2P communication where you have a pre-established
+ * BidirectionalSocket (e.g., from a MessagePort or WebSocket).
+ *
+ * @param socket - The bidirectional socket to use
+ * @param path - Repository path (e.g., "/repo.git")
+ * @param host - Optional host identifier (defaults to "localhost")
+ * @returns DiscoverableConnection for fetch operations
+ */
+export function openUploadPackFromSocket(
+  socket: BidirectionalSocket,
+  path: string,
+  host = "localhost",
+): DiscoverableConnection {
+  return createGitSocketClient(socket, {
+    path,
+    host,
+    service: "git-upload-pack",
+  });
+}
+
+/**
+ * Open receive-pack connection from an existing socket.
+ *
+ * Use this for P2P communication where you have a pre-established
+ * BidirectionalSocket (e.g., from a MessagePort or WebSocket).
+ *
+ * @param socket - The bidirectional socket to use
+ * @param path - Repository path (e.g., "/repo.git")
+ * @param host - Optional host identifier (defaults to "localhost")
+ * @returns DiscoverableConnection for push operations
+ */
+export function openReceivePackFromSocket(
+  socket: BidirectionalSocket,
+  path: string,
+  host = "localhost",
+): DiscoverableConnection {
+  return createGitSocketClient(socket, {
+    path,
+    host,
+    service: "git-receive-pack",
+  });
 }
