@@ -239,8 +239,6 @@ export async function* sendWithAcknowledgement(
  * Uses byte-based sub-stream splitting: after chunkSize bytes are sent,
  * waits for ACK before continuing.
  *
- * Subscribes to port errors and throws if an error occurs during transmission.
- *
  * @param port MessagePortLike for communication
  * @param stream Binary stream to send
  * @param options Configuration options
@@ -253,54 +251,27 @@ export async function writeStream(
   const awaitAck = createAwaitAckFunction(port, { ackTimeout: options.ackTimeout });
   let messageId = 0;
 
-  // Track port errors to throw during stream processing
-  let portError: Error | undefined;
-  const onError = (error: Error) => {
-    portError = error;
-  };
-  port.addEventListener("error", onError);
+  port.start();
 
-  try {
-    port.start();
+  const acknowledgedStream = sendWithAcknowledgement(stream, awaitAck, {
+    chunkSize: options.chunkSize,
+  });
 
-    const acknowledgedStream = sendWithAcknowledgement(stream, awaitAck, {
-      chunkSize: options.chunkSize,
-    });
-
-    for await (const chunk of acknowledgedStream) {
-      // Check for port error before sending
-      if (portError) {
-        throw portError;
-      }
-      const encodedMessage = encode(MessageType.DATA, messageId++, chunk);
-      port.postMessage(encodedMessage);
-    }
-
-    // Check for port error before final ACK
-    if (portError) {
-      throw portError;
-    }
-
-    // Final ACK before END to ensure all data processed
-    await awaitAck();
-
-    // Check for port error before END
-    if (portError) {
-      throw portError;
-    }
-
-    // Signal completion
-    const endMessage = encode(MessageType.END, messageId);
-    port.postMessage(endMessage);
-  } finally {
-    port.removeEventListener("error", onError);
+  for await (const chunk of acknowledgedStream) {
+    const encodedMessage = encode(MessageType.DATA, messageId++, chunk);
+    port.postMessage(encodedMessage);
   }
+
+  // Final ACK before END to ensure all data processed
+  await awaitAck();
+
+  // Signal completion
+  const endMessage = encode(MessageType.END, messageId);
+  port.postMessage(endMessage);
 }
 
 /**
  * Read a binary stream from MessagePort, responding to ACK requests.
- *
- * Subscribes to port errors and throws if an error occurs during reading.
  *
  * @param port MessagePortLike for communication
  * @returns AsyncIterable yielding received binary blocks
@@ -334,18 +305,12 @@ export function readStream(port: MessagePortLike): AsyncIterable<Uint8Array> {
       }
     }
 
-    function onError(error: Error) {
-      done(error);
-    }
-
     port.addEventListener("message", onMessage);
-    port.addEventListener("error", onError);
     port.start();
 
     // Cleanup function
     return () => {
       port.removeEventListener("message", onMessage);
-      port.removeEventListener("error", onError);
     };
   });
 }
