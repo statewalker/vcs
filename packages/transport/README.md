@@ -24,6 +24,9 @@ pnpm add @statewalker/vcs-transport
 import {
   // HTTP Server
   createGitHttpServer,
+  createVcsRepositoryAdapter,
+  createVcsServerOptions,
+  createStorageAdapter,
   // Protocol handlers
   UploadPackHandler,
   ReceivePackHandler,
@@ -32,16 +35,10 @@ import {
   // Protocol utilities
   PktLineCodec,
   // Types
+  type VcsStores,
   type RepositoryAccess,
   type GitHttpServerOptions,
 } from "@statewalker/vcs-transport";
-
-// Storage adapters are in the separate transport-adapters package
-import {
-  createVcsRepositoryAccess,
-  createCoreRepositoryAccess,
-  createStorageAdapter,
-} from "@statewalker/vcs-transport-adapters";
 ```
 
 ### Sub-exports
@@ -65,8 +62,9 @@ import {
 | `ProtocolV2Handler` | Protocol v2 support |
 | `NegotiationState` | Negotiation state machine |
 | `createGitHttpServer` | Create HTTP server instance |
-
-**Note:** Storage adapters (`createVcsRepositoryAccess`, `createCoreRepositoryAccess`, `createStorageAdapter`) are now in `@statewalker/vcs-transport-adapters`.
+| `createVcsRepositoryAdapter` | Adapt VCS stores to RepositoryAccess |
+| `createVcsServerOptions` | Helper for server configuration |
+| `createStorageAdapter` | Legacy adapter for MinimalStorage |
 
 ## Usage Examples
 
@@ -126,18 +124,17 @@ if (result.success) {
 The transport package includes a complete HTTP server implementation that responds to Git smart protocol requests. The server works with any storage backend that implements the VCS interfaces.
 
 ```typescript
-import { createGitHttpServer } from "@statewalker/vcs-transport";
-import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 const server = createGitHttpServer({
   async resolveRepository(request, repoPath) {
     // Return VCS stores for the requested repository
-    return createVcsRepositoryAccess({
-      blobs: myBlobStore,
-      trees: myTreeStore,
-      commits: myCommitStore,
-      tags: myTagStore,
+    return createVcsRepositoryAdapter({
+      objects: myObjectStore,
       refs: myRefStore,
+      commits: myCommitStore,
+      trees: myTreeStore,
+      tags: myTagStore, // optional
     });
   },
   // Optional configuration
@@ -153,7 +150,7 @@ const server = createGitHttpServer({
 const response = await server.fetch(request);
 ```
 
-The `createVcsRepositoryAccess` function adapts VCS store interfaces to the `RepositoryAccess` interface used by protocol handlers. This approach keeps storage implementation details separate from protocol handling.
+The `createVcsRepositoryAdapter` function adapts VCS store interfaces to the `RepositoryAccess` interface used by protocol handlers. This approach keeps storage implementation details separate from protocol handling.
 
 #### Platform Integration Examples
 
@@ -162,15 +159,14 @@ The server uses Web Standard APIs (`Request`/`Response`), making it portable acr
 **Cloudflare Workers:**
 
 ```typescript
-import { createGitHttpServer } from "@statewalker/vcs-transport";
-import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 export default {
   async fetch(request: Request): Promise<Response> {
     const server = createGitHttpServer({
       async resolveRepository(req, repoPath) {
         const stores = await getRepositoryStores(repoPath);
-        return createVcsRepositoryAccess(stores);
+        return createVcsRepositoryAdapter(stores);
       },
     });
     return server.fetch(request);
@@ -181,8 +177,7 @@ export default {
 **Deno:**
 
 ```typescript
-import { createGitHttpServer } from "@statewalker/vcs-transport";
-import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 const server = createGitHttpServer({ /* ... */ });
 Deno.serve((request) => server.fetch(request));
@@ -192,8 +187,7 @@ Deno.serve((request) => server.fetch(request));
 
 ```typescript
 import { createServer } from "node:http";
-import { createGitHttpServer } from "@statewalker/vcs-transport";
-import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 const gitServer = createGitHttpServer({ /* ... */ });
 
@@ -214,17 +208,34 @@ createServer(async (req, res) => {
 }).listen(3000);
 ```
 
+For convenience, you can also use `createVcsServerOptions` to configure the server:
+
+```typescript
+import { createGitHttpServer, createVcsServerOptions } from "@statewalker/vcs-transport";
+
+const server = createGitHttpServer(
+  createVcsServerOptions(
+    async (request, repoPath) => ({
+      objects: getObjectStore(repoPath),
+      refs: getRefStore(repoPath),
+      commits: getCommitStore(repoPath),
+      trees: getTreeStore(repoPath),
+    }),
+    { basePath: "/repos/" }
+  )
+);
+```
+
 #### Authentication Patterns
 
 The server supports flexible authentication through callback hooks:
 
 ```typescript
-import { createGitHttpServer } from "@statewalker/vcs-transport";
-import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
+import { createGitHttpServer, createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
 
 const server = createGitHttpServer({
   async resolveRepository(request, repoPath) {
-    return createVcsRepositoryAccess(await loadRepository(repoPath));
+    return createVcsRepositoryAdapter(await loadRepository(repoPath));
   },
 
   // Authenticate the request (called before any operation)

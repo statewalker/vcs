@@ -10,11 +10,6 @@
  */
 
 import {
-  extraParamsToArray,
-  getProtocolVersion,
-  parseGitProtocolRequest,
-} from "../protocol/git-request-parser.js";
-import {
   encodeFlush,
   encodePacket,
   packetDataToString,
@@ -110,40 +105,67 @@ export class ServerProtocolSession {
     host?: string;
     extraParams: string[];
   }> {
+    // Read the first packet
     const input = this.stream.input;
 
-    // Read 4-byte length prefix
-    const lengthBytes = await input.read(4);
-    if (lengthBytes.length < 4) {
+    // For git:// protocol, first line contains service and path
+    const firstChunk = await input.read(4);
+    if (firstChunk.length < 4) {
       throw new Error("Invalid protocol header: too short");
     }
 
-    const lengthStr = new TextDecoder().decode(lengthBytes);
+    // Parse length
+    const lengthStr = new TextDecoder().decode(firstChunk);
     const length = parseInt(lengthStr, 16);
 
     if (length === 0) {
       throw new Error("Invalid protocol header: flush packet");
     }
 
-    // Read payload
+    // Read rest of packet
     const payload = await input.read(length - 4);
+    const line = new TextDecoder().decode(payload);
 
-    // Delegate parsing to pure function
-    const parsed = parseGitProtocolRequest(payload);
+    // Parse: "git-upload-pack /path\0host=...\0extra\0"
+    const parts = line.split("\0").filter((p) => p.length > 0);
+    const firstPart = parts[0] ?? "";
 
-    // Update state with protocol version
-    const version = getProtocolVersion(parsed.extraParams);
-    if (version) {
-      this.state.version = version;
+    let service: GitService;
+    let path: string;
+
+    if (firstPart.startsWith("git-upload-pack ")) {
+      service = "git-upload-pack";
+      path = firstPart.slice(16).trim();
+    } else if (firstPart.startsWith("git-receive-pack ")) {
+      service = "git-receive-pack";
+      path = firstPart.slice(17).trim();
+    } else {
+      throw new Error(`Unknown service: ${firstPart}`);
     }
 
-    // Convert to existing return type
-    return {
-      service: parsed.service,
-      path: parsed.path,
-      host: parsed.host || undefined,
-      extraParams: extraParamsToArray(parsed.extraParams),
-    };
+    // Parse extra parameters
+    const extraParams: string[] = [];
+    let host: string | undefined;
+
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      if (part.startsWith("host=")) {
+        host = part.slice(5);
+      } else if (part.startsWith("version=")) {
+        // Protocol version request
+        const version = part.slice(8);
+        if (version === "2") {
+          this.state.version = "2";
+        } else if (version === "1") {
+          this.state.version = "1";
+        }
+        extraParams.push(part);
+      } else {
+        extraParams.push(part);
+      }
+    }
+
+    return { service, path, host, extraParams };
   }
 
   /**
