@@ -43,8 +43,10 @@ for await (const packet of connection.receive()) {
 ├── handlers/           # Protocol handlers (UploadPack, ReceivePack)
 ├── operations/         # High-level operations (fetch, push, clone)
 ├── http-server/        # Web-standard HTTP server
-├── storage-adapters/   # RepositoryAccess adapters
 └── streams/            # Pack receiving, progress reporting
+
+Note: Storage adapters that convert VCS stores to RepositoryAccess are in the
+separate @statewalker/vcs-transport-adapters package.
 ```
 
 ## Protocol Layer Deep Dive
@@ -388,43 +390,28 @@ createServer(toNodeHandler(gitServer)).listen(3000);
 
 ## Storage Adapters
 
-### RepositoryAccess Interface
-
-Protocol handlers interact with storage through this abstract interface:
-
-```typescript
-interface RepositoryAccess {
-  // Refs
-  listRefs(prefix?: string): AsyncIterable<{ name: string; oid: Uint8Array }>;
-  getHead(): Promise<{ ref?: string; oid?: Uint8Array }>;
-  updateRef(name: string, oldOid: Uint8Array, newOid: Uint8Array): Promise<boolean>;
-
-  // Objects
-  hasObject(oid: Uint8Array): Promise<boolean>;
-  loadObject(oid: Uint8Array): Promise<{ type: number; data: Uint8Array }>;
-  storeObject(type: number, data: Uint8Array): Promise<Uint8Array>;
-
-  // Traversal
-  walkObjects(want: Uint8Array[], have: Uint8Array[]): AsyncIterable<Uint8Array>;
-}
-```
+Storage adapters that convert VCS store interfaces to `RepositoryAccess` are provided by the separate `@statewalker/vcs-transport-adapters` package.
 
 ### Adapter Pattern
 
 Adapters bridge storage implementations to RepositoryAccess:
 
 ```typescript
-import { createVcsRepositoryAdapter } from "@statewalker/vcs-transport";
+import { createGitHttpServer } from "@statewalker/vcs-transport";
+import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 
-const adapter = createVcsRepositoryAdapter({
-  objects: repository.objects,
-  commits: repository.commits,
+const adapter = createVcsRepositoryAccess({
+  blobs: repository.blobs,
   trees: repository.trees,
+  commits: repository.commits,
+  tags: repository.tags,
   refs: repository.refs,
 });
 
 const handler = createUploadPackHandler({ repository: adapter });
 ```
+
+See `@statewalker/vcs-transport-adapters` for the full `RepositoryAccess` interface definition and available adapter implementations.
 
 ## Shallow Clone Support
 
