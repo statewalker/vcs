@@ -1,6 +1,6 @@
 export * from "./connection/index.js";
 export * from "./handlers/index.js";
-export * from "./http-server/index.js";
+export * from "./http/index.js";
 export * from "./negotiation/index.js";
 export * from "./operations/index.js";
 export * from "./peer/index.js";
