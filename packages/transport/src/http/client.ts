@@ -29,7 +29,7 @@ import {
 } from "../protocol/errors.js";
 import { collectPackets, pktLineReader, pktLineWriter } from "../protocol/pkt-line-codec.js";
 import type { Packet, RefAdvertisement, ServiceType } from "../protocol/types.js";
-import type { ConnectionOptions, Credentials, DiscoverableConnection } from "./types.js";
+import type { ConnectionOptions, Credentials, DiscoverableConnection } from "../connection/types.js";
 
 const DEFAULT_USER_AGENT = "statewalker-vcs/1.0";
 const DEFAULT_TIMEOUT = 30000;
