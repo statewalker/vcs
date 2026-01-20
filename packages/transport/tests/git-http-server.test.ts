@@ -14,7 +14,7 @@ import type {
   RefInfo,
   RepositoryAccess,
 } from "../src/handlers/types.js";
-import { createGitHttpServer } from "../src/http/server.js";
+import { createGitHttpServer } from "../src/http-server/git-http-server.js";
 import {
   CONTENT_TYPE_RECEIVE_PACK_ADVERTISEMENT,
   CONTENT_TYPE_RECEIVE_PACK_REQUEST,
