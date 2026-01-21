@@ -2,12 +2,12 @@
  * Connection factory for creating appropriate connections based on URL.
  */
 
+import { HttpConnection } from "../http/client.js";
 import { parseGitUrl } from "../negotiation/uri.js";
 import { SERVICE_RECEIVE_PACK, SERVICE_UPLOAD_PACK } from "../protocol/constants.js";
 import { TransportError } from "../protocol/errors.js";
 import type { GitUrl } from "../protocol/types.js";
 import { GitConnection, type TcpSocket } from "./git-connection.js";
-import { HttpConnection } from "./http-connection.js";
 import type { Credentials, DiscoverableConnection } from "./types.js";
 
 /**
