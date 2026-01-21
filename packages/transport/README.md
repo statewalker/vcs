@@ -53,7 +53,6 @@ import {
 | `@statewalker/vcs-transport/connection` | HTTP connection implementation |
 | `@statewalker/vcs-transport/operations` | Remote operations (fetch, push) |
 | `@statewalker/vcs-transport/streams` | Stream utilities |
-| `@statewalker/vcs-transport/peer` | P2P transport over MessagePort |
 
 ### Key Classes and Functions
 
@@ -66,19 +65,6 @@ import {
 | `ProtocolV2Handler` | Protocol v2 support |
 | `NegotiationState` | Negotiation state machine |
 | `createGitHttpServer` | Create HTTP server instance |
-
-### P2P Transport Classes
-
-| Export | Purpose |
-|--------|---------|
-| `fetchFromPeer` | Fetch objects from peer over MessagePort |
-| `pushToPeer` | Push objects to peer over MessagePort |
-| `createGitStreamFromPort` | Bridge MessagePort to Git protocol stream |
-| `planBidirectionalSync` | Plan two-way sync with conflict detection |
-| `withTimeout` | Timeout wrapper for async operations |
-| `withRetry` | Retry wrapper with exponential backoff |
-| `createDisconnectMonitor` | Monitor port disconnect events |
-| `createTransferTracker` | Track partial transfer state |
 
 **Note:** Storage adapters (`createVcsRepositoryAccess`, `createCoreRepositoryAccess`, `createStorageAdapter`) are now in `@statewalker/vcs-transport-adapters`.
 
@@ -269,124 +255,6 @@ const server = createGitHttpServer({
 ```
 
 When authentication fails, the server returns a 401 status with a `WWW-Authenticate` header prompting for credentials.
-
-### P2P Transport over MessagePort
-
-The transport package supports peer-to-peer Git operations over any MessagePortLike transport (WebRTC, WebSocket, PeerJS). This enables direct browser-to-browser synchronization without a central Git server.
-
-#### Fetching from a Peer
-
-```typescript
-import { wrapNativePort } from "@statewalker/vcs-utils";
-import { fetchFromPeer } from "@statewalker/vcs-transport/peer";
-
-const channel = new MessageChannel();
-const port = wrapNativePort(channel.port1);
-
-// Fetch refs and objects from a peer
-const result = await fetchFromPeer(port, {
-  localHaves: ["abc123..."], // Objects we already have
-  onProgress: (info) => console.log(`${info.phase}: ${info.loaded}/${info.total}`),
-});
-
-console.log("Remote refs:", result.refs);
-if (result.packData) {
-  // Process pack data with core package
-  await applyPack(result.packData);
-}
-```
-
-#### Pushing to a Peer
-
-```typescript
-import { wrapNativePort } from "@statewalker/vcs-utils";
-import { pushToPeer } from "@statewalker/vcs-transport/peer";
-
-const port = wrapNativePort(channel.port1);
-
-const result = await pushToPeer(port, {
-  updates: [
-    { refName: "refs/heads/main", oldOid: "abc...", newOid: "def..." },
-  ],
-  packData: packFile, // Pre-generated pack data
-});
-
-if (result.success) {
-  console.log("Push successful!");
-} else {
-  console.log("Errors:", result.errors);
-}
-```
-
-#### Bidirectional Sync
-
-Plan two-way synchronization with conflict detection:
-
-```typescript
-import { planBidirectionalSync } from "@statewalker/vcs-transport/peer";
-
-const plan = await planBidirectionalSync({
-  localRefs: [{ name: "refs/heads/main", objectId: "abc..." }],
-  remoteRefs: [{ name: "refs/heads/main", objectId: "def..." }],
-  isAncestor: async (ancestor, descendant) => checkAncestry(ancestor, descendant),
-  conflictResolution: "conflict", // or "prefer-local" or "prefer-remote"
-});
-
-console.log("Refs to fetch:", plan.toFetch);
-console.log("Refs to push:", plan.toPush);
-console.log("Conflicts:", plan.conflicts);
-```
-
-#### Error Recovery
-
-The P2P transport includes comprehensive error recovery:
-
-```typescript
-import {
-  withTimeout,
-  withRetry,
-  createDisconnectMonitor,
-  wrapP2POperation,
-} from "@statewalker/vcs-transport/peer";
-
-// Wrap an operation with timeout
-const result = await withTimeout(
-  fetchFromPeer(port),
-  { timeoutMs: 30000, operation: "fetch" }
-);
-
-// Automatic retry with exponential backoff
-const result = await withRetry(
-  () => fetchFromPeer(port),
-  {
-    maxRetries: 3,
-    initialDelayMs: 1000,
-    onRetry: (attempt, err, delay) => {
-      console.log(`Retry ${attempt} after ${delay}ms: ${err.message}`);
-    },
-  }
-);
-
-// Full-featured operation wrapper
-const result = await wrapP2POperation(
-  port,
-  "fetch",
-  async (ctx) => {
-    ctx.monitor?.markConnected();
-    const data = await fetchFromPeer(port);
-    ctx.reportProgress(data.bytesReceived);
-    return data;
-  },
-  {
-    timeoutMs: 60000,
-    monitorDisconnect: true,
-    trackTransfer: true,
-    retry: { maxRetries: 2 },
-  }
-);
-```
-
-See [P2P Architecture](./docs/P2P-ARCHITECTURE.md) for more details.
 
 ### Working with Pkt-lines
 
