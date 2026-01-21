@@ -244,15 +244,18 @@ describe("writeStream() and readStream()", () => {
     const port1 = wrapNativePort(channel.port1);
 
     // Don't set up a receiver, just let messages go unacknowledged
+    // Use small chunkSize to ensure multiple sub-streams and trigger ACK request
     async function* input(): AsyncGenerator<Uint8Array> {
-      yield bytes(1, 2, 3);
+      yield bytes(1, 2);
+      yield bytes(3, 4);
     }
 
     const sendPromise = writeStream(port1, input(), {
       ackTimeout: 50,
+      chunkSize: 2, // Force sub-stream split after 2 bytes to trigger ACK
     });
 
-    // Should timeout because no receiver
+    // Should timeout because no receiver to respond to ACK between sub-streams
     await expect(sendPromise).rejects.toThrow(/Timeout waiting for acknowledgement/);
   });
 
@@ -423,8 +426,9 @@ describe("writeStream() and readStream()", () => {
     // Count REQUEST_ACK messages (type=1)
     const requestAckCount = messageTypes.filter((t) => t === 1).length;
     // With 5 bytes and chunkSize=2: sub-streams of [2, 2, 1] bytes = 3 sub-streams
-    // ACKs are sent BETWEEN sub-streams (2) + final ACK (1) = 3 REQUEST_ACKs
-    expect(requestAckCount).toBe(3);
+    // ACKs are sent BETWEEN sub-streams (before 2nd and 3rd) = 2 REQUEST_ACKs
+    // No final ACK - END message is sufficient
+    expect(requestAckCount).toBe(2);
   });
 
   it("should handle large chunkSize (bigger than stream)", async () => {
@@ -444,15 +448,15 @@ describe("writeStream() and readStream()", () => {
       yield bytes(2);
     }
 
-    // chunkSize=100 but only 2 bytes - should send 1 REQUEST_ACK + final ACK
+    // chunkSize=100 but only 2 bytes - fits in single sub-stream, no ACKs needed
     const sendPromise = writeStream(port1, input(), { chunkSize: 100 });
     const received = await collect(readStream(port2));
     await sendPromise;
 
     expect(received).toHaveLength(2);
-    // Should have: DATA, DATA, REQUEST_ACK (final), END
+    // Should have: DATA, DATA, END (no REQUEST_ACK since only 1 sub-stream)
     const requestAckCount = messageTypes.filter((t) => t === 1).length;
-    expect(requestAckCount).toBe(1); // Only final ACK
+    expect(requestAckCount).toBe(0); // No ACKs - single sub-stream, no final ACK
   });
 
   it("should handle backpressure with byte-based batching", async () => {

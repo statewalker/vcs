@@ -114,12 +114,17 @@ export function createBidirectionalSocket(
   // OUTPUT: Create pushable generator for writing
   const { generator: outputGenerator, push, end } = createPushableGenerator();
 
+  // AbortController for graceful close - allows cancelling ACK waits
+  const abortController = new AbortController();
+
   let writeError: Error | undefined;
   let closed = false;
 
   // Start writeStream - runs in background
-  // We catch errors but don't propagate timeout errors during close
-  const writePromise = writeStream(port, outputGenerator, options).catch((err) => {
+  const writePromise = writeStream(port, outputGenerator, {
+    ...options,
+    signal: abortController.signal,
+  }).catch((err) => {
     if (!closed) {
       writeError = err instanceof Error ? err : new Error(String(err));
     }
@@ -215,21 +220,28 @@ export function createBidirectionalSocket(
       if (closed) return;
       closed = true;
 
-      // Signal end of output stream
+      // Signal end of output stream - writeStream will send END
       end();
 
-      // Wait for writeStream to complete (or timeout)
-      // Longer timeout to allow bidirectional communication to complete
-      const timeout = options.ackTimeout ?? 5000;
-      await Promise.race([writePromise, new Promise((resolve) => setTimeout(resolve, timeout))]);
+      // Abort any pending ACK waits so writeStream can complete quickly
+      abortController.abort();
 
-      // Mark input as done if not already (port close will cause this naturally)
-      if (!inputDone) {
-        inputDone = true;
-        inputWaiter?.();
-      }
+      // Wait for writeStream to complete (send all data + END)
+      // With abort signal, ACK waits resolve immediately
+      await writePromise;
 
-      // Close the underlying port
+      // DON'T mark inputDone here - let readStream continue receiving
+      // until it gets END from remote or the port close event.
+      // This is important for bidirectional communication where the
+      // remote side may still be sending data.
+
+      // Wait a microtask to let any pending messages be delivered
+      // before closing the port. postMessage is async, so messages
+      // from the remote side may still be in flight.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Close the underlying port - this will trigger the close listener
+      // in readStream, which will terminate the input gracefully
       port.close();
     },
   };
