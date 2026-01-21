@@ -50,11 +50,9 @@ import {
 |-------------|-------------|
 | `@statewalker/vcs-transport/protocol` | Pkt-line codec, capabilities, protocol types |
 | `@statewalker/vcs-transport/negotiation` | Protocol negotiation logic |
-| `@statewalker/vcs-transport/connection` | HTTP connection and socket connection factories |
-| `@statewalker/vcs-transport/operations` | Remote operations (fetch, push) with multi-transport support |
+| `@statewalker/vcs-transport/connection` | HTTP connection implementation |
+| `@statewalker/vcs-transport/operations` | Remote operations (fetch, push) |
 | `@statewalker/vcs-transport/streams` | Stream utilities |
-| `@statewalker/vcs-transport/socket` | BidirectionalSocket for P2P transport |
-| `@statewalker/vcs-transport/http` | HTTP client and server implementations |
 
 ### Key Classes and Functions
 
@@ -67,18 +65,6 @@ import {
 | `ProtocolV2Handler` | Protocol v2 support |
 | `NegotiationState` | Negotiation state machine |
 | `createGitHttpServer` | Create HTTP server instance |
-
-### Socket Transport Classes
-
-| Export | Purpose |
-|--------|---------|
-| `createBidirectionalSocket` | Create socket from MessagePortLike |
-| `createBidirectionalSocketPair` | Create connected socket pair for testing |
-| `createGitSocketClient` | Create Git protocol client over socket |
-| `createGitSocketServer` | Create Git protocol server over socket |
-| `handleGitSocketConnection` | Handle single Git connection on socket |
-| `openUploadPackFromSocket` | Create upload-pack connection from socket |
-| `openReceivePackFromSocket` | Create receive-pack connection from socket |
 
 **Note:** Storage adapters (`createVcsRepositoryAccess`, `createCoreRepositoryAccess`, `createStorageAdapter`) are now in `@statewalker/vcs-transport-adapters`.
 
@@ -269,120 +255,6 @@ const server = createGitHttpServer({
 ```
 
 When authentication fails, the server returns a 401 status with a `WWW-Authenticate` header prompting for credentials.
-
-### P2P Transport over BidirectionalSocket
-
-The transport package supports peer-to-peer Git operations over any MessagePortLike transport (WebRTC, WebSocket, PeerJS). This enables direct browser-to-browser synchronization without a central Git server.
-
-The `BidirectionalSocket` interface provides a symmetric read/write/close API for bidirectional communication:
-
-```typescript
-interface BidirectionalSocket {
-  read(): AsyncIterable<Uint8Array>;
-  write(data: Uint8Array): Promise<void>;
-  close(): Promise<void>;
-}
-```
-
-#### Creating a Socket Pair for Testing
-
-```typescript
-import { createBidirectionalSocketPair } from "@statewalker/vcs-transport/socket";
-
-// Create two connected sockets
-const [clientSocket, serverSocket] = createBidirectionalSocketPair();
-
-// Data written to one can be read from the other
-await clientSocket.write(new TextEncoder().encode("Hello"));
-
-for await (const chunk of serverSocket.read()) {
-  console.log(new TextDecoder().decode(chunk)); // "Hello"
-  break;
-}
-
-await clientSocket.close();
-await serverSocket.close();
-```
-
-#### Fetching from a Peer via Socket
-
-```typescript
-import { wrapNativePort } from "@statewalker/vcs-utils";
-import { createBidirectionalSocket } from "@statewalker/vcs-transport/socket";
-import { fetch } from "@statewalker/vcs-transport/operations";
-import { openUploadPackFromSocket } from "@statewalker/vcs-transport/connection";
-
-// Create socket from MessagePort
-const channel = new MessageChannel();
-const socket = createBidirectionalSocket(wrapNativePort(channel.port1));
-
-// Create connection for fetch operation
-const connection = openUploadPackFromSocket(socket, "/repo.git");
-
-// Use the standard fetch operation with the socket connection
-const result = await fetch({
-  connection,
-  refspecs: ["+refs/heads/*:refs/remotes/peer/*"],
-  onProgress: (info) => console.log(`${info.phase}: ${info.loaded}/${info.total}`),
-});
-
-console.log("Fetched refs:", result.refs);
-console.log("Bytes received:", result.bytesReceived);
-```
-
-#### Setting up a Git Socket Server
-
-```typescript
-import { wrapNativePort } from "@statewalker/vcs-utils";
-import { createBidirectionalSocket } from "@statewalker/vcs-transport/socket";
-import { handleGitSocketConnection } from "@statewalker/vcs-transport/socket";
-
-// Create socket from MessagePort
-const channel = new MessageChannel();
-const socket = createBidirectionalSocket(wrapNativePort(channel.port2));
-
-// Handle Git protocol on the socket
-await handleGitSocketConnection(socket, {
-  repository,  // RepositoryAccess implementation
-  onError: (err) => console.error("Git error:", err),
-});
-```
-
-#### Full P2P Example
-
-```typescript
-import { createBidirectionalSocketPair } from "@statewalker/vcs-transport/socket";
-import { createGitSocketClient, handleGitSocketConnection } from "@statewalker/vcs-transport/socket";
-
-// Create connected socket pair
-const [clientSocket, serverSocket] = createBidirectionalSocketPair();
-
-// Start server in background
-const serverPromise = handleGitSocketConnection(serverSocket, {
-  repository: myRepository,
-});
-
-// Create client and discover refs
-const client = createGitSocketClient(clientSocket, {
-  path: "/repo.git",
-  service: "git-upload-pack",
-});
-
-const advertisement = await client.discoverRefs();
-console.log("Remote refs:", advertisement.refs);
-
-// Use with fetch/push operations
-const result = await fetch({
-  connection: client,
-  refspecs: ["+refs/heads/*:refs/remotes/peer/*"],
-});
-
-// Cleanup
-await client.close();
-await serverPromise;
-```
-
-See [P2P Architecture](./docs/P2P-ARCHITECTURE.md) for more details.
 
 ### Working with Pkt-lines
 

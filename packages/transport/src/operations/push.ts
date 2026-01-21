@@ -13,7 +13,7 @@
  */
 
 import { openReceivePack } from "../connection/connection-factory.js";
-import type { Credentials, DiscoverableConnection } from "../connection/types.js";
+import type { Credentials } from "../connection/types.js";
 import {
   buildPushRequest,
   buildRefUpdates,
@@ -40,16 +40,10 @@ export interface PushObject {
 
 /**
  * Options for push operation.
- *
- * Either `url` or `connection` must be provided, but not both.
- * Use `url` for standard remote pushing.
- * Use `connection` for P2P communication with pre-established sockets.
  */
 export interface PushOptions {
-  /** Remote URL (mutually exclusive with connection) */
-  url?: string;
-  /** Pre-created connection for P2P (mutually exclusive with url) */
-  connection?: DiscoverableConnection;
+  /** Remote URL to push to */
+  url: string;
   /** Refspecs to push (e.g., "refs/heads/main:refs/heads/main") */
   refspecs: string[];
   /** Authentication credentials */
@@ -106,7 +100,6 @@ export interface PushResult {
 export async function push(options: PushOptions): Promise<PushResult> {
   const {
     url,
-    connection: providedConnection,
     refspecs,
     auth,
     headers,
@@ -119,18 +112,12 @@ export async function push(options: PushOptions): Promise<PushResult> {
     packData: prebuiltPack,
   } = options;
 
-  // Validate options
-  if (!url && !providedConnection) {
-    throw new Error("Either url or connection must be provided");
-  }
-  if (url && providedConnection) {
-    throw new Error("Cannot specify both url and connection");
-  }
-
-  // Use provided connection or create from URL
-  const connection =
-    providedConnection ?? (await openReceivePack(url!, { auth, headers, timeout }));
-  const shouldClose = !providedConnection; // Only close if we created it
+  // Open receive-pack connection
+  const connection = await openReceivePack(url, {
+    auth,
+    headers,
+    timeout,
+  });
 
   try {
     // Discover remote refs
@@ -242,10 +229,7 @@ export async function push(options: PushOptions): Promise<PushResult> {
       objectCount,
     };
   } finally {
-    // Only close connection if we created it
-    if (shouldClose) {
-      await connection.close();
-    }
+    await connection.close();
   }
 }
 
