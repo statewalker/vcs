@@ -8,7 +8,12 @@
 
 import type { DiscoverableConnection } from "../connection/types.js";
 import { parseRefAdvertisement } from "../negotiation/ref-advertiser.js";
-import { encodePacket, pktLineReader, pktLineWriter } from "../protocol/pkt-line-codec.js";
+import {
+  encodeFlush,
+  encodePacket,
+  pktLineReader,
+  pktLineWriter,
+} from "../protocol/pkt-line-codec.js";
 import type { Packet, RefAdvertisement } from "../protocol/types.js";
 import {
   createMessagePortCloser,
@@ -61,6 +66,7 @@ export function createGitSocketClient(
   let connected = false;
   let refsDiscovered = false;
   let receivingPackets: AsyncIterable<Packet> | null = null;
+  let protocolComplete = false; // Track if protocol was properly terminated
 
   return {
     async discoverRefs(): Promise<RefAdvertisement> {
@@ -93,6 +99,9 @@ export function createGitSocketClient(
       for await (const encoded of pktLineWriter(packets)) {
         await write(encoded);
       }
+      // After sending packets, mark protocol as complete
+      // (the packets should include a "done" packet to properly terminate)
+      protocolComplete = true;
     },
 
     receive(): AsyncIterable<Packet> {
@@ -105,6 +114,34 @@ export function createGitSocketClient(
     },
 
     async close(): Promise<void> {
+      // If we connected and discovered refs but didn't complete the protocol,
+      // send a proper termination sequence so the server can move to the next request
+      if (refsDiscovered && !protocolComplete) {
+        try {
+          if (service === "git-upload-pack") {
+            // upload-pack expects: flush (end of wants) + done
+            await write(encodeFlush());
+            await write(encodePacket("done\n"));
+          } else {
+            // receive-pack expects: flush (empty command list = no updates)
+            await write(encodeFlush());
+          }
+          protocolComplete = true;
+
+          // IMPORTANT: Drain the server's response to prevent stale data
+          // from polluting the port for the next operation
+          const packets = receivingPackets || pktLineReader(input);
+          for await (const packet of packets) {
+            if (packet.type === "flush") {
+              // Flush signals end of server response
+              break;
+            }
+          }
+        } catch {
+          // Continue with cleanup even if termination fails
+        }
+      }
+
       if (ownsPort) {
         // Full close: send close signal, cleanup reader, close port
         await fullClose();
