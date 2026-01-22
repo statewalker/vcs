@@ -62,8 +62,8 @@ export interface GitPushOptions {
 export interface GitFetchResult {
   /** Was the fetch successful? */
   ok: boolean;
-  /** Refs that were updated. */
-  refsUpdated: string[];
+  /** Refs that were fetched (name -> object ID hex string). */
+  refs: Map<string, string>;
   /** Number of objects received. */
   objectsReceived: number;
   /** Bytes transferred. */
@@ -188,9 +188,15 @@ export async function createGitPeerSession(
 
         onProgress?.("complete", "Fetch complete");
 
+        // Convert refs from Uint8Array to hex strings
+        const refs = new Map<string, string>();
+        for (const [name, objectId] of result.refs) {
+          refs.set(name, bytesToHex(objectId));
+        }
+
         return {
           ok: true,
-          refsUpdated: Array.from(result.refs.keys()),
+          refs,
           objectsReceived: result.isEmpty ? 0 : estimateObjectCount(result.packData),
           bytesReceived: result.bytesReceived,
           packData: result.packData,
@@ -200,7 +206,7 @@ export async function createGitPeerSession(
         onProgress?.("error", message);
         return {
           ok: false,
-          refsUpdated: [],
+          refs: new Map(),
           objectsReceived: 0,
           bytesReceived: 0,
           packData: new Uint8Array(0),

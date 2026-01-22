@@ -218,17 +218,28 @@ export function createSyncController(ctx: AppContext): () => void {
           logModel.info("Pack imported successfully");
         }
 
-        // Update local refs from remote refs
-        for (const refName of fetchResult.refsUpdated) {
-          // Remote refs are mapped to refs/remotes/peer/*
-          // For demo, also update local main if we fetched refs/remotes/peer/main
+        // Update refs from fetched data
+        // The fetch mapped refs/heads/* to refs/remotes/peer/*
+        // We need to update both the remote tracking ref AND the local branch
+        for (const [refName, objectId] of fetchResult.refs) {
+          // Update the remote tracking ref
+          await repository?.refs.set(refName, objectId);
+          logModel.info(`Updated ref ${refName} -> ${objectId.slice(0, 7)}`);
+
+          // If this is the peer's main branch, also update our local main
           if (refName === "refs/remotes/peer/main") {
-            // Get the object ID from the fetched refs
-            // The fetch result doesn't include the object IDs directly,
-            // so we need to resolve from our refs
-            const remoteRef = await repositoryAccess.getHead();
-            if (remoteRef && "objectId" in remoteRef) {
-              // For now, just log - the pack import should have updated refs
+            // Check if we should fast-forward local main
+            const localRef = await repository?.refs.get("refs/heads/main");
+            const localHead = localRef && "objectId" in localRef ? localRef.objectId : null;
+
+            if (!localHead) {
+              // No local main - set it to remote
+              await repository?.refs.set("refs/heads/main", objectId);
+              logModel.info(`Set local main -> ${objectId.slice(0, 7)}`);
+            } else if (localHead !== objectId) {
+              // For demo simplicity, always accept remote (could add merge logic later)
+              await repository?.refs.set("refs/heads/main", objectId);
+              logModel.info(`Updated local main -> ${objectId.slice(0, 7)}`);
             }
           }
         }
@@ -260,7 +271,7 @@ export function createSyncController(ctx: AppContext): () => void {
       syncModel.complete({
         objectsReceived: fetchResult.objectsReceived,
         objectsSent: pushResult.objectsSent,
-        refsUpdated: [...fetchResult.refsUpdated, ...pushResult.refsUpdated],
+        refsUpdated: [...fetchResult.refs.keys(), ...pushResult.refsUpdated],
       });
 
       peersModel.updatePeer(peerId, { lastSyncAt: new Date() });
