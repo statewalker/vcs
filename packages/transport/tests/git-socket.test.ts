@@ -818,6 +818,232 @@ describe("GitSocket Integration", () => {
 });
 
 // =============================================================================
+// Multiple Operations Tests (Re-sync Scenario)
+// =============================================================================
+
+describe("GitSocket Multiple Operations", () => {
+  it("should support multiple sequential fetch operations on same port", async () => {
+    const [clientPort, serverPort] = createMessagePortPair();
+
+    // Repository that tracks operations
+    const operationLog: string[] = [];
+    const repository = createMockRepository({
+      refs: [
+        { name: "refs/heads/main", objectId: COMMIT_A },
+      ],
+    });
+
+    const serverOptions: GitSocketServerOptions = {
+      async resolveRepository(path) {
+        operationLog.push(`resolveRepository: ${path}`);
+        return repository;
+      },
+      logger: {
+        debug: (...args: unknown[]) => operationLog.push(`[server] ${args.join(" ")}`),
+        error: (...args: unknown[]) => operationLog.push(`[server error] ${args.join(" ")}`),
+      },
+    };
+
+    // Start server - server loop handles multiple requests
+    const serverPromise = handleGitSocketConnection(serverPort, serverOptions);
+
+    // === First fetch operation ===
+    operationLog.push("=== Starting first fetch ===");
+
+    const client1 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false, // Don't close port, we'll reuse it
+    });
+
+    const refs1 = await client1.discoverRefs();
+    operationLog.push(`First fetch: discovered ${refs1.refs.size} refs`);
+
+    expect(refs1.refs.has("refs/heads/main")).toBe(true);
+    expect(refs1.refs.get("refs/heads/main")).toBeDefined();
+
+    // Clean up client reader without closing port
+    await client1.close();
+    operationLog.push("First fetch: client closed");
+
+    // Small delay to let server process
+    await new Promise(r => setTimeout(r, 10));
+
+    // === Second fetch operation ===
+    operationLog.push("=== Starting second fetch ===");
+
+    const client2 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false,
+    });
+
+    // This is where it gets stuck in the bug scenario
+    const refs2Promise = Promise.race([
+      client2.discoverRefs(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Second fetch timed out")), 3000)
+      ),
+    ]);
+
+    const refs2 = await refs2Promise;
+    operationLog.push(`Second fetch: discovered ${refs2.refs.size} refs`);
+
+    expect(refs2.refs.has("refs/heads/main")).toBe(true);
+
+    // Clean up
+    await client2.close();
+    operationLog.push("Second fetch: client closed");
+
+    // Close the connection
+    clientPort.postMessage(null);
+
+    await serverPromise;
+
+    // Verify both operations completed
+    console.log("Operation log:", operationLog);
+    expect(operationLog.filter(l => l.includes("resolveRepository")).length).toBe(2);
+  });
+
+  it("should support fetch followed by push on same port", async () => {
+    const [clientPort, serverPort] = createMessagePortPair();
+
+    const operationLog: string[] = [];
+    const repository = createMockRepository({
+      refs: [
+        { name: "refs/heads/main", objectId: COMMIT_A },
+      ],
+    });
+
+    const serverOptions: GitSocketServerOptions = {
+      async resolveRepository(path) {
+        operationLog.push(`resolveRepository: ${path}`);
+        return repository;
+      },
+      logger: {
+        debug: (...args: unknown[]) => operationLog.push(`[server] ${args.join(" ")}`),
+        error: (...args: unknown[]) => operationLog.push(`[server error] ${args.join(" ")}`),
+      },
+    };
+
+    const serverPromise = handleGitSocketConnection(serverPort, serverOptions);
+
+    // === Fetch operation (git-upload-pack) ===
+    operationLog.push("=== Starting fetch ===");
+
+    const fetchClient = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false,
+    });
+
+    const fetchRefs = await fetchClient.discoverRefs();
+    operationLog.push(`Fetch: discovered ${fetchRefs.refs.size} refs`);
+    expect(fetchRefs.refs.has("refs/heads/main")).toBe(true);
+
+    await fetchClient.close();
+    operationLog.push("Fetch: client closed");
+
+    await new Promise(r => setTimeout(r, 10));
+
+    // === Push operation (git-receive-pack) ===
+    operationLog.push("=== Starting push ===");
+
+    const pushClient = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-receive-pack",
+      ownsPort: false,
+    });
+
+    // This should discover refs for receive-pack
+    const pushRefsPromise = Promise.race([
+      pushClient.discoverRefs(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Push discovery timed out")), 3000)
+      ),
+    ]);
+
+    const pushRefs = await pushRefsPromise;
+    operationLog.push(`Push: discovered ${pushRefs.refs.size} refs`);
+    expect(pushRefs.refs.has("refs/heads/main")).toBe(true);
+
+    await pushClient.close();
+    operationLog.push("Push: client closed");
+
+    // Close connection
+    clientPort.postMessage(null);
+
+    await serverPromise;
+
+    console.log("Operation log:", operationLog);
+    expect(operationLog.filter(l => l.includes("resolveRepository")).length).toBe(2);
+  });
+
+  it("should handle three sequential operations", async () => {
+    const [clientPort, serverPort] = createMessagePortPair();
+
+    const operationCount = { value: 0 };
+    const repository = createMockRepository();
+
+    const serverOptions: GitSocketServerOptions = {
+      async resolveRepository() {
+        operationCount.value++;
+        return repository;
+      },
+    };
+
+    const serverPromise = handleGitSocketConnection(serverPort, serverOptions);
+
+    // Operation 1
+    const client1 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false,
+    });
+    await client1.discoverRefs();
+    await client1.close();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Operation 2
+    const client2 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-receive-pack",
+      ownsPort: false,
+    });
+    const refs2Promise = Promise.race([
+      client2.discoverRefs(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Operation 2 timed out")), 3000)
+      ),
+    ]);
+    await refs2Promise;
+    await client2.close();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Operation 3
+    const client3 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false,
+    });
+    const refs3Promise = Promise.race([
+      client3.discoverRefs(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Operation 3 timed out")), 3000)
+      ),
+    ]);
+    await refs3Promise;
+    await client3.close();
+
+    // Close connection
+    clientPort.postMessage(null);
+    await serverPromise;
+
+    expect(operationCount.value).toBe(3);
+  });
+});
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
