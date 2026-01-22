@@ -1,55 +1,33 @@
 /**
  * @statewalker/vcs-port-peerjs
  *
- * PeerJS MessagePortLike adapter for VCS transport.
+ * PeerJS MessagePort adapter for VCS transport.
  *
- * This package provides a PeerJS DataConnection adapter for the MessagePortLike
- * interface, enabling use with createPortStream or createPortTransportConnection
- * for Git protocol communication over PeerJS connections.
+ * This package bridges PeerJS DataConnection to standard MessagePort,
+ * enabling use with createGitSocketClient or any MessagePort-based transport.
  *
- * @example Basic usage with createPortStream:
+ * @example Basic usage with Git socket client:
  * ```typescript
  * import { createPeerJsPortAsync } from "@statewalker/vcs-port-peerjs";
- * import { createPortStream } from "@statewalker/vcs-utils";
+ * import { createGitSocketClient } from "@statewalker/vcs-transport";
  * import Peer from "peerjs";
  *
  * const peer = new Peer();
  * const conn = peer.connect(remotePeerId, { serialization: "raw", reliable: true });
  *
- * // Wait for connection and create stream
+ * // Wait for connection and create MessagePort
  * const port = await createPeerJsPortAsync(conn);
- * const stream = createPortStream(port);
  *
- * // Send binary data with ACK-based backpressure
- * await stream.send(asyncIterableOfUint8Array);
+ * // Use with Git socket client for P2P Git operations
+ * const client = createGitSocketClient(port, {
+ *   path: "/repo.git",
+ *   service: "git-upload-pack"
+ * });
  *
- * // Receive binary data
- * for await (const chunk of stream.receive()) {
- *   // Handle incoming chunks
- * }
- * ```
- *
- * @example With TransportConnection for Git protocol:
- * ```typescript
- * import { createPeerJsPortAsync } from "@statewalker/vcs-port-peerjs";
- * import { createPortTransportConnection } from "@statewalker/vcs-transport";
- * import Peer from "peerjs";
- *
- * const peer = new Peer();
- * const conn = peer.connect(remotePeerId, { serialization: "raw", reliable: true });
- *
- * const port = await createPeerJsPortAsync(conn);
- * const transport = createPortTransportConnection(port);
- *
- * // Use transport for Git operations
- * await transport.send(packets);
- * for await (const packet of transport.receive()) {
- *   // Handle incoming packets
- * }
+ * const refs = await client.discoverRefs();
  * ```
  *
  * @packageDocumentation
  */
 
-export type { MessagePortLike } from "@statewalker/vcs-utils";
-export { createPeerJsPort, createPeerJsPortAsync, type PeerJsPort } from "./peerjs-port.js";
+export { createPeerJsPort, createPeerJsPortAsync } from "./peerjs-port.js";
