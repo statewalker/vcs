@@ -26,6 +26,13 @@ export interface GitSocketClientOptions {
   host?: string;
   /** Git service type (defaults to "git-upload-pack") */
   service?: "git-upload-pack" | "git-receive-pack";
+  /**
+   * Whether this client owns the port.
+   * If true, close() will close the underlying port.
+   * If false (default), close() only cleans up the reader.
+   * Set to false when sharing a port across multiple operations.
+   */
+  ownsPort?: boolean;
 }
 
 /**
@@ -43,12 +50,13 @@ export function createGitSocketClient(
   port: MessagePort,
   options: GitSocketClientOptions,
 ): DiscoverableConnection {
-  const { path, host = "localhost", service = "git-upload-pack" } = options;
+  const { path, host = "localhost", service = "git-upload-pack", ownsPort = false } = options;
 
   // Create reader/writer from MessagePort
   const input = createMessagePortReader(port);
   const write = createMessagePortWriter(port);
-  const close = createMessagePortCloser(port, input);
+  // Only use full closer if we own the port, otherwise just cleanup the reader
+  const fullClose = createMessagePortCloser(port, input);
 
   let connected = false;
   let refsDiscovered = false;
@@ -97,7 +105,18 @@ export function createGitSocketClient(
     },
 
     async close(): Promise<void> {
-      await close();
+      if (ownsPort) {
+        // Full close: send close signal, cleanup reader, close port
+        await fullClose();
+      } else {
+        // Partial close: just cleanup the reader (remove event listeners)
+        // This is important when sharing a port across multiple operations
+        try {
+          await input.return(undefined);
+        } catch {
+          // Ignore errors from generator cleanup
+        }
+      }
     },
   };
 }

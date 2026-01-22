@@ -546,10 +546,11 @@ describe("GitSocket Integration", () => {
     // Start server
     const serverPromise = handleGitSocketConnection(serverPort, serverOptions);
 
-    // Create client
+    // Create client (ownsPort: true since this test owns the port)
     const client = createGitSocketClient(clientPort, {
       path: "/repo.git",
       service: "git-upload-pack",
+      ownsPort: true,
     });
 
     // Discover refs
@@ -581,6 +582,7 @@ describe("GitSocket Integration", () => {
 
     const client = createGitSocketClient(clientPort, {
       path: "/empty.git",
+      ownsPort: true,
     });
 
     const advertisement = await client.discoverRefs();
@@ -608,6 +610,7 @@ describe("GitSocket Integration", () => {
     const client = createGitSocketClient(clientPort, {
       path: "/repo.git",
       service: "git-receive-pack",
+      ownsPort: true,
     });
 
     const advertisement = await client.discoverRefs();

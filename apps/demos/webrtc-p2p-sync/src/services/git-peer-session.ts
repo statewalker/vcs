@@ -165,26 +165,33 @@ export async function createGitPeerSession(
         onProgress?.("discovering", "Discovering refs...");
 
         // Perform the fetch
-        const result: FetchResult = await fetch({
-          connection: client,
-          refspecs,
-          onProgress: (info) => {
-            if (info.total) {
-              onProgress?.("transferring", `Received ${info.current}/${info.total} objects`);
-            }
-          },
-          localHas: async (objectId: Uint8Array) => {
-            const hexId = bytesToHex(objectId);
-            return repository.hasObject(hexId);
-          },
-          localCommits: async function* () {
-            for await (const ref of repository.listRefs()) {
-              if (ref.name.startsWith("refs/heads/")) {
-                yield hexToBytes(ref.objectId);
+        let result: FetchResult;
+        try {
+          result = await fetch({
+            connection: client,
+            refspecs,
+            onProgress: (info) => {
+              if (info.total) {
+                onProgress?.("transferring", `Received ${info.current}/${info.total} objects`);
               }
-            }
-          },
-        });
+            },
+            localHas: async (objectId: Uint8Array) => {
+              const hexId = bytesToHex(objectId);
+              return repository.hasObject(hexId);
+            },
+            localCommits: async function* () {
+              for await (const ref of repository.listRefs()) {
+                if (ref.name.startsWith("refs/heads/")) {
+                  yield hexToBytes(ref.objectId);
+                }
+              }
+            },
+          });
+        } finally {
+          // Clean up the socket client's reader (removes event listeners)
+          // This is important when reusing the port for subsequent operations
+          await client.close();
+        }
 
         onProgress?.("complete", "Fetch complete");
 
@@ -235,36 +242,43 @@ export async function createGitPeerSession(
         onProgress?.("discovering", "Discovering refs...");
 
         // Perform the push
-        const result: PushResult = await push({
-          connection: client,
-          refspecs,
-          force,
-          onProgress: (info) => {
-            if (info.total) {
-              onProgress?.("transferring", `Sent ${info.current}/${info.total} objects`);
-            }
-          },
-          getLocalRef: async (refName: string) => {
-            for await (const ref of repository.listRefs()) {
-              if (ref.name === refName) {
-                return ref.objectId;
+        let result: PushResult;
+        try {
+          result = await push({
+            connection: client,
+            refspecs,
+            force,
+            onProgress: (info) => {
+              if (info.total) {
+                onProgress?.("transferring", `Sent ${info.current}/${info.total} objects`);
               }
-            }
-            return undefined;
-          },
-          getObjectsToPush: async function* (newIds: string[], oldIds: string[]) {
-            const wants = newIds.map((id) => id as ObjectId);
-            const haves = oldIds.map((id) => id as ObjectId);
+            },
+            getLocalRef: async (refName: string) => {
+              for await (const ref of repository.listRefs()) {
+                if (ref.name === refName) {
+                  return ref.objectId;
+                }
+              }
+              return undefined;
+            },
+            getObjectsToPush: async function* (newIds: string[], oldIds: string[]) {
+              const wants = newIds.map((id) => id as ObjectId);
+              const haves = oldIds.map((id) => id as ObjectId);
 
-            for await (const obj of repository.walkObjects(wants, haves)) {
-              yield {
-                id: obj.id,
-                type: obj.type,
-                content: obj.content,
-              };
-            }
-          },
-        });
+              for await (const obj of repository.walkObjects(wants, haves)) {
+                yield {
+                  id: obj.id,
+                  type: obj.type,
+                  content: obj.content,
+                };
+              }
+            },
+          });
+        } finally {
+          // Clean up the socket client's reader (removes event listeners)
+          // This is important when reusing the port for subsequent operations
+          await client.close();
+        }
 
         onProgress?.("complete", "Push complete");
 
