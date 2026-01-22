@@ -53,6 +53,10 @@
       "types": "./dist/streams/index.d.ts",
       "import": "./dist/streams/index.js"
     },
+    "./ports": {
+      "types": "./dist/ports/index.d.ts",
+      "import": "./dist/ports/index.js"
+    },
     "./cache": {
       "types": "./dist/cache/index.d.ts",
       "import": "./dist/cache/index.js"

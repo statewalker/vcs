@@ -100,6 +100,18 @@ const MessageType = {
 type MessageTypeValue = (typeof MessageType)[keyof typeof MessageType];
 
 /**
+ * Send an END message to signal stream completion.
+ *
+ * Used for graceful close when writeStream may not have finished.
+ *
+ * @param port MessagePortLike to send END on
+ */
+export function sendEndMessage(port: MessagePortLike): void {
+  const endMessage = encode(MessageType.END, 0);
+  port.postMessage(endMessage);
+}
+
+/**
  * Encode a message to binary format.
  * Format: [type: 1 byte][id: 4 bytes LE][length: 4 bytes LE][payload]
  */
@@ -146,6 +158,8 @@ export interface PortStreamOptions {
   chunkSize?: number;
   /** Timeout for ACK response in milliseconds (default: 5000) */
   ackTimeout?: number;
+  /** Abort signal to cancel ACK waits during graceful close */
+  signal?: AbortSignal;
 }
 
 const DEFAULT_CHUNK_SIZE = 64 * 1024;
@@ -163,12 +177,16 @@ const DEFAULT_ACK_TIMEOUT = 5000;
  */
 export function createAwaitAckFunction(
   port: MessagePortLike,
-  options: { ackTimeout?: number } = {},
+  options: { ackTimeout?: number; signal?: AbortSignal } = {},
 ): () => Promise<void> {
   const timeout = options.ackTimeout ?? DEFAULT_ACK_TIMEOUT;
+  const signal = options.signal;
   let messageId = 0;
 
   return async function awaitAck(): Promise<void> {
+    // If already aborted, resolve immediately
+    if (signal?.aborted) return;
+
     const currentId = messageId++;
 
     return new Promise((resolve, reject) => {
@@ -176,21 +194,41 @@ export function createAwaitAckFunction(
       port.postMessage(encodedMessage);
 
       const timerId = setTimeout(() => {
-        port.removeEventListener("message", onMessage);
+        cleanup();
         reject(new Error("Timeout waiting for acknowledgement"));
       }, timeout);
+
+      function cleanup() {
+        clearTimeout(timerId);
+        port.removeEventListener("message", onMessage);
+        port.removeEventListener("close", onClose);
+        signal?.removeEventListener("abort", onAbort);
+      }
 
       function onMessage(event: MessageEvent<ArrayBuffer>) {
         const decoded = decode(event.data);
         if (decoded.type !== MessageType.ACKNOWLEDGE || decoded.id !== currentId) {
           return;
         }
-        clearTimeout(timerId);
-        port.removeEventListener("message", onMessage);
+        cleanup();
+        resolve();
+      }
+
+      function onClose() {
+        // Port closed - resolve immediately to allow cleanup
+        cleanup();
+        resolve();
+      }
+
+      function onAbort() {
+        // Signal aborted - resolve immediately to allow graceful close
+        cleanup();
         resolve();
       }
 
       port.addEventListener("message", onMessage);
+      port.addEventListener("close", onClose);
+      signal?.addEventListener("abort", onAbort);
     });
   };
 }
@@ -239,6 +277,8 @@ export async function* sendWithAcknowledgement(
  * Uses byte-based sub-stream splitting: after chunkSize bytes are sent,
  * waits for ACK before continuing.
  *
+ * Subscribes to port errors and throws if an error occurs during transmission.
+ *
  * @param port MessagePortLike for communication
  * @param stream Binary stream to send
  * @param options Configuration options
@@ -248,35 +288,78 @@ export async function writeStream(
   stream: AsyncIterable<Uint8Array>,
   options: PortStreamOptions = {},
 ): Promise<void> {
-  const awaitAck = createAwaitAckFunction(port, { ackTimeout: options.ackTimeout });
+  const awaitAck = createAwaitAckFunction(port, {
+    ackTimeout: options.ackTimeout,
+    signal: options.signal,
+  });
   let messageId = 0;
 
-  port.start();
+  // Track port errors and close state
+  let portError: Error | undefined;
+  let portClosed = false;
 
-  const acknowledgedStream = sendWithAcknowledgement(stream, awaitAck, {
-    chunkSize: options.chunkSize,
-  });
+  const onError = (error: Error) => {
+    portError = error;
+  };
+  const onClose = () => {
+    portClosed = true;
+  };
 
-  for await (const chunk of acknowledgedStream) {
-    const encodedMessage = encode(MessageType.DATA, messageId++, chunk);
-    port.postMessage(encodedMessage);
+  port.addEventListener("error", onError);
+  port.addEventListener("close", onClose);
+
+  try {
+    port.start();
+
+    const acknowledgedStream = sendWithAcknowledgement(stream, awaitAck, {
+      chunkSize: options.chunkSize,
+    });
+
+    for await (const chunk of acknowledgedStream) {
+      // Check for port error or close before sending
+      if (portError) {
+        throw portError;
+      }
+      if (portClosed) {
+        // Port closing - send END and exit
+        try {
+          const endMessage = encode(MessageType.END, messageId);
+          port.postMessage(endMessage);
+        } catch {
+          // Ignore post-close errors
+        }
+        return;
+      }
+      const encodedMessage = encode(MessageType.DATA, messageId++, chunk);
+      port.postMessage(encodedMessage);
+    }
+
+    // Check for port error before END
+    if (portError) {
+      throw portError;
+    }
+
+    // Signal completion - no final ACK needed since:
+    // 1. ACKs during transfer already confirm each chunk
+    // 2. END message signals we're done sending
+    // 3. Receiver processes all queued DATA before seeing END
+    const endMessage = encode(MessageType.END, messageId);
+    port.postMessage(endMessage);
+  } finally {
+    port.removeEventListener("error", onError);
+    port.removeEventListener("close", onClose);
   }
-
-  // Final ACK before END to ensure all data processed
-  await awaitAck();
-
-  // Signal completion
-  const endMessage = encode(MessageType.END, messageId);
-  port.postMessage(endMessage);
 }
 
 /**
  * Read a binary stream from MessagePort, responding to ACK requests.
  *
+ * Subscribes to port errors and throws if an error occurs during reading.
+ *
  * @param port MessagePortLike for communication
  * @returns AsyncIterable yielding received binary blocks
  */
-export function readStream(port: MessagePortLike): AsyncIterable<Uint8Array> {
+export function readStream(port: MessagePortLike): AsyncGenerator<Uint8Array> {
   return newAsyncGenerator<Uint8Array>((next, done) => {
     async function onMessage(event: MessageEvent<ArrayBuffer>) {
       try {
@@ -305,12 +388,25 @@ export function readStream(port: MessagePortLike): AsyncIterable<Uint8Array> {
       }
     }
 
+    function onError(error: Error) {
+      done(error);
+    }
+
+    function onClose() {
+      // Port closed - terminate the stream gracefully
+      done();
+    }
+
     port.addEventListener("message", onMessage);
+    port.addEventListener("error", onError);
+    port.addEventListener("close", onClose);
     port.start();
 
     // Cleanup function
     return () => {
       port.removeEventListener("message", onMessage);
+      port.removeEventListener("error", onError);
+      port.removeEventListener("close", onClose);
     };
   });
 }

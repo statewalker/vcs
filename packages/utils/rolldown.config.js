@@ -13,6 +13,7 @@ export default defineConfig({
     "hash/strong-checksum/index": "src/hash/strong-checksum/index.ts",
     "diff/index": "src/diff/index.ts",
     "streams/index": "src/streams/index.ts",
+    "ports/index": "src/ports/index.ts",
     "cache/index": "src/cache/index.ts",
     "files/index": "src/files/index.ts",
   },

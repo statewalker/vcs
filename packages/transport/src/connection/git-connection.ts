@@ -14,6 +14,7 @@ import { GIT_PROTOCOL_PORT, SERVICE_UPLOAD_PACK } from "../protocol/constants.js
 import { ConnectionError } from "../protocol/errors.js";
 import { encodePacket, pktLineReader, pktLineWriter } from "../protocol/pkt-line-codec.js";
 import type { Packet, RefAdvertisement, ServiceType } from "../protocol/types.js";
+import type { BidirectionalSocket } from "../socket/types.js";
 import type { DiscoverableConnection } from "./types.js";
 
 /**
@@ -27,14 +28,11 @@ export interface GitConnectionOptions {
 }
 
 /**
- * Abstract interface for TCP socket.
- * Allows plugging in different implementations (Node.js net, browser WebSocket proxy, etc.)
+ * Connectable socket interface for TCP-based connections.
+ * Extends BidirectionalSocket with a connect() method.
  */
-export interface TcpSocket {
+export interface ConnectableSocket extends BidirectionalSocket {
   connect(): Promise<void>;
-  write(data: Uint8Array): Promise<void>;
-  read(): AsyncIterable<Uint8Array>;
-  close(): Promise<void>;
 }
 
 /**
@@ -45,11 +43,11 @@ export class GitConnection implements DiscoverableConnection {
   private port: number;
   private path: string;
   private service: ServiceType;
-  private socket: TcpSocket | null = null;
-  private socketFactory: () => TcpSocket;
+  private socket: ConnectableSocket | null = null;
+  private socketFactory: () => ConnectableSocket;
   private connected = false;
 
-  constructor(options: GitConnectionOptions, socketFactory: () => TcpSocket) {
+  constructor(options: GitConnectionOptions, socketFactory: () => ConnectableSocket) {
     this.host = options.host;
     this.port = options.port ?? GIT_PROTOCOL_PORT;
     this.path = options.path;
@@ -87,7 +85,7 @@ export class GitConnection implements DiscoverableConnection {
     }
 
     // Read ref advertisement
-    const packets = pktLineReader(this.socket.read());
+    const packets = pktLineReader(this.socket.input);
     return parseRefAdvertisement(packets);
   }
 
@@ -114,7 +112,7 @@ export class GitConnection implements DiscoverableConnection {
       throw new ConnectionError("Not connected");
     }
 
-    yield* pktLineReader(this.socket.read());
+    yield* pktLineReader(this.socket.input);
   }
 
   /**
@@ -133,7 +131,7 @@ export class GitConnection implements DiscoverableConnection {
  * Node.js TCP socket implementation.
  * This is a placeholder - the actual implementation would use Node.js 'net' module.
  */
-export function createNodeTcpSocket(_host: string, _port: number): TcpSocket {
+export function createNodeConnectableSocket(_host: string, _port: number): ConnectableSocket {
   // This would be implemented using Node.js net module
   // For now, we throw an error indicating this needs Node.js environment
   throw new Error(
@@ -148,7 +146,7 @@ export function createNodeTcpSocket(_host: string, _port: number): TcpSocket {
 export function createGitConnection(
   host: string,
   path: string,
-  socketFactory: () => TcpSocket,
+  socketFactory: () => ConnectableSocket,
   options: Partial<GitConnectionOptions> = {},
 ): GitConnection {
   return new GitConnection(

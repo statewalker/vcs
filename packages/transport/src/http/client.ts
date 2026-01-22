@@ -10,6 +10,11 @@
  * Based on JGit's TransportHttp.java
  */
 
+import type {
+  ConnectionOptions,
+  Credentials,
+  DiscoverableConnection,
+} from "../connection/types.js";
 import { parseRefAdvertisement } from "../negotiation/ref-advertiser.js";
 import {
   CONTENT_TYPE_RECEIVE_PACK_ADVERTISEMENT,
@@ -27,9 +32,9 @@ import {
   RepositoryNotFoundError,
   TransportError,
 } from "../protocol/errors.js";
-import { collectPackets, pktLineReader, pktLineWriter } from "../protocol/pkt-line-codec.js";
+import { pktLineReader, pktLineWriter } from "../protocol/pkt-line-codec.js";
 import type { Packet, RefAdvertisement, ServiceType } from "../protocol/types.js";
-import type { ConnectionOptions, Credentials, DiscoverableConnection } from "./types.js";
+import { detectRuntime } from "./detect-env.js";
 
 const DEFAULT_USER_AGENT = "statewalker-vcs/1.0";
 const DEFAULT_TIMEOUT = 30000;
@@ -171,31 +176,33 @@ export class HttpConnection implements DiscoverableConnection {
       }
 
       const packetGenerator = pktLineReader(streamFromReadable(response.body));
-      // Get iterator from the generator to avoid closing it with early returns
-      const iterator = packetGenerator[Symbol.asyncIterator]();
+      try {
+        // // Get iterator from the generator to avoid closing it with early returns
+        // const iterator = packetGenerator[Symbol.asyncIterator]();
 
-      // Skip first packet if it's the service announcement
-      // Format: "# service=git-upload-pack\n"
-      const firstPacket = await readFirstPacket(iterator);
-      if (firstPacket?.type === "data" && firstPacket.data) {
-        const text = new TextDecoder().decode(firstPacket.data);
-        if (text.startsWith("# service=")) {
-          // Skip this packet and the following flush packet
-          // Smart HTTP protocol: announcement + flush + ref advertisement
-          const nextPacket = await readFirstPacket(iterator);
-          if (nextPacket?.type === "flush") {
-            // Good, flush packet skipped, continue with ref advertisement
-            return parseRefAdvertisement(iteratorToAsyncIterable(iterator));
+        // Skip first packet if it's the service announcement
+        // Format: "# service=git-upload-pack\n"
+        const firstPacket = await readFirstPacket(packetGenerator);
+        if (firstPacket?.type === "data" && firstPacket.data) {
+          const text = new TextDecoder().decode(firstPacket.data);
+          if (text.startsWith("# service=")) {
+            // Skip this packet and the following flush packet
+            // Smart HTTP protocol: announcement + flush + ref advertisement
+            const nextPacket = await readFirstPacket(packetGenerator);
+            if (nextPacket?.type === "flush") {
+              // Good, flush packet skipped, continue with ref advertisement
+              return parseRefAdvertisement(packetGenerator);
+            }
+            // Next packet was not a flush, include it in the advertisement
+            return parseRefAdvertisement(prependPacket(nextPacket, packetGenerator));
           }
-          // Next packet was not a flush, include it in the advertisement
-          return parseRefAdvertisement(
-            prependPacket(nextPacket, iteratorToAsyncIterable(iterator)),
-          );
         }
-      }
 
-      // First packet was part of the advertisement
-      return parseRefAdvertisement(prependPacket(firstPacket, iteratorToAsyncIterable(iterator)));
+        // First packet was part of the advertisement
+        return parseRefAdvertisement(prependPacket(firstPacket, packetGenerator));
+      } finally {
+        packetGenerator.return?.(void 0);
+      }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         throw new ConnectionError(`Request timeout after ${this.timeout}ms`);
@@ -215,7 +222,7 @@ export class HttpConnection implements DiscoverableConnection {
     headers.set("Accept", this.contentTypes.result);
 
     // Collect request body
-    const body = await collectPackets(pktLineWriter(packets));
+    const body = pktLineWriter(packets);
 
     await this.sendRawBody(serviceUrl, headers, body);
   }
@@ -229,23 +236,26 @@ export class HttpConnection implements DiscoverableConnection {
     const headers = this.buildHeaders(this.contentTypes.request);
     headers.set("Accept", this.contentTypes.result);
 
-    await this.sendRawBody(serviceUrl, headers, body);
+    await this.sendRawBody(serviceUrl, headers, [body]);
   }
 
   /**
    * Internal method to send raw body.
    */
-  private async sendRawBody(serviceUrl: string, headers: Headers, body: Uint8Array): Promise<void> {
+  private async sendRawBody(
+    serviceUrl: string,
+    headers: Headers,
+    body: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
+  ): Promise<void> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
     try {
-      // Create a copy to ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
-      const bodyCopy = new Uint8Array(body);
+      const payload = await toHttpPayload(body);
       const response = await fetch(serviceUrl, {
         method: "POST",
         headers,
-        body: new Blob([bodyCopy]),
+        body: payload,
         signal: controller.signal,
       });
 
@@ -300,6 +310,55 @@ export class HttpConnection implements DiscoverableConnection {
   }
 }
 
+async function toHttpPayload(
+  stream: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
+): Promise<Blob | ReadableStream<Uint8Array>> {
+  // Create a copy to ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
+  const runtime = detectRuntime();
+  if (runtime === "firefox" || runtime === "safari") {
+    // Firefox has issues with streaming fetch requests with AbortController
+    // See https://bugzilla.mozilla.org/show_bug.cgi?id=1620503
+    const chunks: Uint8Array[] = [];
+    let len = 0;
+    for await (const chunk of stream) {
+      chunks.push(new Uint8Array(chunk));
+      len += chunk.length;
+    }
+    const buf = new Uint8Array(len);
+    for (const chunk of chunks) {
+      buf.set(chunk, buf.byteOffset);
+    }
+    return new Blob([buf]);
+  } else {
+    return readableFromStream(stream);
+  }
+}
+
+/**
+ * Convert async iterable to ReadableStream.
+ */
+
+function readableFromStream(
+  stream: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
+): ReadableStream<Uint8Array> {
+  const str = (async function* () {
+    yield* stream;
+  })();
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const result = await str.next();
+      if (result.done) {
+        controller.close();
+      } else {
+        controller.enqueue(result.value);
+      }
+    },
+    cancel() {
+      str.return?.(void 0);
+    },
+  });
+}
+
 /**
  * Convert ReadableStream to async iterable.
  */
@@ -325,18 +384,6 @@ async function readFirstPacket(iterator: AsyncIterator<Packet>): Promise<Packet 
   const result = await iterator.next();
   if (result.done) return undefined;
   return result.value;
-}
-
-/**
- * Convert an async iterator back to an async iterable.
- * Allows the iterator to be used with for-await loops.
- */
-function iteratorToAsyncIterable<T>(iterator: AsyncIterator<T>): AsyncIterable<T> {
-  return {
-    [Symbol.asyncIterator]() {
-      return iterator;
-    },
-  };
 }
 
 /**
