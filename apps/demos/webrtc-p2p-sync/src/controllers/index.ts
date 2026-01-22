@@ -3,13 +3,15 @@
  */
 
 import { createGitStore, Git, type GitStoreWithWorkTree } from "@statewalker/vcs-commands";
-import type { FilesApi, HistoryStore } from "@statewalker/vcs-core";
+import type { FilesApi, HistoryStore, StorageBackend } from "@statewalker/vcs-core";
 import {
   createFileTreeIterator,
   createGitRepository,
   createInMemoryFilesApi,
   FileStagingStore,
 } from "@statewalker/vcs-core";
+import type { RepositoryAccess } from "@statewalker/vcs-transport";
+import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 import type { PeerConnection, PeerInstance } from "../apis/index.js";
 import {
   createRealPeerJsApi,
@@ -68,6 +70,24 @@ export const [getGitStore, setGitStore] = newAdapter<GitStoreWithWorkTree | null
 export const [getGit, setGit] = newAdapter<Git | null>("git", () => null);
 
 /**
+ * Context adapter for StorageBackend.
+ * Provides unified storage access for transport operations.
+ */
+export const [getStorageBackend, setStorageBackend] = newAdapter<StorageBackend | null>(
+  "storage-backend",
+  () => null,
+);
+
+/**
+ * Context adapter for RepositoryAccess.
+ * Used by Git protocol handlers for transport operations.
+ */
+export const [getRepositoryAccess, setRepositoryAccess] = newAdapter<RepositoryAccess | null>(
+  "repository-access",
+  () => null,
+);
+
+/**
  * Initialize the Git infrastructure (FilesApi, Repository, Staging, Worktree, Git).
  *
  * @param ctx The application context to initialize
@@ -84,22 +104,31 @@ async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
   });
   setRepository(ctx, repository);
 
-  // 3. Create staging store (Git index)
+  // 3. Set up StorageBackend and RepositoryAccess for transport
+  const backend = repository.backend;
+  if (backend) {
+    setStorageBackend(ctx, backend);
+    // Create RepositoryAccess from the structured stores
+    const repositoryAccess = createVcsRepositoryAccess(backend.structured);
+    setRepositoryAccess(ctx, repositoryAccess);
+  }
+
+  // 4. Create staging store (Git index)
   const staging = new FileStagingStore(files, ".git/index");
   await staging.read(); // Load existing or start empty
 
-  // 4. Create worktree iterator
+  // 5. Create worktree iterator
   const worktree = createFileTreeIterator({
     files,
     rootPath: "",
     gitDir: ".git",
   });
 
-  // 5. Create GitStore combining repository + staging + worktree
+  // 6. Create GitStore combining repository + staging + worktree
   const store = createGitStore({ repository, staging, worktree, files, workTreeRoot: "" });
   setGitStore(ctx, store);
 
-  // 6. Create Git porcelain API
+  // 7. Create Git porcelain API
   const git = Git.wrap(store);
   setGit(ctx, git);
 }
