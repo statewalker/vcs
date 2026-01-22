@@ -224,16 +224,16 @@ export function createSyncController(ctx: AppContext): () => void {
       }
 
       // Update refs from fetched data (always, even if no pack data)
-      // Note: fetchResult.refs contains REMOTE ref names (refs/heads/*)
-      // The refspec mapping is just for negotiation, not for the returned refs
+      // Note: fetchResult.refs contains MAPPED ref names (refs/remotes/peer/*)
+      // because the transport applies the refspec mapping
       for (const [refName, objectId] of fetchResult.refs) {
-        // Store as remote tracking ref (map refs/heads/* to refs/remotes/peer/*)
-        const remoteTrackingRef = refName.replace("refs/heads/", "refs/remotes/peer/");
-        await repository?.refs.set(remoteTrackingRef, objectId);
-        logModel.info(`Updated ref ${remoteTrackingRef} -> ${objectId.slice(0, 7)}`);
+        // Store the remote tracking ref as-is
+        await repository?.refs.set(refName, objectId);
+        logModel.info(`Updated ref ${refName} -> ${objectId.slice(0, 7)}`);
 
-        // If this is the main branch, also update our local main
-        if (refName === "refs/heads/main") {
+        // If this is the peer's main branch, also update our local main
+        // The refspec +refs/heads/*:refs/remotes/peer/* maps main to refs/remotes/peer/main
+        if (refName === "refs/remotes/peer/main") {
           // Check if we should update local main
           const localRef = await repository?.refs.get("refs/heads/main");
           const localHead = localRef && "objectId" in localRef ? localRef.objectId : null;
