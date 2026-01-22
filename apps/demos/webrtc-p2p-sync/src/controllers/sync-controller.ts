@@ -201,14 +201,16 @@ export function createSyncController(ctx: AppContext): () => void {
         throw new Error(fetchResult.error ?? "Fetch failed");
       }
 
-      // Import the pack data into our repository
+      // Get repository for pack import and ref updates
+      const repository = getRepository(ctx);
+
+      // Import the pack data into our repository (if we received objects)
       if (fetchResult.packData.length > 0 && fetchResult.objectsReceived > 0) {
         logModel.info(
           `Received ${fetchResult.objectsReceived} objects (${fetchResult.bytesReceived} bytes)`,
         );
 
         // Import pack using serialization API
-        const repository = getRepository(ctx);
         if (repository?.backend?.serialization) {
           // Wrap pack data as async iterable
           async function* packStream() {
@@ -217,34 +219,35 @@ export function createSyncController(ctx: AppContext): () => void {
           await repository.backend.serialization.importPack(packStream());
           logModel.info("Pack imported successfully");
         }
-
-        // Update refs from fetched data
-        // The fetch mapped refs/heads/* to refs/remotes/peer/*
-        // We need to update both the remote tracking ref AND the local branch
-        for (const [refName, objectId] of fetchResult.refs) {
-          // Update the remote tracking ref
-          await repository?.refs.set(refName, objectId);
-          logModel.info(`Updated ref ${refName} -> ${objectId.slice(0, 7)}`);
-
-          // If this is the peer's main branch, also update our local main
-          if (refName === "refs/remotes/peer/main") {
-            // Check if we should fast-forward local main
-            const localRef = await repository?.refs.get("refs/heads/main");
-            const localHead = localRef && "objectId" in localRef ? localRef.objectId : null;
-
-            if (!localHead) {
-              // No local main - set it to remote
-              await repository?.refs.set("refs/heads/main", objectId);
-              logModel.info(`Set local main -> ${objectId.slice(0, 7)}`);
-            } else if (localHead !== objectId) {
-              // For demo simplicity, always accept remote (could add merge logic later)
-              await repository?.refs.set("refs/heads/main", objectId);
-              logModel.info(`Updated local main -> ${objectId.slice(0, 7)}`);
-            }
-          }
-        }
       } else {
         logModel.info("No new objects to fetch (already up to date)");
+      }
+
+      // Update refs from fetched data (always, even if no pack data)
+      // Note: fetchResult.refs contains REMOTE ref names (refs/heads/*)
+      // The refspec mapping is just for negotiation, not for the returned refs
+      for (const [refName, objectId] of fetchResult.refs) {
+        // Store as remote tracking ref (map refs/heads/* to refs/remotes/peer/*)
+        const remoteTrackingRef = refName.replace("refs/heads/", "refs/remotes/peer/");
+        await repository?.refs.set(remoteTrackingRef, objectId);
+        logModel.info(`Updated ref ${remoteTrackingRef} -> ${objectId.slice(0, 7)}`);
+
+        // If this is the main branch, also update our local main
+        if (refName === "refs/heads/main") {
+          // Check if we should update local main
+          const localRef = await repository?.refs.get("refs/heads/main");
+          const localHead = localRef && "objectId" in localRef ? localRef.objectId : null;
+
+          if (!localHead) {
+            // No local main - set it to remote
+            await repository?.refs.set("refs/heads/main", objectId);
+            logModel.info(`Set local main -> ${objectId.slice(0, 7)}`);
+          } else if (localHead !== objectId) {
+            // For demo simplicity, always accept remote (could add merge logic later)
+            await repository?.refs.set("refs/heads/main", objectId);
+            logModel.info(`Updated local main -> ${objectId.slice(0, 7)}`);
+          }
+        }
       }
 
       // Update sync progress
