@@ -244,15 +244,18 @@ describe("writeStream() and readStream()", () => {
     const port1 = wrapNativePort(channel.port1);
 
     // Don't set up a receiver, just let messages go unacknowledged
+    // Use small chunkSize to ensure multiple sub-streams and trigger ACK request
     async function* input(): AsyncGenerator<Uint8Array> {
-      yield bytes(1, 2, 3);
+      yield bytes(1, 2);
+      yield bytes(3, 4);
     }
 
     const sendPromise = writeStream(port1, input(), {
       ackTimeout: 50,
+      chunkSize: 2, // Force sub-stream split after 2 bytes to trigger ACK
     });
 
-    // Should timeout because no receiver
+    // Should timeout because no receiver to respond to ACK between sub-streams
     await expect(sendPromise).rejects.toThrow(/Timeout waiting for acknowledgement/);
   });
 
@@ -423,8 +426,9 @@ describe("writeStream() and readStream()", () => {
     // Count REQUEST_ACK messages (type=1)
     const requestAckCount = messageTypes.filter((t) => t === 1).length;
     // With 5 bytes and chunkSize=2: sub-streams of [2, 2, 1] bytes = 3 sub-streams
-    // ACKs are sent BETWEEN sub-streams (2) + final ACK (1) = 3 REQUEST_ACKs
-    expect(requestAckCount).toBe(3);
+    // ACKs are sent BETWEEN sub-streams (before 2nd and 3rd) = 2 REQUEST_ACKs
+    // No final ACK - END message is sufficient
+    expect(requestAckCount).toBe(2);
   });
 
   it("should handle large chunkSize (bigger than stream)", async () => {
@@ -444,15 +448,15 @@ describe("writeStream() and readStream()", () => {
       yield bytes(2);
     }
 
-    // chunkSize=100 but only 2 bytes - should send 1 REQUEST_ACK + final ACK
+    // chunkSize=100 but only 2 bytes - fits in single sub-stream, no ACKs needed
     const sendPromise = writeStream(port1, input(), { chunkSize: 100 });
     const received = await collect(readStream(port2));
     await sendPromise;
 
     expect(received).toHaveLength(2);
-    // Should have: DATA, DATA, REQUEST_ACK (final), END
+    // Should have: DATA, DATA, END (no REQUEST_ACK since only 1 sub-stream)
     const requestAckCount = messageTypes.filter((t) => t === 1).length;
-    expect(requestAckCount).toBe(1); // Only final ACK
+    expect(requestAckCount).toBe(0); // No ACKs - single sub-stream, no final ACK
   });
 
   it("should handle backpressure with byte-based batching", async () => {
@@ -816,5 +820,489 @@ describe("sendWithAcknowledgement", () => {
 
     expect(result).toHaveLength(4); // Split at byte 5
     expect(ackCount).toBe(1); // One ACK between sub-streams
+  });
+});
+
+// =============================================================================
+// Port error handling tests
+// =============================================================================
+
+import type {
+  MessagePortEventListener,
+  MessagePortEventType,
+  MessagePortLike,
+} from "../../src/streams/port-stream";
+
+/**
+ * Create a mock MessagePortLike that allows triggering errors programmatically.
+ */
+function createMockPort(): MessagePortLike & {
+  triggerError: (error: Error) => void;
+  triggerMessage: (data: ArrayBuffer) => void;
+  triggerClose: () => void;
+} {
+  const messageListeners = new Set<(event: MessageEvent<ArrayBuffer>) => void>();
+  const closeListeners = new Set<() => void>();
+  const errorListeners = new Set<(error: Error) => void>();
+
+  return {
+    postMessage(_data: ArrayBuffer | Uint8Array) {
+      // No-op for testing
+    },
+
+    close() {
+      for (const listener of closeListeners) {
+        listener();
+      }
+    },
+
+    start() {
+      // No-op for testing
+    },
+
+    addEventListener<T extends MessagePortEventType>(
+      type: T,
+      listener: MessagePortEventListener<T>,
+    ) {
+      if (type === "message") {
+        messageListeners.add(listener as (event: MessageEvent<ArrayBuffer>) => void);
+      } else if (type === "close") {
+        closeListeners.add(listener as () => void);
+      } else if (type === "error") {
+        errorListeners.add(listener as (error: Error) => void);
+      }
+    },
+
+    removeEventListener<T extends MessagePortEventType>(
+      type: T,
+      listener: MessagePortEventListener<T>,
+    ) {
+      if (type === "message") {
+        messageListeners.delete(listener as (event: MessageEvent<ArrayBuffer>) => void);
+      } else if (type === "close") {
+        closeListeners.delete(listener as () => void);
+      } else if (type === "error") {
+        errorListeners.delete(listener as (error: Error) => void);
+      }
+    },
+
+    triggerError(error: Error) {
+      for (const listener of errorListeners) {
+        listener(error);
+      }
+    },
+
+    triggerMessage(data: ArrayBuffer) {
+      const event = { data } as MessageEvent<ArrayBuffer>;
+      for (const listener of messageListeners) {
+        listener(event);
+      }
+    },
+
+    triggerClose() {
+      for (const listener of closeListeners) {
+        listener();
+      }
+    },
+  };
+}
+
+describe("writeStream error handling", () => {
+  function bytes(...values: number[]): Uint8Array {
+    return new Uint8Array(values);
+  }
+
+  it("should throw when port emits error during stream processing", async () => {
+    const port = createMockPort();
+
+    async function* input(): AsyncGenerator<Uint8Array> {
+      yield bytes(1, 2, 3);
+      // Wait a bit then error will be triggered
+      await new Promise((r) => setTimeout(r, 10));
+      yield bytes(4, 5, 6);
+    }
+
+    // Start writing
+    const sendPromise = writeStream(port, input(), { chunkSize: 10, ackTimeout: 100 });
+
+    // Trigger error after a short delay
+    setTimeout(() => {
+      port.triggerError(new Error("Port connection lost"));
+    }, 5);
+
+    await expect(sendPromise).rejects.toThrow("Port connection lost");
+  });
+
+  it("should unsubscribe from error events after completion", async () => {
+    const port = createMockPort();
+    let errorListenerCount = 0;
+
+    // Track error listener registrations
+    const originalAdd = port.addEventListener.bind(port);
+    const originalRemove = port.removeEventListener.bind(port);
+
+    port.addEventListener = ((
+      type: MessagePortEventType,
+      listener: MessagePortEventListener<typeof type>,
+    ) => {
+      if (type === "error") errorListenerCount++;
+      originalAdd(type, listener);
+    }) as typeof port.addEventListener;
+
+    port.removeEventListener = ((
+      type: MessagePortEventType,
+      listener: MessagePortEventListener<typeof type>,
+    ) => {
+      if (type === "error") errorListenerCount--;
+      originalRemove(type, listener);
+    }) as typeof port.removeEventListener;
+
+    async function* input(): AsyncGenerator<Uint8Array> {
+      yield bytes(1, 2, 3);
+    }
+
+    // Mock ACK response
+    port.postMessage = (data: ArrayBuffer | Uint8Array) => {
+      const view = new DataView(data instanceof ArrayBuffer ? data : data.buffer);
+      const type = view.getUint8(0);
+      if (type === 1) {
+        // REQUEST_ACK - respond with ACK
+        const id = view.getUint32(1, true);
+        const response = new ArrayBuffer(9);
+        const respView = new DataView(response);
+        respView.setUint8(0, 2); // ACKNOWLEDGE
+        respView.setUint32(1, id, true);
+        respView.setUint32(5, 0, true);
+        setTimeout(() => port.triggerMessage(response), 1);
+      }
+    };
+
+    await writeStream(port, input(), { chunkSize: 100, ackTimeout: 100 });
+
+    // Error listener should be removed after completion
+    expect(errorListenerCount).toBe(0);
+  });
+
+  it("should unsubscribe from error events after error", async () => {
+    const port = createMockPort();
+    let errorListenerCount = 0;
+
+    const originalAdd = port.addEventListener.bind(port);
+    const originalRemove = port.removeEventListener.bind(port);
+
+    port.addEventListener = ((
+      type: MessagePortEventType,
+      listener: MessagePortEventListener<typeof type>,
+    ) => {
+      if (type === "error") errorListenerCount++;
+      originalAdd(type, listener);
+    }) as typeof port.addEventListener;
+
+    port.removeEventListener = ((
+      type: MessagePortEventType,
+      listener: MessagePortEventListener<typeof type>,
+    ) => {
+      if (type === "error") errorListenerCount--;
+      originalRemove(type, listener);
+    }) as typeof port.removeEventListener;
+
+    async function* input(): AsyncGenerator<Uint8Array> {
+      yield bytes(1, 2, 3);
+      await new Promise((r) => setTimeout(r, 20));
+      yield bytes(4, 5, 6);
+    }
+
+    const sendPromise = writeStream(port, input(), { chunkSize: 100, ackTimeout: 100 });
+
+    setTimeout(() => {
+      port.triggerError(new Error("Connection failed"));
+    }, 10);
+
+    await expect(sendPromise).rejects.toThrow("Connection failed");
+
+    // Error listener should be removed even after error
+    expect(errorListenerCount).toBe(0);
+  });
+});
+
+describe("readStream error handling", () => {
+  function bytes(...values: number[]): Uint8Array {
+    return new Uint8Array(values);
+  }
+
+  async function collect(stream: AsyncIterable<Uint8Array>): Promise<Uint8Array[]> {
+    const result: Uint8Array[] = [];
+    for await (const chunk of stream) {
+      result.push(chunk);
+    }
+    return result;
+  }
+
+  /**
+   * Create a DATA message in binary protocol format.
+   */
+  function createDataMessage(id: number, data: Uint8Array): ArrayBuffer {
+    const buffer = new ArrayBuffer(9 + data.length);
+    const view = new DataView(buffer);
+    view.setUint8(0, 3); // DATA type
+    view.setUint32(1, id, true);
+    view.setUint32(5, data.length, true);
+    new Uint8Array(buffer, 9).set(data);
+    return buffer;
+  }
+
+  /**
+   * Create an END message in binary protocol format.
+   */
+  function createEndMessage(id: number): ArrayBuffer {
+    const buffer = new ArrayBuffer(9);
+    const view = new DataView(buffer);
+    view.setUint8(0, 4); // END type
+    view.setUint32(1, id, true);
+    view.setUint32(5, 0, true);
+    return buffer;
+  }
+
+  it("should throw when port emits error during reading", async () => {
+    const port = createMockPort();
+
+    // Start reading
+    const stream = readStream(port);
+    const collectPromise = collect(stream);
+
+    // Send some data first
+    setTimeout(() => {
+      port.triggerMessage(createDataMessage(0, bytes(1, 2, 3)));
+    }, 5);
+
+    // Then trigger error
+    setTimeout(() => {
+      port.triggerError(new Error("Port disconnected"));
+    }, 15);
+
+    await expect(collectPromise).rejects.toThrow("Port disconnected");
+  });
+
+  it("should unsubscribe from error events after completion", async () => {
+    const port = createMockPort();
+    let errorListenerCount = 0;
+
+    const originalAdd = port.addEventListener.bind(port);
+    const originalRemove = port.removeEventListener.bind(port);
+
+    port.addEventListener = ((
+      type: MessagePortEventType,
+      listener: MessagePortEventListener<typeof type>,
+    ) => {
+      if (type === "error") errorListenerCount++;
+      originalAdd(type, listener);
+    }) as typeof port.addEventListener;
+
+    port.removeEventListener = ((
+      type: MessagePortEventType,
+      listener: MessagePortEventListener<typeof type>,
+    ) => {
+      if (type === "error") errorListenerCount--;
+      originalRemove(type, listener);
+    }) as typeof port.removeEventListener;
+
+    const stream = readStream(port);
+    const collectPromise = collect(stream);
+
+    // Send data and end
+    setTimeout(() => {
+      port.triggerMessage(createDataMessage(0, bytes(1, 2, 3)));
+      port.triggerMessage(createEndMessage(1));
+    }, 5);
+
+    const result = await collectPromise;
+    expect(result).toHaveLength(1);
+
+    // Error listener should be removed after completion
+    expect(errorListenerCount).toBe(0);
+  });
+
+  it("should unsubscribe from error events after error", async () => {
+    const port = createMockPort();
+    let errorListenerCount = 0;
+
+    const originalAdd = port.addEventListener.bind(port);
+    const originalRemove = port.removeEventListener.bind(port);
+
+    port.addEventListener = ((
+      type: MessagePortEventType,
+      listener: MessagePortEventListener<typeof type>,
+    ) => {
+      if (type === "error") errorListenerCount++;
+      originalAdd(type, listener);
+    }) as typeof port.addEventListener;
+
+    port.removeEventListener = ((
+      type: MessagePortEventType,
+      listener: MessagePortEventListener<typeof type>,
+    ) => {
+      if (type === "error") errorListenerCount--;
+      originalRemove(type, listener);
+    }) as typeof port.removeEventListener;
+
+    const stream = readStream(port);
+    const collectPromise = collect(stream);
+
+    // Trigger error after starting to read
+    setTimeout(() => {
+      port.triggerError(new Error("Connection lost"));
+    }, 5);
+
+    await expect(collectPromise).rejects.toThrow("Connection lost");
+
+    // Error listener should be removed even after error
+    expect(errorListenerCount).toBe(0);
+  });
+});
+
+// =============================================================================
+// Large stream backpressure test
+// =============================================================================
+
+describe("large stream backpressure", () => {
+  it("should properly await consumer with large streams (100K data, 5K blocks)", async () => {
+    const channel = createChannel();
+    const port1 = wrapNativePort(channel.port1);
+    const port2 = wrapNativePort(channel.port2);
+
+    const TOTAL_SIZE = 100 * 1024; // 100K of data
+    const BLOCK_SIZE = 1024; // 1K individual blocks
+    const CHUNK_SIZE = 5 * BLOCK_SIZE; // 5K blocks for ACK
+    const DELAY_THRESHOLD = 2 * BLOCK_SIZE; // Delay after 2K received
+    const DELAY_MS = 2; // 2ms delay
+
+    // Track timing to verify backpressure
+    const events: { time: number; event: string; bytes: number }[] = [];
+    const startTime = Date.now();
+    let totalSent = 0;
+    let totalReceived = 0;
+
+    // Create large data stream
+    async function* input(): AsyncGenerator<Uint8Array> {
+      while (totalSent < TOTAL_SIZE) {
+        const blockSize = Math.min(BLOCK_SIZE, TOTAL_SIZE - totalSent);
+        const block = new Uint8Array(blockSize);
+        for (let i = 0; i < blockSize; i++) {
+          block[i] = (totalSent + i) % 256;
+        }
+        totalSent += blockSize;
+        events.push({ time: Date.now() - startTime, event: "send", bytes: totalSent });
+        yield block;
+      }
+    }
+
+    // Start sender
+    const sendPromise = writeStream(port1, input(), {
+      chunkSize: CHUNK_SIZE,
+      ackTimeout: 30000,
+    });
+
+    // Receiver with delays
+    let receivedSinceDelay = 0;
+    for await (const chunk of readStream(port2)) {
+      totalReceived += chunk.length;
+      receivedSinceDelay += chunk.length;
+      events.push({ time: Date.now() - startTime, event: "recv", bytes: totalReceived });
+
+      // Delay after receiving 2K of data
+      if (receivedSinceDelay >= DELAY_THRESHOLD) {
+        await new Promise((r) => setTimeout(r, DELAY_MS));
+        receivedSinceDelay = 0;
+      }
+    }
+
+    await sendPromise;
+
+    // Verify all data was transferred
+    expect(totalReceived).toBe(TOTAL_SIZE);
+    expect(totalSent).toBe(TOTAL_SIZE);
+
+    // Analyze backpressure behavior
+    // Verify sender waits at ACK points by checking that receive events
+    // are interleaved with send events (not all sends before receives)
+    const sendEvents = events.filter((e) => e.event === "send");
+    const recvEvents = events.filter((e) => e.event === "recv");
+
+    // Find the first recv event and check that not all sends happened before it
+    const firstRecvTime = recvEvents[0]?.time ?? 0;
+    const sendsBeforeFirstRecv = sendEvents.filter((e) => e.time < firstRecvTime).length;
+
+    // With backpressure, sender shouldn't send all 100 blocks before receiver gets any
+    // (100K / 1K = 100 blocks). At most one chunk (5K = 5 blocks) should be sent before
+    // waiting for ACK.
+    expect(sendsBeforeFirstRecv).toBeLessThan(20); // Should be around 5-6 blocks
+
+    // Verify timing - with delays every 2K, and 100K total, we should have
+    // significant elapsed time showing backpressure is working
+    const totalTime = events[events.length - 1]?.time ?? 0;
+    const expectedMinTime = (TOTAL_SIZE / DELAY_THRESHOLD) * DELAY_MS; // ~500ms minimum
+    expect(totalTime).toBeGreaterThan(expectedMinTime * 0.5); // At least half expected time
+  });
+
+  it("should verify sender blocks at ACK boundaries", async () => {
+    const channel = createChannel();
+    const port1 = wrapNativePort(channel.port1);
+    const port2 = wrapNativePort(channel.port2);
+
+    const CHUNK_SIZE = 5 * 1024; // 5K blocks
+    const TOTAL_SIZE = 25 * 1024; // 25K total (5 ACK points)
+
+    const events: string[] = [];
+    let bytesSent = 0;
+
+    async function* input(): AsyncGenerator<Uint8Array> {
+      // Send in 1K blocks
+      while (bytesSent < TOTAL_SIZE) {
+        const block = new Uint8Array(1024).fill((bytesSent / 1024) % 256);
+        bytesSent += 1024;
+        events.push(`send:${bytesSent / 1024}K`);
+        yield block;
+      }
+    }
+
+    const sendPromise = writeStream(port1, input(), {
+      chunkSize: CHUNK_SIZE,
+      ackTimeout: 5000,
+    });
+
+    let bytesReceived = 0;
+    for await (const chunk of readStream(port2)) {
+      bytesReceived += chunk.length;
+      events.push(`recv:${bytesReceived / 1024}K`);
+
+      // Delay every 5K to clearly see ACK boundaries
+      if (bytesReceived % CHUNK_SIZE === 0) {
+        await new Promise((r) => setTimeout(r, 20));
+        events.push(`delay-after:${bytesReceived / 1024}K`);
+      }
+    }
+
+    await sendPromise;
+
+    expect(bytesReceived).toBe(TOTAL_SIZE);
+
+    // Verify interleaving: sends and receives should be mixed
+    // With proper backpressure, we shouldn't have all 25 sends before any receives
+    const sendEvents = events.filter((e) => e.startsWith("send:"));
+    const recvEvents = events.filter((e) => e.startsWith("recv:"));
+
+    // Find where first recv appears in the event list
+    const firstRecvIndex = events.findIndex((e) => e.startsWith("recv:"));
+    const sendsBeforeFirstRecv = events
+      .slice(0, firstRecvIndex)
+      .filter((e) => e.startsWith("send:")).length;
+
+    // With 5K chunk size and 1K blocks, at most ~5-6 sends should happen before first recv
+    // (due to the first chunk being sent before waiting for ACK)
+    expect(sendsBeforeFirstRecv).toBeLessThan(10);
+
+    // Verify all data was transferred
+    expect(sendEvents.length).toBe(25); // 25K / 1K = 25 blocks
+    expect(recvEvents.length).toBe(25);
   });
 });
