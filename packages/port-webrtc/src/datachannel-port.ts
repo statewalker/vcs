@@ -1,93 +1,124 @@
 /**
- * RTCDataChannel adapter returning standard MessagePort.
+ * RTCDataChannel adapter for MessagePortLike.
  *
- * Bridges an RTCDataChannel to a MessagePort using the MessageChannel pattern,
- * enabling use with any code that expects standard MessagePort interface.
+ * Wraps an RTCDataChannel to provide the MessagePortLike interface,
+ * enabling use with port-stream for Git protocol communication.
  */
 
+import type {
+  MessagePortEventListener,
+  MessagePortEventType,
+  MessagePortLike,
+} from "@statewalker/vcs-utils";
+
 /**
- * Normalize data to Uint8Array for MessagePort transport.
+ * DataChannel port interface - MessagePortLike with bufferedAmount for backpressure.
  */
-function normalizeToUint8Array(data: unknown): Uint8Array {
-  if (data instanceof Uint8Array) {
-    return data;
-  }
-  if (data instanceof ArrayBuffer) {
-    return new Uint8Array(data);
-  }
-  if (ArrayBuffer.isView(data)) {
-    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-  }
-  // Fallback: encode as UTF-8
-  return new TextEncoder().encode(String(data));
+export interface DataChannelPort extends MessagePortLike {
+  readonly bufferedAmount: number;
 }
 
 /**
- * Create a MessagePort that bridges to an RTCDataChannel.
+ * Wrap an RTCDataChannel as MessagePortLike.
  *
  * The channel must be in "open" state or opening.
  *
- * This uses the MessageChannel bridge pattern:
- * - Creates a MessageChannel to get port1 and port2
- * - Returns port1 to the caller (standard MessagePort)
- * - Internally connects port2 to the RTCDataChannel
- *
- * @param channel - The RTCDataChannel to wrap
- * @returns A standard MessagePort that bridges to the channel
+ * @param channel The RTCDataChannel to wrap
+ * @returns MessagePortLike adapter with bufferedAmount support
  */
-export function createDataChannelPort(channel: RTCDataChannel): MessagePort {
-  const { port1, port2 } = new MessageChannel();
+export function createDataChannelPort(channel: RTCDataChannel): DataChannelPort {
+  let started = false;
+  const messageListeners = new Set<(event: MessageEvent<ArrayBuffer>) => void>();
+  const closeListeners = new Set<() => void>();
+  const errorListeners = new Set<(error: Error) => void>();
 
-  // Configure channel for binary data
-  channel.binaryType = "arraybuffer";
+  const port: DataChannelPort = {
+    get bufferedAmount() {
+      return channel.bufferedAmount;
+    },
 
-  // port2 → RTCDataChannel: forward messages to DataChannel
-  port2.onmessage = (e: MessageEvent) => {
-    if (channel.readyState !== "open") return;
-    // Convert to ArrayBuffer for RTCDataChannel.send()
-    const uint8 = e.data instanceof Uint8Array ? e.data : normalizeToUint8Array(e.data);
-    const buffer =
-      uint8.byteOffset === 0 && uint8.byteLength === uint8.buffer.byteLength
-        ? (uint8.buffer as ArrayBuffer)
-        : (uint8.buffer.slice(
-            uint8.byteOffset,
-            uint8.byteOffset + uint8.byteLength,
-          ) as ArrayBuffer);
-    channel.send(buffer);
+    postMessage(data: ArrayBuffer | Uint8Array) {
+      if (channel.readyState !== "open") {
+        throw new Error("DataChannel is not open");
+      }
+      // Convert to ArrayBuffer for sending
+      const buffer =
+        data instanceof ArrayBuffer
+          ? data
+          : (data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer);
+      channel.send(buffer);
+    },
+
+    close() {
+      channel.close();
+    },
+
+    start() {
+      if (started) return;
+      started = true;
+
+      channel.binaryType = "arraybuffer";
+
+      channel.onmessage = (e) => {
+        const event = { data: e.data } as MessageEvent<ArrayBuffer>;
+        for (const listener of messageListeners) {
+          listener(event);
+        }
+      };
+
+      channel.onclose = () => {
+        for (const listener of closeListeners) {
+          listener();
+        }
+      };
+
+      channel.onerror = (e) => {
+        const err = (e as RTCErrorEvent).error ?? new Error("DataChannel error");
+        for (const listener of errorListeners) {
+          listener(err);
+        }
+      };
+    },
+
+    addEventListener<T extends MessagePortEventType>(
+      type: T,
+      listener: MessagePortEventListener<T>,
+    ) {
+      if (type === "message") {
+        messageListeners.add(listener as (event: MessageEvent<ArrayBuffer>) => void);
+      } else if (type === "close") {
+        closeListeners.add(listener as () => void);
+      } else if (type === "error") {
+        errorListeners.add(listener as (error: Error) => void);
+      }
+    },
+
+    removeEventListener<T extends MessagePortEventType>(
+      type: T,
+      listener: MessagePortEventListener<T>,
+    ) {
+      if (type === "message") {
+        messageListeners.delete(listener as (event: MessageEvent<ArrayBuffer>) => void);
+      } else if (type === "close") {
+        closeListeners.delete(listener as () => void);
+      } else if (type === "error") {
+        errorListeners.delete(listener as (error: Error) => void);
+      }
+    },
   };
 
-  // RTCDataChannel → port2: forward incoming data to the MessagePort
-  channel.onmessage = (e: MessageEvent) => {
-    const uint8 = normalizeToUint8Array(e.data);
-    // Copy the data to avoid issues with detached buffers
-    const copy = new Uint8Array(uint8);
-    port2.postMessage(copy);
-  };
-
-  // Close port2 when channel closes to signal to port1 consumers
-  channel.onclose = () => {
-    // Send null to signal end of stream (convention used by messageport-adapters)
-    try {
-      port2.postMessage(null);
-    } catch {
-      // Ignore if already closed
-    }
-    port2.close();
-  };
-
-  // Start receiving messages on port2
-  port2.start();
-
-  return port1;
+  return port;
 }
 
 /**
- * Create a MessagePort and wait for the RTCDataChannel to open.
+ * Create DataChannel port and wait for it to open.
  *
- * @param channel - The RTCDataChannel to wrap
- * @returns Promise resolving to MessagePort when channel is open
+ * @param channel The RTCDataChannel to wrap
+ * @returns Promise resolving to DataChannelPort when channel is open
  */
-export async function createDataChannelPortAsync(channel: RTCDataChannel): Promise<MessagePort> {
+export async function createDataChannelPortAsync(
+  channel: RTCDataChannel,
+): Promise<DataChannelPort> {
   if (channel.readyState === "open") {
     return createDataChannelPort(channel);
   }
