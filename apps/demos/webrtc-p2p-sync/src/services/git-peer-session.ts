@@ -293,7 +293,10 @@ export async function createGitPeerSession(
     async close(): Promise<void> {
       if (closed) return;
       closed = true;
-      port.close();
+      // NOTE: Don't close the port here! The port wraps the PeerJS connection,
+      // and closing it would disconnect the peer. The connection lifecycle is
+      // managed at a higher level (webrtc-controller). This just marks the
+      // session as closed so no more fetch/push operations can be performed.
     },
   };
 }
