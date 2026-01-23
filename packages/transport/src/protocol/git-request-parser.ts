@@ -20,6 +20,7 @@
  * - Optional: extra parameters after second NUL (e.g., version=2)
  */
 
+import type { ConnectableSocket } from "../connection/git-connection.js";
 import { parsePacket } from "./pkt-line-codec.js";
 
 /**
@@ -111,22 +112,20 @@ export function parseGitProtocolRequest(data: Uint8Array): GitProtocolRequest {
 }
 
 /**
- * Parse git:// protocol request from an input stream.
+ * Parse git:// protocol request from ConnectableSocket.
  *
- * Reads exactly one pkt-line from the stream and parses it.
+ * Reads exactly one pkt-line from the socket and parses it.
  *
- * @param input - The async iterable to read from
+ * @param socket - The ConnectableSocket to read from
  * @returns Parsed request
  * @throws Error if request is invalid or connection closed
  */
-export async function readGitProtocolRequest(
-  input: AsyncIterable<Uint8Array>,
-): Promise<GitProtocolRequest> {
+export async function readGitProtocolRequest(socket: ConnectableSocket): Promise<GitProtocolRequest> {
   // Collect bytes until we have a complete pkt-line
   const chunks: Uint8Array[] = [];
   let buffer = new Uint8Array(0);
 
-  for await (const chunk of input) {
+  for await (const chunk of socket.input) {
     // Append chunk to buffer
     const newBuffer = new Uint8Array(buffer.length + chunk.length);
     newBuffer.set(buffer, 0);

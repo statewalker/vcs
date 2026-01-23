@@ -69,9 +69,7 @@ function createMockFetch(
     } else {
       throw new Error(`Invalid fetch input: ${typeof input}`);
     }
-    // Add duplex option when body is present (required by Node.js for streaming requests)
-    const requestInit = init?.body ? { ...init, duplex: "half" } : init;
-    const request = new Request(url, requestInit as RequestInit);
+    const request = new Request(url, init);
     return serverFetch(request);
   };
 }
@@ -189,9 +187,7 @@ export function createTestUrl(baseUrl: string, repoName = "test.git"): string {
 export function createTestFetch(server: TestServer): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    // Add duplex option when body is present (required by Node.js for streaming requests)
-    const requestInit = init?.body ? { ...init, duplex: "half" } : init;
-    const request = new Request(url, requestInit as RequestInit);
+    const request = new Request(url, init);
     return server.fetch(request);
   };
 }

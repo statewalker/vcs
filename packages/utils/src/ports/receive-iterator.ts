@@ -18,7 +18,9 @@ export interface MessageParams<T, E = Error> {
   error?: E;
 }
 
-export type MessageHandler<T, E = Error> = (params?: MessageParams<T, E>) => Promise<void>;
+export type MessageHandler<T, E = Error> = (
+  params?: MessageParams<T, E>,
+) => Promise<void>;
 
 export async function* receiveIterator<T, E = Error>(
   onMessage: (send: MessageHandler<T, E>) => void | (() => void | Promise<void>),
