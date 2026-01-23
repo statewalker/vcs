@@ -13,7 +13,7 @@ import {
   matchDestination,
   matchSource,
   parseRefSpec,
-} from "../src/utils/refspec.js";
+} from "../src/negotiation/refspec.js";
 
 describe("RefSpec parsing", () => {
   describe("basic parsing", () => {
