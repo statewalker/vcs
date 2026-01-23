@@ -1,60 +1,44 @@
 /**
  * Transport Replication Integration Tests
  *
- * Tests that verify data can be replicated correctly over MessagePort
- * using the new MessagePort adapter APIs.
+ * Tests that verify repository data can be replicated correctly over the
+ * MessagePortLike transport layer with ACK-based backpressure.
  */
 
 import type { GitStore } from "@statewalker/vcs-commands";
+import type { Packet } from "@statewalker/vcs-transport";
 import {
-  createMessagePortCloser,
-  createMessagePortPair,
-  createMessagePortReader,
-  createMessagePortWriter,
+  createPortTransportConnection,
+  type TransportConnection,
 } from "@statewalker/vcs-transport";
+import { wrapNativePort } from "@statewalker/vcs-utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { memoryFactory } from "./backend-factories.js";
 import { createCommit, createInitializedGitFromFactory, toArray } from "./test-helper.js";
 
 /**
- * Create a connected pair of MessagePort transports for testing.
+ * Create a connected pair of TransportConnections for testing.
  */
 function createTestTransportPair(): {
-  local: {
-    reader: AsyncGenerator<Uint8Array>;
-    writer: (data: Uint8Array) => Promise<void>;
-    close: () => Promise<void>;
-    port: MessagePort;
-  };
-  remote: {
-    reader: AsyncGenerator<Uint8Array>;
-    writer: (data: Uint8Array) => Promise<void>;
-    close: () => Promise<void>;
-    port: MessagePort;
-  };
+  local: TransportConnection;
+  remote: TransportConnection;
   cleanup: () => void;
 } {
-  const [port1, port2] = createMessagePortPair();
+  const channel = new MessageChannel();
+  const port1 = wrapNativePort(channel.port1);
+  const port2 = wrapNativePort(channel.port2);
 
-  const localReader = createMessagePortReader(port1);
-  const remoteReader = createMessagePortReader(port2);
+  const local = createPortTransportConnection(port1, { blockSize: 64 * 1024 });
+  const remote = createPortTransportConnection(port2, { blockSize: 64 * 1024 });
 
   return {
-    local: {
-      reader: localReader,
-      writer: createMessagePortWriter(port1),
-      close: createMessagePortCloser(port1, localReader),
-      port: port1,
-    },
-    remote: {
-      reader: remoteReader,
-      writer: createMessagePortWriter(port2),
-      close: createMessagePortCloser(port2, remoteReader),
-      port: port2,
-    },
+    local,
+    remote,
     cleanup: () => {
-      port1.close();
-      port2.close();
+      local.close();
+      remote.close();
+      channel.port1.close();
+      channel.port2.close();
     },
   };
 }
@@ -69,21 +53,32 @@ function decode(data: Uint8Array): string {
   return new TextDecoder().decode(data);
 }
 
-// Collect all chunks from a reader
-async function collectChunks(reader: AsyncGenerator<Uint8Array>): Promise<Uint8Array[]> {
-  const result: Uint8Array[] = [];
-  for await (const chunk of reader) {
-    result.push(chunk);
+// Collect all packets from a stream
+async function collectPackets(stream: AsyncIterable<Packet>): Promise<Packet[]> {
+  const result: Packet[] = [];
+  for await (const packet of stream) {
+    result.push(packet);
   }
   return result;
 }
 
+// Extract data from data packets
+function extractData(packets: Packet[]): Uint8Array[] {
+  return packets.filter((p) => p.type === "data" && p.data).map((p) => p.data as Uint8Array);
+}
+
 describe("Transport Replication", () => {
+  // localStore is available but not directly used in most tests
+  // (we use the transport layer abstraction instead)
   let _localStore: GitStore;
   let remoteStore: GitStore;
   let localCleanup: (() => Promise<void>) | undefined;
   let remoteCleanup: (() => Promise<void>) | undefined;
-  let transport: ReturnType<typeof createTestTransportPair>;
+  let transport: {
+    local: TransportConnection;
+    remote: TransportConnection;
+    cleanup: () => void;
+  };
 
   beforeEach(async () => {
     // Create two in-memory repositories
@@ -109,40 +104,57 @@ describe("Transport Replication", () => {
   // Basic transport tests
   // =============================================================================
 
-  it("should send and receive data chunks", async () => {
-    // Send some data
-    await transport.local.writer(text("want abc123\n"));
-    await transport.local.writer(text("have def456\n"));
-    await transport.local.close();
+  it("should send and receive git protocol packets", async () => {
+    // Simulate a simple git protocol exchange
+    async function* generatePackets(): AsyncGenerator<Packet> {
+      yield { type: "data", data: text("want abc123\n") };
+      yield { type: "data", data: text("have def456\n") };
+      yield { type: "flush" };
+    }
 
-    const received = await collectChunks(transport.remote.reader);
+    const sendPromise = transport.local.send(generatePackets());
+    const received = await collectPackets(transport.remote.receive());
+    await sendPromise;
 
-    expect(received).toHaveLength(2);
-    expect(decode(received[0])).toBe("want abc123\n");
-    expect(decode(received[1])).toBe("have def456\n");
+    expect(received).toHaveLength(3);
+    expect(received[0].type).toBe("data");
+    expect(received[1].type).toBe("data");
+    expect(received[2].type).toBe("flush");
+
+    const data = extractData(received);
+    expect(decode(data[0])).toBe("want abc123\n");
+    expect(decode(data[1])).toBe("have def456\n");
   });
 
   it("should handle bidirectional communication (request/response)", async () => {
+    // Client sends request
+    async function* clientRequest(): AsyncGenerator<Packet> {
+      yield { type: "data", data: text("want refs/heads/main\n") };
+      yield { type: "flush" };
+    }
+
+    // Server sends response
+    async function* serverResponse(): AsyncGenerator<Packet> {
+      yield { type: "data", data: text("ACK refs/heads/main\n") };
+      yield { type: "data", data: text("PACK data here...") };
+      yield { type: "flush" };
+    }
+
     // Phase 1: Client -> Server
-    await transport.local.writer(text("want refs/heads/main\n"));
-    await transport.local.close();
+    const clientSendPromise = transport.local.send(clientRequest());
+    const serverReceived = await collectPackets(transport.remote.receive());
+    await clientSendPromise;
 
-    const serverReceived = await collectChunks(transport.remote.reader);
-    expect(serverReceived).toHaveLength(1);
-    expect(decode(serverReceived[0])).toContain("want");
+    expect(serverReceived).toHaveLength(2);
+    expect(decode(extractData(serverReceived)[0])).toContain("want");
 
-    // Phase 2: Server -> Client (recreate transport for second phase)
-    const transport2 = createTestTransportPair();
+    // Phase 2: Server -> Client
+    const serverSendPromise = transport.remote.send(serverResponse());
+    const clientReceived = await collectPackets(transport.local.receive());
+    await serverSendPromise;
 
-    await transport2.remote.writer(text("ACK refs/heads/main\n"));
-    await transport2.remote.writer(text("PACK data here..."));
-    await transport2.remote.close();
-
-    const clientReceived = await collectChunks(transport2.local.reader);
-    expect(clientReceived).toHaveLength(2);
-    expect(decode(clientReceived[0])).toContain("ACK");
-
-    transport2.cleanup();
+    expect(clientReceived).toHaveLength(3);
+    expect(decode(extractData(clientReceived)[0])).toContain("ACK");
   });
 
   // =============================================================================
@@ -150,32 +162,40 @@ describe("Transport Replication", () => {
   // =============================================================================
 
   it("should transfer large binary blobs with integrity", async () => {
-    // Create a large blob in chunks
+    // Create a large blob in chunks (git pkt-line has max packet size of ~65KB)
+    // We'll send 1MB as multiple packets of 60KB each
     const chunkSize = 60000;
     const totalSize = 1024 * 1024;
     const numChunks = Math.ceil(totalSize / chunkSize);
 
-    // Send chunks
-    for (let i = 0; i < numChunks; i++) {
-      const start = i * chunkSize;
-      const end = Math.min(start + chunkSize, totalSize);
-      const chunk = new Uint8Array(end - start);
-      for (let j = 0; j < chunk.length; j++) {
-        chunk[j] = (start + j) % 256;
+    async function* generateLargeData(): AsyncGenerator<Packet> {
+      for (let i = 0; i < numChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, totalSize);
+        const chunk = new Uint8Array(end - start);
+        for (let j = 0; j < chunk.length; j++) {
+          chunk[j] = (start + j) % 256;
+        }
+        yield { type: "data", data: chunk };
       }
-      await transport.local.writer(chunk);
+      yield { type: "flush" };
     }
-    await transport.local.close();
 
-    const received = await collectChunks(transport.remote.reader);
-    expect(received).toHaveLength(numChunks);
+    const sendPromise = transport.local.send(generateLargeData());
+    const received = await collectPackets(transport.remote.receive());
+    await sendPromise;
+
+    expect(received).toHaveLength(numChunks + 1);
+    expect(received[received.length - 1].type).toBe("flush");
 
     // Reconstruct and verify data integrity
     const reconstructed = new Uint8Array(totalSize);
     let offset = 0;
-    for (const chunk of received) {
-      reconstructed.set(chunk, offset);
-      offset += chunk.length;
+    for (const packet of received) {
+      if (packet.type === "data" && packet.data) {
+        reconstructed.set(packet.data, offset);
+        offset += packet.data.length;
+      }
     }
 
     expect(offset).toBe(totalSize);
@@ -190,18 +210,24 @@ describe("Transport Replication", () => {
   it("should transfer many small packets efficiently", async () => {
     const packetCount = 100;
 
-    for (let i = 0; i < packetCount; i++) {
-      await transport.local.writer(text(`packet-${i.toString().padStart(3, "0")}\n`));
+    async function* generateManyPackets(): AsyncGenerator<Packet> {
+      for (let i = 0; i < packetCount; i++) {
+        yield { type: "data", data: text(`packet-${i.toString().padStart(3, "0")}\n`) };
+      }
+      yield { type: "flush" };
     }
-    await transport.local.close();
 
-    const received = await collectChunks(transport.remote.reader);
-    expect(received).toHaveLength(packetCount);
+    const sendPromise = transport.local.send(generateManyPackets());
+    const received = await collectPackets(transport.remote.receive());
+    await sendPromise;
+
+    expect(received).toHaveLength(packetCount + 1);
 
     // Verify packet order
-    expect(decode(received[0])).toBe("packet-000\n");
-    expect(decode(received[49])).toBe("packet-049\n");
-    expect(decode(received[99])).toBe("packet-099\n");
+    const dataPackets = extractData(received);
+    expect(decode(dataPackets[0])).toBe("packet-000\n");
+    expect(decode(dataPackets[49])).toBe("packet-049\n");
+    expect(decode(dataPackets[99])).toBe("packet-099\n");
   });
 
   // =============================================================================
@@ -209,34 +235,38 @@ describe("Transport Replication", () => {
   // =============================================================================
 
   it("should handle backpressure with slow receiver", async () => {
+    // Create data in chunks (respecting pkt-line max size)
     const chunkSize = 50000;
     const numChunks = 10;
     const totalSize = chunkSize * numChunks;
 
-    // Send data
-    const sendPromise = (async () => {
+    async function* generateData(): AsyncGenerator<Packet> {
       for (let i = 0; i < numChunks; i++) {
         const chunk = new Uint8Array(chunkSize);
         for (let j = 0; j < chunkSize; j++) {
           chunk[j] = (i * chunkSize + j) % 256;
         }
-        await transport.local.writer(chunk);
+        yield { type: "data", data: chunk };
       }
-      await transport.local.close();
-    })();
+      yield { type: "flush" };
+    }
 
     let receivedBytes = 0;
     let totalTime = 0;
 
     const receivePromise = (async () => {
       const start = performance.now();
-      for await (const chunk of transport.remote.reader) {
-        receivedBytes += chunk.length;
-        // Simulate slow processing
-        await new Promise((r) => setTimeout(r, 5));
+      for await (const packet of transport.remote.receive()) {
+        if (packet.type === "data" && packet.data) {
+          receivedBytes += packet.data.length;
+          // Simulate slow processing
+          await new Promise((r) => setTimeout(r, 5));
+        }
       }
       totalTime = performance.now() - start;
     })();
+
+    const sendPromise = transport.local.send(generateData());
 
     await Promise.all([sendPromise, receivePromise]);
 
@@ -265,7 +295,7 @@ describe("Transport Replication", () => {
     const commit = await remoteStore.commits.loadCommit(headRef.objectId);
     const tree = await toArray(remoteStore.trees.loadTree(commit.tree));
 
-    // Find the test.txt entry
+    // Find the test.txt entry (TreeEntry has 'name' and 'id' properties)
     const testFileEntry = tree.find((e) => e.name === "test.txt");
     if (!testFileEntry) {
       const names = tree.map((e) => e.name);
@@ -285,14 +315,21 @@ describe("Transport Replication", () => {
     }
 
     // Transfer blob via transport
-    await transport.local.writer(blobContent);
-    await transport.local.close();
+    async function* sendBlob(): AsyncGenerator<Packet> {
+      yield { type: "data", data: blobContent };
+      yield { type: "flush" };
+    }
 
-    const received = await collectChunks(transport.remote.reader);
+    const sendPromise = transport.local.send(sendBlob());
+    const received = await collectPackets(transport.remote.receive());
+    await sendPromise;
 
     // Verify transfer
-    expect(received).toHaveLength(1);
-    expect(decode(received[0])).toBe("Hello, world!");
+    expect(received).toHaveLength(2);
+    expect(received[0].type).toBe("data");
+    const receivedContent = received[0].type === "data" ? received[0].data : undefined;
+    expect(receivedContent).toBeDefined();
+    expect(decode(receivedContent as Uint8Array)).toBe("Hello, world!");
   });
 
   it("should transfer commit metadata", async () => {
@@ -314,14 +351,20 @@ describe("Transport Replication", () => {
     );
 
     // Transfer commit via transport
-    await transport.local.writer(commitData);
-    await transport.local.close();
+    async function* sendCommit(): AsyncGenerator<Packet> {
+      yield { type: "data", data: commitData };
+      yield { type: "flush" };
+    }
 
-    const received = await collectChunks(transport.remote.reader);
+    const sendPromise = transport.local.send(sendCommit());
+    const received = await collectPackets(transport.remote.receive());
+    await sendPromise;
 
     // Verify transfer
-    expect(received).toHaveLength(1);
-    const parsedCommit = JSON.parse(decode(received[0]));
+    expect(received[0].type).toBe("data");
+    const receivedData = received[0].type === "data" ? received[0].data : undefined;
+    expect(receivedData).toBeDefined();
+    const parsedCommit = JSON.parse(decode(receivedData as Uint8Array));
 
     expect(parsedCommit.message).toBe("Test commit message");
     expect(parsedCommit.tree).toBe(commit.tree);
@@ -332,11 +375,14 @@ describe("Transport Replication", () => {
   // =============================================================================
 
   it("should handle closed connection gracefully", async () => {
-    // Close the local side
+    // Close the connection
     await transport.local.close();
 
-    // The remote reader should end (no more data)
-    const received = await collectChunks(transport.remote.reader);
-    expect(received).toHaveLength(0);
+    // Trying to send should throw
+    async function* packets(): AsyncGenerator<Packet> {
+      yield { type: "flush" };
+    }
+
+    await expect(transport.local.send(packets())).rejects.toThrow(/closed/i);
   });
 });

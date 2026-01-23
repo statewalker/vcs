@@ -26,11 +26,6 @@ import type { Packet, RefAdvertisement } from "../protocol/types.js";
  *
  * Peeled tags have an extra line:
  *   <object-id> <ref-name>^{}
- *
- * IMPORTANT: This function uses manual iteration instead of `for await...of`
- * to avoid triggering `.return()` on the iterator when we stop at the flush
- * packet. This allows the same iterator to continue receiving subsequent
- * protocol data (like the fetch response).
  */
 export async function parseRefAdvertisement(
   packets: AsyncIterable<Packet>,
@@ -41,20 +36,8 @@ export async function parseRefAdvertisement(
   let agent: string | undefined;
   let firstLine = true;
 
-  // Use manual iteration to avoid triggering .return() on early exit
-  // When using `for await...of` with `break`, JavaScript calls iterator.return()
-  // which cascades down and closes the underlying MessagePort reader
-  const iterator = packets[Symbol.asyncIterator]();
-
-  while (true) {
-    const result = await iterator.next();
-    if (result.done) {
-      break;
-    }
-
-    const packet = result.value;
+  for await (const packet of packets) {
     if (packet.type === "flush") {
-      // Stop at flush but don't close the iterator
       break;
     }
     if (packet.type !== "data" || !packet.data) {
