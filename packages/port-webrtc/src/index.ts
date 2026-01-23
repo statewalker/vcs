@@ -1,32 +1,37 @@
 /**
  * @statewalker/vcs-port-webrtc
  *
- * WebRTC MessagePortLike adapter for VCS transport.
+ * WebRTC MessagePort adapter for VCS transport.
  *
  * This package provides tools for establishing WebRTC data channel connections
- * and adapting them to the MessagePortLike interface for use with createPortStream
- * or createPortTransportConnection.
+ * and adapting them to standard MessagePort for use with createGitSocketClient
+ * or any MessagePort-based transport.
  *
  * Features:
- * - RTCDataChannel to MessagePortLike adapter
+ * - RTCDataChannel to MessagePort adapter
  * - Peer connection lifecycle management
  * - QR code-based serverless signaling
  * - Compact signal compression for QR codes
  *
- * @example Basic usage with createPortStream:
+ * @example Basic usage with Git socket client:
  * ```typescript
  * import { createDataChannelPortAsync, PeerManager, waitForConnection } from "@statewalker/vcs-port-webrtc";
- * import { createPortStream } from "@statewalker/vcs-utils";
+ * import { createGitSocketClient } from "@statewalker/vcs-transport";
  *
  * // Create peer connection
  * const manager = new PeerManager("initiator");
  * manager.on("signal", (msg) => sendToPeer(msg));
  * await manager.connect();
  *
- * // Wait for connection and create stream
+ * // Wait for connection and create MessagePort
  * const channel = await waitForConnection(manager);
- * const port = createDataChannelPortAsync(channel);
- * const stream = createPortStream(port);
+ * const port = await createDataChannelPortAsync(channel);
+ *
+ * // Use with Git socket client
+ * const client = createGitSocketClient(port, {
+ *   path: "/repo.git",
+ *   service: "git-upload-pack"
+ * });
  * ```
  *
  * @example QR code signaling:
@@ -49,12 +54,7 @@
  * @packageDocumentation
  */
 
-export type { MessagePortLike } from "@statewalker/vcs-utils";
-export {
-  createDataChannelPort,
-  createDataChannelPortAsync,
-  type DataChannelPort,
-} from "./datachannel-port.js";
+export { createDataChannelPort, createDataChannelPortAsync } from "./datachannel-port.js";
 export { PeerManager, waitForConnection } from "./peer-manager.js";
 export {
   createCompressedSignal,
