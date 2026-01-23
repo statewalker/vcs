@@ -63,12 +63,7 @@ export async function callPort<TParams = unknown, TResult = unknown>(
   params: TParams,
   options: CallPortOptions = {},
 ): Promise<TResult> {
-  const {
-    timeout = 1000,
-    channelName = "",
-    log,
-    newCallId = defaultNewCallId,
-  } = options;
+  const { timeout = 1000, channelName = "", log, newCallId = defaultNewCallId } = options;
 
   const callId = newCallId();
   log?.("[callPort]", { channelName, callId, params });

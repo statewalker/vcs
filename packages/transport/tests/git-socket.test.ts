@@ -423,15 +423,17 @@ describe("GitSocketServer", () => {
       const clientHandle = (async () => {
         await clientWrite(encodePacket("git-upload-pack /unknown.git\0host=localhost\0"));
 
-        const chunks: Uint8Array[] = [];
-        for await (const chunk of clientInput) {
-          chunks.push(chunk);
-        }
-
-        const response = concatBytes(chunks);
-        const text = new TextDecoder().decode(response);
+        // Read the error response
+        const packets = pktLineReader(clientInput);
+        const errorPacket = await packets.next();
+        expect(errorPacket.done).toBe(false);
+        expect(errorPacket.value?.data).toBeDefined();
+        const text = new TextDecoder().decode(errorPacket.value?.data);
         expect(text).toContain("ERR");
         expect(text).toContain("repository not found");
+
+        // Send close signal
+        clientPort.postMessage(null);
       })();
 
       await Promise.all([serverPromise, clientHandle]);
@@ -502,15 +504,17 @@ describe("GitSocketServer", () => {
       const clientHandle = (async () => {
         await clientWrite(encodePacket("git-upload-pack /repo.git\0host=localhost\0"));
 
-        const chunks: Uint8Array[] = [];
-        for await (const chunk of clientInput) {
-          chunks.push(chunk);
-        }
-
-        const response = concatBytes(chunks);
-        const text = new TextDecoder().decode(response);
+        // Read the error response
+        const packets = pktLineReader(clientInput);
+        const errorPacket = await packets.next();
+        expect(errorPacket.done).toBe(false);
+        expect(errorPacket.value?.data).toBeDefined();
+        const text = new TextDecoder().decode(errorPacket.value?.data);
         expect(text).toContain("ERR");
         expect(text).toContain("access denied");
+
+        // Send close signal
+        clientPort.postMessage(null);
       })();
 
       await Promise.all([serverPromise, clientHandle]);
@@ -542,10 +546,11 @@ describe("GitSocket Integration", () => {
     // Start server
     const serverPromise = handleGitSocketConnection(serverPort, serverOptions);
 
-    // Create client
+    // Create client (ownsPort: true since this test owns the port)
     const client = createGitSocketClient(clientPort, {
       path: "/repo.git",
       service: "git-upload-pack",
+      ownsPort: true,
     });
 
     // Discover refs
@@ -577,6 +582,7 @@ describe("GitSocket Integration", () => {
 
     const client = createGitSocketClient(clientPort, {
       path: "/empty.git",
+      ownsPort: true,
     });
 
     const advertisement = await client.discoverRefs();
@@ -604,6 +610,7 @@ describe("GitSocket Integration", () => {
     const client = createGitSocketClient(clientPort, {
       path: "/repo.git",
       service: "git-receive-pack",
+      ownsPort: true,
     });
 
     const advertisement = await client.discoverRefs();
@@ -611,6 +618,428 @@ describe("GitSocket Integration", () => {
 
     await client.close();
     await serverPromise;
+  });
+
+  it("should transfer pack data when client has no local commits", async () => {
+    const [clientPort, serverPort] = createMessagePortPair();
+
+    // Create a repository with objects
+    const objects = new Map<string, { type: ObjectTypeCode; content: Uint8Array }>();
+    objects.set(COMMIT_A, {
+      type: OBJ_COMMIT,
+      content: new TextEncoder().encode("tree 0000000000000000000000000000000000000000\nauthor Test <test@test.com> 1234567890 +0000\ncommitter Test <test@test.com> 1234567890 +0000\n\nInitial commit\n"),
+    });
+
+    const debugLog: string[] = [];
+    const repository: RepositoryAccess = {
+      async *listRefs(): AsyncIterable<RefInfo> {
+        debugLog.push("listRefs called");
+        yield { name: "refs/heads/main", objectId: COMMIT_A };
+      },
+      async getHead(): Promise<HeadInfo | null> {
+        return { target: "refs/heads/main" };
+      },
+      async hasObject(id: ObjectId): Promise<boolean> {
+        debugLog.push(`hasObject: ${id}`);
+        return objects.has(id);
+      },
+      async getObjectInfo(id: ObjectId): Promise<ObjectInfo | null> {
+        const obj = objects.get(id);
+        if (!obj) return null;
+        return { type: obj.type, size: obj.content.length };
+      },
+      async *loadObject(id: ObjectId): AsyncIterable<Uint8Array> {
+        const obj = objects.get(id);
+        if (obj) yield obj.content;
+      },
+      async storeObject(): Promise<ObjectId> {
+        return "new".repeat(10).slice(0, 40);
+      },
+      async updateRef(): Promise<boolean> {
+        return true;
+      },
+      async *walkObjects(wants: ObjectId[], haves: ObjectId[]): AsyncIterable<{ id: ObjectId; type: ObjectTypeCode; content: Uint8Array }> {
+        debugLog.push(`walkObjects: wants=${wants.length}, haves=${haves.length}`);
+        const haveSet = new Set(haves);
+        for (const wantId of wants) {
+          if (!haveSet.has(wantId)) {
+            const obj = objects.get(wantId);
+            if (obj) {
+              debugLog.push(`walkObjects yielding: ${wantId}`);
+              yield { id: wantId, ...obj };
+            }
+          }
+        }
+      },
+    };
+
+    const serverOptions: GitSocketServerOptions = {
+      async resolveRepository() {
+        return repository;
+      },
+      logger: {
+        debug: (...args: unknown[]) => debugLog.push(`[server] ${args.join(" ")}`),
+        error: (...args: unknown[]) => debugLog.push(`[server error] ${args.join(" ")}`),
+      },
+    };
+
+    // Create a logging wrapper for the server port to see what data is written
+    const serverWriteLog: string[] = [];
+    const originalPostMessage = serverPort.postMessage.bind(serverPort);
+    (serverPort as { postMessage: (data: unknown, transfer?: unknown) => void }).postMessage = (
+      data: unknown,
+      transfer?: unknown,
+    ) => {
+      if (data === null) {
+        serverWriteLog.push("null (close signal)");
+      } else if (data instanceof Uint8Array) {
+        const preview = new TextDecoder().decode(data.slice(0, Math.min(40, data.length)));
+        serverWriteLog.push(`bytes(${data.length}): "${preview.replace(/\n/g, "\\n")}"`);
+      } else {
+        serverWriteLog.push(`unknown: ${typeof data}`);
+      }
+      if (transfer) {
+        return originalPostMessage(data, transfer as Transferable[]);
+      }
+      return originalPostMessage(data);
+    };
+
+    // Start server
+    const serverPromise = handleGitSocketConnection(serverPort, serverOptions).then(() => {
+      console.log("Server write log:", serverWriteLog);
+    });
+
+    // Import needed modules
+    const { generateFetchRequestPackets, buildFetchRequest } = await import(
+      "../src/negotiation/fetch-negotiator.js"
+    );
+
+    // Create client connection
+    const client = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+    });
+
+    // Step 1: Discover refs
+    const advertisement = await client.discoverRefs();
+    console.log("Refs discovered:", [...advertisement.refs.keys()]);
+
+    // Step 2: Build wants
+    const wants: Uint8Array[] = [];
+    for (const [refName, objectId] of advertisement.refs) {
+      if (refName.startsWith("refs/heads/")) {
+        wants.push(objectId);
+      }
+    }
+    console.log("Wants count:", wants.length);
+
+    // Step 3: Build and send request
+    const request = buildFetchRequest(wants, advertisement.capabilities, [], {});
+    console.log("Request capabilities:", request.capabilities.slice(0, 3), "...");
+
+    await client.send(generateFetchRequestPackets(request));
+    console.log("Request sent");
+
+    // Step 4: Read response packets manually
+    const packets = client.receive();
+    const receivedPackets: string[] = [];
+    let packDataChunks: Uint8Array[] = [];
+
+    console.log("Starting to receive packets...");
+
+    for await (const packet of packets) {
+      if (packet.type === "flush") {
+        console.log("Received flush packet");
+        receivedPackets.push("flush");
+        // After flush at the end, stop reading
+        break;
+      } else if (packet.type === "data" && packet.data) {
+        const preview = new TextDecoder().decode(packet.data.slice(0, Math.min(30, packet.data.length)));
+        const firstByte = packet.data[0];
+        console.log(`Received data packet: len=${packet.data.length}, firstByte=${firstByte}, preview="${preview.replace(/\n/g, "\\n")}"`);
+        receivedPackets.push(`data:${packet.data.length}`);
+
+        // Check if it's sideband data (first byte is channel)
+        if (firstByte === 1) {
+          // SIDEBAND_DATA
+          packDataChunks.push(packet.data.slice(1));
+        } else if (firstByte === 2) {
+          // SIDEBAND_PROGRESS - skip
+        }
+      }
+    }
+
+    console.log("Finished receiving. Packets:", receivedPackets);
+    console.log("Pack data chunks:", packDataChunks.length);
+
+    // Send close signal to server
+    clientPort.postMessage(null);
+
+    // Wait for server to complete
+    await serverPromise;
+
+    // Debug output
+    console.log("Debug log:", debugLog);
+
+    // Combine pack data
+    const totalPackLen = packDataChunks.reduce((sum, c) => sum + c.length, 0);
+    const packData = new Uint8Array(totalPackLen);
+    let offset = 0;
+    for (const chunk of packDataChunks) {
+      packData.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    console.log("Total pack data length:", packData.length);
+
+    // Build result for assertions
+    const result = {
+      refs: new Map([["refs/remotes/origin/main", advertisement.refs.get("refs/heads/main")!]]),
+      packData,
+      bytesReceived: packData.length,
+      isEmpty: false,
+    };
+
+    // Verify results
+    expect(result.refs.has("refs/remotes/origin/main")).toBe(true);
+
+    // Check if walkObjects was called
+    expect(debugLog.some((log) => log.startsWith("walkObjects:"))).toBe(true);
+
+    expect(result.packData.length).toBeGreaterThan(12); // At least pack header
+    expect(result.bytesReceived).toBeGreaterThan(0);
+
+    // Verify pack header
+    const packMagic = new TextDecoder().decode(result.packData.slice(0, 4));
+    expect(packMagic).toBe("PACK");
+
+    await client.close();
+  });
+});
+
+// =============================================================================
+// Multiple Operations Tests (Re-sync Scenario)
+// =============================================================================
+
+describe("GitSocket Multiple Operations", () => {
+  it("should support multiple sequential fetch operations on same port", async () => {
+    const [clientPort, serverPort] = createMessagePortPair();
+
+    // Repository that tracks operations
+    const operationLog: string[] = [];
+    const repository = createMockRepository({
+      refs: [
+        { name: "refs/heads/main", objectId: COMMIT_A },
+      ],
+    });
+
+    const serverOptions: GitSocketServerOptions = {
+      async resolveRepository(path) {
+        operationLog.push(`resolveRepository: ${path}`);
+        return repository;
+      },
+      logger: {
+        debug: (...args: unknown[]) => operationLog.push(`[server] ${args.join(" ")}`),
+        error: (...args: unknown[]) => operationLog.push(`[server error] ${args.join(" ")}`),
+      },
+    };
+
+    // Start server - server loop handles multiple requests
+    const serverPromise = handleGitSocketConnection(serverPort, serverOptions);
+
+    // === First fetch operation ===
+    operationLog.push("=== Starting first fetch ===");
+
+    const client1 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false, // Don't close port, we'll reuse it
+    });
+
+    const refs1 = await client1.discoverRefs();
+    operationLog.push(`First fetch: discovered ${refs1.refs.size} refs`);
+
+    expect(refs1.refs.has("refs/heads/main")).toBe(true);
+    expect(refs1.refs.get("refs/heads/main")).toBeDefined();
+
+    // Clean up client reader without closing port
+    await client1.close();
+    operationLog.push("First fetch: client closed");
+
+    // Small delay to let server process
+    await new Promise(r => setTimeout(r, 10));
+
+    // === Second fetch operation ===
+    operationLog.push("=== Starting second fetch ===");
+
+    const client2 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false,
+    });
+
+    // This is where it gets stuck in the bug scenario
+    const refs2Promise = Promise.race([
+      client2.discoverRefs(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Second fetch timed out")), 3000)
+      ),
+    ]);
+
+    const refs2 = await refs2Promise;
+    operationLog.push(`Second fetch: discovered ${refs2.refs.size} refs`);
+
+    expect(refs2.refs.has("refs/heads/main")).toBe(true);
+
+    // Clean up
+    await client2.close();
+    operationLog.push("Second fetch: client closed");
+
+    // Close the connection
+    clientPort.postMessage(null);
+
+    await serverPromise;
+
+    // Verify both operations completed
+    console.log("Operation log:", operationLog);
+    expect(operationLog.filter(l => l.includes("resolveRepository")).length).toBe(2);
+  });
+
+  it("should support fetch followed by push on same port", async () => {
+    const [clientPort, serverPort] = createMessagePortPair();
+
+    const operationLog: string[] = [];
+    const repository = createMockRepository({
+      refs: [
+        { name: "refs/heads/main", objectId: COMMIT_A },
+      ],
+    });
+
+    const serverOptions: GitSocketServerOptions = {
+      async resolveRepository(path) {
+        operationLog.push(`resolveRepository: ${path}`);
+        return repository;
+      },
+      logger: {
+        debug: (...args: unknown[]) => operationLog.push(`[server] ${args.join(" ")}`),
+        error: (...args: unknown[]) => operationLog.push(`[server error] ${args.join(" ")}`),
+      },
+    };
+
+    const serverPromise = handleGitSocketConnection(serverPort, serverOptions);
+
+    // === Fetch operation (git-upload-pack) ===
+    operationLog.push("=== Starting fetch ===");
+
+    const fetchClient = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false,
+    });
+
+    const fetchRefs = await fetchClient.discoverRefs();
+    operationLog.push(`Fetch: discovered ${fetchRefs.refs.size} refs`);
+    expect(fetchRefs.refs.has("refs/heads/main")).toBe(true);
+
+    await fetchClient.close();
+    operationLog.push("Fetch: client closed");
+
+    await new Promise(r => setTimeout(r, 10));
+
+    // === Push operation (git-receive-pack) ===
+    operationLog.push("=== Starting push ===");
+
+    const pushClient = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-receive-pack",
+      ownsPort: false,
+    });
+
+    // This should discover refs for receive-pack
+    const pushRefsPromise = Promise.race([
+      pushClient.discoverRefs(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Push discovery timed out")), 3000)
+      ),
+    ]);
+
+    const pushRefs = await pushRefsPromise;
+    operationLog.push(`Push: discovered ${pushRefs.refs.size} refs`);
+    expect(pushRefs.refs.has("refs/heads/main")).toBe(true);
+
+    await pushClient.close();
+    operationLog.push("Push: client closed");
+
+    // Close connection
+    clientPort.postMessage(null);
+
+    await serverPromise;
+
+    console.log("Operation log:", operationLog);
+    expect(operationLog.filter(l => l.includes("resolveRepository")).length).toBe(2);
+  });
+
+  it("should handle three sequential operations", async () => {
+    const [clientPort, serverPort] = createMessagePortPair();
+
+    const operationCount = { value: 0 };
+    const repository = createMockRepository();
+
+    const serverOptions: GitSocketServerOptions = {
+      async resolveRepository() {
+        operationCount.value++;
+        return repository;
+      },
+    };
+
+    const serverPromise = handleGitSocketConnection(serverPort, serverOptions);
+
+    // Operation 1
+    const client1 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false,
+    });
+    await client1.discoverRefs();
+    await client1.close();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Operation 2
+    const client2 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-receive-pack",
+      ownsPort: false,
+    });
+    const refs2Promise = Promise.race([
+      client2.discoverRefs(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Operation 2 timed out")), 3000)
+      ),
+    ]);
+    await refs2Promise;
+    await client2.close();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Operation 3
+    const client3 = createGitSocketClient(clientPort, {
+      path: "/repo.git",
+      service: "git-upload-pack",
+      ownsPort: false,
+    });
+    const refs3Promise = Promise.race([
+      client3.discoverRefs(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Operation 3 timed out")), 3000)
+      ),
+    ]);
+    await refs3Promise;
+    await client3.close();
+
+    // Close connection
+    clientPort.postMessage(null);
+    await serverPromise;
+
+    expect(operationCount.value).toBe(3);
   });
 });
 
