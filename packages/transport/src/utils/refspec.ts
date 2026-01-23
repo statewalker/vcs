@@ -12,7 +12,6 @@
 
 import type { RefSpec } from "../protocol/types.js";
 
-// Re-export RefSpec type for convenience
 export type { RefSpec } from "../protocol/types.js";
 
 /**
