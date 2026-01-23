@@ -331,11 +331,7 @@ async function simulateSync(
   await flushPromises(50);
 }
 
-// NOTE: These tests were written for the old JSON-based sync protocol.
-// The new native Git protocol implementation uses MessagePort-based communication
-// which requires different mocking infrastructure.
-// TODO: Rewrite tests to mock MessagePort/MessageChannel properly.
-describe.skip("SyncController (needs update for Git protocol)", () => {
+describe("SyncController", () => {
   let ctx1: AppContext;
   let ctx2: AppContext;
   let cleanup1: () => void;

@@ -264,9 +264,6 @@ function buildServerCapabilities(options: {
 
 /**
  * Parse receive-pack request from input stream.
- *
- * This function is stream-aware and does NOT wait for the input to close.
- * It reads pkt-lines until a flush packet, then optionally reads pack data.
  */
 export async function parseReceivePackRequest(
   input: AsyncIterable<Uint8Array>,
@@ -275,12 +272,40 @@ export async function parseReceivePackRequest(
   const capabilities = new Set<string>();
   let isFirst = true;
 
-  // Read pkt-lines directly from input (stream-aware)
-  const packets = pktLineReader(input);
+  // Collect all input data first
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of input) {
+    chunks.push(chunk);
+  }
+  const allData = concatBytes(chunks);
+
+  // Find where pack data starts (PACK signature)
+  let packStart = -1;
+  for (let i = 0; i < allData.length - 4; i++) {
+    if (
+      allData[i] === 0x50 && // P
+      allData[i + 1] === 0x41 && // A
+      allData[i + 2] === 0x43 && // C
+      allData[i + 3] === 0x4b // K
+    ) {
+      packStart = i;
+      break;
+    }
+  }
+
+  // Parse pkt-lines from command portion
+  const commandData = packStart >= 0 ? allData.subarray(0, packStart) : allData;
+  const packData = packStart >= 0 ? allData.subarray(packStart) : new Uint8Array(0);
+
+  // Create async iterable from command data
+  async function* commandStream(): AsyncIterable<Uint8Array> {
+    yield commandData;
+  }
+
+  const packets = pktLineReader(commandStream());
 
   for await (const packet of packets) {
     if (packet.type === "flush") {
-      // Flush signals end of command portion
       break;
     }
 
@@ -298,40 +323,7 @@ export async function parseReceivePackRequest(
     isFirst = false;
   }
 
-  // If no updates, no pack data expected
-  if (updates.length === 0) {
-    return { updates, capabilities, packData: new Uint8Array(0) };
-  }
-
-  // TODO: For updates with pack data, we need a more sophisticated approach
-  // that can read raw bytes from a stream that's been partially consumed by pktLineReader.
-  // For now, we return an empty pack which will cause the push to fail gracefully.
-  // The original implementation collected all bytes first, which doesn't work with
-  // multiplexed streams that don't close between operations.
-  console.warn(
-    "[receive-pack] Pack data reading in streaming mode not yet fully implemented. " +
-      "Updates received but pack may be empty.",
-  );
-
-  // Read remaining data as pack (this may not work correctly due to pktLineReader buffering)
-  const packChunks: Uint8Array[] = [];
-  let timedOut = false;
-
-  // Use a timeout to avoid blocking forever waiting for pack data
-  const timeoutPromise = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 100));
-
-  const iterator = input[Symbol.asyncIterator]();
-  while (!timedOut) {
-    const result = await Promise.race([iterator.next(), timeoutPromise]);
-    if (result === "timeout") {
-      timedOut = true;
-      break;
-    }
-    if (result.done) break;
-    packChunks.push(result.value);
-  }
-
-  return { updates, capabilities, packData: concatBytes(packChunks) };
+  return { updates, capabilities, packData };
 }
 
 /**
