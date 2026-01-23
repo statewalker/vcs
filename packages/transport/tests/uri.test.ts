@@ -12,7 +12,7 @@ import {
   isRemote,
   parseGitUrl,
   toHttpUrl,
-} from "../src/negotiation/uri.js";
+} from "../src/utils/uri.js";
 
 describe("parseGitUrl", () => {
   describe("local paths", () => {
