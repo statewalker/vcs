@@ -64,10 +64,6 @@ catalogs:
 importers:
 
   .:
-    dependencies:
-      '@statewalker/utils':
-        specifier: ^0.4.2
-        version: 0.4.2
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
@@ -184,37 +180,6 @@ importers:
       vite:
         specifier: ^6.0.0
         version: 6.4.1(@types/node@24.10.4)(terser@5.44.1)(tsx@4.21.0)
-
-  apps/demos/git-cli-sandbox:
-    dependencies:
-      '@statewalker/vcs-commands':
-        specifier: workspace:*
-        version: link:../../../packages/commands
-      '@statewalker/vcs-core':
-        specifier: workspace:*
-        version: link:../../../packages/core
-      '@statewalker/vcs-store-mem':
-        specifier: workspace:*
-        version: link:../../../packages/store-mem
-      '@statewalker/vcs-transport':
-        specifier: workspace:*
-        version: link:../../../packages/transport
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../../packages/utils
-      '@statewalker/vcs-utils-node':
-        specifier: workspace:*
-        version: link:../../../packages/utils-node
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.4
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
 
   apps/demos/git-workflow-complete:
     dependencies:
@@ -394,12 +359,6 @@ importers:
       '@statewalker/vcs-transport':
         specifier: workspace:*
         version: link:../../../packages/transport
-      '@statewalker/vcs-transport-adapters':
-        specifier: workspace:*
-        version: link:../../../packages/transport-adapters
-      '@statewalker/vcs-utils':
-        specifier: workspace:*
-        version: link:../../../packages/utils
       peerjs:
         specifier: ^1.5.4
         version: 1.5.5
@@ -696,6 +655,10 @@ importers:
         version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
 
   packages/port-peerjs:
+    dependencies:
+      '@statewalker/vcs-utils':
+        specifier: workspace:*
+        version: link:../utils
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -714,6 +677,10 @@ importers:
         version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
 
   packages/port-webrtc:
+    dependencies:
+      '@statewalker/vcs-utils':
+        specifier: workspace:*
+        version: link:../utils
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -729,6 +696,10 @@ importers:
         version: 4.0.16(@types/node@24.10.4)(@vitest/browser-playwright@4.0.16)(jsdom@23.2.0)(terser@5.44.1)(tsx@4.21.0)
 
   packages/port-websocket:
+    dependencies:
+      '@statewalker/vcs-utils':
+        specifier: workspace:*
+        version: link:../utils
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -2472,9 +2443,6 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
-
-  '@statewalker/utils@0.4.2':
-    resolution: {integrity: sha512-5qf1NTYmEPfXLXdHJ3NKr83aCtQYxRQIVGFsqP0hOUVyBjXWxzzcjTCg3HMk05NHdznWFNDs5A97WySayt9bwA==}
 
   '@statewalker/webrun-files-browser@0.7.0':
     resolution: {integrity: sha512-ZkdafDQ3JtTSWseyzdu2y9VZcOuGjZCVIsu3ldjTh8FYX0pn/rN9mfsBbxXD2t1+CTcmicD8u63xP1do8iSZNw==}
@@ -6247,8 +6215,6 @@ snapshots:
       escape-string-regexp: 5.0.0
 
   '@standard-schema/spec@1.1.0': {}
-
-  '@statewalker/utils@0.4.2': {}
 
   '@statewalker/webrun-files-browser@0.7.0':
     dependencies:

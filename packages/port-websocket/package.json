@@ -6,7 +6,7 @@
     "access": "public"
   },
   "type": "module",
-  "description": "WebSocket MessagePort adapter for VCS transport",
+  "description": "WebSocket MessagePortLike adapter for VCS transport",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -22,6 +22,9 @@
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run",
     "lint": "biome lint src tests"
+  },
+  "dependencies": {
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

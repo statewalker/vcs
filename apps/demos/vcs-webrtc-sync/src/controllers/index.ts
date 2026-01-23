@@ -28,6 +28,7 @@ export {
   getGit,
   getGitStore,
   getStorageBackend,
+  getTransportConnection,
   // Repository operations
   initOrOpenRepository,
   isConnected,
