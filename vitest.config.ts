@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["**/tests/**/*.test.ts", "**/src/**/tests/**/*.test.ts"],
+    include: ["**/tests/**/*.test.ts"],
     coverage: {
       reporter: ["text", "lcov"],
     },
@@ -103,10 +103,6 @@ export default defineConfig({
       {
         find: "@statewalker/vcs-testing",
         replacement: path.resolve(rootDir, "packages/testing/src"),
-      },
-      {
-        find: "@statewalker/vcs-transport-adapters",
-        replacement: path.resolve(rootDir, "packages/transport-adapters/src"),
       },
       {
         find: "@statewalker/vcs-transport",
