@@ -39,8 +39,5 @@
   },
   "eslintConfig": {
     "extends": []
-  },
-  "dependencies": {
-    "@statewalker/utils": "^0.4.2"
   }
 }

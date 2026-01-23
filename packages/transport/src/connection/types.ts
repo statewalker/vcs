@@ -29,16 +29,6 @@ export interface TransportConnection {
   sendRaw?(body: Uint8Array): Promise<void>;
 
   /**
-   * Send command packets followed by pack data (optional).
-   * Used by socket connections where pack data must be sent as pkt-line packets.
-   * HTTP connections don't need this - they use sendRaw.
-   *
-   * @param packets - Command packets to send (will be pkt-line encoded)
-   * @param packData - Pack data to send (will be wrapped in pkt-line packets)
-   */
-  sendPacketsAndPack?(packets: AsyncIterable<Packet>, packData: Uint8Array): Promise<void>;
-
-  /**
    * Receive packets from server.
    * Yields packets until the connection closes or an error occurs.
    */

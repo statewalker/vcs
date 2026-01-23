@@ -105,10 +105,6 @@ export default defineConfig({
         replacement: path.resolve(rootDir, "packages/testing/src"),
       },
       {
-        find: "@statewalker/vcs-transport-adapters",
-        replacement: path.resolve(rootDir, "packages/transport-adapters/src"),
-      },
-      {
         find: "@statewalker/vcs-transport",
         replacement: path.resolve(rootDir, "packages/transport/src"),
       },
