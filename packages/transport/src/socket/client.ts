@@ -8,12 +8,7 @@
 
 import type { DiscoverableConnection } from "../connection/types.js";
 import { parseRefAdvertisement } from "../negotiation/ref-advertiser.js";
-import {
-  encodeFlush,
-  encodePacket,
-  pktLineReader,
-  pktLineWriter,
-} from "../protocol/pkt-line-codec.js";
+import { encodePacket, pktLineReader, pktLineWriter } from "../protocol/pkt-line-codec.js";
 import type { Packet, RefAdvertisement } from "../protocol/types.js";
 import {
   createMessagePortCloser,
@@ -31,13 +26,6 @@ export interface GitSocketClientOptions {
   host?: string;
   /** Git service type (defaults to "git-upload-pack") */
   service?: "git-upload-pack" | "git-receive-pack";
-  /**
-   * Whether this client owns the port.
-   * If true, close() will close the underlying port.
-   * If false (default), close() only cleans up the reader.
-   * Set to false when sharing a port across multiple operations.
-   */
-  ownsPort?: boolean;
 }
 
 /**
@@ -55,18 +43,16 @@ export function createGitSocketClient(
   port: MessagePort,
   options: GitSocketClientOptions,
 ): DiscoverableConnection {
-  const { path, host = "localhost", service = "git-upload-pack", ownsPort = false } = options;
+  const { path, host = "localhost", service = "git-upload-pack" } = options;
 
   // Create reader/writer from MessagePort
   const input = createMessagePortReader(port);
   const write = createMessagePortWriter(port);
-  // Only use full closer if we own the port, otherwise just cleanup the reader
-  const fullClose = createMessagePortCloser(port, input);
+  const close = createMessagePortCloser(port, input);
 
   let connected = false;
   let refsDiscovered = false;
   let receivingPackets: AsyncIterable<Packet> | null = null;
-  let protocolComplete = false; // Track if protocol was properly terminated
 
   return {
     async discoverRefs(): Promise<RefAdvertisement> {
@@ -99,9 +85,6 @@ export function createGitSocketClient(
       for await (const encoded of pktLineWriter(packets)) {
         await write(encoded);
       }
-      // After sending packets, mark protocol as complete
-      // (the packets should include a "done" packet to properly terminate)
-      protocolComplete = true;
     },
 
     receive(): AsyncIterable<Packet> {
@@ -114,46 +97,7 @@ export function createGitSocketClient(
     },
 
     async close(): Promise<void> {
-      // If we connected and discovered refs but didn't complete the protocol,
-      // send a proper termination sequence so the server can move to the next request
-      if (refsDiscovered && !protocolComplete) {
-        try {
-          if (service === "git-upload-pack") {
-            // upload-pack expects: flush (end of wants) + done
-            await write(encodeFlush());
-            await write(encodePacket("done\n"));
-          } else {
-            // receive-pack expects: flush (empty command list = no updates)
-            await write(encodeFlush());
-          }
-          protocolComplete = true;
-
-          // IMPORTANT: Drain the server's response to prevent stale data
-          // from polluting the port for the next operation
-          const packets = receivingPackets || pktLineReader(input);
-          for await (const packet of packets) {
-            if (packet.type === "flush") {
-              // Flush signals end of server response
-              break;
-            }
-          }
-        } catch {
-          // Continue with cleanup even if termination fails
-        }
-      }
-
-      if (ownsPort) {
-        // Full close: send close signal, cleanup reader, close port
-        await fullClose();
-      } else {
-        // Partial close: just cleanup the reader (remove event listeners)
-        // This is important when sharing a port across multiple operations
-        try {
-          await input.return(undefined);
-        } catch {
-          // Ignore errors from generator cleanup
-        }
-      }
+      await close();
     },
   };
 }
