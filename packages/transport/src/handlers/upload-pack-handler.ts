@@ -32,6 +32,7 @@ import {
   packetDataToString,
   pktLineReader,
 } from "../protocol/pkt-line-codec.js";
+import type { Packet } from "../protocol/types.js";
 import {
   canGiveUp,
   createNegotiationState,
@@ -642,4 +643,238 @@ function concatBytes(arrays: Uint8Array[]): Uint8Array {
     offset += arr.length;
   }
   return result;
+}
+
+/**
+ * Process upload-pack request using a shared packets iterator.
+ *
+ * This function is used by the socket server to avoid creating multiple
+ * pktLineReaders on the same stream, which would cause data loss.
+ *
+ * @param _handler - The upload pack handler (reserved for future configuration)
+ * @param packets - Shared packets iterator from the server's pktLineReader
+ * @param repository - Repository access for object lookups
+ */
+export async function* processUploadPackWithPackets(
+  _handler: UploadPackHandler,
+  packets: AsyncIterator<Packet>,
+  repository: RepositoryAccess,
+): AsyncIterable<Uint8Array> {
+  // Parse the request with negotiation support using shared packets iterator
+  const { request, ackResponses, hasCommonBase, lastObjectId } =
+    await parseUploadPackRequestFromPackets(packets, repository);
+
+  if (request.wants.length === 0) {
+    // Nothing requested, just send flush
+    yield encodeFlush();
+    return;
+  }
+
+  // Yield all ACK responses from negotiation
+  for (const ack of ackResponses) {
+    yield encodePacket(ack);
+  }
+
+  // Handle shallow clone constraints
+  const shallowRequest = {
+    depth: request.depth ?? 0,
+    deepenSince: request.deepenSince ?? 0,
+    deepenNots: request.deepenNots ?? [],
+    deepenRelative: request.deepenRelative ?? false,
+    clientShallowCommits: request.clientShallowCommits ?? new Set<string>(),
+  };
+
+  if (hasShallowConstraints(shallowRequest)) {
+    // Compute shallow boundaries
+    const { shallowCommits, unshallowCommits } = await computeShallowBoundary(
+      repository,
+      request.wants,
+      shallowRequest,
+    );
+
+    // Send shallow packets
+    for (const commitId of shallowCommits) {
+      yield encodePacket(formatShallowPacket(commitId));
+    }
+
+    // Send unshallow packets
+    for (const commitId of unshallowCommits) {
+      yield encodePacket(formatUnshallowPacket(commitId));
+    }
+
+    // Flush after shallow/unshallow packets
+    if (shallowCommits.length > 0 || unshallowCommits.length > 0) {
+      yield encodeFlush();
+    }
+  }
+
+  // Send final NAK or ACK based on negotiation result
+  const multiAckMode = determineMultiAckMode(request.capabilities);
+  if (!hasCommonBase) {
+    yield encodePacket("NAK\n");
+  } else if (multiAckMode !== "off" && lastObjectId) {
+    yield encodePacket(`ACK ${lastObjectId}\n`);
+  } else {
+    yield encodePacket("NAK\n");
+  }
+
+  // Check if client requested sideband
+  const useSideband = request.capabilities.has(CAPABILITY_SIDE_BAND_64K);
+
+  // Check if client requested include-tag
+  const includeTag = request.capabilities.has(CAPABILITY_INCLUDE_TAG);
+
+  // Generate pack data
+  const packData = await buildPack(repository, request.wants, request.haves, includeTag);
+
+  if (useSideband) {
+    // Send progress via sideband channel 2
+    const progressMsg = textEncoder.encode("Enumerating objects: done.\n");
+    yield encodeSidebandPacket(SIDEBAND_PROGRESS, progressMsg);
+
+    // Send pack data via sideband channel 1 in chunks
+    for (let offset = 0; offset < packData.length; offset += MAX_SIDEBAND_DATA) {
+      const chunk = packData.subarray(
+        offset,
+        Math.min(offset + MAX_SIDEBAND_DATA, packData.length),
+      );
+      yield encodeSidebandPacket(SIDEBAND_DATA, chunk);
+    }
+  } else {
+    // Send pack data directly
+    yield packData;
+  }
+
+  yield encodeFlush();
+}
+
+/**
+ * Parse upload-pack request from a shared packets iterator with multi-ACK negotiation.
+ *
+ * This version accepts a packets iterator instead of raw bytes, allowing the server
+ * to share a single pktLineReader across multiple operations.
+ */
+async function parseUploadPackRequestFromPackets(
+  packets: AsyncIterator<Packet>,
+  repository: RepositoryAccess,
+): Promise<ParseWithNegotiationResult> {
+  const wants: ObjectId[] = [];
+  const haves: ObjectId[] = [];
+  const capabilities = new Set<string>();
+  let done = false;
+  let depth: number | undefined;
+  let deepenSince: number | undefined;
+  const deepenNots: string[] = [];
+  let deepenRelative = false;
+  const clientShallowCommits = new Set<ObjectId>();
+  let filter: string | undefined;
+  let isFirstWant = true;
+  const ackResponses: string[] = [];
+
+  // Negotiation state
+  const state = createNegotiationState();
+
+  // Read packets from the shared iterator
+  while (true) {
+    const result = await packets.next();
+    if (result.done) {
+      break;
+    }
+
+    const packet = result.value;
+
+    if (packet.type === "flush") {
+      // Flush packet - may continue with more data or end
+      continue;
+    }
+
+    if (packet.type !== "data" || !packet.data) {
+      continue;
+    }
+
+    const line = packetDataToString(packet);
+
+    if (line.startsWith(PACKET_WANT)) {
+      // Parse want line: "want <oid> [capabilities]"
+      const rest = line.slice(PACKET_WANT.length);
+
+      if (isFirstWant) {
+        // First want line contains capabilities after space
+        const spaceIdx = rest.indexOf(" ");
+        if (spaceIdx !== -1) {
+          wants.push(rest.slice(0, spaceIdx));
+          parseCapabilitiesInto(rest.slice(spaceIdx + 1), capabilities);
+        } else {
+          wants.push(rest.trim());
+        }
+        isFirstWant = false;
+
+        // Determine multi-ack mode from capabilities
+        state.multiAckMode = determineMultiAckMode(capabilities);
+      } else {
+        wants.push(rest.trim());
+      }
+    } else if (line.startsWith(PACKET_HAVE)) {
+      const objectId = line.slice(PACKET_HAVE.length).trim();
+      haves.push(objectId);
+
+      // Check if we have this object and generate ACK if appropriate
+      const hasObject = await repository.hasObject(objectId);
+      if (hasObject) {
+        const isNewCommonBase = !state.commonBases.has(objectId);
+        if (isNewCommonBase) {
+          state.commonBases.add(objectId);
+        }
+        state.peerHas.add(objectId);
+        state.lastObjectId = objectId;
+
+        const ackResponse = generateAckResponse({ objectId, hasObject, isNewCommonBase }, state);
+        if (ackResponse) {
+          ackResponses.push(ackResponse);
+        }
+      } else {
+        // Object not found - check if we can give up negotiation
+        if (canGiveUp(state, wants.length) && !state.sentReady) {
+          const readyResponse = generateReadyResponse(objectId, state);
+          if (readyResponse) {
+            ackResponses.push(readyResponse);
+            state.sentReady = true;
+          }
+        }
+      }
+    } else if (line === PACKET_DONE || line.startsWith(PACKET_DONE)) {
+      done = true;
+      break;
+    } else if (line.startsWith("deepen ")) {
+      depth = parseInt(line.slice(7), 10);
+    } else if (line.startsWith("deepen-since ")) {
+      deepenSince = parseInt(line.slice(13), 10);
+    } else if (line.startsWith("deepen-not ")) {
+      deepenNots.push(line.slice(11).trim());
+    } else if (line === "deepen-relative") {
+      deepenRelative = true;
+    } else if (line.startsWith("shallow ")) {
+      clientShallowCommits.add(line.slice(8).trim());
+    } else if (line.startsWith("filter ")) {
+      filter = line.slice(7);
+    }
+  }
+
+  return {
+    request: {
+      wants,
+      haves,
+      capabilities,
+      done,
+      depth,
+      deepenSince,
+      deepenNots: deepenNots.length > 0 ? deepenNots : undefined,
+      deepenRelative: deepenRelative || undefined,
+      clientShallowCommits: clientShallowCommits.size > 0 ? clientShallowCommits : undefined,
+      filter,
+    },
+    ackResponses,
+    hasCommonBase: state.commonBases.size > 0,
+    lastObjectId: state.lastObjectId,
+  };
 }

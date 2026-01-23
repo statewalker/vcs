@@ -115,7 +115,7 @@ export class HttpConnection implements DiscoverableConnection {
       headers.set("Authorization", createAuthHeader(this.credentials));
     }
 
-    // Request protocol v2 if available
+    // Request protocol v2
     headers.set("Git-Protocol", "version=2");
 
     return headers;
@@ -176,33 +176,27 @@ export class HttpConnection implements DiscoverableConnection {
       }
 
       const packetGenerator = pktLineReader(streamFromReadable(response.body));
-      try {
-        // // Get iterator from the generator to avoid closing it with early returns
-        // const iterator = packetGenerator[Symbol.asyncIterator]();
 
-        // Skip first packet if it's the service announcement
-        // Format: "# service=git-upload-pack\n"
-        const firstPacket = await readFirstPacket(packetGenerator);
-        if (firstPacket?.type === "data" && firstPacket.data) {
-          const text = new TextDecoder().decode(firstPacket.data);
-          if (text.startsWith("# service=")) {
-            // Skip this packet and the following flush packet
-            // Smart HTTP protocol: announcement + flush + ref advertisement
-            const nextPacket = await readFirstPacket(packetGenerator);
-            if (nextPacket?.type === "flush") {
-              // Good, flush packet skipped, continue with ref advertisement
-              return parseRefAdvertisement(packetGenerator);
-            }
-            // Next packet was not a flush, include it in the advertisement
-            return parseRefAdvertisement(prependPacket(nextPacket, packetGenerator));
+      // Skip first packet if it's the service announcement
+      // Format: "# service=git-upload-pack\n"
+      const firstPacket = await readFirstPacket(packetGenerator);
+      if (firstPacket?.type === "data" && firstPacket.data) {
+        const text = new TextDecoder().decode(firstPacket.data);
+        if (text.startsWith("# service=")) {
+          // Skip this packet and the following flush packet
+          // Smart HTTP protocol: announcement + flush + ref advertisement
+          const nextPacket = await readFirstPacket(packetGenerator);
+          if (nextPacket?.type === "flush") {
+            // Good, flush packet skipped, continue with ref advertisement
+            return parseRefAdvertisement(packetGenerator);
           }
+          // Next packet was not a flush, include it in the advertisement
+          return parseRefAdvertisement(prependPacket(nextPacket, packetGenerator));
         }
-
-        // First packet was part of the advertisement
-        return parseRefAdvertisement(prependPacket(firstPacket, packetGenerator));
-      } finally {
-        packetGenerator.return?.(void 0);
       }
+
+      // First packet was part of the advertisement
+      return parseRefAdvertisement(prependPacket(firstPacket, packetGenerator));
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         throw new ConnectionError(`Request timeout after ${this.timeout}ms`);
@@ -252,12 +246,14 @@ export class HttpConnection implements DiscoverableConnection {
 
     try {
       const payload = await toHttpPayload(body);
+      // Node.js (undici) requires duplex: 'half' for streaming request bodies
       const response = await fetch(serviceUrl, {
         method: "POST",
         headers,
         body: payload,
         signal: controller.signal,
-      });
+        duplex: "half",
+      } as RequestInit);
 
       if (!response.ok) {
         await this.handleResponseError(response);
