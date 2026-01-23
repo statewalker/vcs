@@ -13,6 +13,7 @@ class MockWebSocket {
   static readonly CLOSED = 3;
 
   readyState = MockWebSocket.OPEN;
+  bufferedAmount = 0;
   binaryType: BinaryType = "blob";
 
   onopen: (() => void) | null = null;
@@ -34,10 +35,9 @@ describe("createWebSocketPort", () => {
     mockWs = new MockWebSocket();
   });
 
-  it("should return a standard MessagePort", () => {
+  it("should create port from WebSocket", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
 
-    // Standard MessagePort interface
     expect(port).toBeDefined();
     expect(port.postMessage).toBeDefined();
     expect(port.close).toBeDefined();
@@ -46,83 +46,88 @@ describe("createWebSocketPort", () => {
     expect(port.removeEventListener).toBeDefined();
   });
 
-  it("should set binaryType to arraybuffer by default", () => {
-    createWebSocketPort(mockWs as unknown as WebSocket);
+  it("should set binaryType to arraybuffer on start", () => {
+    const port = createWebSocketPort(mockWs as unknown as WebSocket);
+    port.start();
 
     expect(mockWs.binaryType).toBe("arraybuffer");
   });
 
   it("should accept custom binaryType", () => {
-    createWebSocketPort(mockWs as unknown as WebSocket, {
+    const port = createWebSocketPort(mockWs as unknown as WebSocket, {
       binaryType: "blob",
     });
+    port.start();
 
     expect(mockWs.binaryType).toBe("blob");
   });
 
-  it("should forward postMessage to WebSocket.send", async () => {
+  it("should forward postMessage to WebSocket.send", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
-    port.start();
-
     const data = new Uint8Array([1, 2, 3]);
+
     port.postMessage(data);
 
-    // Allow the internal port2.onmessage to process
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(mockWs.send).toHaveBeenCalled();
-    const sentData = mockWs.send.mock.calls[0][0];
-    expect(sentData).toBeInstanceOf(Uint8Array);
-    expect(new Uint8Array(sentData)).toEqual(data);
+    expect(mockWs.send).toHaveBeenCalledWith(data);
   });
 
-  it("should not forward messages when WebSocket is closed", async () => {
+  it("should throw when posting to non-open WebSocket", () => {
     mockWs.readyState = MockWebSocket.CLOSED;
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
-    port.start();
 
-    port.postMessage(new Uint8Array([1, 2, 3]));
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    // Should not throw, just silently not send
-    expect(mockWs.send).not.toHaveBeenCalled();
+    expect(() => port.postMessage(new Uint8Array([1]))).toThrow("not open");
   });
 
-  it("should forward incoming ArrayBuffer messages via message event", async () => {
+  it("should expose bufferedAmount from WebSocket", () => {
+    mockWs.bufferedAmount = 12345;
+    const port = createWebSocketPort(mockWs as unknown as WebSocket);
+
+    expect(port.bufferedAmount).toBe(12345);
+  });
+
+  it("should forward incoming ArrayBuffer messages via addEventListener", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
     const handler = vi.fn();
     port.addEventListener("message", handler);
     port.start();
 
-    const data = new ArrayBuffer(3);
-    new Uint8Array(data).set([1, 2, 3]);
+    const data = new ArrayBuffer(8);
     mockWs.onmessage?.({ data });
 
-    // Allow message to propagate through the MessageChannel
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(handler).toHaveBeenCalled();
-    const received = new Uint8Array(handler.mock.calls[0][0].data);
-    expect(received).toEqual(new Uint8Array([1, 2, 3]));
+    expect(handler).toHaveBeenCalledWith({ data });
   });
 
-  it("should send null on WebSocket close (EOF signal)", async () => {
+  it("should call close listeners when WebSocket closes", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
     const handler = vi.fn();
-    port.addEventListener("message", handler);
+    port.addEventListener("close", handler);
     port.start();
 
     mockWs.close();
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    // Should receive null as end-of-stream signal
     expect(handler).toHaveBeenCalled();
-    expect(handler.mock.calls[0][0].data).toBe(null);
   });
 
-  it("should support multiple message listeners", async () => {
+  it("should call error listeners on WebSocket error", () => {
+    const port = createWebSocketPort(mockWs as unknown as WebSocket);
+    const handler = vi.fn();
+    port.addEventListener("error", handler);
+    port.start();
+
+    mockWs.onerror?.();
+
+    expect(handler).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it("should close the underlying WebSocket", () => {
+    const port = createWebSocketPort(mockWs as unknown as WebSocket);
+
+    port.close();
+
+    expect(mockWs.close).toHaveBeenCalled();
+  });
+
+  it("should support multiple message listeners", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
     const handler1 = vi.fn();
     const handler2 = vi.fn();
@@ -130,44 +135,24 @@ describe("createWebSocketPort", () => {
     port.addEventListener("message", handler2);
     port.start();
 
-    const data = new ArrayBuffer(3);
-    new Uint8Array(data).set([7, 8, 9]);
+    const data = new ArrayBuffer(8);
     mockWs.onmessage?.({ data });
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(handler1).toHaveBeenCalled();
-    expect(handler2).toHaveBeenCalled();
+    expect(handler1).toHaveBeenCalledWith({ data });
+    expect(handler2).toHaveBeenCalledWith({ data });
   });
 
-  it("should support removeEventListener", async () => {
+  it("should support removeEventListener", () => {
     const port = createWebSocketPort(mockWs as unknown as WebSocket);
     const handler = vi.fn();
     port.addEventListener("message", handler);
     port.removeEventListener("message", handler);
     port.start();
 
-    const data = new ArrayBuffer(3);
+    const data = new ArrayBuffer(8);
     mockWs.onmessage?.({ data });
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
     expect(handler).not.toHaveBeenCalled();
-  });
-
-  it("should convert string data to Uint8Array", async () => {
-    const port = createWebSocketPort(mockWs as unknown as WebSocket);
-    const handler = vi.fn();
-    port.addEventListener("message", handler);
-    port.start();
-
-    mockWs.onmessage?.({ data: "hello" });
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(handler).toHaveBeenCalled();
-    const received = new TextDecoder().decode(handler.mock.calls[0][0].data);
-    expect(received).toBe("hello");
   });
 });
 
@@ -179,9 +164,7 @@ describe("createWebSocketPortFromOpen", () => {
     const port = createWebSocketPortFromOpen(mockWs as unknown as WebSocket);
 
     expect(port).toBeDefined();
-    // Standard MessagePort methods
-    expect(port.postMessage).toBeDefined();
-    expect(port.start).toBeDefined();
+    expect(port.bufferedAmount).toBe(0);
   });
 
   it("should throw if WebSocket is not open", () => {
