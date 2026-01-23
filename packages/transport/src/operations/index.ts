@@ -1,3 +1,19 @@
-export * from "./clone.js";
-export * from "./fetch.js";
-export * from "./push.js";
+export { fetchOverDuplex } from "./fetch-over-duplex.js";
+export type { FetchOverDuplexOptions } from "./fetch-over-duplex.js";
+
+export { p2pSync } from "./p2p-sync.js";
+export type {
+  P2PSyncOptions,
+  P2PSyncResult,
+  SyncDirection,
+} from "./p2p-sync.js";
+
+export { pushOverDuplex } from "./push-over-duplex.js";
+export type {
+  PushOverDuplexOptions,
+  PushResult,
+  RefPushStatus,
+} from "./push-over-duplex.js";
+
+export { serveOverDuplex } from "./serve-over-duplex.js";
+export type { ServeOverDuplexOptions } from "./serve-over-duplex.js";
