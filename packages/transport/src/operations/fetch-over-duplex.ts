@@ -13,7 +13,10 @@ import type { ProcessConfiguration } from "../context/process-config.js";
 import type { ProcessContext, RefStore } from "../context/process-context.js";
 import { ProtocolState } from "../context/protocol-state.js";
 import { createTransportApi } from "../factories/transport-api-factory.js";
-import { clientFetchHandlers, clientFetchTransitions } from "../fsm/fetch/client-fetch-fsm.js";
+import {
+  clientFetchHandlers,
+  clientFetchTransitions,
+} from "../fsm/fetch/client-fetch-fsm.js";
 import { Fsm } from "../fsm/fsm.js";
 
 /**
@@ -65,7 +68,9 @@ export interface FetchOverDuplexOptions {
  * }
  * ```
  */
-export async function fetchOverDuplex(options: FetchOverDuplexOptions): Promise<FetchResult> {
+export async function fetchOverDuplex(
+  options: FetchOverDuplexOptions,
+): Promise<FetchResult> {
   const { duplex, repository, refStore } = options;
 
   const state = new ProtocolState();
