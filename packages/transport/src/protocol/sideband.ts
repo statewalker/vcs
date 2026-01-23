@@ -40,18 +40,12 @@ const textDecoder = new TextDecoder();
  * The sideband format wraps pkt-line data with a single channel byte:
  * [pkt-length][channel-byte][payload]
  *
- * Stops on flush packet (end of response).
  * Throws ServerError if channel 3 (error) is received.
  */
 export async function* demuxSideband(
   packets: AsyncIterable<Packet>,
 ): AsyncGenerator<SidebandMessage> {
   for await (const packet of packets) {
-    // Stop on flush packet - this signals end of response
-    if (packet.type === "flush") {
-      return;
-    }
-
     if (packet.type !== "data" || !packet.data || packet.data.length === 0) {
       continue;
     }

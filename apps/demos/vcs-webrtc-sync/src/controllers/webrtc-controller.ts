@@ -5,7 +5,16 @@
  * Uses PeerManager and QrSignaling from vcs-port-webrtc.
  */
 
-import { PeerManager, QrSignaling, type SignalingMessage } from "@statewalker/vcs-port-webrtc";
+import {
+  createDataChannelPort,
+  PeerManager,
+  QrSignaling,
+  type SignalingMessage,
+} from "@statewalker/vcs-port-webrtc";
+import {
+  createPortTransportConnection,
+  type TransportConnection,
+} from "@statewalker/vcs-transport";
 import { getActivityLogModel, getConnectionModel, getSharingFormModel } from "../models/index.js";
 import { newAdapter, newRegistry } from "../utils/index.js";
 
@@ -25,6 +34,11 @@ export const [getDataChannel, setDataChannel] = newAdapter<RTCDataChannel | null
   () => null,
 );
 
+export const [getTransport, setTransport] = newAdapter<TransportConnection | null>(
+  "transport-connection",
+  () => null,
+);
+
 /**
  * Create the WebRTC controller.
  * Returns cleanup function.
@@ -39,6 +53,7 @@ export function createWebRtcController(ctx: Map<string, unknown>): () => void {
       setPeerManager(ctx, null);
       setSignaling(ctx, null);
       setDataChannel(ctx, null);
+      setTransport(ctx, null);
     }
   });
 
@@ -90,6 +105,9 @@ export async function createOffer(ctx: Map<string, unknown>): Promise<string | n
       const channel = peer.getDataChannel();
       if (channel) {
         setDataChannel(ctx, channel);
+        const port = createDataChannelPort(channel);
+        const transport = createPortTransportConnection(port);
+        setTransport(ctx, transport);
       }
     });
 
@@ -175,6 +193,9 @@ export async function acceptOffer(
       const channel = peer.getDataChannel();
       if (channel) {
         setDataChannel(ctx, channel);
+        const port = createDataChannelPort(channel);
+        const transport = createPortTransportConnection(port);
+        setTransport(ctx, transport);
       }
     });
 
@@ -272,11 +293,19 @@ export function closeConnection(ctx: Map<string, unknown>): void {
     setPeerManager(ctx, null);
     setSignaling(ctx, null);
     setDataChannel(ctx, null);
+    setTransport(ctx, null);
   }
 
   connectionModel.reset();
   sharingModel.reset();
   logModel.info("Connection closed");
+}
+
+/**
+ * Get the current transport connection for sync operations.
+ */
+export function getTransportConnection(ctx: Map<string, unknown>): TransportConnection | null {
+  return getTransport(ctx);
 }
 
 /**
