@@ -13,6 +13,7 @@
  * 8. Verify the push with native git
  *
  * Run: pnpm start
+ *      pnpm start -- --port 9000   # Custom port
  */
 
 import * as fs from "node:fs/promises";
@@ -25,7 +26,7 @@ import {
   writePackIndex,
 } from "@statewalker/vcs-core";
 import { clone, type PushObject, push } from "@statewalker/vcs-transport";
-import { setCompression } from "@statewalker/vcs-utils";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
@@ -47,7 +48,6 @@ import {
   printStep,
   printSuccess,
   REMOTE_REPO_DIR,
-  REMOTE_URL,
   removeDirectory,
   runGitAsync,
   runGitSafeAsync,
@@ -56,8 +56,27 @@ import {
   type VcsHttpServer,
 } from "./shared/index.js";
 
+// Parse command line arguments
+function parseArgs(): { port: number } {
+  const args = process.argv.slice(2);
+  let port = HTTP_PORT;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--port" && args[i + 1]) {
+      port = parseInt(args[i + 1], 10);
+      i++;
+    }
+  }
+
+  return { port };
+}
+
+// Parse args early to get port for REMOTE_URL
+const { port: httpPort } = parseArgs();
+const REMOTE_URL = `http://localhost:${httpPort}/remote.git`;
+
 // Initialize compression
-setCompression(createNodeCompression());
+setCompressionUtils(createNodeCompression());
 
 const textEncoder = new TextEncoder();
 
@@ -191,10 +210,10 @@ Created at: ${new Date().toISOString()}
  * Step 2: Start VCS HTTP server.
  */
 async function startHttpServer(remoteStorage: GitRepository): Promise<VcsHttpServer> {
-  printInfo(`Starting VCS HTTP server on port ${HTTP_PORT}`);
+  printInfo(`Starting VCS HTTP server on port ${httpPort}`);
 
   const server = await createVcsHttpServer({
-    port: HTTP_PORT,
+    port: httpPort,
     getStorage: async (repoPath: string) => {
       if (repoPath === "remote.git") {
         return remoteStorage;
@@ -203,7 +222,7 @@ async function startHttpServer(remoteStorage: GitRepository): Promise<VcsHttpSer
     },
   });
 
-  printSuccess(`VCS HTTP server running at http://localhost:${HTTP_PORT}`);
+  printSuccess(`VCS HTTP server running at http://localhost:${httpPort}`);
   printInfo(`Repository available at ${REMOTE_URL}`);
 
   return server;
