@@ -250,7 +250,7 @@ function parseEntry(
 
     // Padding to 8-byte boundary (version 2/3 only)
     const entryLen = offset - startOffset;
-    const alignedLen = (entryLen + 7) & ~7;
+    const alignedLen = (entryLen + 8) & ~7;
     offset = startOffset + alignedLen;
   }
 

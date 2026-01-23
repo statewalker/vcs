@@ -27,7 +27,6 @@ import {
   packetDataToString,
   pktLineReader,
 } from "../protocol/pkt-line-codec.js";
-import type { Packet } from "../protocol/types.js";
 import type {
   AdvertiseOptions,
   ObjectId,
@@ -123,8 +122,7 @@ export function createReceivePackHandler(options: ReceivePackOptions): ReceivePa
       const request = await parseReceivePackRequest(input);
 
       if (request.updates.length === 0) {
-        // No updates - send success status (nothing to unpack is still a success)
-        yield encodePacket("unpack ok\n");
+        // No updates, just send flush
         yield encodeFlush();
         return;
       }
@@ -266,9 +264,6 @@ function buildServerCapabilities(options: {
 
 /**
  * Parse receive-pack request from input stream.
- *
- * This function is stream-aware and does NOT wait for the input to close.
- * It reads pkt-lines until a flush packet, then optionally reads pack data.
  */
 export async function parseReceivePackRequest(
   input: AsyncIterable<Uint8Array>,
@@ -277,12 +272,40 @@ export async function parseReceivePackRequest(
   const capabilities = new Set<string>();
   let isFirst = true;
 
-  // Read pkt-lines directly from input (stream-aware)
-  const packets = pktLineReader(input);
+  // Collect all input data first
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of input) {
+    chunks.push(chunk);
+  }
+  const allData = concatBytes(chunks);
+
+  // Find where pack data starts (PACK signature)
+  let packStart = -1;
+  for (let i = 0; i < allData.length - 4; i++) {
+    if (
+      allData[i] === 0x50 && // P
+      allData[i + 1] === 0x41 && // A
+      allData[i + 2] === 0x43 && // C
+      allData[i + 3] === 0x4b // K
+    ) {
+      packStart = i;
+      break;
+    }
+  }
+
+  // Parse pkt-lines from command portion
+  const commandData = packStart >= 0 ? allData.subarray(0, packStart) : allData;
+  const packData = packStart >= 0 ? allData.subarray(packStart) : new Uint8Array(0);
+
+  // Create async iterable from command data
+  async function* commandStream(): AsyncIterable<Uint8Array> {
+    yield commandData;
+  }
+
+  const packets = pktLineReader(commandStream());
 
   for await (const packet of packets) {
     if (packet.type === "flush") {
-      // Flush signals end of command portion
       break;
     }
 
@@ -300,40 +323,7 @@ export async function parseReceivePackRequest(
     isFirst = false;
   }
 
-  // If no updates, no pack data expected
-  if (updates.length === 0) {
-    return { updates, capabilities, packData: new Uint8Array(0) };
-  }
-
-  // TODO: For updates with pack data, we need a more sophisticated approach
-  // that can read raw bytes from a stream that's been partially consumed by pktLineReader.
-  // For now, we return an empty pack which will cause the push to fail gracefully.
-  // The original implementation collected all bytes first, which doesn't work with
-  // multiplexed streams that don't close between operations.
-  console.warn(
-    "[receive-pack] Pack data reading in streaming mode not yet fully implemented. " +
-      "Updates received but pack may be empty.",
-  );
-
-  // Read remaining data as pack (this may not work correctly due to pktLineReader buffering)
-  const packChunks: Uint8Array[] = [];
-  let timedOut = false;
-
-  // Use a timeout to avoid blocking forever waiting for pack data
-  const timeoutPromise = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 100));
-
-  const iterator = input[Symbol.asyncIterator]();
-  while (!timedOut) {
-    const result = await Promise.race([iterator.next(), timeoutPromise]);
-    if (result === "timeout") {
-      timedOut = true;
-      break;
-    }
-    if (result.done) break;
-    packChunks.push(result.value);
-  }
-
-  return { updates, capabilities, packData: concatBytes(packChunks) };
+  return { updates, capabilities, packData };
 }
 
 /**
@@ -700,185 +690,4 @@ function concatBytes(arrays: Uint8Array[]): Uint8Array {
     offset += arr.length;
   }
   return result;
-}
-
-/**
- * Process receive-pack request using a shared packets iterator.
- *
- * This function is used by the socket server to avoid creating multiple
- * pktLineReaders on the same stream, which would cause data loss.
- *
- * @param _handler - The receive pack handler (reserved for future configuration)
- * @param packets - Shared packets iterator from the server's pktLineReader
- * @param repository - Repository access for storing objects
- */
-export async function* processReceivePackWithPackets(
-  _handler: ReceivePackHandler,
-  packets: AsyncIterator<Packet>,
-  repository: RepositoryAccess,
-): AsyncIterable<Uint8Array> {
-  // Parse the request using the shared packets iterator
-  const request = await parseReceivePackRequestFromPackets(packets);
-
-  if (request.updates.length === 0) {
-    // No updates - send success status (nothing to unpack is still a success)
-    yield encodePacket("unpack ok\n");
-    yield encodeFlush();
-    return;
-  }
-
-  // Check if client requested sideband
-  const useSideband = request.capabilities.has(CAPABILITY_SIDE_BAND_64K);
-  const useAtomicUpdate = request.capabilities.has(CAPABILITY_ATOMIC);
-
-  // Validate ref updates (using default options for socket server)
-  const results: ServerRefUpdateResult[] = [];
-  for (const update of request.updates) {
-    const result = validateRefUpdate(update, { allowCreates: true, allowDeletes: true });
-    results.push(result);
-  }
-
-  // If atomic and any failed, reject all
-  if (useAtomicUpdate && results.some((r) => r.status === "rejected")) {
-    for (const result of results) {
-      if (result.status === "ok") {
-        result.status = "rejected";
-        result.message = "atomic push failed";
-      }
-    }
-  }
-
-  // Process pack data if present
-  let unpackOk = true;
-  let unpackMessage: string | undefined;
-
-  if (request.packData.length > 0) {
-    try {
-      await processPackData(repository, request.packData);
-    } catch (error) {
-      unpackOk = false;
-      unpackMessage = error instanceof Error ? error.message : "unpack failed";
-      // Reject all updates if unpack failed
-      for (const result of results) {
-        result.status = "rejected";
-        result.message = "unpack failed";
-      }
-    }
-  }
-
-  // Apply ref updates
-  if (unpackOk) {
-    for (let i = 0; i < request.updates.length; i++) {
-      const update = request.updates[i];
-      const result = results[i];
-
-      if (result.status === "ok") {
-        try {
-          const oldId = update.oldId === ZERO_ID ? null : update.oldId;
-          const newId = update.newId === ZERO_ID ? null : update.newId;
-          const success = await repository.updateRef(update.refName, oldId, newId);
-          if (!success) {
-            result.status = "rejected";
-            result.message = "failed to update ref";
-          }
-        } catch (error) {
-          result.status = "rejected";
-          result.message = error instanceof Error ? error.message : "update failed";
-        }
-      }
-    }
-  }
-
-  // Build and send report-status response
-  if (useSideband) {
-    const statusData = buildReportStatus(unpackOk, results, unpackMessage);
-    yield encodeSidebandPacket(SIDEBAND_DATA, statusData);
-  } else {
-    // Send status directly
-    if (unpackOk) {
-      yield encodePacket("unpack ok\n");
-    } else {
-      yield encodePacket(`unpack ${unpackMessage || "failed"}\n`);
-    }
-    for (const result of results) {
-      if (result.status === "ok") {
-        yield encodePacket(`ok ${result.refName}\n`);
-      } else {
-        yield encodePacket(`ng ${result.refName} ${result.message || "rejected"}\n`);
-      }
-    }
-  }
-
-  yield encodeFlush();
-}
-
-/**
- * Parse receive-pack request from a shared packets iterator.
- *
- * This version accepts a packets iterator instead of raw bytes, allowing the server
- * to share a single pktLineReader across multiple operations.
- */
-async function parseReceivePackRequestFromPackets(
-  packets: AsyncIterator<Packet>,
-): Promise<ReceivePackRequest> {
-  const updates: ServerRefUpdate[] = [];
-  const capabilities = new Set<string>();
-  let isFirst = true;
-
-  // Read packets from the shared iterator until flush
-  while (true) {
-    const result = await packets.next();
-    if (result.done) {
-      break;
-    }
-
-    const packet = result.value;
-
-    if (packet.type === "flush") {
-      // Flush signals end of command portion
-      break;
-    }
-
-    if (packet.type !== "data" || !packet.data) {
-      continue;
-    }
-
-    const line = packetDataToString(packet);
-    const update = parseRefUpdateCommand(line, isFirst ? capabilities : undefined);
-
-    if (update) {
-      updates.push(update);
-    }
-
-    isFirst = false;
-  }
-
-  // If no updates, no pack data expected
-  if (updates.length === 0) {
-    return { updates, capabilities, packData: new Uint8Array(0) };
-  }
-
-  // Read pack data from remaining packets
-  // Pack data comes as data packets after the command flush
-  const packChunks: Uint8Array[] = [];
-
-  while (true) {
-    const result = await packets.next();
-    if (result.done) {
-      break;
-    }
-
-    const packet = result.value;
-
-    if (packet.type === "flush") {
-      // End of pack data
-      break;
-    }
-
-    if (packet.type === "data" && packet.data) {
-      packChunks.push(packet.data);
-    }
-  }
-
-  return { updates, capabilities, packData: concatBytes(packChunks) };
 }

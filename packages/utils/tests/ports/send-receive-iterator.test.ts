@@ -12,7 +12,10 @@ import {
   sendIterator,
 } from "../../src/ports/index.js";
 
-async function* makeAsync<T>(it: Iterable<T>, maxTimeout = 20): AsyncGenerator<T> {
+async function* makeAsync<T>(
+  it: Iterable<T>,
+  maxTimeout = 20,
+): AsyncGenerator<T> {
   for (const value of it) {
     const timeout = Math.random() * maxTimeout;
     await new Promise((resolve) => setTimeout(resolve, timeout));
@@ -28,7 +31,10 @@ function newMessageChannel() {
 }
 
 describe("sendIterator", () => {
-  async function testAsyncCalls(dataToSend: AsyncIterable<number> | number[], control: number[]) {
+  async function testAsyncCalls(
+    dataToSend: AsyncIterable<number> | number[],
+    control: number[],
+  ) {
     const channel = newMessageChannel();
     let calls = 0;
     const values: number[] = [];
@@ -61,7 +67,10 @@ describe("sendIterator", () => {
 });
 
 describe("receiveIterator", () => {
-  async function testAsyncCalls(dataToSend: AsyncIterable<number> | number[], control: number[]) {
+  async function testAsyncCalls(
+    dataToSend: AsyncIterable<number> | number[],
+    control: number[],
+  ) {
     const channel = newMessageChannel();
     let receiveMessage: ((params: unknown) => Promise<void>) | undefined;
 
@@ -69,9 +78,12 @@ describe("receiveIterator", () => {
       receiveMessage = p;
     });
 
-    const close = listenPort(channel.port1, async ({ done, value, error }) => {
-      await receiveMessage?.({ done, value, error });
-    });
+    const close = listenPort(
+      channel.port1,
+      async ({ done, value, error }) => {
+        await receiveMessage?.({ done, value, error });
+      },
+    );
 
     try {
       // Start sending in the background
