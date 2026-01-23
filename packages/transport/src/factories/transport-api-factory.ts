@@ -1,0 +1,269 @@
+/**
+ * Factory for creating TransportApi from a Duplex stream.
+ *
+ * The TransportApi provides the Git wire protocol abstraction layer:
+ * - Pkt-line framing (reading and writing)
+ * - Sideband multiplexing (channels 1-3)
+ * - Pack streaming
+ */
+
+import {
+  encodeDelim,
+  encodeFlush,
+  encodePacket,
+  encodePacketLine,
+  parsePacket,
+} from "../protocol/pkt-line-codec.js";
+import { encodeSidebandPacket, SIDEBAND_DATA } from "../protocol/sideband.js";
+import type { Duplex } from "../api/duplex.js";
+import type { PktLineResult, SidebandResult, TransportApi } from "../api/transport-api.js";
+import type { ProtocolState } from "../context/protocol-state.js";
+
+const _textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+/**
+ * Internal pkt-line reader with buffering support.
+ */
+class PktLineReader {
+  private buffer: Uint8Array = new Uint8Array(0);
+  private iterator: AsyncIterator<Uint8Array>;
+  private done = false;
+
+  constructor(duplex: Duplex) {
+    this.iterator = duplex[Symbol.asyncIterator]();
+  }
+
+  /**
+   * Reads the next pkt-line from the stream.
+   */
+  async read(): Promise<PktLineResult> {
+    while (true) {
+      // Try to parse a packet from buffer
+      const result = parsePacket(this.buffer);
+      if (result !== null) {
+        this.buffer = result.remaining;
+        const packet = result.packet;
+
+        if (packet.type === "flush") {
+          return { type: "flush" };
+        }
+        if (packet.type === "delim") {
+          return { type: "delim" };
+        }
+        if (packet.type === "data") {
+          const payload = packet.data ?? new Uint8Array(0);
+          let text = textDecoder.decode(payload);
+          // Strip trailing newline
+          if (text.endsWith("\n")) {
+            text = text.slice(0, -1);
+          }
+          return { type: "data", payload, text };
+        }
+      }
+
+      // Need more data
+      if (this.done) {
+        return { type: "eof" };
+      }
+
+      const { value, done } = await this.iterator.next();
+      if (done) {
+        this.done = true;
+        // Check if there's remaining data in buffer
+        if (this.buffer.length > 0) {
+          const result = parsePacket(this.buffer);
+          if (result !== null) {
+            this.buffer = result.remaining;
+            const packet = result.packet;
+            if (packet.type === "flush") return { type: "flush" };
+            if (packet.type === "delim") return { type: "delim" };
+            if (packet.type === "data") {
+              const payload = packet.data ?? new Uint8Array(0);
+              let text = textDecoder.decode(payload);
+              if (text.endsWith("\n")) text = text.slice(0, -1);
+              return { type: "data", payload, text };
+            }
+          }
+        }
+        return { type: "eof" };
+      }
+
+      // Append to buffer
+      const newBuffer = new Uint8Array(this.buffer.length + value.length);
+      newBuffer.set(this.buffer);
+      newBuffer.set(value, this.buffer.length);
+      this.buffer = newBuffer;
+    }
+  }
+
+  /**
+   * Reads a sideband-encoded packet.
+   * Extracts the channel byte and payload from pkt-line data.
+   */
+  async readSideband(): Promise<SidebandResult> {
+    const pkt = await this.read();
+
+    if (pkt.type !== "data") {
+      throw new Error(`Expected data packet for sideband, got ${pkt.type}`);
+    }
+
+    if (pkt.payload.length < 1) {
+      throw new Error("Sideband packet too short");
+    }
+
+    const channel = pkt.payload[0] as 1 | 2 | 3;
+    const data = pkt.payload.slice(1);
+
+    return { channel, data };
+  }
+}
+
+/**
+ * Internal pkt-line writer.
+ */
+class PktLineWriter {
+  constructor(private duplex: Duplex) {}
+
+  /**
+   * Writes a pkt-line with proper framing.
+   */
+  write(data: string | Uint8Array): void {
+    const encoded = typeof data === "string" ? encodePacketLine(data) : encodePacket(data);
+    this.duplex.write(encoded);
+  }
+
+  /**
+   * Writes a flush packet (0000).
+   */
+  flush(): void {
+    this.duplex.write(encodeFlush());
+  }
+
+  /**
+   * Writes a delimiter packet (0001).
+   */
+  delimiter(): void {
+    this.duplex.write(encodeDelim());
+  }
+
+  /**
+   * Writes data on a sideband channel.
+   */
+  writeSideband(channel: 1 | 2 | 3, data: Uint8Array): void {
+    const packet = encodeSidebandPacket(channel, data);
+    this.duplex.write(packet);
+  }
+}
+
+/**
+ * Creates a TransportApi from a Duplex stream and protocol state.
+ *
+ * The protocol state is used to check capabilities for sideband handling
+ * in readPack/writePack operations.
+ *
+ * @param duplex - Bidirectional byte stream
+ * @param state - Protocol state for capability checks
+ * @returns TransportApi implementation
+ *
+ * @example
+ * ```ts
+ * const state = new ProtocolState();
+ * const transport = createTransportApi(duplex, state);
+ *
+ * // Read server advertisement
+ * const pkt = await transport.readPktLine();
+ * if (pkt.type === "data") {
+ *   console.log("Received:", pkt.text);
+ * }
+ *
+ * // Send wants
+ * await transport.writeLine("want abc123 multi_ack_detailed");
+ * await transport.writeFlush();
+ * ```
+ */
+export function createTransportApi(duplex: Duplex, state: ProtocolState): TransportApi {
+  const reader = new PktLineReader(duplex);
+  const writer = new PktLineWriter(duplex);
+
+  return {
+    // Pkt-line level
+    readPktLine: () => reader.read(),
+    writePktLine: (data) => {
+      writer.write(data);
+      return Promise.resolve();
+    },
+    writeFlush: () => {
+      writer.flush();
+      return Promise.resolve();
+    },
+    writeDelimiter: () => {
+      writer.delimiter();
+      return Promise.resolve();
+    },
+
+    // Line level convenience
+    readLine: async () => {
+      const pkt = await reader.read();
+      return pkt.type === "data" ? pkt.text : null;
+    },
+    writeLine: (line) => {
+      writer.write(line.endsWith("\n") ? line : `${line}\n`);
+      return Promise.resolve();
+    },
+
+    // Sideband I/O
+    readSideband: () => reader.readSideband(),
+    writeSideband: (channel, data) => {
+      writer.writeSideband(channel, data);
+      return Promise.resolve();
+    },
+
+    // Pack streaming
+    async *readPack(): AsyncGenerator<Uint8Array> {
+      if (state.hasCapability("side-band-64k")) {
+        // Read pack data from sideband channel 1
+        while (true) {
+          const pkt = await reader.read();
+          if (pkt.type === "flush" || pkt.type === "eof") {
+            break;
+          }
+          if (pkt.type === "data" && pkt.payload.length > 0) {
+            const channel = pkt.payload[0];
+            if (channel === SIDEBAND_DATA) {
+              yield pkt.payload.slice(1);
+            } else if (channel === 3) {
+              // Error channel
+              const errorMsg = textDecoder.decode(pkt.payload.slice(1));
+              throw new Error(`Server error: ${errorMsg}`);
+            }
+            // Channel 2 is progress - ignored
+          }
+        }
+      } else {
+        // Raw pack data - read directly from stream
+        const iter = duplex[Symbol.asyncIterator]();
+        while (true) {
+          const { value, done } = await iter.next();
+          if (done) break;
+          yield value;
+        }
+      }
+    },
+
+    async writePack(packStream: AsyncIterable<Uint8Array>): Promise<void> {
+      if (state.hasCapability("side-band-64k")) {
+        // Write pack data on sideband channel 1
+        for await (const chunk of packStream) {
+          writer.writeSideband(1, chunk);
+        }
+        writer.flush();
+      } else {
+        // Write raw pack data
+        for await (const chunk of packStream) {
+          duplex.write(chunk);
+        }
+      }
+    },
+  };
+}

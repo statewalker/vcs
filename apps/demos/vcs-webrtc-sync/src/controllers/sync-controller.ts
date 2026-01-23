@@ -5,11 +5,10 @@
  * Handles push/fetch operations and conflict detection.
  */
 
-import type { TransportConnection } from "@statewalker/vcs-transport";
 import { getActivityLogModel, getRepositoryModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 import { getGitStore } from "./repository-controller.js";
-import { getTransportConnection, isConnected } from "./webrtc-controller.js";
+import { getDataChannel, isConnected } from "./webrtc-controller.js";
 
 /**
  * Message types for sync protocol.
@@ -41,7 +40,7 @@ export function createSyncController(_ctx: Map<string, unknown>): () => void {
  */
 export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> {
   const store = getGitStore(ctx);
-  const transport = getTransportConnection(ctx);
+  const channel = getDataChannel(ctx);
   const repoModel = getRepositoryModel(ctx);
   const logModel = getActivityLogModel(ctx);
 
@@ -50,7 +49,7 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
     return false;
   }
 
-  if (!transport || !isConnected(ctx)) {
+  if (!channel || !isConnected(ctx)) {
     logModel.error("No peer connection");
     return false;
   }
@@ -98,7 +97,7 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
       },
     };
 
-    await sendMessage(transport, repoInfo);
+    sendMessage(channel, repoInfo);
 
     // Send objects
     for (const obj of objects) {
@@ -110,11 +109,11 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
           data: Array.from(obj.data),
         },
       };
-      await sendMessage(transport, objMessage);
+      sendMessage(channel, objMessage);
     }
 
     // Send completion
-    await sendMessage(transport, { type: "sync-complete" });
+    sendMessage(channel, { type: "sync-complete" });
 
     logModel.success(`Pushed ${objects.length} objects to peer`);
     return true;
@@ -129,7 +128,7 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
  */
 export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolean> {
   const store = getGitStore(ctx);
-  const transport = getTransportConnection(ctx);
+  const channel = getDataChannel(ctx);
   const logModel = getActivityLogModel(ctx);
 
   if (!store) {
@@ -137,7 +136,7 @@ export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolea
     return false;
   }
 
-  if (!transport || !isConnected(ctx)) {
+  if (!channel || !isConnected(ctx)) {
     logModel.error("No peer connection");
     return false;
   }
@@ -146,91 +145,87 @@ export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolea
     logModel.info("Fetching from peer...");
 
     // Request repo info
-    await sendMessage(transport, { type: "repo-info", data: { request: true } });
+    sendMessage(channel, { type: "repo-info", data: { request: true } });
 
     // Listen for incoming objects
     let receivedCount = 0;
     let remoteHead: string | null = null;
 
-    // Set up receive handler
-    const channel = (transport as unknown as { channel?: RTCDataChannel }).channel;
-    if (channel) {
-      return new Promise((resolve) => {
-        const handler = async (event: MessageEvent) => {
-          try {
-            const message: SyncMessage = JSON.parse(event.data);
+    return new Promise((resolve) => {
+      const handler = async (event: MessageEvent) => {
+        try {
+          const message: SyncMessage = JSON.parse(
+            typeof event.data === "string" ? event.data : new TextDecoder().decode(event.data),
+          );
 
-            switch (message.type) {
-              case "repo-info": {
-                const info = message.data as { head?: string; objectCount?: number };
-                remoteHead = info.head || null;
-                logModel.info(
-                  `Remote has ${info.objectCount || 0} objects, HEAD: ${remoteHead?.slice(0, 7)}`,
-                );
-                break;
-              }
-
-              case "send-objects": {
-                const obj = message.data as { type: string; id: string; data: number[] };
-                const data = new Uint8Array(obj.data);
-
-                // Store the object based on type
-                if (obj.type === "commit") {
-                  // Parse and store commit
-                  const commitData = JSON.parse(new TextDecoder().decode(data));
-                  await store.commits.storeCommit(commitData);
-                } else if (obj.type === "tree") {
-                  // Store tree
-                  await store.trees.storeTree(JSON.parse(new TextDecoder().decode(data)));
-                } else if (obj.type === "blob") {
-                  // Store blob
-                  await store.blobs.store([data]);
-                }
-                receivedCount++;
-                break;
-              }
-
-              case "sync-complete": {
-                channel.removeEventListener("message", handler);
-                logModel.success(`Received ${receivedCount} objects from peer`);
-
-                // Update refs if we got a remote HEAD
-                if (remoteHead) {
-                  await store.refs.set("refs/remotes/peer/main", remoteHead);
-                  logModel.info(`Updated remote tracking ref`);
-                }
-                resolve(true);
-                break;
-              }
-
-              case "error": {
-                channel.removeEventListener("message", handler);
-                logModel.error(`Remote error: ${message.data}`);
-                resolve(false);
-                break;
-              }
+          switch (message.type) {
+            case "repo-info": {
+              const info = message.data as { head?: string; objectCount?: number };
+              remoteHead = info.head || null;
+              logModel.info(
+                `Remote has ${info.objectCount || 0} objects, HEAD: ${remoteHead?.slice(0, 7)}`,
+              );
+              break;
             }
-          } catch {
-            // Ignore parse errors
+
+            case "send-objects": {
+              const obj = message.data as { type: string; id: string; data: number[] };
+              const data = new Uint8Array(obj.data);
+
+              // Store the object based on type
+              if (obj.type === "commit") {
+                // Parse and store commit
+                const commitData = JSON.parse(new TextDecoder().decode(data));
+                await store.commits.storeCommit(commitData);
+              } else if (obj.type === "tree") {
+                // Store tree
+                await store.trees.storeTree(JSON.parse(new TextDecoder().decode(data)));
+              } else if (obj.type === "blob") {
+                // Store blob
+                await store.blobs.store([data]);
+              }
+              receivedCount++;
+              break;
+            }
+
+            case "sync-complete": {
+              channel.removeEventListener("message", handler);
+              logModel.success(`Received ${receivedCount} objects from peer`);
+
+              // Update refs if we got a remote HEAD
+              if (remoteHead) {
+                await store.refs.set("refs/remotes/peer/main", remoteHead);
+                logModel.info(`Updated remote tracking ref`);
+              }
+              resolve(true);
+              break;
+            }
+
+            case "error": {
+              channel.removeEventListener("message", handler);
+              logModel.error(`Remote error: ${message.data}`);
+              resolve(false);
+              break;
+            }
           }
-        };
+        } catch {
+          // Ignore parse errors
+        }
+      };
 
-        channel.addEventListener("message", handler);
+      channel.addEventListener("message", handler);
 
-        // Timeout after 30 seconds
-        setTimeout(() => {
-          channel.removeEventListener("message", handler);
-          if (receivedCount === 0) {
-            logModel.warning("Fetch timed out");
-            resolve(false);
-          } else {
-            resolve(true);
-          }
-        }, 30000);
-      });
-    }
-
-    return false;
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        channel.removeEventListener("message", handler);
+        if (receivedCount === 0) {
+          logModel.warning("Fetch timed out");
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      }, 30000);
+    });
   } catch (error) {
     logModel.error(`Fetch failed: ${(error as Error).message}`);
     return false;
@@ -371,12 +366,7 @@ async function collectFileIds(
   }
 }
 
-async function sendMessage(transport: TransportConnection, message: SyncMessage): Promise<void> {
-  const data = new TextEncoder().encode(JSON.stringify(message));
-  // Use sendRaw for raw bytes (available on WebRTC transport)
-  if (transport.sendRaw) {
-    await transport.sendRaw(data);
-  } else {
-    throw new Error("Transport does not support raw message sending");
-  }
+function sendMessage(channel: RTCDataChannel, message: SyncMessage): void {
+  const data = JSON.stringify(message);
+  channel.send(data);
 }
