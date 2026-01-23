@@ -5,33 +5,30 @@
  * as well as bidirectional streaming capabilities for complex communication patterns.
  */
 
-// Core RPC primitives
-export { serializeError, deserializeError, type SerializedError } from "./errors.js";
-export { callPort, type CallPortOptions } from "./call-port.js";
-export { listenPort, type ListenPortOptions, type PortHandler } from "./listen-port.js";
-
-// Iterator-based streaming
+// Bidirectional call/listen with streaming
 export {
-  receiveIterator,
-  type MessageHandler,
-  type MessageParams,
-} from "./receive-iterator.js";
-export { sendIterator } from "./send-iterator.js";
-export { receive } from "./receive.js";
-export { send } from "./send.js";
-
+  type CallBidiOptions,
+  type CallBidiParams,
+  callBidi,
+} from "./call-bidi.js";
+export { type CallPortOptions, callPort } from "./call-port.js";
+// Core RPC primitives
+export { deserializeError, type SerializedError, serializeError } from "./errors.js";
 // Bidirectional I/O
 export { ioHandle } from "./io-handle.js";
 export { ioSend } from "./io-send.js";
-
-// Bidirectional call/listen with streaming
 export {
-  callBidi,
-  type CallBidiOptions,
-  type CallBidiParams,
-} from "./call-bidi.js";
-export {
-  listenBidi,
-  type BidiParams,
   type BidiAcceptor,
+  type BidiParams,
+  listenBidi,
 } from "./listen-bidi.js";
+export { type ListenPortOptions, listenPort, type PortHandler } from "./listen-port.js";
+export { receive } from "./receive.js";
+// Iterator-based streaming
+export {
+  type MessageHandler,
+  type MessageParams,
+  receiveIterator,
+} from "./receive-iterator.js";
+export { send } from "./send.js";
+export { sendIterator } from "./send-iterator.js";
