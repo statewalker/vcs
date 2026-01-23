@@ -30,12 +30,7 @@ export type BidiAcceptor<TParams = Record<string, unknown>> = (
   params: BidiParams<TParams>,
 ) => boolean;
 
-export function listenBidi<
-  TInput,
-  TOutput,
-  TParams = Record<string, unknown>,
-  E = Error,
->(
+export function listenBidi<TInput, TOutput, TParams = Record<string, unknown>, E = Error>(
   port: MessagePort,
   action: (
     input: AsyncGenerator<TInput, void, unknown>,
