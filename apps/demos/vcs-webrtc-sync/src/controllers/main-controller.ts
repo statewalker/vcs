@@ -239,6 +239,5 @@ export {
   acceptOffer,
   closeConnection,
   createOffer,
-  getTransportConnection,
   isConnected,
 } from "./webrtc-controller.js";

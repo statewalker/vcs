@@ -13,7 +13,6 @@ import { SERVICE_RECEIVE_PACK, SERVICE_UPLOAD_PACK } from "../protocol/constants
 import { TransportError } from "../protocol/errors.js";
 import type { GitUrl } from "../protocol/types.js";
 import { createGitSocketClient } from "../socket/client.js";
-import { type ConnectableSocket, GitConnection } from "./git-connection.js";
 import type { Credentials, DiscoverableConnection } from "./types.js";
 
 /**
@@ -28,8 +27,6 @@ export interface FactoryOptions {
   timeout?: number;
   /** User agent string */
   userAgent?: string;
-  /** Factory for TCP sockets (needed for git:// protocol) */
-  tcpSocketFactory?: (host: string, port: number) => ConnectableSocket;
 }
 
 /**
@@ -76,23 +73,11 @@ async function openConnection(
       });
     }
 
-    case "git": {
-      if (!options.tcpSocketFactory) {
-        throw new TransportError("git:// protocol requires tcpSocketFactory option");
-      }
-      const factory = options.tcpSocketFactory;
-      const conn = new GitConnection(
-        {
-          host: url.host,
-          port: url.port,
-          path: url.path,
-          service,
-        },
-        () => factory(url.host, url.port ?? 9418),
+    case "git":
+      throw new TransportError(
+        "Native git:// protocol is not supported. Use HTTPS instead, or use " +
+          "createGitSocketClient() with a MessagePort for P2P communication.",
       );
-      // For git protocol, we need to connect immediately to discover refs
-      return conn;
-    }
 
     case "ssh":
       throw new TransportError("SSH protocol not yet implemented. Use HTTPS instead.");

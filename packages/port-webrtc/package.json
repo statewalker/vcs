@@ -6,7 +6,7 @@
     "access": "public"
   },
   "type": "module",
-  "description": "WebRTC MessagePortLike adapter for VCS transport",
+  "description": "WebRTC MessagePort adapter for VCS transport",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -22,9 +22,6 @@
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run --passWithNoTests",
     "lint": "biome lint src tests"
-  },
-  "dependencies": {
-    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

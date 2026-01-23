@@ -185,18 +185,29 @@ export async function push(options: PushOptions): Promise<PushResult> {
     // Generate request packets
     const requestPackets = generatePushRequestPackets(request);
 
-    // Collect pkt-line encoded commands
-    const commandsData = await collectPackets(pktLineWriter(requestPackets));
+    // Track bytes sent for reporting
+    let bytesSent = 0;
 
-    // Combine commands and pack data for sending
-    const fullRequestBody = concatBytes(commandsData, packData);
-
-    // Send raw bytes - the commands are already pkt-line encoded
-    if (connection.sendRaw) {
-      await connection.sendRaw(fullRequestBody);
+    // Send data using the appropriate method for the connection type
+    if (connection.sendPacketsAndPack) {
+      // Socket/P2P connection: send commands as packets, pack as pkt-line encoded.
+      // This wraps pack data in pkt-line packets so the server's pktLineReader
+      // can parse everything correctly.
+      await connection.sendPacketsAndPack(requestPackets, packData);
+      // Estimate bytes sent (commands overhead + pack data + framing)
+      bytesSent = packData.length + 100; // Approximate
     } else {
-      // Fallback: use send with wrapped packets (may cause double-encoding!)
-      await connection.send(wrapAsPackets(fullRequestBody));
+      // HTTP connection: send pre-encoded commands + raw pack bytes
+      const commandsData = await collectPackets(pktLineWriter(requestPackets));
+      const fullRequestBody = concatBytes(commandsData, packData);
+      bytesSent = fullRequestBody.length;
+
+      if (connection.sendRaw) {
+        await connection.sendRaw(fullRequestBody);
+      } else {
+        // Fallback: use send with wrapped packets (may cause double-encoding!)
+        await connection.send(wrapAsPackets(fullRequestBody));
+      }
     }
 
     // Receive and parse response
@@ -238,7 +249,7 @@ export async function push(options: PushOptions): Promise<PushResult> {
       ok: reportStatus.ok,
       unpackStatus: reportStatus.unpackOk ? "ok" : reportStatus.unpackMessage || "failed",
       updates: resultUpdates,
-      bytesSent: fullRequestBody.length,
+      bytesSent,
       objectCount,
     };
   } finally {
