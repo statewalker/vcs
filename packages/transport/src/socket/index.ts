@@ -1,13 +1,11 @@
-// MessagePort adapters - direct MessagePort usage (preferred)
+// MessagePort adapters - direct MessagePort usage
 
-// Socket transport layer - bidirectional socket, client and server
+// Git protocol client over MessagePort
 export {
-  type BidirectionalSocketPortsOptions,
-  createBidirectionalSocketPairPorts as createBidirectionalSocketPair,
-  createBidirectionalSocketPorts as createBidirectionalSocket,
-} from "./bidirectional-socket-ports.js";
-// Git protocol client over socket
-export { createGitSocketClient, type GitSocketClientOptions } from "./client.js";
+  createGitSocketClient,
+  type ExternalIOHandles,
+  type GitSocketClientOptions,
+} from "./client.js";
 export {
   createMessagePortCloser,
   createMessagePortPair,
@@ -15,11 +13,9 @@ export {
   createMessagePortWriter,
 } from "./messageport-adapters.js";
 
-// Git protocol server over socket
+// Git protocol server over MessagePort
 export {
   createGitSocketServer,
   type GitSocketServerOptions,
   handleGitSocketConnection,
 } from "./server.js";
-
-export type { BidirectionalSocket, BidirectionalSocketOptions } from "./types.js";
