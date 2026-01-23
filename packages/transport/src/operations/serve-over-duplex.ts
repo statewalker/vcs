@@ -14,15 +14,9 @@ import type { ProcessConfiguration } from "../context/process-config.js";
 import type { ProcessContext, RefStore } from "../context/process-context.js";
 import { ProtocolState } from "../context/protocol-state.js";
 import { createTransportApi } from "../factories/transport-api-factory.js";
-import {
-  serverFetchHandlers,
-  serverFetchTransitions,
-} from "../fsm/fetch/server-fetch-fsm.js";
+import { serverFetchHandlers, serverFetchTransitions } from "../fsm/fetch/server-fetch-fsm.js";
 import { Fsm } from "../fsm/fsm.js";
-import {
-  serverPushHandlers,
-  serverPushTransitions,
-} from "../fsm/push/server-push-fsm.js";
+import { serverPushHandlers, serverPushTransitions } from "../fsm/push/server-push-fsm.js";
 import type { ServiceType } from "../protocol/types.js";
 
 /**
@@ -76,9 +70,7 @@ export interface ServeOverDuplexOptions {
  * }
  * ```
  */
-export async function serveOverDuplex(
-  options: ServeOverDuplexOptions,
-): Promise<ServeResult> {
+export async function serveOverDuplex(options: ServeOverDuplexOptions): Promise<ServeResult> {
   const { duplex, repository, refStore, service = "git-upload-pack" } = options;
 
   const state = new ProtocolState();
