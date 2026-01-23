@@ -1,137 +1,120 @@
 /**
- * PeerJS DataConnection adapter for MessagePortLike.
+ * PeerJS DataConnection adapter returning standard MessagePort.
  *
- * Wraps a PeerJS DataConnection to provide the MessagePortLike interface,
- * enabling use with port-stream for Git protocol communication.
+ * Bridges a PeerJS DataConnection to a MessagePort using the MessageChannel pattern,
+ * enabling use with any code that expects standard MessagePort interface.
  */
 
-import type {
-  MessagePortEventListener,
-  MessagePortEventType,
-  MessagePortLike,
-} from "@statewalker/vcs-utils";
 import type { DataConnection } from "peerjs";
 
 /**
- * PeerJS port interface - MessagePortLike with bufferedAmount for backpressure.
+ * Cache of existing ports to ensure only one MessagePort is created per connection.
+ * This prevents multiple listeners being added to the same connection.
  */
-export interface PeerJsPort extends MessagePortLike {
-  readonly bufferedAmount: number;
+const connectionPorts = new WeakMap<DataConnection, MessagePort>();
+
+/**
+ * Normalize incoming data to Uint8Array for MessagePort transport.
+ */
+function normalizeToUint8Array(data: unknown): Uint8Array {
+  if (data instanceof Uint8Array) {
+    return data;
+  }
+  if (data instanceof ArrayBuffer) {
+    return new Uint8Array(data);
+  }
+  if (ArrayBuffer.isView(data)) {
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  }
+  // Fallback: encode as UTF-8
+  return new TextEncoder().encode(String(data));
 }
 
 /**
- * Wrap a PeerJS DataConnection as MessagePortLike.
+ * Create a MessagePort that bridges to a PeerJS DataConnection.
  *
  * IMPORTANT: The DataConnection should be created with { serialization: "raw" }
  * for binary data to work correctly.
  *
- * @param conn The PeerJS DataConnection to wrap
- * @returns MessagePortLike adapter with bufferedAmount support
+ * This uses the MessageChannel bridge pattern:
+ * - Creates a MessageChannel to get port1 and port2
+ * - Returns port1 to the caller (standard MessagePort)
+ * - Internally connects port2 to the DataConnection
+ *
+ * NOTE: This function returns the SAME port if called multiple times with the
+ * same connection. This prevents multiple data listeners being added to the
+ * connection, which would cause messages to be delivered to multiple consumers.
+ *
+ * @param conn - The PeerJS DataConnection to wrap
+ * @returns A standard MessagePort that bridges to the connection
  */
-export function createPeerJsPort(conn: DataConnection): PeerJsPort {
-  let started = false;
-  const messageListeners = new Set<(event: MessageEvent<ArrayBuffer>) => void>();
-  const closeListeners = new Set<() => void>();
-  const errorListeners = new Set<(error: Error) => void>();
+export function createPeerJsPort(conn: DataConnection): MessagePort {
+  // Return existing port if one was already created for this connection
+  const existingPort = connectionPorts.get(conn);
+  if (existingPort) {
+    return existingPort;
+  }
 
-  const port: PeerJsPort = {
-    get bufferedAmount() {
-      // Access internal RTCDataChannel for bufferedAmount
-      const dc = (conn as unknown as { _dc?: RTCDataChannel })._dc;
-      return dc?.bufferedAmount ?? 0;
-    },
+  const { port1, port2 } = new MessageChannel();
 
-    postMessage(data: ArrayBuffer | Uint8Array) {
-      if (!conn.open) {
-        throw new Error("PeerJS connection is not open");
-      }
-      conn.send(data);
-    },
-
-    close() {
-      conn.close();
-    },
-
-    start() {
-      if (started) return;
-      started = true;
-
-      conn.on("data", (data: unknown) => {
-        let buffer: ArrayBuffer;
-
-        if (data instanceof ArrayBuffer) {
-          buffer = data;
-        } else if (data instanceof Uint8Array) {
-          buffer = data.buffer.slice(
-            data.byteOffset,
-            data.byteOffset + data.byteLength,
-          ) as ArrayBuffer;
-        } else if (ArrayBuffer.isView(data)) {
-          buffer = data.buffer.slice(
-            data.byteOffset,
-            data.byteOffset + data.byteLength,
-          ) as ArrayBuffer;
-        } else {
-          // Fallback: encode as UTF-8
-          buffer = new TextEncoder().encode(String(data)).buffer as ArrayBuffer;
-        }
-
-        const event = { data: buffer } as MessageEvent<ArrayBuffer>;
-        for (const listener of messageListeners) {
-          listener(event);
-        }
-      });
-
-      conn.on("close", () => {
-        for (const listener of closeListeners) {
-          listener();
-        }
-      });
-
-      conn.on("error", (err: Error) => {
-        for (const listener of errorListeners) {
-          listener(err);
-        }
-      });
-    },
-
-    addEventListener<T extends MessagePortEventType>(
-      type: T,
-      listener: MessagePortEventListener<T>,
-    ) {
-      if (type === "message") {
-        messageListeners.add(listener as (event: MessageEvent<ArrayBuffer>) => void);
-      } else if (type === "close") {
-        closeListeners.add(listener as () => void);
-      } else if (type === "error") {
-        errorListeners.add(listener as (error: Error) => void);
-      }
-    },
-
-    removeEventListener<T extends MessagePortEventType>(
-      type: T,
-      listener: MessagePortEventListener<T>,
-    ) {
-      if (type === "message") {
-        messageListeners.delete(listener as (event: MessageEvent<ArrayBuffer>) => void);
-      } else if (type === "close") {
-        closeListeners.delete(listener as () => void);
-      } else if (type === "error") {
-        errorListeners.delete(listener as (error: Error) => void);
-      }
-    },
+  // port2 → DataConnection: forward messages to PeerJS
+  port2.onmessage = (e: MessageEvent) => {
+    if (!conn.open) {
+      return;
+    }
+    // Send raw Uint8Array data
+    const data = e.data instanceof Uint8Array ? e.data : normalizeToUint8Array(e.data);
+    conn.send(data);
   };
 
-  return port;
+  // DataConnection → port2: forward incoming data to the MessagePort
+  conn.on("data", (data: unknown) => {
+    const uint8 = normalizeToUint8Array(data);
+    // Copy the data to avoid issues with detached buffers
+    const copy = new Uint8Array(uint8);
+    port2.postMessage(copy);
+  });
+
+  // Close port2 when connection closes to signal to port1 consumers
+  conn.on("close", () => {
+    // Send null to signal end of stream (convention used by messageport-adapters)
+    try {
+      port2.postMessage(null);
+    } catch {
+      // Ignore if already closed
+    }
+    port2.close();
+    // Remove from cache
+    connectionPorts.delete(conn);
+  });
+
+  const nativeClose = port1.close.bind(port1);
+  port1.close = () => {
+    // Close the PeerJS connection when port1 is closed
+    if (conn.open) {
+      conn.close();
+    }
+    nativeClose();
+    // Remove from cache
+    connectionPorts.delete(conn);
+  };
+
+  // Start receiving messages on port2
+  port2.start();
+
+  // Cache the port
+  connectionPorts.set(conn, port1);
+
+  return port1;
 }
 
 /**
- * Create PeerJS port and wait for connection to open.
+ * Create a MessagePort and wait for the PeerJS connection to open.
  *
- * @param conn The PeerJS DataConnection to wrap
- * @returns Promise resolving to PeerJsPort when connection is open
+ * @param conn - The PeerJS DataConnection to wrap
+ * @returns Promise resolving to MessagePort when connection is open
  */
-export async function createPeerJsPortAsync(conn: DataConnection): Promise<PeerJsPort> {
+export async function createPeerJsPortAsync(conn: DataConnection): Promise<MessagePort> {
   if (conn.open) {
     return createPeerJsPort(conn);
   }
