@@ -6,6 +6,7 @@
  * - POST /git-upload-pack - Pack negotiation and transfer
  */
 
+import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import type { RepositoryFacade } from "../../api/repository-facade.js";
 import { HandlerOutput } from "../../context/handler-output.js";
 import type { ProcessConfiguration } from "../../context/process-config.js";
@@ -14,7 +15,6 @@ import { ProtocolState } from "../../context/protocol-state.js";
 import { createTransportApi } from "../../factories/transport-api-factory.js";
 import { serverFetchHandlers, serverFetchTransitions } from "../../fsm/fetch/server-fetch-fsm.js";
 import { Fsm } from "../../fsm/fsm.js";
-import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import { createSimpleDuplex, readableStreamToAsyncIterable } from "./http-duplex.js";
 
 /**
