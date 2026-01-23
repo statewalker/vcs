@@ -5,7 +5,7 @@
  * in conjunction with the `callPort` function.
  */
 
-import { type SerializedError, serializeError } from "./errors.js";
+import { serializeError, type SerializedError } from "./errors.js";
 
 /**
  * Message structure for incoming requests.
