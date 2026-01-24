@@ -10,7 +10,15 @@
  * 6. Update local refs
  */
 
-import type { ProcessContext } from "../../context/process-context.js";
+import {
+  getConfig,
+  getOutput,
+  getRefStore,
+  getRepository,
+  getState,
+  getTransport,
+  type ProcessContext,
+} from "../../context/context-adapters.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 
 /**
@@ -91,12 +99,16 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "READ_ADVERTISEMENT",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+
       try {
         while (true) {
-          const pkt = await ctx.transport.readPktLine();
+          const pkt = await transport.readPktLine();
           if (pkt.type === "flush") break;
           if (pkt.type === "eof") {
-            ctx.output.error = "Unexpected end of stream";
+            output.error = "Unexpected end of stream";
             return "ERROR";
           }
           if (pkt.type === "delim") {
@@ -112,7 +124,7 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
             const [, caps] = refAndCaps.split("\0");
             if (caps) {
               for (const c of caps.split(" ")) {
-                ctx.state.capabilities.add(c);
+                state.capabilities.add(c);
               }
             }
             continue; // Don't store this as a real ref
@@ -120,23 +132,23 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
 
           if (refAndCaps?.includes("\0")) {
             const [ref, caps] = refAndCaps.split("\0");
-            ctx.state.refs.set(ref, oid);
+            state.refs.set(ref, oid);
             for (const c of caps.split(" ")) {
-              ctx.state.capabilities.add(c);
+              state.capabilities.add(c);
             }
           } else if (refAndCaps) {
-            ctx.state.refs.set(refAndCaps, oid);
+            state.refs.set(refAndCaps, oid);
           }
         }
 
         // Empty repository check
-        if (ctx.state.refs.size === 0) {
+        if (state.refs.size === 0) {
           return "EMPTY_REPO";
         }
 
         return "REFS_RECEIVED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -146,15 +158,21 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "SEND_WANTS",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+      const repository = getRepository(ctx);
+
       try {
         // Determine what we want (objects we don't have locally)
-        for (const [, oid] of ctx.state.refs) {
-          if (!(await ctx.repository.has(oid))) {
-            ctx.state.wants.add(oid);
+        for (const [, oid] of state.refs) {
+          if (!(await repository.has(oid))) {
+            state.wants.add(oid);
           }
         }
 
-        if (ctx.state.wants.size === 0) {
+        if (state.wants.size === 0) {
           return "NO_WANTS";
         }
 
@@ -172,26 +190,26 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
           "include-tag",
           "no-progress",
         ];
-        const clientCaps = [...ctx.state.capabilities].filter((c) => supportedCaps.includes(c));
+        const clientCaps = [...state.capabilities].filter((c) => supportedCaps.includes(c));
 
         let first = true;
-        for (const oid of ctx.state.wants) {
+        for (const oid of state.wants) {
           const line = first ? `want ${oid} ${clientCaps.join(" ")}` : `want ${oid}`;
-          await ctx.transport.writeLine(line);
+          await transport.writeLine(line);
           first = false;
         }
-        await ctx.transport.writeFlush();
+        await transport.writeFlush();
 
         // Determine next state based on configuration
-        if (ctx.config.filter) {
+        if (config.filter) {
           return "WANTS_SENT_FILTER";
         }
-        if (ctx.config.depth || ctx.config.shallowSince || ctx.config.shallowExclude?.length) {
+        if (config.depth || config.shallowSince || config.shallowExclude?.length) {
           return "WANTS_SENT"; // Goes to SEND_SHALLOW_INFO
         }
         return "WANTS_SENT_NO_SHALLOW"; // Skip shallow, go directly to haves
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -201,14 +219,18 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "SEND_FILTER",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+
       try {
-        if (ctx.config.filter) {
-          await ctx.transport.writeLine(`filter ${ctx.config.filter}`);
+        if (config.filter) {
+          await transport.writeLine(`filter ${config.filter}`);
         }
-        await ctx.transport.writeFlush();
+        await transport.writeFlush();
         return "FILTER_SENT";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -218,35 +240,40 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "SEND_SHALLOW_INFO",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+
       try {
         // Send existing shallow boundaries
-        for (const oid of ctx.state.clientShallow ?? []) {
-          await ctx.transport.writeLine(`shallow ${oid}`);
+        for (const oid of state.clientShallow ?? []) {
+          await transport.writeLine(`shallow ${oid}`);
         }
 
         // Send deepen request
-        if (ctx.config.depth) {
-          await ctx.transport.writeLine(`deepen ${ctx.config.depth}`);
-          await ctx.transport.writeFlush();
+        if (config.depth) {
+          await transport.writeLine(`deepen ${config.depth}`);
+          await transport.writeFlush();
           return "DEEPEN_SENT";
         }
-        if (ctx.config.shallowSince) {
-          await ctx.transport.writeLine(`deepen-since ${ctx.config.shallowSince}`);
-          await ctx.transport.writeFlush();
+        if (config.shallowSince) {
+          await transport.writeLine(`deepen-since ${config.shallowSince}`);
+          await transport.writeFlush();
           return "DEEPEN_SENT";
         }
-        if (ctx.config.shallowExclude) {
-          for (const ref of ctx.config.shallowExclude) {
-            await ctx.transport.writeLine(`deepen-not ${ref}`);
+        if (config.shallowExclude) {
+          for (const ref of config.shallowExclude) {
+            await transport.writeLine(`deepen-not ${ref}`);
           }
-          await ctx.transport.writeFlush();
+          await transport.writeFlush();
           return "DEEPEN_SENT";
         }
 
-        await ctx.transport.writeFlush();
+        await transport.writeFlush();
         return "SHALLOW_SENT";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -256,15 +283,19 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "READ_SHALLOW_UPDATE",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+
       try {
-        ctx.state.serverShallow = ctx.state.serverShallow ?? new Set();
-        ctx.state.serverUnshallow = ctx.state.serverUnshallow ?? new Set();
+        state.serverShallow = state.serverShallow ?? new Set();
+        state.serverUnshallow = state.serverUnshallow ?? new Set();
 
         while (true) {
-          const pkt = await ctx.transport.readPktLine();
+          const pkt = await transport.readPktLine();
           if (pkt.type === "flush") break;
           if (pkt.type === "eof") {
-            ctx.output.error = "Unexpected end of input during shallow update";
+            output.error = "Unexpected end of input during shallow update";
             return "ERROR";
           }
           if (pkt.type === "delim") {
@@ -274,14 +305,14 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
           // Type narrowing: pkt.type === "data" guaranteed here
           const line = pkt.text;
           if (line.startsWith("shallow ")) {
-            ctx.state.serverShallow.add(line.slice(8));
+            state.serverShallow.add(line.slice(8));
           } else if (line.startsWith("unshallow ")) {
-            ctx.state.serverUnshallow.add(line.slice(10));
+            state.serverUnshallow.add(line.slice(10));
           }
         }
         return "SHALLOW_UPDATED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -291,57 +322,63 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "SEND_HAVES",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+      const repository = getRepository(ctx);
+
       try {
         const BATCH_SIZE = 32;
         let sentInBatch = 0;
-        ctx.output.havesSent = ctx.output.havesSent ?? 0;
-        ctx.output.havesSinceLastContinue = ctx.output.havesSinceLastContinue ?? 0;
+        output.havesSent = output.havesSent ?? 0;
+        output.havesSinceLastContinue = output.havesSinceLastContinue ?? 0;
 
-        const maxHaves = ctx.config.maxHaves ?? 256;
+        const maxHaves = config.maxHaves ?? 256;
 
         // Stateless RPC mode (HTTP): send all haves at once
-        if (ctx.config.statelessRpc) {
-          if (ctx.config.localHead) {
-            for await (const oid of ctx.repository.walkAncestors(ctx.config.localHead)) {
-              if (ctx.state.commonBase.has(oid)) continue;
-              await ctx.transport.writeLine(`have ${oid}`);
-              ctx.state.haves.add(oid);
-              ctx.output.havesSent++;
-              ctx.output.havesSinceLastContinue++;
+        if (config.statelessRpc) {
+          if (config.localHead) {
+            for await (const oid of repository.walkAncestors(config.localHead)) {
+              if (state.commonBase.has(oid)) continue;
+              await transport.writeLine(`have ${oid}`);
+              state.haves.add(oid);
+              output.havesSent++;
+              output.havesSinceLastContinue++;
             }
           }
-          await ctx.transport.writeFlush();
-          return ctx.output.havesSent > 0 ? "ALL_HAVES_SENT" : "NO_HAVES";
+          await transport.writeFlush();
+          return output.havesSent > 0 ? "ALL_HAVES_SENT" : "NO_HAVES";
         }
 
         // Walk local commit ancestry (streaming mode)
-        if (ctx.config.localHead) {
-          for await (const oid of ctx.repository.walkAncestors(ctx.config.localHead)) {
+        if (config.localHead) {
+          for await (const oid of repository.walkAncestors(config.localHead)) {
             // Check max haves limit (JGit uses both total and since-continue)
             // If we've received a continue ACK and sent many haves since, stop
             if (
-              ctx.output.havesSent >= maxHaves ||
-              (ctx.output.receivedContinue && ctx.output.havesSinceLastContinue >= maxHaves)
+              output.havesSent >= maxHaves ||
+              (output.receivedContinue && output.havesSinceLastContinue >= maxHaves)
             ) {
-              await ctx.transport.writeFlush();
+              await transport.writeFlush();
               return "MAX_HAVES";
             }
 
-            if (ctx.state.commonBase.has(oid)) continue;
+            if (state.commonBase.has(oid)) continue;
 
-            await ctx.transport.writeLine(`have ${oid}`);
-            ctx.state.haves.add(oid);
-            ctx.output.havesSent++;
-            ctx.output.havesSinceLastContinue++;
+            await transport.writeLine(`have ${oid}`);
+            state.haves.add(oid);
+            output.havesSent++;
+            output.havesSinceLastContinue++;
             sentInBatch++;
 
             if (sentInBatch >= BATCH_SIZE) {
-              await ctx.transport.writeFlush();
+              await transport.writeFlush();
 
               // JGit "race ahead" optimization: on first block (32 haves),
               // continue sending without waiting for ACKs to reduce latency.
               // Only for persistent connections (not stateless RPC).
-              if (ctx.output.havesSent === BATCH_SIZE) {
+              if (output.havesSent === BATCH_SIZE) {
                 sentInBatch = 0;
                 continue; // Send another batch before reading ACKs
               }
@@ -352,12 +389,12 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
         }
 
         if (sentInBatch > 0) {
-          await ctx.transport.writeFlush();
+          await transport.writeFlush();
           return "HAVES_SENT";
         }
         return "NO_HAVES";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -367,18 +404,22 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "READ_ACKS",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+
       try {
-        const multiAckDetailed = ctx.state.capabilities.has("multi_ack_detailed");
-        const multiAck = ctx.state.capabilities.has("multi_ack");
+        const multiAckDetailed = state.capabilities.has("multi_ack_detailed");
+        const multiAck = state.capabilities.has("multi_ack");
 
         while (true) {
-          const pkt = await ctx.transport.readPktLine();
+          const pkt = await transport.readPktLine();
 
           if (pkt.type === "flush") {
             return "NAK";
           }
           if (pkt.type === "eof") {
-            ctx.output.error = "Unexpected end of input";
+            output.error = "Unexpected end of input";
             return "ERROR";
           }
           if (pkt.type === "delim") {
@@ -398,12 +439,12 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
           if (!multiAck && !multiAckDetailed) {
             if (line.startsWith("ACK ")) {
               const oid = line.split(" ")[1];
-              ctx.state.commonBase.add(oid);
-              ctx.output.lastAckOid = oid;
+              state.commonBase.add(oid);
+              output.lastAckOid = oid;
               return "ACK_SINGLE";
             }
             // In single-ack mode, unexpected input means protocol error
-            ctx.output.error = `Unexpected response in single-ack mode: ${line}`;
+            output.error = `Unexpected response in single-ack mode: ${line}`;
             return "ERROR";
           }
 
@@ -412,14 +453,14 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
             const parts = line.split(" ");
             const oid = parts[1];
             const mode = parts[2]?.trim();
-            ctx.state.commonBase.add(oid);
-            ctx.output.lastAckOid = oid;
+            state.commonBase.add(oid);
+            output.lastAckOid = oid;
 
             // multi_ack_detailed modes
             if (multiAckDetailed) {
               if (mode === "ready") {
-                ctx.output.receivedReady = true;
-                ctx.output.receivedContinue = true;
+                output.receivedReady = true;
+                output.receivedContinue = true;
                 return "ACK_READY";
               }
               if (mode === "common") {
@@ -428,8 +469,8 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
               }
               if (mode === "continue") {
                 // Continue ACK: reset havesSinceLastContinue counter (JGit behavior)
-                ctx.output.receivedContinue = true;
-                ctx.output.havesSinceLastContinue = 0;
+                output.receivedContinue = true;
+                output.havesSinceLastContinue = 0;
                 return "ACK_CONTINUE";
               }
             }
@@ -438,8 +479,8 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
             if (multiAck) {
               if (mode === "continue") {
                 // Reset havesSinceLastContinue on continue ACK
-                ctx.output.receivedContinue = true;
-                ctx.output.havesSinceLastContinue = 0;
+                output.receivedContinue = true;
+                output.havesSinceLastContinue = 0;
                 return "ACK_CONTINUE";
               }
               // In multi_ack mode, a bare ACK without "continue" is final
@@ -452,7 +493,7 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
           }
         }
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -462,16 +503,20 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "SEND_DONE",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+
       try {
-        await ctx.transport.writeLine("done");
+        await transport.writeLine("done");
 
         // Stateless RPC: no final ACK expected, go directly to pack
-        if (ctx.config.statelessRpc) {
+        if (config.statelessRpc) {
           return "DONE_SENT_STATELESS";
         }
         return "DONE_SENT";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -481,6 +526,9 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "READ_FINAL_ACK",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const output = getOutput(ctx);
+
       try {
         // JGit reads exactly one final ACK or NAK before pack data
         // Limit iterations to prevent infinite loop on malformed input
@@ -488,10 +536,10 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
         let iterations = 0;
 
         while (iterations++ < maxIterations) {
-          const pkt = await ctx.transport.readPktLine();
+          const pkt = await transport.readPktLine();
 
           if (pkt.type === "eof") {
-            ctx.output.error = "Expected final ACK/NAK";
+            output.error = "Expected final ACK/NAK";
             return "ERROR";
           }
 
@@ -507,17 +555,17 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
             if (line.startsWith("ACK ")) {
               // Store the final ACK oid
               const oid = line.split(" ")[1];
-              ctx.output.lastAckOid = oid;
+              output.lastAckOid = oid;
               return "ACK_FINAL";
             }
             // Skip unexpected lines (e.g., progress messages)
           }
         }
 
-        ctx.output.error = "Too many packets waiting for final ACK/NAK";
+        output.error = "Too many packets waiting for final ACK/NAK";
         return "ERROR";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -527,26 +575,32 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "RECEIVE_PACK",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+      const repository = getRepository(ctx);
+
       try {
         // Handle sideband multiplexing
-        if (ctx.state.capabilities.has("side-band-64k")) {
+        if (state.capabilities.has("side-band-64k")) {
           const packChunks: Uint8Array[] = [];
 
           // Read sideband data until EOF or error
           while (true) {
-            const result = await ctx.transport.readSideband();
+            const result = await transport.readSideband();
 
             if (result.channel === 1) {
               // Pack data channel
               packChunks.push(result.data);
             } else if (result.channel === 2) {
               // Progress message channel
-              if (!ctx.config.noProgress) {
-                ctx.output.progress = new TextDecoder().decode(result.data);
+              if (!config.noProgress) {
+                output.progress = new TextDecoder().decode(result.data);
               }
             } else if (result.channel === 3) {
               // Error message from server
-              ctx.output.error = new TextDecoder().decode(result.data);
+              output.error = new TextDecoder().decode(result.data);
               return "SIDEBAND_ERROR";
             }
 
@@ -558,17 +612,17 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
           const packIterable = (async function* () {
             for (const chunk of packChunks) yield chunk;
           })();
-          const importResult = await ctx.repository.importPack(packIterable);
-          ctx.output.objectCount = importResult.objectsImported;
+          const importResult = await repository.importPack(packIterable);
+          output.objectCount = importResult.objectsImported;
         } else {
           // Raw pack data (no sideband)
-          const importResult = await ctx.repository.importPack(ctx.transport.readPack());
-          ctx.output.objectCount = importResult.objectsImported;
+          const importResult = await repository.importPack(transport.readPack());
+          output.objectCount = importResult.objectsImported;
         }
 
         return "PACK_RECEIVED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -578,23 +632,28 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
   [
     "UPDATE_REFS",
     async (ctx) => {
+      const refStore = getRefStore(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+
       try {
-        if (ctx.config.wantedRefs) {
-          for (const [ref, oid] of ctx.config.wantedRefs) {
-            await ctx.refStore.update(ref, oid);
+        if (config.wantedRefs) {
+          for (const [ref, oid] of config.wantedRefs) {
+            await refStore.update(ref, oid);
           }
         }
 
         // Handle include-tag: update tag refs if server sent additional tags
-        if (ctx.state.capabilities.has("include-tag") && ctx.output.additionalTags) {
-          for (const [tagRef, tagOid] of ctx.output.additionalTags) {
-            await ctx.refStore.update(tagRef, tagOid);
+        if (state.capabilities.has("include-tag") && output.additionalTags) {
+          for (const [tagRef, tagOid] of output.additionalTags) {
+            await refStore.update(tagRef, tagOid);
           }
         }
 
         return "REFS_UPDATED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
