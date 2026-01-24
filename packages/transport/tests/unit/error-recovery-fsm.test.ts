@@ -1,9 +1,20 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { PackImportResult, RepositoryFacade } from "../../src/api/repository-facade.js";
 import type { PktLineResult, SidebandResult, TransportApi } from "../../src/api/transport-api.js";
+import {
+  getConfig,
+  getOutput,
+  type ProcessContext,
+  setConfig,
+  setOutput,
+  setRefStore,
+  setRepository,
+  setState,
+  setTransport,
+} from "../../src/context/context-adapters.js";
 import { HandlerOutput } from "../../src/context/handler-output.js";
 import { ProcessConfiguration } from "../../src/context/process-config.js";
-import type { ProcessContext, RefStore } from "../../src/context/process-context.js";
+import type { RefStore } from "../../src/context/process-context.js";
 import { ProtocolState } from "../../src/context/protocol-state.js";
 import {
   classifyError,
@@ -94,65 +105,64 @@ describe("Error Classifier", () => {
   let context: ProcessContext;
 
   beforeEach(() => {
-    context = {
-      transport: createMockTransport(),
-      repository: createMockRepository(),
-      refStore: createMockRefStore(),
-      state: new ProtocolState(),
-      output: new HandlerOutput(),
-      config: new ProcessConfiguration(),
-    };
+    context = {};
+    setTransport(context, createMockTransport());
+    setRepository(context, createMockRepository());
+    setRefStore(context, createMockRefStore());
+    setState(context, new ProtocolState());
+    setOutput(context, new HandlerOutput());
+    setConfig(context, new ProcessConfiguration());
   });
 
   describe("classifyError", () => {
     it("classifies timeout errors", () => {
       const event = classifyError(context, new Error("Request timed out"));
       expect(event).toBe("TIMEOUT");
-      expect(context.output.errorInfo?.category).toBe("TIMEOUT");
-      expect(context.output.errorInfo?.recoverable).toBe(true);
-      expect(context.output.errorInfo?.retryable).toBe(true);
+      expect(getOutput(context).errorInfo?.category).toBe("TIMEOUT");
+      expect(getOutput(context).errorInfo?.recoverable).toBe(true);
+      expect(getOutput(context).errorInfo?.retryable).toBe(true);
     });
 
     it("classifies transport errors", () => {
       const event = classifyError(context, new Error("Connection reset"));
       expect(event).toBe("TRANSPORT_ERROR");
-      expect(context.output.errorInfo?.category).toBe("TRANSPORT_ERROR");
-      expect(context.output.errorInfo?.recoverable).toBe(true);
+      expect(getOutput(context).errorInfo?.category).toBe("TRANSPORT_ERROR");
+      expect(getOutput(context).errorInfo?.recoverable).toBe(true);
     });
 
     it("classifies transport errors as retryable when reconnect allowed", () => {
-      context.config.allowReconnect = true;
+      getConfig(context).allowReconnect = true;
       const event = classifyError(context, new Error("Connection refused"));
       expect(event).toBe("TRANSPORT_ERROR");
-      expect(context.output.errorInfo?.retryable).toBe(true);
+      expect(getOutput(context).errorInfo?.retryable).toBe(true);
     });
 
     it("classifies pack errors", () => {
       const event = classifyError(context, new Error("Pack file corrupt"));
       expect(event).toBe("PACK_ERROR");
-      expect(context.output.errorInfo?.category).toBe("PACK_ERROR");
-      expect(context.output.errorInfo?.recoverable).toBe(false);
-      expect(context.output.errorInfo?.retryable).toBe(false);
+      expect(getOutput(context).errorInfo?.category).toBe("PACK_ERROR");
+      expect(getOutput(context).errorInfo?.recoverable).toBe(false);
+      expect(getOutput(context).errorInfo?.retryable).toBe(false);
     });
 
     it("classifies validation errors", () => {
       const event = classifyError(context, new Error("Invalid object ID"));
       expect(event).toBe("VALIDATION_ERROR");
-      expect(context.output.errorInfo?.category).toBe("VALIDATION_ERROR");
-      expect(context.output.errorInfo?.recoverable).toBe(false);
+      expect(getOutput(context).errorInfo?.category).toBe("VALIDATION_ERROR");
+      expect(getOutput(context).errorInfo?.recoverable).toBe(false);
     });
 
     it("defaults to protocol error", () => {
       const event = classifyError(context, new Error("Unknown protocol state"));
       expect(event).toBe("PROTOCOL_ERROR");
-      expect(context.output.errorInfo?.category).toBe("PROTOCOL_ERROR");
-      expect(context.output.errorInfo?.recoverable).toBe(false);
+      expect(getOutput(context).errorInfo?.category).toBe("PROTOCOL_ERROR");
+      expect(getOutput(context).errorInfo?.recoverable).toBe(false);
     });
 
     it("handles non-Error objects", () => {
       const event = classifyError(context, "String error");
       expect(event).toBe("PROTOCOL_ERROR");
-      expect(context.output.error).toBe("String error");
+      expect(getOutput(context).error).toBe("String error");
     });
   });
 
@@ -196,16 +206,15 @@ describe("Error Recovery FSM", () => {
   beforeEach(() => {
     transport = createMockTransport();
     progressMessages = [];
-    context = {
-      transport,
-      repository: createMockRepository(),
-      refStore: createMockRefStore(),
-      state: new ProtocolState(),
-      output: new HandlerOutput(),
-      config: new ProcessConfiguration(),
-    };
-    context.config.onProgress = (msg) => progressMessages.push(msg);
-    context.config.maxRetries = 3;
+    context = {};
+    setTransport(context, transport);
+    setRepository(context, createMockRepository());
+    setRefStore(context, createMockRefStore());
+    setState(context, new ProtocolState());
+    setOutput(context, new HandlerOutput());
+    setConfig(context, new ProcessConfiguration());
+    getConfig(context).onProgress = (msg) => progressMessages.push(msg);
+    getConfig(context).maxRetries = 3;
   });
 
   describe("HANDLE_PROTOCOL_ERROR state", () => {

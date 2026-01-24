@@ -6,11 +6,11 @@
  * 2. POST /git-upload-pack - Negotiate and receive pack
  */
 
-import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import type { FetchResult } from "../../api/fetch-result.js";
 import type { RepositoryFacade } from "../../api/repository-facade.js";
 import type { RefStore } from "../../context/process-context.js";
 import { ProtocolState } from "../../context/protocol-state.js";
+import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import { collectChunks, readableStreamToAsyncIterable } from "./http-duplex.js";
 
 /**
