@@ -10,5 +10,11 @@ export {
   VcsRepositoryAccess,
   type VcsRepositoryAccessParams,
 } from "./vcs-repository-access.js";
+// VCS repository facade (RepositoryFacade using high-level stores)
+export {
+  createVcsRepositoryFacade,
+  VcsRepositoryFacade,
+  type VcsRepositoryFacadeParams,
+} from "./vcs-repository-facade.js";
 // Wire format utilities
 export * from "./wire-format-utils.js";
