@@ -9,14 +9,6 @@
 import type { Duplex } from "../../api/duplex.js";
 
 /**
- * Options for creating a simple duplex.
- */
-export interface SimpleDuplexOptions {
-  /** Optional callback when close() is called */
-  onClose?: () => void | Promise<void>;
-}
-
-/**
  * Creates a Duplex from an async iterable input and a writer function.
  *
  * This is the basic building block for HTTP duplexes, where:
@@ -25,29 +17,15 @@ export interface SimpleDuplexOptions {
  *
  * @param input - Async iterable of incoming chunks
  * @param writer - Function to write outgoing chunks
- * @param options - Optional configuration including onClose callback
  * @returns Duplex interface
  */
 export function createSimpleDuplex(
   input: AsyncIterable<Uint8Array>,
   writer: (data: Uint8Array) => void,
-  options?: SimpleDuplexOptions,
 ): Duplex {
-  let closed = false;
-
   return {
     [Symbol.asyncIterator]: () => input[Symbol.asyncIterator](),
-    write: (data: Uint8Array) => {
-      if (!closed) {
-        writer(data);
-      }
-    },
-    async close(): Promise<void> {
-      if (!closed) {
-        closed = true;
-        await options?.onClose?.();
-      }
-    },
+    write: writer,
   };
 }
 
