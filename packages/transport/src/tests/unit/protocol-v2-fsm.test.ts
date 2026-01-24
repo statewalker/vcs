@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { PackImportResult, RepositoryFacade } from "../../src/api/repository-facade.js";
-import type { PktLineResult, SidebandResult, TransportApi } from "../../src/api/transport-api.js";
-import { HandlerOutput } from "../../src/context/handler-output.js";
-import { ProcessConfiguration } from "../../src/context/process-config.js";
-import type { ProcessContext, RefStore } from "../../src/context/process-context.js";
-import { ProtocolState } from "../../src/context/protocol-state.js";
-import { Fsm } from "../../src/fsm/index.js";
+import type { PackImportResult, RepositoryFacade } from "../../api/repository-facade.js";
+import type { PktLineResult, SidebandResult, TransportApi } from "../../api/transport-api.js";
+import { HandlerOutput } from "../../context/handler-output.js";
+import { ProcessConfiguration } from "../../context/process-config.js";
+import type { ProcessContext, RefStore } from "../../context/process-context.js";
+import { ProtocolState } from "../../context/protocol-state.js";
+import { Fsm } from "../../fsm/index.js";
 import {
   clientV2Handlers,
   clientV2Transitions,
@@ -14,7 +14,7 @@ import {
   SERVER_V2_CAPABILITIES,
   serverV2Handlers,
   serverV2Transitions,
-} from "../../src/fsm/protocol-v2/index.js";
+} from "../../fsm/protocol-v2/index.js";
 
 // Mock transport that records calls and returns configured responses
 function createMockTransport(responses: PktLineResult[] = []): TransportApi & {

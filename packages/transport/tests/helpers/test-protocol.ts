@@ -11,23 +11,14 @@
  * - Support for testing both client and server sides
  */
 
-import { type Mock, vi } from "vitest";
-import type { RepositoryFacade } from "../../src/api/repository-facade.js";
+import { vi, type Mock } from "vitest";
+
 import type { TransportApi } from "../../src/api/transport-api.js";
-import {
-  getState,
-  type ProcessContext,
-  setConfig,
-  setOutput,
-  setRefStore,
-  setRepository,
-  setState,
-  setTransport,
-} from "../../src/context/context-adapters.js";
 import { HandlerOutput } from "../../src/context/handler-output.js";
 import { ProcessConfiguration } from "../../src/context/process-config.js";
-import type { RefStore } from "../../src/context/process-context.js";
+import type { ProcessContext, RefStore } from "../../src/context/process-context.js";
 import { ProtocolState } from "../../src/context/protocol-state.js";
+import type { RepositoryFacade } from "../../src/api/repository-facade.js";
 
 /**
  * Packet line result from transport
@@ -207,11 +198,9 @@ export interface MockRefStore extends RefStore {
   _setRef(name: string, oid: string): void;
   _getRefs(): Map<string, string>;
   _clear(): void;
-  _deleteRef(name: string): void;
   get: Mock;
   update: Mock;
   listAll: Mock;
-  isRefTip: Mock;
 }
 
 /**
@@ -223,18 +212,9 @@ export function createMockRefStore(): MockRefStore {
   const store: MockRefStore = {
     get: vi.fn(async (name: string) => refs.get(name)),
     update: vi.fn(async (name: string, oid: string) => {
-      if (oid === "0".repeat(40)) {
-        refs.delete(name);
-      } else {
-        refs.set(name, oid);
-      }
+      refs.set(name, oid);
     }),
     listAll: vi.fn(async () => refs.entries()),
-
-    // Extended method for TIP policy validation
-    isRefTip: vi.fn(async (oid: string) => {
-      return [...refs.values()].includes(oid);
-    }),
 
     _setRef: (name: string, oid: string) => {
       refs.set(name, oid);
@@ -245,10 +225,6 @@ export function createMockRefStore(): MockRefStore {
     _clear: () => {
       refs.clear();
     },
-
-    _deleteRef: (name: string) => {
-      refs.delete(name);
-    },
   };
 
   return store;
@@ -257,50 +233,28 @@ export function createMockRefStore(): MockRefStore {
 /**
  * Create a process context for testing
  */
-export function createTestContext(overrides?: {
-  transport?: TransportApi;
-  repository?: RepositoryFacade;
-  refStore?: RefStore;
-  state?: ProtocolState;
-  output?: HandlerOutput;
-  config?: ProcessConfiguration;
-}): ProcessContext {
-  const ctx: ProcessContext = {};
-  setTransport(ctx, overrides?.transport ?? createMockTransport());
-  setRepository(ctx, overrides?.repository ?? createMockRepository());
-  setRefStore(ctx, overrides?.refStore ?? createMockRefStore());
-  setState(ctx, overrides?.state ?? new ProtocolState());
-  setOutput(ctx, overrides?.output ?? new HandlerOutput());
-  setConfig(ctx, overrides?.config ?? new ProcessConfiguration());
-  return ctx;
-}
-
-/**
- * Extended mock repository for testing FSM handlers
- */
-export interface MockRepository extends RepositoryFacade {
-  _addObject: (oid: string) => void;
-  _hasObject: (oid: string) => boolean;
-  _setAncestors: (oid: string, ancestors: string[]) => void;
-  _setShallowBoundaries: (boundaries: Set<string>) => void;
-  importPack: Mock;
-  has: Mock;
-  isReachableFrom: Mock;
-  isReachableFromAnyTip: Mock;
-  computeShallowBoundaries: Mock;
-  computeShallowSince: Mock;
-  computeShallowExclude: Mock;
+export function createTestContext(overrides?: Partial<ProcessContext>): ProcessContext {
+  return {
+    transport: createMockTransport(),
+    repository: createMockRepository(),
+    refStore: createMockRefStore(),
+    state: new ProtocolState(),
+    output: new HandlerOutput(),
+    config: new ProcessConfiguration(),
+    ...overrides,
+  };
 }
 
 /**
  * Create a minimal mock repository
  */
-export function createMockRepository(): MockRepository {
+export function createMockRepository(): RepositoryFacade & {
+  _addObject: (oid: string) => void;
+  _hasObject: (oid: string) => boolean;
+} {
   const objects = new Map<string, boolean>();
-  const ancestorMap = new Map<string, string[]>();
-  let shallowBoundaries = new Set<string>();
 
-  const repo: MockRepository = {
+  return {
     importPack: vi.fn(async () => ({
       objectsImported: 0,
       blobsWithDelta: 0,
@@ -315,58 +269,16 @@ export function createMockRepository(): MockRepository {
 
     has: vi.fn(async (oid: string) => objects.has(oid)),
 
-    async *walkAncestors(startOid: string) {
-      const ancestors = ancestorMap.get(startOid) ?? [];
-      for (const oid of ancestors) {
-        yield oid;
-      }
+    async *walkAncestors(_startOid: string) {
+      // Empty by default
     },
 
-    // Extended methods for FSM testing
-    isReachableFrom: vi.fn(async (oid: string, tips: string[]) => {
-      // Check if oid is in ancestor chain of any tip
-      for (const tip of tips) {
-        if (tip === oid) return true;
-        const ancestors = ancestorMap.get(tip) ?? [];
-        if (ancestors.includes(oid)) return true;
-      }
-      return false;
-    }),
-
-    isReachableFromAnyTip: vi.fn(async (oid: string) => {
-      // Check if oid is reachable from any tip (default: if object exists)
-      return objects.has(oid);
-    }),
-
-    computeShallowBoundaries: vi.fn(async (_wants: Set<string>, _depth: number) => {
-      return shallowBoundaries;
-    }),
-
-    computeShallowSince: vi.fn(async (_wants: Set<string>, _timestamp: number) => {
-      return shallowBoundaries;
-    }),
-
-    computeShallowExclude: vi.fn(async (_wants: Set<string>, _excludeRefs: string[]) => {
-      return shallowBoundaries;
-    }),
-
-    // Test helper methods
     _addObject: (oid: string) => {
       objects.set(oid, true);
     },
 
     _hasObject: (oid: string) => objects.has(oid),
-
-    _setAncestors: (oid: string, ancestors: string[]) => {
-      ancestorMap.set(oid, ancestors);
-    },
-
-    _setShallowBoundaries: (boundaries: Set<string>) => {
-      shallowBoundaries = boundaries;
-    },
   };
-
-  return repo;
 }
 
 /**
@@ -406,17 +318,16 @@ export async function runProtocolScenario(
   }
 
   const ctx = createTestContext({ transport, refStore });
-  const state = getState(ctx);
 
   if (scenario.serverRefs) {
     for (const [name, oid] of scenario.serverRefs) {
-      state.refs.set(name, oid);
+      ctx.state.refs.set(name, oid);
     }
   }
 
   if (scenario.clientWants) {
     for (const want of scenario.clientWants) {
-      state.wants.add(want);
+      ctx.state.wants.add(want);
     }
   }
 
@@ -613,59 +524,3 @@ export function testOid(seed: string | number): string {
   const hash = str.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return hash.toString(16).padStart(8, "0").repeat(5);
 }
-
-/**
- * Mock hooks for testing FSM hook handlers
- */
-export interface MockHooks {
-  preReceive: Mock<
-    [commands: Array<{ oldOid: string; newOid: string; refName: string }>, options?: string[]],
-    Promise<{ ok: boolean; message?: string; rejectedRefs?: string[] }>
-  >;
-  postReceive: Mock<
-    [commands: Array<{ oldOid: string; newOid: string; refName: string }>, options?: string[]],
-    Promise<void>
-  >;
-  preUpload: Mock<
-    [wants: Set<string>, capabilities: Set<string>],
-    Promise<{ ok: boolean; message?: string }>
-  >;
-  postUpload: Mock<[stats: { bytesSent: number; wants: Set<string> }], Promise<void>>;
-}
-
-/**
- * Create mock hooks for testing
- */
-export function createMockHooks(): MockHooks {
-  return {
-    preReceive: vi.fn(async () => ({ ok: true })),
-    postReceive: vi.fn(async () => {}),
-    preUpload: vi.fn(async () => ({ ok: true })),
-    postUpload: vi.fn(async () => {}),
-  };
-}
-
-/**
- * Create a test context with hooks
- */
-export function createTestContextWithHooks(
-  hooks?: Partial<MockHooks>,
-  overrides?: {
-    transport?: TransportApi;
-    repository?: RepositoryFacade;
-    refStore?: RefStore;
-    state?: ProtocolState;
-    output?: HandlerOutput;
-    config?: ProcessConfiguration;
-  },
-): ProcessContext & { hooks: MockHooks } {
-  const mockHooks = { ...createMockHooks(), ...hooks };
-  const ctx = createTestContext(overrides);
-  (ctx as ProcessContext & { hooks: MockHooks }).hooks = mockHooks;
-  return ctx as ProcessContext & { hooks: MockHooks };
-}
-
-/**
- * Zero OID constant for testing
- */
-export const ZERO_OID = "0".repeat(40);
