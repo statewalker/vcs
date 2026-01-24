@@ -2,6 +2,11 @@
  * Push command types and interfaces for Push FSM.
  */
 
+import { ZERO_OID } from "../../protocol/constants.js";
+
+// Re-export for backward compatibility
+export { ZERO_OID };
+
 /**
  * Type of push command being executed.
  */
@@ -45,12 +50,11 @@ export interface PushCommand {
 }
 
 /**
- * Zero OID constant for creating/deleting refs.
- */
-export const ZERO_OID = "0".repeat(40);
-
-/**
  * Parse a refspec string into components.
+ *
+ * @deprecated Use parseRefSpec from utils/refspec.js for full refspec support
+ * including wildcards and negative refspecs. This simplified version is kept
+ * for backward compatibility in the push FSM.
  */
 export function parseRefspec(refspec: string): {
   src: string | null;

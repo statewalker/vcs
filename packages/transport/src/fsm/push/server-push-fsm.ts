@@ -12,17 +12,26 @@
  */
 
 import {
+  getAppliedCommands,
   getConfig,
-  getOptional,
   getOutput,
   getRefStore,
   getRepository,
+  getServerPackStream,
+  getServerPushCommands,
+  getServerPushHooks,
+  getServerPushOptions,
   getState,
   getTransport,
   type ProcessContext,
+  type ServerPushCommand,
+  setAppliedCommands,
+  setServerPackStream,
+  setServerPushCommands,
+  setServerPushOptions,
 } from "../../context/context-adapters.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
-import { type PushCommand, type PushCommandType, ZERO_OID } from "./types.js";
+import { type PushCommandType, ZERO_OID } from "./types.js";
 
 /**
  * Server push FSM transitions.
@@ -97,67 +106,6 @@ export const serverPushTransitions: FsmTransition[] = [
   ["SEND_STATUS", "ERROR", ""],
 ];
 
-// ─────────────────────────────────────────────────────────────
-// Context keys for push-specific state
-// ─────────────────────────────────────────────────────────────
-
-const PUSH_COMMANDS_KEY = "pushCommands";
-const PUSH_OPTIONS_KEY = "pushOptions";
-const PACK_STREAM_KEY = "packStream";
-const APPLIED_COMMANDS_KEY = "appliedCommands";
-const HOOKS_KEY = "hooks";
-
-function getPushCommands(ctx: ProcessContext): PushCommand[] | undefined {
-  return getOptional<PushCommand[]>(ctx, PUSH_COMMANDS_KEY);
-}
-
-function setPushCommands(ctx: ProcessContext, commands: PushCommand[]): void {
-  ctx[PUSH_COMMANDS_KEY] = commands;
-}
-
-function getPushOptions(ctx: ProcessContext): string[] | undefined {
-  return getOptional<string[]>(ctx, PUSH_OPTIONS_KEY);
-}
-
-function setPushOptions(ctx: ProcessContext, options: string[]): void {
-  ctx[PUSH_OPTIONS_KEY] = options;
-}
-
-function getPackStream(ctx: ProcessContext): AsyncIterable<Uint8Array> | undefined {
-  return getOptional<AsyncIterable<Uint8Array>>(ctx, PACK_STREAM_KEY);
-}
-
-function setPackStream(ctx: ProcessContext, stream: AsyncIterable<Uint8Array>): void {
-  ctx[PACK_STREAM_KEY] = stream;
-}
-
-function getAppliedCommands(ctx: ProcessContext): PushCommand[] | undefined {
-  return getOptional<PushCommand[]>(ctx, APPLIED_COMMANDS_KEY);
-}
-
-function setAppliedCommands(ctx: ProcessContext, commands: PushCommand[]): void {
-  ctx[APPLIED_COMMANDS_KEY] = commands;
-}
-
-/**
- * Hooks for push operations.
- */
-interface PushHooks {
-  preReceive?: (
-    commands: PushCommand[],
-    options?: string[],
-  ) => Promise<{
-    ok: boolean;
-    message?: string;
-    rejectedRefs?: string[];
-  }>;
-  postReceive?: (commands: PushCommand[], options?: string[]) => Promise<void>;
-}
-
-function getHooks(ctx: ProcessContext): PushHooks | undefined {
-  return getOptional<PushHooks>(ctx, HOOKS_KEY);
-}
-
 /**
  * Server push FSM handlers.
  */
@@ -226,7 +174,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
       const output = getOutput(ctx);
 
       try {
-        const pushCommands: PushCommand[] = [];
+        const pushCommands: ServerPushCommand[] = [];
         let hasDelete = false;
 
         while (true) {
@@ -278,7 +226,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           });
         }
 
-        setPushCommands(ctx, pushCommands);
+        setServerPushCommands(ctx, pushCommands);
 
         if (pushCommands.length === 0) {
           return "NO_COMMANDS";
@@ -299,7 +247,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
       const config = getConfig(ctx);
       const state = getState(ctx);
       const output = getOutput(ctx);
-      const pushCommands = getPushCommands(ctx);
+      const pushCommands = getServerPushCommands(ctx);
 
       try {
         if (config.allowDeletes === false && !state.capabilities.has("delete-refs")) {
@@ -348,7 +296,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           pushOptions.push(pkt.text);
         }
 
-        setPushOptions(ctx, pushOptions);
+        setServerPushOptions(ctx, pushOptions);
         return "OPTIONS_RECEIVED";
       } catch (e) {
         output.error = String(e);
@@ -363,7 +311,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
     async (ctx) => {
       const transport = getTransport(ctx);
       const output = getOutput(ctx);
-      const pushCommands = getPushCommands(ctx);
+      const pushCommands = getServerPushCommands(ctx);
 
       try {
         // Check if pack is expected (not for delete-only)
@@ -374,7 +322,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         }
 
         // Store pack stream for later unpacking
-        setPackStream(ctx, transport.readPack());
+        setServerPackStream(ctx, transport.readPack());
         return "PACK_RECEIVED";
       } catch (e) {
         output.error = String(e);
@@ -389,7 +337,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
     async (ctx) => {
       const repository = getRepository(ctx);
       const output = getOutput(ctx);
-      const packStream = getPackStream(ctx);
+      const packStream = getServerPackStream(ctx);
 
       try {
         if (packStream) {
@@ -410,7 +358,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
     async (ctx) => {
       const repository = getRepository(ctx);
       const output = getOutput(ctx);
-      const pushCommands = getPushCommands(ctx);
+      const pushCommands = getServerPushCommands(ctx);
 
       try {
         for (const cmd of pushCommands ?? []) {
@@ -441,7 +389,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
       const state = getState(ctx);
       const output = getOutput(ctx);
       const repository = getRepository(ctx);
-      const pushCommands = getPushCommands(ctx);
+      const pushCommands = getServerPushCommands(ctx);
 
       try {
         let invalidCount = 0;
@@ -503,7 +451,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
     "REJECT_COMMANDS",
     async (ctx) => {
       const output = getOutput(ctx);
-      const pushCommands = getPushCommands(ctx);
+      const pushCommands = getServerPushCommands(ctx);
 
       try {
         const reason = output.error ?? "rejected";
@@ -528,9 +476,9 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
     "RUN_PRE_RECEIVE_HOOK",
     async (ctx) => {
       const output = getOutput(ctx);
-      const pushCommands = getPushCommands(ctx);
-      const pushOptions = getPushOptions(ctx);
-      const hooks = getHooks(ctx);
+      const pushCommands = getServerPushCommands(ctx);
+      const pushOptions = getServerPushOptions(ctx);
+      const hooks = getServerPushHooks(ctx);
 
       try {
         if (!hooks?.preReceive) {
@@ -572,13 +520,13 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
       const state = getState(ctx);
       const output = getOutput(ctx);
       const refStore = getRefStore(ctx);
-      const pushCommands = getPushCommands(ctx);
+      const pushCommands = getServerPushCommands(ctx);
 
       try {
         const atomic = state.capabilities.has("atomic");
 
         let failedCount = 0;
-        const appliedCommands: PushCommand[] = [];
+        const appliedCommands: ServerPushCommand[] = [];
 
         for (const cmd of pushCommands ?? []) {
           if (cmd.result !== "NOT_ATTEMPTED") {
@@ -634,9 +582,9 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "RUN_POST_RECEIVE_HOOK",
     async (ctx) => {
-      const pushOptions = getPushOptions(ctx);
+      const pushOptions = getServerPushOptions(ctx);
       const appliedCommands = getAppliedCommands(ctx);
-      const hooks = getHooks(ctx);
+      const hooks = getServerPushHooks(ctx);
 
       try {
         if (!hooks?.postReceive) {
@@ -662,7 +610,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
       const transport = getTransport(ctx);
       const state = getState(ctx);
       const output = getOutput(ctx);
-      const pushCommands = getPushCommands(ctx);
+      const pushCommands = getServerPushCommands(ctx);
 
       try {
         const useSideband = state.capabilities.has("side-band-64k");

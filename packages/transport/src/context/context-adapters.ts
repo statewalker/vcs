@@ -148,6 +148,129 @@ export const [getPushOptions, setPushOptions] = newAdapter<string[]>("pushOption
 export const [getPackStream, setPackStream] = newAdapter<AsyncIterable<Uint8Array>>("packStream");
 
 // ─────────────────────────────────────────────────────────────
+// Server push FSM adapters
+// ─────────────────────────────────────────────────────────────
+
+// Import push types from fsm/push/types.ts to avoid duplication
+// Note: Cannot import directly due to circular dependency, so we define compatible types here
+
+/**
+ * A single push command for server-side processing.
+ * Compatible with PushCommand from fsm/push/types.ts.
+ */
+export interface ServerPushCommand {
+  oldOid: string;
+  newOid: string;
+  refName: string;
+  type: "CREATE" | "UPDATE" | "UPDATE_NONFASTFORWARD" | "DELETE";
+  result:
+    | "NOT_ATTEMPTED"
+    | "OK"
+    | "REJECTED_NOCREATE"
+    | "REJECTED_NODELETE"
+    | "REJECTED_NONFASTFORWARD"
+    | "REJECTED_CURRENT_BRANCH"
+    | "REJECTED_MISSING_OBJECT"
+    | "REJECTED_OTHER_REASON"
+    | "LOCK_FAILURE"
+    | "ATOMIC_REJECTED";
+  message?: string;
+}
+
+/**
+ * Push hooks interface for server-side push operations.
+ */
+export interface ServerPushHooks {
+  preReceive?: (
+    commands: ServerPushCommand[],
+    options?: string[],
+  ) => Promise<{
+    ok: boolean;
+    message?: string;
+    rejectedRefs?: string[];
+  }>;
+  postReceive?: (commands: ServerPushCommand[], options?: string[]) => Promise<void>;
+}
+
+/** Context key for push commands */
+export const PUSH_COMMANDS_KEY = "pushCommands";
+/** Context key for applied commands */
+export const APPLIED_COMMANDS_KEY = "appliedCommands";
+/** Context key for server push hooks */
+export const HOOKS_KEY = "hooks";
+
+/**
+ * Get push commands from context (returns undefined if not set).
+ */
+export function getServerPushCommands(ctx: ProcessContext): ServerPushCommand[] | undefined {
+  return getOptional<ServerPushCommand[]>(ctx, PUSH_COMMANDS_KEY);
+}
+
+/**
+ * Set push commands in context.
+ */
+export function setServerPushCommands(ctx: ProcessContext, commands: ServerPushCommand[]): void {
+  ctx[PUSH_COMMANDS_KEY] = commands;
+}
+
+/**
+ * Get applied commands from context (returns undefined if not set).
+ */
+export function getAppliedCommands(ctx: ProcessContext): ServerPushCommand[] | undefined {
+  return getOptional<ServerPushCommand[]>(ctx, APPLIED_COMMANDS_KEY);
+}
+
+/**
+ * Set applied commands in context.
+ */
+export function setAppliedCommands(ctx: ProcessContext, commands: ServerPushCommand[]): void {
+  ctx[APPLIED_COMMANDS_KEY] = commands;
+}
+
+/**
+ * Get server push hooks from context (returns undefined if not set).
+ */
+export function getServerPushHooks(ctx: ProcessContext): ServerPushHooks | undefined {
+  return getOptional<ServerPushHooks>(ctx, HOOKS_KEY);
+}
+
+/**
+ * Set server push hooks in context.
+ */
+export function setServerPushHooks(ctx: ProcessContext, hooks: ServerPushHooks): void {
+  ctx[HOOKS_KEY] = hooks;
+}
+
+/**
+ * Get server push options from context (returns undefined if not set).
+ * Alias for backward compatibility with existing code.
+ */
+export function getServerPushOptions(ctx: ProcessContext): string[] | undefined {
+  return getOptional<string[]>(ctx, "pushOptions");
+}
+
+/**
+ * Set server push options in context.
+ */
+export function setServerPushOptions(ctx: ProcessContext, options: string[]): void {
+  ctx["pushOptions"] = options;
+}
+
+/**
+ * Get pack stream from context (returns undefined if not set).
+ */
+export function getServerPackStream(ctx: ProcessContext): AsyncIterable<Uint8Array> | undefined {
+  return getOptional<AsyncIterable<Uint8Array>>(ctx, "packStream");
+}
+
+/**
+ * Set pack stream in context.
+ */
+export function setServerPackStream(ctx: ProcessContext, stream: AsyncIterable<Uint8Array>): void {
+  ctx["packStream"] = stream;
+}
+
+// ─────────────────────────────────────────────────────────────
 // Hooks adapters
 // ─────────────────────────────────────────────────────────────
 
