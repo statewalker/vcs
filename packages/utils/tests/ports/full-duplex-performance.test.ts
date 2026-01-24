@@ -538,10 +538,7 @@ Mixed binary sizes metrics:
           }
         };
 
-        for await (const _block of callBidi<Uint8Array, Uint8Array>(
-          channel.port2,
-          clientInput(),
-        )) {
+        for await (const _block of callBidi<Uint8Array, Uint8Array>(channel.port2, clientInput())) {
           receivedByClient++;
         }
       })();
