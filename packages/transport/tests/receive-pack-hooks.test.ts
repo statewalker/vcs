@@ -10,7 +10,6 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { ProtocolState } from "../src/context/protocol-state.js";
 import { ZERO_OID } from "../src/fsm/push/types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -455,7 +454,9 @@ describe("PostReceiveHook", () => {
     // Post-receive hook errors should be caught and logged, not propagated
     // This is intentional - the push is already complete at this point
     try {
-      await hook.postReceive([{ refName: "refs/heads/main", oldOid: "a".repeat(40), newOid: "b".repeat(40) }]);
+      await hook.postReceive([
+        { refName: "refs/heads/main", oldOid: "a".repeat(40), newOid: "b".repeat(40) },
+      ]);
     } catch {
       // Error is expected but should not block the push
     }
@@ -470,10 +471,7 @@ describe("PostReceiveHook", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("Advertisement Generation with Hooks", () => {
-  function generateAdvertisement(
-    refs: Map<string, string>,
-    capabilities: string[],
-  ): string[] {
+  function generateAdvertisement(refs: Map<string, string>, capabilities: string[]): string[] {
     const lines: string[] = [];
 
     if (refs.size === 0) {

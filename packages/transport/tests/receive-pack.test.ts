@@ -14,10 +14,10 @@ import { describe, expect, it } from "vitest";
 import { ProtocolState } from "../src/context/protocol-state.js";
 import {
   mapRejectReason,
-  parseRefspec,
   type PushCommand,
   type PushCommandResult,
   type PushCommandType,
+  parseRefspec,
   ZERO_OID,
 } from "../src/fsm/push/types.js";
 

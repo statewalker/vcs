@@ -69,10 +69,7 @@ describe("ProcessConfiguration", () => {
       config.onProgress?.("Counting objects: 10");
       config.onProgress?.("Compressing objects: 100%");
 
-      expect(messages).toEqual([
-        "Counting objects: 10",
-        "Compressing objects: 100%",
-      ]);
+      expect(messages).toEqual(["Counting objects: 10", "Compressing objects: 100%"]);
     });
   });
 
