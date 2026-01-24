@@ -721,7 +721,11 @@ export function fetchRequestToHttpRequest(request: Request): HttpRequest {
  * @returns Fetch API Response object
  */
 export function httpResponseToFetchResponse(response: HttpResponse): Response {
-  return new Response(response.body, {
+  // Create a new ArrayBuffer from the Uint8Array for Response constructor compatibility
+  const buffer = new ArrayBuffer(response.body.length);
+  const view = new Uint8Array(buffer);
+  view.set(response.body);
+  return new Response(buffer, {
     status: response.status,
     headers: response.headers,
   });
