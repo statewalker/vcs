@@ -10,8 +10,8 @@ import type { FetchResult } from "./fetch-result.js";
 export interface CloneResult {
   /** The fetch result containing refs and pack data */
   fetchResult: FetchResult;
-  /** Default branch that was checked out (may be undefined for empty repos) */
-  defaultBranch?: string;
+  /** Default branch that was checked out */
+  defaultBranch: string;
   /** Remote name used (typically "origin") */
   remoteName: string;
   /** Whether this was a bare clone */

@@ -8,22 +8,15 @@
 import type { Duplex } from "../api/duplex.js";
 import type { FetchResult } from "../api/fetch-result.js";
 import type { RepositoryFacade } from "../api/repository-facade.js";
-import {
-  getOutput,
-  type ProcessContext,
-  setConfig,
-  setOutput,
-  setRefStore,
-  setRepository,
-  setState,
-  setTransport,
-} from "../context/context-adapters.js";
 import { HandlerOutput } from "../context/handler-output.js";
 import type { ProcessConfiguration } from "../context/process-config.js";
-import type { RefStore } from "../context/process-context.js";
+import type { ProcessContext, RefStore } from "../context/process-context.js";
 import { ProtocolState } from "../context/protocol-state.js";
 import { createTransportApi } from "../factories/transport-api-factory.js";
-import { clientFetchHandlers, clientFetchTransitions } from "../fsm/fetch/client-fetch-fsm.js";
+import {
+  clientFetchHandlers,
+  clientFetchTransitions,
+} from "../fsm/fetch/client-fetch-fsm.js";
 import { Fsm } from "../fsm/fsm.js";
 
 /**
@@ -75,7 +68,9 @@ export interface FetchOverDuplexOptions {
  * }
  * ```
  */
-export async function fetchOverDuplex(options: FetchOverDuplexOptions): Promise<FetchResult> {
+export async function fetchOverDuplex(
+  options: FetchOverDuplexOptions,
+): Promise<FetchResult> {
   const { duplex, repository, refStore } = options;
 
   const state = new ProtocolState();
@@ -90,24 +85,24 @@ export async function fetchOverDuplex(options: FetchOverDuplexOptions): Promise<
 
   const output = new HandlerOutput();
 
-  const ctx: ProcessContext = {};
-  setTransport(ctx, transport);
-  setRepository(ctx, repository);
-  setRefStore(ctx, refStore);
-  setState(ctx, state);
-  setOutput(ctx, output);
-  setConfig(ctx, config);
+  const ctx: ProcessContext = {
+    transport,
+    repository,
+    refStore,
+    state,
+    output,
+    config,
+  };
 
   const fsm = new Fsm(clientFetchTransitions, clientFetchHandlers);
 
   try {
     const success = await fsm.run(ctx);
-    const ctxOutput = getOutput(ctx);
 
-    if (!success || ctxOutput.error) {
+    if (!success || ctx.output.error) {
       return {
         success: false,
-        error: ctxOutput.error ?? "FSM did not complete successfully",
+        error: ctx.output.error ?? "FSM did not complete successfully",
       };
     }
 
@@ -121,7 +116,7 @@ export async function fetchOverDuplex(options: FetchOverDuplexOptions): Promise<
     return {
       success: true,
       updatedRefs,
-      objectsImported: ctxOutput.packResult?.objectsImported,
+      objectsImported: ctx.output.packResult?.objectsImported,
     };
   } catch (error) {
     return {
