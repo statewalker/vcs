@@ -12,11 +12,8 @@ import type { ProcessConfiguration } from "../context/process-config.js";
 import type { ProcessContext, RefStore } from "../context/process-context.js";
 import { ProtocolState } from "../context/protocol-state.js";
 import { createTransportApi } from "../factories/transport-api-factory.js";
-import {
-  clientPushHandlers,
-  clientPushTransitions,
-} from "../fsm/push/client-push-fsm.js";
 import { Fsm } from "../fsm/fsm.js";
+import { clientPushHandlers, clientPushTransitions } from "../fsm/push/client-push-fsm.js";
 
 /**
  * Result of a push operation.
@@ -91,9 +88,7 @@ export interface PushOverDuplexOptions {
  * }
  * ```
  */
-export async function pushOverDuplex(
-  options: PushOverDuplexOptions,
-): Promise<PushResult> {
+export async function pushOverDuplex(options: PushOverDuplexOptions): Promise<PushResult> {
   const { duplex, repository, refStore } = options;
 
   const state = new ProtocolState();
