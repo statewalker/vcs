@@ -245,10 +245,7 @@ export async function handleUploadPack(
  */
 export interface GitHttpServerOptions {
   /** Resolve repository for a given request */
-  resolveRepository: (
-    request: HttpRequest,
-    repoPath?: string,
-  ) => Promise<RepositoryFacade | null>;
+  resolveRepository: (request: HttpRequest, repoPath?: string) => Promise<RepositoryFacade | null>;
   /** Optional request policy */
   requestPolicy?: "ADVERTISED" | "REACHABLE_COMMIT" | "TIP" | "REACHABLE_COMMIT_TIP" | "ANY";
 }

@@ -4,11 +4,11 @@
  * Ported from JGit's TransportTest.java
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Duplex } from "../src/api/duplex.js";
-import { createTransportApi } from "../src/factories/transport-api-factory.js";
 import { ProtocolState } from "../src/context/protocol-state.js";
-import { encodeFlush, encodePacketLine, encodeDelim } from "../src/protocol/pkt-line-codec.js";
+import { createTransportApi } from "../src/factories/transport-api-factory.js";
+import { encodeDelim, encodeFlush, encodePacketLine } from "../src/protocol/pkt-line-codec.js";
 
 /**
  * Creates a mock duplex stream from byte data.
@@ -139,8 +139,8 @@ describe("Pkt-Line Reading", () => {
     it("should handle chunked data across multiple reads", async () => {
       const pktLine = encodePacketLine("hello world\n");
       // Split the packet in the middle
-      const chunk1 = pktLine.slice(0, 4);  // Length prefix
-      const chunk2 = pktLine.slice(4);     // Data
+      const chunk1 = pktLine.slice(0, 4); // Length prefix
+      const chunk2 = pktLine.slice(4); // Data
 
       const duplex = createMockDuplex([chunk1, chunk2]);
       const state = new ProtocolState();
@@ -315,7 +315,9 @@ describe("Sideband Operations", () => {
       const channel = new Uint8Array([0x01]);
       const data = textEncoder.encode("pack data");
       const payload = concat(channel, data);
-      const lengthPrefix = textEncoder.encode(`${(payload.length + 4).toString(16).padStart(4, "0")}`);
+      const lengthPrefix = textEncoder.encode(
+        `${(payload.length + 4).toString(16).padStart(4, "0")}`,
+      );
       const pkt = concat(lengthPrefix, payload);
 
       const duplex = createMockDuplex([pkt]);
@@ -333,7 +335,9 @@ describe("Sideband Operations", () => {
       const channel = new Uint8Array([0x02]);
       const data = textEncoder.encode("Counting objects: 100%");
       const payload = concat(channel, data);
-      const lengthPrefix = textEncoder.encode(`${(payload.length + 4).toString(16).padStart(4, "0")}`);
+      const lengthPrefix = textEncoder.encode(
+        `${(payload.length + 4).toString(16).padStart(4, "0")}`,
+      );
       const pkt = concat(lengthPrefix, payload);
 
       const duplex = createMockDuplex([pkt]);
@@ -351,7 +355,9 @@ describe("Sideband Operations", () => {
       const channel = new Uint8Array([0x03]);
       const data = textEncoder.encode("fatal: repository not found");
       const payload = concat(channel, data);
-      const lengthPrefix = textEncoder.encode(`${(payload.length + 4).toString(16).padStart(4, "0")}`);
+      const lengthPrefix = textEncoder.encode(
+        `${(payload.length + 4).toString(16).padStart(4, "0")}`,
+      );
       const pkt = concat(lengthPrefix, payload);
 
       const duplex = createMockDuplex([pkt]);
@@ -445,7 +451,9 @@ describe("Pack Streaming", () => {
       const channel1 = new Uint8Array([0x01]);
       const packData = new Uint8Array([0x50, 0x41, 0x43, 0x4b]); // "PACK"
       const payload = concat(channel1, packData);
-      const lengthPrefix = textEncoder.encode(`${(payload.length + 4).toString(16).padStart(4, "0")}`);
+      const lengthPrefix = textEncoder.encode(
+        `${(payload.length + 4).toString(16).padStart(4, "0")}`,
+      );
       const pkt = concat(lengthPrefix, payload);
 
       // End with flush
@@ -473,14 +481,18 @@ describe("Pack Streaming", () => {
       const channel2 = new Uint8Array([0x02]);
       const progressData = textEncoder.encode("Counting objects: 10");
       const progressPayload = concat(channel2, progressData);
-      const progressLen = textEncoder.encode(`${(progressPayload.length + 4).toString(16).padStart(4, "0")}`);
+      const progressLen = textEncoder.encode(
+        `${(progressPayload.length + 4).toString(16).padStart(4, "0")}`,
+      );
       const progressPkt = concat(progressLen, progressPayload);
 
       // Data packet
       const channel1 = new Uint8Array([0x01]);
       const packData = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
       const dataPayload = concat(channel1, packData);
-      const dataLen = textEncoder.encode(`${(dataPayload.length + 4).toString(16).padStart(4, "0")}`);
+      const dataLen = textEncoder.encode(
+        `${(dataPayload.length + 4).toString(16).padStart(4, "0")}`,
+      );
       const dataPkt = concat(dataLen, dataPayload);
 
       const flush = encodeFlush();
@@ -508,7 +520,9 @@ describe("Pack Streaming", () => {
       const channel3 = new Uint8Array([0x03]);
       const errorData = textEncoder.encode("fatal: repository not found");
       const errorPayload = concat(channel3, errorData);
-      const errorLen = textEncoder.encode(`${(errorPayload.length + 4).toString(16).padStart(4, "0")}`);
+      const errorLen = textEncoder.encode(
+        `${(errorPayload.length + 4).toString(16).padStart(4, "0")}`,
+      );
       const errorPkt = concat(errorLen, errorPayload);
 
       const duplex = createMockDuplex([errorPkt]);
@@ -532,11 +546,13 @@ describe("Pack Streaming", () => {
         new Uint8Array([0x00, 0x00, 0x00, 0x02]),
       ];
 
-      await transport.writePack((async function* () {
-        for (const chunk of packData) {
-          yield chunk;
-        }
-      })());
+      await transport.writePack(
+        (async function* () {
+          for (const chunk of packData) {
+            yield chunk;
+          }
+        })(),
+      );
 
       // Should write raw data
       expect(duplex.output.length).toBe(2);
@@ -554,9 +570,11 @@ describe("Pack Streaming", () => {
 
       const packData = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
 
-      await transport.writePack((async function* () {
-        yield packData;
-      })());
+      await transport.writePack(
+        (async function* () {
+          yield packData;
+        })(),
+      );
 
       // Should write sideband packet + flush
       expect(duplex.output.length).toBe(2);
@@ -575,10 +593,12 @@ describe("Pack Streaming", () => {
       const chunk1 = new Uint8Array([0x01, 0x02]);
       const chunk2 = new Uint8Array([0x03, 0x04]);
 
-      await transport.writePack((async function* () {
-        yield chunk1;
-        yield chunk2;
-      })());
+      await transport.writePack(
+        (async function* () {
+          yield chunk1;
+          yield chunk2;
+        })(),
+      );
 
       // Should write 2 sideband packets + 1 flush
       expect(duplex.output.length).toBe(3);

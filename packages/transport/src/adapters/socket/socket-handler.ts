@@ -36,9 +36,7 @@ export interface GitSocketClientOptions {
  * @param port - The MessagePort to read from
  * @returns An async iterable of Uint8Array chunks
  */
-export function createMessagePortReader(
-  port: MessagePort,
-): () => AsyncIterable<Uint8Array> {
+export function createMessagePortReader(port: MessagePort): () => AsyncIterable<Uint8Array> {
   void port; // Suppress unused parameter warning
   throw new Error("createMessagePortReader not yet implemented");
 }
