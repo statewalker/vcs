@@ -4,8 +4,8 @@
  * Classifies runtime errors into categories for the error recovery FSM.
  */
 
+import { getConfig, getOutput, type ProcessContext } from "../../context/context-adapters.js";
 import type { ErrorCategory } from "../../context/handler-output.js";
-import type { ProcessContext } from "../../context/process-context.js";
 
 /**
  * Error event types returned by classifyError.
@@ -36,7 +36,9 @@ export type ErrorEvent =
  */
 export function classifyError(ctx: ProcessContext, error: unknown): ErrorEvent {
   const message = error instanceof Error ? error.message : String(error);
-  ctx.output.error = message;
+  const output = getOutput(ctx);
+  const config = getConfig(ctx);
+  output.error = message;
 
   // Timeout errors
   if (
@@ -45,7 +47,7 @@ export function classifyError(ctx: ProcessContext, error: unknown): ErrorEvent {
     message.includes("timed out") ||
     message.includes("ETIMEDOUT")
   ) {
-    ctx.output.errorInfo = {
+    output.errorInfo = {
       category: "TIMEOUT" as ErrorCategory,
       message,
       recoverable: true,
@@ -65,11 +67,11 @@ export function classifyError(ctx: ProcessContext, error: unknown): ErrorEvent {
     message.includes("network") ||
     message.includes("Network")
   ) {
-    ctx.output.errorInfo = {
+    output.errorInfo = {
       category: "TRANSPORT_ERROR" as ErrorCategory,
       message,
       recoverable: true,
-      retryable: ctx.config.allowReconnect ?? false,
+      retryable: config.allowReconnect ?? false,
     };
     return "TRANSPORT_ERROR";
   }
@@ -82,7 +84,7 @@ export function classifyError(ctx: ProcessContext, error: unknown): ErrorEvent {
     message.includes("checksum") ||
     message.includes("invalid object")
   ) {
-    ctx.output.errorInfo = {
+    output.errorInfo = {
       category: "PACK_ERROR" as ErrorCategory,
       message,
       recoverable: false,
@@ -99,7 +101,7 @@ export function classifyError(ctx: ProcessContext, error: unknown): ErrorEvent {
     message.includes("unknown ref") ||
     message.includes("rejected")
   ) {
-    ctx.output.errorInfo = {
+    output.errorInfo = {
       category: "VALIDATION_ERROR" as ErrorCategory,
       message,
       recoverable: false,
@@ -109,7 +111,7 @@ export function classifyError(ctx: ProcessContext, error: unknown): ErrorEvent {
   }
 
   // Default: protocol error (not recoverable)
-  ctx.output.errorInfo = {
+  output.errorInfo = {
     category: "PROTOCOL_ERROR" as ErrorCategory,
     message,
     recoverable: false,

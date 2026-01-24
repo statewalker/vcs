@@ -7,9 +7,19 @@
 
 import type { ServeResult } from "../../api/fetch-result.js";
 import type { RepositoryFacade } from "../../api/repository-facade.js";
+import {
+  getOutput,
+  type ProcessContext,
+  setConfig,
+  setOutput,
+  setRefStore,
+  setRepository,
+  setState,
+  setTransport,
+} from "../../context/context-adapters.js";
 import { HandlerOutput } from "../../context/handler-output.js";
 import type { ProcessConfiguration } from "../../context/process-config.js";
-import type { ProcessContext, RefStore } from "../../context/process-context.js";
+import type { RefStore } from "../../context/process-context.js";
 import { ProtocolState } from "../../context/protocol-state.js";
 import { createTransportApi } from "../../factories/transport-api-factory.js";
 import { serverFetchHandlers, serverFetchTransitions } from "../../fsm/fetch/server-fetch-fsm.js";
@@ -76,35 +86,37 @@ export async function messagePortServe(
     maxEmptyBatches: options.maxEmptyBatches ?? 10,
   };
 
-  const ctx: ProcessContext = {
-    transport,
-    repository,
-    refStore,
-    state,
-    output: new HandlerOutput(),
-    config,
-  };
+  const ctx: ProcessContext = {};
+  setTransport(ctx, transport);
+  setRepository(ctx, repository);
+  setRefStore(ctx, refStore);
+  setState(ctx, state);
+  setOutput(ctx, new HandlerOutput());
+  setConfig(ctx, config);
 
   const fsm = new Fsm(serverFetchTransitions, serverFetchHandlers);
 
   try {
     const success = await fsm.run(ctx);
 
-    if (!success || ctx.output.error) {
+    const output = getOutput(ctx);
+    if (!success || output.error) {
       return {
         success: false,
-        error: ctx.output.error ?? "FSM did not complete successfully",
+        error: output.error ?? "FSM did not complete successfully",
       };
     }
 
     return {
       success: true,
-      objectsSent: ctx.output.objectCount,
+      objectsSent: output.objectCount,
     };
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
     };
+  } finally {
+    await transport.close?.();
   }
 }
