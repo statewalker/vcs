@@ -9,15 +9,7 @@
  * 5. Update local refs
  */
 
-import {
-  getConfig,
-  getOutput,
-  getRefStore,
-  getRepository,
-  getState,
-  getTransport,
-  type ProcessContext,
-} from "../../context/context-adapters.js";
+import type { ProcessContext } from "../../context/process-context.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 import type { FetchV2Request } from "./types.js";
 
@@ -87,15 +79,12 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "READ_CAPABILITIES",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
         while (true) {
-          const pkt = await transport.readPktLine();
+          const pkt = await ctx.transport.readPktLine();
           if (pkt.type === "flush") break;
           if (pkt.type === "eof") {
-            output.error = "Unexpected end of stream";
+            ctx.output.error = "Unexpected end of stream";
             return "ERROR";
           }
           if (pkt.type === "delim") {
@@ -106,7 +95,7 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
 
           // First line: version announcement
           if (line.startsWith("version 2")) {
-            state.protocolVersion = 2;
+            ctx.state.protocolVersion = 2;
             continue;
           }
 
@@ -115,17 +104,17 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
             const eqIdx = line.indexOf("=");
             const cap = line.slice(0, eqIdx);
             const value = line.slice(eqIdx + 1);
-            state.capabilities.add(cap);
-            state.capabilityValues = state.capabilityValues ?? new Map();
-            state.capabilityValues.set(cap, value);
+            ctx.state.capabilities.add(cap);
+            ctx.state.capabilityValues = ctx.state.capabilityValues ?? new Map();
+            ctx.state.capabilityValues.set(cap, value);
           } else {
-            state.capabilities.add(line);
+            ctx.state.capabilities.add(line);
           }
         }
 
         return "CAPS_RECEIVED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -135,42 +124,38 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "SEND_LS_REFS",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const config = getConfig(ctx);
-      const output = getOutput(ctx);
       try {
         // Skip if we already have refs
-        if (state.refs.size > 0 && !config.forceRefFetch) {
+        if (ctx.state.refs.size > 0 && !ctx.config.forceRefFetch) {
           return "SKIP_LS_REFS";
         }
 
-        await transport.writeLine("command=ls-refs");
+        await ctx.transport.writeLine("command=ls-refs");
 
         // Arguments delimiter
-        await transport.writeDelimiter();
+        await ctx.transport.writeDelimiter();
 
         // Options
-        if (config.lsRefsSymrefs) {
-          await transport.writeLine("symrefs");
+        if (ctx.config.lsRefsSymrefs) {
+          await ctx.transport.writeLine("symrefs");
         }
-        if (config.lsRefsPeel) {
-          await transport.writeLine("peel");
+        if (ctx.config.lsRefsPeel) {
+          await ctx.transport.writeLine("peel");
         }
-        if (config.lsRefsUnborn) {
-          await transport.writeLine("unborn");
+        if (ctx.config.lsRefsUnborn) {
+          await ctx.transport.writeLine("unborn");
         }
 
         // Ref prefixes
-        const prefixes = config.refPrefixes ?? ["refs/heads/", "refs/tags/"];
+        const prefixes = ctx.config.refPrefixes ?? ["refs/heads/", "refs/tags/"];
         for (const prefix of prefixes) {
-          await transport.writeLine(`ref-prefix ${prefix}`);
+          await ctx.transport.writeLine(`ref-prefix ${prefix}`);
         }
 
-        await transport.writeFlush();
+        await ctx.transport.writeFlush();
         return "LS_REFS_SENT";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -180,15 +165,12 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "READ_LS_REFS_RESPONSE",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
         while (true) {
-          const pkt = await transport.readPktLine();
+          const pkt = await ctx.transport.readPktLine();
           if (pkt.type === "flush") break;
           if (pkt.type === "eof") {
-            output.error = "Unexpected end of stream";
+            ctx.output.error = "Unexpected end of stream";
             return "ERROR";
           }
           if (pkt.type === "delim") {
@@ -201,24 +183,24 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
           const oid = parts[0];
           const refName = parts[1];
 
-          state.refs.set(refName, oid);
+          ctx.state.refs.set(refName, oid);
 
           // Parse attributes (symref-target, peeled)
           for (let i = 2; i < parts.length; i++) {
             const attr = parts[i];
             if (attr.startsWith("symref-target:")) {
-              state.symrefs = state.symrefs ?? new Map();
-              state.symrefs.set(refName, attr.slice(14));
+              ctx.state.symrefs = ctx.state.symrefs ?? new Map();
+              ctx.state.symrefs.set(refName, attr.slice(14));
             } else if (attr.startsWith("peeled:")) {
-              state.peeled = state.peeled ?? new Map();
-              state.peeled.set(refName, attr.slice(7));
+              ctx.state.peeled = ctx.state.peeled ?? new Map();
+              ctx.state.peeled.set(refName, attr.slice(7));
             }
           }
         }
 
         return "REFS_RECEIVED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -228,25 +210,22 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "COMPUTE_WANTS",
     async (ctx) => {
-      const state = getState(ctx);
-      const repository = getRepository(ctx);
-      const output = getOutput(ctx);
       try {
-        for (const [ref, oid] of state.refs) {
-          if (!(await repository.has(oid))) {
-            state.wants.add(oid);
-            state.wantedRefs = state.wantedRefs ?? new Map();
-            state.wantedRefs.set(ref, oid);
+        for (const [ref, oid] of ctx.state.refs) {
+          if (!(await ctx.repository.has(oid))) {
+            ctx.state.wants.add(oid);
+            ctx.state.wantedRefs = ctx.state.wantedRefs ?? new Map();
+            ctx.state.wantedRefs.set(ref, oid);
           }
         }
 
-        if (state.wants.size === 0) {
+        if (ctx.state.wants.size === 0) {
           return "NO_WANTS";
         }
 
         return "WANTS_COMPUTED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -256,86 +235,81 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "SEND_FETCH",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const config = getConfig(ctx);
-      const output = getOutput(ctx);
-      const repository = getRepository(ctx);
       try {
-        await transport.writeLine("command=fetch");
+        await ctx.transport.writeLine("command=fetch");
 
         // Arguments section
-        await transport.writeDelimiter();
+        await ctx.transport.writeDelimiter();
 
         // Capabilities/options
-        if (state.capabilities.has("thin-pack")) {
-          await transport.writeLine("thin-pack");
+        if (ctx.state.capabilities.has("thin-pack")) {
+          await ctx.transport.writeLine("thin-pack");
         }
-        if (config.noProgress) {
-          await transport.writeLine("no-progress");
+        if (ctx.config.noProgress) {
+          await ctx.transport.writeLine("no-progress");
         }
-        if (state.capabilities.has("include-tag")) {
-          await transport.writeLine("include-tag");
+        if (ctx.state.capabilities.has("include-tag")) {
+          await ctx.transport.writeLine("include-tag");
         }
-        if (state.capabilities.has("ofs-delta")) {
-          await transport.writeLine("ofs-delta");
+        if (ctx.state.capabilities.has("ofs-delta")) {
+          await ctx.transport.writeLine("ofs-delta");
         }
 
         // Wants (using want-ref if available)
-        if (state.capabilities.has("want-ref") && state.wantedRefs) {
-          for (const [ref] of state.wantedRefs) {
-            await transport.writeLine(`want-ref ${ref}`);
+        if (ctx.state.capabilities.has("want-ref") && ctx.state.wantedRefs) {
+          for (const [ref] of ctx.state.wantedRefs) {
+            await ctx.transport.writeLine(`want-ref ${ref}`);
           }
         } else {
-          for (const oid of state.wants) {
-            await transport.writeLine(`want ${oid}`);
+          for (const oid of ctx.state.wants) {
+            await ctx.transport.writeLine(`want ${oid}`);
           }
         }
 
         // Haves
-        output.havesSent = output.havesSent ?? 0;
-        const maxHaves = config.maxHaves ?? 256;
+        ctx.output.havesSent = ctx.output.havesSent ?? 0;
+        const maxHaves = ctx.config.maxHaves ?? 256;
 
-        if (config.localHead) {
-          for await (const oid of repository.walkAncestors(config.localHead)) {
-            if (output.havesSent >= maxHaves) break;
-            if (state.commonBase?.has(oid)) continue;
+        if (ctx.config.localHead) {
+          for await (const oid of ctx.repository.walkAncestors(ctx.config.localHead)) {
+            if (ctx.output.havesSent >= maxHaves) break;
+            if (ctx.state.commonBase?.has(oid)) continue;
 
-            await transport.writeLine(`have ${oid}`);
-            state.haves.add(oid);
-            output.havesSent++;
+            await ctx.transport.writeLine(`have ${oid}`);
+            ctx.state.haves.add(oid);
+            ctx.output.havesSent++;
           }
         }
 
         // Shallow options
-        if (config.depth) {
-          await transport.writeLine(`deepen ${config.depth}`);
-          if (config.deepenRelative) {
-            await transport.writeLine("deepen-relative");
+        if (ctx.config.depth) {
+          await ctx.transport.writeLine(`deepen ${ctx.config.depth}`);
+          if (ctx.config.deepenRelative) {
+            await ctx.transport.writeLine("deepen-relative");
           }
         }
-        if (config.shallowSince) {
-          await transport.writeLine(`deepen-since ${config.shallowSince}`);
+        if (ctx.config.shallowSince) {
+          await ctx.transport.writeLine(`deepen-since ${ctx.config.shallowSince}`);
         }
-        for (const ref of config.shallowExclude ?? []) {
-          await transport.writeLine(`deepen-not ${ref}`);
+        for (const ref of ctx.config.shallowExclude ?? []) {
+          await ctx.transport.writeLine(`deepen-not ${ref}`);
         }
 
         // Filter (partial clone)
-        if (config.filter) {
-          await transport.writeLine(`filter ${config.filter}`);
+        if (ctx.config.filter) {
+          await ctx.transport.writeLine(`filter ${ctx.config.filter}`);
         }
 
         // Done (in stateless mode, always send done)
-        if (config.statelessRpc || output.havesSent >= maxHaves) {
-          await transport.writeLine("done");
-          state.sentDone = true;
+        if (ctx.config.statelessRpc || ctx.output.havesSent >= maxHaves) {
+          await ctx.transport.writeLine("done");
+          ctx.state.sentDone = true;
         }
 
-        await transport.writeFlush();
+        await ctx.transport.writeFlush();
         return "FETCH_SENT";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -345,19 +319,16 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "READ_FETCH_RESPONSE",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
         while (true) {
-          const pkt = await transport.readPktLine();
+          const pkt = await ctx.transport.readPktLine();
 
           if (pkt.type === "flush") {
             // End of response without packfile means more haves needed
-            if (!state.sentDone) {
+            if (!ctx.state.sentDone) {
               return "ACKS_ONLY";
             }
-            output.error = "Expected packfile but got flush";
+            ctx.output.error = "Expected packfile but got flush";
             return "ERROR";
           }
 
@@ -366,7 +337,7 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
           }
 
           if (pkt.type === "eof") {
-            output.error = "Unexpected end of stream";
+            ctx.output.error = "Unexpected end of stream";
             return "ERROR";
           }
 
@@ -374,20 +345,20 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
 
           // Section headers
           if (line === "acknowledgments") {
-            state.currentSection = "acknowledgments";
+            ctx.state.currentSection = "acknowledgments";
             continue;
           }
           if (line === "shallow-info") {
-            state.currentSection = "shallow-info";
+            ctx.state.currentSection = "shallow-info";
             return "SHALLOW_INFO";
           }
           if (line === "wanted-refs") {
-            state.currentSection = "wanted-refs";
+            ctx.state.currentSection = "wanted-refs";
             return "WANTED_REFS";
           }
           if (line === "packfile-uris") {
-            state.currentSection = "packfile-uris";
-            state.packfileUris = [];
+            ctx.state.currentSection = "packfile-uris";
+            ctx.state.packfileUris = [];
             continue;
           }
           if (line === "packfile") {
@@ -395,21 +366,21 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
           }
 
           // Section content
-          if (state.currentSection === "acknowledgments") {
+          if (ctx.state.currentSection === "acknowledgments") {
             if (line.startsWith("ACK ")) {
               const oid = line.slice(4);
-              state.commonBase = state.commonBase ?? new Set();
-              state.commonBase.add(oid);
+              ctx.state.commonBase = ctx.state.commonBase ?? new Set();
+              ctx.state.commonBase.add(oid);
             } else if (line === "ready") {
-              state.serverReady = true;
+              ctx.state.serverReady = true;
             }
-          } else if (state.currentSection === "packfile-uris") {
-            state.packfileUris = state.packfileUris ?? [];
-            state.packfileUris.push(line);
+          } else if (ctx.state.currentSection === "packfile-uris") {
+            ctx.state.packfileUris = ctx.state.packfileUris ?? [];
+            ctx.state.packfileUris.push(line);
           }
         }
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -419,35 +390,32 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "PROCESS_SHALLOW",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
         while (true) {
-          const pkt = await transport.readPktLine();
+          const pkt = await ctx.transport.readPktLine();
           if (pkt.type === "delim") break;
           if (pkt.type === "flush") {
-            state.currentSection = undefined;
+            ctx.state.currentSection = undefined;
             break;
           }
           if (pkt.type === "eof") {
-            output.error = "Unexpected end of stream";
+            ctx.output.error = "Unexpected end of stream";
             return "ERROR";
           }
 
           const line = pkt.text;
           if (line.startsWith("shallow ")) {
-            state.clientShallow = state.clientShallow ?? new Set();
-            state.clientShallow.add(line.slice(8));
+            ctx.state.clientShallow = ctx.state.clientShallow ?? new Set();
+            ctx.state.clientShallow.add(line.slice(8));
           } else if (line.startsWith("unshallow ")) {
-            state.serverUnshallow = state.serverUnshallow ?? new Set();
-            state.serverUnshallow.add(line.slice(10));
+            ctx.state.serverUnshallow = ctx.state.serverUnshallow ?? new Set();
+            ctx.state.serverUnshallow.add(line.slice(10));
           }
         }
 
         return "SHALLOW_PROCESSED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -457,21 +425,18 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "PROCESS_REFS",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
-        state.resolvedWantedRefs = new Map();
+        ctx.state.resolvedWantedRefs = new Map();
 
         while (true) {
-          const pkt = await transport.readPktLine();
+          const pkt = await ctx.transport.readPktLine();
           if (pkt.type === "delim") break;
           if (pkt.type === "flush") {
-            state.currentSection = undefined;
+            ctx.state.currentSection = undefined;
             break;
           }
           if (pkt.type === "eof") {
-            output.error = "Unexpected end of stream";
+            ctx.output.error = "Unexpected end of stream";
             return "ERROR";
           }
 
@@ -481,13 +446,13 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
           if (spaceIdx !== -1) {
             const oid = line.slice(0, spaceIdx);
             const refName = line.slice(spaceIdx + 1);
-            state.resolvedWantedRefs.set(refName, oid);
+            ctx.state.resolvedWantedRefs.set(refName, oid);
           }
         }
 
         return "REFS_PROCESSED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -497,15 +462,13 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "FETCH_PACKFILE_URIS",
     async (ctx) => {
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
         // For now, just mark URIs as fetched
         // Actual CDN fetching would be implemented by the caller
-        output.packfileUrisFetched = state.packfileUris?.length ?? 0;
+        ctx.output.packfileUrisFetched = ctx.state.packfileUris?.length ?? 0;
         return "URIS_FETCHED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -515,16 +478,13 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "RECEIVE_PACK",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const repository = getRepository(ctx);
-      const output = getOutput(ctx);
       try {
-        const packStream = transport.readPack();
-        const result = await repository.importPack(packStream);
-        output.packResult = result;
+        const packStream = ctx.transport.readPack();
+        const result = await ctx.repository.importPack(packStream);
+        ctx.output.packResult = result;
         return "PACK_RECEIVED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -534,20 +494,17 @@ export const clientV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "UPDATE_REFS",
     async (ctx) => {
-      const state = getState(ctx);
-      const refStore = getRefStore(ctx);
-      const output = getOutput(ctx);
       try {
         // Use resolved wanted-refs if available, otherwise use refs from ls-refs
-        const refsToUpdate = state.resolvedWantedRefs ?? state.wantedRefs ?? new Map();
+        const refsToUpdate = ctx.state.resolvedWantedRefs ?? ctx.state.wantedRefs ?? new Map();
 
         for (const [refName, oid] of refsToUpdate) {
-          await refStore.update(refName, oid);
+          await ctx.refStore.update(refName, oid);
         }
 
         return "REFS_UPDATED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },

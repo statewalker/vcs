@@ -9,24 +9,20 @@
 import type { Duplex } from "../api/duplex.js";
 import type { ServeResult } from "../api/fetch-result.js";
 import type { RepositoryFacade } from "../api/repository-facade.js";
-import {
-  getOutput,
-  type ProcessContext,
-  setConfig,
-  setOutput,
-  setRefStore,
-  setRepository,
-  setState,
-  setTransport,
-} from "../context/context-adapters.js";
 import { HandlerOutput } from "../context/handler-output.js";
 import type { ProcessConfiguration } from "../context/process-config.js";
-import type { RefStore } from "../context/process-context.js";
+import type { ProcessContext, RefStore } from "../context/process-context.js";
 import { ProtocolState } from "../context/protocol-state.js";
 import { createTransportApi } from "../factories/transport-api-factory.js";
-import { serverFetchHandlers, serverFetchTransitions } from "../fsm/fetch/server-fetch-fsm.js";
+import {
+  serverFetchHandlers,
+  serverFetchTransitions,
+} from "../fsm/fetch/server-fetch-fsm.js";
 import { Fsm } from "../fsm/fsm.js";
-import { serverPushHandlers, serverPushTransitions } from "../fsm/push/server-push-fsm.js";
+import {
+  serverPushHandlers,
+  serverPushTransitions,
+} from "../fsm/push/server-push-fsm.js";
 import type { ServiceType } from "../protocol/types.js";
 
 /**
@@ -80,17 +76,13 @@ export interface ServeOverDuplexOptions {
  * }
  * ```
  */
-export async function serveOverDuplex(options: ServeOverDuplexOptions): Promise<ServeResult> {
+export async function serveOverDuplex(
+  options: ServeOverDuplexOptions,
+): Promise<ServeResult> {
   const { duplex, repository, refStore, service = "git-upload-pack" } = options;
 
   const state = new ProtocolState();
   const transport = createTransportApi(duplex, state);
-
-  // Populate refs from refStore for advertisement
-  const allRefs = await refStore.listAll();
-  for (const [refName, oid] of allRefs) {
-    state.refs.set(refName, oid);
-  }
 
   const config: ProcessConfiguration = {
     localHead: options.currentBranch ?? "refs/heads/main",
@@ -104,13 +96,14 @@ export async function serveOverDuplex(options: ServeOverDuplexOptions): Promise<
 
   const output = new HandlerOutput();
 
-  const ctx: ProcessContext = {};
-  setTransport(ctx, transport);
-  setRepository(ctx, repository);
-  setRefStore(ctx, refStore);
-  setState(ctx, state);
-  setOutput(ctx, output);
-  setConfig(ctx, config);
+  const ctx: ProcessContext = {
+    transport,
+    repository,
+    refStore,
+    state,
+    output,
+    config,
+  };
 
   // Select FSM based on service type
   const fsm =
@@ -121,17 +114,16 @@ export async function serveOverDuplex(options: ServeOverDuplexOptions): Promise<
   try {
     const success = await fsm.run(ctx);
 
-    const ctxOutput = getOutput(ctx);
-    if (!success || ctxOutput.error) {
+    if (!success || ctx.output.error) {
       return {
         success: false,
-        error: ctxOutput.error ?? "FSM did not complete successfully",
+        error: ctx.output.error ?? "FSM did not complete successfully",
       };
     }
 
     return {
       success: true,
-      objectsSent: ctxOutput.objectCount,
+      objectsSent: ctx.output.objectCount,
     };
   } catch (error) {
     return {

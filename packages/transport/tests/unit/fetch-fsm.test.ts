@@ -6,19 +6,9 @@ import type {
   RepositoryFacade,
 } from "../../src/api/repository-facade.js";
 import type { TransportApi } from "../../src/api/transport-api.js";
-import {
-  getState,
-  type ProcessContext,
-  setConfig,
-  setOutput,
-  setRefStore,
-  setRepository,
-  setState,
-  setTransport,
-} from "../../src/context/context-adapters.js";
 import { HandlerOutput } from "../../src/context/handler-output.js";
 import { ProcessConfiguration } from "../../src/context/process-config.js";
-import type { RefStore } from "../../src/context/process-context.js";
+import type { ProcessContext, RefStore } from "../../src/context/process-context.js";
 import { ProtocolState } from "../../src/context/protocol-state.js";
 import {
   clientFetchHandlers,
@@ -137,22 +127,16 @@ function createMockRefStore(): RefStore {
   } as RefStore & { _setRef: (name: string, oid: string) => void };
 }
 
-function createContext(overrides?: {
-  transport?: TransportApi;
-  repository?: RepositoryFacade;
-  refStore?: RefStore;
-  state?: ProtocolState;
-  output?: HandlerOutput;
-  config?: ProcessConfiguration;
-}): ProcessContext {
-  const context: ProcessContext = {};
-  setTransport(context, overrides?.transport ?? createMockTransport());
-  setRepository(context, overrides?.repository ?? createMockRepository());
-  setRefStore(context, overrides?.refStore ?? createMockRefStore());
-  setState(context, overrides?.state ?? new ProtocolState());
-  setOutput(context, overrides?.output ?? new HandlerOutput());
-  setConfig(context, overrides?.config ?? new ProcessConfiguration());
-  return context;
+function createContext(overrides?: Partial<ProcessContext>): ProcessContext {
+  return {
+    transport: createMockTransport(),
+    repository: createMockRepository(),
+    refStore: createMockRefStore(),
+    state: new ProtocolState(),
+    output: new HandlerOutput(),
+    config: new ProcessConfiguration(),
+    ...overrides,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -218,8 +202,8 @@ describe("Client Fetch FSM", () => {
       const handler = clientFetchHandlers.get("READ_ADVERTISEMENT");
       const event = await handler?.(ctx);
 
-      expect(getState(ctx).refs.size).toBe(2);
-      expect(getState(ctx).refs.get("refs/heads/main")).toBe("abc123def456");
+      expect(ctx.state.refs.size).toBe(2);
+      expect(ctx.state.refs.get("refs/heads/main")).toBe("abc123def456");
       expect(event).toBe("REFS_RECEIVED");
     });
 
@@ -245,8 +229,8 @@ describe("Client Fetch FSM", () => {
     it("sends want lines for each wanted ref", async () => {
       const transport = createMockTransport();
       const ctx = createContext({ transport });
-      getState(ctx).wants.add("abc123");
-      getState(ctx).wants.add("def456");
+      ctx.state.wants.add("abc123");
+      ctx.state.wants.add("def456");
 
       const handler = clientFetchHandlers.get("SEND_WANTS");
       await handler?.(ctx);
