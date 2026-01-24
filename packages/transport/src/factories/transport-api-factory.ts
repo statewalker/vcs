@@ -7,6 +7,9 @@
  * - Pack streaming
  */
 
+import type { Duplex } from "../api/duplex.js";
+import type { PktLineResult, SidebandResult, TransportApi } from "../api/transport-api.js";
+import type { ProtocolState } from "../context/protocol-state.js";
 import {
   encodeDelim,
   encodeFlush,
@@ -15,9 +18,6 @@ import {
   parsePacket,
 } from "../protocol/pkt-line-codec.js";
 import { encodeSidebandPacket, SIDEBAND_DATA } from "../protocol/sideband.js";
-import type { Duplex } from "../api/duplex.js";
-import type { PktLineResult, SidebandResult, TransportApi } from "../api/transport-api.js";
-import type { ProtocolState } from "../context/protocol-state.js";
 
 const _textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -263,6 +263,13 @@ export function createTransportApi(duplex: Duplex, state: ProtocolState): Transp
         for await (const chunk of packStream) {
           duplex.write(chunk);
         }
+      }
+    },
+
+    // Connection lifecycle
+    async close(): Promise<void> {
+      if (duplex.close) {
+        await duplex.close();
       }
     },
   };

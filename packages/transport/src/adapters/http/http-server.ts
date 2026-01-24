@@ -6,15 +6,25 @@
  * - POST /git-upload-pack - Pack negotiation and transfer
  */
 
-import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import type { RepositoryFacade } from "../../api/repository-facade.js";
+import {
+  getOutput,
+  type ProcessContext,
+  setConfig,
+  setOutput,
+  setRefStore,
+  setRepository,
+  setState,
+  setTransport,
+} from "../../context/context-adapters.js";
 import { HandlerOutput } from "../../context/handler-output.js";
 import type { ProcessConfiguration } from "../../context/process-config.js";
-import type { ProcessContext, RefStore } from "../../context/process-context.js";
+import type { RefStore } from "../../context/process-context.js";
 import { ProtocolState } from "../../context/protocol-state.js";
 import { createTransportApi } from "../../factories/transport-api-factory.js";
 import { serverFetchHandlers, serverFetchTransitions } from "../../fsm/fetch/server-fetch-fsm.js";
 import { Fsm } from "../../fsm/fsm.js";
+import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import { createSimpleDuplex, readableStreamToAsyncIterable } from "./http-duplex.js";
 
 /**
@@ -189,14 +199,13 @@ export async function handleUploadPack(
     maxEmptyBatches: 10,
   };
 
-  const ctx: ProcessContext = {
-    transport,
-    repository,
-    refStore,
-    state,
-    output: new HandlerOutput(),
-    config,
-  };
+  const ctx: ProcessContext = {};
+  setTransport(ctx, transport);
+  setRepository(ctx, repository);
+  setRefStore(ctx, refStore);
+  setState(ctx, state);
+  setOutput(ctx, new HandlerOutput());
+  setConfig(ctx, config);
 
   // Run server FSM starting from READ_WANTS state
   // (ref advertisement was already sent in GET /info/refs)
@@ -206,11 +215,12 @@ export async function handleUploadPack(
   try {
     await fsm.run(ctx);
 
-    if (ctx.output.error) {
+    const output = getOutput(ctx);
+    if (output.error) {
       return {
         status: 500,
         headers: { "Content-Type": "text/plain" },
-        body: textEncoder.encode(ctx.output.error),
+        body: textEncoder.encode(output.error),
       };
     }
 
@@ -238,4 +248,54 @@ export async function handleUploadPack(
       body: textEncoder.encode(error instanceof Error ? error.message : String(error)),
     };
   }
+}
+
+/**
+ * Options for creating a Git HTTP server.
+ */
+export interface GitHttpServerOptions {
+  /** Resolve repository for a given request */
+  resolveRepository: (request: HttpRequest, repoPath?: string) => Promise<RepositoryFacade | null>;
+  /** Optional request policy */
+  requestPolicy?: "ADVERTISED" | "REACHABLE_COMMIT" | "TIP" | "REACHABLE_COMMIT_TIP" | "ANY";
+}
+
+/**
+ * Git HTTP server interface.
+ */
+export interface GitHttpServer {
+  /** Handle an HTTP request */
+  handleRequest: (request: HttpRequest) => Promise<HttpResponse>;
+  /** Stop the server */
+  close: () => Promise<void>;
+}
+
+/**
+ * Create a Git HTTP server that handles Git protocol requests.
+ *
+ * @param options - Server options
+ * @returns A Git HTTP server
+ *
+ * @example
+ * ```ts
+ * const server = createGitHttpServer({
+ *   async resolveRepository(request, repoPath) {
+ *     return openRepository(repoPath);
+ *   },
+ * });
+ *
+ * // Handle incoming requests
+ * const response = await server.handleRequest(request);
+ * ```
+ */
+export function createGitHttpServer(options: GitHttpServerOptions): GitHttpServer {
+  // TODO: Implement full Git HTTP server
+  // This would route requests to handleInfoRefs and handleUploadPack
+
+  void options; // Suppress unused parameter warning
+
+  throw new Error(
+    "createGitHttpServer not yet implemented. " +
+      "Use handleInfoRefs and handleUploadPack directly.",
+  );
 }
