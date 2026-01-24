@@ -7,23 +7,16 @@
 
 import type { Duplex } from "../api/duplex.js";
 import type { RepositoryFacade } from "../api/repository-facade.js";
-import {
-  getOutput,
-  type ProcessContext,
-  setConfig,
-  setOutput,
-  setRefStore,
-  setRepository,
-  setState,
-  setTransport,
-} from "../context/context-adapters.js";
 import { HandlerOutput } from "../context/handler-output.js";
 import type { ProcessConfiguration } from "../context/process-config.js";
-import type { RefStore } from "../context/process-context.js";
+import type { ProcessContext, RefStore } from "../context/process-context.js";
 import { ProtocolState } from "../context/protocol-state.js";
 import { createTransportApi } from "../factories/transport-api-factory.js";
+import {
+  clientPushHandlers,
+  clientPushTransitions,
+} from "../fsm/push/client-push-fsm.js";
 import { Fsm } from "../fsm/fsm.js";
-import { clientPushHandlers, clientPushTransitions } from "../fsm/push/client-push-fsm.js";
 
 /**
  * Result of a push operation.
@@ -98,7 +91,9 @@ export interface PushOverDuplexOptions {
  * }
  * ```
  */
-export async function pushOverDuplex(options: PushOverDuplexOptions): Promise<PushResult> {
+export async function pushOverDuplex(
+  options: PushOverDuplexOptions,
+): Promise<PushResult> {
   const { duplex, repository, refStore } = options;
 
   const state = new ProtocolState();
@@ -118,24 +113,24 @@ export async function pushOverDuplex(options: PushOverDuplexOptions): Promise<Pu
 
   const output = new HandlerOutput();
 
-  const ctx: ProcessContext = {};
-  setTransport(ctx, transport);
-  setRepository(ctx, repository);
-  setRefStore(ctx, refStore);
-  setState(ctx, state);
-  setOutput(ctx, output);
-  setConfig(ctx, config);
+  const ctx: ProcessContext = {
+    transport,
+    repository,
+    refStore,
+    state,
+    output,
+    config,
+  };
 
   const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
 
   try {
     const success = await fsm.run(ctx);
-    const ctxOutput = getOutput(ctx);
 
-    if (!success || ctxOutput.error) {
+    if (!success || ctx.output.error) {
       return {
         success: false,
-        error: ctxOutput.error ?? "FSM did not complete successfully",
+        error: ctx.output.error ?? "FSM did not complete successfully",
       };
     }
 
@@ -147,7 +142,5 @@ export async function pushOverDuplex(options: PushOverDuplexOptions): Promise<Pu
       success: false,
       error: error instanceof Error ? error.message : String(error),
     };
-  } finally {
-    await transport.close?.();
   }
 }
