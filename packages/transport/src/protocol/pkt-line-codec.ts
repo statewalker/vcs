@@ -110,6 +110,20 @@ export async function* pktLineWriter(packets: AsyncIterable<Packet>): AsyncGener
 }
 
 /**
+ * Concatenate multiple Uint8Arrays efficiently.
+ */
+function concatBytes(...arrays: Uint8Array[]): Uint8Array<ArrayBuffer> {
+  const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+  return result;
+}
+
+/**
  * Parse a single packet from the beginning of a buffer.
  * Returns the packet and the remaining buffer, or null if incomplete.
  */
@@ -170,27 +184,6 @@ export function parsePacket(
   };
 }
 
-// TODO: use readHeader from packages/utils/src/streams/read-header.ts
-// function readByLength(len : number) : (block: Uint8Array) => number {
-//   let remaining = len;
-//   return (block: Uint8Array) => {
-//     if (remaining >= 0 && block.length >= remaining) {
-//       const toRead = remaining;
-//       remaining = -1;
-//       return toRead;
-//     } else {
-//       remaining -= block.length;
-//       return -1;
-//     }
-//   };
-// }
-// const [buf, rest] = await readHeader(stream, readByLength(4));
-
-// ─────────────────────────────────────────────────────────────
-// Packet reader class
-// ─────────────────────────────────────────────────────────────
-/**
- * Reads header from an async iterable stream.
 /**
  * Read packets from a byte stream.
  * Handles partial packets and buffering internally.
@@ -222,20 +215,6 @@ export async function* pktLineReader(stream: AsyncIterable<Uint8Array>): AsyncGe
     if (buffer.length > 0) {
       throw new PacketLineError(`Incomplete packet: ${buffer.length} bytes remaining`);
     }
-  }
-
-  /**
-   * Concatenate multiple Uint8Arrays efficiently.
-   */
-  function concatBytes(...arrays: Uint8Array[]): Uint8Array<ArrayBuffer> {
-    const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
-    const result = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const arr of arrays) {
-      result.set(arr, offset);
-      offset += arr.length;
-    }
-    return result;
   }
 }
 
