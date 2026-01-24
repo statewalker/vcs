@@ -679,3 +679,113 @@ export function createGitHttpServer(options: GitHttpServerOptions): GitHttpServe
       "Use handleInfoRefs and handleUploadPack directly.",
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fetch API Adapter
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Converts a Fetch API Request to our HttpRequest format.
+ *
+ * @param request - Fetch API Request object
+ * @returns HttpRequest suitable for createHttpHandler
+ */
+export function fetchRequestToHttpRequest(request: Request): HttpRequest {
+  const url = new URL(request.url);
+
+  // Parse query parameters
+  const query: Record<string, string> = {};
+  url.searchParams.forEach((value, key) => {
+    query[key] = value;
+  });
+
+  // Convert headers
+  const headers: Record<string, string> = {};
+  request.headers.forEach((value, key) => {
+    headers[key.toLowerCase()] = value;
+  });
+
+  return {
+    method: request.method,
+    path: url.pathname,
+    query,
+    headers,
+    body: request.body ?? undefined,
+  };
+}
+
+/**
+ * Converts our HttpResponse to a Fetch API Response.
+ *
+ * @param response - Our HttpResponse object
+ * @returns Fetch API Response object
+ */
+export function httpResponseToFetchResponse(response: HttpResponse): Response {
+  return new Response(response.body, {
+    status: response.status,
+    headers: response.headers,
+  });
+}
+
+/**
+ * Creates a Fetch API compatible handler for Git HTTP requests.
+ *
+ * This adapter wraps createHttpHandler for use in environments that use
+ * the Fetch API (Workers, Deno, Bun, etc.).
+ *
+ * @param options - Handler options including repository resolver
+ * @returns An async function that handles Fetch API Request and returns Response
+ *
+ * @example Cloudflare Worker
+ * ```ts
+ * const handleGit = createFetchHandler({
+ *   async resolveRepository(repoPath) {
+ *     return { repository: myRepo, refStore: myRefStore };
+ *   },
+ * });
+ *
+ * export default {
+ *   async fetch(request: Request) {
+ *     return handleGit(request);
+ *   },
+ * };
+ * ```
+ *
+ * @example Deno
+ * ```ts
+ * const handleGit = createFetchHandler({
+ *   async resolveRepository(repoPath) {
+ *     return { repository: myRepo, refStore: myRefStore };
+ *   },
+ * });
+ *
+ * Deno.serve((request) => handleGit(request));
+ * ```
+ *
+ * @example Bun
+ * ```ts
+ * const handleGit = createFetchHandler({
+ *   async resolveRepository(repoPath) {
+ *     return { repository: myRepo, refStore: myRefStore };
+ *   },
+ * });
+ *
+ * Bun.serve({ fetch: handleGit });
+ * ```
+ */
+export function createFetchHandler(
+  options: HttpHandlerOptions,
+): (request: Request) => Promise<Response> {
+  const httpHandler = createHttpHandler(options);
+
+  return async (request: Request): Promise<Response> => {
+    // Convert Fetch API Request to HttpRequest
+    const httpRequest = fetchRequestToHttpRequest(request);
+
+    // Handle with core handler
+    const httpResponse = await httpHandler(httpRequest);
+
+    // Convert HttpResponse to Fetch API Response
+    return httpResponseToFetchResponse(httpResponse);
+  };
+}

@@ -910,3 +910,223 @@ describe("createHttpHandler", async () => {
     expect(resolvedPath).toBe("/org/project.git");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// fetchRequestToHttpRequest Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("fetchRequestToHttpRequest", async () => {
+  const { fetchRequestToHttpRequest } = await import("../../src/adapters/http/http-server.js");
+
+  it("should convert GET request", () => {
+    const request = new Request("http://localhost/repo.git/info/refs?service=git-upload-pack");
+    const result = fetchRequestToHttpRequest(request);
+
+    expect(result.method).toBe("GET");
+    expect(result.path).toBe("/repo.git/info/refs");
+    expect(result.query.service).toBe("git-upload-pack");
+  });
+
+  it("should convert POST request", () => {
+    const request = new Request("http://localhost/repo.git/git-upload-pack", {
+      method: "POST",
+      body: new Uint8Array([1, 2, 3]),
+    });
+    const result = fetchRequestToHttpRequest(request);
+
+    expect(result.method).toBe("POST");
+    expect(result.path).toBe("/repo.git/git-upload-pack");
+    expect(result.body).toBeDefined();
+  });
+
+  it("should preserve headers", () => {
+    const request = new Request("http://localhost/repo.git/info/refs?service=git-upload-pack", {
+      headers: {
+        "Content-Type": "application/x-git-upload-pack-request",
+        "X-Custom-Header": "test-value",
+      },
+    });
+    const result = fetchRequestToHttpRequest(request);
+
+    expect(result.headers["content-type"]).toBe("application/x-git-upload-pack-request");
+    expect(result.headers["x-custom-header"]).toBe("test-value");
+  });
+
+  it("should handle multiple query parameters", () => {
+    const request = new Request(
+      "http://localhost/repo.git/info/refs?service=git-upload-pack&version=2",
+    );
+    const result = fetchRequestToHttpRequest(request);
+
+    expect(result.query.service).toBe("git-upload-pack");
+    expect(result.query.version).toBe("2");
+  });
+
+  it("should handle empty query string", () => {
+    const request = new Request("http://localhost/repo.git/git-upload-pack", { method: "POST" });
+    const result = fetchRequestToHttpRequest(request);
+
+    expect(result.query).toEqual({});
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// httpResponseToFetchResponse Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("httpResponseToFetchResponse", async () => {
+  const { httpResponseToFetchResponse } = await import("../../src/adapters/http/http-server.js");
+
+  it("should convert 200 response", () => {
+    const httpResponse = {
+      status: 200,
+      headers: { "Content-Type": "application/x-git-upload-pack-advertisement" },
+      body: new Uint8Array([1, 2, 3]),
+    };
+    const response = httpResponseToFetchResponse(httpResponse);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe(
+      "application/x-git-upload-pack-advertisement",
+    );
+  });
+
+  it("should convert 404 response", () => {
+    const httpResponse = {
+      status: 404,
+      headers: { "Content-Type": "text/plain" },
+      body: new TextEncoder().encode("Not found"),
+    };
+    const response = httpResponseToFetchResponse(httpResponse);
+
+    expect(response.status).toBe(404);
+  });
+
+  it("should convert 500 response", () => {
+    const httpResponse = {
+      status: 500,
+      headers: { "Content-Type": "text/plain" },
+      body: new TextEncoder().encode("Internal error"),
+    };
+    const response = httpResponseToFetchResponse(httpResponse);
+
+    expect(response.status).toBe(500);
+  });
+
+  it("should have readable body", async () => {
+    const testData = new TextEncoder().encode("Hello World");
+    const httpResponse = {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+      body: testData,
+    };
+    const response = httpResponseToFetchResponse(httpResponse);
+
+    const text = await response.text();
+    expect(text).toBe("Hello World");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createFetchHandler Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("createFetchHandler", async () => {
+  const { createFetchHandler } = await import("../../src/adapters/http/http-server.js");
+
+  it("should handle valid Fetch API Request", async () => {
+    const repo = new TestRepository();
+    repo.setRef("refs/heads/main", "a".repeat(40));
+
+    const handler = createFetchHandler({
+      resolveRepository: async () => ({
+        repository: repo,
+        refStore: repo,
+      }),
+    });
+
+    const request = new Request("http://localhost/repo.git/info/refs?service=git-upload-pack");
+    const response = await handler(request);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe(
+      "application/x-git-upload-pack-advertisement",
+    );
+  });
+
+  it("should return 404 Response for unknown repository", async () => {
+    const handler = createFetchHandler({
+      resolveRepository: async () => null,
+    });
+
+    const request = new Request("http://localhost/repo.git/info/refs?service=git-upload-pack");
+    const response = await handler(request);
+
+    expect(response.status).toBe(404);
+  });
+
+  it("should return 400 Response for invalid Git request", async () => {
+    const handler = createFetchHandler({
+      resolveRepository: async () => null,
+    });
+
+    const request = new Request("http://localhost/not-a-git-path");
+    const response = await handler(request);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("should preserve Content-Type header in Response", async () => {
+    const repo = new TestRepository();
+    repo.setRef("refs/heads/main", "a".repeat(40));
+
+    const handler = createFetchHandler({
+      resolveRepository: async () => ({
+        repository: repo,
+        refStore: repo,
+      }),
+    });
+
+    const request = new Request("http://localhost/repo.git/info/refs?service=git-receive-pack");
+    const response = await handler(request);
+
+    expect(response.headers.get("Content-Type")).toBe(
+      "application/x-git-receive-pack-advertisement",
+    );
+  });
+
+  it("should have readable body in Response", async () => {
+    const repo = new TestRepository();
+    repo.setRef("refs/heads/main", "a".repeat(40));
+
+    const handler = createFetchHandler({
+      resolveRepository: async () => ({
+        repository: repo,
+        refStore: repo,
+      }),
+    });
+
+    const request = new Request("http://localhost/repo.git/info/refs?service=git-upload-pack");
+    const response = await handler(request);
+
+    const body = await response.arrayBuffer();
+    expect(body.byteLength).toBeGreaterThan(0);
+  });
+
+  it("should handle request with URL path segments", async () => {
+    let resolvedPath = "";
+    const handler = createFetchHandler({
+      resolveRepository: async (path) => {
+        resolvedPath = path;
+        return null;
+      },
+    });
+
+    const request = new Request(
+      "http://localhost/org/team/project.git/info/refs?service=git-upload-pack",
+    );
+    await handler(request);
+
+    expect(resolvedPath).toBe("/org/team/project.git");
+  });
+});
