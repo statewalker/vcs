@@ -2,6 +2,29 @@
 
 This document defines the mandatory workflow for completing work sessions. Work is **NOT complete** until all changes are pushed to the remote repository.
 
+## Incremental Commits (After Each Epic/Task)
+
+After completing each Beads epic or logically independent task, run quality gates and commit immediately:
+
+```bash
+pnpm test && pnpm typecheck && pnpm lint:fix && pnpm format:fix
+git add <changed-files>
+git commit -m "feat: description of completed work"
+git push
+```
+
+**Why incremental commits?**
+- Smaller, focused commits are easier to review and revert
+- Reduces risk of losing work
+- Keeps the remote up to date for collaborators
+- Makes it easier to track what changed per task
+
+**What counts as "logically independent"?**
+- A completed Beads epic or task
+- A feature or bug fix that works on its own
+- A refactoring that doesn't break anything
+- Any coherent unit of work that passes all quality gates
+
 ## Pre-Commit Quality Checks
 
 Before every commit, run these commands in order:
