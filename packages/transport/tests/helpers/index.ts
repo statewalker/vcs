@@ -5,49 +5,48 @@
  * Modeled after JGit's test utilities.
  */
 
-// Test Repository Helper
+// Test HTTP Server Helper
 export {
-  TestRepository,
-  createTestRepository,
-  createInitializedRepository,
-  createComplexRepository,
-  type StoredObject,
-  type TestCommit,
-  type TreeEntry,
-  type TestTag,
-  type ObjectType,
-} from "./test-repository.js";
+  type AuthConfig,
+  type CapturedExchange,
+  type CapturedRequest,
+  type CapturedResponse,
+  createInitializedHttpServer,
+  createTestHttpServer,
+  type DelayConfig,
+  type RedirectConfig,
+  TestHttpServer,
+  type TestHttpServerConfig,
+} from "./test-http-server.js";
 
 // Test Protocol Helper
 export {
-  createMockTransport,
   createMockRefStore,
   createMockRepository,
+  createMockTransport,
   createTestContext,
-  runProtocolScenario,
-  packets,
-  PacketSequenceBuilder,
-  ProtocolMessages,
-  verifyPackets,
-  randomOid,
-  testOid,
-  type MockTransport,
   type MockRefStore,
+  type MockTransport,
+  PacketSequenceBuilder,
   type PktLineResult,
-  type SidebandResult,
+  ProtocolMessages,
   type ProtocolScenario,
+  packets,
+  randomOid,
+  runProtocolScenario,
+  type SidebandResult,
+  testOid,
+  verifyPackets,
 } from "./test-protocol.js";
-
-// Test HTTP Server Helper
+// Test Repository Helper
 export {
-  TestHttpServer,
-  createTestHttpServer,
-  createInitializedHttpServer,
-  type AuthConfig,
-  type RedirectConfig,
-  type DelayConfig,
-  type CapturedRequest,
-  type CapturedResponse,
-  type CapturedExchange,
-  type TestHttpServerConfig,
-} from "./test-http-server.js";
+  createComplexRepository,
+  createInitializedRepository,
+  createTestRepository,
+  type ObjectType,
+  type StoredObject,
+  type TestCommit,
+  TestRepository,
+  type TestTag,
+  type TreeEntry,
+} from "./test-repository.js";
