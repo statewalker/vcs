@@ -17,6 +17,7 @@ import type { RepositoryFacade } from "../../api/repository-facade.js";
 import type { RefStore } from "../../context/process-context.js";
 import { ProtocolState } from "../../context/protocol-state.js";
 import type { PushResult, RefPushStatus } from "../../operations/push-over-duplex.js";
+import { createEmptyPack } from "../../protocol/pack-utils.js";
 import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import { collectChunks, readableStreamToAsyncIterable } from "./http-duplex.js";
 
@@ -638,29 +639,6 @@ async function resolveRefspecs(
   }
 
   return updates;
-}
-
-/**
- * Creates an empty pack file.
- */
-function createEmptyPack(): Uint8Array {
-  // PACK header + version 2 + 0 objects + checksum
-  const pack = new Uint8Array(32);
-
-  // "PACK"
-  pack[0] = 0x50;
-  pack[1] = 0x41;
-  pack[2] = 0x43;
-  pack[3] = 0x4b;
-
-  // Version 2
-  pack[7] = 0x02;
-
-  // 0 objects (already zeros)
-
-  // Checksum (zeros for simplicity - would need real SHA-1 in production)
-
-  return pack;
 }
 
 /**

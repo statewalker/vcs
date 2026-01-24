@@ -38,86 +38,20 @@ export function classifyError(ctx: ProcessContext, error: unknown): ErrorEvent {
   const message = error instanceof Error ? error.message : String(error);
   const output = getOutput(ctx);
   const config = getConfig(ctx);
+
+  // Use shared classification logic
+  const info = createErrorInfo(message, config.allowReconnect ?? false);
+
+  // Update context with error information
   output.error = message;
-
-  // Timeout errors
-  if (
-    message.includes("timeout") ||
-    message.includes("Timeout") ||
-    message.includes("timed out") ||
-    message.includes("ETIMEDOUT")
-  ) {
-    output.errorInfo = {
-      category: "TIMEOUT" as ErrorCategory,
-      message,
-      recoverable: true,
-      retryable: true,
-    };
-    return "TIMEOUT";
-  }
-
-  // Transport/connection errors
-  if (
-    message.includes("connection") ||
-    message.includes("Connection") ||
-    message.includes("ECONNRESET") ||
-    message.includes("ECONNREFUSED") ||
-    message.includes("EPIPE") ||
-    message.includes("socket") ||
-    message.includes("network") ||
-    message.includes("Network")
-  ) {
-    output.errorInfo = {
-      category: "TRANSPORT_ERROR" as ErrorCategory,
-      message,
-      recoverable: true,
-      retryable: config.allowReconnect ?? false,
-    };
-    return "TRANSPORT_ERROR";
-  }
-
-  // Pack errors
-  if (
-    message.includes("pack") ||
-    message.includes("Pack") ||
-    message.includes("corrupt") ||
-    message.includes("checksum") ||
-    message.includes("invalid object")
-  ) {
-    output.errorInfo = {
-      category: "PACK_ERROR" as ErrorCategory,
-      message,
-      recoverable: false,
-      retryable: false,
-    };
-    return "PACK_ERROR";
-  }
-
-  // Validation errors
-  if (
-    message.includes("invalid") ||
-    message.includes("Invalid") ||
-    message.includes("not found") ||
-    message.includes("unknown ref") ||
-    message.includes("rejected")
-  ) {
-    output.errorInfo = {
-      category: "VALIDATION_ERROR" as ErrorCategory,
-      message,
-      recoverable: false,
-      retryable: false,
-    };
-    return "VALIDATION_ERROR";
-  }
-
-  // Default: protocol error (not recoverable)
   output.errorInfo = {
-    category: "PROTOCOL_ERROR" as ErrorCategory,
+    category: info.category,
     message,
-    recoverable: false,
-    retryable: false,
+    recoverable: info.recoverable,
+    retryable: info.retryable,
   };
-  return "PROTOCOL_ERROR";
+
+  return info.event;
 }
 
 /**
@@ -134,8 +68,13 @@ export function createErrorInfo(
   message: string,
   allowReconnect = false,
 ): { category: ErrorCategory; event: ErrorEvent; recoverable: boolean; retryable: boolean } {
-  // Timeout
-  if (message.includes("timeout") || message.includes("Timeout") || message.includes("timed out")) {
+  // Timeout errors
+  if (
+    message.includes("timeout") ||
+    message.includes("Timeout") ||
+    message.includes("timed out") ||
+    message.includes("ETIMEDOUT")
+  ) {
     return {
       category: "TIMEOUT",
       event: "TIMEOUT",
@@ -144,12 +83,16 @@ export function createErrorInfo(
     };
   }
 
-  // Transport
+  // Transport/connection errors
   if (
     message.includes("connection") ||
     message.includes("Connection") ||
+    message.includes("ECONNRESET") ||
+    message.includes("ECONNREFUSED") ||
+    message.includes("EPIPE") ||
     message.includes("socket") ||
-    message.includes("network")
+    message.includes("network") ||
+    message.includes("Network")
   ) {
     return {
       category: "TRANSPORT_ERROR",
@@ -159,8 +102,14 @@ export function createErrorInfo(
     };
   }
 
-  // Pack
-  if (message.includes("pack") || message.includes("corrupt") || message.includes("checksum")) {
+  // Pack errors
+  if (
+    message.includes("pack") ||
+    message.includes("Pack") ||
+    message.includes("corrupt") ||
+    message.includes("checksum") ||
+    message.includes("invalid object")
+  ) {
     return {
       category: "PACK_ERROR",
       event: "PACK_ERROR",
@@ -169,10 +118,12 @@ export function createErrorInfo(
     };
   }
 
-  // Validation
+  // Validation errors
   if (
     message.includes("invalid") ||
+    message.includes("Invalid") ||
     message.includes("not found") ||
+    message.includes("unknown ref") ||
     message.includes("rejected")
   ) {
     return {
