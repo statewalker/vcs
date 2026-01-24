@@ -16,7 +16,6 @@ import type {
   PackImportResult,
   RepositoryFacade,
 } from "../../src/api/repository-facade.js";
-import type { RefStore } from "../../src/context/process-context.js";
 
 /**
  * Simple object type enumeration
@@ -65,7 +64,7 @@ export interface TestTag {
 /**
  * Test repository with in-memory storage
  */
-export class TestRepository implements RepositoryFacade, RefStore {
+export class TestRepository implements RepositoryFacade {
   private objects = new Map<string, StoredObject>();
   private refs = new Map<string, string>();
   private symbolicRefs = new Map<string, string>();
@@ -251,31 +250,6 @@ export class TestRepository implements RepositoryFacade, RefStore {
    */
   getAllRefs(): Map<string, string> {
     return new Map(this.refs);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // RefStore Implementation
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  /**
-   * Get a ref value by name (RefStore interface)
-   */
-  async get(name: string): Promise<string | undefined> {
-    return this.refs.get(name);
-  }
-
-  /**
-   * Update a ref value (RefStore interface)
-   */
-  async update(name: string, oid: string): Promise<void> {
-    this.refs.set(name, oid);
-  }
-
-  /**
-   * List all refs (RefStore interface)
-   */
-  async listAll(): Promise<Iterable<[string, string]>> {
-    return this.refs.entries();
   }
 
   /**
