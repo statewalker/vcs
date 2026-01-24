@@ -24,6 +24,7 @@ import { ProtocolState } from "../../context/protocol-state.js";
 import { createTransportApi } from "../../factories/transport-api-factory.js";
 import { serverFetchHandlers, serverFetchTransitions } from "../../fsm/fetch/server-fetch-fsm.js";
 import { Fsm } from "../../fsm/fsm.js";
+import { serverPushHandlers, serverPushTransitions } from "../../fsm/push/server-push-fsm.js";
 import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import { createSimpleDuplex, readableStreamToAsyncIterable } from "./http-duplex.js";
 
@@ -248,6 +249,385 @@ export async function handleUploadPack(
       body: textEncoder.encode(error instanceof Error ? error.message : String(error)),
     };
   }
+}
+
+/**
+ * Handles GET /info/refs?service=git-receive-pack
+ *
+ * Returns ref advertisement for push operations.
+ *
+ * @param refStore - Ref store for reading refs
+ * @param options - Server options
+ * @returns HTTP response
+ */
+export async function handleReceivePackInfoRefs(
+  refStore: RefStore,
+  options: HttpServerOptions = {},
+): Promise<HttpResponse> {
+  // Get all refs
+  const allRefs = await refStore.listAll();
+  const refs = Array.from(allRefs);
+
+  // Build ref advertisement
+  const chunks: Uint8Array[] = [];
+
+  // Service announcement line
+  chunks.push(encodePacketLine("# service=git-receive-pack\n"));
+  chunks.push(encodeFlush());
+
+  // Default capabilities for receive-pack
+  const capabilities = options.capabilities ?? [
+    "report-status",
+    "report-status-v2",
+    "delete-refs",
+    "side-band-64k",
+    "quiet",
+    "atomic",
+    "ofs-delta",
+    "push-options",
+  ];
+
+  // First ref with capabilities
+  if (refs.length > 0) {
+    const [firstRefName, firstOid] = refs[0];
+    const capsStr = capabilities.join(" ");
+    chunks.push(encodePacketLine(`${firstOid} ${firstRefName}\0${capsStr}\n`));
+
+    // Remaining refs
+    for (let i = 1; i < refs.length; i++) {
+      const [refName, oid] = refs[i];
+      chunks.push(encodePacketLine(`${oid} ${refName}\n`));
+    }
+  } else {
+    // Empty repo - send capabilities with zero OID
+    const zeroOid = "0".repeat(40);
+    const capsStr = capabilities.join(" ");
+    chunks.push(encodePacketLine(`${zeroOid} capabilities^{}\0${capsStr}\n`));
+  }
+
+  chunks.push(encodeFlush());
+
+  // Concatenate all chunks
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const body = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return {
+    status: 200,
+    headers: {
+      "Content-Type": "application/x-git-receive-pack-advertisement",
+      "Cache-Control": "no-cache",
+    },
+    body,
+  };
+}
+
+/**
+ * Handles POST /git-receive-pack
+ *
+ * Runs the push operation to receive pack data and update refs.
+ *
+ * @param request - HTTP request with body
+ * @param repository - Repository facade for pack import
+ * @param refStore - Ref store for reading/writing refs
+ * @param options - Server options
+ * @returns HTTP response
+ */
+export async function handleReceivePack(
+  request: HttpRequest,
+  repository: RepositoryFacade,
+  refStore: RefStore,
+  options: HttpServerOptions = {},
+): Promise<HttpResponse> {
+  if (!request.body) {
+    return {
+      status: 400,
+      headers: { "Content-Type": "text/plain" },
+      body: textEncoder.encode("Missing request body"),
+    };
+  }
+
+  const state = new ProtocolState();
+
+  // Populate refs from refStore
+  const allRefs = await refStore.listAll();
+  for (const [refName, oid] of allRefs) {
+    state.refs.set(refName, oid);
+  }
+
+  // Set up capabilities for receive-pack
+  state.capabilities.add("report-status");
+  state.capabilities.add("report-status-v2");
+  state.capabilities.add("delete-refs");
+  state.capabilities.add("side-band-64k");
+  state.capabilities.add("quiet");
+  state.capabilities.add("atomic");
+  state.capabilities.add("ofs-delta");
+  state.capabilities.add("push-options");
+
+  // Collect response data
+  const responseChunks: Uint8Array[] = [];
+  const writer = (data: Uint8Array) => responseChunks.push(data);
+
+  // Create duplex from request body and response writer
+  const input = readableStreamToAsyncIterable(request.body);
+  const duplex = createSimpleDuplex(input, writer);
+  const transport = createTransportApi(duplex, state);
+
+  const config: ProcessConfiguration = {
+    requestPolicy: options.requestPolicy ?? "ADVERTISED",
+    maxEmptyBatches: 10,
+    allowDeletes: true,
+    allowNonFastForward: false,
+  };
+
+  const ctx: ProcessContext = {};
+  setTransport(ctx, transport);
+  setRepository(ctx, repository);
+  setRefStore(ctx, refStore);
+  setState(ctx, state);
+  setOutput(ctx, new HandlerOutput());
+  setConfig(ctx, config);
+
+  // Run server push FSM
+  const fsm = new Fsm(serverPushTransitions, serverPushHandlers);
+
+  try {
+    await fsm.run(ctx);
+
+    const output = getOutput(ctx);
+    if (output.error) {
+      return {
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+        body: textEncoder.encode(output.error),
+      };
+    }
+
+    // Concatenate response chunks
+    const totalLength = responseChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const body = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of responseChunks) {
+      body.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    return {
+      status: 200,
+      headers: {
+        "Content-Type": "application/x-git-receive-pack-result",
+        "Cache-Control": "no-cache",
+      },
+      body,
+    };
+  } catch (error) {
+    return {
+      status: 500,
+      headers: { "Content-Type": "text/plain" },
+      body: textEncoder.encode(error instanceof Error ? error.message : String(error)),
+    };
+  }
+}
+
+/**
+ * Parsed Git request information.
+ */
+export interface ParsedGitRequest {
+  /** Repository path extracted from URL */
+  repoPath: string;
+  /** Git service type */
+  service: "git-upload-pack" | "git-receive-pack";
+  /** Whether this is an info/refs discovery request */
+  isInfoRefs: boolean;
+}
+
+/**
+ * Parses a Git HTTP request URL to extract repository path, service, and request type.
+ *
+ * Handles URLs in these formats:
+ * - /repo.git/info/refs?service=git-upload-pack
+ * - /repo.git/git-upload-pack
+ * - /repo.git/git-receive-pack
+ * - /path/to/repo.git/info/refs?service=git-receive-pack
+ *
+ * @param path - The URL path
+ * @param query - Query parameters
+ * @returns Parsed request info, or null if not a valid Git request
+ */
+export function parseGitRequest(
+  path: string,
+  query: Record<string, string>,
+): ParsedGitRequest | null {
+  // Check for info/refs request
+  if (path.endsWith("/info/refs")) {
+    const service = query.service;
+    if (service !== "git-upload-pack" && service !== "git-receive-pack") {
+      return null;
+    }
+    const repoPath = path.slice(0, -"/info/refs".length);
+    return {
+      repoPath: repoPath || "/",
+      service,
+      isInfoRefs: true,
+    };
+  }
+
+  // Check for git-upload-pack or git-receive-pack POST request
+  if (path.endsWith("/git-upload-pack")) {
+    return {
+      repoPath: path.slice(0, -"/git-upload-pack".length) || "/",
+      service: "git-upload-pack",
+      isInfoRefs: false,
+    };
+  }
+
+  if (path.endsWith("/git-receive-pack")) {
+    return {
+      repoPath: path.slice(0, -"/git-receive-pack".length) || "/",
+      service: "git-receive-pack",
+      isInfoRefs: false,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Options for createHttpHandler.
+ */
+export interface HttpHandlerOptions {
+  /** Resolve repository by path */
+  resolveRepository: (repoPath: string) => Promise<{
+    repository: RepositoryFacade;
+    refStore: RefStore;
+  } | null>;
+  /** Optional request policy */
+  requestPolicy?: "ADVERTISED" | "REACHABLE_COMMIT" | "TIP" | "REACHABLE_COMMIT_TIP" | "ANY";
+  /** Optional logger */
+  logger?: {
+    info: (msg: string) => void;
+    error: (msg: string, err?: unknown) => void;
+  };
+}
+
+/**
+ * Creates an HTTP handler for Git smart protocol requests.
+ *
+ * This is the main entry point for handling Git HTTP requests.
+ * It parses the request, resolves the repository, and routes
+ * to the appropriate handler (info/refs or service).
+ *
+ * @param options - Handler options including repository resolver
+ * @returns An async function that handles HTTP requests
+ *
+ * @example
+ * ```ts
+ * const handleGit = createHttpHandler({
+ *   async resolveRepository(repoPath) {
+ *     const repo = await openRepository(repoPath);
+ *     if (!repo) return null;
+ *     return { repository: repo.facade, refStore: repo.refs };
+ *   },
+ * });
+ *
+ * // In your HTTP server
+ * const response = await handleGit(request);
+ * ```
+ */
+export function createHttpHandler(
+  options: HttpHandlerOptions,
+): (request: HttpRequest) => Promise<HttpResponse> {
+  const { resolveRepository, requestPolicy, logger } = options;
+
+  return async (request: HttpRequest): Promise<HttpResponse> => {
+    // Parse the Git request
+    const parsed = parseGitRequest(request.path, request.query);
+
+    if (!parsed) {
+      logger?.info(`Invalid Git request: ${request.method} ${request.path}`);
+      return {
+        status: 400,
+        headers: { "Content-Type": "text/plain" },
+        body: textEncoder.encode("Invalid Git request"),
+      };
+    }
+
+    logger?.info(
+      `Git ${parsed.service} request for ${parsed.repoPath} (info/refs: ${parsed.isInfoRefs})`,
+    );
+
+    // Resolve repository
+    let resolved: { repository: RepositoryFacade; refStore: RefStore } | null;
+    try {
+      resolved = await resolveRepository(parsed.repoPath);
+    } catch (err) {
+      logger?.error(`Error resolving repository ${parsed.repoPath}`, err);
+      return {
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+        body: textEncoder.encode("Internal server error"),
+      };
+    }
+
+    if (!resolved) {
+      logger?.info(`Repository not found: ${parsed.repoPath}`);
+      return {
+        status: 404,
+        headers: { "Content-Type": "text/plain" },
+        body: textEncoder.encode("Repository not found"),
+      };
+    }
+
+    const { repository, refStore } = resolved;
+    const serverOptions: HttpServerOptions = { requestPolicy };
+
+    try {
+      if (parsed.isInfoRefs) {
+        // Handle GET /info/refs
+        if (request.method !== "GET") {
+          return {
+            status: 405,
+            headers: { "Content-Type": "text/plain", Allow: "GET" },
+            body: textEncoder.encode("Method not allowed"),
+          };
+        }
+
+        if (parsed.service === "git-upload-pack") {
+          return await handleInfoRefs(refStore, serverOptions);
+        } else {
+          // git-receive-pack info/refs
+          return await handleReceivePackInfoRefs(refStore, serverOptions);
+        }
+      } else {
+        // Handle POST /git-upload-pack or /git-receive-pack
+        if (request.method !== "POST") {
+          return {
+            status: 405,
+            headers: { "Content-Type": "text/plain", Allow: "POST" },
+            body: textEncoder.encode("Method not allowed"),
+          };
+        }
+
+        if (parsed.service === "git-upload-pack") {
+          return await handleUploadPack(request, repository, refStore, serverOptions);
+        } else {
+          return await handleReceivePack(request, repository, refStore, serverOptions);
+        }
+      }
+    } catch (err) {
+      logger?.error(`Error handling ${parsed.service} request`, err);
+      return {
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+        body: textEncoder.encode(err instanceof Error ? err.message : "Internal server error"),
+      };
+    }
+  };
 }
 
 /**

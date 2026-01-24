@@ -663,3 +663,250 @@ describe("handleInfoRefs HTTP Handler", () => {
     expect(/^[0-9a-f]{4}$/.test(firstFour)).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// parseGitRequest Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("parseGitRequest", async () => {
+  const { parseGitRequest } = await import("../../src/adapters/http/http-server.js");
+
+  describe("info/refs requests", () => {
+    it("should parse git-upload-pack info/refs request", () => {
+      const result = parseGitRequest("/repo.git/info/refs", { service: "git-upload-pack" });
+
+      expect(result).not.toBeNull();
+      expect(result?.repoPath).toBe("/repo.git");
+      expect(result?.service).toBe("git-upload-pack");
+      expect(result?.isInfoRefs).toBe(true);
+    });
+
+    it("should parse git-receive-pack info/refs request", () => {
+      const result = parseGitRequest("/repo.git/info/refs", { service: "git-receive-pack" });
+
+      expect(result).not.toBeNull();
+      expect(result?.repoPath).toBe("/repo.git");
+      expect(result?.service).toBe("git-receive-pack");
+      expect(result?.isInfoRefs).toBe(true);
+    });
+
+    it("should handle nested repository path", () => {
+      const result = parseGitRequest("/path/to/repo.git/info/refs", { service: "git-upload-pack" });
+
+      expect(result).not.toBeNull();
+      expect(result?.repoPath).toBe("/path/to/repo.git");
+    });
+
+    it("should return null for missing service parameter", () => {
+      const result = parseGitRequest("/repo.git/info/refs", {});
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null for invalid service", () => {
+      const result = parseGitRequest("/repo.git/info/refs", { service: "invalid" });
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("service POST requests", () => {
+    it("should parse git-upload-pack POST request", () => {
+      const result = parseGitRequest("/repo.git/git-upload-pack", {});
+
+      expect(result).not.toBeNull();
+      expect(result?.repoPath).toBe("/repo.git");
+      expect(result?.service).toBe("git-upload-pack");
+      expect(result?.isInfoRefs).toBe(false);
+    });
+
+    it("should parse git-receive-pack POST request", () => {
+      const result = parseGitRequest("/repo.git/git-receive-pack", {});
+
+      expect(result).not.toBeNull();
+      expect(result?.repoPath).toBe("/repo.git");
+      expect(result?.service).toBe("git-receive-pack");
+      expect(result?.isInfoRefs).toBe(false);
+    });
+
+    it("should handle nested path for service request", () => {
+      const result = parseGitRequest("/org/team/project.git/git-upload-pack", {});
+
+      expect(result).not.toBeNull();
+      expect(result?.repoPath).toBe("/org/team/project.git");
+    });
+  });
+
+  describe("invalid requests", () => {
+    it("should return null for non-git path", () => {
+      const result = parseGitRequest("/some/random/path", {});
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null for root path", () => {
+      const result = parseGitRequest("/", {});
+
+      expect(result).toBeNull();
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createHttpHandler Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("createHttpHandler", async () => {
+  const { createHttpHandler } = await import("../../src/adapters/http/http-server.js");
+  type HttpRequest = Parameters<ReturnType<typeof createHttpHandler>>[0];
+
+  function createRequest(
+    method: string,
+    path: string,
+    query: Record<string, string> = {},
+  ): HttpRequest {
+    return {
+      method,
+      path,
+      query,
+      headers: {},
+    };
+  }
+
+  it("should return 400 for invalid git request", async () => {
+    const handler = createHttpHandler({
+      resolveRepository: async () => null,
+    });
+
+    const response = await handler(createRequest("GET", "/not-a-git-path"));
+
+    expect(response.status).toBe(400);
+  });
+
+  it("should return 404 when repository not found", async () => {
+    const handler = createHttpHandler({
+      resolveRepository: async () => null,
+    });
+
+    const response = await handler(
+      createRequest("GET", "/repo.git/info/refs", { service: "git-upload-pack" }),
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it("should return 405 for wrong method on info/refs", async () => {
+    const repo = new TestRepository();
+    const handler = createHttpHandler({
+      resolveRepository: async () => ({
+        repository: repo,
+        refStore: repo,
+      }),
+    });
+
+    const response = await handler(
+      createRequest("POST", "/repo.git/info/refs", { service: "git-upload-pack" }),
+    );
+
+    expect(response.status).toBe(405);
+    expect(response.headers.Allow).toBe("GET");
+  });
+
+  it("should return 405 for wrong method on service endpoint", async () => {
+    const repo = new TestRepository();
+    const handler = createHttpHandler({
+      resolveRepository: async () => ({
+        repository: repo,
+        refStore: repo,
+      }),
+    });
+
+    const response = await handler(createRequest("GET", "/repo.git/git-upload-pack"));
+
+    expect(response.status).toBe(405);
+    expect(response.headers.Allow).toBe("POST");
+  });
+
+  it("should handle git-upload-pack info/refs request", async () => {
+    const repo = new TestRepository();
+    repo.setRef("refs/heads/main", "a".repeat(40));
+
+    const handler = createHttpHandler({
+      resolveRepository: async () => ({
+        repository: repo,
+        refStore: repo,
+      }),
+    });
+
+    const response = await handler(
+      createRequest("GET", "/repo.git/info/refs", { service: "git-upload-pack" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers["Content-Type"]).toBe("application/x-git-upload-pack-advertisement");
+  });
+
+  it("should handle git-receive-pack info/refs request", async () => {
+    const repo = new TestRepository();
+    repo.setRef("refs/heads/main", "a".repeat(40));
+
+    const handler = createHttpHandler({
+      resolveRepository: async () => ({
+        repository: repo,
+        refStore: repo,
+      }),
+    });
+
+    const response = await handler(
+      createRequest("GET", "/repo.git/info/refs", { service: "git-receive-pack" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers["Content-Type"]).toBe("application/x-git-receive-pack-advertisement");
+  });
+
+  it("should handle repository resolution error", async () => {
+    const handler = createHttpHandler({
+      resolveRepository: async () => {
+        throw new Error("Database connection failed");
+      },
+    });
+
+    const response = await handler(
+      createRequest("GET", "/repo.git/info/refs", { service: "git-upload-pack" }),
+    );
+
+    expect(response.status).toBe(500);
+  });
+
+  it("should use logger when provided", async () => {
+    const logs: string[] = [];
+    const handler = createHttpHandler({
+      resolveRepository: async () => null,
+      logger: {
+        info: (msg) => logs.push(`INFO: ${msg}`),
+        error: (msg) => logs.push(`ERROR: ${msg}`),
+      },
+    });
+
+    await handler(createRequest("GET", "/repo.git/info/refs", { service: "git-upload-pack" }));
+
+    expect(logs.some((log) => log.includes("INFO:"))).toBe(true);
+  });
+
+  it("should pass correct repo path to resolver", async () => {
+    let resolvedPath: string | null = null;
+    const handler = createHttpHandler({
+      resolveRepository: async (repoPath) => {
+        resolvedPath = repoPath;
+        return null;
+      },
+    });
+
+    await handler(
+      createRequest("GET", "/org/project.git/info/refs", { service: "git-upload-pack" }),
+    );
+
+    expect(resolvedPath).toBe("/org/project.git");
+  });
+});
