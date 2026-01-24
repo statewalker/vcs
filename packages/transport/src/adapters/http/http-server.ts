@@ -6,6 +6,7 @@
  * - POST /git-upload-pack - Pack negotiation and transfer
  */
 
+import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import type { RepositoryFacade } from "../../api/repository-facade.js";
 import { HandlerOutput } from "../../context/handler-output.js";
 import type { ProcessConfiguration } from "../../context/process-config.js";
@@ -14,7 +15,6 @@ import { ProtocolState } from "../../context/protocol-state.js";
 import { createTransportApi } from "../../factories/transport-api-factory.js";
 import { serverFetchHandlers, serverFetchTransitions } from "../../fsm/fetch/server-fetch-fsm.js";
 import { Fsm } from "../../fsm/fsm.js";
-import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import { createSimpleDuplex, readableStreamToAsyncIterable } from "./http-duplex.js";
 
 /**
@@ -238,57 +238,4 @@ export async function handleUploadPack(
       body: textEncoder.encode(error instanceof Error ? error.message : String(error)),
     };
   }
-}
-
-/**
- * Options for creating a Git HTTP server.
- */
-export interface GitHttpServerOptions {
-  /** Resolve repository for a given request */
-  resolveRepository: (
-    request: HttpRequest,
-    repoPath?: string,
-  ) => Promise<RepositoryFacade | null>;
-  /** Optional request policy */
-  requestPolicy?: "ADVERTISED" | "REACHABLE_COMMIT" | "TIP" | "REACHABLE_COMMIT_TIP" | "ANY";
-}
-
-/**
- * Git HTTP server interface.
- */
-export interface GitHttpServer {
-  /** Handle an HTTP request */
-  handleRequest: (request: HttpRequest) => Promise<HttpResponse>;
-  /** Stop the server */
-  close: () => Promise<void>;
-}
-
-/**
- * Create a Git HTTP server that handles Git protocol requests.
- *
- * @param options - Server options
- * @returns A Git HTTP server
- *
- * @example
- * ```ts
- * const server = createGitHttpServer({
- *   async resolveRepository(request, repoPath) {
- *     return openRepository(repoPath);
- *   },
- * });
- *
- * // Handle incoming requests
- * const response = await server.handleRequest(request);
- * ```
- */
-export function createGitHttpServer(options: GitHttpServerOptions): GitHttpServer {
-  // TODO: Implement full Git HTTP server
-  // This would route requests to handleInfoRefs and handleUploadPack
-
-  void options; // Suppress unused parameter warning
-
-  throw new Error(
-    "createGitHttpServer not yet implemented. " +
-      "Use handleInfoRefs and handleUploadPack directly.",
-  );
 }
