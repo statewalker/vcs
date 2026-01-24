@@ -9,7 +9,13 @@
  * - "*" as target state: Return to previous state (stored in FSM.previousState)
  */
 
-import type { ProcessContext } from "../../context/process-context.js";
+import {
+  getConfig,
+  getOutput,
+  getState,
+  getTransport,
+  type ProcessContext,
+} from "../../context/context-adapters.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 
 /**
@@ -81,13 +87,15 @@ export const errorRecoveryHandlers = new Map<string, FsmStateHandler<ProcessCont
   [
     "HANDLE_PROTOCOL_ERROR",
     async (ctx) => {
-      const error = ctx.output.errorInfo;
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+      const error = output.errorInfo;
 
       // Log error
-      ctx.config.onProgress?.(`Protocol error: ${error?.message ?? ctx.output.error}`);
+      config.onProgress?.(`Protocol error: ${error?.message ?? output.error}`);
 
       // Check if recoverable
-      if (error?.recoverable && (ctx.output.retryCount ?? 0) < (ctx.config.maxRetries ?? 3)) {
+      if (error?.recoverable && (output.retryCount ?? 0) < (config.maxRetries ?? 3)) {
         return "RECOVERABLE";
       }
 
@@ -99,12 +107,14 @@ export const errorRecoveryHandlers = new Map<string, FsmStateHandler<ProcessCont
   [
     "HANDLE_TRANSPORT_ERROR",
     async (ctx) => {
-      const error = ctx.output.errorInfo;
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+      const error = output.errorInfo;
 
-      ctx.config.onProgress?.(`Transport error: ${error?.message ?? ctx.output.error}`);
+      config.onProgress?.(`Transport error: ${error?.message ?? output.error}`);
 
       // Check if reconnectable
-      if (ctx.config.allowReconnect && error?.retryable && ctx.config.reconnect) {
+      if (config.allowReconnect && error?.retryable && config.reconnect) {
         return "RECONNECT";
       }
 
@@ -116,29 +126,32 @@ export const errorRecoveryHandlers = new Map<string, FsmStateHandler<ProcessCont
   [
     "ATTEMPTING_RECONNECT",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
       try {
-        ctx.config.onProgress?.("Attempting to reconnect...");
+        config.onProgress?.("Attempting to reconnect...");
 
         // Close old connection if possible
-        if ("close" in ctx.transport && typeof ctx.transport.close === "function") {
-          await (ctx.transport as { close: () => Promise<void> }).close();
+        if ("close" in transport && typeof transport.close === "function") {
+          await (transport as { close: () => Promise<void> }).close();
         }
 
         // Reconnect
-        const newDuplex = await ctx.config.reconnect?.();
+        const newDuplex = await config.reconnect?.();
         if (!newDuplex) {
-          ctx.output.error = "Reconnection failed: no new connection";
+          output.error = "Reconnection failed: no new connection";
           return "FAILED";
         }
 
         // Note: The caller must update ctx.transport with the new connection
         // We store the new duplex in output for the caller to use
-        (ctx.output as { newDuplex?: unknown }).newDuplex = newDuplex;
+        (output as { newDuplex?: unknown }).newDuplex = newDuplex;
 
-        ctx.config.onProgress?.("Reconnected successfully");
+        config.onProgress?.("Reconnected successfully");
         return "CONNECTED";
       } catch (e) {
-        ctx.output.error = `Reconnection failed: ${e instanceof Error ? e.message : String(e)}`;
+        output.error = `Reconnection failed: ${e instanceof Error ? e.message : String(e)}`;
         return "FAILED";
       }
     },
@@ -148,9 +161,11 @@ export const errorRecoveryHandlers = new Map<string, FsmStateHandler<ProcessCont
   [
     "RESTORE_STATE",
     async (ctx) => {
+      const state = getState(ctx);
+      const config = getConfig(ctx);
       // Restore checkpointed state
-      if (ctx.state.restoreCheckpoint()) {
-        ctx.config.onProgress?.("State restored from checkpoint");
+      if (state.restoreCheckpoint()) {
+        config.onProgress?.("State restored from checkpoint");
       }
       return "RESTORED";
     },
@@ -160,9 +175,11 @@ export const errorRecoveryHandlers = new Map<string, FsmStateHandler<ProcessCont
   [
     "HANDLE_TIMEOUT",
     async (ctx) => {
-      ctx.config.onProgress?.(`Timeout: ${ctx.output.errorInfo?.message ?? ctx.output.error}`);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+      config.onProgress?.(`Timeout: ${output.errorInfo?.message ?? output.error}`);
 
-      if ((ctx.output.retryCount ?? 0) < (ctx.config.maxRetries ?? 3)) {
+      if ((output.retryCount ?? 0) < (config.maxRetries ?? 3)) {
         return "RETRY";
       }
       return "ABORT";
@@ -173,7 +190,9 @@ export const errorRecoveryHandlers = new Map<string, FsmStateHandler<ProcessCont
   [
     "HANDLE_PACK_ERROR",
     async (ctx) => {
-      ctx.config.onProgress?.(`Pack error: ${ctx.output.errorInfo?.message ?? ctx.output.error}`);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+      config.onProgress?.(`Pack error: ${output.errorInfo?.message ?? output.error}`);
       // Pack errors are generally not recoverable
       return "FATAL";
     },
@@ -183,9 +202,9 @@ export const errorRecoveryHandlers = new Map<string, FsmStateHandler<ProcessCont
   [
     "HANDLE_VALIDATION_ERROR",
     async (ctx) => {
-      ctx.config.onProgress?.(
-        `Validation error: ${ctx.output.errorInfo?.message ?? ctx.output.error}`,
-      );
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+      config.onProgress?.(`Validation error: ${output.errorInfo?.message ?? output.error}`);
       // Validation errors are not recoverable
       return "FATAL";
     },
@@ -195,21 +214,23 @@ export const errorRecoveryHandlers = new Map<string, FsmStateHandler<ProcessCont
   [
     "RETRY_OPERATION",
     async (ctx) => {
-      ctx.output.retryCount = (ctx.output.retryCount ?? 0) + 1;
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
+      output.retryCount = (output.retryCount ?? 0) + 1;
 
-      if (ctx.output.retryCount >= (ctx.config.maxRetries ?? 3)) {
+      if (output.retryCount >= (config.maxRetries ?? 3)) {
         return "MAX_RETRIES";
       }
 
       // Exponential backoff with jitter
       const baseDelay = 1000;
       const maxDelay = 30000;
-      const delay = Math.min(baseDelay * 2 ** ctx.output.retryCount, maxDelay);
+      const delay = Math.min(baseDelay * 2 ** output.retryCount, maxDelay);
       const jitter = Math.random() * 0.3 * delay;
       const totalDelay = delay + jitter;
 
-      ctx.config.onProgress?.(
-        `Retrying in ${Math.round(totalDelay / 1000)}s (attempt ${ctx.output.retryCount}/${ctx.config.maxRetries ?? 3})`,
+      config.onProgress?.(
+        `Retrying in ${Math.round(totalDelay / 1000)}s (attempt ${output.retryCount}/${config.maxRetries ?? 3})`,
       );
 
       await new Promise((resolve) => setTimeout(resolve, totalDelay));
@@ -222,24 +243,27 @@ export const errorRecoveryHandlers = new Map<string, FsmStateHandler<ProcessCont
   [
     "CLEANUP",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const output = getOutput(ctx);
+      const config = getConfig(ctx);
       try {
-        ctx.config.onProgress?.("Cleaning up...");
+        config.onProgress?.("Cleaning up...");
 
         // Run rollback if provided
-        if (ctx.output.rollback) {
-          await ctx.output.rollback();
+        if (output.rollback) {
+          await output.rollback();
         }
 
         // Close transport if possible
-        if ("close" in ctx.transport && typeof ctx.transport.close === "function") {
-          await (ctx.transport as { close: () => Promise<void> }).close();
+        if ("close" in transport && typeof transport.close === "function") {
+          await (transport as { close: () => Promise<void> }).close();
         }
 
-        ctx.config.onProgress?.("Cleanup complete");
+        config.onProgress?.("Cleanup complete");
         return "CLEANED";
       } catch (e) {
         // Log but don't fail - we're already cleaning up
-        ctx.config.onProgress?.(`Cleanup error: ${e instanceof Error ? e.message : String(e)}`);
+        config.onProgress?.(`Cleanup error: ${e instanceof Error ? e.message : String(e)}`);
         return "CLEANED";
       }
     },

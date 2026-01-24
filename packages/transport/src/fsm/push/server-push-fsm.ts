@@ -11,7 +11,16 @@
  * 7. Send status report
  */
 
-import type { ProcessContext } from "../../context/process-context.js";
+import {
+  getConfig,
+  getOptional,
+  getOutput,
+  getRefStore,
+  getRepository,
+  getState,
+  getTransport,
+  type ProcessContext,
+} from "../../context/context-adapters.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 import { type PushCommand, type PushCommandType, ZERO_OID } from "./types.js";
 
@@ -88,6 +97,67 @@ export const serverPushTransitions: FsmTransition[] = [
   ["SEND_STATUS", "ERROR", ""],
 ];
 
+// ─────────────────────────────────────────────────────────────
+// Context keys for push-specific state
+// ─────────────────────────────────────────────────────────────
+
+const PUSH_COMMANDS_KEY = "pushCommands";
+const PUSH_OPTIONS_KEY = "pushOptions";
+const PACK_STREAM_KEY = "packStream";
+const APPLIED_COMMANDS_KEY = "appliedCommands";
+const HOOKS_KEY = "hooks";
+
+function getPushCommands(ctx: ProcessContext): PushCommand[] | undefined {
+  return getOptional<PushCommand[]>(ctx, PUSH_COMMANDS_KEY);
+}
+
+function setPushCommands(ctx: ProcessContext, commands: PushCommand[]): void {
+  ctx[PUSH_COMMANDS_KEY] = commands;
+}
+
+function getPushOptions(ctx: ProcessContext): string[] | undefined {
+  return getOptional<string[]>(ctx, PUSH_OPTIONS_KEY);
+}
+
+function setPushOptions(ctx: ProcessContext, options: string[]): void {
+  ctx[PUSH_OPTIONS_KEY] = options;
+}
+
+function getPackStream(ctx: ProcessContext): AsyncIterable<Uint8Array> | undefined {
+  return getOptional<AsyncIterable<Uint8Array>>(ctx, PACK_STREAM_KEY);
+}
+
+function setPackStream(ctx: ProcessContext, stream: AsyncIterable<Uint8Array>): void {
+  ctx[PACK_STREAM_KEY] = stream;
+}
+
+function getAppliedCommands(ctx: ProcessContext): PushCommand[] | undefined {
+  return getOptional<PushCommand[]>(ctx, APPLIED_COMMANDS_KEY);
+}
+
+function setAppliedCommands(ctx: ProcessContext, commands: PushCommand[]): void {
+  ctx[APPLIED_COMMANDS_KEY] = commands;
+}
+
+/**
+ * Hooks for push operations.
+ */
+interface PushHooks {
+  preReceive?: (
+    commands: PushCommand[],
+    options?: string[],
+  ) => Promise<{
+    ok: boolean;
+    message?: string;
+    rejectedRefs?: string[];
+  }>;
+  postReceive?: (commands: PushCommand[], options?: string[]) => Promise<void>;
+}
+
+function getHooks(ctx: ProcessContext): PushHooks | undefined {
+  return getOptional<PushHooks>(ctx, HOOKS_KEY);
+}
+
 /**
  * Server push FSM handlers.
  */
@@ -99,8 +169,13 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "SEND_ADVERTISEMENT",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const refStore = getRefStore(ctx);
+
       try {
-        const refs = await ctx.refStore.listAll();
+        const refs = await refStore.listAll();
         const capabilities = [
           "report-status",
           "delete-refs",
@@ -116,27 +191,27 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
         // Empty repository
         if (refsArray.length === 0) {
-          await ctx.transport.writeLine(`${ZERO_OID} capabilities^{}\0${capabilities.join(" ")}`);
-          await ctx.transport.writeFlush();
+          await transport.writeLine(`${ZERO_OID} capabilities^{}\0${capabilities.join(" ")}`);
+          await transport.writeFlush();
           for (const cap of capabilities) {
-            ctx.state.capabilities.add(cap);
+            state.capabilities.add(cap);
           }
           return "EMPTY_REPO";
         }
 
         for (const [name, oid] of refsArray) {
           const line = first ? `${oid} ${name}\0${capabilities.join(" ")}` : `${oid} ${name}`;
-          await ctx.transport.writeLine(line);
-          ctx.state.refs.set(name, oid);
+          await transport.writeLine(line);
+          state.refs.set(name, oid);
           first = false;
         }
-        await ctx.transport.writeFlush();
+        await transport.writeFlush();
         for (const cap of capabilities) {
-          ctx.state.capabilities.add(cap);
+          state.capabilities.add(cap);
         }
         return "REFS_SENT";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -146,15 +221,19 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "READ_COMMANDS",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+
       try {
         const pushCommands: PushCommand[] = [];
         let hasDelete = false;
 
         while (true) {
-          const pkt = await ctx.transport.readPktLine();
+          const pkt = await transport.readPktLine();
           if (pkt.type === "flush") break;
           if (pkt.type === "eof") {
-            ctx.output.error = "Unexpected end of input";
+            output.error = "Unexpected end of input";
             return "ERROR";
           }
           if (pkt.type === "delim") {
@@ -175,7 +254,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
             const caps = refName.slice(nullIdx + 1);
             refName = refName.slice(0, nullIdx);
             for (const c of caps.split(" ")) {
-              ctx.state.capabilities.add(c);
+              state.capabilities.add(c);
             }
           }
 
@@ -199,7 +278,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           });
         }
 
-        (ctx.state as ServerPushState).pushCommands = pushCommands;
+        setPushCommands(ctx, pushCommands);
 
         if (pushCommands.length === 0) {
           return "NO_COMMANDS";
@@ -207,7 +286,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
         return hasDelete ? "COMMANDS_WITH_DELETE" : "COMMANDS_RECEIVED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -217,12 +296,15 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "CHECK_DELETE_ALLOWED",
     async (ctx) => {
-      try {
-        const state = ctx.state as ServerPushState;
+      const config = getConfig(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const pushCommands = getPushCommands(ctx);
 
-        if (ctx.config.allowDeletes === false && !ctx.state.capabilities.has("delete-refs")) {
+      try {
+        if (config.allowDeletes === false && !state.capabilities.has("delete-refs")) {
           // Mark delete commands as rejected
-          for (const cmd of state.pushCommands ?? []) {
+          for (const cmd of pushCommands ?? []) {
             if (cmd.type === "DELETE") {
               cmd.result = "REJECTED_NODELETE";
               cmd.message = "deletion prohibited";
@@ -232,7 +314,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         }
         return "DELETE_ALLOWED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -242,18 +324,22 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "READ_PUSH_OPTIONS",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+
       try {
-        if (!ctx.state.capabilities.has("push-options")) {
+        if (!state.capabilities.has("push-options")) {
           return "NO_OPTIONS";
         }
 
         const pushOptions: string[] = [];
 
         while (true) {
-          const pkt = await ctx.transport.readPktLine();
+          const pkt = await transport.readPktLine();
           if (pkt.type === "flush") break;
           if (pkt.type === "eof") {
-            ctx.output.error = "Unexpected end of input";
+            output.error = "Unexpected end of input";
             return "ERROR";
           }
           if (pkt.type === "delim") {
@@ -262,10 +348,10 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           pushOptions.push(pkt.text);
         }
 
-        (ctx.state as ServerPushState).pushOptions = pushOptions;
+        setPushOptions(ctx, pushOptions);
         return "OPTIONS_RECEIVED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -275,21 +361,23 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "RECEIVE_PACK",
     async (ctx) => {
-      try {
-        const state = ctx.state as ServerPushState;
+      const transport = getTransport(ctx);
+      const output = getOutput(ctx);
+      const pushCommands = getPushCommands(ctx);
 
+      try {
         // Check if pack is expected (not for delete-only)
-        const expectPack = (state.pushCommands ?? []).some((cmd) => cmd.type !== "DELETE");
+        const expectPack = (pushCommands ?? []).some((cmd) => cmd.type !== "DELETE");
 
         if (!expectPack) {
           return "EMPTY_PACK";
         }
 
         // Store pack stream for later unpacking
-        state.packStream = ctx.transport.readPack();
+        setPackStream(ctx, transport.readPack());
         return "PACK_RECEIVED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -299,15 +387,18 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "UNPACK",
     async (ctx) => {
+      const repository = getRepository(ctx);
+      const output = getOutput(ctx);
+      const packStream = getPackStream(ctx);
+
       try {
-        const state = ctx.state as ServerPushState;
-        if (state.packStream) {
-          const result = await ctx.repository.importPack(state.packStream);
-          ctx.output.packResult = result;
+        if (packStream) {
+          const result = await repository.importPack(packStream);
+          output.packResult = result;
         }
         return "UNPACK_OK";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "UNPACK_FAILED";
       }
     },
@@ -317,26 +408,26 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "CHECK_CONNECTIVITY",
     async (ctx) => {
-      try {
-        const state = ctx.state as ServerPushState;
+      const repository = getRepository(ctx);
+      const output = getOutput(ctx);
+      const pushCommands = getPushCommands(ctx);
 
-        for (const cmd of state.pushCommands ?? []) {
+      try {
+        for (const cmd of pushCommands ?? []) {
           if (cmd.type === "DELETE") continue;
 
           // Check if new objects are reachable
-          const exists = await ctx.repository.has(cmd.newOid);
+          const exists = await repository.has(cmd.newOid);
           if (!exists) {
             cmd.result = "REJECTED_MISSING_OBJECT";
             cmd.message = "missing necessary objects";
           }
         }
 
-        const anyMissing = (state.pushCommands ?? []).some(
-          (c) => c.result === "REJECTED_MISSING_OBJECT",
-        );
+        const anyMissing = (pushCommands ?? []).some((c) => c.result === "REJECTED_MISSING_OBJECT");
         return anyMissing ? "CONNECTIVITY_FAILED" : "CONNECTIVITY_OK";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -346,11 +437,16 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "VALIDATE_COMMANDS",
     async (ctx) => {
+      const config = getConfig(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const repository = getRepository(ctx);
+      const pushCommands = getPushCommands(ctx);
+
       try {
-        const state = ctx.state as ServerPushState;
         let invalidCount = 0;
 
-        for (const cmd of state.pushCommands ?? []) {
+        for (const cmd of pushCommands ?? []) {
           // Skip already rejected
           if (cmd.result !== "NOT_ATTEMPTED") {
             invalidCount++;
@@ -358,7 +454,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           }
 
           // Validate old OID matches current ref
-          const currentOid = ctx.state.refs.get(cmd.refName) ?? ZERO_OID;
+          const currentOid = state.refs.get(cmd.refName) ?? ZERO_OID;
           if (cmd.oldOid !== currentOid) {
             cmd.result = "REJECTED_NONFASTFORWARD";
             cmd.message = "remote ref changed since fetch";
@@ -368,8 +464,8 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
           // For updates, check fast-forward (unless config allows non-ff)
           if (cmd.type === "UPDATE") {
-            const isFastForward = await ctx.repository.has(cmd.oldOid);
-            if (!isFastForward && !ctx.config.allowNonFastForward) {
+            const isFastForward = await repository.has(cmd.oldOid);
+            if (!isFastForward && !config.allowNonFastForward) {
               cmd.result = "REJECTED_NONFASTFORWARD";
               cmd.message = "non-fast-forward";
               invalidCount++;
@@ -381,14 +477,14 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           }
 
           // Check if updating current branch
-          if (ctx.config.denyCurrentBranch && cmd.refName === ctx.config.currentBranch) {
+          if (config.denyCurrentBranch && cmd.refName === config.currentBranch) {
             cmd.result = "REJECTED_CURRENT_BRANCH";
             cmd.message = "refusing to update checked out branch";
             invalidCount++;
           }
         }
 
-        if (invalidCount === (state.pushCommands ?? []).length) {
+        if (invalidCount === (pushCommands ?? []).length) {
           return "ALL_INVALID";
         }
         if (invalidCount > 0) {
@@ -396,7 +492,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         }
         return "ALL_VALID";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -406,11 +502,13 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "REJECT_COMMANDS",
     async (ctx) => {
-      try {
-        const state = ctx.state as ServerPushState;
-        const reason = ctx.output.error ?? "rejected";
+      const output = getOutput(ctx);
+      const pushCommands = getPushCommands(ctx);
 
-        for (const cmd of state.pushCommands ?? []) {
+      try {
+        const reason = output.error ?? "rejected";
+
+        for (const cmd of pushCommands ?? []) {
           // Only reject commands that haven't been rejected yet
           if (cmd.result === "NOT_ATTEMPTED") {
             cmd.result = "REJECTED_OTHER_REASON";
@@ -419,7 +517,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         }
         return "REJECTED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -429,28 +527,28 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "RUN_PRE_RECEIVE_HOOK",
     async (ctx) => {
-      try {
-        const state = ctx.state as ServerPushState;
-        const hooks = (ctx as ContextWithHooks).hooks;
+      const output = getOutput(ctx);
+      const pushCommands = getPushCommands(ctx);
+      const pushOptions = getPushOptions(ctx);
+      const hooks = getHooks(ctx);
 
+      try {
         if (!hooks?.preReceive) {
           return "NO_HOOK";
         }
 
-        const validCommands = (state.pushCommands ?? []).filter(
-          (cmd) => cmd.result === "NOT_ATTEMPTED",
-        );
+        const validCommands = (pushCommands ?? []).filter((cmd) => cmd.result === "NOT_ATTEMPTED");
 
         if (validCommands.length === 0) {
           return "NO_HOOK";
         }
 
-        const result = await hooks.preReceive(validCommands, state.pushOptions);
+        const result = await hooks.preReceive(validCommands, pushOptions);
 
         if (!result.ok) {
           // Reject specified refs or all
           const rejectedRefs = new Set(result.rejectedRefs ?? validCommands.map((c) => c.refName));
-          for (const cmd of state.pushCommands ?? []) {
+          for (const cmd of pushCommands ?? []) {
             if (rejectedRefs.has(cmd.refName) && cmd.result === "NOT_ATTEMPTED") {
               cmd.result = "REJECTED_OTHER_REASON";
               cmd.message = result.message ?? "pre-receive hook rejected";
@@ -461,7 +559,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
         return "HOOK_OK";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "HOOK_ERROR";
       }
     },
@@ -471,14 +569,18 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "APPLY_UPDATES",
     async (ctx) => {
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const refStore = getRefStore(ctx);
+      const pushCommands = getPushCommands(ctx);
+
       try {
-        const state = ctx.state as ServerPushState;
-        const atomic = ctx.state.capabilities.has("atomic");
+        const atomic = state.capabilities.has("atomic");
 
         let failedCount = 0;
         const appliedCommands: PushCommand[] = [];
 
-        for (const cmd of state.pushCommands ?? []) {
+        for (const cmd of pushCommands ?? []) {
           if (cmd.result !== "NOT_ATTEMPTED") {
             failedCount++;
             continue;
@@ -487,9 +589,9 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           try {
             if (cmd.type === "DELETE") {
               // Delete ref - refStore.update should handle this
-              await ctx.refStore.update(cmd.refName, ZERO_OID);
+              await refStore.update(cmd.refName, ZERO_OID);
             } else {
-              await ctx.refStore.update(cmd.refName, cmd.newOid);
+              await refStore.update(cmd.refName, cmd.newOid);
             }
             cmd.result = "OK";
             appliedCommands.push(cmd);
@@ -503,7 +605,7 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
               // Rollback applied updates (best effort)
               for (const applied of appliedCommands) {
                 try {
-                  await ctx.refStore.update(applied.refName, applied.oldOid);
+                  await refStore.update(applied.refName, applied.oldOid);
                   applied.result = "ATOMIC_REJECTED";
                   applied.message = "atomic push failed";
                 } catch {
@@ -515,14 +617,14 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           }
         }
 
-        (state as ServerPushState).appliedCommands = appliedCommands;
+        setAppliedCommands(ctx, appliedCommands);
 
         if (failedCount === 0) {
           return "UPDATES_APPLIED";
         }
         return "PARTIAL_APPLIED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -532,17 +634,17 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "RUN_POST_RECEIVE_HOOK",
     async (ctx) => {
-      try {
-        const state = ctx.state as ServerPushState;
-        const hooks = (ctx as ContextWithHooks).hooks;
+      const pushOptions = getPushOptions(ctx);
+      const appliedCommands = getAppliedCommands(ctx);
+      const hooks = getHooks(ctx);
 
+      try {
         if (!hooks?.postReceive) {
           return "NO_HOOK";
         }
 
-        const appliedCommands = state.appliedCommands ?? [];
-        if (appliedCommands.length > 0) {
-          await hooks.postReceive(appliedCommands, state.pushOptions);
+        if (appliedCommands && appliedCommands.length > 0) {
+          await hooks.postReceive(appliedCommands, pushOptions);
         }
 
         return "HOOK_DONE";
@@ -557,17 +659,21 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "SEND_STATUS",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const pushCommands = getPushCommands(ctx);
+
       try {
-        const state = ctx.state as ServerPushState;
-        const useSideband = ctx.state.capabilities.has("side-band-64k");
-        const unpackOk = !ctx.output.error?.includes("Unpack");
+        const useSideband = state.capabilities.has("side-band-64k");
+        const unpackOk = !output.error?.includes("Unpack");
 
         if (useSideband) {
           // Build sideband response
           const statusLines: string[] = [];
-          statusLines.push(unpackOk ? "unpack ok\n" : `unpack ${ctx.output.error}\n`);
+          statusLines.push(unpackOk ? "unpack ok\n" : `unpack ${output.error}\n`);
 
-          for (const cmd of state.pushCommands ?? []) {
+          for (const cmd of pushCommands ?? []) {
             if (cmd.result === "OK") {
               statusLines.push(`ok ${cmd.refName}\n`);
             } else {
@@ -577,58 +683,31 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
           const encoder = new TextEncoder();
           for (const line of statusLines) {
-            await ctx.transport.writeSideband(1, encoder.encode(line));
+            await transport.writeSideband(1, encoder.encode(line));
           }
         } else {
           // Send status directly
           if (unpackOk) {
-            await ctx.transport.writeLine("unpack ok");
+            await transport.writeLine("unpack ok");
           } else {
-            await ctx.transport.writeLine(`unpack ${ctx.output.error || "failed"}`);
+            await transport.writeLine(`unpack ${output.error || "failed"}`);
           }
 
-          for (const cmd of state.pushCommands ?? []) {
+          for (const cmd of pushCommands ?? []) {
             if (cmd.result === "OK") {
-              await ctx.transport.writeLine(`ok ${cmd.refName}`);
+              await transport.writeLine(`ok ${cmd.refName}`);
             } else {
-              await ctx.transport.writeLine(`ng ${cmd.refName} ${cmd.message || "rejected"}`);
+              await transport.writeLine(`ng ${cmd.refName} ${cmd.message || "rejected"}`);
             }
           }
         }
 
-        await ctx.transport.writeFlush();
+        await transport.writeFlush();
         return "STATUS_SENT";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
   ],
 ]);
-
-/**
- * Extended state for server push operations.
- */
-interface ServerPushState {
-  pushCommands?: PushCommand[];
-  pushOptions?: string[];
-  packStream?: AsyncIterable<Uint8Array>;
-  appliedCommands?: PushCommand[];
-}
-
-/**
- * Context with hooks support.
- */
-interface ContextWithHooks extends ProcessContext {
-  hooks?: {
-    preReceive?: (
-      commands: PushCommand[],
-      options?: string[],
-    ) => Promise<{
-      ok: boolean;
-      message?: string;
-      rejectedRefs?: string[];
-    }>;
-    postReceive?: (commands: PushCommand[], options?: string[]) => Promise<void>;
-  };
-}
