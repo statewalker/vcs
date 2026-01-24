@@ -1,9 +1,19 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { PackImportResult, RepositoryFacade } from "../../src/api/repository-facade.js";
 import type { PktLineResult, SidebandResult, TransportApi } from "../../src/api/transport-api.js";
+import {
+  getState,
+  type ProcessContext,
+  setConfig,
+  setOutput,
+  setRefStore,
+  setRepository,
+  setState,
+  setTransport,
+} from "../../src/context/context-adapters.js";
 import { HandlerOutput } from "../../src/context/handler-output.js";
 import { ProcessConfiguration } from "../../src/context/process-config.js";
-import type { ProcessContext, RefStore } from "../../src/context/process-context.js";
+import type { RefStore } from "../../src/context/process-context.js";
 import { ProtocolState } from "../../src/context/protocol-state.js";
 import { Fsm } from "../../src/fsm/index.js";
 import {
@@ -194,14 +204,13 @@ describe("Client Push FSM", () => {
     transport = createMockTransport();
     repository = createMockRepository();
     refStore = createMockRefStore(new Map([["refs/heads/main", "abc123".padEnd(40, "0")]]));
-    context = {
-      transport,
-      repository,
-      refStore,
-      state: new ProtocolState(),
-      output: new HandlerOutput(),
-      config: new ProcessConfiguration(),
-    };
+    context = {};
+    setTransport(context, transport);
+    setRepository(context, repository);
+    setRefStore(context, refStore);
+    setState(context, new ProtocolState());
+    setOutput(context, new HandlerOutput());
+    setConfig(context, new ProcessConfiguration());
   });
 
   describe("READ_ADVERTISEMENT state", () => {
@@ -218,16 +227,16 @@ describe("Client Push FSM", () => {
         { type: "data", payload: new Uint8Array(0), text: `${oid2} refs/heads/feature\n` },
         { type: "flush" },
       ]);
-      context.transport = transport;
+      setTransport(context, transport);
 
       const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
       await fsm.run(context, "COMPUTE_UPDATES");
 
       expect(fsm.getState()).toBe("COMPUTE_UPDATES");
-      expect(context.state.refs.get("refs/heads/main")).toBe(oid1);
-      expect(context.state.refs.get("refs/heads/feature")).toBe(oid2);
-      expect(context.state.capabilities.has("report-status")).toBe(true);
-      expect(context.state.capabilities.has("ofs-delta")).toBe(true);
+      expect(getState(context).refs.get("refs/heads/main")).toBe(oid1);
+      expect(getState(context).refs.get("refs/heads/feature")).toBe(oid2);
+      expect(getState(context).capabilities.has("report-status")).toBe(true);
+      expect(getState(context).capabilities.has("ofs-delta")).toBe(true);
     });
 
     it("handles empty repository", async () => {
@@ -239,14 +248,14 @@ describe("Client Push FSM", () => {
         },
         { type: "flush" },
       ]);
-      context.transport = transport;
+      setTransport(context, transport);
 
       const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
       await fsm.run(context, "COMPUTE_UPDATES");
 
       expect(fsm.getState()).toBe("COMPUTE_UPDATES");
-      expect(context.state.refs.size).toBe(0);
-      expect(context.state.capabilities.has("report-status")).toBe(true);
+      expect(getState(context).refs.size).toBe(0);
+      expect(getState(context).capabilities.has("report-status")).toBe(true);
     });
   });
 
@@ -255,21 +264,23 @@ describe("Client Push FSM", () => {
       const localOid = "a".repeat(40);
       const remoteOid = "b".repeat(40);
 
-      context.state.refs.set("refs/heads/main", remoteOid);
+      getState(context).refs.set("refs/heads/main", remoteOid);
       refStore = createMockRefStore(new Map([["refs/heads/main", localOid]]));
-      context.refStore = refStore;
-      context.config.pushRefspecs = ["refs/heads/main:refs/heads/main"];
+      setRefStore(context, refStore);
+      const config = new ProcessConfiguration();
+      config.pushRefspecs = ["refs/heads/main:refs/heads/main"];
+      setConfig(context, config);
 
       // Simulate server has the remote OID
       repository = createMockRepository(new Set([remoteOid]));
-      context.repository = repository;
+      setRepository(context, repository);
 
       const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
       fsm.setState("COMPUTE_UPDATES");
       await fsm.run(context, "SEND_COMMANDS");
 
       expect(fsm.getState()).toBe("SEND_COMMANDS");
-      const state = context.state as { pushCommands?: PushCommand[] };
+      const state = getState(context) as { pushCommands?: PushCommand[] };
       expect(state.pushCommands).toHaveLength(1);
       expect(state.pushCommands?.[0].type).toBe("UPDATE");
     });
@@ -278,15 +289,17 @@ describe("Client Push FSM", () => {
       const localOid = "a".repeat(40);
 
       refStore = createMockRefStore(new Map([["refs/heads/feature", localOid]]));
-      context.refStore = refStore;
-      context.config.pushRefspecs = ["refs/heads/feature:refs/heads/feature"];
+      setRefStore(context, refStore);
+      const config = new ProcessConfiguration();
+      config.pushRefspecs = ["refs/heads/feature:refs/heads/feature"];
+      setConfig(context, config);
 
       const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
       fsm.setState("COMPUTE_UPDATES");
       await fsm.run(context, "SEND_COMMANDS");
 
       expect(fsm.getState()).toBe("SEND_COMMANDS");
-      const state = context.state as { pushCommands?: PushCommand[] };
+      const state = getState(context) as { pushCommands?: PushCommand[] };
       expect(state.pushCommands).toHaveLength(1);
       expect(state.pushCommands?.[0].type).toBe("CREATE");
     });
@@ -294,10 +307,12 @@ describe("Client Push FSM", () => {
     it("returns NO_UPDATES when nothing to push", async () => {
       const oid = "a".repeat(40);
 
-      context.state.refs.set("refs/heads/main", oid);
+      getState(context).refs.set("refs/heads/main", oid);
       refStore = createMockRefStore(new Map([["refs/heads/main", oid]]));
-      context.refStore = refStore;
-      context.config.pushRefspecs = ["refs/heads/main:refs/heads/main"];
+      setRefStore(context, refStore);
+      const config = new ProcessConfiguration();
+      config.pushRefspecs = ["refs/heads/main:refs/heads/main"];
+      setConfig(context, config);
 
       const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
       fsm.setState("COMPUTE_UPDATES");
@@ -313,9 +328,10 @@ describe("Client Push FSM", () => {
       const oldOid = "b".repeat(40);
       const newOid = "a".repeat(40);
 
-      context.state.capabilities.add("report-status");
-      context.state.capabilities.add("side-band-64k");
-      (context.state as { pushCommands?: PushCommand[] }).pushCommands = [
+      const state = getState(context);
+      state.capabilities.add("report-status");
+      state.capabilities.add("side-band-64k");
+      (state as { pushCommands?: PushCommand[] }).pushCommands = [
         {
           oldOid,
           newOid,
@@ -348,21 +364,20 @@ describe("Server Push FSM", () => {
     transport = createMockTransport();
     repository = createMockRepository();
     refStore = createMockRefStore(new Map([["refs/heads/main", "abc123".padEnd(40, "0")]]));
-    context = {
-      transport,
-      repository,
-      refStore,
-      state: new ProtocolState(),
-      output: new HandlerOutput(),
-      config: new ProcessConfiguration(),
-    };
+    context = {};
+    setTransport(context, transport);
+    setRepository(context, repository);
+    setRefStore(context, refStore);
+    setState(context, new ProtocolState());
+    setOutput(context, new HandlerOutput());
+    setConfig(context, new ProcessConfiguration());
   });
 
   describe("SEND_ADVERTISEMENT state", () => {
     it("sends refs to client", async () => {
       const oid = "a".repeat(40);
       refStore = createMockRefStore(new Map([["refs/heads/main", oid]]));
-      context.refStore = refStore;
+      setRefStore(context, refStore);
 
       const fsm = new Fsm(serverPushTransitions, serverPushHandlers);
       await fsm.run(context, "READ_COMMANDS");
@@ -375,7 +390,7 @@ describe("Server Push FSM", () => {
 
     it("handles empty repository", async () => {
       refStore = createMockRefStore(new Map());
-      context.refStore = refStore;
+      setRefStore(context, refStore);
 
       const fsm = new Fsm(serverPushTransitions, serverPushHandlers);
       await fsm.run(context, "READ_COMMANDS");
@@ -399,18 +414,18 @@ describe("Server Push FSM", () => {
         },
         { type: "flush" },
       ]);
-      context.transport = transport;
+      setTransport(context, transport);
 
       const fsm = new Fsm(serverPushTransitions, serverPushHandlers);
       fsm.setState("READ_COMMANDS");
       await fsm.run(context, "READ_PUSH_OPTIONS");
 
       expect(fsm.getState()).toBe("READ_PUSH_OPTIONS");
-      const state = context.state as { pushCommands?: PushCommand[] };
-      expect(state.pushCommands).toHaveLength(1);
-      expect(state.pushCommands?.[0].oldOid).toBe(oldOid);
-      expect(state.pushCommands?.[0].newOid).toBe(newOid);
-      expect(state.pushCommands?.[0].refName).toBe("refs/heads/main");
+      const pushCommands = (context as { pushCommands?: PushCommand[] }).pushCommands;
+      expect(pushCommands).toHaveLength(1);
+      expect(pushCommands?.[0].oldOid).toBe(oldOid);
+      expect(pushCommands?.[0].newOid).toBe(newOid);
+      expect(pushCommands?.[0].refName).toBe("refs/heads/main");
     });
 
     it("detects delete command", async () => {
@@ -424,15 +439,15 @@ describe("Server Push FSM", () => {
         },
         { type: "flush" },
       ]);
-      context.transport = transport;
+      setTransport(context, transport);
 
       const fsm = new Fsm(serverPushTransitions, serverPushHandlers);
       fsm.setState("READ_COMMANDS");
       await fsm.run(context, "CHECK_DELETE_ALLOWED");
 
       expect(fsm.getState()).toBe("CHECK_DELETE_ALLOWED");
-      const state = context.state as { pushCommands?: PushCommand[] };
-      expect(state.pushCommands?.[0].type).toBe("DELETE");
+      const pushCommands = (context as { pushCommands?: PushCommand[] }).pushCommands;
+      expect(pushCommands?.[0].type).toBe("DELETE");
     });
   });
 
@@ -441,12 +456,12 @@ describe("Server Push FSM", () => {
       const oldOid = "a".repeat(40);
       const newOid = "b".repeat(40);
 
-      context.state.refs.set("refs/heads/main", oldOid);
+      getState(context).refs.set("refs/heads/main", oldOid);
       // Repository needs to have oldOid for fast-forward check
       repository = createMockRepository(new Set([oldOid, newOid]));
-      context.repository = repository;
+      setRepository(context, repository);
 
-      (context.state as { pushCommands?: PushCommand[] }).pushCommands = [
+      (context as { pushCommands?: PushCommand[] }).pushCommands = [
         {
           oldOid,
           newOid,
@@ -469,11 +484,11 @@ describe("Server Push FSM", () => {
       const newOid = "b".repeat(40);
       const currentOid = "c".repeat(40);
 
-      context.state.refs.set("refs/heads/main", currentOid); // Different from oldOid
+      getState(context).refs.set("refs/heads/main", currentOid); // Different from oldOid
       repository = createMockRepository(new Set([newOid]));
-      context.repository = repository;
+      setRepository(context, repository);
 
-      (context.state as { pushCommands?: PushCommand[] }).pushCommands = [
+      (context as { pushCommands?: PushCommand[] }).pushCommands = [
         {
           oldOid,
           newOid,
@@ -488,8 +503,8 @@ describe("Server Push FSM", () => {
       await fsm.run(context, "SEND_STATUS");
 
       expect(fsm.getState()).toBe("SEND_STATUS");
-      const state = context.state as { pushCommands?: PushCommand[] };
-      expect(state.pushCommands?.[0].result).toBe("REJECTED_NONFASTFORWARD");
+      const pushCommands = (context as { pushCommands?: PushCommand[] }).pushCommands;
+      expect(pushCommands?.[0].result).toBe("REJECTED_NONFASTFORWARD");
     });
   });
 
@@ -498,7 +513,7 @@ describe("Server Push FSM", () => {
       const oldOid = "a".repeat(40);
       const newOid = "b".repeat(40);
 
-      (context.state as { pushCommands?: PushCommand[] }).pushCommands = [
+      (context as { pushCommands?: PushCommand[] }).pushCommands = [
         {
           oldOid,
           newOid,
@@ -521,7 +536,7 @@ describe("Server Push FSM", () => {
       const oldOid = "a".repeat(40);
       const newOid = "b".repeat(40);
 
-      (context.state as { pushCommands?: PushCommand[] }).pushCommands = [
+      (context as { pushCommands?: PushCommand[] }).pushCommands = [
         {
           oldOid,
           newOid,
