@@ -47,13 +47,14 @@ bd create --title="..." --type=task --priority=2
 **[Full Guide](.claude/workflows/beads-integration.md)**
 
 ### Session Protocol
-Before ending any session:
+After each Beads epic or logically independent task:
 
 ```bash
-pnpm test && pnpm lint:fix && pnpm format:fix  # Quality gates
-bd sync                                         # Sync beads
-git add . && git commit -m "..."               # Commit
-git push                                        # MANDATORY
+pnpm test && pnpm typecheck && pnpm lint:fix && pnpm format:fix  # Quality gates
+git add <files> && git commit -m "..."                            # Commit
+git push                                                          # Push immediately
 ```
+
+Before ending any session, ensure all work is committed and pushed.
 
 **[Full Guide](.claude/workflows/session-protocol.md)**
