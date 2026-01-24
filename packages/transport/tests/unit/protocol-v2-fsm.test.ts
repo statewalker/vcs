@@ -1,21 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { PackImportResult, RepositoryFacade } from "../../src/api/repository-facade.js";
 import type { PktLineResult, SidebandResult, TransportApi } from "../../src/api/transport-api.js";
-import {
-  getConfig,
-  getOutput,
-  getState,
-  type ProcessContext,
-  setConfig,
-  setOutput,
-  setRefStore,
-  setRepository,
-  setState,
-  setTransport,
-} from "../../src/context/context-adapters.js";
 import { HandlerOutput } from "../../src/context/handler-output.js";
 import { ProcessConfiguration } from "../../src/context/process-config.js";
-import type { RefStore } from "../../src/context/process-context.js";
+import type { ProcessContext, RefStore } from "../../src/context/process-context.js";
 import { ProtocolState } from "../../src/context/protocol-state.js";
 import { Fsm } from "../../src/fsm/index.js";
 import {
@@ -184,13 +172,14 @@ describe("Client V2 FSM", () => {
     transport = createMockTransport();
     repository = createMockRepository();
     refStore = createMockRefStore(new Map([["refs/heads/main", "abc123".padEnd(40, "0")]]));
-    context = {};
-    setTransport(context, transport);
-    setRepository(context, repository);
-    setRefStore(context, refStore);
-    setState(context, new ProtocolState());
-    setOutput(context, new HandlerOutput());
-    setConfig(context, new ProcessConfiguration());
+    context = {
+      transport,
+      repository,
+      refStore,
+      state: new ProtocolState(),
+      output: new HandlerOutput(),
+      config: new ProcessConfiguration(),
+    };
   });
 
   describe("READ_CAPABILITIES state", () => {
@@ -202,35 +191,35 @@ describe("Client V2 FSM", () => {
         { type: "data", payload: new Uint8Array(0), text: "server-option" },
         { type: "flush" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       await fsm.run(context, "SEND_LS_REFS");
 
       expect(fsm.getState()).toBe("SEND_LS_REFS");
-      expect(getState(context).protocolVersion).toBe(2);
-      expect(getState(context).capabilities.has("ls-refs")).toBe(true);
-      expect(getState(context).capabilities.has("fetch")).toBe(true);
-      expect(getState(context).capabilityValues?.get("fetch")).toBe("shallow filter");
+      expect(context.state.protocolVersion).toBe(2);
+      expect(context.state.capabilities.has("ls-refs")).toBe(true);
+      expect(context.state.capabilities.has("fetch")).toBe(true);
+      expect(context.state.capabilityValues?.get("fetch")).toBe("shallow filter");
     });
 
     it("handles EOF error", async () => {
       transport = createMockTransport([{ type: "eof" }]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       await fsm.run(context);
 
       expect(fsm.getState()).toBe("");
-      expect(getOutput(context).error).toBe("Unexpected end of stream");
+      expect(context.output.error).toBe("Unexpected end of stream");
     });
   });
 
   describe("SEND_LS_REFS state", () => {
     it("sends ls-refs command with options", async () => {
-      getConfig(context).lsRefsSymrefs = true;
-      getConfig(context).lsRefsPeel = true;
-      getConfig(context).refPrefixes = ["refs/heads/"];
+      context.config.lsRefsSymrefs = true;
+      context.config.lsRefsPeel = true;
+      context.config.refPrefixes = ["refs/heads/"];
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("SEND_LS_REFS");
@@ -246,8 +235,8 @@ describe("Client V2 FSM", () => {
     });
 
     it("skips ls-refs when refs already known", async () => {
-      getState(context).refs.set("refs/heads/main", "a".repeat(40));
-      getConfig(context).forceRefFetch = false;
+      context.state.refs.set("refs/heads/main", "a".repeat(40));
+      context.config.forceRefFetch = false;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("SEND_LS_REFS");
@@ -271,17 +260,17 @@ describe("Client V2 FSM", () => {
         { type: "data", payload: new Uint8Array(0), text: `${oid2} refs/tags/v1.0 peeled:${oid1}` },
         { type: "flush" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("READ_LS_REFS_RESPONSE");
       await fsm.run(context, "COMPUTE_WANTS");
 
       expect(fsm.getState()).toBe("COMPUTE_WANTS");
-      expect(getState(context).refs.get("refs/heads/main")).toBe(oid1);
-      expect(getState(context).refs.get("refs/tags/v1.0")).toBe(oid2);
-      expect(getState(context).symrefs?.get("refs/heads/main")).toBe("refs/heads/master");
-      expect(getState(context).peeled?.get("refs/tags/v1.0")).toBe(oid1);
+      expect(context.state.refs.get("refs/heads/main")).toBe(oid1);
+      expect(context.state.refs.get("refs/tags/v1.0")).toBe(oid2);
+      expect(context.state.symrefs?.get("refs/heads/main")).toBe("refs/heads/master");
+      expect(context.state.peeled?.get("refs/tags/v1.0")).toBe(oid1);
     });
   });
 
@@ -290,27 +279,27 @@ describe("Client V2 FSM", () => {
       const oid1 = "a".repeat(40);
       const oid2 = "b".repeat(40);
 
-      getState(context).refs.set("refs/heads/main", oid1);
-      getState(context).refs.set("refs/heads/feature", oid2);
+      context.state.refs.set("refs/heads/main", oid1);
+      context.state.refs.set("refs/heads/feature", oid2);
       // Repository doesn't have oid1
       repository = createMockRepository(new Set([oid2]));
-      setRepository(context, repository);
+      context.repository = repository;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("COMPUTE_WANTS");
       await fsm.run(context, "SEND_FETCH");
 
       expect(fsm.getState()).toBe("SEND_FETCH");
-      expect(getState(context).wants.has(oid1)).toBe(true);
-      expect(getState(context).wants.has(oid2)).toBe(false);
+      expect(context.state.wants.has(oid1)).toBe(true);
+      expect(context.state.wants.has(oid2)).toBe(false);
     });
 
     it("returns NO_WANTS when up to date", async () => {
       const oid = "a".repeat(40);
 
-      getState(context).refs.set("refs/heads/main", oid);
+      context.state.refs.set("refs/heads/main", oid);
       repository = createMockRepository(new Set([oid]));
-      setRepository(context, repository);
+      context.repository = repository;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("COMPUTE_WANTS");
@@ -324,10 +313,10 @@ describe("Client V2 FSM", () => {
   describe("SEND_FETCH state", () => {
     it("sends fetch command with wants and capabilities", async () => {
       const oid = "a".repeat(40);
-      getState(context).wants.add(oid);
-      getState(context).capabilities.add("thin-pack");
-      getState(context).capabilities.add("ofs-delta");
-      getConfig(context).statelessRpc = true; // Enables sending "done"
+      context.state.wants.add(oid);
+      context.state.capabilities.add("thin-pack");
+      context.state.capabilities.add("ofs-delta");
+      context.config.statelessRpc = true; // Enables sending "done"
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("SEND_FETCH");
@@ -345,9 +334,9 @@ describe("Client V2 FSM", () => {
 
     it("sends want-ref when capability available", async () => {
       const oid = "a".repeat(40);
-      getState(context).wants.add(oid);
-      getState(context).wantedRefs = new Map([["refs/heads/main", oid]]);
-      getState(context).capabilities.add("want-ref");
+      context.state.wants.add(oid);
+      context.state.wantedRefs = new Map([["refs/heads/main", oid]]);
+      context.state.capabilities.add("want-ref");
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("SEND_FETCH");
@@ -358,9 +347,9 @@ describe("Client V2 FSM", () => {
 
     it("sends shallow options", async () => {
       const oid = "a".repeat(40);
-      getState(context).wants.add(oid);
-      getConfig(context).depth = 5;
-      getConfig(context).deepenRelative = true;
+      context.state.wants.add(oid);
+      context.config.depth = 5;
+      context.config.deepenRelative = true;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("SEND_FETCH");
@@ -384,17 +373,17 @@ describe("Client V2 FSM", () => {
         { type: "delim" },
         { type: "data", payload: new Uint8Array(0), text: "packfile" },
       ]);
-      setTransport(context, transport);
-      getState(context).sentDone = true;
+      context.transport = transport;
+      context.state.sentDone = true;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("READ_FETCH_RESPONSE");
       await fsm.run(context, "RECEIVE_PACK");
 
       expect(fsm.getState()).toBe("RECEIVE_PACK");
-      expect(getState(context).commonBase?.has(oid1)).toBe(true);
-      expect(getState(context).commonBase?.has(oid2)).toBe(true);
-      expect(getState(context).serverReady).toBe(true);
+      expect(context.state.commonBase?.has(oid1)).toBe(true);
+      expect(context.state.commonBase?.has(oid2)).toBe(true);
+      expect(context.state.serverReady).toBe(true);
     });
 
     it("returns ACKS_ONLY when flush received without done", async () => {
@@ -402,8 +391,8 @@ describe("Client V2 FSM", () => {
         { type: "data", payload: new Uint8Array(0), text: "acknowledgments" },
         { type: "flush" },
       ]);
-      setTransport(context, transport);
-      getState(context).sentDone = false;
+      context.transport = transport;
+      context.state.sentDone = false;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("READ_FETCH_RESPONSE");
@@ -416,8 +405,8 @@ describe("Client V2 FSM", () => {
       transport = createMockTransport([
         { type: "data", payload: new Uint8Array(0), text: "shallow-info" },
       ]);
-      setTransport(context, transport);
-      getState(context).sentDone = true;
+      context.transport = transport;
+      context.state.sentDone = true;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("READ_FETCH_RESPONSE");
@@ -430,8 +419,8 @@ describe("Client V2 FSM", () => {
       transport = createMockTransport([
         { type: "data", payload: new Uint8Array(0), text: "wanted-refs" },
       ]);
-      setTransport(context, transport);
-      getState(context).sentDone = true;
+      context.transport = transport;
+      context.state.sentDone = true;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("READ_FETCH_RESPONSE");
@@ -451,15 +440,15 @@ describe("Client V2 FSM", () => {
         { type: "data", payload: new Uint8Array(0), text: `unshallow ${oid2}` },
         { type: "delim" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("PROCESS_SHALLOW");
       await fsm.run(context, "READ_FETCH_RESPONSE");
 
       expect(fsm.getState()).toBe("READ_FETCH_RESPONSE");
-      expect(getState(context).clientShallow?.has(oid1)).toBe(true);
-      expect(getState(context).serverUnshallow?.has(oid2)).toBe(true);
+      expect(context.state.clientShallow?.has(oid1)).toBe(true);
+      expect(context.state.serverUnshallow?.has(oid2)).toBe(true);
     });
   });
 
@@ -473,15 +462,15 @@ describe("Client V2 FSM", () => {
         { type: "data", payload: new Uint8Array(0), text: `${oid2} refs/heads/feature` },
         { type: "delim" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("PROCESS_REFS");
       await fsm.run(context, "READ_FETCH_RESPONSE");
 
       expect(fsm.getState()).toBe("READ_FETCH_RESPONSE");
-      expect(getState(context).resolvedWantedRefs?.get("refs/heads/main")).toBe(oid1);
-      expect(getState(context).resolvedWantedRefs?.get("refs/heads/feature")).toBe(oid2);
+      expect(context.state.resolvedWantedRefs?.get("refs/heads/main")).toBe(oid1);
+      expect(context.state.resolvedWantedRefs?.get("refs/heads/feature")).toBe(oid2);
     });
   });
 
@@ -490,14 +479,14 @@ describe("Client V2 FSM", () => {
       const oid1 = "a".repeat(40);
       const oid2 = "b".repeat(40);
 
-      getState(context).resolvedWantedRefs = new Map([
+      context.state.resolvedWantedRefs = new Map([
         ["refs/heads/main", oid1],
         ["refs/heads/feature", oid2],
       ]);
 
       const refs = new Map<string, string>();
       refStore = createMockRefStore(refs);
-      setRefStore(context, refStore);
+      context.refStore = refStore;
 
       const fsm = new Fsm(clientV2Transitions, clientV2Handlers);
       fsm.setState("UPDATE_REFS");
@@ -520,13 +509,14 @@ describe("Server V2 FSM", () => {
     transport = createMockTransport();
     repository = createMockRepository();
     refStore = createMockRefStore(new Map([["refs/heads/main", "abc123".padEnd(40, "0")]]));
-    context = {};
-    setTransport(context, transport);
-    setRepository(context, repository);
-    setRefStore(context, refStore);
-    setState(context, new ProtocolState());
-    setOutput(context, new HandlerOutput());
-    setConfig(context, new ProcessConfiguration());
+    context = {
+      transport,
+      repository,
+      refStore,
+      state: new ProtocolState(),
+      output: new HandlerOutput(),
+      config: new ProcessConfiguration(),
+    };
   });
 
   describe("SEND_CAPABILITIES state", () => {
@@ -541,7 +531,7 @@ describe("Server V2 FSM", () => {
     });
 
     it("uses custom capabilities when configured", async () => {
-      getConfig(context).serverCapabilities = ["version 2", "ls-refs", "custom-cap"];
+      context.config.serverCapabilities = ["version 2", "ls-refs", "custom-cap"];
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       await fsm.run(context, "READ_COMMAND");
@@ -555,35 +545,35 @@ describe("Server V2 FSM", () => {
       transport = createMockTransport([
         { type: "data", payload: new Uint8Array(0), text: "command=ls-refs" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("READ_COMMAND");
       await fsm.run(context, "HANDLE_LS_REFS");
 
       expect(fsm.getState()).toBe("HANDLE_LS_REFS");
-      expect(getState(context).currentCommand).toBe("ls-refs");
+      expect(context.state.currentCommand).toBe("ls-refs");
     });
 
     it("recognizes fetch command", async () => {
       transport = createMockTransport([
         { type: "data", payload: new Uint8Array(0), text: "command=fetch" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("READ_COMMAND");
       await fsm.run(context, "HANDLE_FETCH");
 
       expect(fsm.getState()).toBe("HANDLE_FETCH");
-      expect(getState(context).currentCommand).toBe("fetch");
+      expect(context.state.currentCommand).toBe("fetch");
     });
 
     it("recognizes object-info command", async () => {
       transport = createMockTransport([
         { type: "data", payload: new Uint8Array(0), text: "command=object-info" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("READ_COMMAND");
@@ -594,7 +584,7 @@ describe("Server V2 FSM", () => {
 
     it("returns FLUSH on client disconnect", async () => {
       transport = createMockTransport([{ type: "flush" }]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("READ_COMMAND");
@@ -608,14 +598,14 @@ describe("Server V2 FSM", () => {
       transport = createMockTransport([
         { type: "data", payload: new Uint8Array(0), text: "command=unknown" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("READ_COMMAND");
       await fsm.run(context);
 
       expect(fsm.getState()).toBe("");
-      expect(getOutput(context).error).toContain("Unknown command");
+      expect(context.output.error).toContain("Unknown command");
     });
   });
 
@@ -630,14 +620,14 @@ describe("Server V2 FSM", () => {
           ["refs/tags/v1.0", oid2],
         ]),
       );
-      setRefStore(context, refStore);
+      context.refStore = refStore;
 
       transport = createMockTransport([
         { type: "delim" },
         { type: "data", payload: new Uint8Array(0), text: "ref-prefix refs/heads/" },
         { type: "flush" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("HANDLE_LS_REFS");
@@ -655,14 +645,14 @@ describe("Server V2 FSM", () => {
         new Map([["HEAD", oid]]),
         new Map([["HEAD", "refs/heads/main"]]),
       );
-      setRefStore(context, refStore);
+      context.refStore = refStore;
 
       transport = createMockTransport([
         { type: "delim" },
         { type: "data", payload: new Uint8Array(0), text: "symrefs" },
         { type: "flush" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("HANDLE_LS_REFS");
@@ -678,8 +668,7 @@ describe("Server V2 FSM", () => {
       const oid2 = "b".repeat(40);
 
       // Initialize fetch request via HANDLE_FETCH first
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest =
-        createEmptyFetchRequest();
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = createEmptyFetchRequest();
 
       transport = createMockTransport([
         { type: "delim" },
@@ -692,14 +681,14 @@ describe("Server V2 FSM", () => {
         { type: "data", payload: new Uint8Array(0), text: "done" },
         { type: "flush" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("PARSE_FETCH");
       await fsm.run(context, "VALIDATE_FETCH_WANTS");
 
       expect(fsm.getState()).toBe("VALIDATE_FETCH_WANTS");
-      const state = getState(context) as { fetchRequest?: FetchV2Request };
+      const state = context.state as { fetchRequest?: FetchV2Request };
       expect(state.fetchRequest?.wants).toContain(oid1);
       expect(state.fetchRequest?.wantRefs).toContain("refs/heads/main");
       expect(state.fetchRequest?.haves).toContain(oid2);
@@ -714,24 +703,24 @@ describe("Server V2 FSM", () => {
     it("resolves want-refs to OIDs", async () => {
       const oid = "a".repeat(40);
 
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest = {
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = {
         ...createEmptyFetchRequest(),
         wantRefs: ["refs/heads/main"],
       };
       refStore = createMockRefStore(new Map([["refs/heads/main", oid]]));
-      setRefStore(context, refStore);
+      context.refStore = refStore;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("VALIDATE_FETCH_WANTS");
       await fsm.run(context, "PROCESS_HAVES");
 
       expect(fsm.getState()).toBe("PROCESS_HAVES");
-      expect(getState(context).wants.has(oid)).toBe(true);
-      expect(getState(context).wantedRefs?.get("refs/heads/main")).toBe(oid);
+      expect(context.state.wants.has(oid)).toBe(true);
+      expect(context.state.wantedRefs?.get("refs/heads/main")).toBe(oid);
     });
 
     it("returns INVALID_WANT for unknown ref", async () => {
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest = {
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = {
         ...createEmptyFetchRequest(),
         wantRefs: ["refs/heads/nonexistent"],
       };
@@ -741,25 +730,25 @@ describe("Server V2 FSM", () => {
       await fsm.run(context, "SEND_ERROR");
 
       expect(fsm.getState()).toBe("SEND_ERROR");
-      expect(getOutput(context).error).toContain("Unknown ref");
+      expect(context.output.error).toContain("Unknown ref");
     });
 
     it("returns INVALID_WANT for unknown object", async () => {
       const oid = "a".repeat(40);
 
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest = {
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = {
         ...createEmptyFetchRequest(),
         wants: [oid],
       };
       repository = createMockRepository(new Set()); // Empty repo
-      setRepository(context, repository);
+      context.repository = repository;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("VALIDATE_FETCH_WANTS");
       await fsm.run(context, "SEND_ERROR");
 
       expect(fsm.getState()).toBe("SEND_ERROR");
-      expect(getOutput(context).error).toContain("Object not found");
+      expect(context.output.error).toContain("Object not found");
     });
   });
 
@@ -769,29 +758,29 @@ describe("Server V2 FSM", () => {
       const oid2 = "b".repeat(40);
       const oid3 = "c".repeat(40);
 
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest = {
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = {
         ...createEmptyFetchRequest(),
         haves: [oid1, oid2, oid3],
       };
       repository = createMockRepository(new Set([oid1, oid3])); // Has oid1 and oid3
-      setRepository(context, repository);
+      context.repository = repository;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("PROCESS_HAVES");
       await fsm.run(context, "CHECK_READY_TO_SEND");
 
       expect(fsm.getState()).toBe("CHECK_READY_TO_SEND");
-      expect(getState(context).commonBase.has(oid1)).toBe(true);
-      expect(getState(context).commonBase.has(oid3)).toBe(true);
-      expect(getState(context).commonBase.has(oid2)).toBe(false);
-      expect(getState(context).acks).toContain(oid1);
-      expect(getState(context).acks).toContain(oid3);
+      expect(context.state.commonBase.has(oid1)).toBe(true);
+      expect(context.state.commonBase.has(oid3)).toBe(true);
+      expect(context.state.commonBase.has(oid2)).toBe(false);
+      expect(context.state.acks).toContain(oid1);
+      expect(context.state.acks).toContain(oid3);
     });
   });
 
   describe("CHECK_READY_TO_SEND state", () => {
     it("returns READY when client sent done", async () => {
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest = {
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = {
         ...createEmptyFetchRequest(),
         done: true,
       };
@@ -804,12 +793,12 @@ describe("Server V2 FSM", () => {
     });
 
     it("returns NOT_READY when no common base and no done", async () => {
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest = {
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = {
         ...createEmptyFetchRequest(),
         haves: ["a".repeat(40)],
         done: false,
       };
-      getState(context).commonBase = new Set();
+      context.state.commonBase = new Set();
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("CHECK_READY_TO_SEND");
@@ -822,7 +811,7 @@ describe("Server V2 FSM", () => {
   describe("SEND_ACKS_ONLY state", () => {
     it("sends acknowledgments without packfile", async () => {
       const oid = "a".repeat(40);
-      getState(context).acks = [oid];
+      context.state.acks = [oid];
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("SEND_ACKS_ONLY");
@@ -838,7 +827,7 @@ describe("Server V2 FSM", () => {
   describe("SEND_ACKNOWLEDGMENTS state", () => {
     it("sends acks section with ready", async () => {
       const oid = "a".repeat(40);
-      getState(context).acks = [oid];
+      context.state.acks = [oid];
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("SEND_ACKNOWLEDGMENTS");
@@ -854,8 +843,7 @@ describe("Server V2 FSM", () => {
 
   describe("SEND_SHALLOW_INFO state", () => {
     it("skips when no shallow requested", async () => {
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest =
-        createEmptyFetchRequest();
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = createEmptyFetchRequest();
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("SEND_SHALLOW_INFO");
@@ -867,11 +855,11 @@ describe("Server V2 FSM", () => {
     it("sends shallow info when deepen requested", async () => {
       const oid = "a".repeat(40);
 
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest = {
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = {
         ...createEmptyFetchRequest(),
         deepen: 5,
       };
-      getState(context).serverShallow = new Set([oid]);
+      context.state.serverShallow = new Set([oid]);
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("SEND_SHALLOW_INFO");
@@ -885,8 +873,7 @@ describe("Server V2 FSM", () => {
 
   describe("SEND_WANTED_REFS state", () => {
     it("skips when no want-refs used", async () => {
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest =
-        createEmptyFetchRequest();
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = createEmptyFetchRequest();
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("SEND_WANTED_REFS");
@@ -898,11 +885,11 @@ describe("Server V2 FSM", () => {
     it("sends resolved wanted-refs", async () => {
       const oid = "a".repeat(40);
 
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest = {
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = {
         ...createEmptyFetchRequest(),
         wantRefs: ["refs/heads/main"],
       };
-      getState(context).wantedRefs = new Map([["refs/heads/main", oid]]);
+      context.state.wantedRefs = new Map([["refs/heads/main", oid]]);
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("SEND_WANTED_REFS");
@@ -918,11 +905,10 @@ describe("Server V2 FSM", () => {
     it("sends packfile section and pack data", async () => {
       const oid = "a".repeat(40);
 
-      (getState(context) as { fetchRequest?: FetchV2Request }).fetchRequest =
-        createEmptyFetchRequest();
-      getState(context).wants = new Set([oid]);
+      (context.state as { fetchRequest?: FetchV2Request }).fetchRequest = createEmptyFetchRequest();
+      context.state.wants = new Set([oid]);
       repository = createMockRepository(new Set([oid]));
-      setRepository(context, repository);
+      context.repository = repository;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("SEND_PACKFILE");
@@ -940,7 +926,7 @@ describe("Server V2 FSM", () => {
       const oid2 = "b".repeat(40);
 
       repository = createMockRepository(new Set([oid1]));
-      setRepository(context, repository);
+      context.repository = repository;
 
       transport = createMockTransport([
         { type: "delim" },
@@ -948,7 +934,7 @@ describe("Server V2 FSM", () => {
         { type: "data", payload: new Uint8Array(0), text: `oid ${oid2}` },
         { type: "flush" },
       ]);
-      setTransport(context, transport);
+      context.transport = transport;
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("HANDLE_OBJECT_INFO");
@@ -962,7 +948,7 @@ describe("Server V2 FSM", () => {
 
   describe("SEND_ERROR state", () => {
     it("sends ERR message", async () => {
-      getOutput(context).error = "Something went wrong";
+      context.output.error = "Something went wrong";
 
       const fsm = new Fsm(serverV2Transitions, serverV2Handlers);
       fsm.setState("SEND_ERROR");
