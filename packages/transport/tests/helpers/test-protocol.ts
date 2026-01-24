@@ -11,13 +11,14 @@
  * - Support for testing both client and server sides
  */
 
-import { type Mock, vi } from "vitest";
-import type { RepositoryFacade } from "../../src/api/repository-facade.js";
+import { vi, type Mock } from "vitest";
+
 import type { TransportApi } from "../../src/api/transport-api.js";
 import { HandlerOutput } from "../../src/context/handler-output.js";
 import { ProcessConfiguration } from "../../src/context/process-config.js";
 import type { ProcessContext, RefStore } from "../../src/context/process-context.js";
 import { ProtocolState } from "../../src/context/protocol-state.js";
+import type { RepositoryFacade } from "../../src/api/repository-facade.js";
 
 /**
  * Packet line result from transport
