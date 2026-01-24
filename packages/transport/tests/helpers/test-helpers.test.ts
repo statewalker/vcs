@@ -5,28 +5,26 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-  createInitializedHttpServer,
-  createTestHttpServer,
-  TestHttpServer,
-} from "./test-http-server.js";
 
 import {
-  createMockRefStore,
-  createMockTransport,
-  createTestContext,
-  ProtocolMessages,
-  packets,
-  randomOid,
-  testOid,
-  verifyPackets,
-} from "./test-protocol.js";
-import {
-  createComplexRepository,
-  createInitializedRepository,
   createTestRepository,
+  createInitializedRepository,
+  createComplexRepository,
   TestRepository,
 } from "./test-repository.js";
+
+import {
+  createMockTransport,
+  createMockRefStore,
+  createTestContext,
+  packets,
+  ProtocolMessages,
+  verifyPackets,
+  randomOid,
+  testOid,
+} from "./test-protocol.js";
+
+import { createTestHttpServer, createInitializedHttpServer, TestHttpServer } from "./test-http-server.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test Repository Tests
@@ -321,7 +319,10 @@ describe("ProtocolMessages", () => {
 
 describe("verifyPackets", () => {
   it("should pass for matching packets", () => {
-    const actual = [{ type: "data" as const, text: "hello" }, { type: "flush" as const }];
+    const actual = [
+      { type: "data" as const, text: "hello" },
+      { type: "flush" as const },
+    ];
 
     expect(() =>
       verifyPackets(actual, [{ type: "data", text: "hello" }, { type: "flush" }]),
@@ -337,9 +338,7 @@ describe("verifyPackets", () => {
   it("should support pattern matching", () => {
     const actual = [{ type: "data" as const, text: "want abc123" }];
 
-    expect(() =>
-      verifyPackets(actual, [{ type: "data", pattern: /^want [a-f0-9]+$/ }]),
-    ).not.toThrow();
+    expect(() => verifyPackets(actual, [{ type: "data", pattern: /^want [a-f0-9]+$/ }])).not.toThrow();
   });
 });
 
