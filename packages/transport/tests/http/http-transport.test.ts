@@ -1028,6 +1028,137 @@ describe("httpResponseToFetchResponse", async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// decodeSidebandResponse Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("decodeSidebandResponse", async () => {
+  const { decodeSidebandResponse } = await import("../../src/adapters/http/http-duplex.js");
+
+  function pktLine(data: string | Uint8Array): Uint8Array {
+    const content = typeof data === "string" ? new TextEncoder().encode(data) : data;
+    const length = content.length + 4;
+    const lengthHex = length.toString(16).padStart(4, "0");
+    const result = new Uint8Array(length);
+    result.set(new TextEncoder().encode(lengthHex), 0);
+    result.set(content, 4);
+    return result;
+  }
+
+  function sidebandPkt(channel: number, data: Uint8Array): Uint8Array {
+    const content = new Uint8Array(1 + data.length);
+    content[0] = channel;
+    content.set(data, 1);
+    return pktLine(content);
+  }
+
+  function flush(): Uint8Array {
+    return new TextEncoder().encode("0000");
+  }
+
+  function concat(...arrays: Uint8Array[]): Uint8Array {
+    const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const arr of arrays) {
+      result.set(arr, offset);
+      offset += arr.length;
+    }
+    return result;
+  }
+
+  it("should decode pack data from sideband channel 1", () => {
+    const packData = new Uint8Array([0x50, 0x41, 0x43, 0x4b, 0, 0, 0, 2]); // PACK header
+    const response = concat(pktLine("NAK\n"), sidebandPkt(1, packData), flush());
+
+    const result = decodeSidebandResponse(response);
+
+    expect(result.packData).toEqual(packData);
+    expect(result.error).toBeUndefined();
+  });
+
+  it("should concatenate multiple pack data chunks", () => {
+    const chunk1 = new Uint8Array([0x50, 0x41, 0x43, 0x4b]); // PACK
+    const chunk2 = new Uint8Array([0, 0, 0, 2]); // version
+    const response = concat(
+      pktLine("NAK\n"),
+      sidebandPkt(1, chunk1),
+      sidebandPkt(1, chunk2),
+      flush(),
+    );
+
+    const result = decodeSidebandResponse(response);
+
+    expect(result.packData.length).toBe(8);
+    expect(result.packData.slice(0, 4)).toEqual(chunk1);
+    expect(result.packData.slice(4, 8)).toEqual(chunk2);
+  });
+
+  it("should capture progress messages from channel 2", () => {
+    const packData = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
+    const progress = new TextEncoder().encode("Counting objects: 10%\r");
+    const response = concat(
+      pktLine("NAK\n"),
+      sidebandPkt(2, progress),
+      sidebandPkt(1, packData),
+      flush(),
+    );
+
+    const result = decodeSidebandResponse(response);
+
+    expect(result.progressMessages).toHaveLength(1);
+    expect(result.progressMessages[0]).toBe("Counting objects: 10%\r");
+    expect(result.packData).toEqual(packData);
+  });
+
+  it("should capture error from channel 3", () => {
+    const errorMsg = new TextEncoder().encode("Repository not found");
+    const response = concat(pktLine("NAK\n"), sidebandPkt(3, errorMsg), flush());
+
+    const result = decodeSidebandResponse(response);
+
+    expect(result.error).toBe("Repository not found");
+    expect(result.packData.length).toBe(0);
+  });
+
+  it("should skip NAK/ACK lines", () => {
+    const packData = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
+    const response = concat(
+      pktLine("NAK\n"),
+      pktLine("ACK abc123 ready\n"),
+      sidebandPkt(1, packData),
+      flush(),
+    );
+
+    const result = decodeSidebandResponse(response);
+
+    expect(result.packData).toEqual(packData);
+  });
+
+  it("should handle empty pack data", () => {
+    const response = concat(pktLine("NAK\n"), flush());
+
+    const result = decodeSidebandResponse(response);
+
+    expect(result.packData.length).toBe(0);
+    expect(result.error).toBeUndefined();
+  });
+
+  it("should handle shallow/unshallow lines", () => {
+    const packData = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
+    const response = concat(
+      pktLine("shallow " + "a".repeat(40) + "\n"),
+      pktLine("unshallow " + "b".repeat(40) + "\n"),
+      sidebandPkt(1, packData),
+      flush(),
+    );
+
+    const result = decodeSidebandResponse(response);
+
+    expect(result.packData).toEqual(packData);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // createFetchHandler Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
