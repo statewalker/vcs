@@ -152,10 +152,10 @@ describe("HTTP Fetch E2E", () => {
     await clientCtx.cleanup();
   });
 
-  // Note: This test is skipped because full pack import/export pipeline
-  // requires VcsRepositoryFacade with proper SerializationApi integration.
-  // The HTTP protocol layer is working correctly, but pack processing
-  // with real repositories needs end-to-end integration work.
+  // Note: This test is skipped because the pack import logic in core/serialization
+  // has an issue where it treats commit objects as blobs. The HTTP transport
+  // layer (including sideband decoding) is now working correctly.
+  // See webrun-vcs-1tv73 for the transport fix.
   it.skip("fetches refs from server", async () => {
     // Add commit to server
     await createTestCommit(serverCtx.repository, "Server commit", {

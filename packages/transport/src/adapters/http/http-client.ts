@@ -19,7 +19,11 @@ import { ProtocolState } from "../../context/protocol-state.js";
 import type { PushResult, RefPushStatus } from "../../operations/push-over-duplex.js";
 import { createEmptyPack } from "../../protocol/pack-utils.js";
 import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
-import { collectChunks, readableStreamToAsyncIterable } from "./http-duplex.js";
+import {
+  collectChunks,
+  decodeSidebandResponse,
+  readableStreamToAsyncIterable,
+} from "./http-duplex.js";
 
 /**
  * Options for HTTP fetch operation.
@@ -181,15 +185,24 @@ export async function httpFetch(
       };
     }
 
-    // Process response - skip ACK/NAK, import pack
+    // Process response - decode sideband and extract pack data
     const responseData = await collectChunks(
       readableStreamToAsyncIterable(uploadPackResponse.body),
     );
 
-    // Find where pack data starts (after flush or NAK)
-    const packStartIndex = findPackDataStart(responseData);
+    // Decode sideband response to extract pack data
+    const sidebandResult = decodeSidebandResponse(responseData);
 
-    if (packStartIndex < 0) {
+    // Check for server error
+    if (sidebandResult.error) {
+      return {
+        success: false,
+        error: sidebandResult.error,
+      };
+    }
+
+    // Check if we got any pack data
+    if (sidebandResult.packData.length === 0) {
       // No pack data - might be up-to-date
       return {
         success: true,
@@ -199,7 +212,7 @@ export async function httpFetch(
     }
 
     // Import pack data
-    const packData = responseData.slice(packStartIndex);
+    const packData = sidebandResult.packData;
     const packStream = (async function* () {
       yield packData;
     })();
@@ -282,30 +295,6 @@ function parseRefAdvertisement(data: Uint8Array, state: ProtocolState): void {
       }
     }
   }
-}
-
-/**
- * Finds where pack data starts in the response.
- *
- * Pack data starts after "NAK" or after ACK negotiation.
- * It's identified by the PACK signature (0x50, 0x41, 0x43, 0x4b).
- */
-function findPackDataStart(data: Uint8Array): number {
-  // Look for PACK signature
-  const packSignature = [0x50, 0x41, 0x43, 0x4b]; // "PACK"
-
-  for (let i = 0; i <= data.length - 4; i++) {
-    if (
-      data[i] === packSignature[0] &&
-      data[i + 1] === packSignature[1] &&
-      data[i + 2] === packSignature[2] &&
-      data[i + 3] === packSignature[3]
-    ) {
-      return i;
-    }
-  }
-
-  return -1;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
