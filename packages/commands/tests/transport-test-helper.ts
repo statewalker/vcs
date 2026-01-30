@@ -2,50 +2,31 @@
  * Transport test helpers for @statewalker/vcs-commands
  *
  * Provides test infrastructure for remote operations (fetch, push, clone, pull).
- * Uses an in-memory Git HTTP server for testing.
+ * Uses an in-memory Git HTTP server for testing with createVcsRepositoryAccess.
  */
 
-import {
-  type RefStore as CoreRefStore,
-  DefaultSerializationApi,
-  type GitObjectStore,
-  isSymbolicRef,
-  type ObjectId,
-} from "@statewalker/vcs-core";
+import type { ObjectId } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
   MemoryRefStore,
   MemoryStagingStore,
   MemoryTagStore,
 } from "@statewalker/vcs-store-mem";
-import {
-  createFetchHandler,
-  createRepositoryFacade,
-  type RefStore as TransportRefStore,
-} from "@statewalker/vcs-transport";
+import { createGitHttpServer } from "@statewalker/vcs-transport";
+import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 
 import { Git, type GitStore } from "../src/index.js";
 import { testAuthor } from "./test-helper.js";
 
 /**
- * Extended GitStore that also exposes the underlying object store.
- * This is needed for creating RepositoryFacade for transport operations.
- */
-export interface ExtendedGitStore extends GitStore {
-  /** Low-level Git object store for pack operations */
-  objects: GitObjectStore;
-}
-
-/**
  * Create a GitStore with Git-format object storage for testing.
  *
  * All stores coordinate to use Git-format SHA-1 IDs, making this
- * compatible with transport operations.
+ * compatible with createVcsRepositoryAccess.
  */
-export function createGitFormatTestStore(): ExtendedGitStore {
+export function createGitFormatTestStore(): GitStore {
   const objectStores = createMemoryObjectStores();
   return {
-    objects: objectStores.objects,
     blobs: objectStores.blobs,
     trees: objectStores.trees,
     commits: objectStores.commits,
@@ -66,7 +47,7 @@ export interface TestServer {
   /** Base URL for the server */
   baseUrl: string;
   /** The server-side GitStore */
-  serverStore: ExtendedGitStore;
+  serverStore: GitStore;
   /** The server-side Git facade */
   serverGit: Git;
 }
@@ -96,89 +77,34 @@ function createMockFetch(
 }
 
 /**
- * Create a transport RefStore adapter from a vcs-core RefStore.
- */
-function createTransportRefStoreAdapter(refs: CoreRefStore): TransportRefStore {
-  return {
-    async get(name: string): Promise<string | undefined> {
-      const ref = await refs.resolve(name);
-      return ref?.objectId;
-    },
-
-    async update(name: string, oid: string): Promise<void> {
-      await refs.set(name, oid);
-    },
-
-    async listAll(): Promise<Iterable<[string, string]>> {
-      const result: Array<[string, string]> = [];
-      for await (const ref of refs.list()) {
-        if (!isSymbolicRef(ref) && ref.objectId) {
-          result.push([ref.name, ref.objectId]);
-        }
-      }
-      return result;
-    },
-
-    async getSymrefTarget(name: string): Promise<string | undefined> {
-      const ref = await refs.get(name);
-      if (ref && isSymbolicRef(ref)) {
-        return ref.target;
-      }
-      return undefined;
-    },
-
-    async isRefTip(oid: string): Promise<boolean> {
-      for await (const ref of refs.list()) {
-        if (!isSymbolicRef(ref) && ref.objectId === oid) {
-          return true;
-        }
-      }
-      return false;
-    },
-  };
-}
-
-/**
  * Create a test HTTP server for Git operations.
  *
  * @param serverStore Optional pre-configured server store
  * @returns Test server configuration
  */
-export function createTestServer(serverStore?: ExtendedGitStore): TestServer {
+export function createTestServer(serverStore?: GitStore): TestServer {
   const store = serverStore ?? createGitFormatTestStore();
 
-  // Create serialization API for pack operations
-  const serialization = new DefaultSerializationApi({
-    stores: {
-      blobs: store.blobs,
-      trees: store.trees,
-      commits: store.commits,
-      tags: store.tags,
-    },
-  });
-
-  // Create repository facade for transport operations
-  const repository = createRepositoryFacade({
-    objects: store.objects,
+  // Use createVcsRepositoryAccess with high-level stores
+  const repositoryAccess = createVcsRepositoryAccess({
+    blobs: store.blobs,
+    trees: store.trees,
     commits: store.commits,
     tags: store.tags,
     refs: store.refs,
-    serialization,
   });
 
-  // Create transport ref store adapter
-  const refStore = createTransportRefStoreAdapter(store.refs);
-
-  const serverFetch = createFetchHandler({
-    async resolveRepository(repoPath) {
+  const server = createGitHttpServer({
+    async resolveRepository(_request, repoPath) {
       if (repoPath) {
-        return { repository, refStore };
+        return repositoryAccess;
       }
       return null;
     },
   });
 
   const baseUrl = "http://localhost:3000";
+  const serverFetch = (request: Request) => server.fetch(request);
 
   return {
     fetch: serverFetch,
@@ -219,38 +145,26 @@ export async function createInitializedTestServer(): Promise<
   // Initialize staging
   await store.staging.readTree(store.trees, emptyTreeId);
 
-  // Create serialization API for pack operations
-  const serialization = new DefaultSerializationApi({
-    stores: {
-      blobs: store.blobs,
-      trees: store.trees,
-      commits: store.commits,
-      tags: store.tags,
-    },
-  });
-
-  // Create repository facade for transport operations
-  const repository = createRepositoryFacade({
-    objects: store.objects,
+  // Use createVcsRepositoryAccess with high-level stores
+  const repositoryAccess = createVcsRepositoryAccess({
+    blobs: store.blobs,
+    trees: store.trees,
     commits: store.commits,
     tags: store.tags,
     refs: store.refs,
-    serialization,
   });
 
-  // Create transport ref store adapter
-  const refStore = createTransportRefStoreAdapter(store.refs);
-
-  const serverFetch = createFetchHandler({
-    async resolveRepository(repoPath) {
+  const server = createGitHttpServer({
+    async resolveRepository(_request, repoPath) {
       if (repoPath) {
-        return { repository, refStore };
+        return repositoryAccess;
       }
       return null;
     },
   });
 
   const baseUrl = "http://localhost:3000";
+  const serverFetch = (request: Request) => server.fetch(request);
 
   return {
     fetch: serverFetch,
@@ -286,7 +200,7 @@ export function createTestFetch(server: TestServer): typeof fetch {
  * Add a file to a store and create a commit.
  *
  * This function stores objects in Git format, compatible with
- * transport operations.
+ * createVcsRepositoryAccess.
  */
 export async function addFileAndCommit(
   store: GitStore,

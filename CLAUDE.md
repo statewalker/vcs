@@ -22,13 +22,6 @@ Write for humans using narrative prose. Show examples before explanations.
 
 **[Full Guide](.claude/documentation/writing-style.md)**
 
-## References
-
-### Source Analysis
-Reference implementations (JGit, Fossil) for analyzing patterns and algorithms.
-
-**[Full Guide](.claude/sources.md)**
-
 ## Workflows
 
 ### Notes
@@ -54,14 +47,13 @@ bd create --title="..." --type=task --priority=2
 **[Full Guide](.claude/workflows/beads-integration.md)**
 
 ### Session Protocol
-After each Beads epic or logically independent task:
+Before ending any session:
 
 ```bash
-pnpm test && pnpm typecheck && pnpm lint:fix && pnpm format:fix  # Quality gates
-git add <files> && git commit -m "..."                            # Commit
-git push                                                          # Push immediately
+pnpm test && pnpm lint:fix && pnpm format:fix  # Quality gates
+bd sync                                         # Sync beads
+git add . && git commit -m "..."               # Commit
+git push                                        # MANDATORY
 ```
-
-Before ending any session, ensure all work is committed and pushed.
 
 **[Full Guide](.claude/workflows/session-protocol.md)**

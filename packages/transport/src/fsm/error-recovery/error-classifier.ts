@@ -4,8 +4,8 @@
  * Classifies runtime errors into categories for the error recovery FSM.
  */
 
-import { getConfig, getOutput, type ProcessContext } from "../../context/context-adapters.js";
 import type { ErrorCategory } from "../../context/handler-output.js";
+import type { ProcessContext } from "../../context/process-context.js";
 
 /**
  * Error event types returned by classifyError.
@@ -36,22 +36,86 @@ export type ErrorEvent =
  */
 export function classifyError(ctx: ProcessContext, error: unknown): ErrorEvent {
   const message = error instanceof Error ? error.message : String(error);
-  const output = getOutput(ctx);
-  const config = getConfig(ctx);
+  ctx.output.error = message;
 
-  // Use shared classification logic
-  const info = createErrorInfo(message, config.allowReconnect ?? false);
+  // Timeout errors
+  if (
+    message.includes("timeout") ||
+    message.includes("Timeout") ||
+    message.includes("timed out") ||
+    message.includes("ETIMEDOUT")
+  ) {
+    ctx.output.errorInfo = {
+      category: "TIMEOUT" as ErrorCategory,
+      message,
+      recoverable: true,
+      retryable: true,
+    };
+    return "TIMEOUT";
+  }
 
-  // Update context with error information
-  output.error = message;
-  output.errorInfo = {
-    category: info.category,
+  // Transport/connection errors
+  if (
+    message.includes("connection") ||
+    message.includes("Connection") ||
+    message.includes("ECONNRESET") ||
+    message.includes("ECONNREFUSED") ||
+    message.includes("EPIPE") ||
+    message.includes("socket") ||
+    message.includes("network") ||
+    message.includes("Network")
+  ) {
+    ctx.output.errorInfo = {
+      category: "TRANSPORT_ERROR" as ErrorCategory,
+      message,
+      recoverable: true,
+      retryable: ctx.config.allowReconnect ?? false,
+    };
+    return "TRANSPORT_ERROR";
+  }
+
+  // Pack errors
+  if (
+    message.includes("pack") ||
+    message.includes("Pack") ||
+    message.includes("corrupt") ||
+    message.includes("checksum") ||
+    message.includes("invalid object")
+  ) {
+    ctx.output.errorInfo = {
+      category: "PACK_ERROR" as ErrorCategory,
+      message,
+      recoverable: false,
+      retryable: false,
+    };
+    return "PACK_ERROR";
+  }
+
+  // Validation errors
+  if (
+    message.includes("invalid") ||
+    message.includes("Invalid") ||
+    message.includes("not found") ||
+    message.includes("unknown ref") ||
+    message.includes("rejected")
+  ) {
+    ctx.output.errorInfo = {
+      category: "VALIDATION_ERROR" as ErrorCategory,
+      message,
+      recoverable: false,
+      retryable: false,
+    };
+    return "VALIDATION_ERROR";
+  }
+
+  // Default: protocol error (not recoverable)
+  ctx.output.errorInfo = {
+    category: "PROTOCOL_ERROR" as ErrorCategory,
     message,
-    recoverable: info.recoverable,
-    retryable: info.retryable,
+    recoverable: false,
+    retryable: false,
   };
-
-  return info.event;
+  return "PROTOCOL_ERROR";
 }
 
 /**
@@ -68,13 +132,8 @@ export function createErrorInfo(
   message: string,
   allowReconnect = false,
 ): { category: ErrorCategory; event: ErrorEvent; recoverable: boolean; retryable: boolean } {
-  // Timeout errors
-  if (
-    message.includes("timeout") ||
-    message.includes("Timeout") ||
-    message.includes("timed out") ||
-    message.includes("ETIMEDOUT")
-  ) {
+  // Timeout
+  if (message.includes("timeout") || message.includes("Timeout") || message.includes("timed out")) {
     return {
       category: "TIMEOUT",
       event: "TIMEOUT",
@@ -83,16 +142,12 @@ export function createErrorInfo(
     };
   }
 
-  // Transport/connection errors
+  // Transport
   if (
     message.includes("connection") ||
     message.includes("Connection") ||
-    message.includes("ECONNRESET") ||
-    message.includes("ECONNREFUSED") ||
-    message.includes("EPIPE") ||
     message.includes("socket") ||
-    message.includes("network") ||
-    message.includes("Network")
+    message.includes("network")
   ) {
     return {
       category: "TRANSPORT_ERROR",
@@ -102,14 +157,8 @@ export function createErrorInfo(
     };
   }
 
-  // Pack errors
-  if (
-    message.includes("pack") ||
-    message.includes("Pack") ||
-    message.includes("corrupt") ||
-    message.includes("checksum") ||
-    message.includes("invalid object")
-  ) {
+  // Pack
+  if (message.includes("pack") || message.includes("corrupt") || message.includes("checksum")) {
     return {
       category: "PACK_ERROR",
       event: "PACK_ERROR",
@@ -118,12 +167,10 @@ export function createErrorInfo(
     };
   }
 
-  // Validation errors
+  // Validation
   if (
     message.includes("invalid") ||
-    message.includes("Invalid") ||
     message.includes("not found") ||
-    message.includes("unknown ref") ||
     message.includes("rejected")
   ) {
     return {

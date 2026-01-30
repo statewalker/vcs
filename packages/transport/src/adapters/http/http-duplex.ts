@@ -7,19 +7,6 @@
  */
 
 import type { Duplex } from "../../api/duplex.js";
-import {
-  SIDEBAND_DATA,
-  SIDEBAND_ERROR,
-  SIDEBAND_PROGRESS,
-} from "../../protocol/constants.js";
-
-/**
- * Options for creating a simple duplex.
- */
-export interface SimpleDuplexOptions {
-  /** Optional callback when close() is called */
-  onClose?: () => void | Promise<void>;
-}
 
 /**
  * Creates a Duplex from an async iterable input and a writer function.
@@ -30,29 +17,15 @@ export interface SimpleDuplexOptions {
  *
  * @param input - Async iterable of incoming chunks
  * @param writer - Function to write outgoing chunks
- * @param options - Optional configuration including onClose callback
  * @returns Duplex interface
  */
 export function createSimpleDuplex(
   input: AsyncIterable<Uint8Array>,
   writer: (data: Uint8Array) => void,
-  options?: SimpleDuplexOptions,
 ): Duplex {
-  let closed = false;
-
   return {
     [Symbol.asyncIterator]: () => input[Symbol.asyncIterator](),
-    write: (data: Uint8Array) => {
-      if (!closed) {
-        writer(data);
-      }
-    },
-    async close(): Promise<void> {
-      if (!closed) {
-        closed = true;
-        await options?.onClose?.();
-      }
-    },
+    write: writer,
   };
 }
 
@@ -151,105 +124,4 @@ export function createHttpClientDuplex(
       return readableStreamToAsyncIterable(responseStream);
     },
   };
-}
-
-/**
- * Result of decoding a sideband response.
- */
-export interface HttpSidebandResult {
-  /** Pack data extracted from sideband channel 1 */
-  packData: Uint8Array;
-  /** Progress messages from sideband channel 2 */
-  progressMessages: string[];
-  /** Error message from sideband channel 3, if any */
-  error?: string;
-}
-
-/**
- * Decodes a sideband-encoded response from git-upload-pack.
- *
- * The response format is:
- * - NAK/ACK pkt-line(s)
- * - Sideband packets: 4-digit hex length + channel byte + data
- * - 0000 (flush)
- *
- * Pack data is on channel 1, progress on channel 2, errors on channel 3.
- *
- * @param data - The raw response bytes
- * @returns Decoded sideband result with pack data and messages
- */
-export function decodeSidebandResponse(data: Uint8Array): HttpSidebandResult {
-  const packChunks: Uint8Array[] = [];
-  const progressMessages: string[] = [];
-  let error: string | undefined;
-  let offset = 0;
-
-  const textDecoder = new TextDecoder();
-
-  while (offset < data.length) {
-    // Need at least 4 bytes for pkt-line length
-    if (offset + 4 > data.length) break;
-
-    // Parse pkt-line length (4 hex digits)
-    const lengthHex = textDecoder.decode(data.slice(offset, offset + 4));
-    const length = parseInt(lengthHex, 16);
-
-    // Handle flush packet (0000)
-    if (length === 0) {
-      offset += 4;
-      break; // End of stream
-    }
-
-    // Handle delimiter packet (0001)
-    if (length === 1) {
-      offset += 4;
-      continue;
-    }
-
-    // Invalid length check
-    if (length < 4 || offset + length > data.length) {
-      break;
-    }
-
-    // Get packet content (excluding length prefix)
-    const content = data.slice(offset + 4, offset + length);
-    offset += length;
-
-    // Skip empty content
-    if (content.length === 0) continue;
-
-    // Check for NAK/ACK (plain text, not sideband)
-    const contentText = textDecoder.decode(content);
-    if (
-      contentText.startsWith("NAK") ||
-      contentText.startsWith("ACK") ||
-      contentText.startsWith("shallow") ||
-      contentText.startsWith("unshallow")
-    ) {
-      continue; // Skip negotiation lines
-    }
-
-    // Check for sideband channel byte
-    const channel = content[0];
-    const payload = content.slice(1);
-
-    if (channel === SIDEBAND_DATA) {
-      packChunks.push(payload);
-    } else if (channel === SIDEBAND_PROGRESS) {
-      progressMessages.push(textDecoder.decode(payload));
-    } else if (channel === SIDEBAND_ERROR) {
-      error = textDecoder.decode(payload);
-    }
-  }
-
-  // Concatenate pack chunks
-  const totalLength = packChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const packData = new Uint8Array(totalLength);
-  let packOffset = 0;
-  for (const chunk of packChunks) {
-    packData.set(chunk, packOffset);
-    packOffset += chunk.length;
-  }
-
-  return { packData, progressMessages, error };
 }

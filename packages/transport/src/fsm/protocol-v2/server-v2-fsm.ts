@@ -7,15 +7,7 @@
  * 3. Send appropriate responses
  */
 
-import {
-  getConfig,
-  getOutput,
-  getRefStore,
-  getRepository,
-  getState,
-  getTransport,
-  type ProcessContext,
-} from "../../context/context-adapters.js";
+import type { ProcessContext } from "../../context/process-context.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 import { createEmptyFetchRequest, type FetchV2Request, SERVER_V2_CAPABILITIES } from "./types.js";
 
@@ -105,21 +97,18 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "SEND_CAPABILITIES",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const config = getConfig(ctx);
-      const output = getOutput(ctx);
       try {
-        await transport.writeLine("version 2");
+        await ctx.transport.writeLine("version 2");
 
-        const capabilities = config.serverCapabilities ?? SERVER_V2_CAPABILITIES;
+        const capabilities = ctx.config.serverCapabilities ?? SERVER_V2_CAPABILITIES;
         for (const cap of capabilities) {
-          await transport.writeLine(cap);
+          await ctx.transport.writeLine(cap);
         }
 
-        await transport.writeFlush();
+        await ctx.transport.writeFlush();
         return "CAPS_SENT";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -129,39 +118,36 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "READ_COMMAND",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
-        const pkt = await transport.readPktLine();
+        const pkt = await ctx.transport.readPktLine();
 
         if (pkt.type === "flush" || pkt.type === "eof") {
           return "FLUSH";
         }
         if (pkt.type === "delim") {
-          output.error = "Unexpected delimiter, expected command";
+          ctx.output.error = "Unexpected delimiter, expected command";
           return "ERROR";
         }
 
         const line = pkt.text;
 
         if (line.startsWith("command=ls-refs")) {
-          state.currentCommand = "ls-refs";
+          ctx.state.currentCommand = "ls-refs";
           return "LS_REFS";
         }
         if (line.startsWith("command=fetch")) {
-          state.currentCommand = "fetch";
+          ctx.state.currentCommand = "fetch";
           return "FETCH";
         }
         if (line.startsWith("command=object-info")) {
-          state.currentCommand = "object-info";
+          ctx.state.currentCommand = "object-info";
           return "OBJECT_INFO";
         }
 
-        output.error = `Unknown command: ${line}`;
+        ctx.output.error = `Unknown command: ${line}`;
         return "ERROR";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -171,10 +157,6 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "HANDLE_LS_REFS",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const refStore = getRefStore(ctx);
-      const repository = getRepository(ctx);
-      const output = getOutput(ctx);
       try {
         let symrefs = false;
         let peel = false;
@@ -183,11 +165,11 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
 
         // Read arguments until flush
         while (true) {
-          const pkt = await transport.readPktLine();
+          const pkt = await ctx.transport.readPktLine();
           if (pkt.type === "flush") break;
           if (pkt.type === "delim") continue;
           if (pkt.type === "eof") {
-            output.error = "Unexpected end of stream in ls-refs args";
+            ctx.output.error = "Unexpected end of stream in ls-refs args";
             return "ERROR";
           }
 
@@ -201,7 +183,7 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
         }
 
         // Get refs
-        const allRefs = Array.from(await refStore.listAll());
+        const allRefs = Array.from(await ctx.refStore.listAll());
 
         // Filter by prefixes
         const matchingRefs =
@@ -213,34 +195,34 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
         for (const [name, oid] of matchingRefs) {
           let line = `${oid} ${name}`;
 
-          if (symrefs && refStore.getSymrefTarget) {
-            const target = await refStore.getSymrefTarget(name);
+          if (symrefs && ctx.refStore.getSymrefTarget) {
+            const target = await ctx.refStore.getSymrefTarget(name);
             if (target) {
               line += ` symref-target:${target}`;
             }
           }
-          if (peel && repository.peelTag) {
-            const peeled = await repository.peelTag(oid);
+          if (peel && ctx.repository.peelTag) {
+            const peeled = await ctx.repository.peelTag(oid);
             if (peeled && peeled !== oid) {
               line += ` peeled:${peeled}`;
             }
           }
 
-          await transport.writeLine(line);
+          await ctx.transport.writeLine(line);
         }
 
         // Handle unborn HEAD
-        if (unborn && matchingRefs.length === 0 && refStore.getSymrefTarget) {
-          const headTarget = await refStore.getSymrefTarget("HEAD");
+        if (unborn && matchingRefs.length === 0 && ctx.refStore.getSymrefTarget) {
+          const headTarget = await ctx.refStore.getSymrefTarget("HEAD");
           if (headTarget) {
-            await transport.writeLine(`unborn HEAD symref-target:${headTarget}`);
+            await ctx.transport.writeLine(`unborn HEAD symref-target:${headTarget}`);
           }
         }
 
-        await transport.writeFlush();
+        await ctx.transport.writeFlush();
         return "LS_REFS_DONE";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -250,13 +232,11 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "HANDLE_FETCH",
     async (ctx) => {
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
-        (state as ServerV2State).fetchRequest = createEmptyFetchRequest();
+        (ctx.state as ServerV2State).fetchRequest = createEmptyFetchRequest();
         return "PARSE_FETCH_ARGS";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -266,23 +246,20 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "PARSE_FETCH",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
-        const stateV2 = state as ServerV2State;
-        const req = stateV2.fetchRequest;
+        const state = ctx.state as ServerV2State;
+        const req = state.fetchRequest;
         if (!req) {
-          output.error = "Internal error: fetchRequest not initialized";
+          ctx.output.error = "Internal error: fetchRequest not initialized";
           return "ERROR";
         }
 
         while (true) {
-          const pkt = await transport.readPktLine();
+          const pkt = await ctx.transport.readPktLine();
           if (pkt.type === "flush") break;
           if (pkt.type === "delim") continue;
           if (pkt.type === "eof") {
-            output.error = "Unexpected end of stream in fetch args";
+            ctx.output.error = "Unexpected end of stream in fetch args";
             return "ERROR";
           }
 
@@ -322,7 +299,7 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
 
         return "FETCH_PARSED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -332,47 +309,43 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "VALIDATE_FETCH_WANTS",
     async (ctx) => {
-      const state = getState(ctx);
-      const refStore = getRefStore(ctx);
-      const repository = getRepository(ctx);
-      const output = getOutput(ctx);
       try {
-        const stateV2 = state as ServerV2State;
-        const req = stateV2.fetchRequest;
+        const state = ctx.state as ServerV2State;
+        const req = state.fetchRequest;
         if (!req) {
-          output.error = "Internal error: fetchRequest not initialized";
+          ctx.output.error = "Internal error: fetchRequest not initialized";
           return "ERROR";
         }
 
-        state.wants = new Set();
+        ctx.state.wants = new Set();
 
         // Resolve want-refs to OIDs
         for (const refName of req.wantRefs) {
-          const oid = await refStore.get(refName);
+          const oid = await ctx.refStore.get(refName);
           if (!oid) {
-            output.error = `Unknown ref: ${refName}`;
-            output.invalidWant = refName;
+            ctx.output.error = `Unknown ref: ${refName}`;
+            ctx.output.invalidWant = refName;
             return "INVALID_WANT";
           }
-          state.wants.add(oid);
-          state.wantedRefs = state.wantedRefs ?? new Map();
-          state.wantedRefs.set(refName, oid);
+          ctx.state.wants.add(oid);
+          ctx.state.wantedRefs = ctx.state.wantedRefs ?? new Map();
+          ctx.state.wantedRefs.set(refName, oid);
         }
 
         // Add direct wants
         for (const oid of req.wants) {
-          const valid = await repository.has(oid);
+          const valid = await ctx.repository.has(oid);
           if (!valid) {
-            output.error = `Object not found: ${oid}`;
-            output.invalidWant = oid;
+            ctx.output.error = `Object not found: ${oid}`;
+            ctx.output.invalidWant = oid;
             return "INVALID_WANT";
           }
-          state.wants.add(oid);
+          ctx.state.wants.add(oid);
         }
 
         return "VALID";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -382,31 +355,28 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "PROCESS_HAVES",
     async (ctx) => {
-      const state = getState(ctx);
-      const repository = getRepository(ctx);
-      const output = getOutput(ctx);
       try {
-        const stateV2 = state as ServerV2State;
-        const req = stateV2.fetchRequest;
+        const state = ctx.state as ServerV2State;
+        const req = state.fetchRequest;
         if (!req) {
-          output.error = "Internal error: fetchRequest not initialized";
+          ctx.output.error = "Internal error: fetchRequest not initialized";
           return "ERROR";
         }
 
-        state.commonBase = new Set();
-        state.acks = [];
+        ctx.state.commonBase = new Set();
+        ctx.state.acks = [];
 
         for (const oid of req.haves) {
-          if (await repository.has(oid)) {
-            state.commonBase.add(oid);
-            state.acks = state.acks ?? [];
-            state.acks.push(oid);
+          if (await ctx.repository.has(oid)) {
+            ctx.state.commonBase.add(oid);
+            ctx.state.acks = ctx.state.acks ?? [];
+            ctx.state.acks.push(oid);
           }
         }
 
         return "COMPUTED";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -416,13 +386,11 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "CHECK_READY_TO_SEND",
     async (ctx) => {
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
-        const stateV2 = state as ServerV2State;
-        const req = stateV2.fetchRequest;
+        const state = ctx.state as ServerV2State;
+        const req = state.fetchRequest;
         if (!req) {
-          output.error = "Internal error: fetchRequest not initialized";
+          ctx.output.error = "Internal error: fetchRequest not initialized";
           return "ERROR";
         }
 
@@ -433,10 +401,10 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
 
         // Without "done", only send pack if we have a good common base
         // For simplicity, always return READY if we have any common objects
-        const hasCommon = state.commonBase && state.commonBase.size > 0;
+        const hasCommon = ctx.state.commonBase && ctx.state.commonBase.size > 0;
         return hasCommon || req.haves.length === 0 ? "READY" : "NOT_READY";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -446,20 +414,17 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "SEND_ACKS_ONLY",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
-        await transport.writeLine("acknowledgments");
+        await ctx.transport.writeLine("acknowledgments");
 
-        for (const oid of state.acks ?? []) {
-          await transport.writeLine(`ACK ${oid}`);
+        for (const oid of ctx.state.acks ?? []) {
+          await ctx.transport.writeLine(`ACK ${oid}`);
         }
 
-        await transport.writeFlush();
+        await ctx.transport.writeFlush();
         return "ACKS_SENT";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -477,21 +442,18 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "SEND_ACKNOWLEDGMENTS",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
-        await transport.writeLine("acknowledgments");
+        await ctx.transport.writeLine("acknowledgments");
 
-        for (const oid of state.acks ?? []) {
-          await transport.writeLine(`ACK ${oid}`);
+        for (const oid of ctx.state.acks ?? []) {
+          await ctx.transport.writeLine(`ACK ${oid}`);
         }
 
-        await transport.writeLine("ready");
-        await transport.writeDelimiter();
+        await ctx.transport.writeLine("ready");
+        await ctx.transport.writeDelimiter();
         return "ACKS_DONE";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -501,36 +463,33 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "SEND_SHALLOW_INFO",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
-        const stateV2 = state as ServerV2State;
-        const req = stateV2.fetchRequest;
+        const state = ctx.state as ServerV2State;
+        const req = state.fetchRequest;
 
         // Check if shallow info is needed
         if (!req || (req.deepen === 0 && !req.deepenSince && !req.deepenNot?.length)) {
           return "NO_SHALLOW";
         }
 
-        await transport.writeLine("shallow-info");
+        await ctx.transport.writeLine("shallow-info");
 
-        if (state.serverShallow) {
-          for (const oid of state.serverShallow) {
-            await transport.writeLine(`shallow ${oid}`);
+        if (ctx.state.serverShallow) {
+          for (const oid of ctx.state.serverShallow) {
+            await ctx.transport.writeLine(`shallow ${oid}`);
           }
         }
 
-        if (state.serverUnshallow) {
-          for (const oid of state.serverUnshallow) {
-            await transport.writeLine(`unshallow ${oid}`);
+        if (ctx.state.serverUnshallow) {
+          for (const oid of ctx.state.serverUnshallow) {
+            await ctx.transport.writeLine(`unshallow ${oid}`);
           }
         }
 
-        await transport.writeDelimiter();
+        await ctx.transport.writeDelimiter();
         return "SHALLOW_DONE";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -540,27 +499,24 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "SEND_WANTED_REFS",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const output = getOutput(ctx);
       try {
-        const stateV2 = state as ServerV2State;
-        const req = stateV2.fetchRequest;
+        const state = ctx.state as ServerV2State;
+        const req = state.fetchRequest;
 
         if (!req || req.wantRefs.length === 0) {
           return "NO_WANTED_REFS";
         }
 
-        await transport.writeLine("wanted-refs");
+        await ctx.transport.writeLine("wanted-refs");
 
-        for (const [refName, oid] of state.wantedRefs ?? new Map()) {
-          await transport.writeLine(`${oid} ${refName}`);
+        for (const [refName, oid] of ctx.state.wantedRefs ?? new Map()) {
+          await ctx.transport.writeLine(`${oid} ${refName}`);
         }
 
-        await transport.writeDelimiter();
+        await ctx.transport.writeDelimiter();
         return "REFS_DONE";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -570,28 +526,28 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "SEND_PACKFILE",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const state = getState(ctx);
-      const repository = getRepository(ctx);
-      const output = getOutput(ctx);
       try {
-        const stateV2 = state as ServerV2State;
-        const req = stateV2.fetchRequest;
+        const state = ctx.state as ServerV2State;
+        const req = state.fetchRequest;
 
-        await transport.writeLine("packfile");
+        await ctx.transport.writeLine("packfile");
 
         // Export pack
         const thin = req?.thinPack ?? false;
-        const packStream = repository.exportPack(state.wants, state.commonBase ?? new Set(), {
-          thin,
-          includeTag: req?.includeTags,
-          filterSpec: req?.filter ?? undefined,
-        });
+        const packStream = ctx.repository.exportPack(
+          ctx.state.wants,
+          ctx.state.commonBase ?? new Set(),
+          {
+            thin,
+            includeTag: req?.includeTags,
+            filterSpec: req?.filter ?? undefined,
+          },
+        );
 
-        await transport.writePack(packStream);
+        await ctx.transport.writePack(packStream);
         return "PACKFILE_SENT";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -601,19 +557,16 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "HANDLE_OBJECT_INFO",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const repository = getRepository(ctx);
-      const output = getOutput(ctx);
       try {
         const objectIds: string[] = [];
 
         // Read arguments until flush
         while (true) {
-          const pkt = await transport.readPktLine();
+          const pkt = await ctx.transport.readPktLine();
           if (pkt.type === "flush") break;
           if (pkt.type === "delim") continue;
           if (pkt.type === "eof") {
-            output.error = "Unexpected end of stream in object-info args";
+            ctx.output.error = "Unexpected end of stream in object-info args";
             return "ERROR";
           }
 
@@ -624,21 +577,21 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
         }
 
         // Send size info for requested objects
-        await transport.writeLine("size");
+        await ctx.transport.writeLine("size");
 
         for (const oid of objectIds) {
-          if (repository.getObjectSize) {
-            const size = await repository.getObjectSize(oid);
+          if (ctx.repository.getObjectSize) {
+            const size = await ctx.repository.getObjectSize(oid);
             if (size !== null) {
-              await transport.writeLine(`${oid} ${size}`);
+              await ctx.transport.writeLine(`${oid} ${size}`);
             }
           }
         }
 
-        await transport.writeFlush();
+        await ctx.transport.writeFlush();
         return "OBJECT_INFO_DONE";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },
@@ -648,15 +601,13 @@ export const serverV2Handlers = new Map<string, FsmStateHandler<ProcessContext>>
   [
     "SEND_ERROR",
     async (ctx) => {
-      const transport = getTransport(ctx);
-      const output = getOutput(ctx);
       try {
-        const errorMsg = output.error ?? "Unknown error";
-        await transport.writeLine(`ERR ${errorMsg}`);
-        await transport.writeFlush();
+        const errorMsg = ctx.output.error ?? "Unknown error";
+        await ctx.transport.writeLine(`ERR ${errorMsg}`);
+        await ctx.transport.writeFlush();
         return "ERROR_SENT";
       } catch (e) {
-        output.error = String(e);
+        ctx.output.error = String(e);
         return "ERROR";
       }
     },

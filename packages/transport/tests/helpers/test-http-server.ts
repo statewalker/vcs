@@ -367,7 +367,11 @@ export class TestHttpServer {
     return null;
   }
 
-  private handleInfoRefs(repo: TestRepository, service: string | null, request: Request): Response {
+  private handleInfoRefs(
+    repo: TestRepository,
+    service: string | null,
+    request: Request,
+  ): Response {
     const refs = repo.getAllRefs();
 
     // Check for protocol v2

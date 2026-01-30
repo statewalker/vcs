@@ -7,7 +7,7 @@
  * Based on JGit's ReceiveCommand.java and BaseReceivePack.java
  */
 
-import { ServerError } from "./errors.js";
+import { ServerError, TransportError } from "./errors.js";
 import type { Packet } from "./types.js";
 
 /**
@@ -37,19 +37,17 @@ export interface PushReportStatus {
 }
 
 /**
- * Parse report-status from raw lines (shared implementation).
- *
- * This function provides the core parsing logic that can be used by both
- * the packet-based parser and HTTP client implementations.
+ * Parse report-status response from server.
  *
  * Format:
  * - unpack ok | unpack <error>
  * - ok <refname> | ng <refname> <reason>
+ * - ...
+ * - flush
  *
- * @param lines - Array of status lines to parse
- * @returns Parsed push report status
+ * @param packets - Response packets from server
  */
-export function parseReportStatusLines(lines: string[]): PushReportStatus {
+export async function parseReportStatus(packets: AsyncIterable<Packet>): Promise<PushReportStatus> {
   const result: PushReportStatus = {
     unpackOk: false,
     refUpdates: [],
@@ -58,22 +56,25 @@ export function parseReportStatusLines(lines: string[]): PushReportStatus {
 
   let firstLine = true;
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
+  for await (const packet of packets) {
+    if (packet.type === "flush") {
+      break;
+    }
+
+    if (packet.type !== "data" || !packet.data) {
+      continue;
+    }
+
+    const line = new TextDecoder().decode(packet.data).trim();
+
+    if (!line) {
+      continue;
+    }
 
     if (firstLine) {
       // First line must be unpack status
       firstLine = false;
-      if (line.startsWith("unpack ")) {
-        const status = line.slice(7);
-        if (status === "ok") {
-          result.unpackOk = true;
-        } else {
-          result.unpackOk = false;
-          result.unpackMessage = status;
-        }
-      }
+      parseUnpackLine(line, result);
     } else {
       // Subsequent lines are ref updates
       const refStatus = parseRefStatusLine(line);
@@ -90,35 +91,23 @@ export function parseReportStatusLines(lines: string[]): PushReportStatus {
 }
 
 /**
- * Parse report-status response from server.
+ * Parse the unpack status line.
  *
- * Format:
- * - unpack ok | unpack <error>
- * - ok <refname> | ng <refname> <reason>
- * - ...
- * - flush
- *
- * @param packets - Response packets from server
+ * Format: "unpack ok" or "unpack <error message>"
  */
-export async function parseReportStatus(packets: AsyncIterable<Packet>): Promise<PushReportStatus> {
-  const lines: string[] = [];
-
-  for await (const packet of packets) {
-    if (packet.type === "flush") {
-      break;
-    }
-
-    if (packet.type !== "data" || !packet.data) {
-      continue;
-    }
-
-    const line = new TextDecoder().decode(packet.data).trim();
-    if (line) {
-      lines.push(line);
-    }
+function parseUnpackLine(line: string, result: PushReportStatus): void {
+  if (!line.startsWith("unpack ")) {
+    throw new TransportError(`Expected 'unpack' status, got: ${line}`);
   }
 
-  return parseReportStatusLines(lines);
+  const status = line.slice(7); // Remove "unpack " prefix
+
+  if (status === "ok") {
+    result.unpackOk = true;
+  } else {
+    result.unpackOk = false;
+    result.unpackMessage = status;
+  }
 }
 
 /**
