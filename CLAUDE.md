@@ -22,6 +22,13 @@ Write for humans using narrative prose. Show examples before explanations.
 
 **[Full Guide](.claude/documentation/writing-style.md)**
 
+## References
+
+### Source Analysis
+Reference implementations (JGit, Fossil) for analyzing patterns and algorithms.
+
+**[Full Guide](.claude/sources.md)**
+
 ## Workflows
 
 ### Notes
