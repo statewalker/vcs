@@ -5,7 +5,7 @@
  * Implements the BinStore interface from binary-storage.
  */
 
-import type { BinStore, DeltaStore, RawStore } from "@statewalker/vcs-core";
+import type { BinStore, DeltaStore, RawStorage } from "@statewalker/vcs-core";
 import type { KVStore } from "../kv-store.js";
 import { KvDeltaStore } from "./kv-delta-store.js";
 import { KvRawStore } from "./kv-raw-store.js";
@@ -17,7 +17,7 @@ import { KvRawStore } from "./kv-raw-store.js";
  */
 export class KvBinStore implements BinStore {
   readonly name = "kv";
-  readonly raw: RawStore;
+  readonly raw: RawStorage;
   readonly delta: DeltaStore;
 
   private readonly _rawStore: KvRawStore;

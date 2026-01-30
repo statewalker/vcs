@@ -17,8 +17,8 @@ import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.
 import { MemoryRefStore } from "../../src/history/refs/ref-store.memory.js";
 import { GitTagStore } from "../../src/history/tags/tag-store.impl.js";
 import { GitTreeStore } from "../../src/history/trees/tree-store.impl.js";
-import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 import { GCController, type GCScheduleOptions } from "../../src/storage/delta/gc-controller.js";
+import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 
 /**
  * Simple in-memory repository for GC tests

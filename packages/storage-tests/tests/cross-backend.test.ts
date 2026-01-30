@@ -11,7 +11,7 @@
 import {
   createMemoryCheckoutStore,
   createMemoryStashStore,
-  MemoryRawStore,
+  MemoryRawStorage,
   MemoryStorageBackend,
   MemoryVolatileStore,
 } from "@statewalker/vcs-core";
@@ -30,7 +30,7 @@ import {
   createDeltaApiTests,
   createGitCompatibilityTests,
   createGitObjectStoreTests,
-  createRawStoreTests,
+  createRawStorageTests,
   createStashStoreTests,
   createStreamingStoresTests,
   createVolatileStoreTests,
@@ -125,9 +125,9 @@ createGitObjectStoreTests("SQL", async () => {
   };
 });
 
-// Run RawStore tests for memory backend
-createRawStoreTests("Memory", async () => {
-  return { rawStore: new MemoryRawStore() };
+// Run RawStorage tests for memory backend
+createRawStorageTests("Memory", async () => {
+  return { rawStorage: new MemoryRawStorage() };
 });
 
 // Run VolatileStore tests for memory backend

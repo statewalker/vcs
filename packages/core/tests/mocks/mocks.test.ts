@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
+import { MemoryRawStorage } from "../../src/storage/raw/index.js";
 import { CommitGraphBuilder, MockCommitStore } from "./mock-commit-store.js";
 
 describe("MockCommitStore", () => {
@@ -130,12 +130,16 @@ describe("CommitGraphBuilder", () => {
   });
 });
 
-describe("MemoryRawStore", () => {
+describe("MemoryRawStorage", () => {
+  async function* toStream(data: Uint8Array): AsyncIterable<Uint8Array> {
+    yield data;
+  }
+
   it("should store and load data", async () => {
-    const store = new MemoryRawStore();
+    const store = new MemoryRawStorage();
     const data = new Uint8Array([1, 2, 3, 4, 5]);
 
-    await store.store("key1", [data]);
+    await store.store("key1", toStream(data));
     const chunks: Uint8Array[] = [];
     for await (const chunk of store.load("key1")) {
       chunks.push(chunk);
@@ -152,18 +156,18 @@ describe("MemoryRawStore", () => {
   });
 
   it("should check key existence", async () => {
-    const store = new MemoryRawStore();
-    await store.store("exists", [new Uint8Array([1])]);
+    const store = new MemoryRawStorage();
+    await store.store("exists", toStream(new Uint8Array([1])));
 
     expect(await store.has("exists")).toBe(true);
     expect(await store.has("nonexistent")).toBe(false);
   });
 
-  it("should delete keys", async () => {
-    const store = new MemoryRawStore();
-    await store.store("key", [new Uint8Array([1])]);
+  it("should remove keys", async () => {
+    const store = new MemoryRawStorage();
+    await store.store("key", toStream(new Uint8Array([1])));
 
-    expect(await store.delete("key")).toBe(true);
+    expect(await store.remove("key")).toBe(true);
     expect(await store.has("key")).toBe(false);
   });
 });

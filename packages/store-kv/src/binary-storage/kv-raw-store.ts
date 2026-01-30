@@ -1,11 +1,11 @@
 /**
- * Key-Value based RawStore implementation
+ * Key-Value based RawStorage implementation
  *
  * Stores binary content in a key-value store.
- * Implements the new RawStore interface from binary-storage.
+ * Implements the RawStorage interface.
  */
 
-import type { RawStore } from "@statewalker/vcs-core";
+import type { RawStorage } from "@statewalker/vcs-core";
 import type { KVStore } from "../kv-store.js";
 
 /**
@@ -63,7 +63,7 @@ function decodeSize(data: Uint8Array): number {
  * - raw:{key} -> data blob
  * - size:{key} -> size as 4-byte integer
  */
-export class KvRawStore implements RawStore {
+export class KvRawStore implements RawStorage {
   /**
    * Create KV-based storage
    *
@@ -91,10 +91,8 @@ export class KvRawStore implements RawStore {
 
   /**
    * Store byte stream under key
-   *
-   * @returns Number of bytes stored
    */
-  async store(key: string, content: AsyncIterable<Uint8Array>): Promise<number> {
+  async store(key: string, content: AsyncIterable<Uint8Array>): Promise<void> {
     const bytes = await collect(content);
 
     // Store data and size
@@ -102,30 +100,24 @@ export class KvRawStore implements RawStore {
     entries.set(this.dataKey(key), bytes);
     entries.set(this.sizeKey(key), encodeSize(bytes.length));
     await this.kv.setMany(entries);
-
-    return bytes.length;
   }
 
   /**
    * Load byte stream by key
    */
-  async *load(
-    key: string,
-    options?: { offset?: number; length?: number },
-  ): AsyncGenerator<Uint8Array> {
+  async *load(key: string, options?: { start?: number; end?: number }): AsyncIterable<Uint8Array> {
     const bytes = await this.kv.get(this.dataKey(key));
 
     if (!bytes) {
       throw new Error(`Key not found: ${key}`);
     }
 
-    const offset = options?.offset ?? 0;
-    const length = options?.length ?? bytes.length - offset;
+    const start = options?.start ?? 0;
+    const end = options?.end ?? bytes.length;
 
-    // Handle offset and length
-    if (offset > 0 || length < bytes.length - offset) {
-      const end = Math.min(offset + length, bytes.length);
-      yield bytes.slice(offset, end);
+    // Handle range
+    if (start > 0 || end < bytes.length) {
+      yield bytes.slice(start, end);
     } else {
       yield bytes;
     }
@@ -139,9 +131,9 @@ export class KvRawStore implements RawStore {
   }
 
   /**
-   * Delete content by key
+   * Remove content by key
    */
-  async delete(key: string): Promise<boolean> {
+  async remove(key: string): Promise<boolean> {
     const existed = await this.kv.has(this.dataKey(key));
     if (existed) {
       await this.kv.delete(this.dataKey(key));
