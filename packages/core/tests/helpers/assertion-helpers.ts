@@ -7,7 +7,7 @@ import { applyDelta } from "@statewalker/vcs-utils";
 import { expect } from "vitest";
 import type { ObjectId } from "../../src/common/id/index.js";
 import type { RefStore } from "../../src/history/refs/ref-store.js";
-import type { RawStore } from "../../src/storage/binary/raw-store.js";
+import type { RawStorage } from "../../src/storage/raw/raw-storage.js";
 
 /**
  * Collect all chunks from an async iterable into a single Uint8Array
@@ -43,7 +43,7 @@ export function assertDeltaApplies(base: Uint8Array, delta: Delta[], expected: U
  * Assert that storing and loading produces the same content
  */
 export async function assertRoundTrip(
-  store: RawStore,
+  store: RawStorage,
   key: string,
   content: Uint8Array,
 ): Promise<void> {
@@ -82,7 +82,7 @@ export function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, messa
 /**
  * Assert that store contains expected keys
  */
-export async function assertStoreContains(store: RawStore, keys: string[]): Promise<void> {
+export async function assertStoreContains(store: RawStorage, keys: string[]): Promise<void> {
   for (const key of keys) {
     const hasKey = await store.has(key);
     expect(hasKey).toBe(true);
@@ -92,7 +92,7 @@ export async function assertStoreContains(store: RawStore, keys: string[]): Prom
 /**
  * Assert that store does not contain keys
  */
-export async function assertStoreNotContains(store: RawStore, keys: string[]): Promise<void> {
+export async function assertStoreNotContains(store: RawStorage, keys: string[]): Promise<void> {
   for (const key of keys) {
     const hasKey = await store.has(key);
     expect(hasKey).toBe(false);

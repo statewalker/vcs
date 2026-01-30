@@ -1,8 +1,8 @@
 /**
- * Combined Raw Store
+ * Combined Raw Storage
  *
  * Combines loose object storage with pack file support.
- * Implements RawStore interface for Git object storage.
+ * Implements RawStorage interface for Git object storage.
  *
  * - Reads from both loose objects and pack files
  * - Writes to loose objects only
@@ -10,32 +10,29 @@
  */
 
 import type { DeltaStore } from "../delta/delta-store.js";
-import type { RawStore } from "./raw-store.js";
+import type { RawStorage } from "./raw-storage.js";
 
 /**
- * Combined raw store that reads from loose objects and pack files
+ * Combined raw storage that reads from loose objects and pack files
  *
  * @example
  * ```typescript
- * const looseStore = new CompressedRawStore(fileStore);
+ * const looseStore = new CompressedRawStorage(new FileRawStorage(files, objectsDir));
  * const packStore = new PackDeltaStore({ files, basePath: "objects/pack" });
- * const combined = new CombinedRawStore(looseStore, packStore);
+ * const combined = new CombinedRawStorage(looseStore, packStore);
  * ```
  */
-export class CombinedRawStore implements RawStore {
+export class CombinedRawStorage implements RawStorage {
   constructor(
-    private readonly loose: RawStore,
+    private readonly loose: RawStorage,
     private readonly packs: DeltaStore,
   ) {}
 
   /**
    * Store content (always to loose objects)
    */
-  async store(
-    key: string,
-    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
-  ): Promise<number> {
-    return this.loose.store(key, content);
+  async store(key: string, content: AsyncIterable<Uint8Array>): Promise<void> {
+    await this.loose.store(key, content);
   }
 
   /**
@@ -44,19 +41,16 @@ export class CombinedRawStore implements RawStore {
    * Checks pack files first (more efficient for large repos),
    * then falls back to loose objects.
    */
-  async *load(
-    key: string,
-    options?: { offset?: number; length?: number },
-  ): AsyncGenerator<Uint8Array> {
+  async *load(key: string, options?: { start?: number; end?: number }): AsyncIterable<Uint8Array> {
     // Try pack files first (loadObject resolves deltas internally)
     if (this.packs.loadObject) {
       try {
         const content = await this.packs.loadObject(key);
         if (content) {
-          if (options?.offset !== undefined || options?.length !== undefined) {
-            const offset = options.offset ?? 0;
-            const length = options.length ?? content.length - offset;
-            yield content.subarray(offset, offset + length);
+          if (options?.start !== undefined || options?.end !== undefined) {
+            const start = options.start ?? 0;
+            const end = options.end ?? content.length;
+            yield content.subarray(start, end);
           } else {
             yield content;
           }
@@ -92,13 +86,13 @@ export class CombinedRawStore implements RawStore {
   }
 
   /**
-   * Delete from loose objects only
+   * Remove from loose objects only
    *
    * Pack files are immutable - objects in packs are not deleted
    * individually; the entire pack is replaced during GC.
    */
-  async delete(key: string): Promise<boolean> {
-    return this.loose.delete(key);
+  async remove(key: string): Promise<boolean> {
+    return this.loose.remove(key);
   }
 
   /**

@@ -8,7 +8,6 @@
 
 import type { BlobStore, CommitStore, TagStore, TreeStore } from "@statewalker/vcs-core";
 import {
-  adaptRawStore,
   GitBlobStore,
   GitCommitStore,
   type GitObjectStore,
@@ -75,8 +74,8 @@ export interface CreateKvObjectStoresOptions {
 export function createKvObjectStores(options: CreateKvObjectStoresOptions): KvObjectStores {
   const { kv, prefix = "objects:" } = options;
 
-  const rawStore = new KvRawStore(kv, prefix);
-  const storage = adaptRawStore(rawStore);
+  // KvRawStore implements RawStorage directly
+  const storage = new KvRawStore(kv, prefix);
   const objects = new GitObjectStoreImpl({ storage });
 
   return {

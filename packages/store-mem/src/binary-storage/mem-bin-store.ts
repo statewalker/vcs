@@ -1,12 +1,16 @@
 /**
  * In-memory BinStore implementation
  *
- * Composite storage that combines RawStore and DeltaStore.
+ * Composite storage that combines RawStorage and DeltaStore.
  * Implements the BinStore interface from binary-storage.
  */
 
-import type { BinStore, DeltaStore, RawStore } from "@statewalker/vcs-core";
-import { MemoryRawStore } from "@statewalker/vcs-core";
+import {
+  type BinStore,
+  type DeltaStore,
+  MemoryRawStorage,
+  type RawStorage,
+} from "@statewalker/vcs-core";
 
 import { MemDeltaStore } from "./mem-delta-store.js";
 
@@ -17,14 +21,14 @@ import { MemDeltaStore } from "./mem-delta-store.js";
  */
 export class MemBinStore implements BinStore {
   readonly name = "memory";
-  readonly raw: RawStore;
+  readonly raw: RawStorage;
   readonly delta: DeltaStore;
 
-  private readonly _rawStore: MemoryRawStore;
+  private readonly _rawStore: MemoryRawStorage;
   private readonly _deltaStore: MemDeltaStore;
 
   constructor() {
-    this._rawStore = new MemoryRawStore();
+    this._rawStore = new MemoryRawStorage();
     this._deltaStore = new MemDeltaStore();
     this.raw = this._rawStore;
     this.delta = this._deltaStore;

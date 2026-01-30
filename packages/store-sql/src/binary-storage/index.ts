@@ -1,7 +1,7 @@
 /**
  * Binary storage implementations for SQL-based backend
  *
- * Provides RawStore, DeltaStore, and BinStore
+ * Provides RawStorage, DeltaStore, and BinStore
  * implementations using SQL database.
  */
 
