@@ -8,13 +8,13 @@
 
 import type { BlobStore, CommitStore, TagStore, TreeStore } from "@statewalker/vcs-core";
 import {
+  adaptRawStore,
   GitBlobStore,
   GitCommitStore,
   type GitObjectStore,
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
-  MemoryVolatileStore,
 } from "@statewalker/vcs-core";
 import { KvRawStore } from "../binary-storage/index.js";
 import type { KVStore } from "../kv-store.js";
@@ -76,9 +76,8 @@ export function createKvObjectStores(options: CreateKvObjectStoresOptions): KvOb
   const { kv, prefix = "objects:" } = options;
 
   const rawStore = new KvRawStore(kv, prefix);
-  const volatileStore = new MemoryVolatileStore();
-
-  const objects = new GitObjectStoreImpl(volatileStore, rawStore);
+  const storage = adaptRawStore(rawStore);
+  const objects = new GitObjectStoreImpl({ storage });
 
   return {
     objects,

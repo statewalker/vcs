@@ -24,6 +24,7 @@ import { createFileRawStore } from "../storage/binary/raw-store.files.js";
 import { createFileVolatileStore } from "../storage/binary/volatile-store.files.js";
 import { GCController } from "../storage/delta/gc-controller.js";
 import { PackDeltaStore } from "../storage/pack/pack-delta-store.js";
+import { adaptRawStore } from "../storage/raw/raw-store-adapter.js";
 
 /**
  * Options for creating a repository
@@ -162,12 +163,13 @@ export async function createGitRepository(
 
   // Combined raw store: loose objects + pack file support
   const rawStore = new CombinedRawStore(compressedStore, packDeltaStore);
+  const storage = adaptRawStore(rawStore);
 
   const volatileStore = createFileVolatileStore(files, joinPath(gitDir, "tmp"));
   const refStore = createFileRefStore(files, gitDir);
 
   // Create object store
-  const objectStore = new GitObjectStoreImpl(volatileStore, rawStore);
+  const objectStore = new GitObjectStoreImpl({ storage, volatile: volatileStore });
 
   // Create typed stores
   const commits = new GitCommitStore(objectStore);
