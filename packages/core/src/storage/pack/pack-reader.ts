@@ -8,12 +8,26 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
-import { decompressBlockPartial } from "@statewalker/vcs-utils";
+import {
+  applyGitDelta,
+  decompressBlockPartial,
+  getGitDeltaBaseSize,
+  getGitDeltaResultSize,
+} from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { type FilesApi, readAt } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
 import type { RandomAccessReader } from "./random-access-delta.js";
-import { readVarint } from "./varint.js";
+
+// Re-export delta functions for backwards compatibility
+export {
+  /** @deprecated Use applyGitDelta from @statewalker/vcs-utils instead */
+  applyGitDelta as applyDelta,
+  /** @deprecated Use getGitDeltaBaseSize from @statewalker/vcs-utils instead */
+  getGitDeltaBaseSize as getDeltaBaseSize,
+  /** @deprecated Use getGitDeltaResultSize from @statewalker/vcs-utils instead */
+  getGitDeltaResultSize as getDeltaResultSize,
+};
 
 /**
  * Pack-specific delta chain information
@@ -168,7 +182,7 @@ export class PackReader {
         const baseOffset = offset - header.baseOffset;
         const base = await this.load(baseOffset);
         const delta = await this.decompress(offset + header.headerLength, header.size);
-        const content = applyDelta(base.content, delta);
+        const content = applyGitDelta(base.content, delta);
         return {
           type: base.type,
           content,
@@ -188,7 +202,7 @@ export class PackReader {
         }
         const base = await this.load(baseOffset);
         const delta = await this.decompress(offset + header.headerLength, header.size);
-        const content = applyDelta(base.content, delta);
+        const content = applyGitDelta(base.content, delta);
         return {
           type: base.type,
           content,
@@ -492,86 +506,6 @@ export class PackReader {
 
     return data;
   }
-}
-
-/**
- * Apply a binary delta to a base object
- *
- * Based on jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
- *
- * @param base The base object data
- * @param delta The delta to apply
- * @returns The resulting object data
- */
-export function applyDelta(base: Uint8Array, delta: Uint8Array): Uint8Array {
-  // Read base object length using centralized varint
-  const baseResult = readVarint(delta, 0);
-  const baseLen = baseResult.value;
-  let deltaPtr = baseResult.bytesRead;
-
-  if (base.length !== baseLen) {
-    throw new Error(`Delta base length mismatch: expected ${baseLen}, got ${base.length}`);
-  }
-
-  // Read result object length using centralized varint
-  const resultResult = readVarint(delta, deltaPtr);
-  const resLen = resultResult.value;
-  deltaPtr += resultResult.bytesRead;
-
-  const result = new Uint8Array(resLen);
-  let resultPtr = 0;
-
-  // Process delta commands
-  while (deltaPtr < delta.length) {
-    const cmd = delta[deltaPtr++];
-
-    if ((cmd & 0x80) !== 0) {
-      // COPY command: copy from base
-      let copyOffset = 0;
-      if ((cmd & 0x01) !== 0) copyOffset = delta[deltaPtr++];
-      if ((cmd & 0x02) !== 0) copyOffset |= delta[deltaPtr++] << 8;
-      if ((cmd & 0x04) !== 0) copyOffset |= delta[deltaPtr++] << 16;
-      if ((cmd & 0x08) !== 0) copyOffset |= delta[deltaPtr++] << 24;
-
-      let copySize = 0;
-      if ((cmd & 0x10) !== 0) copySize = delta[deltaPtr++];
-      if ((cmd & 0x20) !== 0) copySize |= delta[deltaPtr++] << 8;
-      if ((cmd & 0x40) !== 0) copySize |= delta[deltaPtr++] << 16;
-      if (copySize === 0) copySize = 0x10000;
-
-      result.set(base.subarray(copyOffset, copyOffset + copySize), resultPtr);
-      resultPtr += copySize;
-    } else if (cmd !== 0) {
-      // INSERT command: copy from delta
-      result.set(delta.subarray(deltaPtr, deltaPtr + cmd), resultPtr);
-      deltaPtr += cmd;
-      resultPtr += cmd;
-    } else {
-      // Reserved command
-      throw new Error("Unsupported delta command 0");
-    }
-  }
-
-  if (resultPtr !== resLen) {
-    throw new Error(`Delta result size mismatch: expected ${resLen}, got ${resultPtr}`);
-  }
-
-  return result;
-}
-
-/**
- * Get base object size from a delta
- */
-export function getDeltaBaseSize(delta: Uint8Array): number {
-  return readVarint(delta, 0).value;
-}
-
-/**
- * Get result object size from a delta
- */
-export function getDeltaResultSize(delta: Uint8Array): number {
-  const baseResult = readVarint(delta, 0);
-  return readVarint(delta, baseResult.bytesRead).value;
 }
 
 /**
