@@ -10,8 +10,7 @@ import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.
 import { ObjectType } from "../../src/history/objects/object-types.js";
 import { GitTagStore } from "../../src/history/tags/tag-store.impl.js";
 import { GitTreeStore } from "../../src/history/trees/tree-store.impl.js";
-import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
-import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
+import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 import { collectBytes } from "../helpers/assertion-helpers.js";
 import {
   createTestCommit,
@@ -20,12 +19,10 @@ import {
 } from "../helpers/test-data-generators.js";
 
 function createTestStores() {
-  const rawStore = new MemoryRawStore();
-  const volatileStore = new MemoryVolatileStore();
-  const objectStore = new GitObjectStoreImpl(volatileStore, rawStore);
+  const storage = new MemoryRawStorage();
+  const objectStore = new GitObjectStoreImpl({ storage });
   return {
-    rawStore,
-    volatileStore,
+    storage,
     objectStore,
     blobStore: new GitBlobStore(objectStore),
     commitStore: new GitCommitStore(objectStore),
@@ -91,15 +88,15 @@ describe("GitObjectStoreImpl", () => {
     expect(await objectStore.has("nonexistent")).toBe(false);
   });
 
-  it("deletes objects", async () => {
+  it("removes objects", async () => {
     const { objectStore } = createTestStores();
-    const content = new TextEncoder().encode("delete me");
+    const content = new TextEncoder().encode("remove me");
 
     const id = await objectStore.store("blob", [content]);
     expect(await objectStore.has(id)).toBe(true);
 
-    const deleted = await objectStore.delete(id);
-    expect(deleted).toBe(true);
+    const removed = await objectStore.remove(id);
+    expect(removed).toBe(true);
     expect(await objectStore.has(id)).toBe(false);
   });
 

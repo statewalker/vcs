@@ -7,6 +7,8 @@
  */
 
 import type { ObjectId } from "../../common/id/index.js";
+import type { RawStorage } from "../../storage/raw/raw-storage.js";
+import type { VolatileStore } from "../../storage/binary/volatile-store.js";
 import type { ObjectTypeString } from "./object-types.js";
 
 /**
@@ -17,6 +19,40 @@ export interface GitObjectHeader {
   type: ObjectTypeString;
   /** Content size in bytes */
   size: number;
+}
+
+/**
+ * Options for creating a GitObjectStore
+ *
+ * This is the standard way to construct a GitObjectStore with the new
+ * RawStorage-based architecture.
+ */
+export interface GitObjectStoreOptions {
+  /**
+   * Raw storage backend for persisted objects
+   *
+   * All Git objects are stored through this interface. The storage
+   * handles compression internally (if needed).
+   */
+  storage: RawStorage;
+
+  /**
+   * Optional volatile storage for buffering unknown-size content
+   *
+   * When storing content with unknown size, it must be buffered to
+   * determine the size before the Git header can be written.
+   * If not provided, a default in-memory volatile store is used.
+   */
+  volatile?: VolatileStore;
+
+  /**
+   * Whether to compress content before storage
+   *
+   * When true, content is ZLIB-compressed before being passed to
+   * RawStorage. This is needed for Git-compatible file storage.
+   * Default: false (assumes RawStorage handles compression if needed)
+   */
+  compress?: boolean;
 }
 
 /**
@@ -86,10 +122,23 @@ export interface GitObjectStore {
   has(id: ObjectId): Promise<boolean>;
 
   /**
+   * Remove object
+   *
+   * Named 'remove' instead of 'delete' to align with RawStorage interface
+   * and avoid conflicts with JavaScript reserved keyword when used as
+   * object property in certain contexts.
+   *
+   * @param id ObjectId of the object
+   * @returns True if object was removed, false if it didn't exist
+   */
+  remove(id: ObjectId): Promise<boolean>;
+
+  /**
    * Delete object
    *
    * @param id ObjectId of the object
    * @returns True if object was deleted, false if it didn't exist
+   * @deprecated Use remove() instead. This method will be removed in a future version.
    */
   delete(id: ObjectId): Promise<boolean>;
 

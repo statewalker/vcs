@@ -6,6 +6,7 @@
  */
 
 import {
+  adaptRawStore,
   type BlobStore,
   type CommitStore,
   GitBlobStore,
@@ -14,7 +15,6 @@ import {
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
-  MemoryVolatileStore,
   type TagStore,
   type TreeStore,
 } from "@statewalker/vcs-core";
@@ -71,9 +71,8 @@ export function createSqlObjectStores(options: CreateSqlObjectStoresOptions): Sq
   const { db, tableName = "raw_objects" } = options;
 
   const rawStore = new SqlRawStore(db, tableName);
-  const volatileStore = new MemoryVolatileStore();
-
-  const objects = new GitObjectStoreImpl(volatileStore, rawStore);
+  const storage = adaptRawStore(rawStore);
+  const objects = new GitObjectStoreImpl({ storage });
 
   return {
     objects,

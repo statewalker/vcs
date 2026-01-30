@@ -253,7 +253,7 @@ export function getServerPushOptions(ctx: ProcessContext): string[] | undefined 
  * Set server push options in context.
  */
 export function setServerPushOptions(ctx: ProcessContext, options: string[]): void {
-  ctx["pushOptions"] = options;
+  ctx.pushOptions = options;
 }
 
 /**
@@ -267,7 +267,7 @@ export function getServerPackStream(ctx: ProcessContext): AsyncIterable<Uint8Arr
  * Set pack stream in context.
  */
 export function setServerPackStream(ctx: ProcessContext, stream: AsyncIterable<Uint8Array>): void {
-  ctx["packStream"] = stream;
+  ctx.packStream = stream;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -1146,8 +1146,8 @@ describe("decodeSidebandResponse", async () => {
   it("should handle shallow/unshallow lines", () => {
     const packData = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
     const response = concat(
-      pktLine("shallow " + "a".repeat(40) + "\n"),
-      pktLine("unshallow " + "b".repeat(40) + "\n"),
+      pktLine(`shallow ${"a".repeat(40)}\n`),
+      pktLine(`unshallow ${"b".repeat(40)}\n`),
       sidebandPkt(1, packData),
       flush(),
     );
