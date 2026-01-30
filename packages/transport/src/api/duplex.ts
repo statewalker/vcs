@@ -40,13 +40,4 @@ export interface Duplex {
    * @param data - The bytes to send
    */
   write(data: Uint8Array): void;
-
-  /**
-   * Closes the transport connection.
-   * After calling close(), write() should be a no-op and
-   * the async iterator should complete.
-   *
-   * @returns Promise that resolves when the connection is closed
-   */
-  close?(): Promise<void>;
 }

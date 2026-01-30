@@ -9,11 +9,9 @@ import type {
   Commit,
   CommitStore,
   ObjectId,
-  PackImportResult,
   Ref,
   RefStore,
   RefUpdateResult,
-  SerializationApi,
   SymbolicRef,
   TagStore,
   TreeEntry,
@@ -24,7 +22,6 @@ import { sha1 } from "@statewalker/vcs-utils/hash";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { collect, concat } from "@statewalker/vcs-utils/streams";
 import type { VcsRepositoryAccessParams } from "../../src/vcs-repository-access.js";
-import type { VcsRepositoryFacadeParams } from "../../src/vcs-repository-facade.js";
 
 // Re-export VcsRepositoryAccessParams type
 export type { VcsRepositoryAccessParams };
@@ -438,153 +435,4 @@ export async function createMockStoresWithHistory(): Promise<{
   await stores.refs.setSymbolic("HEAD", "refs/heads/main");
 
   return { stores, commitId, treeId, blobId };
-}
-
-/**
- * Create mock SerializationApi for testing VcsRepositoryFacade
- */
-export function createMockSerializationApi(): SerializationApi {
-  // Track pack imports for verification
-  const importedPacks: Uint8Array[][] = [];
-
-  return {
-    serializeLooseObject(_id) {
-      // Not needed for facade tests
-      return (async function* () {
-        yield new Uint8Array(0);
-      })();
-    },
-
-    async parseLooseObject(_compressed) {
-      // Not needed for facade tests
-      return { id: "0".repeat(40), type: "blob" as const, size: 0 };
-    },
-
-    createPack(objects, _options) {
-      // Simple mock - just yield a pack header and object count
-      return (async function* () {
-        const objectIds: string[] = [];
-        for await (const id of objects) {
-          objectIds.push(id);
-        }
-
-        // Yield pack header
-        const header = new Uint8Array(12);
-        header.set([0x50, 0x41, 0x43, 0x4b]); // "PACK"
-        header[7] = 0x02; // Version 2
-        header[11] = objectIds.length; // Object count (simplified)
-        yield header;
-
-        // Yield dummy data for each object
-        for (const _id of objectIds) {
-          yield new Uint8Array([0x30, 0x00]); // Simplified object
-        }
-
-        // Pack checksum
-        yield new Uint8Array(20);
-      })();
-    },
-
-    async importPack(pack) {
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of pack) {
-        chunks.push(chunk);
-      }
-      importedPacks.push(chunks);
-
-      // Return mock result
-      const result: PackImportResult = {
-        objectsImported: chunks.length > 0 ? 1 : 0,
-        blobsWithDelta: 0,
-        treesImported: 0,
-        commitsImported: 0,
-        tagsImported: 0,
-      };
-      return result;
-    },
-
-    createPackBuilder(_options) {
-      const objects: string[] = [];
-      return {
-        async addObject(id) {
-          objects.push(id);
-        },
-        async addObjectWithDelta(id, _preferredBaseId) {
-          objects.push(id);
-        },
-        finalize() {
-          return (async function* () {
-            yield new Uint8Array(12); // Header
-            yield new Uint8Array(20); // Checksum
-          })();
-        },
-        getStats() {
-          return {
-            totalObjects: objects.length,
-            deltifiedObjects: 0,
-            totalSize: 0,
-            deltaSavings: 0,
-          };
-        },
-      };
-    },
-
-    createPackReader(_pack) {
-      return {
-        entries() {
-          return (async function* () {
-            // Empty iterator
-          })();
-        },
-        async getHeader() {
-          return { version: 2, objectCount: 0 };
-        },
-      };
-    },
-
-    async exportObject(_id) {
-      return {
-        type: "blob" as const,
-        content: (async function* () {
-          yield new Uint8Array(0);
-        })(),
-      };
-    },
-
-    async importObject(_type, _content) {
-      return "0".repeat(40);
-    },
-  };
-}
-
-/**
- * Create mock stores for VcsRepositoryFacade (includes SerializationApi)
- */
-export function createMockFacadeStores(options?: MockStoresOptions): VcsRepositoryFacadeParams {
-  const baseStores = createMockStores(options);
-  return {
-    ...baseStores,
-    serialization: createMockSerializationApi(),
-  };
-}
-
-/**
- * Create mock stores for VcsRepositoryFacade with sample history
- */
-export async function createMockFacadeStoresWithHistory(): Promise<{
-  stores: VcsRepositoryFacadeParams;
-  commitId: ObjectId;
-  treeId: ObjectId;
-  blobId: ObjectId;
-}> {
-  const { stores, commitId, treeId, blobId } = await createMockStoresWithHistory();
-  return {
-    stores: {
-      ...stores,
-      serialization: createMockSerializationApi(),
-    },
-    commitId,
-    treeId,
-    blobId,
-  };
 }

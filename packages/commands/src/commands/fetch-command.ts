@@ -1,21 +1,7 @@
-import type { ObjectId, TagStore } from "@statewalker/vcs-core";
-import { DefaultSerializationApi, isSymbolicRef } from "@statewalker/vcs-core";
-import { httpFetch, type RefStore as TransportRefStore } from "@statewalker/vcs-transport";
-import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
-
-/**
- * No-op TagStore for repositories without tag support.
- * Only used as a fallback when tags store is not provided.
- */
-const noOpTagStore: TagStore = {
-  storeTag: () => Promise.reject(new Error("Tag storage not available")),
-  loadTag: () => Promise.reject(new Error("Tag storage not available")),
-  getTarget: () => Promise.reject(new Error("Tag storage not available")),
-  has: () => Promise.resolve(false),
-  async *keys() {
-    // Empty iterator - no tags available
-  },
-};
+import type { ObjectId } from "@statewalker/vcs-core";
+import { isSymbolicRef } from "@statewalker/vcs-core";
+import { type FetchOptions, fetch as transportFetch } from "@statewalker/vcs-transport";
+import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 
 import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
 import {
@@ -76,6 +62,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   private remote = "origin";
   private refSpecs: string[] = [];
   private removeDeletedRefs = false;
+  private tagOption: TagOption = TagOption.AUTO_FOLLOW;
   private thin = true;
   private depth?: number;
   private dryRun = false;
@@ -85,7 +72,6 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   private shallowSince?: Date;
   private shallowExcludes: string[] = [];
   private unshallow = false;
-  private tagOption = TagOption.AUTO_FOLLOW;
 
   /**
    * Set the remote to fetch from.
@@ -356,98 +342,72 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       throw new InvalidRemoteError(this.remote);
     }
 
-    // Get tags store (use no-op fallback if not available)
-    const tagsStore = this.store.tags ?? noOpTagStore;
+    // Build refspecs
+    const refspecs = this.buildRefSpecs();
 
-    // Create serialization API from typed stores
-    const serialization = new DefaultSerializationApi({
-      stores: {
-        blobs: this.store.blobs,
-        trees: this.store.trees,
-        commits: this.store.commits,
-        tags: tagsStore,
-        refs: this.store.refs,
-      },
-    });
-
-    // Create repository facade for pack operations
-    const repository = createVcsRepositoryFacade({
-      blobs: this.store.blobs,
-      trees: this.store.trees,
-      commits: this.store.commits,
-      tags: tagsStore,
-      refs: this.store.refs,
-      serialization,
-    });
-
-    // Create transport ref store adapter
-    const refStore = this.createRefStoreAdapter();
-
-    // Execute fetch using new httpFetch API
-    const transportResult = await httpFetch(remoteUrl, repository, refStore, {
+    // Build fetch options
+    const options: FetchOptions = {
+      url: remoteUrl,
+      refspecs,
+      auth: this.credentials,
+      headers: this.headers,
+      timeout: this.timeout,
       depth: this.depth,
-    });
+      onProgress: this.progressCallback,
+      onProgressMessage: this.progressMessageCallback,
+      localHas: async (objectId: Uint8Array) => {
+        const hex = bytesToHex(objectId);
+        return this.store.commits.has(hex);
+      },
+      localCommits: () => this.getLocalCommits(),
+    };
 
-    // Check for transport-level errors (invalid remote, network error, etc.)
-    if (!transportResult.success && transportResult.error) {
-      // Check if it's a refs fetch failure (404, network error, etc.)
-      if (
-        transportResult.error.includes("Failed to get refs") ||
-        transportResult.error.includes("404") ||
-        transportResult.error.includes("Network error")
-      ) {
-        throw new InvalidRemoteError(this.remote);
-      }
-      // For other errors, return result with error message
-      return {
-        uri: remoteUrl,
-        advertisedRefs: new Map(),
-        trackingRefUpdates: [],
-        bytesReceived: 0,
-        isEmpty: true,
-        messages: [transportResult.error],
-      };
-    }
+    // Execute fetch
+    const transportResult = await transportFetch(options);
 
     // Update local refs (unless dry run)
     const trackingUpdates: TrackingRefUpdate[] = [];
-    if (!this.dryRun && transportResult.updatedRefs) {
-      for (const [localRef, objectId] of transportResult.updatedRefs) {
-        const update = await this.updateRef(localRef, objectId);
+    if (!this.dryRun) {
+      for (const [localRef, objectId] of transportResult.refs) {
+        const update = await this.updateRef(localRef, bytesToHex(objectId));
         trackingUpdates.push(update);
       }
 
       // Handle prune
-      if (this.removeDeletedRefs && transportResult.updatedRefs) {
-        const pruned = await this.pruneDeletedRefsNew(transportResult.updatedRefs);
+      if (this.removeDeletedRefs) {
+        const pruned = await this.pruneDeletedRefs(transportResult.refs);
         trackingUpdates.push(...pruned);
       }
-    } else if (transportResult.updatedRefs) {
+    } else {
       // In dry run, just record what would be updated
-      for (const [localRef, objectId] of transportResult.updatedRefs) {
+      for (const [localRef, objectId] of transportResult.refs) {
         trackingUpdates.push({
           localRef,
           remoteRef: localRef, // Simplified for dry run
-          newObjectId: objectId,
+          newObjectId: bytesToHex(objectId),
           status: RefUpdateStatus.NEW,
         });
       }
     }
 
+    // Store pack data
+    if (transportResult.packData.length > 0 && !this.dryRun) {
+      await this.storePack(transportResult.packData);
+    }
+
     // Build result
     const advertisedRefs = new Map<string, ObjectId>();
-    if (transportResult.updatedRefs) {
-      for (const [refName, objectId] of transportResult.updatedRefs) {
-        advertisedRefs.set(refName, objectId);
-      }
+    for (const [refName, objectId] of transportResult.refs) {
+      advertisedRefs.set(refName, bytesToHex(objectId));
     }
 
     return {
       uri: remoteUrl,
       advertisedRefs,
       trackingRefUpdates: trackingUpdates,
-      bytesReceived: 0, // httpFetch doesn't track this currently
-      isEmpty: advertisedRefs.size === 0,
+      defaultBranch: transportResult.defaultBranch,
+      bytesReceived: transportResult.bytesReceived,
+      isEmpty: transportResult.isEmpty,
       messages: [],
     };
   }
@@ -477,48 +437,43 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   }
 
   /**
-   * Create a transport RefStore adapter from the history store refs.
+   * Build refspecs for the fetch.
    */
-  private createRefStoreAdapter(): TransportRefStore {
-    const refs = this.store.refs;
+  private buildRefSpecs(): string[] {
+    if (this.refSpecs.length > 0) {
+      // Apply force update if needed
+      if (this.forceUpdate) {
+        return this.refSpecs.map((spec) => (spec.startsWith("+") ? spec : `+${spec}`));
+      }
+      return this.refSpecs;
+    }
 
-    return {
-      async get(name: string): Promise<string | undefined> {
-        const ref = await refs.resolve(name);
-        return ref?.objectId;
-      },
+    // Default refspecs based on remote
+    const defaultSpecs = [`+refs/heads/*:refs/remotes/${this.remote}/*`];
 
-      async update(name: string, oid: string): Promise<void> {
-        await refs.set(name, oid);
-      },
+    // Add tags based on tag option
+    if (this.tagOption === TagOption.FETCH_TAGS) {
+      defaultSpecs.push("+refs/tags/*:refs/tags/*");
+    }
 
-      async listAll(): Promise<Iterable<[string, string]>> {
-        const result: Array<[string, string]> = [];
-        for await (const ref of refs.list()) {
-          if (!isSymbolicRef(ref) && ref.objectId) {
-            result.push([ref.name, ref.objectId]);
-          }
-        }
-        return result;
-      },
+    return defaultSpecs;
+  }
 
-      async getSymrefTarget(name: string): Promise<string | undefined> {
-        const ref = await refs.get(name);
-        if (ref && isSymbolicRef(ref)) {
-          return ref.target;
-        }
-        return undefined;
-      },
-
-      async isRefTip(oid: string): Promise<boolean> {
-        for await (const ref of refs.list()) {
-          if (!isSymbolicRef(ref) && ref.objectId === oid) {
-            return true;
-          }
-        }
-        return false;
-      },
-    };
+  /**
+   * Get local commits for negotiation.
+   */
+  private async *getLocalCommits(): AsyncIterable<Uint8Array> {
+    // Get commits from local refs for negotiation
+    for await (const ref of this.store.refs.list("refs/heads/")) {
+      if (!isSymbolicRef(ref) && ref.objectId) {
+        yield hexToBytes(ref.objectId);
+      }
+    }
+    for await (const ref of this.store.refs.list("refs/remotes/")) {
+      if (!isSymbolicRef(ref) && ref.objectId) {
+        yield hexToBytes(ref.objectId);
+      }
+    }
   }
 
   /**
@@ -591,9 +546,11 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   }
 
   /**
-   * Prune refs that no longer exist on remote (new API with string OIDs).
+   * Prune refs that no longer exist on remote.
    */
-  private async pruneDeletedRefsNew(remoteRefs: Map<string, string>): Promise<TrackingRefUpdate[]> {
+  private async pruneDeletedRefs(
+    remoteRefs: Map<string, Uint8Array>,
+  ): Promise<TrackingRefUpdate[]> {
     const updates: TrackingRefUpdate[] = [];
     const prefix = `refs/remotes/${this.remote}/`;
 
@@ -628,5 +585,24 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     }
 
     return updates;
+  }
+
+  /**
+   * Store received pack data.
+   */
+  private async storePack(packData: Uint8Array): Promise<void> {
+    // The store should handle unpacking the pack file
+    // This depends on the store implementation
+    // For stores with pack support, we'd call store.packs.store()
+    // For object-based stores, we'd unpack and store individual objects
+
+    // Check if store has pack storage capability
+    const storeWithPacks = this.store as {
+      packs?: { store(data: Uint8Array): Promise<void> };
+    };
+    if (storeWithPacks.packs?.store) {
+      await storeWithPacks.packs.store(packData);
+    }
+    // Otherwise, objects will be stored individually by the transport layer
   }
 }

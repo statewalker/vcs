@@ -21,20 +21,19 @@
  */
 
 import { parsePacket } from "./pkt-line-codec.js";
-import type { ServiceType } from "./types.js";
 
 /**
  * Git protocol service types for the wire protocol.
- * @deprecated Use ServiceType from protocol/types.ts instead.
+ * Note: This is an alias for compatibility. Use ServiceType from protocol/types.ts when possible.
  */
-export type GitProtocolService = ServiceType;
+export type GitProtocolService = "git-upload-pack" | "git-receive-pack";
 
 /**
  * Parsed git:// protocol request.
  */
 export interface GitProtocolRequest {
   /** The requested service */
-  service: ServiceType;
+  service: GitProtocolService;
   /** Repository path */
   path: string;
   /** Host name (may be empty for local connections) */
@@ -104,7 +103,7 @@ export function parseGitProtocolRequest(data: Uint8Array): GitProtocolRequest {
   }
 
   return {
-    service: service as ServiceType,
+    service: service as GitProtocolService,
     path: path || "/",
     host,
     extraParams,
@@ -198,7 +197,7 @@ export const GIT_PROTOCOL_DEFAULT_PORT = 9418;
 /**
  * Check if a service is valid.
  */
-export function isValidService(service: string): service is ServiceType {
+export function isValidService(service: string): service is GitProtocolService {
   return service === "git-upload-pack" || service === "git-receive-pack";
 }
 
