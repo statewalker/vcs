@@ -1,20 +1,20 @@
 /**
- * Compressed RawStore wrapper
+ * Compressed RawStorage wrapper
  *
- * Wraps any RawStore with zlib deflate/inflate compression.
+ * Wraps any RawStorage with zlib deflate/inflate compression.
  * Content is compressed on store() and decompressed on load().
  *
  * This is useful for Git-compatible loose object storage where
  * objects are stored compressed on disk.
  */
 
-import { deflate, inflate, slice } from "@statewalker/vcs-utils";
-import type { RawStore } from "./raw-store.js";
+import { deflate, inflate, slice, toArray } from "@statewalker/vcs-utils";
+import type { RawStorage } from "./raw-storage.js";
 
 /**
- * Options for CompressedRawStore
+ * Options for CompressedRawStorage
  */
-export interface CompressedRawStoreOptions {
+export interface CompressedRawStorageOptions {
   /**
    * Use raw DEFLATE (no zlib header) instead of ZLIB format.
    * Git uses ZLIB format (raw: false), which is the default.
@@ -23,32 +23,32 @@ export interface CompressedRawStoreOptions {
 }
 
 /**
- * RawStore wrapper that adds zlib compression
+ * RawStorage wrapper that adds zlib compression
  *
  * Compresses content before delegating to the underlying store.
  * Decompresses content when loading from the underlying store.
  *
  * Example usage for Git loose objects:
  * ```typescript
- * const files = new FileRawStore(filesApi, ".git/objects");
- * const compressed = new CompressedRawStore(files);
+ * const files = new FileRawStorage(filesApi, ".git/objects");
+ * const compressed = new CompressedRawStorage(files);
  * // Objects are now stored compressed in .git/objects/XX/YYYY...
  * ```
  */
-export class CompressedRawStore implements RawStore {
-  private readonly raw: boolean;
+export class CompressedRawStorage implements RawStorage {
+  private readonly rawDeflate: boolean;
 
   /**
-   * Create a compressed raw store wrapper
+   * Create a compressed raw storage wrapper
    *
    * @param inner The underlying store to wrap
    * @param options Compression options
    */
   constructor(
-    private readonly inner: RawStore,
-    options?: CompressedRawStoreOptions,
+    private readonly inner: RawStorage,
+    options?: CompressedRawStorageOptions,
   ) {
-    this.raw = options?.raw ?? false;
+    this.rawDeflate = options?.raw ?? false;
   }
 
   /**
@@ -58,11 +58,10 @@ export class CompressedRawStore implements RawStore {
    *
    * @param key Storage key
    * @param content Uncompressed content stream
-   * @returns Number of compressed bytes stored
    */
-  async store(key: string, content: AsyncIterable<Uint8Array>): Promise<number> {
-    const compressed = deflate(content, { raw: this.raw });
-    return this.inner.store(key, compressed);
+  async store(key: string, content: AsyncIterable<Uint8Array>): Promise<void> {
+    const compressed = deflate(content, { raw: this.rawDeflate });
+    await this.inner.store(key, compressed);
   }
 
   /**
@@ -74,19 +73,18 @@ export class CompressedRawStore implements RawStore {
    * @param options Range options (applied to decompressed content)
    * @returns Decompressed content stream
    */
-  async *load(
-    key: string,
-    options?: { offset?: number; length?: number },
-  ): AsyncGenerator<Uint8Array> {
+  async *load(key: string, options?: { start?: number; end?: number }): AsyncIterable<Uint8Array> {
     // Load compressed data from underlying store
     const compressed = this.inner.load(key);
 
     // Decompress
-    const decompressed = inflate(compressed, { raw: this.raw });
+    const decompressed = inflate(compressed, { raw: this.rawDeflate });
 
     // Apply range if specified
-    if (options?.offset || options?.length) {
-      yield* slice(decompressed, options.offset ?? 0, options.length);
+    if (options?.start !== undefined || options?.end !== undefined) {
+      const start = options.start ?? 0;
+      const length = options.end !== undefined ? options.end - start : undefined;
+      yield* slice(decompressed, start, length);
     } else {
       yield* decompressed;
     }
@@ -100,10 +98,10 @@ export class CompressedRawStore implements RawStore {
   }
 
   /**
-   * Delete content by key from underlying store
+   * Remove content by key from underlying store
    */
-  async delete(key: string): Promise<boolean> {
-    return this.inner.delete(key);
+  async remove(key: string): Promise<boolean> {
+    return this.inner.remove(key);
   }
 
   /**
@@ -129,27 +127,10 @@ export class CompressedRawStore implements RawStore {
     }
     // Must decompress to get actual size
     try {
-      const content = this.load(key);
-      let length = 0;
-      for await (const chunk of content) {
-        length += chunk.length;
-      }
-      return length;
+      const chunks = await toArray(this.load(key));
+      return chunks.reduce((total, chunk) => total + chunk.length, 0);
     } catch {
       return -1;
     }
   }
-}
-
-/**
- * Create a compressed raw store wrapper
- *
- * @param store The underlying store to wrap
- * @param options Compression options
- */
-export function createCompressedRawStore(
-  store: RawStore,
-  options?: CompressedRawStoreOptions,
-): CompressedRawStore {
-  return new CompressedRawStore(store, options);
 }

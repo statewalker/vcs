@@ -1,11 +1,11 @@
 /**
- * SQL-based RawStore implementation
+ * SQL-based RawStorage implementation
  *
  * Stores binary content in a SQL database table.
- * Implements the new RawStore interface from binary-storage.
+ * Implements the RawStorage interface.
  */
 
-import type { RawStore } from "@statewalker/vcs-core";
+import type { RawStorage } from "@statewalker/vcs-core";
 import type { DatabaseClient } from "../database-client.js";
 
 /**
@@ -38,7 +38,7 @@ async function collect(input: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
  * - data: BLOB
  * - size: INTEGER (for efficient size queries)
  */
-export class SqlRawStore implements RawStore {
+export class SqlRawStore implements RawStorage {
   private initialized = false;
 
   /**
@@ -71,10 +71,8 @@ export class SqlRawStore implements RawStore {
 
   /**
    * Store byte stream under key
-   *
-   * @returns Number of bytes stored
    */
-  async store(key: string, content: AsyncIterable<Uint8Array>): Promise<number> {
+  async store(key: string, content: AsyncIterable<Uint8Array>): Promise<void> {
     await this.ensureInitialized();
 
     const bytes = await collect(content);
@@ -83,17 +81,12 @@ export class SqlRawStore implements RawStore {
       `INSERT OR REPLACE INTO ${this.tableName} (key, data, size) VALUES (?, ?, ?)`,
       [key, bytes, bytes.length],
     );
-
-    return bytes.length;
   }
 
   /**
    * Load byte stream by key
    */
-  async *load(
-    key: string,
-    options?: { offset?: number; length?: number },
-  ): AsyncGenerator<Uint8Array> {
+  async *load(key: string, options?: { start?: number; end?: number }): AsyncIterable<Uint8Array> {
     await this.ensureInitialized();
 
     const rows = await this.db.query<{ data: Uint8Array }>(
@@ -107,11 +100,11 @@ export class SqlRawStore implements RawStore {
 
     let data = rows[0].data;
 
-    // Apply offset and length if specified
-    if (options?.offset !== undefined || options?.length !== undefined) {
-      const offset = options?.offset ?? 0;
-      const length = options?.length ?? data.length - offset;
-      data = data.subarray(offset, offset + length);
+    // Apply start and end if specified
+    if (options?.start !== undefined || options?.end !== undefined) {
+      const start = options?.start ?? 0;
+      const end = options?.end ?? data.length;
+      data = data.subarray(start, end);
     }
 
     yield data;
@@ -132,9 +125,9 @@ export class SqlRawStore implements RawStore {
   }
 
   /**
-   * Delete content by key
+   * Remove content by key
    */
-  async delete(key: string): Promise<boolean> {
+  async remove(key: string): Promise<boolean> {
     await this.ensureInitialized();
 
     const result = await this.db.execute(`DELETE FROM ${this.tableName} WHERE key = ?`, [key]);

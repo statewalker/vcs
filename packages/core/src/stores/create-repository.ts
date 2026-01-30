@@ -18,13 +18,10 @@ import type { MemoryRefStore } from "../history/refs/ref-store.memory.js";
 import { createRefsStructure, writeSymbolicRef } from "../history/refs/ref-writer.js";
 import { GitTagStore } from "../history/tags/tag-store.impl.js";
 import { GitTreeStore } from "../history/trees/tree-store.impl.js";
-import { CombinedRawStore } from "../storage/binary/combined-raw-store.js";
-import { CompressedRawStore } from "../storage/binary/raw-store.compressed.js";
-import { createFileRawStore } from "../storage/binary/raw-store.files.js";
 import { createFileVolatileStore } from "../storage/binary/volatile-store.files.js";
 import { GCController } from "../storage/delta/gc-controller.js";
 import { PackDeltaStore } from "../storage/pack/pack-delta-store.js";
-import { adaptRawStore } from "../storage/raw/raw-store-adapter.js";
+import { CombinedRawStorage, CompressedRawStorage, FileRawStorage } from "../storage/raw/index.js";
 
 /**
  * Options for creating a repository
@@ -152,8 +149,8 @@ export async function createGitRepository(
   const packDir = joinPath(objectsDir, "pack");
 
   // Loose object storage with Git-compatible compression
-  const fileStore = createFileRawStore(files, objectsDir);
-  const compressedStore = new CompressedRawStore(fileStore);
+  const fileStorage = new FileRawStorage(files, objectsDir);
+  const compressedStorage = new CompressedRawStorage(fileStorage);
 
   // Pack-based delta storage for reading pack files
   const packDeltaStore = new PackDeltaStore({
@@ -161,9 +158,8 @@ export async function createGitRepository(
     basePath: packDir,
   });
 
-  // Combined raw store: loose objects + pack file support
-  const rawStore = new CombinedRawStore(compressedStore, packDeltaStore);
-  const storage = adaptRawStore(rawStore);
+  // Combined storage: loose objects + pack file support
+  const storage = new CombinedRawStorage(compressedStorage, packDeltaStore);
 
   const volatileStore = createFileVolatileStore(files, joinPath(gitDir, "tmp"));
   const refStore = createFileRefStore(files, gitDir);

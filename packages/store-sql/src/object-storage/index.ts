@@ -6,7 +6,6 @@
  */
 
 import {
-  adaptRawStore,
   type BlobStore,
   type CommitStore,
   GitBlobStore,
@@ -70,8 +69,8 @@ export interface CreateSqlObjectStoresOptions {
 export function createSqlObjectStores(options: CreateSqlObjectStoresOptions): SqlObjectStores {
   const { db, tableName = "raw_objects" } = options;
 
-  const rawStore = new SqlRawStore(db, tableName);
-  const storage = adaptRawStore(rawStore);
+  // SqlRawStore implements RawStorage directly
+  const storage = new SqlRawStore(db, tableName);
   const objects = new GitObjectStoreImpl({ storage });
 
   return {

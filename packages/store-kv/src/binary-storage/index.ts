@@ -1,7 +1,7 @@
 /**
  * Binary storage implementations for KV-based backend
  *
- * Provides RawStore, DeltaStore, and BinStore
+ * Provides RawStorage, DeltaStore, and BinStore
  * implementations using key-value stores.
  */
 

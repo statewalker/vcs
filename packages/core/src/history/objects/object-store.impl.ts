@@ -1,10 +1,10 @@
+import { deflate, inflate } from "@statewalker/vcs-utils";
 import { Sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
-import { deflate, inflate } from "@statewalker/vcs-utils";
 import type { ObjectId } from "../../common/id/index.js";
-import type { RawStorage } from "../../storage/raw/raw-storage.js";
 import type { VolatileStore } from "../../storage/binary/volatile-store.js";
 import { MemoryVolatileStore } from "../../storage/binary/volatile-store.memory.js";
+import type { RawStorage } from "../../storage/raw/raw-storage.js";
 import { loadWithHeader } from "./load-with-header.js";
 import { encodeObjectHeader } from "./object-header.js";
 import type { GitObjectHeader, GitObjectStore, GitObjectStoreOptions } from "./object-store.js";

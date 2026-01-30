@@ -18,8 +18,8 @@ import {
   GitTagStore,
   GitTreeStore,
   isSymbolicRef,
-  // Binary storage
-  MemoryRawStore,
+  // Raw storage
+  MemoryRawStorage,
   MergeStage,
   // Object ID
   type ObjectId,
@@ -34,10 +34,10 @@ import {
 } from "../src/index.js";
 
 describe("Core exports", () => {
-  describe("Binary storage", () => {
-    it("exports MemoryRawStore class", () => {
-      expect(MemoryRawStore).toBeDefined();
-      expect(typeof MemoryRawStore).toBe("function");
+  describe("Raw storage", () => {
+    it("exports MemoryRawStorage class", () => {
+      expect(MemoryRawStorage).toBeDefined();
+      expect(typeof MemoryRawStorage).toBe("function");
     });
   });
 

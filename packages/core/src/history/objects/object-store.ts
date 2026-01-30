@@ -7,8 +7,8 @@
  */
 
 import type { ObjectId } from "../../common/id/index.js";
-import type { RawStorage } from "../../storage/raw/raw-storage.js";
 import type { VolatileStore } from "../../storage/binary/volatile-store.js";
+import type { RawStorage } from "../../storage/raw/raw-storage.js";
 import type { ObjectTypeString } from "./object-types.js";
 
 /**

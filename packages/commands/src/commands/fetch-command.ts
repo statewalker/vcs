@@ -72,7 +72,6 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   private shallowSince?: Date;
   private shallowExcludes: string[] = [];
   private unshallow = false;
-  private tagOption: TagOption = TagOption.AUTO_FOLLOW;
 
   /**
    * Set the remote to fetch from.
