@@ -49,6 +49,10 @@
       "types": "./dist/diff/index.d.ts",
       "import": "./dist/diff/index.js"
     },
+    "./encoding": {
+      "types": "./dist/encoding/index.d.ts",
+      "import": "./dist/encoding/index.js"
+    },
     "./streams": {
       "types": "./dist/streams/index.d.ts",
       "import": "./dist/streams/index.js"
