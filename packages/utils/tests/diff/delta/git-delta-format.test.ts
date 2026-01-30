@@ -629,3 +629,37 @@ describe("deltaToGitFormat", () => {
     expect(decodeGitBinaryDelta(base, gitDelta)).toEqual(target);
   });
 });
+
+describe("parseGitDelta error handling", () => {
+  it("should throw on unsupported delta command 0", () => {
+    // Create a malformed delta with command byte 0
+    // Format: baseSize varint, resultSize varint, then instructions
+    const malformedDelta = new Uint8Array([
+      0x05, // baseSize = 5
+      0x05, // resultSize = 5
+      0x00, // Invalid command byte (0 is reserved)
+    ]);
+
+    expect(() => parseGitDelta(malformedDelta)).toThrow("Unsupported delta command 0");
+  });
+
+  it("should parse valid delta without throwing", () => {
+    // Create a simple valid delta with an insert instruction
+    const validDelta = new Uint8Array([
+      0x00, // baseSize = 0
+      0x05, // resultSize = 5
+      0x05, // INSERT 5 bytes
+      0x48,
+      0x65,
+      0x6c,
+      0x6c,
+      0x6f, // "Hello"
+    ]);
+
+    const result = parseGitDelta(validDelta);
+    expect(result.baseSize).toBe(0);
+    expect(result.resultSize).toBe(5);
+    expect(result.instructions.length).toBe(1);
+    expect(result.instructions[0].type).toBe("insert");
+  });
+});
