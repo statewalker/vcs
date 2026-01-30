@@ -13,6 +13,7 @@ import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { type FilesApi, readAt } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
 import type { RandomAccessReader } from "./random-access-delta.js";
+import { readVarint } from "./varint.js";
 
 /**
  * Pack-specific delta chain information
@@ -503,30 +504,19 @@ export class PackReader {
  * @returns The resulting object data
  */
 export function applyDelta(base: Uint8Array, delta: Uint8Array): Uint8Array {
-  let deltaPtr = 0;
-
-  // Read base object length (variable length int)
-  let baseLen = 0;
-  let shift = 0;
-  let c: number;
-  do {
-    c = delta[deltaPtr++];
-    baseLen |= (c & 0x7f) << shift;
-    shift += 7;
-  } while ((c & 0x80) !== 0);
+  // Read base object length using centralized varint
+  const baseResult = readVarint(delta, 0);
+  const baseLen = baseResult.value;
+  let deltaPtr = baseResult.bytesRead;
 
   if (base.length !== baseLen) {
     throw new Error(`Delta base length mismatch: expected ${baseLen}, got ${base.length}`);
   }
 
-  // Read result object length (variable length int)
-  let resLen = 0;
-  shift = 0;
-  do {
-    c = delta[deltaPtr++];
-    resLen |= (c & 0x7f) << shift;
-    shift += 7;
-  } while ((c & 0x80) !== 0);
+  // Read result object length using centralized varint
+  const resultResult = readVarint(delta, deltaPtr);
+  const resLen = resultResult.value;
+  deltaPtr += resultResult.bytesRead;
 
   const result = new Uint8Array(resLen);
   let resultPtr = 0;
@@ -573,40 +563,15 @@ export function applyDelta(base: Uint8Array, delta: Uint8Array): Uint8Array {
  * Get base object size from a delta
  */
 export function getDeltaBaseSize(delta: Uint8Array): number {
-  let p = 0;
-  let baseLen = 0;
-  let shift = 0;
-  let c: number;
-  do {
-    c = delta[p++];
-    baseLen |= (c & 0x7f) << shift;
-    shift += 7;
-  } while ((c & 0x80) !== 0);
-  return baseLen;
+  return readVarint(delta, 0).value;
 }
 
 /**
  * Get result object size from a delta
  */
 export function getDeltaResultSize(delta: Uint8Array): number {
-  let p = 0;
-  let c: number;
-
-  // Skip base size
-  do {
-    c = delta[p++];
-  } while ((c & 0x80) !== 0);
-
-  // Read result size
-  let resLen = 0;
-  let shift = 0;
-  do {
-    c = delta[p++];
-    resLen |= (c & 0x7f) << shift;
-    shift += 7;
-  } while ((c & 0x80) !== 0);
-
-  return resLen;
+  const baseResult = readVarint(delta, 0);
+  return readVarint(delta, baseResult.bytesRead).value;
 }
 
 /**

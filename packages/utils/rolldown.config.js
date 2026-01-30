@@ -12,6 +12,7 @@ export default defineConfig({
     "hash/rolling-checksum/index": "src/hash/rolling-checksum/index.ts",
     "hash/strong-checksum/index": "src/hash/strong-checksum/index.ts",
     "diff/index": "src/diff/index.ts",
+    "encoding/index": "src/encoding/index.ts",
     "streams/index": "src/streams/index.ts",
     "ports/index": "src/ports/index.ts",
     "cache/index": "src/cache/index.ts",

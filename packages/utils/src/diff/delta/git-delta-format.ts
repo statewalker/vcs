@@ -10,6 +10,7 @@
  * @see https://github.com/eclipse-jgit/jgit/blob/master/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
+import { appendVarint } from "../../encoding/varint.js";
 import type { Delta, DeltaRange } from "./types.js";
 
 /**
@@ -23,24 +24,6 @@ const MAX_V2_COPY = 0x10000;
  * Maximum length that an insert command can encode at once (127 bytes).
  */
 const MAX_INSERT_DATA_SIZE = 0x7f;
-
-/**
- * Write a variable-length integer to the output array
- *
- * Git uses a variable-length encoding where each byte contributes 7 bits,
- * and the MSB indicates if more bytes follow.
- *
- * @param output Output array to append to
- * @param value Value to write
- */
-function writeVarint(output: number[], value: number): void {
-  let remaining = value;
-  while (remaining >= 0x80) {
-    output.push((remaining & 0x7f) | 0x80);
-    remaining >>>= 7;
-  }
-  output.push(remaining & 0x7f);
-}
 
 /**
  * Encode a single COPY instruction
@@ -198,8 +181,8 @@ export function deltaRangesToGitFormat(
   const output: number[] = [];
 
   // Write header: base size and result size as varints
-  writeVarint(output, base.length);
-  writeVarint(output, target.length);
+  appendVarint(output, base.length);
+  appendVarint(output, target.length);
 
   // Encode each range as copy or insert instructions
   for (const range of ranges) {
@@ -241,8 +224,8 @@ export function deltaToGitFormat(baseSize: number, deltas: Iterable<Delta>): Uin
   }
 
   // Write header
-  writeVarint(output, baseSize);
-  writeVarint(output, targetSize);
+  appendVarint(output, baseSize);
+  appendVarint(output, targetSize);
 
   // Encode instructions
   for (const delta of instructions) {
