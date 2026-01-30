@@ -85,3 +85,7 @@ tmp
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Nested git repositories/worktrees (sandbox and test environments)
+worktrees/
+apps/demos/git-cli-sandbox/vcs/
