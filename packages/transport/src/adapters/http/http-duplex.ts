@@ -7,6 +7,15 @@
  */
 
 import type { Duplex } from "../../api/duplex.js";
+import { SIDEBAND_DATA, SIDEBAND_ERROR, SIDEBAND_PROGRESS } from "../../protocol/constants.js";
+
+/**
+ * Options for creating a simple duplex.
+ */
+export interface SimpleDuplexOptions {
+  /** Optional callback when close() is called */
+  onClose?: () => void | Promise<void>;
+}
 
 /**
  * Creates a Duplex from an async iterable input and a writer function.
