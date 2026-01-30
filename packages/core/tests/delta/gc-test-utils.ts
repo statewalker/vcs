@@ -17,8 +17,7 @@ import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.
 import { MemoryRefStore } from "../../src/history/refs/ref-store.memory.js";
 import { GitTagStore } from "../../src/history/tags/tag-store.impl.js";
 import { GitTreeStore } from "../../src/history/trees/tree-store.impl.js";
-import { MemoryRawStore } from "../../src/storage/binary/raw-store.memory.js";
-import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
+import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 import { GCController, type GCScheduleOptions } from "../../src/storage/delta/gc-controller.js";
 
 /**
@@ -80,11 +79,10 @@ export interface CommitOptions {
  */
 export async function createTestRepository(gcOptions?: GCScheduleOptions): Promise<GCTestContext> {
   // Create raw storage
-  const rawStore = new MemoryRawStore();
-  const volatileStore = new MemoryVolatileStore();
+  const storage = new MemoryRawStorage();
 
   // Create object store
-  const objectStore = new GitObjectStoreImpl(volatileStore, rawStore);
+  const objectStore = new GitObjectStoreImpl({ storage });
 
   // Create typed stores
   const commits = new GitCommitStore(objectStore);
