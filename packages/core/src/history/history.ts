@@ -1,0 +1,125 @@
+/**
+ * History - Immutable repository history (Part 1 of Three-Part Architecture)
+ *
+ * The History interface provides unified access to all stored objects:
+ * - Blobs: File content
+ * - Trees: Directory structures
+ * - Commits: Version snapshots
+ * - Tags: Annotated version markers
+ * - Refs: Named pointers (branches, tags)
+ *
+ * History is:
+ * - Immutable: Objects are content-addressed and never change
+ * - Shared: Multiple working copies can share the same history
+ * - Persistent: Survives application restarts
+ *
+ * History does NOT include:
+ * - Staging area (belongs to Checkout)
+ * - Working directory (belongs to Worktree)
+ * - HEAD pointer (belongs to Checkout)
+ *
+ * @see HistoryWithBackend for advanced operations (GC, delta, serialization)
+ */
+
+import type { StorageBackend } from "../backend/storage-backend.js";
+import type { Blobs } from "./blobs/blobs.js";
+import type { Commits } from "./commits/commits.js";
+import type { Refs } from "./refs/refs.js";
+import type { Tags } from "./tags/tags.js";
+import type { Trees } from "./trees/trees.js";
+
+/**
+ * History interface - read/write access to repository objects
+ *
+ * This is the primary interface for working with Git objects.
+ * Use factory functions to create instances:
+ * - createMemoryHistory() for testing
+ * - createHistoryFromStores() with explicit stores
+ * - createHistoryFromBackend() for production use
+ */
+export interface History {
+  /**
+   * Blob (file content) storage
+   *
+   * Blobs are stored as raw content without Git headers for efficiency.
+   * Content is addressed by SHA-1 hash computed with "blob <size>\0" prefix.
+   */
+  readonly blobs: Blobs;
+
+  /**
+   * Tree (directory structure) storage
+   *
+   * Trees list entries pointing to blobs (files) or other trees (directories).
+   * Entries are stored in Git's canonical sorted order.
+   */
+  readonly trees: Trees;
+
+  /**
+   * Commit (version snapshot) storage
+   *
+   * Commits link a tree (content) to parent commits (history) with metadata.
+   * Provides graph traversal methods for history operations.
+   */
+  readonly commits: Commits;
+
+  /**
+   * Tag (annotated tag) storage
+   *
+   * Annotated tags point to objects (usually commits) with metadata.
+   * Lightweight tags are just refs and don't use this store.
+   */
+  readonly tags: Tags;
+
+  /**
+   * Reference (branch/tag pointer) storage
+   *
+   * Refs are named pointers (branches, tags, HEAD) to objects.
+   * Supports both direct refs and symbolic refs.
+   */
+  readonly refs: Refs;
+
+  /**
+   * Initialize the history store
+   *
+   * Creates necessary structures for a new repository.
+   * Safe to call on already-initialized repositories.
+   */
+  initialize(): Promise<void>;
+
+  /**
+   * Close the history store
+   *
+   * Releases resources and flushes any pending writes.
+   * The store should not be used after calling close().
+   */
+  close(): Promise<void>;
+
+  /**
+   * Check if the history store is initialized
+   *
+   * @returns True if initialize() has been called
+   */
+  isInitialized(): boolean;
+}
+
+/**
+ * Extended History interface with backend access
+ *
+ * Used internally for operations that need direct backend access:
+ * - Delta compression for storage optimization
+ * - Serialization for pack files and transport
+ * - Garbage collection for cleanup
+ *
+ * Most application code should use the plain History interface.
+ */
+export interface HistoryWithBackend extends History {
+  /**
+   * Direct backend access for advanced operations
+   *
+   * Provides access to:
+   * - structured: TypedStores (same objects, different view)
+   * - delta: Delta compression API
+   * - serialization: Pack file generation
+   */
+  readonly backend: StorageBackend;
+}
