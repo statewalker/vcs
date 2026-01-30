@@ -4,9 +4,9 @@
  * Runs conformance tests against the new Blobs implementation.
  */
 
-import { MemoryRawStorage } from "../../../src/storage/raw/memory-raw-storage.js";
 import { createBlobs } from "../../../src/history/blobs/blobs.impl.js";
 import type { Blobs } from "../../../src/history/blobs/blobs.js";
+import { MemoryRawStorage } from "../../../src/storage/raw/memory-raw-storage.js";
 import { blobsConformanceTests } from "./blobs.conformance.test.js";
 
 let storage: MemoryRawStorage;
