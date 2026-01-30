@@ -17,6 +17,7 @@ import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { applyDelta } from "./pack-reader.js";
 import { PackObjectType } from "./types.js";
+import { readOfsVarint, readPackHeader } from "./varint.js";
 
 /** Pack file signature "PACK" */
 const PACK_SIGNATURE = 0x5041434b;
@@ -306,37 +307,24 @@ class PackDataReader {
     baseId?: string;
     headerLength: number;
   } {
-    let pos = offset;
+    // Read pack header (type + size) using centralized varint
+    const packHeader = readPackHeader(this.data, offset);
+    const type = packHeader.type as PackObjectType;
+    const size = packHeader.size;
+    let headerLength = packHeader.bytesRead;
 
-    let c = this.data[pos++];
-    const type = ((c >> 4) & 0x07) as PackObjectType;
-    let size = c & 0x0f;
-    let shift = 4;
-
-    while ((c & 0x80) !== 0) {
-      c = this.data[pos++];
-      size |= (c & 0x7f) << shift;
-      shift += 7;
-    }
-
-    let headerLength = pos - offset;
     let baseOffset: number | undefined;
     let baseId: string | undefined;
 
     if (type === PackObjectType.OFS_DELTA) {
-      c = this.data[pos++];
-      baseOffset = c & 0x7f;
-      while ((c & 0x80) !== 0) {
-        baseOffset++;
-        c = this.data[pos++];
-        baseOffset <<= 7;
-        baseOffset += c & 0x7f;
-      }
-      headerLength = pos - offset;
+      // Read OFS_DELTA offset using centralized varint
+      const ofsResult = readOfsVarint(this.data, offset + headerLength);
+      baseOffset = ofsResult.value;
+      headerLength += ofsResult.bytesRead;
     } else if (type === PackObjectType.REF_DELTA) {
+      const pos = offset + headerLength;
       baseId = bytesToHex(this.data.subarray(pos, pos + OBJECT_ID_LENGTH));
-      pos += OBJECT_ID_LENGTH;
-      headerLength = pos - offset;
+      headerLength += OBJECT_ID_LENGTH;
     }
 
     return { type, size, baseOffset, baseId, headerLength };
