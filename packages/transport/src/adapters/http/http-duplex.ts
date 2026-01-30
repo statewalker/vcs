@@ -7,11 +7,7 @@
  */
 
 import type { Duplex } from "../../api/duplex.js";
-import {
-  SIDEBAND_DATA,
-  SIDEBAND_ERROR,
-  SIDEBAND_PROGRESS,
-} from "../../protocol/constants.js";
+import { SIDEBAND_DATA, SIDEBAND_ERROR, SIDEBAND_PROGRESS } from "../../protocol/constants.js";
 
 /**
  * Options for creating a simple duplex.
