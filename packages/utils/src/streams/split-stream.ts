@@ -192,3 +192,17 @@ export function newSplitter(delimiter: Uint8Array): (block: Uint8Array) => numbe
     return -1;
   };
 }
+
+export function newLengthSplitter(len: number): (block: Uint8Array) => number {
+  let remaining = len;
+  return (block: Uint8Array) => {
+    if (remaining >= 0 && block.length >= remaining) {
+      const toRead = remaining;
+      remaining = -1;
+      return toRead;
+    } else {
+      remaining -= block.length;
+      return -1;
+    }
+  };
+}
