@@ -4,7 +4,7 @@
  * Runs conformance tests against the native in-memory Refs implementation.
  */
 
-import { MemoryRefs, createMemoryRefs } from "../../../src/history/refs/refs.impl.js";
+import { MemoryRefs } from "../../../src/history/refs/refs.impl.js";
 import type { Refs } from "../../../src/history/refs/refs.js";
 import { refsConformanceTests } from "./refs.conformance.test.js";
 
