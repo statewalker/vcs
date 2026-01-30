@@ -52,13 +52,13 @@ export function commitsConformanceTests(
           name: "Test Author",
           email: "author@test.com",
           timestamp: now,
-          timezoneOffset: 0,
+          tzOffset: "+0000",
         },
         committer: {
           name: "Test Committer",
           email: "committer@test.com",
           timestamp: now,
-          timezoneOffset: 0,
+          tzOffset: "+0000",
         },
         message: options.message ?? "Test commit",
       };

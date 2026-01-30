@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ObjectId } from "../../../src/history/object-storage.js";
+import { ObjectType } from "../../../src/history/objects/object-types.js";
 import type { Tag, Tags } from "../../../src/history/tags/tags.js";
 
 // This file exports a conformance test factory, not direct tests.
@@ -47,13 +48,13 @@ export function tagsConformanceTests(
       const now = options.timestamp ?? Date.now();
       return {
         object: options.targetId ?? objectId(1),
-        objectType: "commit",
+        objectType: ObjectType.COMMIT,
         tag: options.name ?? "v1.0.0",
         tagger: {
           name: "Test Tagger",
           email: "tagger@test.com",
           timestamp: now,
-          timezoneOffset: 0,
+          tzOffset: "+0000",
         },
         message: options.message ?? "Release tag",
       };
@@ -81,7 +82,7 @@ export function tagsConformanceTests(
 
         const loaded = await store.load(tagId);
         expect(loaded?.object).toBe(commitId);
-        expect(loaded?.objectType).toBe("commit");
+        expect(loaded?.objectType).toBe(ObjectType.COMMIT);
       });
 
       it("returns same id for same tag (content-addressed)", async () => {
@@ -197,13 +198,13 @@ export function tagsConformanceTests(
         // Create a tag pointing to the inner tag
         const outerTag: Tag = {
           object: innerTagId,
-          objectType: "tag",
+          objectType: ObjectType.TAG,
           tag: "outer",
           tagger: {
             name: "Test",
             email: "test@test.com",
             timestamp: 2,
-            timezoneOffset: 0,
+            tzOffset: "+0000",
           },
           message: "Outer tag",
         };
