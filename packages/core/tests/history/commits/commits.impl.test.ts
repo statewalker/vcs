@@ -4,10 +4,10 @@
  * Runs conformance tests against the new Commits implementation.
  */
 
-import { MemoryRawStorage } from "../../../src/storage/raw/memory-raw-storage.js";
-import { createGitObjectStore } from "../../../src/history/objects/index.js";
 import { createCommits } from "../../../src/history/commits/commits.impl.js";
 import type { Commits } from "../../../src/history/commits/commits.js";
+import { createGitObjectStore } from "../../../src/history/objects/index.js";
+import { MemoryRawStorage } from "../../../src/storage/raw/memory-raw-storage.js";
 import { commitsConformanceTests } from "./commits.conformance.test.js";
 
 let storage: MemoryRawStorage;
