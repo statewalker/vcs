@@ -5,6 +5,7 @@
  * be queried for range lookups.
  */
 
+import { parseGitDelta } from "@statewalker/vcs-utils";
 import type { AnalyzedDelta, PositionedInstruction } from "./random-access-delta.js";
 
 /**
@@ -13,77 +14,39 @@ import type { AnalyzedDelta, PositionedInstruction } from "./random-access-delta
  * Parses the delta once and builds a position index mapping result
  * positions to their sources (base offset or insert data).
  *
+ * Uses parseGitDelta from utils internally and converts to PositionedInstruction format.
+ *
  * @param delta Raw delta bytes
  * @returns Analyzed delta with positioned instructions
  */
 export function analyzeDelta(delta: Uint8Array): AnalyzedDelta {
-  let ptr = 0;
+  const parsed = parseGitDelta(delta);
 
-  // Read base object length (variable length int)
-  let baseSize = 0;
-  let shift = 0;
-  let c: number;
-  do {
-    c = delta[ptr++];
-    baseSize |= (c & 0x7f) << shift;
-    shift += 7;
-  } while ((c & 0x80) !== 0);
-
-  // Read result object length (variable length int)
-  let resultSize = 0;
-  shift = 0;
-  do {
-    c = delta[ptr++];
-    resultSize |= (c & 0x7f) << shift;
-    shift += 7;
-  } while ((c & 0x80) !== 0);
-
-  // Parse instructions and track result positions
+  // Convert GitDeltaInstruction[] to PositionedInstruction[]
   const instructions: PositionedInstruction[] = [];
   let resultPos = 0;
 
-  while (ptr < delta.length) {
-    const cmd = delta[ptr++];
-
-    if ((cmd & 0x80) !== 0) {
-      // COPY command: copy from base
-      let copyOffset = 0;
-      if ((cmd & 0x01) !== 0) copyOffset = delta[ptr++];
-      if ((cmd & 0x02) !== 0) copyOffset |= delta[ptr++] << 8;
-      if ((cmd & 0x04) !== 0) copyOffset |= delta[ptr++] << 16;
-      if ((cmd & 0x08) !== 0) copyOffset |= delta[ptr++] << 24;
-
-      let copySize = 0;
-      if ((cmd & 0x10) !== 0) copySize = delta[ptr++];
-      if ((cmd & 0x20) !== 0) copySize |= delta[ptr++] << 8;
-      if ((cmd & 0x40) !== 0) copySize |= delta[ptr++] << 16;
-      if (copySize === 0) copySize = 0x10000;
-
+  for (const instr of parsed.instructions) {
+    if (instr.type === "copy") {
       instructions.push({
         resultStart: resultPos,
-        length: copySize,
-        instruction: { type: "copy", baseOffset: copyOffset },
+        length: instr.size,
+        instruction: { type: "copy", baseOffset: instr.offset },
       });
-      resultPos += copySize;
-    } else if (cmd !== 0) {
-      // INSERT command: literal data from delta
-      const dataOffset = ptr;
-      instructions.push({
-        resultStart: resultPos,
-        length: cmd,
-        instruction: { type: "insert", dataOffset },
-      });
-      ptr += cmd;
-      resultPos += cmd;
+      resultPos += instr.size;
     } else {
-      // Reserved command 0
-      throw new Error("Unsupported delta command 0");
+      instructions.push({
+        resultStart: resultPos,
+        length: instr.data.length,
+        instruction: { type: "insert", dataOffset: instr.dataOffset },
+      });
+      resultPos += instr.data.length;
     }
   }
 
   return {
-    baseSize,
-    resultSize,
+    baseSize: parsed.baseSize,
+    resultSize: parsed.resultSize,
     instructions,
     rawDelta: delta,
   };
