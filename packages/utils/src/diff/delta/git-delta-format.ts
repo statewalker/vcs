@@ -252,10 +252,13 @@ export function deltaToGitFormat(baseSize: number, deltas: Iterable<Delta>): Uin
 
 /**
  * Parsed Git delta instruction
+ *
+ * - copy: Copy `size` bytes from base object at `offset`
+ * - insert: Insert literal `data` from delta buffer at `dataOffset`
  */
 export type GitDeltaInstruction =
   | { type: "copy"; offset: number; size: number }
-  | { type: "insert"; data: Uint8Array };
+  | { type: "insert"; data: Uint8Array; dataOffset: number };
 
 /**
  * Parse Git binary delta format to instructions
@@ -315,9 +318,10 @@ export function parseGitDelta(delta: Uint8Array): {
     } else if (cmd !== 0) {
       // INSERT instruction
       const len = cmd;
+      const dataOffset = pos;
       const data = delta.slice(pos, pos + len);
       pos += len;
-      instructions.push({ type: "insert", data });
+      instructions.push({ type: "insert", data, dataOffset });
     } else {
       throw new Error("Unsupported delta command 0");
     }
