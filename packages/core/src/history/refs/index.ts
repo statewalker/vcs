@@ -17,3 +17,6 @@ export * from "./ref-writer.js";
 export * from "./reflog-reader.js";
 export * from "./reflog-types.js";
 export * from "./reflog-writer.js";
+
+// New interfaces (Phase C)
+export * from "./refs.js";
