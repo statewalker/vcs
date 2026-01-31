@@ -2,14 +2,26 @@
  * SerializationApi implementation
  *
  * Wraps existing pack and compression utilities to provide the SerializationApi interface.
+ * Supports both the new History interface (recommended) and the deprecated StructuredStores
+ * for backward compatibility during migration.
  */
 
 import { deflate, inflate } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import type { ObjectId } from "../common/id/index.js";
+import type { BlobStore } from "../history/blobs/blob-store.js";
+import type { BlobContent, Blobs } from "../history/blobs/blobs.js";
+import type { Commit, CommitStore } from "../history/commits/commit-store.js";
+import type { Commits } from "../history/commits/commits.js";
+import type { History } from "../history/history.js";
 import type { ObjectTypeString } from "../history/objects/object-types.js";
 import type { StructuredStores } from "../history/structured-stores.js";
+import type { AnnotatedTag, TagStore } from "../history/tags/tag-store.js";
+import type { Tag, Tags } from "../history/tags/tags.js";
+import type { TreeEntry } from "../history/trees/tree-entry.js";
+import type { TreeStore } from "../history/trees/tree-store.js";
+import type { Trees } from "../history/trees/trees.js";
 import type { BlobDeltaApi } from "../storage/delta/blob-delta-api.js";
 import { PackObjectType, PackWriterStream, parsePackEntries } from "../storage/pack/index.js";
 import type {
@@ -28,8 +40,24 @@ import type {
  * Configuration for DefaultSerializationApi
  */
 export interface SerializationApiConfig {
-  /** Structured stores for object access */
-  stores: StructuredStores;
+  /**
+   * History facade for object access (recommended)
+   *
+   * Use this when you have a History instance from:
+   * - createHistoryFromBackend()
+   * - createHistoryFromStores()
+   * - createMemoryHistory()
+   */
+  history?: History;
+
+  /**
+   * Structured stores for object access
+   *
+   * @deprecated Use `history` instead. This is kept for backward compatibility
+   * during the migration period. Will be removed in a future version.
+   */
+  stores?: StructuredStores;
+
   /** Blob delta API for delta-aware import */
   blobDeltaApi?: BlobDeltaApi;
 }
@@ -38,13 +66,36 @@ export interface SerializationApiConfig {
  * Default implementation of SerializationApi
  *
  * Uses existing pack utilities and compression functions.
+ * Supports both History facade (new) and StructuredStores (deprecated).
  */
 export class DefaultSerializationApi implements SerializationApi {
-  private readonly stores: StructuredStores;
+  /** Blob storage interface (new interface) */
+  private readonly _blobs: Blobs;
+  /** Tree storage interface (new interface) */
+  private readonly _trees: Trees;
+  /** Commit storage interface (new interface) */
+  private readonly _commits: Commits;
+  /** Tag storage interface (new interface) */
+  private readonly _tags: Tags;
+  /** Optional blob delta API for delta-aware import */
   private readonly blobDeltaApi?: BlobDeltaApi;
 
   constructor(config: SerializationApiConfig) {
-    this.stores = config.stores;
+    if (config.history) {
+      // Use new History interface directly
+      this._blobs = config.history.blobs;
+      this._trees = config.history.trees;
+      this._commits = config.history.commits;
+      this._tags = config.history.tags;
+    } else if (config.stores) {
+      // Adapt deprecated StructuredStores to new interfaces
+      this._blobs = new BlobsLegacyAdapter(config.stores.blobs);
+      this._trees = new TreesLegacyAdapter(config.stores.trees);
+      this._commits = new CommitsLegacyAdapter(config.stores.commits);
+      this._tags = new TagsLegacyAdapter(config.stores.tags);
+    } else {
+      throw new Error("SerializationApiConfig must have either 'history' or 'stores'");
+    }
     this.blobDeltaApi = config.blobDeltaApi;
   }
 
@@ -166,7 +217,7 @@ export class DefaultSerializationApi implements SerializationApi {
             blobsWithDelta++;
           } else {
             // Store as full blob
-            await this.stores.blobs.store([entry.content]);
+            await this._blobs.store([entry.content]);
           }
           break;
 
@@ -203,7 +254,7 @@ export class DefaultSerializationApi implements SerializationApi {
    * Create incremental pack builder
    */
   createPackBuilder(options?: PackOptions): PackBuilder {
-    return new DefaultPackBuilder(this.stores, options);
+    return new DefaultPackBuilder(this._blobs, this._trees, this._commits, this._tags, options);
   }
 
   /**
@@ -220,19 +271,21 @@ export class DefaultSerializationApi implements SerializationApi {
     id: ObjectId,
   ): Promise<{ type: ObjectTypeString; content: AsyncIterable<Uint8Array> }> {
     // Try each object type
-    if (await this.stores.blobs.has(id)) {
-      return { type: "blob", content: this.stores.blobs.load(id) };
+    if (await this._blobs.has(id)) {
+      const content = await this._blobs.load(id);
+      if (!content) throw new Error(`Blob not found: ${id}`);
+      return { type: "blob", content };
     }
 
-    if (await this.stores.trees.has(id)) {
+    if (await this._trees.has(id)) {
       return { type: "tree", content: this.serializeTree(id) };
     }
 
-    if (await this.stores.commits.has(id)) {
+    if (await this._commits.has(id)) {
       return { type: "commit", content: this.serializeCommit(id) };
     }
 
-    if (await this.stores.tags.has(id)) {
+    if (await this._tags.has(id)) {
       return { type: "tag", content: this.serializeTag(id) };
     }
 
@@ -248,7 +301,7 @@ export class DefaultSerializationApi implements SerializationApi {
   ): Promise<ObjectId> {
     switch (type) {
       case "blob":
-        return this.stores.blobs.store(content);
+        return this._blobs.store(content);
       case "tree":
         return this.storeTreeFromStream(content);
       case "commit":
@@ -266,7 +319,10 @@ export class DefaultSerializationApi implements SerializationApi {
     const { hexToBytes } = await import("@statewalker/vcs-utils/hash/utils");
     const entries: Uint8Array[] = [];
 
-    for await (const entry of this.stores.trees.loadTree(id)) {
+    const tree = await this._trees.load(id);
+    if (!tree) throw new Error(`Tree not found: ${id}`);
+
+    for await (const entry of tree) {
       // Format: "mode name\0<20-byte-sha>"
       const modeAndName = new TextEncoder().encode(`${entry.mode.toString(8)} ${entry.name}\0`);
       const sha = hexToBytes(entry.id);
@@ -278,20 +334,22 @@ export class DefaultSerializationApi implements SerializationApi {
 
   private async *serializeCommit(id: ObjectId): AsyncIterable<Uint8Array> {
     const { serializeCommit } = await import("../history/commits/commit-format.js");
-    const commit = await this.stores.commits.loadCommit(id);
+    const commit = await this._commits.load(id);
+    if (!commit) throw new Error(`Commit not found: ${id}`);
     yield serializeCommit(commit);
   }
 
   private async *serializeTag(id: ObjectId): AsyncIterable<Uint8Array> {
     const { serializeTag } = await import("../history/tags/tag-format.js");
-    const tag = await this.stores.tags.loadTag(id);
+    const tag = await this._tags.load(id);
+    if (!tag) throw new Error(`Tag not found: ${id}`);
     yield serializeTag(tag);
   }
 
   private async storeTreeFromContent(content: Uint8Array): Promise<ObjectId> {
     const { parseTreeToArray } = await import("../history/trees/tree-format.js");
     const entries = parseTreeToArray(content);
-    return this.stores.trees.storeTree(entries);
+    return this._trees.store(entries);
   }
 
   private async storeTreeFromStream(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
@@ -305,7 +363,7 @@ export class DefaultSerializationApi implements SerializationApi {
   private async storeCommitFromContent(content: Uint8Array): Promise<ObjectId> {
     const { parseCommit } = await import("../history/commits/commit-format.js");
     const commit = parseCommit(content);
-    return this.stores.commits.storeCommit(commit);
+    return this._commits.store(commit);
   }
 
   private async storeCommitFromStream(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
@@ -319,7 +377,7 @@ export class DefaultSerializationApi implements SerializationApi {
   private async storeTagFromContent(content: Uint8Array): Promise<ObjectId> {
     const { parseTag } = await import("../history/tags/tag-format.js");
     const tag = parseTag(content);
-    return this.stores.tags.storeTag(tag);
+    return this._tags.store(tag);
   }
 
   private async storeTagFromStream(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
@@ -335,7 +393,10 @@ export class DefaultSerializationApi implements SerializationApi {
  * Default PackBuilder implementation
  */
 class DefaultPackBuilder implements PackBuilder {
-  private readonly stores: StructuredStores;
+  private readonly _blobs: Blobs;
+  private readonly _trees: Trees;
+  private readonly _commits: Commits;
+  private readonly _tags: Tags;
   private readonly writer: PackWriterStream;
   private readonly options: PackOptions;
   private stats: PackBuildStats = {
@@ -346,8 +407,11 @@ class DefaultPackBuilder implements PackBuilder {
   };
   private finalized = false;
 
-  constructor(stores: StructuredStores, options?: PackOptions) {
-    this.stores = stores;
+  constructor(blobs: Blobs, trees: Trees, commits: Commits, tags: Tags, options?: PackOptions) {
+    this._blobs = blobs;
+    this._trees = trees;
+    this._commits = commits;
+    this._tags = tags;
     this.writer = new PackWriterStream();
     this.options = options ?? {};
   }
@@ -387,32 +451,38 @@ class DefaultPackBuilder implements PackBuilder {
 
   private async loadObject(id: ObjectId): Promise<{ type: PackObjectType; content: Uint8Array }> {
     // Try blobs first (most common)
-    if (await this.stores.blobs.has(id)) {
+    if (await this._blobs.has(id)) {
+      const blobContent = await this._blobs.load(id);
+      if (!blobContent) throw new Error(`Blob not found: ${id}`);
       const chunks: Uint8Array[] = [];
-      for await (const chunk of this.stores.blobs.load(id)) {
+      for await (const chunk of blobContent) {
         chunks.push(chunk);
       }
       return { type: PackObjectType.BLOB, content: concatBytes(chunks) };
     }
 
-    if (await this.stores.trees.has(id)) {
+    if (await this._trees.has(id)) {
       const { serializeTree } = await import("../history/trees/tree-format.js");
-      const entries: import("../history/trees/tree-entry.js").TreeEntry[] = [];
-      for await (const entry of this.stores.trees.loadTree(id)) {
+      const tree = await this._trees.load(id);
+      if (!tree) throw new Error(`Tree not found: ${id}`);
+      const entries: TreeEntry[] = [];
+      for await (const entry of tree) {
         entries.push(entry);
       }
       return { type: PackObjectType.TREE, content: serializeTree(entries) };
     }
 
-    if (await this.stores.commits.has(id)) {
+    if (await this._commits.has(id)) {
       const { serializeCommit } = await import("../history/commits/commit-format.js");
-      const commit = await this.stores.commits.loadCommit(id);
+      const commit = await this._commits.load(id);
+      if (!commit) throw new Error(`Commit not found: ${id}`);
       return { type: PackObjectType.COMMIT, content: serializeCommit(commit) };
     }
 
-    if (await this.stores.tags.has(id)) {
+    if (await this._tags.has(id)) {
       const { serializeTag } = await import("../history/tags/tag-format.js");
-      const tag = await this.stores.tags.loadTag(id);
+      const tag = await this._tags.load(id);
+      if (!tag) throw new Error(`Tag not found: ${id}`);
       return { type: PackObjectType.TAG, content: serializeTag(tag) };
     }
 
@@ -503,4 +573,214 @@ function concatBytes(arrays: Uint8Array[]): Uint8Array {
 
 async function* toAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
   yield data;
+}
+
+// ============ Legacy Adapters ============
+// These adapters wrap the old store interfaces (BlobStore, TreeStore, etc.)
+// to implement the new interfaces (Blobs, Trees, etc.) for backward compatibility.
+
+/**
+ * Adapter that wraps old BlobStore to implement new Blobs interface
+ * @internal - For backward compatibility during migration
+ */
+class BlobsLegacyAdapter implements Blobs {
+  constructor(private readonly blobStore: BlobStore) {}
+
+  async store(content: BlobContent | Iterable<Uint8Array>): Promise<ObjectId> {
+    if (Symbol.asyncIterator in content) {
+      return this.blobStore.store(content as AsyncIterable<Uint8Array>);
+    }
+    return this.blobStore.store(iterableToAsync(content as Iterable<Uint8Array>));
+  }
+
+  async load(id: ObjectId): Promise<BlobContent | undefined> {
+    if (!(await this.blobStore.has(id))) {
+      return undefined;
+    }
+    return this.blobStore.load(id);
+  }
+
+  has(id: ObjectId): Promise<boolean> {
+    return this.blobStore.has(id);
+  }
+
+  remove(id: ObjectId): Promise<boolean> {
+    return this.blobStore.delete(id);
+  }
+
+  async *keys(): AsyncIterable<ObjectId> {
+    yield* this.blobStore.keys();
+  }
+
+  size(id: ObjectId): Promise<number> {
+    return this.blobStore.size(id);
+  }
+}
+
+/**
+ * Adapter that wraps old TreeStore to implement new Trees interface
+ * @internal - For backward compatibility during migration
+ */
+class TreesLegacyAdapter implements Trees {
+  constructor(private readonly treeStore: TreeStore) {}
+
+  store(tree: TreeEntry[] | AsyncIterable<TreeEntry> | Iterable<TreeEntry>): Promise<ObjectId> {
+    return this.treeStore.storeTree(tree);
+  }
+
+  async load(id: ObjectId): Promise<AsyncIterable<TreeEntry> | undefined> {
+    try {
+      return this.treeStore.loadTree(id);
+    } catch {
+      return undefined;
+    }
+  }
+
+  async has(id: ObjectId): Promise<boolean> {
+    try {
+      const tree = this.treeStore.loadTree(id);
+      for await (const _ of tree) {
+        break;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async remove(_id: ObjectId): Promise<boolean> {
+    return false; // TreeStore doesn't have a delete method
+  }
+
+  async *keys(): AsyncIterable<ObjectId> {
+    // TreeStore doesn't have a keys method
+  }
+
+  async getEntry(treeId: ObjectId, name: string): Promise<TreeEntry | undefined> {
+    const entries = await this.load(treeId);
+    if (!entries) return undefined;
+    for await (const entry of entries) {
+      if (entry.name === name) return entry;
+    }
+    return undefined;
+  }
+
+  getEmptyTreeId(): ObjectId {
+    return "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+  }
+}
+
+/**
+ * Adapter that wraps old CommitStore to implement new Commits interface
+ * @internal - For backward compatibility during migration
+ */
+class CommitsLegacyAdapter implements Commits {
+  constructor(private readonly commitStore: CommitStore) {}
+
+  store(commit: Commit): Promise<ObjectId> {
+    return this.commitStore.storeCommit(commit);
+  }
+
+  async load(id: ObjectId): Promise<Commit | undefined> {
+    try {
+      return await this.commitStore.loadCommit(id);
+    } catch {
+      return undefined;
+    }
+  }
+
+  async has(id: ObjectId): Promise<boolean> {
+    try {
+      await this.commitStore.loadCommit(id);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async remove(_id: ObjectId): Promise<boolean> {
+    return false; // CommitStore doesn't have a delete method
+  }
+
+  async *keys(): AsyncIterable<ObjectId> {
+    // CommitStore doesn't have a keys method
+  }
+
+  getParents(commitId: ObjectId): Promise<ObjectId[]> {
+    return this.commitStore.getParents(commitId);
+  }
+
+  getTree(commitId: ObjectId): Promise<ObjectId | undefined> {
+    return this.commitStore.getTree(commitId);
+  }
+
+  walkAncestry(
+    startId: ObjectId | ObjectId[],
+    options?: import("../history/commits/commit-store.js").AncestryOptions,
+  ): AsyncIterable<ObjectId> {
+    return this.commitStore.walkAncestry(startId, options);
+  }
+
+  findMergeBase(commit1: ObjectId, commit2: ObjectId): Promise<ObjectId[]> {
+    return this.commitStore.findMergeBase(commit1, commit2);
+  }
+
+  isAncestor(ancestor: ObjectId, descendant: ObjectId): Promise<boolean> {
+    return this.commitStore.isAncestor(ancestor, descendant);
+  }
+}
+
+/**
+ * Adapter that wraps old TagStore to implement new Tags interface
+ * @internal - For backward compatibility during migration
+ */
+class TagsLegacyAdapter implements Tags {
+  constructor(private readonly tagStore: TagStore) {}
+
+  store(tag: Tag): Promise<ObjectId> {
+    return this.tagStore.storeTag(tag as AnnotatedTag);
+  }
+
+  async load(id: ObjectId): Promise<Tag | undefined> {
+    try {
+      return await this.tagStore.loadTag(id);
+    } catch {
+      return undefined;
+    }
+  }
+
+  async has(id: ObjectId): Promise<boolean> {
+    try {
+      await this.tagStore.loadTag(id);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async remove(_id: ObjectId): Promise<boolean> {
+    return false; // TagStore doesn't have a delete method
+  }
+
+  async *keys(): AsyncIterable<ObjectId> {
+    // TagStore doesn't have a keys method
+  }
+
+  async getTarget(tagId: ObjectId, _peel?: boolean): Promise<ObjectId | undefined> {
+    try {
+      const tag = await this.tagStore.loadTag(tagId);
+      return tag.object;
+    } catch {
+      return undefined;
+    }
+  }
+}
+
+/**
+ * Helper to convert sync iterable to async iterable
+ */
+async function* iterableToAsync(iter: Iterable<Uint8Array>): AsyncIterable<Uint8Array> {
+  for (const item of iter) {
+    yield item;
+  }
 }

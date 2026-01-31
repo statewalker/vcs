@@ -28,6 +28,11 @@
  * }
  * ```
  */
+
+import type { PackImportResult } from "@statewalker/vcs-core";
+
+// Re-export PackImportResult from core for transport consumers
+export type { PackImportResult } from "@statewalker/vcs-core";
 /**
  * Options for exportPack operation (Protocol V2 extensions).
  */
@@ -161,20 +166,4 @@ export interface RepositoryFacade {
    * @returns Set of OIDs that should be shallow boundaries
    */
   computeShallowExclude?(wants: Set<string>, excludeRefs: string[]): Promise<Set<string>>;
-}
-
-/**
- * Statistics from pack import operation.
- */
-export interface PackImportResult {
-  /** Total number of objects imported */
-  objectsImported: number;
-  /** Number of blob objects with delta compression */
-  blobsWithDelta: number;
-  /** Number of tree objects imported */
-  treesImported: number;
-  /** Number of commit objects imported */
-  commitsImported: number;
-  /** Number of tag objects imported */
-  tagsImported: number;
 }
