@@ -308,7 +308,12 @@ export class GitWorkingCopy implements WorkingCopy {
       this.getCherryPickState(),
       this.getRevertState(),
     ]);
-    return merge !== undefined || rebase !== undefined || cherryPick !== undefined || revert !== undefined;
+    return (
+      merge !== undefined ||
+      rebase !== undefined ||
+      cherryPick !== undefined ||
+      revert !== undefined
+    );
   }
 
   /**

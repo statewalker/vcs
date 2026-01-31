@@ -22,11 +22,10 @@
  */
 
 import type { ObjectId } from "../../common/id/index.js";
-// Import WorktreeEntry from legacy interface to avoid duplication
-import type { WorktreeEntry } from "./worktree-store.js";
+import type { WorktreeEntry } from "./types.js";
 
-// Re-export for convenience
-export type { WorktreeEntry };
+// Re-export types for consumers
+export type { WorktreeEntry, WorktreeStoreOptions } from "./types.js";
 
 /**
  * Options for walking the worktree.

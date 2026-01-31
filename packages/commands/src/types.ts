@@ -247,7 +247,8 @@ export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStor
     trees: repository.trees,
     commits: repository.commits,
     refs: repository.refs,
-    staging,
+    // Cast needed during migration: WorkingCopy.staging is union type but implementations return StagingStore
+    staging: staging as StagingStore,
     tags: repository.tags,
     worktree,
   };

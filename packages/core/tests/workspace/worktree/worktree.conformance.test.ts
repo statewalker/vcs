@@ -77,10 +77,7 @@ export function worktreeConformanceTests(
       });
 
       it("writeContent with AsyncIterable", async () => {
-        const chunks = [
-          new TextEncoder().encode("Part 1 "),
-          new TextEncoder().encode("Part 2"),
-        ];
+        const chunks = [new TextEncoder().encode("Part 1 "), new TextEncoder().encode("Part 2")];
 
         await worktree.writeContent("async-test.txt", toAsync(chunks));
 
