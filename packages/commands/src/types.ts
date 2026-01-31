@@ -15,11 +15,26 @@ import type {
 /**
  * Core storage interface for Git operations.
  *
- * GitStore implementations handle persistence and can use various backends:
- * - FilesGitStore: Standard Git-compatible file storage
- * - SqlGitStore: SQL database backend
- * - MemoryGitStore: In-memory (for testing)
- * - CompositeGitStore: Mix of different storage backends
+ * @deprecated Use {@link WorkingCopy} from `@statewalker/vcs-core` instead.
+ *
+ * Migration example:
+ * ```typescript
+ * // Before:
+ * const store: GitStore = { blobs, trees, commits, refs, staging };
+ * const git = Git.wrap(store);
+ *
+ * // After:
+ * const workingCopy = await createWorkingCopy({ files, workDir });
+ * const git = Git.fromWorkingCopy(workingCopy);
+ *
+ * // Access stores via:
+ * // - workingCopy.history.blobs (instead of store.blobs)
+ * // - workingCopy.checkout.staging (instead of store.staging)
+ * ```
+ *
+ * This interface will be removed in a future version.
+ *
+ * @see WorkingCopy for the new unified interface
  */
 export interface GitStore {
   /** Blob (file content) storage */
@@ -76,24 +91,24 @@ export enum ListBranchMode {
 /**
  * Extended GitStore interface with working tree support.
  *
- * Required for commands that operate on the working tree:
- * - AddCommand: Stage files from working tree
- * - CheckoutCommand: Update working tree from commits
- * - ResetCommand (hard mode): Reset working tree
- * - CleanCommand: Remove untracked files
+ * @deprecated Use {@link WorkingCopy} from `@statewalker/vcs-core` instead.
  *
- * @example
+ * Migration example:
  * ```typescript
- * // Create a store with working tree support
- * const store: GitStoreWithWorkTree = {
- *   ...baseStore,
- *   worktree: createFileTreeIterator(files, workTreeRoot),
- * };
- *
- * // Use with Git facade
+ * // Before:
+ * const store: GitStoreWithWorkTree = { ...baseStore, worktree };
  * const git = Git.wrap(store);
- * await git.add().addFilepattern("src/").call();
+ *
+ * // After:
+ * const workingCopy = await createWorkingCopy({ files, workDir });
+ * const git = Git.fromWorkingCopy(workingCopy);
+ *
+ * // Access worktree via workingCopy.worktreeInterface
  * ```
+ *
+ * This interface will be removed in a future version.
+ *
+ * @see WorkingCopy for the new unified interface
  */
 export interface GitStoreWithWorkTree extends GitStore {
   /** Working tree iterator for filesystem operations */
@@ -103,27 +118,24 @@ export interface GitStoreWithWorkTree extends GitStore {
 /**
  * Extended GitStore interface with file system write support.
  *
- * Required for commands that need to write files to the working tree:
- * - CheckoutCommand: Write files from commits to working tree
- * - ResetCommand (hard mode): Reset working tree files
+ * @deprecated Use {@link WorkingCopy} from `@statewalker/vcs-core` instead.
  *
- * If these properties are not provided, the repository is treated as "bare"
- * and working directory updates are skipped.
- *
- * @example
+ * Migration example:
  * ```typescript
- * // Create a store with file write support
- * const store: GitStoreWithFiles = {
- *   ...baseStore,
- *   worktree: createFileTreeIterator(files, ""),
- *   files,
- *   workTreeRoot: "",
- * };
- *
- * // Use with Git facade
+ * // Before:
+ * const store: GitStoreWithFiles = { ...baseStore, worktree, files, workTreeRoot };
  * const git = Git.wrap(store);
- * await git.checkout().setName("feature").call(); // Writes files!
+ *
+ * // After:
+ * const workingCopy = await createWorkingCopy({ files, workDir });
+ * const git = Git.fromWorkingCopy(workingCopy);
+ *
+ * // File operations are handled automatically via workingCopy.worktreeInterface
  * ```
+ *
+ * This interface will be removed in a future version.
+ *
+ * @see WorkingCopy for the new unified interface
  */
 export interface GitStoreWithFiles extends GitStoreWithWorkTree {
   /** FilesApi for writing files to the working tree */
@@ -134,6 +146,9 @@ export interface GitStoreWithFiles extends GitStoreWithWorkTree {
 
 /**
  * Options for creating a GitStore from a HistoryStore.
+ *
+ * @deprecated Use {@link WorkingCopy} from `@statewalker/vcs-core` instead.
+ * This interface will be removed in a future version.
  */
 export interface CreateGitStoreOptions {
   /** The history store providing object stores */
@@ -155,28 +170,20 @@ export interface CreateGitStoreOptions {
 /**
  * Create a GitStore from a HistoryStore and staging store.
  *
- * This factory function allows using any HistoryStore implementation
- * (file-based, SQL, memory, etc.) with the Git command facade.
+ * @deprecated Use {@link WorkingCopy} and {@link Git.fromWorkingCopy} instead.
  *
- * @example
+ * Migration example:
  * ```typescript
- * import { createGitStore } from "@statewalker/vcs-commands";
- * import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
- *
- * // Use with any Repository implementation
- * const staging = new MemoryStagingStore();
- * const store = createGitStore({ repository: repo, staging });
+ * // Before:
+ * const store = createGitStore({ repository, staging, worktree });
  * const git = Git.wrap(store);
  *
- * // With file write support for checkout
- * const storeWithFiles = createGitStore({
- *   repository: repo,
- *   staging,
- *   worktree,
- *   files,
- *   workTreeRoot: "",
- * });
+ * // After:
+ * const workingCopy = await createWorkingCopy({ files, workDir });
+ * const git = Git.fromWorkingCopy(workingCopy);
  * ```
+ *
+ * This function will be removed in a future version.
  *
  * @param options Repository, staging store, and optional worktree/files
  * @returns GitStore, GitStoreWithWorkTree, or GitStoreWithFiles depending on options
@@ -220,21 +227,19 @@ export function createGitStore(
 /**
  * Create a GitStoreWithWorkTree from a WorkingCopy.
  *
- * This factory function allows using a WorkingCopy with the Git command facade.
- * The WorkingCopy provides all necessary components: repository, staging, and worktree.
+ * @deprecated Use {@link Git.fromWorkingCopy} directly instead.
  *
- * @example
+ * Migration example:
  * ```typescript
- * import { createGitStoreFromWorkingCopy } from "@statewalker/vcs-commands";
- *
- * // Use WorkingCopy with Git facade
+ * // Before:
  * const store = createGitStoreFromWorkingCopy(workingCopy);
  * const git = Git.wrap(store);
  *
- * // Now all commands work with the working copy
- * await git.add().addFilepattern(".").call();
- * await git.status().call();
+ * // After:
+ * const git = Git.fromWorkingCopy(workingCopy);
  * ```
+ *
+ * This function will be removed in a future version.
  *
  * @param workingCopy The WorkingCopy to create the store from
  * @returns GitStoreWithWorkTree for use with Git commands
@@ -259,19 +264,21 @@ export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStor
 /**
  * Three-part store configuration for Git operations.
  *
- * This represents the new architecture where stores are clearly separated:
- * - HistoryStore: Immutable history (commits, trees, blobs, refs, tags)
- * - CheckoutStore: Mutable local state (staging, HEAD, in-progress ops)
- * - WorktreeStore: Filesystem access (working tree files)
+ * @deprecated Use {@link WorkingCopy} from `@statewalker/vcs-core` instead.
  *
- * @example
+ * The three-part architecture (History, Checkout, Worktree) is now
+ * encapsulated within WorkingCopy. Use WorkingCopy directly:
  * ```typescript
- * const git = Git.fromStores({
- *   history: myHistoryStore,
- *   checkout: myCheckoutStore,
- *   worktree: myWorktreeStore,
- * });
+ * const workingCopy = await createWorkingCopy({ files, workDir });
+ * const git = Git.fromWorkingCopy(workingCopy);
+ *
+ * // Access components via:
+ * // - workingCopy.history
+ * // - workingCopy.checkout
+ * // - workingCopy.worktreeInterface
  * ```
+ *
+ * This interface will be removed in a future version.
  */
 export interface GitStoresConfig {
   /** Immutable history storage (Part 1) */
@@ -289,6 +296,21 @@ export interface GitStoresConfig {
 
 /**
  * Create a GitStore from the three-part store configuration.
+ *
+ * @deprecated Use {@link Git.fromWorkingCopy} with a {@link WorkingCopy} instead.
+ *
+ * Migration example:
+ * ```typescript
+ * // Before:
+ * const store = createGitStoreFromStores({ history, checkout, worktree });
+ * const git = Git.wrap(store);
+ *
+ * // After:
+ * const workingCopy = await createWorkingCopy({ files, workDir });
+ * const git = Git.fromWorkingCopy(workingCopy);
+ * ```
+ *
+ * This function will be removed in a future version.
  *
  * @param config Store configuration
  * @returns GitStore for use with Git commands
@@ -317,3 +339,31 @@ export function createGitStoreFromStores(config: GitStoresConfig): GitStore | Gi
 
   return store;
 }
+
+// ============ New Architecture Re-exports ============
+
+/**
+ * Re-export WorkingCopy and related types from core for convenience.
+ *
+ * These are the preferred types for new code. Use them instead of
+ * the deprecated GitStore, GitStoreWithWorkTree, GitStoreWithFiles.
+ *
+ * @example
+ * ```typescript
+ * import { WorkingCopy, History, Checkout, Worktree } from "@statewalker/vcs-commands";
+ *
+ * // Or import directly from core:
+ * import { WorkingCopy } from "@statewalker/vcs-core";
+ * ```
+ */
+export type {
+  /** Checkout interface - mutable local state */
+  Checkout,
+  /** History interface - immutable repository objects */
+  History,
+  /** Worktree interface - filesystem access */
+  Worktree,
+} from "@statewalker/vcs-core";
+
+// Note: WorkingCopy is already imported at the top and can be re-exported
+// The export is done implicitly via the type import for WorkingCopy at line 11

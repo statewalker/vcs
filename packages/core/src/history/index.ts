@@ -15,13 +15,14 @@ export { HistoryImpl, HistoryWithBackendImpl } from "./history.impl.js";
 // New History facade (Phase C3)
 export type { History, HistoryWithBackend } from "./history.js";
 
-// Legacy HistoryStore (to be removed in C3.7)
+// Legacy HistoryStore (deprecated - use History instead)
 export * from "./history-store.js";
 
 // Base interface for content-addressed stores (Phase C)
 export * from "./object-storage.js";
 export * from "./objects/index.js";
 export * from "./refs/index.js";
+// Legacy StructuredStores (deprecated - use History instead)
 export * from "./structured-stores.js";
 export * from "./tags/index.js";
 export * from "./trees/index.js";
