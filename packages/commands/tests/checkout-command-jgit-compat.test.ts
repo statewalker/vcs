@@ -37,8 +37,10 @@ async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8A
  * Read file content from staging as string.
  */
 async function readStagedFile(
-  _store: {
+  workingCopy: {
     staging: { getEntry(path: string): Promise<{ objectId: string } | undefined> };
+  },
+  repository: {
     blobs: { load(id: string): AsyncIterable<Uint8Array> };
   },
   path: string,
@@ -131,7 +133,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       await git.checkout().setName(commit1.id).call();
 
       // Verify staging has first commit's content
-      const content = await readStagedFile(store, "Test.txt");
+      const content = await readStagedFile(workingCopy, repository, "Test.txt");
       expect(content).toBe("Version 1");
     });
   });
@@ -211,7 +213,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result.status).toBe(CheckoutStatus.OK);
 
       // Content should be from test branch now
-      const content = await readStagedFile(store, "Test.txt");
+      const content = await readStagedFile(workingCopy, repository, "Test.txt");
       expect(content).toBe("test content");
     });
 
@@ -342,11 +344,11 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result.updated).toContain("a.txt");
 
       // a.txt should be restored to original
-      const contentA = await readStagedFile(store, "a.txt");
+      const contentA = await readStagedFile(workingCopy, repository, "a.txt");
       expect(contentA).toBe("original a");
 
       // b.txt should still be modified
-      const contentB = await readStagedFile(store, "b.txt");
+      const contentB = await readStagedFile(workingCopy, repository, "b.txt");
       expect(contentB).toBe("modified b");
     });
 
@@ -372,7 +374,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result.updated).toContain("file.txt");
 
       // File should have version 1 content
-      const content = await readStagedFile(store, "file.txt");
+      const content = await readStagedFile(workingCopy, repository, "file.txt");
       expect(content).toBe("version 1");
     });
 
@@ -404,11 +406,11 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result.updated).toContain("b.txt");
 
       // a and b should have original content
-      expect(await readStagedFile(store, "a.txt")).toBe("A");
-      expect(await readStagedFile(store, "b.txt")).toBe("B");
+      expect(await readStagedFile(workingCopy, repository, "a.txt")).toBe("A");
+      expect(await readStagedFile(workingCopy, repository, "b.txt")).toBe("B");
 
       // c should still have modified content
-      expect(await readStagedFile(store, "c.txt")).toBe("C modified");
+      expect(await readStagedFile(workingCopy, repository, "c.txt")).toBe("C modified");
     });
 
     it("should checkout directory recursively via setAllPaths", async () => {
@@ -430,8 +432,8 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result.status).toBe(CheckoutStatus.OK);
 
       // Both files should be restored
-      expect(await readStagedFile(store, "dir/a.txt")).toBe("A");
-      expect(await readStagedFile(store, "dir/sub/b.txt")).toBe("B");
+      expect(await readStagedFile(workingCopy, repository, "dir/a.txt")).toBe("A");
+      expect(await readStagedFile(workingCopy, repository, "dir/sub/b.txt")).toBe("B");
     });
 
     it("should report conflict for non-existing path", async () => {
@@ -482,7 +484,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(forceResult.status).toBe(CheckoutStatus.OK);
 
       // Content should be from test branch
-      expect(await readStagedFile(store, "Test.txt")).toBe("test-version");
+      expect(await readStagedFile(workingCopy, repository, "Test.txt")).toBe("test-version");
     });
 
     /**
@@ -549,8 +551,8 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result.status).toBe(CheckoutStatus.OK);
 
       // Verify staging has main's files
-      expect(await readStagedFile(store, "a.txt")).toBe("main-a");
-      expect(await readStagedFile(store, "b.txt")).toBe("main-b");
+      expect(await readStagedFile(workingCopy, repository, "a.txt")).toBe("main-a");
+      expect(await readStagedFile(workingCopy, repository, "b.txt")).toBe("main-b");
 
       // c.txt should not exist
       const entryC = await workingCopy.staging.getEntry("c.txt");
@@ -578,7 +580,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
         .call();
 
       // Staging should have first commit's content
-      expect(await readStagedFile(store, "a.txt")).toBe("A");
+      expect(await readStagedFile(workingCopy, repository, "a.txt")).toBe("A");
     });
 
     /**

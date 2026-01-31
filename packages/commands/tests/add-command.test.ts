@@ -10,9 +10,13 @@
 
 import {
   FileMode,
+  type ObjectId,
+  type Worktree,
+  type WorktreeCheckoutOptions,
+  type WorktreeCheckoutResult,
   type WorktreeEntry,
-  type WorktreeStore,
-  type WorktreeStoreOptions,
+  type WorktreeWalkOptions,
+  type WorktreeWriteOptions,
 } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -25,8 +29,9 @@ import { backends, type WorkingCopyFactory } from "./test-helper.js";
  * Mock working tree for testing AddCommand.
  *
  * Simulates a filesystem with in-memory files.
+ * Implements the Worktree interface.
  */
-class MockWorkingTree implements WorktreeStore {
+class MockWorkingTree implements Worktree {
   private files: Map<string, { content: Uint8Array; mode: number; mtime: number }> = new Map();
   private ignored: Set<string> = new Set();
 
@@ -54,9 +59,9 @@ class MockWorkingTree implements WorktreeStore {
     return Array.from(this.files.keys()).sort();
   }
 
-  // WorktreeStore implementation
+  // ========== Reading (Worktree interface) ==========
 
-  async *walk(options?: WorktreeStoreOptions): AsyncIterable<WorktreeEntry> {
+  async *walk(options?: WorktreeWalkOptions): AsyncIterable<WorktreeEntry> {
     const paths = Array.from(this.files.keys()).sort();
 
     for (const path of paths) {
@@ -101,7 +106,7 @@ class MockWorkingTree implements WorktreeStore {
     };
   }
 
-  async computeHash(path: string): Promise<string> {
+  async computeHash(path: string): Promise<ObjectId> {
     // For testing purposes, return a simple hash
     const file = this.files.get(path);
     if (!file) throw new Error(`File not found: ${path}`);
@@ -119,6 +124,85 @@ class MockWorkingTree implements WorktreeStore {
     const file = this.files.get(path);
     if (!file) throw new Error(`File not found: ${path}`);
     yield file.content;
+  }
+
+  async exists(path: string): Promise<boolean> {
+    return this.files.has(path);
+  }
+
+  async isIgnored(path: string): Promise<boolean> {
+    return this.ignored.has(path);
+  }
+
+  // ========== Writing (Worktree interface) ==========
+
+  async writeContent(
+    path: string,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array> | Uint8Array,
+    options?: WorktreeWriteOptions,
+  ): Promise<void> {
+    const mode = options?.mode ?? 0o100644;
+    let data: Uint8Array;
+
+    if (content instanceof Uint8Array) {
+      data = content;
+    } else {
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of content) {
+        chunks.push(chunk);
+      }
+      const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+      data = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        data.set(chunk, offset);
+        offset += chunk.length;
+      }
+    }
+
+    this.files.set(path, { content: data, mode, mtime: Date.now() });
+  }
+
+  async remove(path: string, _options?: { recursive?: boolean }): Promise<boolean> {
+    return this.files.delete(path);
+  }
+
+  async mkdir(_path: string, _options?: { recursive?: boolean }): Promise<void> {
+    // No-op for flat file storage mock
+  }
+
+  async rename(oldPath: string, newPath: string): Promise<void> {
+    const file = this.files.get(oldPath);
+    if (!file) throw new Error(`File not found: ${oldPath}`);
+    this.files.delete(oldPath);
+    this.files.set(newPath, file);
+  }
+
+  // ========== Checkout Operations (Worktree interface) ==========
+
+  async checkoutTree(
+    _treeId: ObjectId,
+    _options?: WorktreeCheckoutOptions,
+  ): Promise<WorktreeCheckoutResult> {
+    return { updated: [], removed: [], conflicts: [], failed: [] };
+  }
+
+  async checkoutPaths(
+    _treeId: ObjectId,
+    _paths: string[],
+    _options?: WorktreeCheckoutOptions,
+  ): Promise<WorktreeCheckoutResult> {
+    return { updated: [], removed: [], conflicts: [], failed: [] };
+  }
+
+  // ========== Metadata (Worktree interface) ==========
+
+  getRoot(): string {
+    return "/mock/worktree";
+  }
+
+  async refreshIgnore(): Promise<void> {
+    // No-op for mock
   }
 }
 
