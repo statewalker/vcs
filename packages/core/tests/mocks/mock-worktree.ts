@@ -1,10 +1,13 @@
 /**
- * Mock WorktreeStore for testing
+ * Mock Worktree for testing
+ *
+ * Also exports legacy WorktreeStore interface for backward compatibility.
  */
 
 import { vi } from "vitest";
 
-import type { WorktreeEntry, WorktreeStore } from "../../src/workspace/worktree/worktree-store.js";
+import type { Worktree, WorktreeEntry } from "../../src/workspace/worktree/worktree.js";
+import type { WorktreeStore } from "../../src/workspace/worktree/worktree-store.js";
 
 /**
  * Create a working tree entry for tests.
@@ -27,7 +30,7 @@ export function createWorktreeEntry(
 }
 
 /**
- * Create a mock WorktreeStore for testing.
+ * Create a mock Worktree for testing.
  *
  * @param entries Working tree entries
  * @param hashes Map of path -> object hash
@@ -35,8 +38,9 @@ export function createWorktreeEntry(
 export function createMockWorktree(
   entries: WorktreeEntry[] = [],
   hashes: Map<string, string> = new Map(),
-): WorktreeStore {
+): Worktree {
   return {
+    // ========== Reading ==========
     walk: vi.fn().mockImplementation(async function* () {
       for (const entry of entries) {
         yield entry;
@@ -51,5 +55,50 @@ export function createMockWorktree(
     readContent: vi.fn().mockImplementation(function* () {
       yield new Uint8Array([]);
     }),
-  } as unknown as WorktreeStore;
+    exists: vi.fn().mockImplementation(async (path: string) => {
+      return entries.some((e) => e.path === path);
+    }),
+    isIgnored: vi.fn().mockImplementation(async (path: string) => {
+      const entry = entries.find((e) => e.path === path);
+      return entry?.isIgnored ?? false;
+    }),
+
+    // ========== Writing ==========
+    writeContent: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(true),
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    rename: vi.fn().mockResolvedValue(undefined),
+
+    // ========== Checkout Operations ==========
+    checkoutTree: vi.fn().mockResolvedValue({
+      updated: [],
+      removed: [],
+      conflicts: [],
+      failed: [],
+    }),
+    checkoutPaths: vi.fn().mockResolvedValue({
+      updated: [],
+      removed: [],
+      conflicts: [],
+      failed: [],
+    }),
+
+    // ========== Metadata ==========
+    getRoot: vi.fn().mockReturnValue("/mock/worktree"),
+    refreshIgnore: vi.fn().mockResolvedValue(undefined),
+  } as unknown as Worktree;
+}
+
+/**
+ * Create a mock WorktreeStore for testing.
+ * @deprecated Use createMockWorktree() instead
+ *
+ * @param entries Working tree entries
+ * @param hashes Map of path -> object hash
+ */
+export function createMockWorktreeStore(
+  entries: WorktreeEntry[] = [],
+  hashes: Map<string, string> = new Map(),
+): WorktreeStore {
+  return createMockWorktree(entries, hashes) as unknown as WorktreeStore;
 }
