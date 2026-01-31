@@ -125,8 +125,9 @@ export abstract class GitCommand<T> {
   /**
    * Access tag storage.
    * Works with both GitStore and WorkingCopy.
+   * Named tagsStore to avoid conflict with command properties.
    */
-  protected get tags(): Tags | undefined {
+  protected get tagsStore(): Tags | undefined {
     if (this._workingCopy?.history?.tags) {
       return this._workingCopy.history.tags;
     }
@@ -136,8 +137,9 @@ export abstract class GitCommand<T> {
   /**
    * Access refs storage.
    * Works with both GitStore and WorkingCopy.
+   * Named refsStore to avoid conflict with command properties.
    */
-  protected get refs(): Refs {
+  protected get refsStore(): Refs {
     if (this._workingCopy?.history?.refs) {
       return this._workingCopy.history.refs;
     }
