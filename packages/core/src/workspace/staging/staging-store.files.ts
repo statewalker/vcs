@@ -10,13 +10,11 @@ import {
 import {
   MergeStage,
   type MergeStageValue,
-  type StagingBuilder,
   type StagingEdit,
-  type StagingEditor,
   type StagingEntry,
   type StagingEntryOptions,
-  type StagingStore,
-} from "./staging-store.js";
+} from "./types.js";
+import type { StagingBuilder, StagingEditor, StagingStore } from "./staging-store.js";
 
 /**
  * File-based staging store implementation.
