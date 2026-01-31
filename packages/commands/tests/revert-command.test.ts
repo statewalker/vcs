@@ -36,28 +36,28 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRevert.
    */
   it("should revert a commit and generate correct message", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create file a
-    await addFile(store, "a.txt", "first line\nsec. line\nthird line\n");
+    await addFile(workingCopy, "a.txt", "first line\nsec. line\nthird line\n");
     await git.commit().setMessage("create a").call();
 
     // Create file b
-    await addFile(store, "b.txt", "content\n");
+    await addFile(workingCopy, "b.txt", "content\n");
     await git.commit().setMessage("create b").call();
 
     // Enlarge a
-    await addFile(store, "a.txt", "first line\nsec. line\nthird line\nfourth line\n");
+    await addFile(workingCopy, "a.txt", "first line\nsec. line\nthird line\nfourth line\n");
     await git.commit().setMessage("enlarged a").call();
 
     // Fix a
-    await addFile(store, "a.txt", "first line\nsecond line\nthird line\nfourth line\n");
+    await addFile(workingCopy, "a.txt", "first line\nsecond line\nthird line\nfourth line\n");
     await git.commit().setMessage("fixed a").call();
-    const fixingARef = await store.refs.resolve("HEAD");
+    const fixingARef = await repository.refs.resolve("HEAD");
     const fixingAId = fixingARef?.objectId ?? "";
 
     // Fix b
-    await addFile(store, "b.txt", "first line\n");
+    await addFile(workingCopy, "b.txt", "first line\n");
     await git.commit().setMessage("fixed b").call();
 
     // Revert the fixingA commit
@@ -68,7 +68,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.revertedRefs).toContain(fixingAId);
 
     // Check the revert commit message
-    const revertCommit = await store.commits.loadCommit(result.newHead ?? "");
+    const revertCommit = await repository.commits.loadCommit(result.newHead ?? "");
     expect(revertCommit.message).toContain('Revert "fixed a"');
     expect(revertCommit.message).toContain("This reverts commit");
     expect(revertCommit.message).toContain(fixingAId);
@@ -93,22 +93,22 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRevertMultiple.
    */
   it("should revert multiple commits in order", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial state
-    await addFile(store, "a.txt", "first\n");
+    await addFile(workingCopy, "a.txt", "first\n");
     await git.commit().setMessage("add first").call();
 
     // Add second line
-    await addFile(store, "a.txt", "first\nsecond\n");
+    await addFile(workingCopy, "a.txt", "first\nsecond\n");
     await git.commit().setMessage("add second").call();
-    const secondCommitRef = await store.refs.resolve("HEAD");
+    const secondCommitRef = await repository.refs.resolve("HEAD");
     const secondCommit = secondCommitRef?.objectId ?? "";
 
     // Add third line
-    await addFile(store, "a.txt", "first\nsecond\nthird\n");
+    await addFile(workingCopy, "a.txt", "first\nsecond\nthird\n");
     await git.commit().setMessage("add third").call();
-    const thirdCommitRef = await store.refs.resolve("HEAD");
+    const thirdCommitRef = await repository.refs.resolve("HEAD");
     const thirdCommit = thirdCommitRef?.objectId ?? "";
 
     // Revert both commits (third first, then second)
@@ -136,20 +136,20 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRevertConflictResolution.
    */
   it("should detect conflicts when reverting", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create file a
-    await addFile(store, "a.txt", "a");
+    await addFile(workingCopy, "a.txt", "a");
     await git.commit().setMessage("first master").call();
 
     // Modify a - this is the commit we'll revert
-    await addFile(store, "a.txt", "a(previous)");
+    await addFile(workingCopy, "a.txt", "a(previous)");
     await git.commit().setMessage("second master").call();
-    const oldCommitRef = await store.refs.resolve("HEAD");
+    const oldCommitRef = await repository.refs.resolve("HEAD");
     const oldCommit = oldCommitRef?.objectId ?? "";
 
     // Modify a again - creates conflict with revert
-    await addFile(store, "a.txt", "a(latest)");
+    await addFile(workingCopy, "a.txt", "a(latest)");
     await git.commit().setMessage("side").call();
 
     // Try to revert - should conflict
@@ -159,10 +159,10 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.conflicts).toContain("a.txt");
 
     // Verify conflict stages in staging
-    const hasConflicts = await store.staging.hasConflicts();
+    const hasConflicts = await workingCopy.staging.hasConflicts();
     expect(hasConflicts).toBe(true);
 
-    const entries = await store.staging.getEntries("a.txt");
+    const entries = await workingCopy.staging.getEntries("a.txt");
     expect(entries.length).toBeGreaterThan(1);
   });
 
@@ -170,21 +170,21 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test revert with noCommit option.
    */
   it("should revert without committing when noCommit is true", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base file
-    await addFile(store, "a.txt", "original");
+    await addFile(workingCopy, "a.txt", "original");
     await git.commit().setMessage("base").call();
-    const baseCommitRef = await store.refs.resolve("HEAD");
+    const baseCommitRef = await repository.refs.resolve("HEAD");
     const baseCommit = baseCommitRef?.objectId ?? "";
 
     // Modify file
-    await addFile(store, "a.txt", "modified");
+    await addFile(workingCopy, "a.txt", "modified");
     await git.commit().setMessage("modify").call();
-    const modifyCommitRef = await store.refs.resolve("HEAD");
+    const modifyCommitRef = await repository.refs.resolve("HEAD");
     const modifyCommit = modifyCommitRef?.objectId ?? "";
 
-    const beforeRevertHead = await store.refs.resolve("HEAD");
+    const beforeRevertHead = await repository.refs.resolve("HEAD");
 
     // Revert with noCommit
     const result = await git.revert().include(modifyCommit).setNoCommit(true).call();
@@ -192,16 +192,16 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(RevertStatus.OK);
 
     // HEAD should not have moved
-    const afterRevertHead = await store.refs.resolve("HEAD");
+    const afterRevertHead = await repository.refs.resolve("HEAD");
     expect(afterRevertHead?.objectId).toBe(beforeRevertHead?.objectId);
 
     // But staging should reflect the reverted content
-    const entry = await store.staging.getEntry("a.txt");
+    const entry = await workingCopy.staging.getEntry("a.txt");
     expect(entry).toBeDefined();
 
     // The tree in staging should match the base commit's tree content
-    const baseCommitData = await store.commits.loadCommit(baseCommit);
-    const stagingTreeId = await store.staging.writeTree(store.trees);
+    const baseCommitData = await repository.commits.loadCommit(baseCommit);
+    const stagingTreeId = await workingCopy.staging.writeTree(repository.trees);
     // The trees should be identical since we reverted to base
     expect(stagingTreeId).toBe(baseCommitData.tree);
   });
@@ -210,12 +210,12 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test reverting a merge commit requires mainline parent.
    */
   it("should throw error when reverting merge commit without mainline parent", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base
-    await addFile(store, "file.txt", "base");
+    await addFile(workingCopy, "file.txt", "base");
     await git.commit().setMessage("base").call();
-    const baseCommit = await store.refs.resolve("HEAD");
+    const baseCommit = await repository.refs.resolve("HEAD");
 
     // Create side branch
     await git
@@ -225,15 +225,15 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
       .call();
 
     // Modify on main
-    await addFile(store, "main.txt", "main");
+    await addFile(workingCopy, "main.txt", "main");
     await git.commit().setMessage("main change").call();
-    const mainHead = await store.refs.resolve("HEAD");
+    const mainHead = await repository.refs.resolve("HEAD");
 
     // Checkout side and modify
-    await store.refs.setSymbolic("HEAD", "refs/heads/side");
-    const baseCommitData = await store.commits.loadCommit(baseCommit?.objectId ?? "");
-    await store.staging.readTree(store.trees, baseCommitData.tree);
-    await addFile(store, "side.txt", "side");
+    await repository.refs.setSymbolic("HEAD", "refs/heads/side");
+    const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
+    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await addFile(workingCopy, "side.txt", "side");
     await git.commit().setMessage("side change").call();
 
     // Merge main into side
@@ -256,12 +256,12 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test reverting a merge commit with mainline parent specified.
    */
   it("should revert merge commit when mainline parent is specified", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base commit
-    await addFile(store, "file.txt", "base content");
+    await addFile(workingCopy, "file.txt", "base content");
     await git.commit().setMessage("base").call();
-    const baseCommit = await store.refs.resolve("HEAD");
+    const baseCommit = await repository.refs.resolve("HEAD");
 
     // Create side branch
     await git
@@ -271,15 +271,15 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
       .call();
 
     // Modify on main - add a new file
-    await addFile(store, "main-file.txt", "from main");
+    await addFile(workingCopy, "main-file.txt", "from main");
     await git.commit().setMessage("main add").call();
-    const mainHead = await store.refs.resolve("HEAD");
+    const mainHead = await repository.refs.resolve("HEAD");
 
     // Checkout side and add different file
-    await store.refs.setSymbolic("HEAD", "refs/heads/side");
-    const baseCommitData = await store.commits.loadCommit(baseCommit?.objectId ?? "");
-    await store.staging.readTree(store.trees, baseCommitData.tree);
-    await addFile(store, "side-file.txt", "from side");
+    await repository.refs.setSymbolic("HEAD", "refs/heads/side");
+    const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
+    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await addFile(workingCopy, "side-file.txt", "from side");
     await git.commit().setMessage("side add").call();
 
     // Merge main into side
@@ -300,11 +300,11 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(RevertStatus.OK);
 
     // main-file.txt should be removed (reverted)
-    const mainFileEntry = await store.staging.getEntry("main-file.txt");
+    const mainFileEntry = await workingCopy.staging.getEntry("main-file.txt");
     expect(mainFileEntry).toBeUndefined();
 
     // side-file.txt should still exist
-    const sideFileEntry = await store.staging.getEntry("side-file.txt");
+    const sideFileEntry = await workingCopy.staging.getEntry("side-file.txt");
     expect(sideFileEntry).toBeDefined();
   });
 
@@ -312,12 +312,12 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test error when specifying invalid mainline parent number.
    */
   it("should throw error for invalid mainline parent number", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a merge commit
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("base").call();
-    const baseCommit = await store.refs.resolve("HEAD");
+    const baseCommit = await repository.refs.resolve("HEAD");
 
     await git
       .branchCreate()
@@ -325,14 +325,14 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
       .setStartPoint(baseCommit?.objectId ?? "")
       .call();
 
-    await addFile(store, "main.txt", "main");
+    await addFile(workingCopy, "main.txt", "main");
     await git.commit().setMessage("main").call();
-    const mainHead = await store.refs.resolve("HEAD");
+    const mainHead = await repository.refs.resolve("HEAD");
 
-    await store.refs.setSymbolic("HEAD", "refs/heads/side");
-    const baseCommitData = await store.commits.loadCommit(baseCommit?.objectId ?? "");
-    await store.staging.readTree(store.trees, baseCommitData.tree);
-    await addFile(store, "side.txt", "side");
+    await repository.refs.setSymbolic("HEAD", "refs/heads/side");
+    const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
+    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await addFile(workingCopy, "side.txt", "side");
     await git.commit().setMessage("side").call();
 
     const mergeResult = await git
@@ -355,20 +355,20 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test revert where file is added in reverted commit (should be deleted).
    */
   it("should handle file addition revert (delete the file)", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base
-    await addFile(store, "existing.txt", "exists");
+    await addFile(workingCopy, "existing.txt", "exists");
     await git.commit().setMessage("base").call();
 
     // Add new file
-    await addFile(store, "new-file.txt", "new content");
+    await addFile(workingCopy, "new-file.txt", "new content");
     await git.commit().setMessage("add new file").call();
-    const addCommitRef = await store.refs.resolve("HEAD");
+    const addCommitRef = await repository.refs.resolve("HEAD");
     const addCommit = addCommitRef?.objectId ?? "";
 
     // Verify file exists
-    let entry = await store.staging.getEntry("new-file.txt");
+    let entry = await workingCopy.staging.getEntry("new-file.txt");
     expect(entry).toBeDefined();
 
     // Revert the add - should delete the file
@@ -377,11 +377,11 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(RevertStatus.OK);
 
     // new-file.txt should be gone
-    entry = await store.staging.getEntry("new-file.txt");
+    entry = await workingCopy.staging.getEntry("new-file.txt");
     expect(entry).toBeUndefined();
 
     // existing.txt should still exist
-    const existingEntry = await store.staging.getEntry("existing.txt");
+    const existingEntry = await workingCopy.staging.getEntry("existing.txt");
     expect(existingEntry).toBeDefined();
   });
 
@@ -389,21 +389,21 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test revert where file is deleted in reverted commit (should be restored).
    */
   it("should handle file deletion revert (restore the file)", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base with file
-    await addFile(store, "deleteme.txt", "content to restore");
-    await addFile(store, "keep.txt", "keep this");
+    await addFile(workingCopy, "deleteme.txt", "content to restore");
+    await addFile(workingCopy, "keep.txt", "keep this");
     await git.commit().setMessage("base").call();
 
     // Delete file
-    await removeFile(store, "deleteme.txt");
+    await removeFile(workingCopy, "deleteme.txt");
     await git.commit().setMessage("delete file").call();
-    const deleteCommitRef = await store.refs.resolve("HEAD");
+    const deleteCommitRef = await repository.refs.resolve("HEAD");
     const deleteCommit = deleteCommitRef?.objectId ?? "";
 
     // Verify file is gone
-    let entry = await store.staging.getEntry("deleteme.txt");
+    let entry = await workingCopy.staging.getEntry("deleteme.txt");
     expect(entry).toBeUndefined();
 
     // Revert the delete - should restore the file
@@ -412,7 +412,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(RevertStatus.OK);
 
     // deleteme.txt should be restored
-    entry = await store.staging.getEntry("deleteme.txt");
+    entry = await workingCopy.staging.getEntry("deleteme.txt");
     expect(entry).toBeDefined();
   });
 
@@ -420,25 +420,25 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test revert delete/modify conflict.
    */
   it("should detect delete/modify conflict when reverting", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base with file
-    await addFile(store, "conflict.txt", "original");
+    await addFile(workingCopy, "conflict.txt", "original");
     await git.commit().setMessage("base").call();
 
     // Delete the file - this is the commit we'll revert
-    await removeFile(store, "conflict.txt");
+    await removeFile(workingCopy, "conflict.txt");
     await git.commit().setMessage("delete file").call();
-    const deleteCommit2Ref = await store.refs.resolve("HEAD");
+    const deleteCommit2Ref = await repository.refs.resolve("HEAD");
     const deleteCommit2 = deleteCommit2Ref?.objectId ?? "";
 
     // Add a different file - so we have a clean new state
-    await addFile(store, "other.txt", "other");
+    await addFile(workingCopy, "other.txt", "other");
     await git.commit().setMessage("add other").call();
 
     // Now modify the staging to have conflict.txt with different content
     // (simulating concurrent work that added it back differently)
-    await addFile(store, "conflict.txt", "different content");
+    await addFile(workingCopy, "conflict.txt", "different content");
     await git.commit().setMessage("add back with different content").call();
 
     // Revert the delete commit - should conflict because:
@@ -537,15 +537,15 @@ describe.each(backends)("RevertCommand - Strategy and options ($name backend)", 
    * Test that options are correctly maintained through fluent API.
    */
   it("should chain all options fluently", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create setup for revert
-    await addFile(store, "a.txt", "a");
+    await addFile(workingCopy, "a.txt", "a");
     await git.commit().setMessage("base").call();
 
-    await addFile(store, "a.txt", "b");
+    await addFile(workingCopy, "a.txt", "b");
     await git.commit().setMessage("modify a").call();
-    const modifyCommitRef = await store.refs.resolve("HEAD");
+    const modifyCommitRef = await repository.refs.resolve("HEAD");
     const modifyCommit = modifyCommitRef?.objectId ?? "";
 
     // Chain all options
@@ -582,22 +582,22 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Test that reverted commits have correct parentage.
    */
   it("should set correct parent for revert commit", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base with file a
-    await addFile(store, "a.txt", "a");
+    await addFile(workingCopy, "a.txt", "a");
     await git.commit().setMessage("base").call();
 
     // Add a new file b - this is the commit we'll revert
-    await addFile(store, "b.txt", "b content");
+    await addFile(workingCopy, "b.txt", "b content");
     await git.commit().setMessage("add b").call();
-    const addBCommitRef = await store.refs.resolve("HEAD");
+    const addBCommitRef = await repository.refs.resolve("HEAD");
     const addBCommit = addBCommitRef?.objectId ?? "";
 
     // Add another file c - so we have a clean HEAD to revert onto
-    await addFile(store, "c.txt", "c content");
+    await addFile(workingCopy, "c.txt", "c content");
     await git.commit().setMessage("add c").call();
-    const headBeforeRevertRef = await store.refs.resolve("HEAD");
+    const headBeforeRevertRef = await repository.refs.resolve("HEAD");
     const headBeforeRevert = headBeforeRevertRef?.objectId ?? "";
 
     // Revert the add b commit (should cleanly delete b.txt)
@@ -606,7 +606,7 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
     expect(result.status).toBe(RevertStatus.OK);
 
     // The new commit's parent should be headBeforeRevert
-    const revertCommit = await store.commits.loadCommit(result.newHead ?? "");
+    const revertCommit = await repository.commits.loadCommit(result.newHead ?? "");
     expect(revertCommit.parents).toHaveLength(1);
     expect(revertCommit.parents[0]).toBe(headBeforeRevert);
   });
@@ -615,21 +615,21 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Test revert message format with multi-line original message.
    */
   it("should use only first line of original message in revert title", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base
-    await addFile(store, "a.txt", "a");
+    await addFile(workingCopy, "a.txt", "a");
     await git.commit().setMessage("base").call();
 
     // Create commit with multi-line message
-    await addFile(store, "a.txt", "b");
+    await addFile(workingCopy, "a.txt", "b");
     const detailedMessage = "Fix the bug\n\nThis is a detailed description\nWith multiple lines";
     await git.commit().setMessage(detailedMessage).call();
-    const fixCommitRef = await store.refs.resolve("HEAD");
+    const fixCommitRef = await repository.refs.resolve("HEAD");
     const fixCommit = fixCommitRef?.objectId ?? "";
 
     // Make another commit so revert is clean
-    await addFile(store, "c.txt", "c");
+    await addFile(workingCopy, "c.txt", "c");
     await git.commit().setMessage("add c").call();
 
     // Revert
@@ -638,7 +638,7 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
     expect(result.status).toBe(RevertStatus.OK);
 
     // Check message uses only first line in title
-    const revertCommit = await store.commits.loadCommit(result.newHead ?? "");
+    const revertCommit = await repository.commits.loadCommit(result.newHead ?? "");
     expect(revertCommit.message).toContain('Revert "Fix the bug"');
     expect(revertCommit.message).not.toContain("This is a detailed description");
   });
@@ -647,19 +647,19 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Test that revert of a file modification produces original content.
    */
   it("should restore original content when reverting modification", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base with specific content
     const originalContent = "original content here";
-    await addFile(store, "file.txt", originalContent);
+    await addFile(workingCopy, "file.txt", originalContent);
     await git.commit().setMessage("base").call();
-    const baseCommit2Ref = await store.refs.resolve("HEAD");
+    const baseCommit2Ref = await repository.refs.resolve("HEAD");
     const baseCommit2 = baseCommit2Ref?.objectId ?? "";
 
     // Modify the file
-    await addFile(store, "file.txt", "modified content");
+    await addFile(workingCopy, "file.txt", "modified content");
     await git.commit().setMessage("modify file").call();
-    const modifyCommit2Ref = await store.refs.resolve("HEAD");
+    const modifyCommit2Ref = await repository.refs.resolve("HEAD");
     const modifyCommit2 = modifyCommit2Ref?.objectId ?? "";
 
     // Revert the modification
@@ -668,20 +668,20 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
     expect(result.status).toBe(RevertStatus.OK);
 
     // Read the tree to verify content matches base
-    const revertCommit = await store.commits.loadCommit(result.newHead ?? "");
-    const baseCommitData = await store.commits.loadCommit(baseCommit2);
+    const revertCommit = await repository.commits.loadCommit(result.newHead ?? "");
+    const baseCommitData = await repository.commits.loadCommit(baseCommit2);
 
     // Get file entry from both trees
     let revertFileId: string | undefined;
     let baseFileId: string | undefined;
 
-    for await (const entry of store.trees.loadTree(revertCommit.tree)) {
+    for await (const entry of repository.trees.loadTree(revertCommit.tree)) {
       if (entry.name === "file.txt") {
         revertFileId = entry.id;
       }
     }
 
-    for await (const entry of store.trees.loadTree(baseCommitData.tree)) {
+    for await (const entry of repository.trees.loadTree(baseCommitData.tree)) {
       if (entry.name === "file.txt") {
         baseFileId = entry.id;
       }
@@ -697,24 +697,24 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Based on JGit's testRevertMultipleWithFail.
    */
   it("should stop on first conflict when reverting multiple commits", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create base
-    await addFile(store, "a.txt", "base");
+    await addFile(workingCopy, "a.txt", "base");
     await git.commit().setMessage("base").call();
 
     // First modification - will revert cleanly
-    await addFile(store, "a.txt", "first change");
+    await addFile(workingCopy, "a.txt", "first change");
     await git.commit().setMessage("first").call();
-    const firstCommit = await store.refs.resolve("HEAD");
+    const firstCommit = await repository.refs.resolve("HEAD");
 
     // Second modification - will cause conflict when reverted
-    await addFile(store, "a.txt", "second change");
+    await addFile(workingCopy, "a.txt", "second change");
     await git.commit().setMessage("second").call();
-    const secondCommit = await store.refs.resolve("HEAD");
+    const secondCommit = await repository.refs.resolve("HEAD");
 
     // Third modification - makes reverting second conflict
-    await addFile(store, "a.txt", "third change");
+    await addFile(workingCopy, "a.txt", "third change");
     await git.commit().setMessage("third").call();
 
     // Try to revert second and first
@@ -738,14 +738,14 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Test command cannot be reused after call.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "a.txt", "a");
+    await addFile(workingCopy, "a.txt", "a");
     await git.commit().setMessage("base").call();
 
-    await addFile(store, "a.txt", "b");
+    await addFile(workingCopy, "a.txt", "b");
     await git.commit().setMessage("modify").call();
-    const modifyCommit = await store.refs.resolve("HEAD");
+    const modifyCommit = await repository.refs.resolve("HEAD");
 
     const command = git.revert().include(modifyCommit?.objectId ?? "");
     await command.call();

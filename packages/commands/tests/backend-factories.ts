@@ -4,15 +4,10 @@
  * Provides factory functions to create WorkingCopy instances with different backends.
  * Used for testing commands across Memory, SQL, and other storage implementations.
  *
- * Migration:
- * - Old: Use GitStoreFactory and GitStoreTestContext with `store` property
- * - New: Use WorkingCopyFactory and WorkingCopyTestContext with `workingCopy` property
- *
- * @see GitStore for backward compatibility (deprecated)
- * @see WorkingCopy for the new architecture
+ * @see WorkingCopy for the primary architecture
  */
 
-import type { WorkingCopy } from "@statewalker/vcs-core";
+import type { HistoryStore, WorkingCopy } from "@statewalker/vcs-core";
 import { MemoryWorkingCopy } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
@@ -29,8 +24,6 @@ import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 
-import type { GitStore } from "../src/index.js";
-
 import { createMockWorktreeStore } from "./mock-worktree-store.js";
 import { createSimpleHistoryStore } from "./simple-history-store.js";
 
@@ -38,24 +31,16 @@ import { createSimpleHistoryStore } from "./simple-history-store.js";
 setCompressionUtils(createNodeCompression());
 
 /**
- * Test context for WorkingCopy tests (new architecture)
+ * Test context for WorkingCopy tests
+ *
+ * Provides access to WorkingCopy and its underlying repository for testing.
  */
 export interface WorkingCopyTestContext {
   /** The WorkingCopy instance (primary interface) */
   workingCopy: WorkingCopy;
-  /**
-   * @deprecated Use workingCopy instead. Provided for backward compatibility.
-   */
-  store: GitStore;
+  /** Direct access to the repository (HistoryStore) for test setup/verification */
+  repository: HistoryStore;
   /** Cleanup function to call after test */
-  cleanup?: () => Promise<void>;
-}
-
-/**
- * @deprecated Use WorkingCopyTestContext instead
- */
-export interface GitStoreTestContext {
-  store: GitStore;
   cleanup?: () => Promise<void>;
 }
 
@@ -65,29 +50,14 @@ export interface GitStoreTestContext {
 export type WorkingCopyFactory = () => Promise<WorkingCopyTestContext>;
 
 /**
- * @deprecated Use WorkingCopyFactory instead
- */
-export type GitStoreFactory = () => Promise<GitStoreTestContext>;
-
-/**
  * Memory backend factory (default, fastest)
  *
- * Creates both WorkingCopy (new) and GitStore (deprecated) for compatibility.
+ * Creates a WorkingCopy with in-memory storage.
  */
 export const memoryFactory: WorkingCopyFactory = async () => {
   const stores = createMemoryObjectStores();
   const refs = new MemoryRefStore();
   const staging = new MemoryStagingStore();
-
-  // Create legacy GitStore for backward compatibility
-  const store: GitStore = {
-    blobs: stores.blobs,
-    trees: stores.trees,
-    commits: stores.commits,
-    refs,
-    staging,
-    tags: stores.tags,
-  };
 
   // Create HistoryStore wrapper
   const repository = createSimpleHistoryStore({
@@ -109,13 +79,13 @@ export const memoryFactory: WorkingCopyFactory = async () => {
     staging,
   });
 
-  return { workingCopy, store };
+  return { workingCopy, repository };
 };
 
 /**
  * SQL backend factory (persistent, uses sql.js in-memory)
  *
- * Creates both WorkingCopy (new) and GitStore (deprecated) for compatibility.
+ * Creates a WorkingCopy with SQL-backed storage.
  */
 export const sqlFactory: WorkingCopyFactory = async () => {
   const db = await SqlJsAdapter.create();
@@ -123,16 +93,6 @@ export const sqlFactory: WorkingCopyFactory = async () => {
   const stores = createSqlObjectStores({ db });
   const refs = new SQLRefStore(db);
   const staging = new SQLStagingStore(db);
-
-  // Create legacy GitStore for backward compatibility
-  const store: GitStore = {
-    blobs: stores.blobs,
-    trees: stores.trees,
-    commits: stores.commits,
-    refs,
-    staging,
-    tags: stores.tags,
-  };
 
   // Create HistoryStore wrapper
   const repository = createSimpleHistoryStore({
@@ -156,7 +116,7 @@ export const sqlFactory: WorkingCopyFactory = async () => {
 
   return {
     workingCopy,
-    store,
+    repository,
     cleanup: async () => {
       await db.close();
     },

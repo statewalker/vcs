@@ -21,7 +21,28 @@ import { describe, expect, it } from "vitest";
 
 import { CheckoutStatus } from "../src/commands/checkout-command.js";
 import { Git, type GitStore, type GitStoreWithFiles } from "../src/index.js";
-import { addFile, testAuthor } from "./test-helper.js";
+import { testAuthor } from "./test-helper.js";
+
+/**
+ * Add a file to a GitStore and stage it.
+ */
+async function addFileToStore(store: GitStore, path: string, content: string): Promise<string> {
+  const blobId = await store.blobs.store([new TextEncoder().encode(content)]);
+  const editor = store.staging.editor();
+  editor.add({
+    path,
+    apply: () => ({
+      path,
+      mode: 0o100644,
+      objectId: blobId,
+      stage: 0,
+      size: content.length,
+      mtime: Date.now(),
+    }),
+  });
+  await editor.finish();
+  return blobId;
+}
 
 /**
  * Read file content from FilesApi as string.
@@ -133,8 +154,8 @@ describe("CheckoutCommand working directory updates", () => {
       await initializeStore(store);
 
       // Create initial commit with files
-      await addFile(store, "file1.txt", "content1");
-      await addFile(store, "file2.txt", "content2");
+      await addFileToStore(store, "file1.txt", "content1");
+      await addFileToStore(store, "file2.txt", "content2");
       await git.commit().setMessage("Add files").call();
 
       // Create a new branch
@@ -142,7 +163,7 @@ describe("CheckoutCommand working directory updates", () => {
 
       // Switch to feature branch and modify
       await git.checkout().setName("feature").call();
-      await addFile(store, "file1.txt", "modified content");
+      await addFileToStore(store, "file1.txt", "modified content");
       await git.commit().setMessage("Modify file1").call();
 
       // Switch back to main (force to bypass conflict detection since staging changed)
@@ -171,11 +192,11 @@ describe("CheckoutCommand working directory updates", () => {
       await initializeStore(store);
 
       // Create commit with file content "v1"
-      await addFile(store, "version.txt", "v1");
+      await addFileToStore(store, "version.txt", "v1");
       const commit1 = await git.commit().setMessage("Version 1").call();
 
       // Create commit with file content "v2"
-      await addFile(store, "version.txt", "v2");
+      await addFileToStore(store, "version.txt", "v2");
       await git.commit().setMessage("Version 2").call();
 
       // Checkout the first commit (detached HEAD) - force to bypass conflict detection
@@ -198,14 +219,14 @@ describe("CheckoutCommand working directory updates", () => {
       await initializeStore(store);
 
       // Create initial commit on main with file
-      await addFile(store, "data.txt", "main-data");
+      await addFileToStore(store, "data.txt", "main-data");
       await git.commit().setMessage("Main commit").call();
 
       // Create and checkout feature branch
       await git.checkout().setCreateBranch(true).setName("feature").call();
 
       // Modify file on feature branch
-      await addFile(store, "data.txt", "feature-data");
+      await addFileToStore(store, "data.txt", "feature-data");
       await git.commit().setMessage("Feature commit").call();
 
       // Checkout main branch (force to bypass conflict detection)
@@ -230,7 +251,7 @@ describe("CheckoutCommand working directory updates", () => {
       await initializeStore(store);
 
       // Create commit with nested path "a/b/c/file.txt"
-      await addFile(store, "a/b/c/file.txt", "nested content");
+      await addFileToStore(store, "a/b/c/file.txt", "nested content");
       await git.commit().setMessage("Add nested file").call();
 
       // Create and checkout a new branch (to force checkout back)
@@ -264,8 +285,12 @@ describe("CheckoutCommand working directory updates", () => {
       await initializeStore(store);
 
       // Create commit with deep nested paths
-      await addFile(store, "src/components/ui/button/index.ts", "export const Button = () => {};");
-      await addFile(store, "src/utils/helpers/format.ts", "export function format() {}");
+      await addFileToStore(
+        store,
+        "src/components/ui/button/index.ts",
+        "export const Button = () => {};",
+      );
+      await addFileToStore(store, "src/utils/helpers/format.ts", "export function format() {}");
       await git.commit().setMessage("Add source files").call();
 
       // Create feature branch and switch back
@@ -292,7 +317,7 @@ describe("CheckoutCommand working directory updates", () => {
       await initializeStore(store);
 
       // Create initial commit with file
-      await addFile(store, "test.txt", "content");
+      await addFileToStore(store, "test.txt", "content");
       await git.commit().setMessage("Initial content").call();
 
       // Create feature branch
@@ -302,7 +327,7 @@ describe("CheckoutCommand working directory updates", () => {
       await git.checkout().setName("feature").call();
 
       // Modify file on feature branch
-      await addFile(store, "test.txt", "feature content");
+      await addFileToStore(store, "test.txt", "feature content");
       await git.commit().setMessage("Feature change").call();
 
       // Checkout main branch - should not throw even without files/workTreeRoot
@@ -350,11 +375,11 @@ describe("CheckoutCommand working directory updates", () => {
       await initializeStore(store);
 
       // Create commits on two branches
-      await addFile(store, "file.txt", "main content");
+      await addFileToStore(store, "file.txt", "main content");
       await git.commit().setMessage("Main commit").call();
 
       await git.checkout().setCreateBranch(true).setName("other").call();
-      await addFile(store, "file.txt", "other content");
+      await addFileToStore(store, "file.txt", "other content");
       await git.commit().setMessage("Other commit").call();
 
       // Checkout should complete without throwing
@@ -373,10 +398,10 @@ describe("CheckoutCommand working directory updates", () => {
       await initializeStore(store);
 
       // Create two commits
-      await addFile(store, "version.txt", "v1");
+      await addFileToStore(store, "version.txt", "v1");
       const commit1 = await git.commit().setMessage("Version 1").call();
 
-      await addFile(store, "version.txt", "v2");
+      await addFileToStore(store, "version.txt", "v2");
       await git.commit().setMessage("Version 2").call();
 
       // Checkout first commit (detached HEAD) - should not throw
@@ -422,7 +447,7 @@ describe("CheckoutCommand working directory updates", () => {
       await initializeStore(store);
 
       // Create commit with file
-      await addFile(store, "readme.txt", "Hello World");
+      await addFileToStore(store, "readme.txt", "Hello World");
       await git.commit().setMessage("Add readme").call();
 
       // Create branch and switch back

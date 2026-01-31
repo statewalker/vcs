@@ -87,10 +87,10 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should start from specific commit", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
-      const secondId = await store.commits.storeCommit(second);
+      const secondId = await repository.commits.storeCommit(second);
 
       await git.commit().setMessage("Third").setAllowEmpty(true).call();
       await git.commit().setMessage("Fourth").setAllowEmpty(true).call();
@@ -113,18 +113,18 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should follow first parent only when set", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create two branches
       const main1 = await git.commit().setMessage("Main 1").setAllowEmpty(true).call();
-      const _main1Id = await store.commits.storeCommit(main1);
+      const _main1Id = await repository.commits.storeCommit(main1);
 
       // Create feature branch commit
       await git.branchCreate().setName("feature").call();
 
       // Make commits on main
       const main2 = await git.commit().setMessage("Main 2").setAllowEmpty(true).call();
-      const _main2Id = await store.commits.storeCommit(main2);
+      const _main2Id = await repository.commits.storeCommit(main2);
 
       // Checkout feature and make commit (simulated - we'd need checkout command)
       // For now just test that firstParent option works with linear history
@@ -137,11 +137,11 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand with all refs", () => {
     it("should include commits from all refs when all() is called", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create commit on main
       const main1 = await git.commit().setMessage("Main commit").setAllowEmpty(true).call();
-      const main1Id = await store.commits.storeCommit(main1);
+      const main1Id = await repository.commits.storeCommit(main1);
 
       // Create branch with different commit history
       await git.branchCreate().setName("feature").setStartPoint(main1Id).call();
@@ -369,7 +369,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand RevFilter", () => {
     it("should only return merge commits with ONLY_MERGES filter", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create base commit
       await git.commit().setMessage("m0").setAllowEmpty(true).call();
@@ -381,21 +381,21 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
       await git.commit().setMessage("m1").setAllowEmpty(true).call();
 
       // Get current HEAD as main branch head
-      const mainRef = await store.refs.resolve("HEAD");
+      const mainRef = await repository.refs.resolve("HEAD");
       const mainId = mainRef?.objectId ?? "";
 
       // Switch to side branch by updating HEAD
-      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideRef = await repository.refs.resolve("refs/heads/side");
       const sideId = sideRef?.objectId ?? "";
-      await store.refs.set("HEAD", sideId);
+      await repository.refs.set("HEAD", sideId);
 
       // Make commit on side
       await git.commit().setMessage("s0").setAllowEmpty(true).call();
-      const sideHeadRef = await store.refs.resolve("HEAD");
+      const sideHeadRef = await repository.refs.resolve("HEAD");
       const sideHeadId = sideHeadRef?.objectId ?? "";
 
       // Switch back to main
-      await store.refs.set("HEAD", mainId);
+      await repository.refs.set("HEAD", mainId);
 
       // Merge side into main
       await git.merge().include(sideHeadId).setMessage("merge s0 with m1").call();
@@ -416,7 +416,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should exclude merge commits with NO_MERGES filter", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create base commit
       await git.commit().setMessage("m0").setAllowEmpty(true).call();
@@ -428,21 +428,21 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
       await git.commit().setMessage("m1").setAllowEmpty(true).call();
 
       // Get current HEAD as main branch head
-      const mainRef = await store.refs.resolve("HEAD");
+      const mainRef = await repository.refs.resolve("HEAD");
       const mainId = mainRef?.objectId ?? "";
 
       // Switch to side branch
-      const sideRef = await store.refs.resolve("refs/heads/side");
+      const sideRef = await repository.refs.resolve("refs/heads/side");
       const sideId = sideRef?.objectId ?? "";
-      await store.refs.set("HEAD", sideId);
+      await repository.refs.set("HEAD", sideId);
 
       // Make commit on side
       await git.commit().setMessage("s0").setAllowEmpty(true).call();
-      const sideHeadRef = await store.refs.resolve("HEAD");
+      const sideHeadRef = await repository.refs.resolve("HEAD");
       const sideHeadId = sideHeadRef?.objectId ?? "";
 
       // Switch back to main
-      await store.refs.set("HEAD", mainId);
+      await repository.refs.set("HEAD", mainId);
 
       // Merge side into main
       await git.merge().include(sideHeadId).setMessage("merge s0 with m1").call();
@@ -463,7 +463,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand addRange", () => {
     it("should return commits in range (since..until)", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create: A - B - C - M
       //              \     /
@@ -472,25 +472,25 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
       // A (initial already exists)
       // B
       await git.commit().setMessage("commit b").setAllowEmpty(true).call();
-      const bRef = await store.refs.resolve("HEAD");
+      const bRef = await repository.refs.resolve("HEAD");
       const bId = bRef?.objectId ?? "";
 
       // C
       await git.commit().setMessage("commit c").setAllowEmpty(true).call();
-      const cRef = await store.refs.resolve("HEAD");
+      const cRef = await repository.refs.resolve("HEAD");
       const cId = cRef?.objectId ?? "";
 
       // Create side branch at B
-      await store.refs.set("refs/heads/side", bId);
-      await store.refs.set("HEAD", bId);
+      await repository.refs.set("refs/heads/side", bId);
+      await repository.refs.set("HEAD", bId);
 
       // D on side
       await git.commit().setMessage("commit d").setAllowEmpty(true).call();
-      const dRef = await store.refs.resolve("HEAD");
+      const dRef = await repository.refs.resolve("HEAD");
       const dId = dRef?.objectId ?? "";
 
       // Switch back to main (at C)
-      await store.refs.set("HEAD", cId);
+      await repository.refs.set("HEAD", cId);
 
       // Merge D into main
       const mergeResult = await git.merge().include(dId).call();
@@ -514,11 +514,11 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand not() exclusion", () => {
     it("should exclude commits reachable from not() target", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create base commit
       await git.commit().setMessage("Base").setAllowEmpty(true).call();
-      const baseRef = await store.refs.resolve("HEAD");
+      const baseRef = await repository.refs.resolve("HEAD");
       const baseId = baseRef?.objectId ?? "";
 
       // Create more commits
@@ -537,15 +537,15 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should support multiple not() calls", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create commit chain
       await git.commit().setMessage("C1").setAllowEmpty(true).call();
-      const c1Ref = await store.refs.resolve("HEAD");
+      const c1Ref = await repository.refs.resolve("HEAD");
       const c1Id = c1Ref?.objectId ?? "";
 
       await git.commit().setMessage("C2").setAllowEmpty(true).call();
-      const c2Ref = await store.refs.resolve("HEAD");
+      const c2Ref = await repository.refs.resolve("HEAD");
       const c2Id = c2Ref?.objectId ?? "";
 
       await git.commit().setMessage("C3").setAllowEmpty(true).call();

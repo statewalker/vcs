@@ -34,12 +34,12 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("CreateBranchCommand", () => {
     it("should create branch at HEAD", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       const ref = await git.branchCreate().setName("feature").call();
 
       expect(ref.name).toBe("refs/heads/feature");
-      expect(await store.refs.has("refs/heads/feature")).toBe(true);
+      expect(await repository.refs.has("refs/heads/feature")).toBe(true);
     });
 
     it("should create branch at specific commit", async () => {
@@ -81,20 +81,20 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should overwrite branch with force", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create branch
       await git.branchCreate().setName("feature").call();
 
       // Create a commit
       const commit = await git.commit().setMessage("New").setAllowEmpty(true).call();
-      const _commitId = await store.commits.storeCommit(commit);
+      const _commitId = await repository.commits.storeCommit(commit);
 
       // Force create at new commit
       const ref = await git.branchCreate().setName("feature").setForce(true).call();
 
       // Branch should point to latest commit on main (HEAD)
-      const headRef = await store.refs.resolve("HEAD");
+      const headRef = await repository.refs.resolve("HEAD");
       expect(ref.objectId).toBe(headRef?.objectId);
     });
 
@@ -107,19 +107,19 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("DeleteBranchCommand", () => {
     it("should delete branch", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature").call();
-      expect(await store.refs.has("refs/heads/feature")).toBe(true);
+      expect(await repository.refs.has("refs/heads/feature")).toBe(true);
 
       const deleted = await git.branchDelete().setBranchNames("feature").call();
 
       expect(deleted).toEqual(["refs/heads/feature"]);
-      expect(await store.refs.has("refs/heads/feature")).toBe(false);
+      expect(await repository.refs.has("refs/heads/feature")).toBe(false);
     });
 
     it("should delete multiple branches", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature1").call();
       await git.branchCreate().setName("feature2").call();
@@ -127,8 +127,8 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
       const deleted = await git.branchDelete().setBranchNames("feature1", "feature2").call();
 
       expect(deleted.length).toBe(2);
-      expect(await store.refs.has("refs/heads/feature1")).toBe(false);
-      expect(await store.refs.has("refs/heads/feature2")).toBe(false);
+      expect(await repository.refs.has("refs/heads/feature1")).toBe(false);
+      expect(await repository.refs.has("refs/heads/feature2")).toBe(false);
     });
 
     it("should not delete current branch", async () => {
@@ -148,14 +148,14 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject deleting unmerged branch without force", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create branch at initial commit
       await git.branchCreate().setName("feature").setStartPoint(initialCommitId).call();
 
       // Add commit to feature branch (simulated by setting ref directly)
       const commit = {
-        tree: (await store.commits.loadCommit(initialCommitId)).tree,
+        tree: (await repository.commits.loadCommit(initialCommitId)).tree,
         parents: [initialCommitId],
         author: {
           name: "Test",
@@ -171,8 +171,8 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
         },
         message: "Feature commit",
       };
-      const featureCommitId = await store.commits.storeCommit(commit);
-      await store.refs.set("refs/heads/feature", featureCommitId);
+      const featureCommitId = await repository.commits.storeCommit(commit);
+      await repository.refs.set("refs/heads/feature", featureCommitId);
 
       // Now feature is ahead of main - should fail to delete
       await expect(git.branchDelete().setBranchNames("feature").call()).rejects.toThrow(
@@ -181,13 +181,13 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should force delete unmerged branch", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create branch with unique commit
       await git.branchCreate().setName("feature").setStartPoint(initialCommitId).call();
 
       const commit = {
-        tree: (await store.commits.loadCommit(initialCommitId)).tree,
+        tree: (await repository.commits.loadCommit(initialCommitId)).tree,
         parents: [initialCommitId],
         author: {
           name: "Test",
@@ -203,8 +203,8 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
         },
         message: "Feature commit",
       };
-      const featureCommitId = await store.commits.storeCommit(commit);
-      await store.refs.set("refs/heads/feature", featureCommitId);
+      const featureCommitId = await repository.commits.storeCommit(commit);
+      await repository.refs.set("refs/heads/feature", featureCommitId);
 
       // Force delete should work
       const deleted = await git.branchDelete().setBranchNames("feature").setForce(true).call();
@@ -243,11 +243,11 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should list remote branches when mode is REMOTE", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Simulate remote tracking branch
-      const headRef = await store.refs.resolve("HEAD");
-      await store.refs.set("refs/remotes/origin/main", headRef?.objectId ?? "");
+      const headRef = await repository.refs.resolve("HEAD");
+      await repository.refs.set("refs/remotes/origin/main", headRef?.objectId ?? "");
 
       const branches = await git.branchList().setListMode(ListBranchMode.REMOTE).call();
 
@@ -257,12 +257,12 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should list all branches when mode is ALL", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature").call();
 
-      const headRef = await store.refs.resolve("HEAD");
-      await store.refs.set("refs/remotes/origin/main", headRef?.objectId ?? "");
+      const headRef = await repository.refs.resolve("HEAD");
+      await repository.refs.set("refs/remotes/origin/main", headRef?.objectId ?? "");
 
       const branches = await git.branchList().setListMode(ListBranchMode.ALL).call();
 
@@ -275,27 +275,27 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("RenameBranchCommand", () => {
     it("should rename branch", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("old-name").call();
 
       const ref = await git.branchRename().setOldName("old-name").setNewName("new-name").call();
 
       expect(ref.name).toBe("refs/heads/new-name");
-      expect(await store.refs.has("refs/heads/old-name")).toBe(false);
-      expect(await store.refs.has("refs/heads/new-name")).toBe(true);
+      expect(await repository.refs.has("refs/heads/old-name")).toBe(false);
+      expect(await repository.refs.has("refs/heads/new-name")).toBe(true);
     });
 
     it("should rename current branch when oldName not specified", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       const ref = await git.branchRename().setNewName("renamed-main").call();
 
       expect(ref.name).toBe("refs/heads/renamed-main");
-      expect(await store.refs.has("refs/heads/main")).toBe(false);
+      expect(await repository.refs.has("refs/heads/main")).toBe(false);
 
       // HEAD should now point to renamed branch
-      const head = await store.refs.get("HEAD");
+      const head = await repository.refs.get("HEAD");
       expect(head && "target" in head ? head.target : null).toBe("refs/heads/renamed-main");
     });
 

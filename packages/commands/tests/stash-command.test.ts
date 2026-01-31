@@ -29,10 +29,10 @@ describe.each(backends)("StashListCommand ($name backend)", ({ factory }) => {
    * Test listing stashes when none exist.
    */
   it("should return empty list when no stashes", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a commit so we have a valid HEAD
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const stashes = await git.stashList().call();
@@ -44,27 +44,27 @@ describe.each(backends)("StashListCommand ($name backend)", ({ factory }) => {
    * Test listing stashes with stash ref set manually.
    */
   it("should list stash entries from refs/stash", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("initial").call();
 
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
 
     // Manually create a stash-like commit structure for testing
     // Stash has 2-3 parents: [HEAD, index, optional untracked]
-    const indexCommit = await store.commits.storeCommit({
-      tree: (await store.commits.loadCommit(headCommit)).tree,
+    const indexCommit = await repository.commits.storeCommit({
+      tree: (await repository.commits.loadCommit(headCommit)).tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "index on main: abc1234 initial",
     });
 
-    const stashCommit = await store.commits.storeCommit({
-      tree: (await store.commits.loadCommit(headCommit)).tree,
+    const stashCommit = await repository.commits.storeCommit({
+      tree: (await repository.commits.loadCommit(headCommit)).tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -72,7 +72,7 @@ describe.each(backends)("StashListCommand ($name backend)", ({ factory }) => {
     });
 
     // Set refs/stash
-    await store.refs.set("refs/stash", stashCommit);
+    await repository.refs.set("refs/stash", stashCommit);
 
     const stashes = await git.stashList().call();
 
@@ -104,9 +104,9 @@ describe.each(backends)("StashCreateCommand ($name backend)", ({ factory }) => {
    * Test creating stash without working tree provider returns undefined.
    */
   it("should require working tree provider for actual stashing", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // Without working tree provider, stash create creates a stash but
@@ -121,9 +121,9 @@ describe.each(backends)("StashCreateCommand ($name backend)", ({ factory }) => {
    * Test setting custom message.
    */
   it("should support custom message", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const stashCommit = await git.stashCreate().setMessage("My custom stash message").call();
@@ -132,7 +132,7 @@ describe.each(backends)("StashCreateCommand ($name backend)", ({ factory }) => {
     if (!stashCommit) return;
 
     // Load the stash commit and check message
-    const commit = await store.commits.loadCommit(stashCommit);
+    const commit = await repository.commits.loadCommit(stashCommit);
     expect(commit.message).toBe("My custom stash message");
   });
 
@@ -140,9 +140,9 @@ describe.each(backends)("StashCreateCommand ($name backend)", ({ factory }) => {
    * Test setIncludeUntracked option.
    */
   it("should support include untracked option", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const command = git.stashCreate();
@@ -156,16 +156,16 @@ describe.each(backends)("StashCreateCommand ($name backend)", ({ factory }) => {
    * Test setting ref to null.
    */
   it("should support setting ref to null", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // With null ref, no reference is updated
     await git.stashCreate().setRef(null).call();
 
     // refs/stash should not exist
-    const stashRef = await store.refs.get("refs/stash");
+    const stashRef = await repository.refs.get("refs/stash");
     expect(stashRef).toBeUndefined();
   });
 });
@@ -190,23 +190,25 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Helper to create a stash commit structure with a different tree.
    */
   async function createStashWithModifiedFile(
-    store: Awaited<ReturnType<typeof createInitializedGit>>["store"],
+    repository: Awaited<ReturnType<typeof createInitializedGit>>["repository"],
     filename: string,
     content: string,
   ) {
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await store.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.loadCommit(headCommit);
 
     // Create a blob with the new content
     const encoder = new TextEncoder();
     const data = encoder.encode(content);
-    const blobId = await store.blobs.store([data]);
+    const blobId = await repository.blobs.store([data]);
 
     // Create a new tree with the modified file
-    const stashTree = await store.trees.storeTree([{ name: filename, id: blobId, mode: 0o100644 }]);
+    const stashTree = await repository.trees.storeTree([
+      { name: filename, id: blobId, mode: 0o100644 },
+    ]);
 
-    const indexCommit = await store.commits.storeCommit({
+    const indexCommit = await repository.commits.storeCommit({
       tree: stashTree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -214,7 +216,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
       message: "index on main: abc1234 test",
     });
 
-    const stashCommit = await store.commits.storeCommit({
+    const stashCommit = await repository.commits.storeCommit({
       tree: stashTree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -222,7 +224,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
       message: "WIP on main: abc1234 test",
     });
 
-    await store.refs.set("refs/stash", stashCommit);
+    await repository.refs.set("refs/stash", stashCommit);
     return { stashCommit, headCommitObj };
   }
 
@@ -231,13 +233,13 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    */
   async function createStash(
     _git: Awaited<ReturnType<typeof createInitializedGit>>["git"],
-    store: Awaited<ReturnType<typeof createInitializedGit>>["store"],
+    repository: Awaited<ReturnType<typeof createInitializedGit>>["repository"],
   ) {
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await store.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.loadCommit(headCommit);
 
-    const indexCommit = await store.commits.storeCommit({
+    const indexCommit = await repository.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -245,7 +247,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
       message: "index on main: abc1234 test",
     });
 
-    const stashCommit = await store.commits.storeCommit({
+    const stashCommit = await repository.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -253,7 +255,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
       message: "WIP on main: abc1234 test",
     });
 
-    await store.refs.set("refs/stash", stashCommit);
+    await repository.refs.set("refs/stash", stashCommit);
     return stashCommit;
   }
 
@@ -261,12 +263,12 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Test applying stash.
    */
   it("should apply stash successfully", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    await createStash(git, store);
+    await createStash(git, repository);
 
     const result = await git.stashApply().call();
 
@@ -277,12 +279,12 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Test applying specific stash.
    */
   it("should support setting stash ref", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    const stashId = await createStash(git, store);
+    const stashId = await createStash(git, repository);
 
     const command = git.stashApply();
     expect(command.getStashRef()).toBeUndefined();
@@ -299,12 +301,12 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Test setRestoreIndex option.
    */
   it("should support restoreIndex option", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    await createStash(git, store);
+    await createStash(git, repository);
 
     const command = git.stashApply();
     expect(command.getRestoreIndex()).toBe(true); // default
@@ -320,12 +322,12 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Test setRestoreUntracked option.
    */
   it("should support restoreUntracked option", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    await createStash(git, store);
+    await createStash(git, repository);
 
     const command = git.stashApply();
     expect(command.getRestoreUntracked()).toBe(true); // default
@@ -366,9 +368,9 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Based on JGit's noStashedCommits test.
    */
   it("should throw when no stashes exist", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // No stash exists, should throw
@@ -381,14 +383,16 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Based on JGit's unstashNoHead test.
    */
   it("should throw when HEAD does not exist", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a stash ref without HEAD
     const encoder = new TextEncoder();
-    const blobId = await store.blobs.store([encoder.encode("content")]);
-    const tree = await store.trees.storeTree([{ name: "file.txt", id: blobId, mode: 0o100644 }]);
+    const blobId = await repository.blobs.store([encoder.encode("content")]);
+    const tree = await repository.trees.storeTree([
+      { name: "file.txt", id: blobId, mode: 0o100644 },
+    ]);
 
-    const commit = await store.commits.storeCommit({
+    const commit = await repository.commits.storeCommit({
       tree,
       parents: [],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -396,7 +400,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
       message: "stash",
     });
 
-    await store.refs.set("refs/stash", commit);
+    await repository.refs.set("refs/stash", commit);
 
     // HEAD doesn't exist, should throw
     await expect(git.stashApply().call()).rejects.toThrow();
@@ -408,13 +412,13 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Based on JGit's workingDirectoryModify test.
    */
   it("should apply stash with modified file content", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "original");
+    await addFile(workingCopy, "file.txt", "original");
     await git.commit().setMessage("initial").call();
 
     // Create stash with modified content
-    await createStashWithModifiedFile(store, "file.txt", "modified");
+    await createStashWithModifiedFile(repository, "file.txt", "modified");
 
     const result = await git.stashApply().call();
 
@@ -427,12 +431,12 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Based on JGit's stashedApplyOnOtherBranch test.
    */
   it("should apply stash by commit ID", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    const stashId = await createStash(git, store);
+    const stashId = await createStash(git, repository);
 
     // Apply by commit ID
     const result = await git.stashApply().setStashRef(stashId).call();
@@ -447,9 +451,9 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Based on JGit's unstashNonStashCommit test.
    */
   it("should throw for invalid stash ref", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     await expect(git.stashApply().setStashRef("nonexistent").call()).rejects.toThrow();
@@ -459,12 +463,12 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Test setIgnoreRepositoryState option (reserved for future use).
    */
   it("should support ignoreRepositoryState option", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    await createStash(git, store);
+    await createStash(git, repository);
 
     // This is a no-op currently but API should work
     const result = await git.stashApply().setIgnoreRepositoryState(true).call();
@@ -493,9 +497,9 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
    * Test dropping when no stash exists.
    */
   it("should return undefined when no stash to drop", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const result = await git.stashDrop().call();
@@ -507,17 +511,17 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
    * Test dropping stash.
    */
   it("should drop stash entry", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await store.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.loadCommit(headCommit);
 
     // Create a stash
-    const indexCommit = await store.commits.storeCommit({
+    const indexCommit = await repository.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -525,7 +529,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
       message: "index",
     });
 
-    const stashCommit = await store.commits.storeCommit({
+    const stashCommit = await repository.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -533,7 +537,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
       message: "WIP",
     });
 
-    await store.refs.set("refs/stash", stashCommit);
+    await repository.refs.set("refs/stash", stashCommit);
 
     // Drop the stash
     const result = await git.stashDrop().call();
@@ -542,7 +546,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
     expect(result).toBeUndefined();
 
     // refs/stash should be deleted
-    const stashRef = await store.refs.get("refs/stash");
+    const stashRef = await repository.refs.get("refs/stash");
     expect(stashRef).toBeUndefined();
   });
 
@@ -550,17 +554,17 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
    * Test setAll option.
    */
   it("should support dropping all stashes", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await store.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.loadCommit(headCommit);
 
     // Create a stash
-    const indexCommit = await store.commits.storeCommit({
+    const indexCommit = await repository.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -568,7 +572,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
       message: "index",
     });
 
-    const stashCommit = await store.commits.storeCommit({
+    const stashCommit = await repository.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -576,7 +580,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
       message: "WIP",
     });
 
-    await store.refs.set("refs/stash", stashCommit);
+    await repository.refs.set("refs/stash", stashCommit);
 
     const command = git.stashDrop();
     expect(command.getAll()).toBe(false); // default
@@ -617,17 +621,17 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
    * Note: Without reflog support, only stash@{0} is accessible.
    */
   it("should throw for stash index > 0 without reflog", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await store.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.loadCommit(headCommit);
 
     // Create a stash
-    const indexCommit = await store.commits.storeCommit({
+    const indexCommit = await repository.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -635,7 +639,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
       message: "index",
     });
 
-    const stashCommit = await store.commits.storeCommit({
+    const stashCommit = await repository.commits.storeCommit({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -643,7 +647,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
       message: "WIP",
     });
 
-    await store.refs.set("refs/stash", stashCommit);
+    await repository.refs.set("refs/stash", stashCommit);
 
     // Trying to drop stash@{1} should fail without reflog
     await expect(git.stashDrop().setStashRef(1).call()).rejects.toThrow();
@@ -653,9 +657,9 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
    * Test command cannot be reused.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const command = git.stashDrop();
@@ -690,9 +694,9 @@ describe.each(backends)("StashCreateCommand - JGit compatibility tests ($name ba
    * Based on JGit's noLocalChanges test.
    */
   it("should create stash even without explicit working tree changes", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // Create stash without provider - still creates commit structure
@@ -702,7 +706,7 @@ describe.each(backends)("StashCreateCommand - JGit compatibility tests ($name ba
     if (!stashCommit) return;
 
     // Verify stash commit structure
-    const commit = await store.commits.loadCommit(stashCommit);
+    const commit = await repository.commits.loadCommit(stashCommit);
     expect(commit.parents.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -712,16 +716,16 @@ describe.each(backends)("StashCreateCommand - JGit compatibility tests ($name ba
    * Note: Without reflog, only the latest stash is accessible.
    */
   it("should replace refs/stash on subsequent stash creates", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const stash1 = await git.stashCreate().setMessage("stash 1").call();
     const stash2 = await git.stashCreate().setMessage("stash 2").call();
 
     // refs/stash should point to stash2
-    const stashRef = await store.refs.resolve("refs/stash");
+    const stashRef = await repository.refs.resolve("refs/stash");
     expect(stashRef?.objectId).toBe(stash2);
     expect(stash1).not.toBe(stash2);
   });
@@ -743,9 +747,9 @@ describe.each(backends)("StashCreateCommand - JGit compatibility tests ($name ba
    * Test command cannot be reused.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const command = git.stashCreate();
@@ -776,24 +780,24 @@ describe.each(backends)("StashListCommand - additional tests ($name backend)", (
    * Test listing when stash ref exists but commit is invalid.
    */
   it("should handle invalid stash commit gracefully", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
 
     // Create a commit with only 1 parent (not valid stash structure)
-    const invalidStash = await store.commits.storeCommit({
-      tree: (await store.commits.loadCommit(headCommit)).tree,
+    const invalidStash = await repository.commits.storeCommit({
+      tree: (await repository.commits.loadCommit(headCommit)).tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "Not a valid stash",
     });
 
-    await store.refs.set("refs/stash", invalidStash);
+    await repository.refs.set("refs/stash", invalidStash);
 
     // Should return empty - invalid stash structure filtered out
     const stashes = await git.stashList().call();
@@ -804,9 +808,9 @@ describe.each(backends)("StashListCommand - additional tests ($name backend)", (
    * Test command cannot be reused.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const command = git.stashList();

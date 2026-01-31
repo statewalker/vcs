@@ -37,17 +37,17 @@ async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8A
  * Read file content from staging as string.
  */
 async function readStagedFile(
-  store: {
+  _store: {
     staging: { getEntry(path: string): Promise<{ objectId: string } | undefined> };
     blobs: { load(id: string): AsyncIterable<Uint8Array> };
   },
   path: string,
 ): Promise<string> {
-  const entry = await store.staging.getEntry(path);
+  const entry = await workingCopy.staging.getEntry(path);
   if (!entry) {
     throw new Error(`File not found in staging: ${path}`);
   }
-  const content = await collectBytes(store.blobs.load(entry.objectId));
+  const content = await collectBytes(repository.blobs.load(entry.objectId));
   return new TextDecoder().decode(content);
 }
 
@@ -76,10 +76,10 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * detached (points directly to commit, not to a branch).
      */
     it("should detach HEAD when checking out by commit ID", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create initial commit on main
-      await addFile(store, "Test.txt", "Hello world");
+      await addFile(workingCopy, "Test.txt", "Hello world");
       await git.commit().setMessage("Initial commit").call();
 
       // Create test branch and switch to it
@@ -87,14 +87,14 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       await git.checkout().setName("test").call();
 
       // Commit something on test branch
-      await addFile(store, "Test.txt", "Some change");
+      await addFile(workingCopy, "Test.txt", "Some change");
       await git.commit().setMessage("Second commit").call();
 
       // Checkout master by name first
       await git.checkout().setName("main").call();
 
       // Get the commit ID for main
-      const mainRef = await store.refs.resolve("refs/heads/main");
+      const mainRef = await repository.refs.resolve("refs/heads/main");
       const commitId = mainRef?.objectId;
       expect(commitId).toBeDefined();
       if (!commitId) throw new Error("Expected commitId to be defined");
@@ -103,7 +103,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       await git.checkout().setName(commitId).call();
 
       // HEAD should be detached (not symbolic)
-      const headRaw = await store.refs.get("HEAD");
+      const headRaw = await repository.refs.get("HEAD");
       expect(headRaw).toBeDefined();
 
       // When HEAD is detached, it should be a direct ref (has objectId)
@@ -117,14 +117,14 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
     });
 
     it("should have correct staging content after detached checkout", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create first commit
-      await addFile(store, "Test.txt", "Version 1");
+      await addFile(workingCopy, "Test.txt", "Version 1");
       const commit1 = await git.commit().setMessage("First").call();
 
       // Create second commit with different content
-      await addFile(store, "Test.txt", "Version 2");
+      await addFile(workingCopy, "Test.txt", "Version 2");
       await git.commit().setMessage("Second").call();
 
       // Checkout first commit by ID (detached)
@@ -145,10 +145,10 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * symbolically, but the branch ref doesn't exist yet.
      */
     it("should create orphan branch with symbolic HEAD", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create some content and commit on main
-      await addFile(store, "Test.txt", "Hello world");
+      await addFile(workingCopy, "Test.txt", "Hello world");
       await git.commit().setMessage("Initial commit").call();
 
       // Create orphan branch
@@ -157,7 +157,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result.status).toBe(CheckoutStatus.OK);
 
       // HEAD should be symbolic pointing to orphanbranch
-      const headRaw = await store.refs.get("HEAD");
+      const headRaw = await repository.refs.get("HEAD");
       expect(headRaw).toBeDefined();
       if (headRaw && "target" in headRaw) {
         expect(headRaw.target).toBe("refs/heads/orphanbranch");
@@ -167,16 +167,16 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
     });
 
     it("orphan branch should not resolve to any commit yet", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "Test.txt", "content");
+      await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
 
       await git.checkout().setOrphan(true).setName("orphan").call();
 
       // The orphan branch ref should not exist yet
       // (it will be created on first commit to that branch)
-      const orphanRef = await store.refs.get("refs/heads/orphan");
+      const orphanRef = await repository.refs.get("refs/heads/orphan");
       expect(orphanRef).toBeUndefined();
     });
   });
@@ -190,16 +190,16 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * has different content.
      */
     it("should allow checkout when staging matches HEAD", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create initial commit with a file
-      await addFile(store, "Test.txt", "main content");
+      await addFile(workingCopy, "Test.txt", "main content");
       await git.commit().setMessage("Initial").call();
 
       // Create test branch with different content
       await git.branchCreate().setName("test").call();
       await git.checkout().setName("test").call();
-      await addFile(store, "Test.txt", "test content");
+      await addFile(workingCopy, "Test.txt", "test content");
       await git.commit().setMessage("Test commit").call();
 
       // Go back to main - staging matches HEAD (no uncommitted changes)
@@ -216,23 +216,23 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
     });
 
     it("should detect conflict when staged content differs from both", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create initial commit
-      await addFile(store, "Test.txt", "main content");
+      await addFile(workingCopy, "Test.txt", "main content");
       await git.commit().setMessage("Initial").call();
 
       // Create test branch with different content
       await git.branchCreate().setName("test").call();
       await git.checkout().setName("test").call();
-      await addFile(store, "Test.txt", "test content");
+      await addFile(workingCopy, "Test.txt", "test content");
       await git.commit().setMessage("Test commit").call();
 
       // Go back to main
       await git.checkout().setName("main").call();
 
       // Stage different content that doesn't match HEAD or target
-      await addFile(store, "Test.txt", "staged different");
+      await addFile(workingCopy, "Test.txt", "staged different");
 
       // Checkout test should detect conflict
       const result = await git.checkout().setName("test").call();
@@ -249,10 +249,10 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * Common workflow of switching branches and creating new ones.
      */
     it("should checkout existing then create new branch", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Initial commit on main
-      await addFile(store, "Test.txt", "main content");
+      await addFile(workingCopy, "Test.txt", "main content");
       await git.commit().setMessage("Initial").call();
 
       // Create and checkout test branch
@@ -261,7 +261,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result1.status).toBe(CheckoutStatus.OK);
 
       // Add commit on test branch
-      await addFile(store, "Test.txt", "test content");
+      await addFile(workingCopy, "Test.txt", "test content");
       await git.commit().setMessage("Test commit").call();
 
       // Now create and checkout a new branch from test
@@ -270,28 +270,28 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result2.status).toBe(CheckoutStatus.OK);
 
       // Verify test2 was created
-      const test2Ref = await store.refs.resolve("refs/heads/test2");
+      const test2Ref = await repository.refs.resolve("refs/heads/test2");
       expect(test2Ref).toBeDefined();
 
       // Verify HEAD points to test2
-      const headRaw = await store.refs.get("HEAD");
+      const headRaw = await repository.refs.get("HEAD");
       if (headRaw && "target" in headRaw) {
         expect(headRaw.target).toBe("refs/heads/test2");
       }
 
       // Verify test2 points to same commit as test
-      const testRef = await store.refs.resolve("refs/heads/test");
+      const testRef = await repository.refs.resolve("refs/heads/test");
       expect(test2Ref?.objectId).toBe(testRef?.objectId);
     });
 
     it("should create branch at specific start point", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create two commits
-      await addFile(store, "a.txt", "A");
+      await addFile(workingCopy, "a.txt", "A");
       const first = await git.commit().setMessage("First").call();
 
-      await addFile(store, "b.txt", "B");
+      await addFile(workingCopy, "b.txt", "B");
       await git.commit().setMessage("Second").call();
 
       // Create new branch at first commit
@@ -303,15 +303,15 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
         .call();
 
       // Verify branch points to first commit
-      const branchRef = await store.refs.resolve("refs/heads/from-first");
+      const branchRef = await repository.refs.resolve("refs/heads/from-first");
       expect(branchRef?.objectId).toBe(first.id);
 
       // Staging should have first commit's content
-      const entryA = await store.staging.getEntry("a.txt");
+      const entryA = await workingCopy.staging.getEntry("a.txt");
       expect(entryA).toBeDefined();
 
       // b.txt should not exist in staging (wasn't in first commit)
-      const entryB = await store.staging.getEntry("b.txt");
+      const entryB = await workingCopy.staging.getEntry("b.txt");
       expect(entryB).toBeUndefined();
     });
   });
@@ -323,16 +323,16 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * Checkout specific paths from index or commits.
      */
     it("should checkout single path from index", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create files and commit
-      await addFile(store, "a.txt", "original a");
-      await addFile(store, "b.txt", "original b");
+      await addFile(workingCopy, "a.txt", "original a");
+      await addFile(workingCopy, "b.txt", "original b");
       await git.commit().setMessage("Initial").call();
 
       // Modify files in staging
-      await addFile(store, "a.txt", "modified a");
-      await addFile(store, "b.txt", "modified b");
+      await addFile(workingCopy, "a.txt", "modified a");
+      await addFile(workingCopy, "b.txt", "modified b");
 
       // Checkout only a.txt from index
       // Since we modified staging, this should restore from HEAD
@@ -351,18 +351,18 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
     });
 
     it("should checkout path from specific commit", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create first commit
-      await addFile(store, "file.txt", "version 1");
+      await addFile(workingCopy, "file.txt", "version 1");
       const commit1 = await git.commit().setMessage("First").call();
 
       // Create second commit
-      await addFile(store, "file.txt", "version 2");
+      await addFile(workingCopy, "file.txt", "version 2");
       await git.commit().setMessage("Second").call();
 
       // Create third commit
-      await addFile(store, "file.txt", "version 3");
+      await addFile(workingCopy, "file.txt", "version 3");
       await git.commit().setMessage("Third").call();
 
       // Checkout file from first commit
@@ -377,18 +377,18 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
     });
 
     it("should checkout multiple paths", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create files
-      await addFile(store, "a.txt", "A");
-      await addFile(store, "b.txt", "B");
-      await addFile(store, "c.txt", "C");
+      await addFile(workingCopy, "a.txt", "A");
+      await addFile(workingCopy, "b.txt", "B");
+      await addFile(workingCopy, "c.txt", "C");
       const commit1 = await git.commit().setMessage("First").call();
 
       // Modify all files
-      await addFile(store, "a.txt", "A modified");
-      await addFile(store, "b.txt", "B modified");
-      await addFile(store, "c.txt", "C modified");
+      await addFile(workingCopy, "a.txt", "A modified");
+      await addFile(workingCopy, "b.txt", "B modified");
+      await addFile(workingCopy, "c.txt", "C modified");
       await git.commit().setMessage("Second").call();
 
       // Checkout a.txt and b.txt from first commit
@@ -412,16 +412,16 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
     });
 
     it("should checkout directory recursively via setAllPaths", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create files in subdirectory
-      await addFile(store, "dir/a.txt", "A");
-      await addFile(store, "dir/sub/b.txt", "B");
+      await addFile(workingCopy, "dir/a.txt", "A");
+      await addFile(workingCopy, "dir/sub/b.txt", "B");
       const commit1 = await git.commit().setMessage("First").call();
 
       // Modify both files
-      await addFile(store, "dir/a.txt", "A modified");
-      await addFile(store, "dir/sub/b.txt", "B modified");
+      await addFile(workingCopy, "dir/a.txt", "A modified");
+      await addFile(workingCopy, "dir/sub/b.txt", "B modified");
       await git.commit().setMessage("Second").call();
 
       // Checkout all paths from first commit
@@ -435,9 +435,9 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
     });
 
     it("should report conflict for non-existing path", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "exists.txt", "content");
+      await addFile(workingCopy, "exists.txt", "content");
       await git.commit().setMessage("Initial").call();
 
       // Try to checkout non-existing path
@@ -455,23 +455,23 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * Force checkout should succeed even with conflicts.
      */
     it("should force checkout despite staged changes", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create initial commit
-      await addFile(store, "Test.txt", "original");
+      await addFile(workingCopy, "Test.txt", "original");
       await git.commit().setMessage("Initial").call();
 
       // Create test branch with different content
       await git.branchCreate().setName("test").call();
       await git.checkout().setName("test").call();
-      await addFile(store, "Test.txt", "test-version");
+      await addFile(workingCopy, "Test.txt", "test-version");
       await git.commit().setMessage("Test").call();
 
       // Go back to main
       await git.checkout().setName("main").call();
 
       // Stage different content (would conflict)
-      await addFile(store, "Test.txt", "main-staged");
+      await addFile(workingCopy, "Test.txt", "main-staged");
 
       // Normal checkout should fail
       const conflictResult = await git.checkout().setName("test").call();
@@ -489,9 +489,9 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * JGit: testCheckoutToNonExistingBranch
      */
     it("should throw RefNotFoundError for non-existing branch", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "Test.txt", "content");
+      await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
 
       await expect(git.checkout().setName("nonexistent").call()).rejects.toThrow(RefNotFoundError);
@@ -501,9 +501,9 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * JGit: testCreateBranchOnCheckout
      */
     it("should create branch on checkout with -b flag", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "Test.txt", "content");
+      await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
 
       const result = await git.checkout().setCreateBranch(true).setName("newbranch").call();
@@ -511,11 +511,11 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(result.status).toBe(CheckoutStatus.OK);
 
       // Verify branch exists
-      const branchRef = await store.refs.resolve("refs/heads/newbranch");
+      const branchRef = await repository.refs.resolve("refs/heads/newbranch");
       expect(branchRef).toBeDefined();
 
       // Verify HEAD points to new branch
-      const headRaw = await store.refs.get("HEAD");
+      const headRaw = await repository.refs.get("HEAD");
       if (headRaw && "target" in headRaw) {
         expect(headRaw.target).toBe("refs/heads/newbranch");
       }
@@ -525,20 +525,20 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * JGit: Staging should be updated on branch switch
      */
     it("should update staging on branch checkout", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create files on main
-      await addFile(store, "a.txt", "main-a");
-      await addFile(store, "b.txt", "main-b");
+      await addFile(workingCopy, "a.txt", "main-a");
+      await addFile(workingCopy, "b.txt", "main-b");
       await git.commit().setMessage("Main commit").call();
 
       // Create test branch with different files
       await git.branchCreate().setName("test").call();
       await git.checkout().setName("test").call();
-      await addFile(store, "a.txt", "test-a");
-      await addFile(store, "c.txt", "test-c");
+      await addFile(workingCopy, "a.txt", "test-a");
+      await addFile(workingCopy, "c.txt", "test-c");
       // Remove b.txt
-      const editor = store.staging.editor();
+      const editor = workingCopy.staging.editor();
       editor.add(new DeleteStagingEntry("b.txt"));
       await editor.finish();
       await git.commit().setMessage("Test commit").call();
@@ -553,7 +553,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(await readStagedFile(store, "b.txt")).toBe("main-b");
 
       // c.txt should not exist
-      const entryC = await store.staging.getEntry("c.txt");
+      const entryC = await workingCopy.staging.getEntry("c.txt");
       expect(entryC).toBeUndefined();
     });
 
@@ -561,12 +561,12 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * JGit: testCheckoutWithStartPoint
      */
     it("should create branch at start point and checkout", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "A");
+      await addFile(workingCopy, "a.txt", "A");
       const first = await git.commit().setMessage("First").call();
 
-      await addFile(store, "a.txt", "other");
+      await addFile(workingCopy, "a.txt", "other");
       await git.commit().setMessage("Other").call();
 
       // Create branch at first commit and checkout
@@ -585,9 +585,9 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * Test command can only be called once
      */
     it("should throw if called twice", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "Test.txt", "content");
+      await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
       await git.branchCreate().setName("test").call();
 
