@@ -15,7 +15,8 @@ import type { ObjectId } from "../../common/id/index.js";
 import type { History } from "../../history/history.js";
 import type { HistoryStore } from "../../history/history-store.js";
 import type { Checkout } from "../checkout/checkout.js";
-import type { StagingStore } from "../staging/index.js";
+import type { Staging } from "../staging/index.js";
+import type { StagingStore } from "../staging/staging-store.js";
 import type { RepositoryStatus, StatusOptions } from "../status/index.js";
 import type {
   CherryPickState,
@@ -26,7 +27,8 @@ import type {
   WorkingCopy,
   WorkingCopyConfig,
 } from "../working-copy.js";
-import type { Worktree, WorktreeStore } from "../worktree/index.js";
+import type { Worktree } from "../worktree/index.js";
+import type { WorktreeStore } from "../worktree/worktree-store.js";
 import {
   getStateCapabilities,
   RepositoryState,
@@ -82,10 +84,14 @@ export class MemoryWorkingCopy implements WorkingCopy {
 
   // Legacy properties
   readonly repository: HistoryStore;
-  readonly worktree: WorktreeStore;
-  readonly staging: StagingStore;
   readonly stash: StashStore;
   readonly config: WorkingCopyConfig;
+
+  // Internal legacy stores
+  private _legacyWorktree?: WorktreeStore;
+  private _legacyStaging?: StagingStore;
+  private _worktreeAdapter?: Worktree;
+  private _stagingAdapter?: Staging;
 
   constructor(options: MemoryWorkingCopyOptions);
   /** @deprecated Use options object instead */
@@ -107,8 +113,8 @@ export class MemoryWorkingCopy implements WorkingCopy {
       // Options object form
       const options = repositoryOrOptions;
       this.repository = options.repository;
-      this.worktree = options.worktree;
-      this.staging = options.staging;
+      this._legacyWorktree = options.worktree;
+      this._legacyStaging = options.staging;
       this.stash = options.stash ?? new MemoryStashStore();
       this.config = options.config ?? {};
       this.history = options.history;
@@ -117,11 +123,141 @@ export class MemoryWorkingCopy implements WorkingCopy {
     } else {
       // Legacy positional arguments form
       this.repository = repositoryOrOptions;
-      this.worktree = worktree as WorktreeStore;
-      this.staging = staging as StagingStore;
+      this._legacyWorktree = worktree;
+      this._legacyStaging = staging;
       this.stash = stash ?? new MemoryStashStore();
       this.config = config ?? {};
     }
+  }
+
+  /**
+   * Worktree - delegates to worktreeInterface or creates adapter from legacy
+   */
+  get worktree(): Worktree {
+    if (this.worktreeInterface) {
+      return this.worktreeInterface;
+    }
+    // Legacy mode - create adapter if needed
+    if (!this._worktreeAdapter && this._legacyWorktree) {
+      this._worktreeAdapter = this.createWorktreeAdapter();
+    }
+    return this._worktreeAdapter as Worktree;
+  }
+
+  /**
+   * Staging area - delegates to checkout or creates adapter from legacy
+   */
+  get staging(): Staging {
+    if (this.checkout) {
+      return this.checkout.staging;
+    }
+    // Legacy mode - create adapter if needed
+    if (!this._stagingAdapter && this._legacyStaging) {
+      this._stagingAdapter = this.createStagingAdapter();
+    }
+    return this._stagingAdapter as Staging;
+  }
+
+  /**
+   * Create a Staging adapter from legacy StagingStore.
+   * @internal
+   */
+  private createStagingAdapter(): Staging {
+    if (!this._legacyStaging) {
+      throw new Error("Legacy staging store not available");
+    }
+    const legacyStaging = this._legacyStaging;
+    return {
+      getEntryCount: () => legacyStaging.getEntryCount(),
+      hasEntry: (path) => legacyStaging.hasEntry(path),
+      getEntry: (path, stage) =>
+        stage !== undefined
+          ? legacyStaging.getEntryByStage(path, stage)
+          : legacyStaging.getEntry(path),
+      getEntries: (path) => legacyStaging.getEntries(path),
+      setEntry: () => Promise.reject(new Error("setEntry not supported in legacy adapter")),
+      removeEntry: () => Promise.reject(new Error("removeEntry not supported in legacy adapter")),
+      entries: (opts) =>
+        opts?.prefix ? legacyStaging.listEntriesUnder(opts.prefix) : legacyStaging.listEntries(),
+      hasConflicts: () => legacyStaging.hasConflicts(),
+      getConflictedPaths: async () => {
+        const paths: string[] = [];
+        for await (const path of legacyStaging.getConflictPaths()) {
+          paths.push(path);
+        }
+        return paths;
+      },
+      resolveConflict: () =>
+        Promise.reject(new Error("resolveConflict not supported in legacy adapter")),
+      writeTree: (trees) =>
+        legacyStaging.writeTree(
+          trees as unknown as import("../../history/trees/tree-store.js").TreeStore,
+        ),
+      readTree: (trees, treeId) =>
+        legacyStaging.readTree(
+          trees as unknown as import("../../history/trees/tree-store.js").TreeStore,
+          treeId,
+        ),
+      createBuilder: () => {
+        const b = legacyStaging.builder();
+        return {
+          add: (e) => b.add(e),
+          keep: (s, c) => b.keep(s, c),
+          addTree: (t, id, p, st) =>
+            b.addTree(
+              t as unknown as import("../../history/trees/tree-store.js").TreeStore,
+              id,
+              p,
+              st,
+            ),
+          finish: () => b.finish(),
+        };
+      },
+      createEditor: () => {
+        const e = legacyStaging.editor();
+        return {
+          add: (ed) => e.add(ed),
+          remove: (p) => e.remove(p),
+          upsert: () => {
+            throw new Error("upsert not supported in legacy adapter");
+          },
+          finish: () => e.finish(),
+        };
+      },
+      read: () => legacyStaging.read(),
+      write: () => legacyStaging.write(),
+      isOutdated: () => legacyStaging.isOutdated(),
+      getUpdateTime: () => legacyStaging.getUpdateTime(),
+      clear: () => legacyStaging.clear(),
+    };
+  }
+
+  /**
+   * Create a Worktree adapter from legacy WorktreeStore.
+   * @internal
+   */
+  private createWorktreeAdapter(): Worktree {
+    if (!this._legacyWorktree) {
+      throw new Error("Legacy worktree store not available");
+    }
+    const legacyWorktree = this._legacyWorktree;
+    return {
+      walk: (opts) => legacyWorktree.walk(opts),
+      getEntry: (path) => legacyWorktree.getEntry(path),
+      computeHash: (path) => legacyWorktree.computeHash(path),
+      readContent: (path) => legacyWorktree.readContent(path),
+      exists: async (path) => (await legacyWorktree.getEntry(path)) !== undefined,
+      isIgnored: async (path) => (await legacyWorktree.getEntry(path))?.isIgnored ?? false,
+      writeContent: () => Promise.reject(new Error("writeContent not supported in legacy adapter")),
+      remove: () => Promise.reject(new Error("remove not supported in legacy adapter")),
+      mkdir: () => Promise.reject(new Error("mkdir not supported in legacy adapter")),
+      rename: () => Promise.reject(new Error("rename not supported in legacy adapter")),
+      checkoutTree: () => Promise.reject(new Error("checkoutTree not supported in legacy adapter")),
+      checkoutPaths: () =>
+        Promise.reject(new Error("checkoutPaths not supported in legacy adapter")),
+      getRoot: () => "",
+      refreshIgnore: () => Promise.resolve(),
+    };
   }
 
   /**

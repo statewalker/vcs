@@ -381,7 +381,7 @@ export class AddCommand extends GitCommand<AddResult> {
     // If update or all mode, check for deleted files in index
     if (this.update || stageDeletions) {
       const indexedPaths = new Set<string>();
-      for await (const entry of this.store.staging.listEntries()) {
+      for await (const entry of this.store.staging.entries()) {
         if (entry.stage === 0) {
           indexedPaths.add(entry.path);
         }
@@ -408,7 +408,7 @@ export class AddCommand extends GitCommand<AddResult> {
     // If update mode, filter to only tracked files
     if (this.update) {
       const trackedPaths = new Set<string>();
-      for await (const entry of this.store.staging.listEntries()) {
+      for await (const entry of this.store.staging.entries()) {
         if (entry.stage === 0) {
           trackedPaths.add(entry.path);
         }
@@ -420,7 +420,7 @@ export class AddCommand extends GitCommand<AddResult> {
     }
 
     // Process files
-    const editor = this.store.staging.editor();
+    const editor = this.store.staging.createEditor();
 
     for (const file of filesToProcess) {
       if (!file.exists) {

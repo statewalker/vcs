@@ -296,7 +296,7 @@ export class CherryPickCommand extends GitCommand<CherryPickResult> {
     }
 
     // Build merged tree
-    const builder = this.store.staging.builder();
+    const builder = this.store.staging.createBuilder();
     for (const entry of mergedEntries.values()) {
       builder.add({
         path: entry.path,
@@ -480,7 +480,7 @@ export class CherryPickCommand extends GitCommand<CherryPickResult> {
     headTree: Map<string, PathEntry>,
     conflicts: string[],
   ): Promise<void> {
-    const builder = this.store.staging.builder();
+    const builder = this.store.staging.createBuilder();
 
     // Add all non-conflicting entries at stage 0
     const conflictSet = new Set(conflicts);

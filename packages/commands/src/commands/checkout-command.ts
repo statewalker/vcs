@@ -466,14 +466,14 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
   private async checkoutPathFromIndex(path: string): Promise<void> {
     // Find the entry in staging
     let found = false;
-    for await (const entry of this.store.staging.listEntries()) {
+    for await (const entry of this.store.staging.entries()) {
       if (entry.path !== path) continue;
 
       // Handle conflict stages
       if (entry.stage !== 0) {
         if (this.stage && entry.stage === this.stage) {
           // Replace with specified stage
-          const editor = this.store.staging.editor();
+          const editor = this.store.staging.createEditor();
           editor.add(
             new UpdateStagingEntry(path, entry.objectId, entry.mode, {
               size: entry.size,
@@ -519,7 +519,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
         currentTreeId = entry.id;
       } else {
         // Found the file - update staging
-        const editor = this.store.staging.editor();
+        const editor = this.store.staging.createEditor();
         editor.add(
           new UpdateStagingEntry(path, entry.id, entry.mode, {
             size: 0,
@@ -542,7 +542,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
       await this.collectTreePaths(sourceTreeId, "", paths);
     } else {
       // Get all paths from staging
-      for await (const entry of this.store.staging.listEntries()) {
+      for await (const entry of this.store.staging.entries()) {
         if (entry.stage === 0 && !paths.includes(entry.path)) {
           paths.push(entry.path);
         }
@@ -578,7 +578,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
 
     // Collect current staging entries
     const currentEntries = new Map<string, { objectId: ObjectId; mode: number }>();
-    for await (const entry of this.store.staging.listEntries()) {
+    for await (const entry of this.store.staging.entries()) {
       if (entry.stage === 0) {
         currentEntries.set(entry.path, { objectId: entry.objectId, mode: entry.mode });
       }
@@ -589,7 +589,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     await this.collectTreeEntries(treeId, "", targetEntries);
 
     // Calculate changes
-    const editor = this.store.staging.editor();
+    const editor = this.store.staging.createEditor();
 
     // Remove entries not in target
     for (const path of currentEntries.keys()) {
@@ -710,7 +710,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
       await this.collectTreeObjectIds(headTreeId, "", headEntries);
 
       // Check staging for changes not in HEAD
-      for await (const entry of this.store.staging.listEntries()) {
+      for await (const entry of this.store.staging.entries()) {
         if (entry.stage !== 0) continue;
 
         const headObjectId = headEntries.get(entry.path);

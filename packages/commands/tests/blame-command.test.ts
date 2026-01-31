@@ -360,7 +360,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       const entries: Array<{ path: string; objectId: string; mode: number }> = [];
 
       // Collect all entries except the old path
-      for await (const entry of wc.staging.listEntries()) {
+      for await (const entry of wc.staging.entries()) {
         if (entry.path !== oldPath) {
           entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
         } else {
@@ -370,7 +370,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       }
 
       // Rebuild staging with renamed file
-      const builder = wc.staging.builder();
+      const builder = wc.staging.createBuilder();
       for (const entry of entries) {
         builder.add({
           path: entry.path,
@@ -838,14 +838,14 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       // Step 2: Rename file1.txt to file2.txt
       // Need to implement renameFile helper
       const entries: Array<{ path: string; objectId: string; mode: number }> = [];
-      for await (const entry of workingCopy.staging.listEntries()) {
+      for await (const entry of workingCopy.staging.entries()) {
         if (entry.path !== FILENAME_1) {
           entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
         } else {
           entries.push({ path: FILENAME_2, objectId: entry.objectId, mode: entry.mode });
         }
       }
-      const builder = workingCopy.staging.builder();
+      const builder = workingCopy.staging.createBuilder();
       for (const entry of entries) {
         builder.add({
           path: entry.path,
@@ -931,7 +931,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       content: Uint8Array,
     ): Promise<void> {
       const objectId = await repo.blobs.store([content]);
-      const editor = wc.staging.editor();
+      const editor = wc.staging.createEditor();
       editor.add({
         path: filePath,
         apply: () => ({
@@ -1174,14 +1174,14 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
       // Rename to file2.txt
       const entries: Array<{ path: string; objectId: string; mode: number }> = [];
-      for await (const entry of workingCopy.staging.listEntries()) {
+      for await (const entry of workingCopy.staging.entries()) {
         if (entry.path !== "file1.txt") {
           entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
         } else {
           entries.push({ path: "file2.txt", objectId: entry.objectId, mode: entry.mode });
         }
       }
-      const builder = workingCopy.staging.builder();
+      const builder = workingCopy.staging.createBuilder();
       for (const entry of entries) {
         builder.add({
           path: entry.path,

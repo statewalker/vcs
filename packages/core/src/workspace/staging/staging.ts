@@ -15,6 +15,7 @@
  */
 
 import type { ObjectId } from "../../common/id/index.js";
+import type { TreeStore } from "../../history/trees/tree-store.js";
 import type { Trees } from "../../history/trees/trees.js";
 import type { MergeStageValue, StagingEntry, StagingEntryOptions } from "./types.js";
 
@@ -135,12 +136,12 @@ export interface Staging {
    *
    * @throws If staging has unresolved conflicts
    */
-  writeTree(trees: Trees): Promise<ObjectId>;
+  writeTree(trees: Trees | TreeStore): Promise<ObjectId>;
 
   /**
    * Read a tree into staging
    */
-  readTree(trees: Trees, treeId: ObjectId, options?: ReadTreeOptions): Promise<void>;
+  readTree(trees: Trees | TreeStore, treeId: ObjectId, options?: ReadTreeOptions): Promise<void>;
 
   // ========== Bulk Operations ==========
 

@@ -324,7 +324,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
 
       // Verify index is still empty
       let count = 0;
-      for await (const _ of store.staging.listEntries()) {
+      for await (const _ of store.staging.entries()) {
         count++;
       }
       expect(count).toBe(0);

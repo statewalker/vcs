@@ -18,7 +18,7 @@ import {
   joinPath,
   type ObjectId,
   type RefStore,
-  type StagingStore,
+  type Staging,
   type TreeEntry,
   type TreeStore,
 } from "@statewalker/vcs-core";
@@ -55,7 +55,7 @@ export interface CheckoutCommandOptions {
   refs: RefStore;
 
   /** Staging area (index) for updating after checkout */
-  staging: StagingStore;
+  staging: Staging;
 }
 
 /**
@@ -68,7 +68,7 @@ export class CheckoutCommand implements Checkout {
   private readonly trees: TreeStore;
   private readonly commits: CommitStore;
   private readonly refs: RefStore;
-  private readonly staging: StagingStore;
+  private readonly staging: Staging;
 
   constructor(options: CheckoutCommandOptions) {
     this.files = options.files;
@@ -219,7 +219,7 @@ export class CheckoutCommand implements Checkout {
 
     // Build current index map
     const currentIndex = new Map<string, { objectId: ObjectId; mode: number }>();
-    for await (const entry of this.staging.listEntries()) {
+    for await (const entry of this.staging.entries()) {
       if (entry.stage === 0) {
         // Only stage 0 entries
         currentIndex.set(entry.path, { objectId: entry.objectId, mode: entry.mode });
@@ -442,7 +442,7 @@ export class CheckoutCommand implements Checkout {
 
     // Get current index
     const indexEntries = new Map<string, { objectId: ObjectId; size: number; mtime: number }>();
-    for await (const entry of this.staging.listEntries()) {
+    for await (const entry of this.staging.entries()) {
       if (entry.stage === 0) {
         indexEntries.set(entry.path, {
           objectId: entry.objectId,
@@ -512,7 +512,7 @@ export class CheckoutCommand implements Checkout {
    * Rebuild index from tree.
    */
   private async rebuildIndex(targetTree: Map<string, FlatTreeEntry>): Promise<void> {
-    const builder = this.staging.builder();
+    const builder = this.staging.createBuilder();
 
     for (const [path, entry] of targetTree) {
       // Get file stats from working tree

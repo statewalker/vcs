@@ -99,7 +99,7 @@ export class RmCommand extends GitCommand<RmResult> {
       stage: MergeStageValue;
     }> = [];
 
-    for await (const entry of this.store.staging.listEntries()) {
+    for await (const entry of this.store.staging.entries()) {
       const shouldRemove = this.matchesPattern(entry.path);
 
       if (shouldRemove) {
@@ -115,7 +115,7 @@ export class RmCommand extends GitCommand<RmResult> {
     }
 
     // Rebuild staging with entries that weren't removed
-    const builder = this.store.staging.builder();
+    const builder = this.store.staging.createBuilder();
     for (const entry of entriesToKeep) {
       builder.add(entry);
     }

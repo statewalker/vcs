@@ -12,8 +12,8 @@
 import type { ObjectId } from "../../common/id/object-id.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
 import type { TreeStore } from "../../history/trees/tree-store.js";
-import type { StagingStore } from "../staging/staging-store.js";
-import type { WorktreeStore } from "../worktree/worktree-store.js";
+import type { Staging } from "../staging/staging.js";
+import type { Worktree } from "../worktree/worktree.js";
 
 import {
   CheckoutConflictType,
@@ -28,9 +28,9 @@ export interface CheckoutConflictDetectorDeps {
   /** Tree storage for loading tree entries */
   trees: TreeStore;
   /** Staging area (index) */
-  staging: StagingStore;
+  staging: Staging;
   /** Working tree iterator for checking file status */
-  worktree: WorktreeStore;
+  worktree: Worktree;
 }
 
 /**
@@ -92,7 +92,7 @@ export async function detectCheckoutConflicts(
     string,
     { objectId: ObjectId; mode: number; size: number; mtime: number }
   >();
-  for await (const entry of deps.staging.listEntries()) {
+  for await (const entry of deps.staging.entries()) {
     // Only consider stage 0 (merged) entries
     if (entry.stage === 0) {
       indexEntries.set(entry.path, {
@@ -237,7 +237,7 @@ async function checkPathForConflict(
  * Check if a file in the working tree is modified compared to the index.
  */
 async function isWorktreeModified(
-  worktree: WorktreeStore,
+  worktree: Worktree,
   path: string,
   indexEntry: { objectId: ObjectId; size: number; mtime: number },
 ): Promise<boolean> {

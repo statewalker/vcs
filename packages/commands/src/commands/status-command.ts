@@ -67,7 +67,7 @@ export class StatusCommand extends GitCommand<Status> {
 
     // Get conflicting paths first
     const conflicting = new Set<string>();
-    for await (const path of this.store.staging.getConflictPaths()) {
+    for (const path of await this.store.staging.getConflictedPaths()) {
       if (this.matchesPath(path)) {
         conflicting.add(path);
       }
@@ -87,7 +87,7 @@ export class StatusCommand extends GitCommand<Status> {
 
     // Get staging entries (only stage 0 = merged)
     const stagingEntries = new Map<string, PathEntry>();
-    for await (const entry of this.store.staging.listEntries()) {
+    for await (const entry of this.store.staging.entries()) {
       if (entry.stage === MergeStage.MERGED) {
         stagingEntries.set(entry.path, {
           path: entry.path,
