@@ -24,10 +24,10 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
     return result;
   }
   it("should format added file", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file
-    await addFile(store, "new-file.txt", "line 1\nline 2\nline 3\n");
+    await addFile(workingCopy, "new-file.txt", "line 1\nline 2\nline 3\n");
     await git.commit().setMessage("add file").call();
 
     // Get the diff
@@ -37,7 +37,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
     expect(entries[0].changeType).toBe(ChangeType.ADD);
 
     // Format the diff
-    const formatter = new DiffFormatter(store.blobs);
+    const formatter = new DiffFormatter(repository.blobs);
     const diff = await formatter.format(entries[0]);
 
     expect(diff.entry).toBe(entries[0]);
@@ -55,18 +55,18 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should format deleted file", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file
-    await addFile(store, "to-delete.txt", "content\n");
+    await addFile(workingCopy, "to-delete.txt", "content\n");
     await git.commit().setMessage("add file").call();
 
     // Get HEAD commit's tree for later comparison
-    const headRef = await store.refs.resolve("HEAD");
-    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+    const headRef = await repository.refs.resolve("HEAD");
+    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
 
     // Remove file from staging and commit
-    const builder = store.staging.builder();
+    const builder = workingCopy.staging.builder();
     await builder.finish();
     await git.commit().setMessage("delete file").call();
 
@@ -84,14 +84,14 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should format modified file", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file
-    await addFile(store, "modify.txt", "line 1\nline 2\nline 3\n");
+    await addFile(workingCopy, "modify.txt", "line 1\nline 2\nline 3\n");
     await git.commit().setMessage("add file").call();
 
     // Modify the file
-    await addFile(store, "modify.txt", "line 1\nmodified line 2\nline 3\n");
+    await addFile(workingCopy, "modify.txt", "line 1\nmodified line 2\nline 3\n");
     await git.commit().setMessage("modify file").call();
 
     // Get the diff
@@ -101,7 +101,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
     expect(entries[0].changeType).toBe(ChangeType.MODIFY);
 
     // Format the diff
-    const formatter = new DiffFormatter(store.blobs);
+    const formatter = new DiffFormatter(repository.blobs);
     const diff = await formatter.format(entries[0]);
 
     expect(diff.isBinary).toBe(false);
@@ -116,21 +116,21 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should include context lines", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file with many lines
     const lines = `${Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join("\n")}\n`;
-    await addFile(store, "context.txt", lines);
+    await addFile(workingCopy, "context.txt", lines);
     await git.commit().setMessage("add file").call();
 
     // Modify a line in the middle
     const newLines = lines.replace("line 10", "MODIFIED line 10");
-    await addFile(store, "context.txt", newLines);
+    await addFile(workingCopy, "context.txt", newLines);
     await git.commit().setMessage("modify file").call();
 
     // Get and format the diff
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.blobs, { contextLines: 3 });
+    const formatter = new DiffFormatter(repository.blobs, { contextLines: 3 });
     const diff = await formatter.format(entries[0]);
 
     expect(diff.hunks.length).toBe(1);
@@ -142,23 +142,23 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should format multiple hunks for distant changes", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file with many lines
     const lines = `${Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join("\n")}\n`;
-    await addFile(store, "multi-hunk.txt", lines);
+    await addFile(workingCopy, "multi-hunk.txt", lines);
     await git.commit().setMessage("add file").call();
 
     // Modify lines at beginning and end (far apart)
     const newLines = lines
       .replace("line 1", "MODIFIED line 1")
       .replace("line 30", "MODIFIED line 30");
-    await addFile(store, "multi-hunk.txt", newLines);
+    await addFile(workingCopy, "multi-hunk.txt", newLines);
     await git.commit().setMessage("modify file").call();
 
     // Get and format the diff with small context
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.blobs, { contextLines: 2 });
+    const formatter = new DiffFormatter(repository.blobs, { contextLines: 2 });
     const diff = await formatter.format(entries[0]);
 
     // Should have 2 separate hunks due to distance
@@ -166,15 +166,15 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should convert to string format", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file
-    await addFile(store, "test.txt", "hello\n");
+    await addFile(workingCopy, "test.txt", "hello\n");
     await git.commit().setMessage("add file").call();
 
     // Get and format the diff
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.blobs);
+    const formatter = new DiffFormatter(repository.blobs);
     const diff = await formatter.format(entries[0]);
 
     const output = formatter.toString(diff);
@@ -188,16 +188,16 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should format all entries at once", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add multiple files
-    await addFile(store, "file1.txt", "content 1\n");
-    await addFile(store, "file2.txt", "content 2\n");
+    await addFile(workingCopy, "file1.txt", "content 1\n");
+    await addFile(workingCopy, "file2.txt", "content 2\n");
     await git.commit().setMessage("add files").call();
 
     // Get and format all diffs
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.blobs);
+    const formatter = new DiffFormatter(repository.blobs);
     const output = await formatter.formatAll(entries);
 
     // Should contain both files
@@ -208,15 +208,15 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should abbreviate object IDs by default", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file
-    await addFile(store, "test.txt", "content\n");
+    await addFile(workingCopy, "test.txt", "content\n");
     await git.commit().setMessage("add file").call();
 
     // Get and format the diff
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.blobs);
+    const formatter = new DiffFormatter(repository.blobs);
     const diff = await formatter.format(entries[0]);
 
     // Index line should have abbreviated IDs
@@ -224,18 +224,18 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should respect custom abbreviation length", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file and modify it (to get both old and new IDs)
-    await addFile(store, "test.txt", "content\n");
+    await addFile(workingCopy, "test.txt", "content\n");
     await git.commit().setMessage("add file").call();
 
-    await addFile(store, "test.txt", "modified\n");
+    await addFile(workingCopy, "test.txt", "modified\n");
     await git.commit().setMessage("modify file").call();
 
     // Get and format the diff (MODIFY has both old and new IDs)
     const entries = await git.diff().setOldTree("HEAD~1").setNewTree("HEAD").call();
-    const formatter = new DiffFormatter(store.blobs, { abbreviationLength: 10 });
+    const formatter = new DiffFormatter(repository.blobs, { abbreviationLength: 10 });
     const diff = await formatter.format(entries[0]);
 
     // Index line should have longer abbreviated IDs (10 chars each)
@@ -243,12 +243,12 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should handle empty files", async () => {
-    const { store } = await createInitializedGit();
+    const { repository } = await createInitializedGit();
 
     // The entry for an empty added file
     const entry = createAddEntry("empty.txt", "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", 0o100644);
 
-    const formatter = new DiffFormatter(store.blobs);
+    const formatter = new DiffFormatter(repository.blobs);
 
     // This will fail to load content (object doesn't exist) but should handle gracefully
     // In real usage, the object would exist
@@ -279,15 +279,15 @@ describe.each(backends)("DiffFormatter with binary files ($name backend)", ({ fa
   }
 
   it("should detect binary content", async () => {
-    const { store } = await createInitializedGit();
+    const { repository } = await createInitializedGit();
 
     // Create binary content (with null bytes)
     const binaryContent = new Uint8Array([0x00, 0x01, 0x02, 0x03]);
-    const objectId = await store.blobs.store([binaryContent]);
+    const objectId = await repository.blobs.store([binaryContent]);
 
     const entry = createAddEntry("binary.bin", objectId, 0o100644);
 
-    const formatter = new DiffFormatter(store.blobs);
+    const formatter = new DiffFormatter(repository.blobs);
     const diff = await formatter.format(entry);
 
     expect(diff.isBinary).toBe(true);
@@ -295,15 +295,15 @@ describe.each(backends)("DiffFormatter with binary files ($name backend)", ({ fa
   });
 
   it("should indicate binary files differ in string output", async () => {
-    const { store } = await createInitializedGit();
+    const { repository } = await createInitializedGit();
 
     // Create binary content
     const binaryContent = new Uint8Array([0x00, 0x01, 0x02]);
-    const objectId = await store.blobs.store([binaryContent]);
+    const objectId = await repository.blobs.store([binaryContent]);
 
     const entry = createAddEntry("binary.bin", objectId, 0o100644);
 
-    const formatter = new DiffFormatter(store.blobs);
+    const formatter = new DiffFormatter(repository.blobs);
     const diff = await formatter.format(entry);
     const output = formatter.toString(diff);
 

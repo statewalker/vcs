@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { NoFilepatternError } from "../src/errors/index.js";
 import { Git } from "../src/git.js";
 import type { GitStoreWithWorkTree } from "../src/types.js";
-import { backends, type GitStoreFactory } from "./test-helper.js";
+import { backends, type WorkingCopyFactory } from "./test-helper.js";
 
 /**
  * Mock working tree for testing AddCommand.
@@ -125,26 +125,29 @@ class MockWorkingTree implements WorktreeStore {
 /**
  * Create an initialized Git instance with working tree support using a factory.
  */
-async function createInitializedGitWithWorkTreeFromFactory(factory: GitStoreFactory): Promise<{
+async function createInitializedGitWithWorkTreeFromFactory(factory: WorkingCopyFactory): Promise<{
   git: Git;
   store: GitStoreWithWorkTree;
   worktree: MockWorkingTree;
+  workingCopy: typeof ctx.workingCopy;
+  repository: typeof ctx.repository;
   initialCommitId: string;
   cleanup?: () => Promise<void>;
 }> {
   const ctx = await factory();
-  const baseStore = ctx.store;
+  const repository = ctx.repository;
   const worktree = new MockWorkingTree();
 
   const store: GitStoreWithWorkTree = {
-    ...baseStore,
+    ...repository,
+    staging: ctx.workingCopy.staging,
     worktree,
   };
 
   const git = Git.wrap(store);
 
   // Create and store empty tree
-  const emptyTreeId = await store.trees.storeTree([]);
+  const emptyTreeId = await repository.trees.storeTree([]);
 
   // Create initial commit
   const initialCommit = {
@@ -165,16 +168,24 @@ async function createInitializedGitWithWorkTreeFromFactory(factory: GitStoreFact
     message: "Initial commit",
   };
 
-  const initialCommitId = await store.commits.storeCommit(initialCommit);
+  const initialCommitId = await repository.commits.storeCommit(initialCommit);
 
   // Set up refs
-  await store.refs.set("refs/heads/main", initialCommitId);
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
+  await repository.refs.set("refs/heads/main", initialCommitId);
+  await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
   // Initialize staging with empty tree
-  await store.staging.readTree(store.trees, emptyTreeId);
+  await ctx.workingCopy.staging.readTree(repository.trees, emptyTreeId);
 
-  return { git, store, worktree, initialCommitId, cleanup: ctx.cleanup };
+  return {
+    git,
+    store,
+    worktree,
+    workingCopy: ctx.workingCopy,
+    repository,
+    initialCommitId,
+    cleanup: ctx.cleanup,
+  };
 }
 
 describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
@@ -196,7 +207,11 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
   async function createEmptyStore() {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    return ctx.store;
+    // Return a GitStore-like object with staging
+    return {
+      ...ctx.repository,
+      staging: ctx.workingCopy.staging,
+    };
   }
   describe("validation", () => {
     /**

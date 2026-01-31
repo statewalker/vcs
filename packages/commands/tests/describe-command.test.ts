@@ -30,10 +30,10 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testDescribe.
    */
   it("should return tag name when commit matches tag exactly", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a commit
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // Create a tag
@@ -51,23 +51,23 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with commits after the tag.
    */
   it("should return tag-depth-gSHA format when commits exist after tag", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("initial").call();
 
     // Create tag
     await git.tag().setName("v1.0.0").call();
 
     // Create more commits
-    await addFile(store, "file.txt", "v2");
+    await addFile(workingCopy, "file.txt", "v2");
     await git.commit().setMessage("second").call();
 
-    await addFile(store, "file.txt", "v3");
+    await addFile(workingCopy, "file.txt", "v3");
     await git.commit().setMessage("third").call();
 
-    const head = await store.refs.resolve("HEAD");
+    const head = await repository.refs.resolve("HEAD");
 
     // Describe should return tag-depth-gSHA format
     const result = await git.describe().setTags(true).call();
@@ -82,14 +82,14 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with long format enabled.
    */
   it("should always use long format when setLong(true)", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a commit and tag
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
     await git.tag().setName("v1.0.0").call();
 
-    const head = await store.refs.resolve("HEAD");
+    const head = await repository.refs.resolve("HEAD");
 
     // Even though commit matches tag, should use long format
     const result = await git.describe().setTags(true).setLong(true).call();
@@ -104,13 +104,13 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with always option when no tags exist.
    */
   it("should return abbreviated commit hash when always is true and no tags", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a commit without tags
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    const head = await store.refs.resolve("HEAD");
+    const head = await repository.refs.resolve("HEAD");
 
     // Should return abbreviated hash when always is true
     const result = await git.describe().setAlways(true).call();
@@ -124,10 +124,10 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe returns undefined when no tags and always is false.
    */
   it("should return undefined when no tags and always is false", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a commit without tags
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // Should return undefined when no matching tag
@@ -141,16 +141,16 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with custom abbreviation length.
    */
   it("should use custom abbreviation length", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("initial").call();
     await git.tag().setName("v1.0.0").call();
 
-    await addFile(store, "file.txt", "v2");
+    await addFile(workingCopy, "file.txt", "v2");
     await git.commit().setMessage("second").call();
 
-    const head = await store.refs.resolve("HEAD");
+    const head = await repository.refs.resolve("HEAD");
 
     const result = await git.describe().setTags(true).setAbbrev(10).call();
 
@@ -162,14 +162,14 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with match pattern.
    */
   it("should only match tags matching pattern", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commits and tags
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("initial").call();
     await git.tag().setName("release-1.0").call();
 
-    await addFile(store, "file.txt", "v2");
+    await addFile(workingCopy, "file.txt", "v2");
     await git.commit().setMessage("second").call();
     await git.tag().setName("v2.0.0").call();
 
@@ -184,14 +184,14 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with exclude pattern.
    */
   it("should exclude tags matching exclude pattern", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commits and tags
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("initial").call();
     await git.tag().setName("v1.0.0").call();
 
-    await addFile(store, "file.txt", "v2");
+    await addFile(workingCopy, "file.txt", "v2");
     await git.commit().setMessage("second").call();
     await git.tag().setName("v2.0.0-rc1").call();
 
@@ -207,19 +207,19 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with specific target commit.
    */
   it("should describe specific target commit", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commits
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("first").call();
-    const firstCommit = await store.refs.resolve("HEAD");
+    const firstCommit = await repository.refs.resolve("HEAD");
 
     await git.tag().setName("v1.0.0").call();
 
-    await addFile(store, "file.txt", "v2");
+    await addFile(workingCopy, "file.txt", "v2");
     await git.commit().setMessage("second").call();
 
-    await addFile(store, "file.txt", "v3");
+    await addFile(workingCopy, "file.txt", "v3");
     await git.commit().setMessage("third").call();
 
     // Describe the first commit
@@ -238,20 +238,20 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe picks closest tag when multiple ancestors have tags.
    */
   it("should pick the closest tag", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create first commit with tag
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("first").call();
     await git.tag().setName("v1.0.0").call();
 
     // Create second commit with tag
-    await addFile(store, "file.txt", "v2");
+    await addFile(workingCopy, "file.txt", "v2");
     await git.commit().setMessage("second").call();
     await git.tag().setName("v2.0.0").call();
 
     // Create third commit (no tag)
-    await addFile(store, "file.txt", "v3");
+    await addFile(workingCopy, "file.txt", "v3");
     await git.commit().setMessage("third").call();
 
     // Should pick v2.0.0 (depth 1) over v1.0.0 (depth 2)
@@ -312,9 +312,9 @@ describe.each(backends)("DescribeCommand - API options ($name backend)", ({ fact
    * Test fluent API chaining.
    */
   it("should support fluent API chaining", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // All options should be chainable

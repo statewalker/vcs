@@ -36,13 +36,13 @@ describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testUpToDate.
    */
   it("should return UP_TO_DATE when current commit is ancestor of upstream", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commits on main
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("initial").call();
 
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
 
     // Rebase onto itself should be up to date
@@ -57,20 +57,20 @@ describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testFastForward.
    */
   it("should fast-forward when possible", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("initial").call();
 
-    const initialHead = await store.refs.resolve("HEAD");
+    const initialHead = await repository.refs.resolve("HEAD");
     const initialCommit = initialHead?.objectId ?? "";
 
     // Create second commit
-    await addFile(store, "file.txt", "v2");
+    await addFile(workingCopy, "file.txt", "v2");
     await git.commit().setMessage("second").call();
 
-    const secondHead = await store.refs.resolve("HEAD");
+    const secondHead = await repository.refs.resolve("HEAD");
     const secondCommit = secondHead?.objectId ?? "";
 
     // Reset back to initial commit
@@ -89,27 +89,27 @@ describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRebase.
    */
   it("should replay commits onto upstream", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit
-    await addFile(store, "a.txt", "a");
+    await addFile(workingCopy, "a.txt", "a");
     await git.commit().setMessage("initial").call();
 
-    const _baseCommit = (await store.refs.resolve("HEAD"))?.objectId ?? "";
+    const _baseCommit = (await repository.refs.resolve("HEAD"))?.objectId ?? "";
 
     // Create branch at base
     await git.branchCreate().setName("feature").call();
 
     // Add commits to main
-    await addFile(store, "b.txt", "b");
+    await addFile(workingCopy, "b.txt", "b");
     await git.commit().setMessage("main-1").call();
 
-    const mainHead = (await store.refs.resolve("HEAD"))?.objectId ?? "";
+    const mainHead = (await repository.refs.resolve("HEAD"))?.objectId ?? "";
 
     // Switch to feature and add commits
     await git.checkout().setName("feature").call();
 
-    await addFile(store, "c.txt", "c");
+    await addFile(workingCopy, "c.txt", "c");
     await git.commit().setMessage("feature-1").call();
 
     // Rebase feature onto main
@@ -124,10 +124,10 @@ describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
    * Test abort operation.
    */
   it("should abort rebase", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit
-    await addFile(store, "file.txt", "v1");
+    await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("initial").call();
 
     // Abort without a rebase in progress should succeed
@@ -221,12 +221,12 @@ describe.each(backends)("RebaseCommand - API options ($name backend)", ({ factor
    * Test fluent API chaining.
    */
   it("should support fluent API chaining", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
-    const head = (await store.refs.resolve("HEAD"))?.objectId ?? "";
+    const head = (await repository.refs.resolve("HEAD"))?.objectId ?? "";
 
     // All options should be chainable
     const result = await git

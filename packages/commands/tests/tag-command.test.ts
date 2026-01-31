@@ -53,7 +53,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should create annotated tag", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       const ref = await git
         .tag()
@@ -70,19 +70,19 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
       expect(tagId).toBeDefined();
 
       // The tag object should exist
-      const tag = await store.tags?.loadTag(tagId ?? "");
+      const tag = await repository.tags?.loadTag(tagId ?? "");
       expect(tag?.message).toBe("Release version 1.0.0");
       expect(tag?.tagger?.name).toBe("Release Bot");
     });
 
     it("should create annotated tag when message is provided", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       const ref = await git.tag().setName("v1.0.0").setMessage("Release").call();
 
       // Should be annotated (stored as tag object)
       const tagId = ref.objectId;
-      const tag = await store.tags?.loadTag(tagId ?? "");
+      const tag = await repository.tags?.loadTag(tagId ?? "");
       expect(tag).toBeDefined();
     });
 
@@ -103,20 +103,20 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should overwrite tag with force", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create tag at initial commit
       await git.tag().setName("v1.0.0").call();
 
       // Create new commit
       const commit = await git.commit().setMessage("New").setAllowEmpty(true).call();
-      const _commitId = await store.commits.storeCommit(commit);
+      const _commitId = await repository.commits.storeCommit(commit);
 
       // Force re-tag at new commit
       const ref = await git.tag().setName("v1.0.0").setForce(true).call();
 
       // Should point to latest HEAD
-      const headRef = await store.refs.resolve("HEAD");
+      const headRef = await repository.refs.resolve("HEAD");
       expect(ref.objectId).toBe(headRef?.objectId);
     });
 
@@ -129,15 +129,15 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
 
   describe("DeleteTagCommand", () => {
     it("should delete tag", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.tag().setName("v1.0.0").call();
-      expect(await store.refs.has("refs/tags/v1.0.0")).toBe(true);
+      expect(await repository.refs.has("refs/tags/v1.0.0")).toBe(true);
 
       const deleted = await git.tagDelete().setTags("v1.0.0").call();
 
       expect(deleted).toEqual(["refs/tags/v1.0.0"]);
-      expect(await store.refs.has("refs/tags/v1.0.0")).toBe(false);
+      expect(await repository.refs.has("refs/tags/v1.0.0")).toBe(false);
     });
 
     it("should delete multiple tags", async () => {

@@ -49,11 +49,11 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status after adding files but before first commit.
      */
     it("should show staged files as added before first commit", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Add files to staging
-      await addFile(store, "a.txt", "content of a");
-      await addFile(store, "b.txt", "content of b");
+      await addFile(workingCopy, "a.txt", "content of a");
+      await addFile(workingCopy, "b.txt", "content of b");
 
       const status = await git.status().call();
 
@@ -72,9 +72,9 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status is clean after commit.
      */
     it("should be clean after commit", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "content");
+      await addFile(workingCopy, "a.txt", "content");
       await git.commit().setMessage("initial").call();
 
       const status = await git.status().call();
@@ -87,13 +87,13 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status shows added files.
      */
     it("should detect added files", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "content of a");
+      await addFile(workingCopy, "a.txt", "content of a");
       await git.commit().setMessage("initial").call();
 
       // Add new file
-      await addFile(store, "b.txt", "content of b");
+      await addFile(workingCopy, "b.txt", "content of b");
 
       const status = await git.status().call();
 
@@ -108,13 +108,13 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status shows changed files.
      */
     it("should detect changed files", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "original content");
+      await addFile(workingCopy, "a.txt", "original content");
       await git.commit().setMessage("initial").call();
 
       // Modify file
-      await addFile(store, "a.txt", "modified content");
+      await addFile(workingCopy, "a.txt", "modified content");
 
       const status = await git.status().call();
 
@@ -129,14 +129,14 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status shows removed files.
      */
     it("should detect removed files", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "content of a");
-      await addFile(store, "b.txt", "content of b");
+      await addFile(workingCopy, "a.txt", "content of a");
+      await addFile(workingCopy, "b.txt", "content of b");
       await git.commit().setMessage("initial").call();
 
       // Remove file from staging
-      await removeFile(store, "b.txt");
+      await removeFile(workingCopy, "b.txt");
 
       const status = await git.status().call();
 
@@ -153,18 +153,18 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Based on JGit's testDifferentStates.
      */
     it("should show multiple change types", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Initial commit
-      await addFile(store, "existing.txt", "existing content");
-      await addFile(store, "to-modify.txt", "original");
-      await addFile(store, "to-delete.txt", "delete me");
+      await addFile(workingCopy, "existing.txt", "existing content");
+      await addFile(workingCopy, "to-modify.txt", "original");
+      await addFile(workingCopy, "to-delete.txt", "delete me");
       await git.commit().setMessage("initial").call();
 
       // Make various changes
-      await addFile(store, "new-file.txt", "new content"); // added
-      await addFile(store, "to-modify.txt", "modified"); // changed
-      await removeFile(store, "to-delete.txt"); // removed
+      await addFile(workingCopy, "new-file.txt", "new content"); // added
+      await addFile(workingCopy, "to-modify.txt", "modified"); // changed
+      await removeFile(workingCopy, "to-delete.txt"); // removed
 
       const status = await git.status().call();
 
@@ -185,15 +185,15 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Based on JGit's testDifferentStatesWithPaths.
      */
     it("should filter by exact file path", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "a");
-      await addFile(store, "b.txt", "b");
+      await addFile(workingCopy, "a.txt", "a");
+      await addFile(workingCopy, "b.txt", "b");
       await git.commit().setMessage("initial").call();
 
       // Modify both
-      await addFile(store, "a.txt", "modified a");
-      await addFile(store, "b.txt", "modified b");
+      await addFile(workingCopy, "a.txt", "modified a");
+      await addFile(workingCopy, "b.txt", "modified b");
 
       // Filter to only "a.txt"
       const status = await git.status().addPath("a.txt").call();
@@ -207,19 +207,19 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test filtering by directory prefix.
      */
     it("should filter by directory prefix", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "root.txt", "root");
-      await addFile(store, "src/a.txt", "a");
-      await addFile(store, "src/b.txt", "b");
-      await addFile(store, "docs/readme.txt", "readme");
+      await addFile(workingCopy, "root.txt", "root");
+      await addFile(workingCopy, "src/a.txt", "a");
+      await addFile(workingCopy, "src/b.txt", "b");
+      await addFile(workingCopy, "docs/readme.txt", "readme");
       await git.commit().setMessage("initial").call();
 
       // Modify all
-      await addFile(store, "root.txt", "modified root");
-      await addFile(store, "src/a.txt", "modified a");
-      await addFile(store, "src/b.txt", "modified b");
-      await addFile(store, "docs/readme.txt", "modified readme");
+      await addFile(workingCopy, "root.txt", "modified root");
+      await addFile(workingCopy, "src/a.txt", "modified a");
+      await addFile(workingCopy, "src/b.txt", "modified b");
+      await addFile(workingCopy, "docs/readme.txt", "modified readme");
 
       // Filter to only "src" directory
       const status = await git.status().addPath("src").call();
@@ -235,17 +235,17 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test filtering with multiple paths.
      */
     it("should filter by multiple paths", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "a");
-      await addFile(store, "src/b.txt", "b");
-      await addFile(store, "docs/c.txt", "c");
+      await addFile(workingCopy, "a.txt", "a");
+      await addFile(workingCopy, "src/b.txt", "b");
+      await addFile(workingCopy, "docs/c.txt", "c");
       await git.commit().setMessage("initial").call();
 
       // Modify all
-      await addFile(store, "a.txt", "modified a");
-      await addFile(store, "src/b.txt", "modified b");
-      await addFile(store, "docs/c.txt", "modified c");
+      await addFile(workingCopy, "a.txt", "modified a");
+      await addFile(workingCopy, "src/b.txt", "modified b");
+      await addFile(workingCopy, "docs/c.txt", "modified c");
 
       // Filter to "a.txt" and "docs"
       const status = await git.status().addPath("a.txt").addPath("docs").call();
@@ -260,12 +260,12 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test filter on non-existing path returns empty result.
      */
     it("should return empty status for non-existing path", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "a");
+      await addFile(workingCopy, "a.txt", "a");
       await git.commit().setMessage("initial").call();
 
-      await addFile(store, "a.txt", "modified");
+      await addFile(workingCopy, "a.txt", "modified");
 
       // Filter to non-existing path
       const status = await git.status().addPath("nonexistent").call();
@@ -280,12 +280,12 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status detects conflicts after merge.
      */
     it("should detect conflicting files", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create base
-      await addFile(store, "file.txt", "base content");
+      await addFile(workingCopy, "file.txt", "base content");
       await git.commit().setMessage("base").call();
-      const baseCommit = await store.refs.resolve("HEAD");
+      const baseCommit = await repository.refs.resolve("HEAD");
 
       // Create branch
       await git
@@ -295,15 +295,15 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
         .call();
 
       // Modify on main
-      await addFile(store, "file.txt", "main content");
+      await addFile(workingCopy, "file.txt", "main content");
       await git.commit().setMessage("main").call();
-      const mainHead = await store.refs.resolve("HEAD");
+      const mainHead = await repository.refs.resolve("HEAD");
 
       // Checkout side and modify
-      await store.refs.setSymbolic("HEAD", "refs/heads/side");
-      const baseCommitData = await store.commits.loadCommit(baseCommit?.objectId ?? "");
-      await store.staging.readTree(store.trees, baseCommitData.tree);
-      await addFile(store, "file.txt", "side content");
+      await repository.refs.setSymbolic("HEAD", "refs/heads/side");
+      const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
+      await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+      await addFile(workingCopy, "file.txt", "side content");
       await git.commit().setMessage("side").call();
 
       // Merge - should conflict
@@ -326,12 +326,12 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status after resolving conflicts.
      */
     it("should be clean after resolving conflicts", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create conflict scenario
-      await addFile(store, "file.txt", "base");
+      await addFile(workingCopy, "file.txt", "base");
       await git.commit().setMessage("base").call();
-      const baseCommit = await store.refs.resolve("HEAD");
+      const baseCommit = await repository.refs.resolve("HEAD");
 
       await git
         .branchCreate()
@@ -339,14 +339,14 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
         .setStartPoint(baseCommit?.objectId ?? "")
         .call();
 
-      await addFile(store, "file.txt", "main");
+      await addFile(workingCopy, "file.txt", "main");
       await git.commit().setMessage("main").call();
-      const mainHead = await store.refs.resolve("HEAD");
+      const mainHead = await repository.refs.resolve("HEAD");
 
-      await store.refs.setSymbolic("HEAD", "refs/heads/side");
-      const baseCommitData = await store.commits.loadCommit(baseCommit?.objectId ?? "");
-      await store.staging.readTree(store.trees, baseCommitData.tree);
-      await addFile(store, "file.txt", "side");
+      await repository.refs.setSymbolic("HEAD", "refs/heads/side");
+      const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
+      await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+      await addFile(workingCopy, "file.txt", "side");
       await git.commit().setMessage("side").call();
 
       // Create merge conflict
@@ -363,9 +363,9 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
       // (Using builder which replaces all entries, removing conflict stages)
       const encoder = new TextEncoder();
       const resolvedContent = encoder.encode("resolved");
-      const resolvedId = await store.blobs.store([resolvedContent]);
+      const resolvedId = await repository.blobs.store([resolvedContent]);
 
-      const builder = store.staging.builder();
+      const builder = workingCopy.staging.builder();
       builder.add({
         path: "file.txt",
         mode: 0o100644,
@@ -391,18 +391,18 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Tests filtering on nested paths like D/D/d
      */
     it("should filter on deeply nested paths", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "a");
-      await addFile(store, "D/b.txt", "b");
-      await addFile(store, "D/c.txt", "c");
-      await addFile(store, "D/D/d.txt", "d");
+      await addFile(workingCopy, "a.txt", "a");
+      await addFile(workingCopy, "D/b.txt", "b");
+      await addFile(workingCopy, "D/c.txt", "c");
+      await addFile(workingCopy, "D/D/d.txt", "d");
       await git.commit().setMessage("initial").call();
 
       // Modify all
-      await addFile(store, "a.txt", "new a");
-      await addFile(store, "D/b.txt", "new b");
-      await addFile(store, "D/D/d.txt", "new d");
+      await addFile(workingCopy, "a.txt", "new a");
+      await addFile(workingCopy, "D/b.txt", "new b");
+      await addFile(workingCopy, "D/D/d.txt", "new d");
 
       // Filter on D/D only
       const status = await git.status().addPath("D/D").call();
@@ -417,17 +417,17 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * JGit: testDifferentStatesWithPaths - combined nested + root filtering
      */
     it("should combine nested and root path filters", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "a.txt", "a");
-      await addFile(store, "D/b.txt", "b");
-      await addFile(store, "D/D/d.txt", "d");
+      await addFile(workingCopy, "a.txt", "a");
+      await addFile(workingCopy, "D/b.txt", "b");
+      await addFile(workingCopy, "D/D/d.txt", "d");
       await git.commit().setMessage("initial").call();
 
       // Modify all
-      await addFile(store, "a.txt", "new a");
-      await addFile(store, "D/b.txt", "new b");
-      await addFile(store, "D/D/d.txt", "new d");
+      await addFile(workingCopy, "a.txt", "new a");
+      await addFile(workingCopy, "D/b.txt", "new b");
+      await addFile(workingCopy, "D/D/d.txt", "new d");
 
       // Filter on D/D and a.txt
       const status = await git.status().addPath("D/D").addPath("a.txt").call();
@@ -444,14 +444,14 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test isClean() method.
      */
     it("isClean should return true only when no changes", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Initially clean
       let status = await git.status().call();
       expect(status.isClean()).toBe(true);
 
       // Add file - not clean
-      await addFile(store, "a.txt", "content");
+      await addFile(workingCopy, "a.txt", "content");
       status = await git.status().call();
       expect(status.isClean()).toBe(false);
 
@@ -465,12 +465,12 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test hasUncommittedChanges() method.
      */
     it("hasUncommittedChanges should mirror isClean negation", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       let status = await git.status().call();
       expect(status.hasUncommittedChanges()).toBe(false);
 
-      await addFile(store, "a.txt", "content");
+      await addFile(workingCopy, "a.txt", "content");
       status = await git.status().call();
       expect(status.hasUncommittedChanges()).toBe(true);
 

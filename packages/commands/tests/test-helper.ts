@@ -3,15 +3,11 @@
  *
  * Provides utilities for testing Git commands with multiple storage backends.
  *
- * Migration:
- * - Old: Use `createInitializedGit()` with `store` property
- * - New: Use `createInitializedGit()` with `workingCopy` property
- *
  * For multi-backend testing, use `createInitializedGitFromFactory()` with
  * different backend factories.
  */
 
-import type { ObjectId, PersonIdent, WorkingCopy } from "@statewalker/vcs-core";
+import type { HistoryStore, ObjectId, PersonIdent, WorkingCopy } from "@statewalker/vcs-core";
 import { FileMode, MemoryWorkingCopy } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
@@ -19,12 +15,10 @@ import {
   MemoryStagingStore,
 } from "@statewalker/vcs-store-mem";
 
-import { Git, type GitStore } from "../src/index.js";
+import { Git } from "../src/index.js";
 import {
   backends,
   defaultFactory,
-  type GitStoreFactory,
-  type GitStoreTestContext,
   memoryFactory,
   sqlFactory,
   type WorkingCopyFactory,
@@ -34,28 +28,8 @@ import { createMockWorktreeStore } from "./mock-worktree-store.js";
 import { createSimpleHistoryStore } from "./simple-history-store.js";
 
 // Re-export factory types and functions for convenience
-export type { GitStoreFactory, GitStoreTestContext, WorkingCopyFactory, WorkingCopyTestContext };
+export type { WorkingCopyFactory, WorkingCopyTestContext };
 export { backends, defaultFactory, memoryFactory, sqlFactory };
-
-/**
- * Create an in-memory GitStore for testing (synchronous).
- * Uses the memory backend (fastest, no cleanup needed).
- *
- * @deprecated Use `createTestWorkingCopy()` instead.
- *
- * For multi-backend testing, use `createInitializedGitFromFactory()` instead.
- */
-export function createTestStore(): GitStore {
-  const stores = createMemoryObjectStores();
-  return {
-    blobs: stores.blobs,
-    trees: stores.trees,
-    commits: stores.commits,
-    refs: new MemoryRefStore(),
-    staging: new MemoryStagingStore(),
-    tags: stores.tags,
-  };
-}
 
 /**
  * Create an in-memory WorkingCopy for testing (synchronous).
@@ -63,20 +37,10 @@ export function createTestStore(): GitStore {
  *
  * For multi-backend testing, use `createInitializedGitFromFactory()` instead.
  */
-export function createTestWorkingCopy(): { workingCopy: WorkingCopy; store: GitStore } {
+export function createTestWorkingCopy(): { workingCopy: WorkingCopy; repository: HistoryStore } {
   const stores = createMemoryObjectStores();
   const refs = new MemoryRefStore();
   const staging = new MemoryStagingStore();
-
-  // Create legacy GitStore for backward compatibility
-  const store: GitStore = {
-    blobs: stores.blobs,
-    trees: stores.trees,
-    commits: stores.commits,
-    refs,
-    staging,
-    tags: stores.tags,
-  };
 
   // Create HistoryStore wrapper
   const repository = createSimpleHistoryStore({
@@ -98,22 +62,7 @@ export function createTestWorkingCopy(): { workingCopy: WorkingCopy; store: GitS
     staging,
   });
 
-  return { workingCopy, store };
-}
-
-/**
- * Create a GitStore from a factory function.
- * Use this for multi-backend testing.
- *
- * @deprecated Use factories that return WorkingCopyTestContext instead.
- *
- * @param factory The factory function to use (defaults to memory)
- * @returns Test context with store and optional cleanup
- */
-export async function createTestStoreFromFactory(
-  factory: GitStoreFactory = defaultFactory,
-): Promise<GitStoreTestContext> {
-  return factory();
+  return { workingCopy, repository };
 }
 
 /**
@@ -121,7 +70,7 @@ export async function createTestStoreFromFactory(
  * Use this for multi-backend testing.
  *
  * @param factory The factory function to use (defaults to memory)
- * @returns Test context with workingCopy, store (deprecated), and optional cleanup
+ * @returns Test context with workingCopy, repository, and optional cleanup
  */
 export async function createTestWorkingCopyFromFactory(
   factory: WorkingCopyFactory = defaultFactory,
@@ -134,12 +83,10 @@ export async function createTestWorkingCopyFromFactory(
  */
 export interface InitializedGitResult {
   git: Git;
-  /** The WorkingCopy instance (new architecture) */
+  /** The WorkingCopy instance */
   workingCopy: WorkingCopy;
-  /**
-   * @deprecated Use workingCopy instead. Provided for backward compatibility.
-   */
-  store: GitStore;
+  /** Direct access to the repository (HistoryStore) for test setup/verification */
+  repository: HistoryStore;
   initialCommitId: ObjectId;
   cleanup?: () => Promise<void>;
 }
@@ -166,20 +113,18 @@ export async function createInitializedGit(): Promise<InitializedGitResult> {
  * - Initial empty commit on main
  *
  * @param factory The factory function to use
- * @returns Initialized Git with workingCopy, store (deprecated), and cleanup function
+ * @returns Initialized Git with workingCopy, repository, and cleanup function
  */
 export async function createInitializedGitFromFactory(
   factory: WorkingCopyFactory,
 ): Promise<InitializedGitResult> {
   const ctx = await factory();
-  const { workingCopy, store } = ctx;
-  // Use Git.wrap(store) for backward compatibility with tests that
-  // manipulate refs directly via store.refs. Tests that want to use
-  // the new WorkingCopy API can use Git.fromWorkingCopy() directly.
-  const git = Git.wrap(store);
+  const { workingCopy, repository } = ctx;
+  // Use Git.fromWorkingCopy for the new architecture
+  const git = Git.fromWorkingCopy(workingCopy);
 
   // Create and store empty tree (storeTree returns the well-known empty tree ID)
-  const emptyTreeId = await store.trees.storeTree([]);
+  const emptyTreeId = await repository.trees.storeTree([]);
 
   // Create initial commit
   const initialCommit = {
@@ -190,16 +135,16 @@ export async function createInitializedGitFromFactory(
     message: "Initial commit",
   };
 
-  const initialCommitId = await store.commits.storeCommit(initialCommit);
+  const initialCommitId = await repository.commits.storeCommit(initialCommit);
 
   // Set up refs
-  await store.refs.set("refs/heads/main", initialCommitId);
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
+  await repository.refs.set("refs/heads/main", initialCommitId);
+  await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
   // Initialize staging with empty tree
-  await store.staging.readTree(store.trees, emptyTreeId);
+  await workingCopy.staging.readTree(repository.trees, emptyTreeId);
 
-  return { git, workingCopy, store, initialCommitId, cleanup: ctx.cleanup };
+  return { git, workingCopy, repository, initialCommitId, cleanup: ctx.cleanup };
 }
 
 /**
@@ -216,15 +161,19 @@ export function testAuthor(name = "Test Author", email = "test@example.com"): Pe
 
 /**
  * Add a file to the staging area and return its object ID.
+ *
+ * @param wc WorkingCopy to use
+ * @param path File path
+ * @param content File content
  */
-export async function addFile(store: GitStore, path: string, content: string): Promise<ObjectId> {
+export async function addFile(wc: WorkingCopy, path: string, content: string): Promise<ObjectId> {
   // Store the content as a blob
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
-  const objectId = await store.blobs.store([data]);
+  const objectId = await wc.repository.blobs.store([data]);
 
   // Add to staging
-  const editor = store.staging.editor();
+  const editor = wc.staging.editor();
   editor.add({
     path,
     apply: () => ({
@@ -243,20 +192,27 @@ export async function addFile(store: GitStore, path: string, content: string): P
 
 /**
  * Create a commit with the given message and files.
+ *
+ * @param wc WorkingCopy to use
+ * @param message Commit message
+ * @param files Optional files to add (path -> content)
+ * @param parentIds Optional parent commit IDs (defaults to HEAD)
  */
 export async function createCommit(
-  store: GitStore,
+  wc: WorkingCopy,
   message: string,
   files: Record<string, string> = {},
   parentIds?: ObjectId[],
 ): Promise<ObjectId> {
+  const { repository, staging } = wc;
+
   // Add files to staging
   for (const [path, content] of Object.entries(files)) {
-    await addFile(store, path, content);
+    await addFile(wc, path, content);
   }
 
   // Write tree from staging
-  const treeId = await store.staging.writeTree(store.trees);
+  const treeId = await staging.writeTree(repository.trees);
 
   // Get parent(s)
   let parents: ObjectId[];
@@ -264,7 +220,7 @@ export async function createCommit(
     parents = parentIds;
   } else {
     try {
-      const headRef = await store.refs.resolve("HEAD");
+      const headRef = await repository.refs.resolve("HEAD");
       parents = headRef?.objectId ? [headRef.objectId] : [];
     } catch {
       parents = [];
@@ -280,29 +236,32 @@ export async function createCommit(
     message,
   };
 
-  const commitId = await store.commits.storeCommit(commit);
+  const commitId = await repository.commits.storeCommit(commit);
 
   // Update HEAD
-  const head = await store.refs.get("HEAD");
+  const head = await repository.refs.get("HEAD");
   if (head && "target" in head) {
-    await store.refs.set(head.target, commitId);
+    await repository.refs.set(head.target, commitId);
   } else {
-    await store.refs.set("HEAD", commitId);
+    await repository.refs.set("HEAD", commitId);
   }
 
   // Update staging to match new tree
-  await store.staging.readTree(store.trees, treeId);
+  await staging.readTree(repository.trees, treeId);
 
   return commitId;
 }
 
 /**
  * Remove a file from the staging area.
+ *
+ * @param wc WorkingCopy to use
+ * @param path File path to remove
  */
-export async function removeFile(store: GitStore, path: string): Promise<void> {
-  const builder = store.staging.builder();
+export async function removeFile(wc: WorkingCopy, path: string): Promise<void> {
+  const builder = wc.staging.builder();
   // Add all entries except the one we want to remove
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of wc.staging.listEntries()) {
     if (entry.path !== path) {
       builder.add(entry);
     }

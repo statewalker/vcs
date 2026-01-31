@@ -36,10 +36,10 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   async function createEmptyGit() {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const store = ctx.store;
-    const git = Git.wrap(store);
-    await store.refs.setSymbolic("HEAD", "refs/heads/main");
-    return { git, store };
+    const { workingCopy, repository } = ctx;
+    const git = Git.fromWorkingCopy(workingCopy);
+    await repository.refs.setSymbolic("HEAD", "refs/heads/main");
+    return { git, workingCopy, repository };
   }
 
   it("should require a message", async () => {
@@ -192,13 +192,13 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should update branch ref after commit", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     const commit = await git.commit().setMessage("New commit").setAllowEmpty(true).call();
 
     // Get the branch ref
-    const ref = await store.refs.resolve("refs/heads/main");
-    const _commitId = await store.commits.storeCommit(commit);
+    const ref = await repository.refs.resolve("refs/heads/main");
+    const _commitId = await repository.commits.storeCommit(commit);
 
     // Note: The commit's stored ID will be the same if the content is the same
     // We just verify that the ref was updated
@@ -259,107 +259,107 @@ describe.each(backends)("CommitCommand with --only flag ($name backend)", ({ fac
   }
 
   it("should commit only specified paths", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit with two files
-    await addFile(store, "file1.txt", "content1\n");
-    await addFile(store, "file2.txt", "content2\n");
+    await addFile(workingCopy, "file1.txt", "content1\n");
+    await addFile(workingCopy, "file2.txt", "content2\n");
     await git.commit().setMessage("add two files").call();
 
     // Modify both files in staging
-    await addFile(store, "file1.txt", "modified1\n");
-    await addFile(store, "file2.txt", "modified2\n");
+    await addFile(workingCopy, "file1.txt", "modified1\n");
+    await addFile(workingCopy, "file2.txt", "modified2\n");
 
     // Commit only file1.txt
     await git.commit().setMessage("update file1 only").setOnly("file1.txt").call();
 
     // Get the committed tree
-    const headRef = await store.refs.resolve("HEAD");
-    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+    const headRef = await repository.refs.resolve("HEAD");
+    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
 
     // Check that file1 was updated
-    const file1Entry = await store.trees.getEntry(headCommit.tree, "file1.txt");
+    const file1Entry = await repository.trees.getEntry(headCommit.tree, "file1.txt");
     expect(file1Entry).toBeDefined();
-    const file1Content = await store.blobs.load(file1Entry?.id);
+    const file1Content = await repository.blobs.load(file1Entry?.id);
     const file1Text = new TextDecoder().decode(await collectBytes(file1Content));
     expect(file1Text).toBe("modified1\n");
 
     // Check that file2 was NOT updated (still has original content)
-    const file2Entry = await store.trees.getEntry(headCommit.tree, "file2.txt");
+    const file2Entry = await repository.trees.getEntry(headCommit.tree, "file2.txt");
     expect(file2Entry).toBeDefined();
-    const file2Content = await store.blobs.load(file2Entry?.id);
+    const file2Content = await repository.blobs.load(file2Entry?.id);
     const file2Text = new TextDecoder().decode(await collectBytes(file2Content));
     expect(file2Text).toBe("content2\n");
   });
 
   it("should commit multiple specified paths", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit with three files
-    await addFile(store, "a.txt", "a\n");
-    await addFile(store, "b.txt", "b\n");
-    await addFile(store, "c.txt", "c\n");
+    await addFile(workingCopy, "a.txt", "a\n");
+    await addFile(workingCopy, "b.txt", "b\n");
+    await addFile(workingCopy, "c.txt", "c\n");
     await git.commit().setMessage("add files").call();
 
     // Modify all files
-    await addFile(store, "a.txt", "aa\n");
-    await addFile(store, "b.txt", "bb\n");
-    await addFile(store, "c.txt", "cc\n");
+    await addFile(workingCopy, "a.txt", "aa\n");
+    await addFile(workingCopy, "b.txt", "bb\n");
+    await addFile(workingCopy, "c.txt", "cc\n");
 
     // Commit only a.txt and c.txt
     await git.commit().setMessage("update a and c").setOnly("a.txt", "c.txt").call();
 
     // Get committed tree
-    const headRef = await store.refs.resolve("HEAD");
-    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+    const headRef = await repository.refs.resolve("HEAD");
+    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
 
     // Verify a.txt was updated
-    const aEntry = await store.trees.getEntry(headCommit.tree, "a.txt");
-    const aContent = await store.blobs.load(aEntry?.id);
+    const aEntry = await repository.trees.getEntry(headCommit.tree, "a.txt");
+    const aContent = await repository.blobs.load(aEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(aContent))).toBe("aa\n");
 
     // Verify b.txt was NOT updated
-    const bEntry = await store.trees.getEntry(headCommit.tree, "b.txt");
-    const bContent = await store.blobs.load(bEntry?.id);
+    const bEntry = await repository.trees.getEntry(headCommit.tree, "b.txt");
+    const bContent = await repository.blobs.load(bEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(bContent))).toBe("b\n");
 
     // Verify c.txt was updated
-    const cEntry = await store.trees.getEntry(headCommit.tree, "c.txt");
-    const cContent = await store.blobs.load(cEntry?.id);
+    const cEntry = await repository.trees.getEntry(headCommit.tree, "c.txt");
+    const cContent = await repository.blobs.load(cEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(cContent))).toBe("cc\n");
   });
 
   it("should work with files in subdirectories", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create files in subdirectories
-    await addFile(store, "src/main.ts", "main\n");
-    await addFile(store, "src/utils.ts", "utils\n");
-    await addFile(store, "tests/main.test.ts", "test\n");
+    await addFile(workingCopy, "src/main.ts", "main\n");
+    await addFile(workingCopy, "src/utils.ts", "utils\n");
+    await addFile(workingCopy, "tests/main.test.ts", "test\n");
     await git.commit().setMessage("initial structure").call();
 
     // Modify files
-    await addFile(store, "src/main.ts", "main updated\n");
-    await addFile(store, "src/utils.ts", "utils updated\n");
-    await addFile(store, "tests/main.test.ts", "test updated\n");
+    await addFile(workingCopy, "src/main.ts", "main updated\n");
+    await addFile(workingCopy, "src/utils.ts", "utils updated\n");
+    await addFile(workingCopy, "tests/main.test.ts", "test updated\n");
 
     // Commit only src/main.ts
     await git.commit().setMessage("update main only").setOnly("src/main.ts").call();
 
     // Verify results
-    const headRef = await store.refs.resolve("HEAD");
-    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+    const headRef = await repository.refs.resolve("HEAD");
+    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
 
     // Need to walk tree to get src subtree
-    const srcEntry = await store.trees.getEntry(headCommit.tree, "src");
+    const srcEntry = await repository.trees.getEntry(headCommit.tree, "src");
     expect(srcEntry).toBeDefined();
 
-    const mainEntry = await store.trees.getEntry(srcEntry?.id, "main.ts");
-    const mainContent = await store.blobs.load(mainEntry?.id);
+    const mainEntry = await repository.trees.getEntry(srcEntry?.id, "main.ts");
+    const mainContent = await repository.blobs.load(mainEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(mainContent))).toBe("main updated\n");
 
-    const utilsEntry = await store.trees.getEntry(srcEntry?.id, "utils.ts");
-    const utilsContent = await store.blobs.load(utilsEntry?.id);
+    const utilsEntry = await repository.trees.getEntry(srcEntry?.id, "utils.ts");
+    const utilsContent = await repository.blobs.load(utilsEntry?.id);
     expect(new TextDecoder().decode(await collectBytes(utilsContent))).toBe("utils\n");
   });
 });
@@ -460,11 +460,11 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   }
 
   it("should auto-stage modified tracked files", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit with files
-    await addFile(store, "file1.txt", "original1\n");
-    await addFile(store, "file2.txt", "original2\n");
+    await addFile(workingCopy, "file1.txt", "original1\n");
+    await addFile(workingCopy, "file2.txt", "original2\n");
     await git.commit().setMessage("initial").call();
 
     // Create mock working tree with modified content
@@ -483,24 +483,24 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
     expect(commit.message).toBe("commit all changes");
 
     // Verify both files were updated in the commit
-    const headRef = await store.refs.resolve("HEAD");
-    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+    const headRef = await repository.refs.resolve("HEAD");
+    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
 
-    const file1Entry = await store.trees.getEntry(headCommit.tree, "file1.txt");
-    const file1Content = await store.blobs.load(file1Entry?.id);
+    const file1Entry = await repository.trees.getEntry(headCommit.tree, "file1.txt");
+    const file1Content = await repository.blobs.load(file1Entry?.id);
     expect(new TextDecoder().decode(await collectBytes(file1Content))).toBe("modified1\n");
 
-    const file2Entry = await store.trees.getEntry(headCommit.tree, "file2.txt");
-    const file2Content = await store.blobs.load(file2Entry?.id);
+    const file2Entry = await repository.trees.getEntry(headCommit.tree, "file2.txt");
+    const file2Content = await repository.blobs.load(file2Entry?.id);
     expect(new TextDecoder().decode(await collectBytes(file2Content))).toBe("modified2\n");
   });
 
   it("should auto-stage deleted tracked files", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit with files
-    await addFile(store, "file1.txt", "content1\n");
-    await addFile(store, "file2.txt", "content2\n");
+    await addFile(workingCopy, "file1.txt", "content1\n");
+    await addFile(workingCopy, "file2.txt", "content2\n");
     await git.commit().setMessage("initial").call();
 
     // Create mock working tree with file1 deleted
@@ -518,14 +518,14 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
     expect(commit.message).toBe("delete file1");
 
     // Verify file1 was removed from the tree
-    const headRef = await store.refs.resolve("HEAD");
-    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+    const headRef = await repository.refs.resolve("HEAD");
+    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
 
-    const file1Entry = await store.trees.getEntry(headCommit.tree, "file1.txt");
+    const file1Entry = await repository.trees.getEntry(headCommit.tree, "file1.txt");
     expect(file1Entry).toBeUndefined();
 
     // file2 should still exist
-    const file2Entry = await store.trees.getEntry(headCommit.tree, "file2.txt");
+    const file2Entry = await repository.trees.getEntry(headCommit.tree, "file2.txt");
     expect(file2Entry).toBeDefined();
   });
 
@@ -539,10 +539,10 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   });
 
   it("should throw when combining --all with --only (JGit behavior)", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit with file
-    await addFile(store, "file.txt", "content\n");
+    await addFile(workingCopy, "file.txt", "content\n");
     await git.commit().setMessage("initial").call();
 
     // Cannot set --all after --only
@@ -553,10 +553,10 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   });
 
   it("should not add new untracked files", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit with one file
-    await addFile(store, "tracked.txt", "tracked\n");
+    await addFile(workingCopy, "tracked.txt", "tracked\n");
     await git.commit().setMessage("initial").call();
 
     // Create mock working tree with tracked + new untracked file
@@ -573,16 +573,16 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
       .call();
 
     // Verify untracked file was NOT added
-    const headRef = await store.refs.resolve("HEAD");
-    const headCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+    const headRef = await repository.refs.resolve("HEAD");
+    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
 
-    const untrackedEntry = await store.trees.getEntry(headCommit.tree, "untracked.txt");
+    const untrackedEntry = await repository.trees.getEntry(headCommit.tree, "untracked.txt");
     expect(untrackedEntry).toBeUndefined();
 
     // Tracked file should be updated
-    const trackedEntry = await store.trees.getEntry(headCommit.tree, "tracked.txt");
+    const trackedEntry = await repository.trees.getEntry(headCommit.tree, "tracked.txt");
     expect(trackedEntry).toBeDefined();
-    const trackedContent = store.blobs.load(trackedEntry?.id ?? "");
+    const trackedContent = repository.blobs.load(trackedEntry?.id ?? "");
     expect(new TextDecoder().decode(await collectBytes(trackedContent))).toBe("tracked modified\n");
   });
 });

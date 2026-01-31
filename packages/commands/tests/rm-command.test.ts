@@ -30,16 +30,16 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRemove.
    */
   it("should remove a file from the index", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add and commit a file
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // Verify file is in staging
-    await store.staging.read();
+    await workingCopy.staging.read();
     let hasFile = false;
-    for await (const entry of store.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.listEntries()) {
       if (entry.path === "file.txt") {
         hasFile = true;
         break;
@@ -53,9 +53,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     expect(result.removedPaths).toContain("file.txt");
 
     // Verify file is no longer in staging
-    await store.staging.read();
+    await workingCopy.staging.read();
     hasFile = false;
-    for await (const entry of store.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.listEntries()) {
       if (entry.path === "file.txt") {
         hasFile = true;
         break;
@@ -68,12 +68,12 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test removing multiple files.
    */
   it("should remove multiple files", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add and commit files
-    await addFile(store, "a.txt", "a");
-    await addFile(store, "b.txt", "b");
-    await addFile(store, "c.txt", "c");
+    await addFile(workingCopy, "a.txt", "a");
+    await addFile(workingCopy, "b.txt", "b");
+    await addFile(workingCopy, "c.txt", "c");
     await git.commit().setMessage("initial").call();
 
     // Remove two files
@@ -84,9 +84,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     expect(result.removedPaths).not.toContain("c.txt");
 
     // Verify only c.txt remains
-    await store.staging.read();
+    await workingCopy.staging.read();
     const remaining: string[] = [];
-    for await (const entry of store.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.listEntries()) {
       remaining.push(entry.path);
     }
     expect(remaining).toEqual(["c.txt"]);
@@ -96,12 +96,12 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test removing a directory pattern.
    */
   it("should remove files by directory pattern", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add files in different directories
-    await addFile(store, "src/a.txt", "a");
-    await addFile(store, "src/b.txt", "b");
-    await addFile(store, "lib/c.txt", "c");
+    await addFile(workingCopy, "src/a.txt", "a");
+    await addFile(workingCopy, "src/b.txt", "b");
+    await addFile(workingCopy, "lib/c.txt", "c");
     await git.commit().setMessage("initial").call();
 
     // Remove src/ directory
@@ -112,9 +112,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     expect(result.removedPaths).not.toContain("lib/c.txt");
 
     // Verify only lib/c.txt remains
-    await store.staging.read();
+    await workingCopy.staging.read();
     const remaining: string[] = [];
-    for await (const entry of store.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.listEntries()) {
       remaining.push(entry.path);
     }
     expect(remaining).toEqual(["lib/c.txt"]);
@@ -124,10 +124,10 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test removing non-existent file doesn't error.
    */
   it("should succeed when removing non-existent file", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // Remove a file that doesn't exist
@@ -136,9 +136,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     expect(result.removedPaths).toEqual([]);
 
     // Original file should still be there
-    await store.staging.read();
+    await workingCopy.staging.read();
     const entries: string[] = [];
-    for await (const entry of store.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.listEntries()) {
       entries.push(entry.path);
     }
     expect(entries).toContain("file.txt");
@@ -148,10 +148,10 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test setCached option.
    */
   it("should support cached option", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add a file
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     // Create rm command with cached option
@@ -168,9 +168,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test error when no pattern specified.
    */
   it("should throw error when no pattern specified", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     await expect(git.rm().call()).rejects.toThrow("At least one file pattern is required");
@@ -180,12 +180,12 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test glob pattern matching.
    */
   it("should support glob patterns", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Add files
-    await addFile(store, "test1.txt", "1");
-    await addFile(store, "test2.txt", "2");
-    await addFile(store, "other.md", "3");
+    await addFile(workingCopy, "test1.txt", "1");
+    await addFile(workingCopy, "test2.txt", "2");
+    await addFile(workingCopy, "other.md", "3");
     await git.commit().setMessage("initial").call();
 
     // Remove with glob pattern
@@ -217,9 +217,9 @@ describe.each(backends)("RmCommand - API options ($name backend)", ({ factory })
    * Test fluent API.
    */
   it("should support fluent API", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const result = await git.rm().addFilepattern("file.txt").setCached(true).call();
@@ -231,9 +231,9 @@ describe.each(backends)("RmCommand - API options ($name backend)", ({ factory })
    * Test command cannot be reused.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
-    await addFile(store, "file.txt", "content");
+    await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
 
     const command = git.rm().addFilepattern("file.txt");
