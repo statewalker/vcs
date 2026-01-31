@@ -24,8 +24,8 @@ import {
   type WorkingCopyFactory,
   type WorkingCopyTestContext,
 } from "./backend-factories.js";
-import { createMockWorktreeStore } from "./mock-worktree-store.js";
-import { createSimpleHistoryStore } from "./simple-history-store.js";
+import { createMockWorktree } from "./mock-worktree-store.js";
+import { createSimpleHistory } from "./simple-history-store.js";
 
 // Re-export factory types and functions for convenience
 export type { WorkingCopyFactory, WorkingCopyTestContext };
@@ -43,7 +43,7 @@ export function createTestWorkingCopy(): { workingCopy: WorkingCopy; repository:
   const staging = new MemoryStagingStore();
 
   // Create HistoryStore wrapper
-  const repository = createSimpleHistoryStore({
+  const repository = createSimpleHistory({
     objects: stores.objects,
     blobs: stores.blobs,
     trees: stores.trees,
@@ -52,8 +52,8 @@ export function createTestWorkingCopy(): { workingCopy: WorkingCopy; repository:
     refs,
   });
 
-  // Create mock WorktreeStore
-  const worktree = createMockWorktreeStore();
+  // Create mock Worktree
+  const worktree = createMockWorktree();
 
   // Create WorkingCopy
   const workingCopy = new MemoryWorkingCopy({

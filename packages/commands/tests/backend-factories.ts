@@ -24,8 +24,8 @@ import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 
-import { createMockWorktreeStore } from "./mock-worktree-store.js";
-import { createSimpleHistoryStore } from "./simple-history-store.js";
+import { createMockWorktree } from "./mock-worktree-store.js";
+import { createSimpleHistory } from "./simple-history-store.js";
 
 // Enable Node.js compression for SQL backend
 setCompressionUtils(createNodeCompression());
@@ -59,8 +59,8 @@ export const memoryFactory: WorkingCopyFactory = async () => {
   const refs = new MemoryRefStore();
   const staging = new MemoryStagingStore();
 
-  // Create HistoryStore wrapper
-  const repository = createSimpleHistoryStore({
+  // Create History wrapper (also provides HistoryStore for backward compatibility)
+  const repository = createSimpleHistory({
     objects: stores.objects,
     blobs: stores.blobs,
     trees: stores.trees,
@@ -69,8 +69,8 @@ export const memoryFactory: WorkingCopyFactory = async () => {
     refs,
   });
 
-  // Create mock WorktreeStore
-  const worktree = createMockWorktreeStore();
+  // Create mock Worktree
+  const worktree = createMockWorktree();
 
   // Create WorkingCopy
   const workingCopy = new MemoryWorkingCopy({
@@ -94,8 +94,8 @@ export const sqlFactory: WorkingCopyFactory = async () => {
   const refs = new SQLRefStore(db);
   const staging = new SQLStagingStore(db);
 
-  // Create HistoryStore wrapper
-  const repository = createSimpleHistoryStore({
+  // Create History wrapper (also provides HistoryStore for backward compatibility)
+  const repository = createSimpleHistory({
     objects: stores.objects,
     blobs: stores.blobs,
     trees: stores.trees,
@@ -104,8 +104,8 @@ export const sqlFactory: WorkingCopyFactory = async () => {
     refs,
   });
 
-  // Create mock WorktreeStore
-  const worktree = createMockWorktreeStore();
+  // Create mock Worktree
+  const worktree = createMockWorktree();
 
   // Create WorkingCopy
   const workingCopy = new MemoryWorkingCopy({
