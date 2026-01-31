@@ -6,12 +6,16 @@
  */
 
 import type { FilesApi } from "@statewalker/vcs-utils/files";
+import type { Blobs } from "../../history/blobs/blobs.js";
+import type { Staging } from "../staging/staging.js";
 import type { CherryPickStateStore } from "./cherry-pick-state-store.js";
 import { GitCherryPickStateStore } from "./cherry-pick-state-store.js";
 import type { MergeStateStore } from "./merge-state-store.js";
 import { GitMergeStateStore } from "./merge-state-store.js";
 import type { RebaseStateStore } from "./rebase-state-store.js";
 import { GitRebaseStateStore } from "./rebase-state-store.js";
+import { GitResolutionStore } from "./resolution-store.impl.js";
+import type { ResolutionStore } from "./resolution-store.js";
 import type { RevertStateStore } from "./revert-state-store.js";
 import { GitRevertStateStore } from "./revert-state-store.js";
 import type { SequencerStore } from "./sequencer-store.js";
@@ -41,6 +45,14 @@ export interface TransformationStore {
   readonly sequencer: SequencerStore;
 
   /**
+   * Resolution store for conflict management (optional)
+   *
+   * Available when TransformationStore is created with staging and blobs.
+   * Provides conflict detection, resolution workflow, and rerere functionality.
+   */
+  readonly resolution?: ResolutionStore;
+
+  /**
    * Get current transformation state (if any)
    *
    * Detection priority:
@@ -68,6 +80,22 @@ export interface TransformationStore {
 }
 
 /**
+ * Configuration for creating TransformationStore with resolution support
+ */
+export interface TransformationStoreConfig {
+  /** FilesApi implementation */
+  files: FilesApi;
+  /** Path to .git directory */
+  gitDir: string;
+  /** Staging interface for conflict detection (required for resolution) */
+  staging?: Staging;
+  /** Blobs interface for content storage (required for resolution) */
+  blobs?: Blobs;
+  /** Path to working tree (defaults to parent of gitDir) */
+  worktreePath?: string;
+}
+
+/**
  * Git file-based TransformationStore implementation
  */
 export class GitTransformationStore implements TransformationStore {
@@ -76,13 +104,54 @@ export class GitTransformationStore implements TransformationStore {
   readonly cherryPick: CherryPickStateStore;
   readonly revert: RevertStateStore;
   readonly sequencer: SequencerStore;
+  readonly resolution?: ResolutionStore;
 
-  constructor(files: FilesApi, gitDir: string) {
-    this.merge = new GitMergeStateStore(files, gitDir);
-    this.rebase = new GitRebaseStateStore(files, gitDir);
-    this.cherryPick = new GitCherryPickStateStore(files, gitDir);
-    this.revert = new GitRevertStateStore(files, gitDir);
-    this.sequencer = new GitSequencerStore(files, gitDir);
+  /**
+   * Create a TransformationStore
+   *
+   * @param files FilesApi implementation
+   * @param gitDir Path to .git directory
+   */
+  constructor(files: FilesApi, gitDir: string);
+  /**
+   * Create a TransformationStore with resolution support
+   *
+   * @param config Configuration object with all dependencies
+   */
+  constructor(config: TransformationStoreConfig);
+  constructor(filesOrConfig: FilesApi | TransformationStoreConfig, gitDir?: string) {
+    let files: FilesApi;
+    let dir: string;
+    let staging: Staging | undefined;
+    let blobs: Blobs | undefined;
+    let worktreePath: string | undefined;
+
+    if (typeof filesOrConfig === "object" && "gitDir" in filesOrConfig) {
+      // Config object
+      files = filesOrConfig.files;
+      dir = filesOrConfig.gitDir;
+      staging = filesOrConfig.staging;
+      blobs = filesOrConfig.blobs;
+      worktreePath = filesOrConfig.worktreePath;
+    } else {
+      // Legacy signature
+      files = filesOrConfig as FilesApi;
+      if (!gitDir) {
+        throw new Error("gitDir is required when using legacy constructor signature");
+      }
+      dir = gitDir;
+    }
+
+    this.merge = new GitMergeStateStore(files, dir);
+    this.rebase = new GitRebaseStateStore(files, dir);
+    this.cherryPick = new GitCherryPickStateStore(files, dir);
+    this.revert = new GitRevertStateStore(files, dir);
+    this.sequencer = new GitSequencerStore(files, dir);
+
+    // Create resolution store if dependencies are provided
+    if (staging && blobs) {
+      this.resolution = new GitResolutionStore(files, staging, blobs, dir, worktreePath);
+    }
   }
 
   async getState(): Promise<TransformationState | undefined> {
@@ -120,7 +189,13 @@ export class GitTransformationStore implements TransformationStore {
       };
     }
 
+    // Check actual conflict status if resolution store is available
+    // Otherwise assume conflicts exist (conservative default)
+    const hasConflicts = this.resolution ? await this.resolution.hasConflicts() : true;
+
     // Base capabilities depend on operation type
+    // canContinue means the operation supports --continue flag
+    // hasConflicts indicates if conflicts need to be resolved
     switch (state.type) {
       case "merge":
         return {
@@ -128,7 +203,7 @@ export class GitTransformationStore implements TransformationStore {
           canSkip: false,
           canAbort: true,
           canQuit: false,
-          hasConflicts: true, // Merge always implies conflicts if in progress
+          hasConflicts,
         };
 
       case "rebase":
@@ -137,7 +212,7 @@ export class GitTransformationStore implements TransformationStore {
           canSkip: true,
           canAbort: true,
           canQuit: state.interactive,
-          hasConflicts: true,
+          hasConflicts,
         };
 
       case "cherry-pick":
@@ -148,7 +223,7 @@ export class GitTransformationStore implements TransformationStore {
           canSkip: hasSequencer,
           canAbort: true,
           canQuit: hasSequencer,
-          hasConflicts: true,
+          hasConflicts,
         };
       }
     }
@@ -192,6 +267,22 @@ export class GitTransformationStore implements TransformationStore {
  * @param files FilesApi implementation
  * @param gitDir Path to .git directory
  */
-export function createTransformationStore(files: FilesApi, gitDir: string): TransformationStore {
-  return new GitTransformationStore(files, gitDir);
+export function createTransformationStore(files: FilesApi, gitDir: string): TransformationStore;
+/**
+ * Factory function for creating TransformationStore with resolution support
+ *
+ * @param config Configuration object with all dependencies
+ */
+export function createTransformationStore(config: TransformationStoreConfig): TransformationStore;
+export function createTransformationStore(
+  filesOrConfig: FilesApi | TransformationStoreConfig,
+  gitDir?: string,
+): TransformationStore {
+  if (typeof filesOrConfig === "object" && "gitDir" in filesOrConfig) {
+    return new GitTransformationStore(filesOrConfig);
+  }
+  if (!gitDir) {
+    throw new Error("gitDir is required when using legacy function signature");
+  }
+  return new GitTransformationStore(filesOrConfig as FilesApi, gitDir);
 }
