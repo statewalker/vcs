@@ -24,7 +24,7 @@ import type {
   ReadTreeOptions,
   Staging,
 } from "./staging.js";
-import { MergeStage, type MergeStageValue } from "./staging-store.js";
+import { MergeStage, type MergeStageValue } from "./types.js";
 
 /**
  * Simple in-memory Staging implementation

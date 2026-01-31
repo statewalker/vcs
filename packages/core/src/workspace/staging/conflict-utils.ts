@@ -11,8 +11,9 @@
 
 import type { ObjectId } from "../../common/id/index.js";
 import { ResolveStagingConflict } from "./staging-edits.js";
-import type { MergeStageValue, StagingEntry, StagingStore } from "./staging-store.js";
-import { MergeStage } from "./staging-store.js";
+import type { MergeStageValue, StagingEntry } from "./types.js";
+import { MergeStage } from "./types.js";
+import type { Staging } from "./staging.js";
 
 /**
  * Detailed information about a single conflict.
@@ -104,7 +105,7 @@ export interface ConflictSection {
  * @returns Conflict info or undefined if no conflict
  */
 export async function getConflictInfo(
-  store: StagingStore,
+  store: Staging,
   path: string,
 ): Promise<ConflictInfo | undefined> {
   const entries = await store.getEntries(path);
@@ -148,10 +149,11 @@ export async function getConflictInfo(
  * @param store Staging store to query
  * @returns Array of conflict info objects
  */
-export async function getAllConflicts(store: StagingStore): Promise<ConflictInfo[]> {
+export async function getAllConflicts(store: Staging): Promise<ConflictInfo[]> {
   const conflicts: ConflictInfo[] = [];
+  const paths = await store.getConflictedPaths();
 
-  for await (const path of store.getConflictPaths()) {
+  for (const path of paths) {
     const info = await getConflictInfo(store, path);
     if (info) {
       conflicts.push(info);
@@ -167,12 +169,9 @@ export async function getAllConflicts(store: StagingStore): Promise<ConflictInfo
  * @param store Staging store to query
  * @returns Number of conflicted paths
  */
-export async function countConflicts(store: StagingStore): Promise<number> {
-  let count = 0;
-  for await (const _ of store.getConflictPaths()) {
-    count++;
-  }
-  return count;
+export async function countConflicts(store: Staging): Promise<number> {
+  const paths = await store.getConflictedPaths();
+  return paths.length;
 }
 
 /**
