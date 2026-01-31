@@ -7,6 +7,8 @@
 
 export * from "./delta-instruction-analyzer.js";
 export * from "./delta-reverse-index.js";
+export * from "./git-pack-store.impl.js";
+export * from "./git-pack-store.js";
 export * from "./pack-consolidator.js";
 export * from "./pack-delta-store.js";
 export * from "./pack-directory.js";
