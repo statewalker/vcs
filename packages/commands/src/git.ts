@@ -1,3 +1,5 @@
+import type { Checkout, History, WorkingCopy, Worktree } from "@statewalker/vcs-core";
+
 import {
   AddCommand,
   BlameCommand,
@@ -40,43 +42,85 @@ import {
   TagCommand,
 } from "./commands/index.js";
 import type { CreateGitStoreOptions, GitStore, GitStoresConfig } from "./types.js";
-import { createGitStore, createGitStoreFromStores } from "./types.js";
+import {
+  createGitStore,
+  createGitStoreFromStores,
+  createGitStoreFromWorkingCopy,
+} from "./types.js";
 
 /**
  * Main entry point for high-level Git operations.
  *
- * Wraps a GitStore and provides factory methods for all commands.
+ * The Git class is a facade that wraps a WorkingCopy and provides
+ * factory methods for all Git commands.
+ *
  * Based on JGit's Git class.
  *
- * @example
+ * @example Using with WorkingCopy (recommended)
  * ```typescript
- * // Create and open store
- * const store = new FilesGitStore(files, "/repo");
- * await store.open();
+ * // Create a WorkingCopy
+ * const workingCopy = await createWorkingCopy({ files, workDir: "/repo" });
  *
  * // Create Git facade
- * const git = Git.wrap(store);
+ * const git = Git.fromWorkingCopy(workingCopy);
  *
  * // Use commands
  * await git.commit().setMessage("Initial commit").call();
  * const branches = await git.branchList().call();
- * for await (const commit of await git.log().call()) {
- *   console.log(commit.message);
- * }
+ *
+ * // Access components for advanced usage
+ * const history = git.history;
+ * const checkout = git.checkout;
  *
  * // Clean up
  * git.close();
  * ```
+ *
+ * @example Using with GitStore (legacy, for backward compatibility)
+ * ```typescript
+ * const store = createGitStore({ repository: repo, staging });
+ * const git = Git.wrap(store);
+ * ```
  */
 export class Git implements Disposable {
   private readonly store: GitStore;
+  private readonly _workingCopy?: WorkingCopy;
   private closed = false;
 
-  private constructor(store: GitStore) {
+  private constructor(store: GitStore, workingCopy?: WorkingCopy) {
     this.store = store;
+    this._workingCopy = workingCopy;
   }
 
   // ============ Static Factory Methods ============
+
+  /**
+   * Create a Git facade from a WorkingCopy.
+   *
+   * This is the recommended way to create a Git instance. The WorkingCopy
+   * provides access to all components: History, Checkout, and Worktree.
+   *
+   * @example
+   * ```typescript
+   * const workingCopy = await createWorkingCopy({ files, workDir: "/repo" });
+   * const git = Git.fromWorkingCopy(workingCopy);
+   *
+   * // Use commands
+   * await git.add().addFilepattern(".").call();
+   * await git.commit().setMessage("Initial commit").call();
+   *
+   * // Access components
+   * const history = git.history;
+   * const checkout = git.checkout;
+   * ```
+   *
+   * @param workingCopy The WorkingCopy to wrap
+   * @returns A Git instance wrapping the working copy
+   */
+  static fromWorkingCopy(workingCopy: WorkingCopy): Git {
+    const store = createGitStoreFromWorkingCopy(workingCopy);
+    return new Git(store, workingCopy);
+  }
 
   /**
    * Wrap an already-opened GitStore.
@@ -84,6 +128,7 @@ export class Git implements Disposable {
    * The caller is responsible for closing the store; close() on this
    * instance does not close the underlying store.
    *
+   * @deprecated Use `Git.fromWorkingCopy()` instead. This method will be removed in a future version.
    * @param store The GitStore to wrap
    * @returns A Git instance wrapping the store
    */
@@ -96,6 +141,7 @@ export class Git implements Disposable {
    *
    * Alias for wrap() for compatibility with JGit patterns.
    *
+   * @deprecated Use `Git.fromWorkingCopy()` instead. This method will be removed in a future version.
    * @param store The GitStore to wrap
    * @returns A Git instance wrapping the store
    */
@@ -108,6 +154,8 @@ export class Git implements Disposable {
    *
    * This factory method allows using any HistoryStore implementation
    * (file-based, SQL, memory, etc.) with the Git command facade.
+   *
+   * @deprecated Use `Git.fromWorkingCopy()` instead. This method will be removed in a future version.
    *
    * @example
    * ```typescript
@@ -135,6 +183,8 @@ export class Git implements Disposable {
    * - HistoryStore: Immutable history (commits, trees, blobs, refs, tags)
    * - CheckoutStore: Mutable local state (staging, HEAD, in-progress ops)
    * - WorktreeStore: Filesystem access (working tree files)
+   *
+   * @deprecated Use `Git.fromWorkingCopy()` instead. This method will be removed in a future version.
    *
    * @example
    * ```typescript
@@ -866,10 +916,94 @@ export class Git implements Disposable {
     return new StashListCommand(this.store);
   }
 
+  // ============ Component Access ============
+
+  /**
+   * Get the underlying WorkingCopy (if available).
+   *
+   * Returns undefined if the Git instance was created with wrap() or fromRepository().
+   * Use fromWorkingCopy() to ensure access to the WorkingCopy.
+   *
+   * @example
+   * ```typescript
+   * const git = Git.fromWorkingCopy(workingCopy);
+   * const wc = git.workingCopy!;
+   *
+   * // Access full WorkingCopy API
+   * const status = await wc.getStatus();
+   * const branch = await wc.getCurrentBranch();
+   * ```
+   */
+  get workingCopy(): WorkingCopy | undefined {
+    return this._workingCopy;
+  }
+
+  /**
+   * Get the History interface for accessing repository objects.
+   *
+   * Provides access to blobs, trees, commits, tags, and refs.
+   * Returns undefined if created with wrap() or if WorkingCopy doesn't have history.
+   *
+   * @example
+   * ```typescript
+   * const history = git.history;
+   * if (history) {
+   *   const commit = await history.commits.load(commitId);
+   *   const tree = await history.trees.load(commit.tree);
+   * }
+   * ```
+   */
+  get history(): History | undefined {
+    return this._workingCopy?.history;
+  }
+
+  /**
+   * Get the Checkout interface for managing local state.
+   *
+   * Provides access to staging area, HEAD, and in-progress operations.
+   * Returns undefined if created with wrap() or if WorkingCopy doesn't have checkout.
+   *
+   * Note: Named `checkoutState` to avoid conflict with `checkout()` command method.
+   *
+   * @example
+   * ```typescript
+   * const checkoutState = git.checkoutState;
+   * if (checkoutState) {
+   *   const staging = checkoutState.staging;
+   *   const head = await checkoutState.getHeadCommit();
+   * }
+   * ```
+   */
+  get checkoutState(): Checkout | undefined {
+    return this._workingCopy?.checkout;
+  }
+
+  /**
+   * Get the Worktree interface for filesystem operations.
+   *
+   * Provides access to working directory read/write operations.
+   * Returns undefined if created with wrap() or if WorkingCopy doesn't have worktree.
+   *
+   * @example
+   * ```typescript
+   * const worktree = git.worktree;
+   * if (worktree) {
+   *   for await (const entry of worktree.walk()) {
+   *     console.log(entry.path);
+   *   }
+   * }
+   * ```
+   */
+  get worktree(): Worktree | undefined {
+    return this._workingCopy?.worktreeInterface;
+  }
+
   // ============ Lifecycle ============
 
   /**
    * Get the underlying store.
+   *
+   * @deprecated Use component accessors (history, checkout, worktree) instead.
    */
   getStore(): GitStore {
     return this.store;
