@@ -1,14 +1,19 @@
 import type {
-  BlobStore,
+  // New interfaces (Phase C) - these are the preferred types
+  Blobs,
+  Checkout,
   CheckoutStore,
-  CommitStore,
+  Commits,
   FilesApi,
+  History,
   HistoryStore,
-  RefStore,
+  Refs,
+  Staging,
   StagingStore,
-  TagStore,
-  TreeStore,
+  Tags,
+  Trees,
   WorkingCopy,
+  Worktree,
   WorktreeStore,
 } from "@statewalker/vcs-core";
 
@@ -37,23 +42,29 @@ import type {
  * @see WorkingCopy for the new unified interface
  */
 export interface GitStore {
+  /** Optional: Full history facade (new architecture) */
+  readonly history?: History;
+
+  /** Optional: Full checkout facade (new architecture) */
+  readonly checkout?: Checkout;
+
   /** Blob (file content) storage */
-  readonly blobs: BlobStore;
+  readonly blobs: Blobs;
 
   /** File tree (directory) storage */
-  readonly trees: TreeStore;
+  readonly trees: Trees;
 
   /** Commit object storage with graph traversal */
-  readonly commits: CommitStore;
+  readonly commits: Commits;
 
   /** Branch and tag reference management */
-  readonly refs: RefStore;
+  readonly refs: Refs;
 
   /** Staging area (index) management */
-  readonly staging: StagingStore;
+  readonly staging: Staging;
 
   /** Tag object storage (optional, for annotated tags) */
-  readonly tags?: TagStore;
+  readonly tags?: Tags;
 }
 
 /**
@@ -111,8 +122,8 @@ export enum ListBranchMode {
  * @see WorkingCopy for the new unified interface
  */
 export interface GitStoreWithWorkTree extends GitStore {
-  /** Working tree iterator for filesystem operations */
-  readonly worktree: WorktreeStore;
+  /** Working tree interface for filesystem operations */
+  readonly worktree: Worktree;
 }
 
 /**
@@ -151,14 +162,14 @@ export interface GitStoreWithFiles extends GitStoreWithWorkTree {
  * This interface will be removed in a future version.
  */
 export interface CreateGitStoreOptions {
-  /** The history store providing object stores */
-  repository: HistoryStore;
+  /** The history store providing object stores (legacy) or History facade (new) */
+  repository: HistoryStore | History;
 
   /** Staging area for index operations */
-  staging: StagingStore;
+  staging: Staging | StagingStore;
 
-  /** Optional working tree iterator for filesystem operations */
-  worktree?: WorktreeStore;
+  /** Optional working tree interface for filesystem operations */
+  worktree?: Worktree | WorktreeStore;
 
   /** Optional FilesApi for writing files to the working tree */
   files?: FilesApi;
@@ -190,13 +201,13 @@ export interface CreateGitStoreOptions {
  */
 export function createGitStore(
   options: CreateGitStoreOptions & {
-    worktree: WorktreeStore;
+    worktree: Worktree | WorktreeStore;
     files: FilesApi;
     workTreeRoot: string;
   },
 ): GitStoreWithFiles;
 export function createGitStore(
-  options: CreateGitStoreOptions & { worktree: WorktreeStore },
+  options: CreateGitStoreOptions & { worktree: Worktree | WorktreeStore },
 ): GitStoreWithWorkTree;
 export function createGitStore(options: CreateGitStoreOptions): GitStore;
 export function createGitStore(
@@ -204,21 +215,23 @@ export function createGitStore(
 ): GitStore | GitStoreWithWorkTree | GitStoreWithFiles {
   const { repository, staging, worktree, files, workTreeRoot } = options;
 
+  // Check if repository is a History facade (has blobs property as Blobs)
+  // Both HistoryStore and History have compatible blobs, trees, commits, refs, tags
   const store: GitStore = {
-    blobs: repository.blobs,
-    trees: repository.trees,
-    commits: repository.commits,
-    refs: repository.refs,
-    staging,
-    tags: repository.tags,
+    blobs: repository.blobs as Blobs,
+    trees: repository.trees as Trees,
+    commits: repository.commits as Commits,
+    refs: repository.refs as Refs,
+    staging: staging as Staging,
+    tags: repository.tags as Tags | undefined,
   };
 
   if (worktree && files && workTreeRoot !== undefined) {
-    return { ...store, worktree, files, workTreeRoot } as GitStoreWithFiles;
+    return { ...store, worktree: worktree as Worktree, files, workTreeRoot } as GitStoreWithFiles;
   }
 
   if (worktree) {
-    return { ...store, worktree } as GitStoreWithWorkTree;
+    return { ...store, worktree: worktree as Worktree } as GitStoreWithWorkTree;
   }
 
   return store;
@@ -245,17 +258,26 @@ export function createGitStore(
  * @returns GitStoreWithWorkTree for use with Git commands
  */
 export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStoreWithWorkTree {
-  const { repository, staging, worktree } = workingCopy;
+  const { repository, staging, worktree, history, checkout } = workingCopy;
+
+  // Prefer new History/Checkout facades when available
+  const blobs = (history?.blobs ?? repository.blobs) as Blobs;
+  const trees = (history?.trees ?? repository.trees) as Trees;
+  const commits = (history?.commits ?? repository.commits) as Commits;
+  const refs = (history?.refs ?? repository.refs) as Refs;
+  const tags = (history?.tags ?? repository.tags) as Tags | undefined;
+  const effectiveStaging = (checkout?.staging ?? staging) as Staging;
 
   return {
-    blobs: repository.blobs,
-    trees: repository.trees,
-    commits: repository.commits,
-    refs: repository.refs,
-    // Cast needed during migration: WorkingCopy.staging is union type but implementations return StagingStore
-    staging: staging as StagingStore,
-    tags: repository.tags,
-    worktree,
+    history,
+    checkout,
+    blobs,
+    trees,
+    commits,
+    refs,
+    staging: effectiveStaging,
+    tags,
+    worktree: worktree as Worktree,
   };
 }
 
@@ -281,17 +303,17 @@ export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStor
  * This interface will be removed in a future version.
  */
 export interface GitStoresConfig {
-  /** Immutable history storage (Part 1) */
-  readonly history: HistoryStore;
+  /** Immutable history storage (Part 1) - supports both legacy HistoryStore and new History */
+  readonly history: HistoryStore | History;
 
   /** Mutable checkout state (Part 3) - optional for read-only operations */
-  readonly checkout?: CheckoutStore;
+  readonly checkout?: CheckoutStore | Checkout;
 
   /** Filesystem access (Part 2) - optional for bare repos */
-  readonly worktree?: WorktreeStore;
+  readonly worktree?: WorktreeStore | Worktree;
 
   /** Staging store - required if checkout not provided */
-  readonly staging?: StagingStore;
+  readonly staging?: StagingStore | Staging;
 }
 
 /**
@@ -324,17 +346,24 @@ export function createGitStoreFromStores(config: GitStoresConfig): GitStore | Gi
     throw new Error("Either checkout or staging must be provided");
   }
 
+  // Check if history is a History facade (new architecture)
+  const historyFacade =
+    "blobs" in history && "initialize" in history ? (history as History) : undefined;
+  const checkoutFacade = checkout && "staging" in checkout ? (checkout as Checkout) : undefined;
+
   const store: GitStore = {
-    blobs: history.blobs,
-    trees: history.trees,
-    commits: history.commits,
-    refs: history.refs,
-    staging: effectiveStaging,
-    tags: history.tags,
+    history: historyFacade,
+    checkout: checkoutFacade,
+    blobs: history.blobs as Blobs,
+    trees: history.trees as Trees,
+    commits: history.commits as Commits,
+    refs: history.refs as Refs,
+    staging: effectiveStaging as Staging,
+    tags: history.tags as Tags | undefined,
   };
 
   if (worktree) {
-    return { ...store, worktree } as GitStoreWithWorkTree;
+    return { ...store, worktree: worktree as Worktree } as GitStoreWithWorkTree;
   }
 
   return store;
@@ -350,20 +379,31 @@ export function createGitStoreFromStores(config: GitStoresConfig): GitStore | Gi
  *
  * @example
  * ```typescript
- * import { WorkingCopy, History, Checkout, Worktree } from "@statewalker/vcs-commands";
+ * import { WorkingCopy, History, Checkout, Worktree, Blobs, Trees, Commits } from "@statewalker/vcs-commands";
  *
  * // Or import directly from core:
  * import { WorkingCopy } from "@statewalker/vcs-core";
  * ```
  */
 export type {
+  /** Blobs interface - file content storage */
+  Blobs,
   /** Checkout interface - mutable local state */
   Checkout,
+  /** Commits interface - commit object storage */
+  Commits,
   /** History interface - immutable repository objects */
   History,
+  /** Refs interface - branch and tag references */
+  Refs,
+  /** Staging interface - index/staging area */
+  Staging,
+  /** Tags interface - annotated tag storage */
+  Tags,
+  /** Trees interface - directory structure storage */
+  Trees,
+  /** WorkingCopy interface - unified repository access */
+  WorkingCopy,
   /** Worktree interface - filesystem access */
   Worktree,
 } from "@statewalker/vcs-core";
-
-// Note: WorkingCopy is already imported at the top and can be re-exported
-// The export is done implicitly via the type import for WorkingCopy at line 11
