@@ -3,6 +3,7 @@
  */
 
 import type { StorageBackend } from "../backend/storage-backend.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { Blobs } from "./blobs/blobs.js";
 import type { Commits } from "./commits/commits.js";
 import type { History, HistoryWithBackend } from "./history.js";
@@ -59,6 +60,102 @@ export class HistoryImpl implements History {
 
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  /**
+   * Collect all objects reachable from wants, excluding haves
+   *
+   * Traverses the object graph using BFS:
+   * - From commits: adds tree and parent commits
+   * - From trees: adds child blobs and trees
+   * - From tags: adds target object
+   * - Blobs: leaf nodes, no children
+   */
+  async *collectReachableObjects(
+    wants: Set<string>,
+    exclude: Set<string>,
+  ): AsyncIterable<ObjectId> {
+    const visited = new Set<string>();
+
+    // Expand exclude set to include all ancestor commits
+    const excludeExpanded = new Set<string>(exclude);
+    for (const excludeOid of exclude) {
+      try {
+        for await (const ancestorOid of this.commits.walkAncestry(excludeOid)) {
+          excludeExpanded.add(ancestorOid);
+        }
+      } catch {
+        // Not a commit, skip
+      }
+    }
+
+    // BFS from wants
+    const queue: string[] = [...wants];
+
+    while (queue.length > 0) {
+      const oid = queue.shift();
+      if (!oid) continue;
+
+      if (visited.has(oid) || excludeExpanded.has(oid)) {
+        continue;
+      }
+      visited.add(oid);
+
+      // Check if object exists
+      const exists = await this.hasObject(oid);
+      if (!exists) continue;
+
+      yield oid;
+
+      // Try to load as commit and walk its tree and parents
+      const commit = await this.commits.load(oid);
+      if (commit) {
+        // Add tree to queue
+        if (!visited.has(commit.tree)) {
+          queue.push(commit.tree);
+        }
+
+        // Add parents to queue
+        for (const parent of commit.parents) {
+          if (!visited.has(parent) && !excludeExpanded.has(parent)) {
+            queue.push(parent);
+          }
+        }
+        continue;
+      }
+
+      // Try to load as tree and walk entries
+      const tree = await this.trees.load(oid);
+      if (tree) {
+        for await (const entry of tree) {
+          if (!visited.has(entry.id)) {
+            queue.push(entry.id);
+          }
+        }
+        continue;
+      }
+
+      // Try to load as tag and walk tagged object
+      const tag = await this.tags.load(oid);
+      if (tag) {
+        if (!visited.has(tag.object)) {
+          queue.push(tag.object);
+        }
+      }
+
+      // Blob - no children to walk
+    }
+  }
+
+  /**
+   * Check if an object exists in any store
+   */
+  private async hasObject(oid: string): Promise<boolean> {
+    if (await this.commits.has(oid)) return true;
+    if (await this.trees.has(oid)) return true;
+    if (await this.blobs.has(oid)) return true;
+    if (await this.tags.has(oid)) return true;
+    return false;
   }
 }
 
