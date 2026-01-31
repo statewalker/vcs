@@ -22,6 +22,7 @@
  */
 
 import type { StorageBackend } from "../backend/storage-backend.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { Blobs } from "./blobs/blobs.js";
 import type { Commits } from "./commits/commits.js";
 import type { Refs } from "./refs/refs.js";
@@ -100,6 +101,29 @@ export interface History {
    * @returns True if initialize() has been called
    */
   isInitialized(): boolean;
+
+  /**
+   * Collect all objects reachable from wants, excluding haves
+   *
+   * Used for pack creation during transport operations (fetch/push).
+   * Traverses the object graph from commits through trees to blobs.
+   *
+   * @param wants - Object IDs to include (with all reachable objects)
+   * @param exclude - Object IDs to exclude (already known by recipient)
+   * @returns AsyncIterable of object IDs in traversal order
+   *
+   * @example
+   * ```typescript
+   * const wants = new Set(["abc123..."]); // commits to send
+   * const haves = new Set(["def456..."]); // commits client already has
+   *
+   * const objects = history.collectReachableObjects(wants, haves);
+   * for await (const oid of objects) {
+   *   // Pack this object for transport
+   * }
+   * ```
+   */
+  collectReachableObjects(wants: Set<string>, exclude: Set<string>): AsyncIterable<ObjectId>;
 }
 
 /**
