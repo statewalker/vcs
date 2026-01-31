@@ -13,8 +13,8 @@
  */
 
 import { asAsyncIterable, mapStream, toLines } from "@statewalker/vcs-utils/streams";
-import { formatPersonIdent, parsePersonIdent } from "../../common/format/person-ident.js";
-import type { TagEntry } from "../../common/format/types.js";
+import { formatPersonIdent, parsePersonIdent } from "../format/person-ident.js";
+import type { TagEntry } from "../format/types.js";
 import { typeCodeToString, typeStringToCode } from "../objects/object-header.js";
 import type { ObjectTypeCode } from "../objects/object-types.js";
 import type { AnnotatedTag } from "./tag-store.js";

@@ -14,7 +14,7 @@
 
 import type { FilesApi } from "../../common/files/index.js";
 import { joinPath } from "../../common/files/index.js";
-import { parsePersonIdent } from "../../common/format/index.js";
+import { parsePersonIdent } from "../format/index.js";
 import type { ReflogEntry, ReflogReader } from "./reflog-types.js";
 
 const LOGS_DIR = "logs";
