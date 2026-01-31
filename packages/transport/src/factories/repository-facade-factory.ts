@@ -7,6 +7,7 @@
 
 import type {
   CommitStore,
+  HistoryStore,
   RefStore as CoreRefStore,
   GitObjectStore,
   ObjectId,
@@ -40,12 +41,37 @@ export interface RepositoryStores {
 }
 
 /**
+ * Creates a RepositoryFacade from a HistoryStore.
+ *
+ * This is the recommended factory method. The HistoryStore must have
+ * a backend with serialization support for pack operations.
+ *
+ * @param history - HistoryStore with backend
+ * @returns RepositoryFacade implementation
+ * @throws Error if history has no backend
+ *
+ * @example
+ * ```ts
+ * const facade = createRepositoryFacade(historyStore);
+ *
+ * // Check if we have an object
+ * const exists = await facade.has("abc123...");
+ *
+ * // Walk ancestors for negotiation
+ * for await (const oid of facade.walkAncestors(startOid)) {
+ *   console.log("Ancestor:", oid);
+ * }
+ * ```
+ */
+export function createRepositoryFacade(history: HistoryStore): RepositoryFacade;
+/**
  * Creates a RepositoryFacade from repository stores.
  *
  * The facade composes multiple store APIs into a transport-friendly
  * interface for pack operations, object existence checks, and
  * ancestry traversal.
  *
+ * @deprecated Use the HistoryStore overload instead
  * @param stores - Repository stores to compose
  * @returns RepositoryFacade implementation
  *
@@ -59,17 +85,38 @@ export interface RepositoryStores {
  *   refs: historyStore.refs,
  *   serialization: historyStore.backend!.serialization,
  * });
- *
- * // Check if we have an object
- * const exists = await facade.has("abc123...");
- *
- * // Walk ancestors for negotiation
- * for await (const oid of facade.walkAncestors(startOid)) {
- *   console.log("Ancestor:", oid);
- * }
  * ```
  */
-export function createRepositoryFacade(stores: RepositoryStores): RepositoryFacade {
+export function createRepositoryFacade(stores: RepositoryStores): RepositoryFacade;
+export function createRepositoryFacade(
+  input: HistoryStore | RepositoryStores,
+): RepositoryFacade {
+  // Check if input is HistoryStore
+  if ("objects" in input && "backend" in input) {
+    const history = input as HistoryStore;
+    if (!history.backend) {
+      throw new Error(
+        "HistoryStore must have a backend for transport operations. " +
+          "Use createGitRepository() to create a repository with a backend.",
+      );
+    }
+    return createRepositoryFacadeImpl({
+      objects: history.objects,
+      commits: history.commits,
+      tags: history.tags,
+      refs: history.refs,
+      serialization: history.backend.serialization,
+    });
+  }
+
+  // Otherwise it's RepositoryStores
+  return createRepositoryFacadeImpl(input as RepositoryStores);
+}
+
+/**
+ * Internal implementation for createRepositoryFacade
+ */
+function createRepositoryFacadeImpl(stores: RepositoryStores): RepositoryFacade {
   const { objects, commits, tags, refs, serialization } = stores;
 
   const facade: RepositoryFacade = {
