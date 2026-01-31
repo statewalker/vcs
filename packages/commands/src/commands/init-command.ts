@@ -3,7 +3,9 @@ import {
   createGitRepository,
   createInMemoryFilesApi,
   type FilesApi,
+  type Staging,
   type StagingStore,
+  type Worktree,
   type WorktreeStore,
 } from "@statewalker/vcs-core";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
@@ -243,10 +245,12 @@ export class InitCommand {
     }
 
     // Create GitStore from repository
+    // Note: MemoryStagingStore implements StagingStore, not Staging
+    // The cast is safe as the methods are compatible during migration
     const store: GitStore | GitStoreWithWorkTree = createGitStore({
       repository,
-      staging,
-      worktree,
+      staging: staging as unknown as Staging,
+      worktree: worktree as unknown as Worktree,
     });
 
     // Create Git facade

@@ -39,7 +39,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     // Verify file is in staging
     await workingCopy.staging.read();
     let hasFile = false;
-    for await (const entry of workingCopy.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.entries()) {
       if (entry.path === "file.txt") {
         hasFile = true;
         break;
@@ -55,7 +55,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     // Verify file is no longer in staging
     await workingCopy.staging.read();
     hasFile = false;
-    for await (const entry of workingCopy.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.entries()) {
       if (entry.path === "file.txt") {
         hasFile = true;
         break;
@@ -86,7 +86,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     // Verify only c.txt remains
     await workingCopy.staging.read();
     const remaining: string[] = [];
-    for await (const entry of workingCopy.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.entries()) {
       remaining.push(entry.path);
     }
     expect(remaining).toEqual(["c.txt"]);
@@ -114,7 +114,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     // Verify only lib/c.txt remains
     await workingCopy.staging.read();
     const remaining: string[] = [];
-    for await (const entry of workingCopy.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.entries()) {
       remaining.push(entry.path);
     }
     expect(remaining).toEqual(["lib/c.txt"]);
@@ -138,7 +138,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     // Original file should still be there
     await workingCopy.staging.read();
     const entries: string[] = [];
-    for await (const entry of workingCopy.staging.listEntries()) {
+    for await (const entry of workingCopy.staging.entries()) {
       entries.push(entry.path);
     }
     expect(entries).toContain("file.txt");

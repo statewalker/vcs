@@ -28,7 +28,7 @@ import { testAuthor } from "./test-helper.js";
  */
 async function addFileToStore(store: GitStore, path: string, content: string): Promise<string> {
   const blobId = await store.blobs.store([new TextEncoder().encode(content)]);
-  const editor = store.staging.editor();
+  const editor = store.staging.createEditor();
   editor.add({
     path,
     apply: () => ({
@@ -258,7 +258,7 @@ describe("CheckoutCommand working directory updates", () => {
       await git.checkout().setCreateBranch(true).setName("empty").call();
 
       // Clear the file by removing it from staging (simulate empty branch)
-      const builder = store.staging.builder();
+      const builder = store.staging.createBuilder();
       await builder.finish();
       await git.commit().setMessage("Empty commit").setAllowEmpty(true).call();
 

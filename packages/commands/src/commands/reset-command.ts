@@ -137,7 +137,7 @@ export class ResetCommand extends GitCommand<Ref> {
     const treeId = targetCommit.tree;
 
     // Reset each path in staging
-    const editor = this.store.staging.editor();
+    const editor = this.store.staging.createEditor();
 
     for (const path of this.paths) {
       const entry = await this.getTreeEntryForPath(treeId, path);

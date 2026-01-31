@@ -642,7 +642,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
     _theirsTreeId: ObjectId,
     mergeResult: TreeMergeResult,
   ): Promise<void> {
-    const builder = this.store.staging.builder();
+    const builder = this.store.staging.createBuilder();
 
     // Add merged entries (stage 0)
     for (const item of mergeResult.merged) {
@@ -689,7 +689,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
    * Write successfully merged entries to staging.
    */
   private async writeMergedStaging(mergeResult: TreeMergeResult): Promise<void> {
-    const builder = this.store.staging.builder();
+    const builder = this.store.staging.createBuilder();
 
     for (const item of mergeResult.merged) {
       if (item.entry) {

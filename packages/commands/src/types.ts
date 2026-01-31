@@ -8,11 +8,11 @@ import type {
   History,
   HistoryStore,
   RefStore,
-  StagingStore,
+  Staging,
   TagStore,
   TreeStore,
   WorkingCopy,
-  WorktreeStore,
+  Worktree,
 } from "@statewalker/vcs-core";
 
 /**
@@ -59,7 +59,7 @@ export interface GitStore {
   readonly refs: RefStore;
 
   /** Staging area (index) management */
-  readonly staging: StagingStore;
+  readonly staging: Staging;
 
   /** Tag object storage (optional, for annotated tags) */
   readonly tags?: TagStore;
@@ -121,7 +121,7 @@ export enum ListBranchMode {
  */
 export interface GitStoreWithWorkTree extends GitStore {
   /** Working tree interface for filesystem operations */
-  readonly worktree: WorktreeStore;
+  readonly worktree: Worktree;
 }
 
 /**
@@ -164,10 +164,10 @@ export interface CreateGitStoreOptions {
   repository: History | HistoryStore;
 
   /** Staging area for index operations */
-  staging: StagingStore;
+  staging: Staging;
 
   /** Optional working tree interface for filesystem operations */
-  worktree?: WorktreeStore;
+  worktree?: Worktree;
 
   /** Optional FilesApi for writing files to the working tree */
   files?: FilesApi;
@@ -199,13 +199,13 @@ export interface CreateGitStoreOptions {
  */
 export function createGitStore(
   options: CreateGitStoreOptions & {
-    worktree: WorktreeStore;
+    worktree: Worktree;
     files: FilesApi;
     workTreeRoot: string;
   },
 ): GitStoreWithFiles;
 export function createGitStore(
-  options: CreateGitStoreOptions & { worktree: WorktreeStore },
+  options: CreateGitStoreOptions & { worktree: Worktree },
 ): GitStoreWithWorkTree;
 export function createGitStore(options: CreateGitStoreOptions): GitStore;
 export function createGitStore(
@@ -266,7 +266,7 @@ export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStor
   const commits = (history?.commits ?? repository.commits) as unknown as CommitStore;
   const refs = (history?.refs ?? repository.refs) as unknown as RefStore;
   const tags = (history?.tags ?? repository.tags) as unknown as TagStore | undefined;
-  const effectiveStaging = (checkout?.staging ?? staging) as unknown as StagingStore;
+  const effectiveStaging = (checkout?.staging ?? staging) as unknown as Staging;
 
   return {
     history,
@@ -277,7 +277,7 @@ export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStor
     refs,
     staging: effectiveStaging,
     tags,
-    worktree: worktree as WorktreeStore,
+    worktree: worktree as Worktree,
   };
 }
 
@@ -310,10 +310,10 @@ export interface GitStoresConfig {
   readonly checkout?: CheckoutStore;
 
   /** Filesystem access (Part 2) - optional for bare repos */
-  readonly worktree?: WorktreeStore;
+  readonly worktree?: Worktree;
 
   /** Staging store - required if checkout not provided */
-  readonly staging?: StagingStore;
+  readonly staging?: Staging;
 }
 
 /**
@@ -358,7 +358,7 @@ export function createGitStoreFromStores(config: GitStoresConfig): GitStore | Gi
     trees: history.trees as unknown as TreeStore,
     commits: history.commits as unknown as CommitStore,
     refs: history.refs as unknown as RefStore,
-    staging: effectiveStaging as unknown as StagingStore,
+    staging: effectiveStaging as unknown as Staging,
     tags: history.tags as unknown as TagStore | undefined,
   };
 

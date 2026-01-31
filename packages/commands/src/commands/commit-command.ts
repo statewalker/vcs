@@ -288,10 +288,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
 
     // Check for conflicts
     if (await this.store.staging.hasConflicts()) {
-      const conflictPaths: string[] = [];
-      for await (const path of this.store.staging.getConflictPaths()) {
-        conflictPaths.push(path);
-      }
+      const conflictPaths = await this.store.staging.getConflictedPaths();
       throw new UnmergedPathsError(conflictPaths);
     }
 
@@ -417,7 +414,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
     const onlyPathSet = new Set(this.onlyPaths);
     const stagingEntriesMap = new Map<string, { objectId: ObjectId; mode: number }>();
 
-    for await (const entry of this.store.staging.listEntries()) {
+    for await (const entry of this.store.staging.entries()) {
       if (onlyPathSet.has(entry.path) && entry.stage === 0) {
         stagingEntriesMap.set(entry.path, {
           objectId: entry.objectId,
@@ -427,7 +424,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
     }
 
     // Create builder and populate with filtered tree
-    const builder = this.store.staging.builder();
+    const builder = this.store.staging.createBuilder();
 
     // Walk parent tree and add entries NOT in onlyPaths
     await this.addTreeFiltered(builder, parentCommit.tree, "", onlyPathSet);
@@ -453,7 +450,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
    * Recursively walk tree and add entries to builder, excluding specified paths.
    */
   private async addTreeFiltered(
-    builder: ReturnType<typeof this.store.staging.builder>,
+    builder: ReturnType<typeof this.store.staging.createBuilder>,
     treeId: ObjectId,
     prefix: string,
     excludePaths: Set<string>,

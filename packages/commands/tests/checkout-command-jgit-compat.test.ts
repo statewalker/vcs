@@ -540,7 +540,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       await addFile(workingCopy, "a.txt", "test-a");
       await addFile(workingCopy, "c.txt", "test-c");
       // Remove b.txt
-      const editor = workingCopy.staging.editor();
+      const editor = workingCopy.staging.createEditor();
       editor.add(new DeleteStagingEntry("b.txt"));
       await editor.finish();
       await git.commit().setMessage("Test commit").call();

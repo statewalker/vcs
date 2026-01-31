@@ -60,7 +60,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     const commit1Id = await repository.commits.storeCommit(commit1);
 
     // Remove the file and commit
-    const editor = workingCopy.staging.editor();
+    const editor = workingCopy.staging.createEditor();
     editor.add({ path: "file.txt", apply: () => undefined });
     await editor.finish();
     await workingCopy.staging.write();
@@ -113,7 +113,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
 
     // Modify file1, delete file2, add file4
     await addFile(workingCopy, "file1.txt", "modified");
-    const editor = workingCopy.staging.editor();
+    const editor = workingCopy.staging.createEditor();
     editor.add({ path: "file2.txt", apply: () => undefined });
     await editor.finish();
     await addFile(workingCopy, "file4.txt", "new content");

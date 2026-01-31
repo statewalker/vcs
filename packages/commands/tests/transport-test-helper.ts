@@ -214,7 +214,7 @@ export async function addFileAndCommit(
   const blobId = await store.blobs.store([data]);
 
   // Update staging
-  const editor = store.staging.editor();
+  const editor = store.staging.createEditor();
   editor.add({
     path,
     apply: () => ({

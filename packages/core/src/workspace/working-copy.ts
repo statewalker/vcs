@@ -1,25 +1,25 @@
 /**
  * WorkingCopy interface - local checkout state
  *
- * A WorkingCopy links a working directory to a HistoryStore.
+ * A WorkingCopy links a working directory to a History store.
  * It manages all local state: HEAD, staging area, merge state.
- * Multiple WorkingCopies can share a single HistoryStore.
+ * Multiple WorkingCopies can share a single History store.
  *
  * Corresponds to Fossil's "checkout database" concept.
  *
- * @see HistoryStore for shared history storage
- * @see CheckoutStore for local checkout state
- * @see WorktreeStore for filesystem access
+ * @see History for shared history storage
+ * @see Checkout for local checkout state
+ * @see Worktree for filesystem access
  */
 
 import type { ObjectId } from "../common/id/index.js";
 import type { History } from "../history/history.js";
 import type { HistoryStore } from "../history/history-store.js";
 import type { Checkout } from "./checkout/checkout.js";
-import type { Staging, StagingStore } from "./staging/index.js";
+import type { Staging } from "./staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "./status/index.js";
 import type { RepositoryStateValue, StateCapabilities } from "./working-copy/repository-state.js";
-import type { Worktree, WorktreeStore } from "./worktree/index.js";
+import type { Worktree } from "./worktree/index.js";
 
 /**
  * Working copy configuration
@@ -221,12 +221,12 @@ export interface WorkingCopy {
   /**
    * @deprecated Use `worktreeInterface` instead. Will be removed in future version.
    */
-  readonly worktree: WorktreeStore;
+  readonly worktree: Worktree;
 
   /**
    * @deprecated Use `checkout.staging` instead. Will be removed in future version.
    */
-  readonly staging: StagingStore | Staging;
+  readonly staging: Staging;
 
   /** Stash operations (storage is backend-dependent) */
   readonly stash: StashStore;
