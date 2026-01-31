@@ -1,12 +1,11 @@
 import type {
-  // Legacy interfaces - used by commands internally
+  // Legacy interfaces - used by commands internally during migration
   BlobStore,
   Checkout,
   CheckoutStore,
   CommitStore,
   FilesApi,
   History,
-  HistoryStore,
   RefStore,
   StagingStore,
   TagStore,
@@ -160,8 +159,8 @@ export interface GitStoreWithFiles extends GitStoreWithWorkTree {
  * This interface will be removed in a future version.
  */
 export interface CreateGitStoreOptions {
-  /** The history store providing object stores (legacy) or History facade (new) */
-  repository: HistoryStore | History;
+  /** The History facade providing object stores */
+  repository: History;
 
   /** Staging area for index operations */
   staging: StagingStore;
@@ -300,8 +299,8 @@ export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStor
  * This interface will be removed in a future version.
  */
 export interface GitStoresConfig {
-  /** Immutable history storage (Part 1) - supports both legacy HistoryStore and new History */
-  readonly history: HistoryStore | History;
+  /** Immutable history storage (Part 1) - History facade */
+  readonly history: History;
 
   /** Mutable checkout state (Part 3) - optional for read-only operations */
   readonly checkout?: CheckoutStore;
