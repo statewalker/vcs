@@ -333,8 +333,8 @@ export class GitResolutionStore implements ResolutionStore {
     let recordedAt = new Date();
     try {
       const stats = await this.files.stats(cacheDir);
-      if (stats?.mtime) {
-        recordedAt = new Date(stats.mtime);
+      if (stats?.lastModified) {
+        recordedAt = new Date(stats.lastModified);
       }
     } catch {
       // Use current time if stats fails
