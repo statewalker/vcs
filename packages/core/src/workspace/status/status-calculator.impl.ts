@@ -24,8 +24,8 @@ import type { CommitStore } from "../../history/commits/commit-store.js";
 import type { RefStore } from "../../history/refs/ref-store.js";
 import { isSymbolicRef } from "../../history/refs/ref-types.js";
 import type { TreeStore } from "../../history/trees/tree-store.js";
-import type { StagingStore } from "../staging/staging-store.js";
-import type { WorktreeStore } from "../worktree/worktree-store.js";
+import type { Staging } from "../staging/staging.js";
+import type { Worktree } from "../worktree/worktree.js";
 import type { IndexDiff } from "./index-diff.js";
 import { createIndexDiffCalculator } from "./index-diff-calculator.js";
 import {
@@ -70,10 +70,10 @@ interface WorktreeEntryInfo {
  */
 export interface StatusCalculatorOptions {
   /** Working tree iterator */
-  worktree: WorktreeStore;
+  worktree: Worktree;
 
   /** Staging area (index) */
-  staging: StagingStore;
+  staging: Staging;
 
   /** Tree storage */
   trees: TreeStore;
@@ -92,8 +92,8 @@ export interface StatusCalculatorOptions {
  * StatusCalculator implementation.
  */
 export class StatusCalculatorImpl implements StatusCalculator {
-  private readonly worktree: WorktreeStore;
-  private readonly staging: StagingStore;
+  private readonly worktree: Worktree;
+  private readonly staging: Staging;
   private readonly trees: TreeStore;
   private readonly commits: CommitStore;
   private readonly refs: RefStore;
@@ -202,7 +202,7 @@ export class StatusCalculatorImpl implements StatusCalculator {
     if (await this.staging.hasConflicts()) {
       hasConflicts = true;
       // Add conflict entries
-      for await (const conflictPath of this.staging.getConflictPaths()) {
+      for (const conflictPath of await this.staging.getConflictedPaths()) {
         const existing = files.find((f) => f.path === conflictPath);
         if (existing) {
           existing.indexStatus = FileStatus.CONFLICTED;
@@ -441,7 +441,7 @@ export class StatusCalculatorImpl implements StatusCalculator {
   private async buildIndexMap(): Promise<Map<string, IndexEntryInfo>> {
     const map = new Map<string, IndexEntryInfo>();
 
-    for await (const entry of this.staging.listEntries()) {
+    for await (const entry of this.staging.entries()) {
       // Only stage 0 entries (non-conflicted)
       if (entry.stage === 0) {
         map.set(entry.path, {

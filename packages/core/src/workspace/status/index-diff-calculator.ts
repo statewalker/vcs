@@ -17,8 +17,10 @@
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
 import type { TreeStore } from "../../history/trees/index.js";
-import type { MergeStageValue, StagingEntry, StagingStore } from "../staging/index.js";
-import type { WorktreeEntry, WorktreeStore } from "../worktree/index.js";
+import type { MergeStageValue, StagingEntry } from "../staging/index.js";
+import type { Staging } from "../staging/staging.js";
+import type { WorktreeEntry } from "../worktree/index.js";
+import type { Worktree } from "../worktree/worktree.js";
 import type { IndexDiff, IndexDiffCalculator, IndexDiffOptions } from "./index-diff.js";
 import { createEmptyIndexDiff } from "./index-diff.js";
 import { getStageState, type StageStateValue } from "./status-calculator.js";
@@ -30,9 +32,9 @@ export interface IndexDiffDependencies {
   /** Tree storage for accessing HEAD tree */
   readonly trees: TreeStore;
   /** Staging area (index) */
-  readonly staging: StagingStore;
-  /** Worktree store */
-  readonly worktree: WorktreeStore;
+  readonly staging: Staging;
+  /** Worktree interface */
+  readonly worktree: Worktree;
 }
 
 /**
@@ -163,7 +165,7 @@ class IndexDiffCalculatorImpl implements IndexDiffCalculator {
     const indexMap = new Map<string, StagingEntry>();
     const conflictMap = new Map<string, Map<MergeStageValue, StagingEntry>>();
 
-    for await (const entry of this.deps.staging.listEntries()) {
+    for await (const entry of this.deps.staging.entries()) {
       // Check path prefix filter
       if (pathPrefix && !entry.path.startsWith(pathPrefix)) {
         continue;

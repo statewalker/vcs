@@ -3,18 +3,16 @@ import { FileMode } from "../../src/common/files/index.js";
 import type { CommitStore } from "../../src/history/commits/commit-store.js";
 import type { RefStore } from "../../src/history/refs/ref-store.js";
 import type { TreeEntry, TreeStore } from "../../src/history/trees/index.js";
-import type {
-  MergeStageValue,
-  StagingEntry,
-  StagingStore,
-} from "../../src/workspace/staging/index.js";
+import type { MergeStageValue, StagingEntry } from "../../src/workspace/staging/index.js";
+import type { Staging } from "../../src/workspace/staging/staging.js";
 import {
   createStatusCalculator,
   FileStatus,
   getStageState,
   StageState,
 } from "../../src/workspace/status/index.js";
-import type { WorktreeEntry, WorktreeStore } from "../../src/workspace/worktree/index.js";
+import type { WorktreeEntry } from "../../src/workspace/worktree/index.js";
+import type { Worktree } from "../../src/workspace/worktree/worktree.js";
 
 /**
  * Helper to create mock tree store
@@ -38,48 +36,57 @@ function createMockTreeStore(entries: Map<string, TreeEntry[]>): TreeStore {
 }
 
 /**
- * Helper to create mock staging store
+ * Helper to create mock Staging (new interface)
  */
-function createMockStagingStore(
-  stagingEntries: StagingEntry[],
-  conflictPaths: string[] = [],
-): StagingStore {
+function createMockStaging(stagingEntries: StagingEntry[], conflictPaths: string[] = []): Staging {
   return {
-    listEntries: vi.fn().mockImplementation(async function* () {
+    getEntryCount: vi.fn().mockResolvedValue(stagingEntries.length),
+    hasEntry: vi.fn().mockImplementation(async (path: string) => {
+      return stagingEntries.some((e) => e.path === path);
+    }),
+    getEntry: vi.fn().mockImplementation(async (path: string, stage?: MergeStageValue) => {
+      const targetStage = stage ?? 0;
+      return stagingEntries.find((e) => e.path === path && e.stage === targetStage);
+    }),
+    getEntries: vi.fn().mockImplementation(async (path: string) => {
+      return stagingEntries.filter((e) => e.path === path);
+    }),
+    setEntry: vi.fn().mockResolvedValue(undefined),
+    removeEntry: vi.fn().mockResolvedValue(true),
+    entries: vi.fn().mockImplementation(async function* () {
       for (const entry of stagingEntries) {
         yield entry;
       }
     }),
-    getEntry: vi.fn().mockImplementation(async (path: string) => {
-      return stagingEntries.find((e) => e.path === path && e.stage === 0);
-    }),
-    getEntryByStage: vi.fn(),
-    getEntries: vi.fn(),
-    hasEntry: vi.fn(),
-    getEntryCount: vi.fn(),
-    listEntriesUnder: vi.fn(),
     hasConflicts: vi.fn().mockResolvedValue(conflictPaths.length > 0),
-    getConflictPaths: vi.fn().mockImplementation(async function* () {
-      for (const path of conflictPaths) {
-        yield path;
-      }
+    getConflictedPaths: vi.fn().mockResolvedValue(conflictPaths),
+    resolveConflict: vi.fn().mockResolvedValue(undefined),
+    writeTree: vi.fn().mockResolvedValue("4b825dc642cb6eb9a060e54bf8d69288fbee4904"),
+    readTree: vi.fn().mockResolvedValue(undefined),
+    createBuilder: vi.fn().mockReturnValue({
+      add: vi.fn(),
+      keep: vi.fn(),
+      addTree: vi.fn().mockResolvedValue(undefined),
+      finish: vi.fn().mockResolvedValue(undefined),
     }),
-    builder: vi.fn(),
-    editor: vi.fn(),
-    clear: vi.fn(),
-    writeTree: vi.fn(),
-    readTree: vi.fn(),
-    read: vi.fn(),
-    write: vi.fn(),
-    isOutdated: vi.fn(),
+    createEditor: vi.fn().mockReturnValue({
+      add: vi.fn(),
+      remove: vi.fn(),
+      upsert: vi.fn(),
+      finish: vi.fn().mockResolvedValue(undefined),
+    }),
+    read: vi.fn().mockResolvedValue(undefined),
+    write: vi.fn().mockResolvedValue(undefined),
+    isOutdated: vi.fn().mockResolvedValue(false),
     getUpdateTime: vi.fn().mockReturnValue(Date.now() - 10000), // 10 seconds ago
-  } as unknown as StagingStore;
+    clear: vi.fn().mockResolvedValue(undefined),
+  } as unknown as Staging;
 }
 
 /**
- * Helper to create mock working tree iterator
+ * Helper to create mock Worktree (new interface)
  */
-function createMockWorktree(entries: WorktreeEntry[], hashes: Map<string, string>): WorktreeStore {
+function createMockWorktree(entries: WorktreeEntry[], hashes: Map<string, string>): Worktree {
   return {
     walk: vi.fn().mockImplementation(async function* () {
       for (const entry of entries) {
@@ -92,8 +99,29 @@ function createMockWorktree(entries: WorktreeEntry[], hashes: Map<string, string
     computeHash: vi.fn().mockImplementation(async (path: string) => {
       return hashes.get(path) ?? "unknown-hash";
     }),
-    readContent: vi.fn(),
-  } as unknown as WorktreeStore;
+    readContent: vi.fn().mockImplementation(function* () {
+      yield new Uint8Array([]);
+    }),
+    exists: vi.fn().mockImplementation(async (path: string) => {
+      return entries.some((e) => e.path === path);
+    }),
+    isIgnored: vi.fn().mockImplementation(async (path: string) => {
+      const entry = entries.find((e) => e.path === path);
+      return entry?.isIgnored ?? false;
+    }),
+    writeContent: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(true),
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    rename: vi.fn().mockResolvedValue(undefined),
+    checkoutTree: vi
+      .fn()
+      .mockResolvedValue({ updated: [], removed: [], conflicts: [], failed: [] }),
+    checkoutPaths: vi
+      .fn()
+      .mockResolvedValue({ updated: [], removed: [], conflicts: [], failed: [] }),
+    getRoot: vi.fn().mockReturnValue("/mock/worktree"),
+    refreshIgnore: vi.fn().mockResolvedValue(undefined),
+  } as unknown as Worktree;
 }
 
 /**
@@ -179,7 +207,7 @@ describe("StatusCalculator", () => {
   describe("calculateStatus", () => {
     it("should return empty status for empty repository", async () => {
       const trees = createMockTreeStore(new Map());
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       const worktree = createMockWorktree([], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore();
@@ -211,7 +239,7 @@ describe("StatusCalculator", () => {
       const worktreeEntries = [createWorktreeEntry("new-file.txt")];
 
       const trees = createMockTreeStore(treeEntries);
-      const staging = createMockStagingStore(stagingEntries);
+      const staging = createMockStaging(stagingEntries);
       const worktree = createMockWorktree(worktreeEntries, new Map([["new-file.txt", "abc123"]]));
       const commits = createMockCommitStore(new Map([["head-commit", "head-tree"]]));
       const refs = createMockRefStore("head-commit", "main");
@@ -239,7 +267,7 @@ describe("StatusCalculator", () => {
       ]);
 
       const trees = createMockTreeStore(treeEntries);
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       const worktree = createMockWorktree([], new Map());
       const commits = createMockCommitStore(new Map([["head-commit", "head-tree"]]));
       const refs = createMockRefStore("head-commit", "main");
@@ -271,7 +299,7 @@ describe("StatusCalculator", () => {
       const worktreeEntries = [createWorktreeEntry("file.txt")];
 
       const trees = createMockTreeStore(treeEntries);
-      const staging = createMockStagingStore(stagingEntries);
+      const staging = createMockStaging(stagingEntries);
       const worktree = createMockWorktree(worktreeEntries, new Map([["file.txt", "new-hash"]]));
       const commits = createMockCommitStore(new Map([["head-commit", "head-tree"]]));
       const refs = createMockRefStore("head-commit", "main");
@@ -294,7 +322,7 @@ describe("StatusCalculator", () => {
 
     it("should detect untracked file", async () => {
       const trees = createMockTreeStore(new Map());
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       const worktree = createMockWorktree([createWorktreeEntry("untracked.txt")], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore();
@@ -319,7 +347,7 @@ describe("StatusCalculator", () => {
 
     it("should detect conflicts", async () => {
       const trees = createMockTreeStore(new Map());
-      const staging = createMockStagingStore([], ["conflict.txt"]);
+      const staging = createMockStaging([], ["conflict.txt"]);
       const worktree = createMockWorktree([createWorktreeEntry("conflict.txt")], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore();
@@ -344,7 +372,7 @@ describe("StatusCalculator", () => {
 
     it("should return current branch", async () => {
       const trees = createMockTreeStore(new Map());
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       const worktree = createMockWorktree([], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore(undefined, "feature-branch");
@@ -386,7 +414,7 @@ describe("StatusCalculator", () => {
       ];
 
       const trees = createMockTreeStore(treeEntries);
-      const staging = createMockStagingStore(stagingEntries);
+      const staging = createMockStaging(stagingEntries);
       const worktree = createMockWorktree(
         worktreeEntries,
         new Map([
@@ -413,7 +441,7 @@ describe("StatusCalculator", () => {
 
     it("should exclude ignored files when option disabled", async () => {
       const trees = createMockTreeStore(new Map());
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       const worktree = createMockWorktree(
         [createWorktreeEntry("ignored.log", { isIgnored: true })],
         new Map(),
@@ -436,7 +464,7 @@ describe("StatusCalculator", () => {
 
     it("should include ignored files when option enabled", async () => {
       const trees = createMockTreeStore(new Map());
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       const worktree = createMockWorktree(
         [createWorktreeEntry("ignored.log", { isIgnored: true })],
         new Map(),
@@ -476,7 +504,7 @@ describe("StatusCalculator", () => {
       ];
 
       const trees = createMockTreeStore(treeEntries);
-      const staging = createMockStagingStore(stagingEntries);
+      const staging = createMockStaging(stagingEntries);
       const worktree = createMockWorktree(worktreeEntries, new Map([["file.txt", "hash123"]]));
       const commits = createMockCommitStore(new Map([["head-commit", "head-tree"]]));
       const refs = createMockRefStore("head-commit", "main");
@@ -505,7 +533,7 @@ describe("StatusCalculator", () => {
       const worktreeEntries = [createWorktreeEntry("file.txt")];
 
       const trees = createMockTreeStore(treeEntries);
-      const staging = createMockStagingStore(stagingEntries);
+      const staging = createMockStaging(stagingEntries);
       const worktree = createMockWorktree(worktreeEntries, new Map([["file.txt", "new-hash"]]));
       const commits = createMockCommitStore(new Map([["head-commit", "head-tree"]]));
       const refs = createMockRefStore("head-commit", "main");
@@ -528,7 +556,7 @@ describe("StatusCalculator", () => {
   describe("isModified", () => {
     it("should return false for file not in index or worktree", async () => {
       const trees = createMockTreeStore(new Map());
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       const worktree = createMockWorktree([], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore();
@@ -548,7 +576,7 @@ describe("StatusCalculator", () => {
 
     it("should return true for file in worktree but not in index", async () => {
       const trees = createMockTreeStore(new Map());
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       const worktree = createMockWorktree([createWorktreeEntry("new-file.txt")], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore();
@@ -568,7 +596,7 @@ describe("StatusCalculator", () => {
 
     it("should return true for file in index but deleted from worktree", async () => {
       const trees = createMockTreeStore(new Map());
-      const staging = createMockStagingStore([createStagingEntry("deleted.txt", "hash123")]);
+      const staging = createMockStaging([createStagingEntry("deleted.txt", "hash123")]);
       const worktree = createMockWorktree([], new Map());
       const commits = createMockCommitStore(new Map());
       const refs = createMockRefStore();

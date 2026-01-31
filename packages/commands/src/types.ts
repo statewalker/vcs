@@ -6,6 +6,7 @@ import type {
   CommitStore,
   FilesApi,
   History,
+  HistoryStore,
   RefStore,
   StagingStore,
   TagStore,
@@ -159,8 +160,8 @@ export interface GitStoreWithFiles extends GitStoreWithWorkTree {
  * This interface will be removed in a future version.
  */
 export interface CreateGitStoreOptions {
-  /** The History facade providing object stores */
-  repository: History;
+  /** The History facade providing object stores (accepts both History and HistoryStore) */
+  repository: History | HistoryStore;
 
   /** Staging area for index operations */
   staging: StagingStore;
@@ -213,13 +214,15 @@ export function createGitStore(
   const { repository, staging, worktree, files, workTreeRoot } = options;
 
   // Both HistoryStore and History have compatible blobs, trees, commits, refs, tags
+  // Note: Using 'as unknown as' because new interfaces (Blobs, Trees, etc.) have
+  // slightly different method signatures. These deprecated functions will be removed.
   const store: GitStore = {
-    blobs: repository.blobs as BlobStore,
-    trees: repository.trees as TreeStore,
-    commits: repository.commits as CommitStore,
-    refs: repository.refs as RefStore,
+    blobs: repository.blobs as unknown as BlobStore,
+    trees: repository.trees as unknown as TreeStore,
+    commits: repository.commits as unknown as CommitStore,
+    refs: repository.refs as unknown as RefStore,
     staging: staging,
-    tags: repository.tags as TagStore | undefined,
+    tags: repository.tags as unknown as TagStore | undefined,
   };
 
   if (worktree && files && workTreeRoot !== undefined) {
@@ -257,12 +260,13 @@ export function createGitStoreFromWorkingCopy(workingCopy: WorkingCopy): GitStor
   const { repository, staging, worktree, history, checkout } = workingCopy;
 
   // Use legacy store interfaces from repository (History/HistoryStore both provide compatible stores)
-  const blobs = (history?.blobs ?? repository.blobs) as BlobStore;
-  const trees = (history?.trees ?? repository.trees) as TreeStore;
-  const commits = (history?.commits ?? repository.commits) as CommitStore;
-  const refs = (history?.refs ?? repository.refs) as RefStore;
-  const tags = (history?.tags ?? repository.tags) as TagStore | undefined;
-  const effectiveStaging = (checkout?.staging ?? staging) as StagingStore;
+  // Note: Using 'as unknown as' because new interfaces have slightly different method signatures.
+  const blobs = (history?.blobs ?? repository.blobs) as unknown as BlobStore;
+  const trees = (history?.trees ?? repository.trees) as unknown as TreeStore;
+  const commits = (history?.commits ?? repository.commits) as unknown as CommitStore;
+  const refs = (history?.refs ?? repository.refs) as unknown as RefStore;
+  const tags = (history?.tags ?? repository.tags) as unknown as TagStore | undefined;
+  const effectiveStaging = (checkout?.staging ?? staging) as unknown as StagingStore;
 
   return {
     history,
@@ -346,15 +350,16 @@ export function createGitStoreFromStores(config: GitStoresConfig): GitStore | Gi
   const historyFacade =
     "blobs" in history && "initialize" in history ? (history as History) : undefined;
 
+  // Note: Using 'as unknown as' because new interfaces have slightly different method signatures.
   const store: GitStore = {
     history: historyFacade,
     checkout: checkout as Checkout | undefined,
-    blobs: history.blobs as BlobStore,
-    trees: history.trees as TreeStore,
-    commits: history.commits as CommitStore,
-    refs: history.refs as RefStore,
-    staging: effectiveStaging as StagingStore,
-    tags: history.tags as TagStore | undefined,
+    blobs: history.blobs as unknown as BlobStore,
+    trees: history.trees as unknown as TreeStore,
+    commits: history.commits as unknown as CommitStore,
+    refs: history.refs as unknown as RefStore,
+    staging: effectiveStaging as unknown as StagingStore,
+    tags: history.tags as unknown as TagStore | undefined,
   };
 
   if (worktree) {
