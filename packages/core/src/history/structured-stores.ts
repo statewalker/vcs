@@ -1,28 +1,28 @@
 /**
  * StructuredStores - Aggregate interface for typed object stores
  *
- * Bundles all five Git object stores into a single interface.
- * This is the "API 1: Structured Stores" from the unified architecture.
+ * @deprecated Use {@link History} from `@statewalker/vcs-core` instead.
  *
- * Provides typed access to parsed Git objects:
- * - BlobStore: File content (streaming)
- * - TreeStore: Directory structure (streaming)
- * - CommitStore: Version snapshots
- * - TagStore: Annotated tags
- * - RefStore: Branches, HEAD, remotes
- *
- * @example
+ * Migration example:
  * ```typescript
- * // Access stores through the aggregate
- * const blob = stores.blobs.load(blobId);
- * const tree = stores.trees.loadTree(treeId);
- * const commit = await stores.commits.loadCommit(commitId);
+ * // Before (via StorageBackend):
+ * const commit = await backend.structured.commits.loadCommit(commitId);
+ * const tree = backend.structured.trees.loadTree(treeId);
  *
- * // Store new objects
- * const newBlobId = await stores.blobs.store(content);
- * const newTreeId = await stores.trees.storeTree(entries);
- * const newCommitId = await stores.commits.storeCommit(commitData);
+ * // After (via History):
+ * const history = createHistoryFromBackend({ backend });
+ * const commit = await history.commits.load(commitId);
+ * const tree = await history.trees.load(treeId);
  * ```
+ *
+ * The new History interface provides the same stores but with:
+ * - Consistent method naming (load/store/remove vs loadCommit/storeCommit/delete)
+ * - Unified lifecycle management
+ * - Direct integration with WorkingCopy
+ *
+ * This interface will be removed in a future version.
+ *
+ * @see History for the new unified interface
  */
 
 import type { BlobStore } from "./blobs/blob-store.js";
@@ -33,6 +33,8 @@ import type { TreeStore } from "./trees/tree-store.js";
 
 /**
  * Aggregate interface for all structured stores
+ *
+ * @deprecated Use {@link History} interface instead.
  *
  * Part of StorageBackend.structured in the three-API architecture:
  * 1. **StructuredStores** (this) - Typed access to parsed objects
@@ -45,6 +47,9 @@ import type { TreeStore } from "./trees/tree-store.js";
  * - commits: Version snapshots with ancestry
  * - tags: Annotated tag objects
  * - refs: Named references (branches, HEAD, remotes)
+ *
+ * This interface will be removed when backends are updated to provide
+ * History directly instead of StructuredStores.
  */
 export interface StructuredStores {
   /**

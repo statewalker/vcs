@@ -112,8 +112,16 @@ export interface StorageBackend {
   /**
    * API 1: Structured access to typed objects
    *
+   * @deprecated Use {@link History} via `createHistoryFromBackend({ backend })` instead.
+   *
    * Provides BlobStore, TreeStore, CommitStore, TagStore, RefStore.
-   * This is the primary application-facing API.
+   * In the new architecture, use History for typed object access:
+   * ```typescript
+   * const history = createHistoryFromBackend({ backend });
+   * const commit = await history.commits.load(commitId);
+   * ```
+   *
+   * This property will be removed in a future version.
    */
   readonly structured: StructuredStores;
 

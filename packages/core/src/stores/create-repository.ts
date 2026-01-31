@@ -1,6 +1,21 @@
 /**
  * Factory function for creating Git-compatible repositories
  *
+ * @deprecated Use `createHistoryFromBackend()` or `createMemoryHistory()` instead.
+ *
+ * Migration:
+ * ```typescript
+ * // Before:
+ * const repo = await createGitRepository(files, ".git");
+ *
+ * // After (for file-based):
+ * const backend = createGitFilesBackend({ files, gitDir: ".git" });
+ * const history = createHistoryFromBackend({ backend });
+ *
+ * // After (for memory):
+ * const history = createMemoryHistory();
+ * ```
+ *
  * Creates a Repository instance with all necessary stores configured
  * for either file-based or memory-based storage.
  */
@@ -54,7 +69,9 @@ export interface CreateRepositoryOptions {
 /**
  * Git-compatible HistoryStore implementation
  *
- * Composes all stores and provides lifecycle management.
+ * @deprecated Use History interface and createHistoryFromBackend() instead.
+ *
+ * This class will be removed in a future version.
  */
 class GitRepository implements HistoryStore {
   readonly config: HistoryStoreConfig;
@@ -117,26 +134,31 @@ class GitRepository implements HistoryStore {
 /**
  * Create a Git-compatible repository
  *
- * Creates a Repository with all necessary stores. Works with both
- * file-based storage (createNodeFilesApi) and in-memory storage (createInMemoryFilesApi).
+ * @deprecated Use `createHistoryFromBackend()` or `createMemoryHistory()` instead.
+ *
+ * Migration:
+ * ```typescript
+ * // Before (in-memory):
+ * const repo = await createGitRepository();
+ *
+ * // After (in-memory):
+ * const history = createMemoryHistory();
+ * await history.initialize();
+ *
+ * // Before (file-based):
+ * const repo = await createGitRepository(files, ".git");
+ *
+ * // After (file-based):
+ * const backend = new GitFilesStorageBackend({ files, gitDir: ".git" });
+ * const history = createHistoryFromBackend({ backend });
+ * ```
+ *
+ * This function will be removed in a future version.
  *
  * @param files FilesApi instance (defaults to in-memory storage)
  * @param gitDir Path to .git directory (relative to files root)
  * @param options Repository creation options
  * @returns Configured Repository instance
- *
- * @example
- * ```typescript
- * // In-memory repository
- * const repo = await createGitRepository();
- *
- * // File-based repository
- * import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
- * import * as fs from "node:fs/promises";
- *
- * const files = createNodeFilesApi({ fs, rootDir: "/path/to/project" });
- * const repo = await createGitRepository(files, ".git");
- * ```
  */
 export async function createGitRepository(
   files: FilesApi = createInMemoryFilesApi(),

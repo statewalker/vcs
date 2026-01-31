@@ -7,9 +7,9 @@
 
 import type {
   CommitStore,
-  HistoryStore,
   RefStore as CoreRefStore,
   GitObjectStore,
+  HistoryStore,
   ObjectId,
   Ref,
   SerializationApi,
@@ -88,9 +88,7 @@ export function createRepositoryFacade(history: HistoryStore): RepositoryFacade;
  * ```
  */
 export function createRepositoryFacade(stores: RepositoryStores): RepositoryFacade;
-export function createRepositoryFacade(
-  input: HistoryStore | RepositoryStores,
-): RepositoryFacade {
+export function createRepositoryFacade(input: HistoryStore | RepositoryStores): RepositoryFacade {
   // Check if input is HistoryStore
   if ("objects" in input && "backend" in input) {
     const history = input as HistoryStore;

@@ -1,17 +1,27 @@
 /**
  * HistoryStore interface - shared history storage (Part 1 of Three-Part Architecture)
  *
- * A HistoryStore contains immutable objects (commits, trees, blobs, tags)
- * and shared refs (branches, remote tracking refs).
+ * @deprecated Use {@link History} interface instead.
  *
- * For local checkout state (HEAD, staging, merge state), use WorkingCopy.
- * Multiple WorkingCopies can share a single HistoryStore.
+ * Migration example:
+ * ```typescript
+ * // Before:
+ * const commit = await historyStore.commits.loadCommit(commitId);
+ * const tree = await historyStore.trees.loadTree(treeId);
  *
- * Implementations may use different backends:
- * - File-based: .git directory structure
- * - SQL: database tables
- * - Memory: in-memory for testing
+ * // After:
+ * const commit = await history.commits.load(commitId);
+ * const tree = await history.trees.load(treeId);
+ * ```
  *
+ * Key differences:
+ * - HistoryStore uses old store types (BlobStore, TreeStore, etc.)
+ * - History uses new store types (Blobs, Trees, etc.)
+ * - Old: loadCommit/storeCommit/delete → New: load/store/remove
+ *
+ * This interface will be removed in a future version.
+ *
+ * @see History for the new interface
  * @see WorkingCopy for local checkout state management
  */
 
@@ -26,6 +36,8 @@ import type { TreeStore } from "./trees/tree-store.js";
 
 /**
  * HistoryStore configuration
+ *
+ * @deprecated Part of the deprecated HistoryStore interface.
  */
 export interface HistoryStoreConfig {
   /** Repository name (optional) */
@@ -39,9 +51,14 @@ export interface HistoryStoreConfig {
 /**
  * HistoryStore interface
  *
+ * @deprecated Use {@link History} interface instead.
+ *
  * Combines object stores and shared refs into a unified repository interface.
  * Contains immutable history that can be shared across multiple working copies.
  *
+ * This interface will be removed in a future version.
+ *
+ * @see History for the new interface
  * @see WorkingCopy for local checkout state (HEAD, staging, merge state)
  */
 export interface HistoryStore {
@@ -109,11 +126,14 @@ export interface HistoryStore {
 /**
  * GitStores - Collection of Git object stores
  *
+ * @deprecated Use {@link History} interface instead.
+ *
  * A subset of HistoryStore containing only the immutable object stores
  * (without refs, config, or lifecycle methods).
- * Useful for transport and storage operations that work with raw objects.
  *
- * @see HistoryStore for full repository interface with refs and lifecycle
+ * This interface will be removed in a future version.
+ *
+ * @see History for the new interface
  */
 export interface GitStores {
   /** Unified Git object storage (raw objects with headers) */
