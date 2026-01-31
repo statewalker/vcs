@@ -48,7 +48,7 @@ type PendingEntry =
 /**
  * Result of flushing pending objects to a pack
  */
-export interface FlushResult {
+export interface PendingPackFlushData {
   /** Generated pack name (without extension) */
   packName: string;
   /** Complete pack file data */
@@ -167,7 +167,7 @@ export class PendingPack {
    *
    * @returns Flush result with pack data and index
    */
-  async flush(): Promise<FlushResult> {
+  async flush(): Promise<PendingPackFlushData> {
     if (this.entries.length === 0) {
       // Generate empty pack
       const writer = new PackWriterStream();

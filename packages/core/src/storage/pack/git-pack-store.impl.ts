@@ -171,8 +171,13 @@ export class GitPackStoreImpl implements GitPackStore {
         await this.flush();
       }
     } else if (this.config.looseStorage) {
-      // Write to loose storage
-      await this.config.looseStorage.store(key, [fullContent]);
+      // Write to loose storage (convert array to async iterable)
+      await this.config.looseStorage.store(
+        key,
+        (async function* () {
+          yield fullContent;
+        })(),
+      );
     } else {
       throw new Error("GitPackStore: packImmediately=false requires looseStorage");
     }
