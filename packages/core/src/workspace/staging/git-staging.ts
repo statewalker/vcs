@@ -28,7 +28,7 @@ import type {
   ReadTreeOptions,
   Staging,
 } from "./staging.js";
-import { MergeStage, type MergeStageValue, type StagingEntry } from "./staging-store.js";
+import { MergeStage, type MergeStageValue, type StagingEntry } from "./types.js";
 
 /**
  * Git index file-based Staging implementation

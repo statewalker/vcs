@@ -1,5 +1,5 @@
 import { bytesToHex, hexToBytes, sha1 } from "@statewalker/vcs-utils";
-import type { MergeStageValue, StagingEntry } from "./staging-store.js";
+import type { MergeStageValue, StagingEntry } from "./types.js";
 
 /**
  * Git index file format constants.
