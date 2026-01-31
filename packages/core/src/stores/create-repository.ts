@@ -35,7 +35,7 @@ import { GitTagStore } from "../history/tags/tag-store.impl.js";
 import { GitTreeStore } from "../history/trees/tree-store.impl.js";
 import { createFileVolatileStore } from "../storage/binary/volatile-store.files.js";
 import { GCController } from "../storage/delta/gc-controller.js";
-import { PackDeltaStore } from "../storage/pack/pack-delta-store.js";
+import { PackDeltaStore } from "../storage/pack/index.js";
 import { CombinedRawStorage, CompressedRawStorage, FileRawStorage } from "../storage/raw/index.js";
 
 /**
