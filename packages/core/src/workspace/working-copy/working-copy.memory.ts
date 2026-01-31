@@ -4,10 +4,17 @@
  * Provides a fast, isolated WorkingCopy without filesystem access.
  * Useful for unit tests that need to verify WorkingCopy-dependent code
  * without dealing with actual file operations.
+ *
+ * This implementation delegates to the new Three-Part Architecture:
+ * - History: Immutable repository objects
+ * - Checkout: Mutable local state (HEAD, staging, operations)
+ * - Worktree: Filesystem access
  */
 
 import type { ObjectId } from "../../common/id/index.js";
+import type { History } from "../../history/history.js";
 import type { HistoryStore } from "../../history/history-store.js";
+import type { Checkout } from "../checkout/checkout.js";
 import type { StagingStore } from "../staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "../status/index.js";
 import type {
@@ -19,7 +26,7 @@ import type {
   WorkingCopy,
   WorkingCopyConfig,
 } from "../working-copy.js";
-import type { WorktreeStore } from "../worktree/index.js";
+import type { Worktree, WorktreeStore } from "../worktree/index.js";
 import {
   getStateCapabilities,
   RepositoryState,
@@ -29,10 +36,35 @@ import {
 import { MemoryStashStore } from "./stash-store.memory.js";
 
 /**
+ * Options for MemoryWorkingCopy
+ */
+export interface MemoryWorkingCopyOptions {
+  /** Legacy HistoryStore */
+  repository: HistoryStore;
+  /** Legacy WorktreeStore */
+  worktree: WorktreeStore;
+  /** Staging store */
+  staging: StagingStore;
+  /** Optional stash store */
+  stash?: StashStore;
+  /** Optional configuration */
+  config?: WorkingCopyConfig;
+  /** Optional History interface (new architecture) */
+  history?: History;
+  /** Optional Checkout interface (new architecture) */
+  checkout?: Checkout;
+  /** Optional Worktree interface (new architecture) */
+  worktreeInterface?: Worktree;
+}
+
+/**
  * In-memory WorkingCopy implementation.
  *
  * Stores HEAD, merge state, and rebase state in memory.
  * Provides test helpers for setting these states directly.
+ *
+ * Can optionally use new architecture interfaces (History, Checkout, Worktree)
+ * if provided, otherwise manages state internally.
  */
 export class MemoryWorkingCopy implements WorkingCopy {
   private headRef = "refs/heads/main";
@@ -43,18 +75,53 @@ export class MemoryWorkingCopy implements WorkingCopy {
   private _revertState: RevertState | undefined;
   private _repositoryState: RepositoryStateValue = RepositoryState.SAFE;
 
+  // New architecture components (optional)
+  readonly history?: History;
+  readonly checkout?: Checkout;
+  readonly worktreeInterface?: Worktree;
+
+  // Legacy properties
+  readonly repository: HistoryStore;
+  readonly worktree: WorktreeStore;
+  readonly staging: StagingStore;
   readonly stash: StashStore;
   readonly config: WorkingCopyConfig;
 
+  constructor(options: MemoryWorkingCopyOptions);
+  /** @deprecated Use options object instead */
   constructor(
-    readonly repository: HistoryStore,
-    readonly worktree: WorktreeStore,
-    readonly staging: StagingStore,
+    repository: HistoryStore,
+    worktree: WorktreeStore,
+    staging: StagingStore,
+    stash?: StashStore,
+    config?: WorkingCopyConfig,
+  );
+  constructor(
+    repositoryOrOptions: HistoryStore | MemoryWorkingCopyOptions,
+    worktree?: WorktreeStore,
+    staging?: StagingStore,
     stash?: StashStore,
     config?: WorkingCopyConfig,
   ) {
-    this.stash = stash ?? new MemoryStashStore();
-    this.config = config ?? {};
+    if (typeof repositoryOrOptions === "object" && "repository" in repositoryOrOptions) {
+      // Options object form
+      const options = repositoryOrOptions;
+      this.repository = options.repository;
+      this.worktree = options.worktree;
+      this.staging = options.staging;
+      this.stash = options.stash ?? new MemoryStashStore();
+      this.config = options.config ?? {};
+      this.history = options.history;
+      this.checkout = options.checkout;
+      this.worktreeInterface = options.worktreeInterface;
+    } else {
+      // Legacy positional arguments form
+      this.repository = repositoryOrOptions;
+      this.worktree = worktree as WorktreeStore;
+      this.staging = staging as StagingStore;
+      this.stash = stash ?? new MemoryStashStore();
+      this.config = config ?? {};
+    }
   }
 
   /**
@@ -251,12 +318,30 @@ export class MemoryWorkingCopy implements WorkingCopy {
 /**
  * Create a MemoryWorkingCopy instance.
  */
+export function createMemoryWorkingCopy(options: MemoryWorkingCopyOptions): MemoryWorkingCopy;
+/** @deprecated Use options object instead */
 export function createMemoryWorkingCopy(
   repository: HistoryStore,
   worktree: WorktreeStore,
   staging: StagingStore,
   stash?: StashStore,
   config?: WorkingCopyConfig,
+): MemoryWorkingCopy;
+export function createMemoryWorkingCopy(
+  repositoryOrOptions: HistoryStore | MemoryWorkingCopyOptions,
+  worktree?: WorktreeStore,
+  staging?: StagingStore,
+  stash?: StashStore,
+  config?: WorkingCopyConfig,
 ): MemoryWorkingCopy {
-  return new MemoryWorkingCopy(repository, worktree, staging, stash, config);
+  if (typeof repositoryOrOptions === "object" && "repository" in repositoryOrOptions) {
+    return new MemoryWorkingCopy(repositoryOrOptions);
+  }
+  return new MemoryWorkingCopy(
+    repositoryOrOptions,
+    worktree as WorktreeStore,
+    staging as StagingStore,
+    stash,
+    config,
+  );
 }
