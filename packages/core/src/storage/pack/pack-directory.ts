@@ -425,6 +425,31 @@ export class PackDirectory {
   }
 
   /**
+   * Get uncompressed size of an object in any pack
+   *
+   * @param id Object ID
+   * @returns Object size in bytes, or -1 if not found
+   */
+  async size(id: ObjectId): Promise<number> {
+    const packName = await this.findPack(id);
+    if (!packName) return -1;
+
+    const reader = await this.getPack(packName);
+    const obj = await reader.get(id);
+    return obj?.size ?? -1;
+  }
+
+  /**
+   * Close all pack readers and release resources
+   *
+   * Alias for invalidate() - closes cached readers and clears cache.
+   * Call this when done using the PackDirectory.
+   */
+  async close(): Promise<void> {
+    await this.invalidate();
+  }
+
+  /**
    * Load index data from disk
    */
   private async loadIndex(name: string): Promise<PackIndex> {
