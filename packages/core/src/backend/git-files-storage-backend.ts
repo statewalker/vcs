@@ -24,7 +24,7 @@ import type {
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
-import type { PackDeltaStore } from "../storage/pack/pack-delta-store.js";
+import type { PackDeltaStore } from "../storage/pack/index.js";
 import type { BackendCapabilities, StorageBackend } from "./storage-backend.js";
 
 /**
