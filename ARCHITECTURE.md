@@ -10,27 +10,30 @@ StateWalker VCS implements Git's object model and protocols entirely in TypeScri
 
 The implementation produces identical output to native Git: same object IDs, same pack file formats, same protocol messages. Repositories created with StateWalker VCS work with standard Git tools and vice versa.
 
-### Separation of Concerns
+### Three-Part Architecture
 
-The architecture strictly separates three concerns:
+The VCS model separates concerns into three distinct layers:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Commands (@statewalker/vcs-commands)                            │
-│  High-level operations: clone, fetch, push, commit          │
+│  History (immutable)                                         │
+│  Content-addressed objects: blobs, trees, commits, tags      │
+│  References: branches, tags, HEAD                            │
 ├─────────────────────────────────────────────────────────────┤
-│  Core Interfaces (@statewalker/vcs-core)                         │
-│  Storage contracts, object model, format specifications     │
+│  Checkout (mutable local state)                              │
+│  Staging area, HEAD pointer, operation state                 │
+│  Stash, transformation state (merge, rebase, etc.)           │
 ├─────────────────────────────────────────────────────────────┤
-│  Storage Backends (@statewalker/vcs-store-*)                  │
-│  Concrete implementations for different storage systems     │
+│  Worktree (filesystem access)                                │
+│  Working directory read/write, file tracking                 │
+│  Ignore patterns, file modes                                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 This separation enables:
-- **Multiple backends**: Same VCS logic works with filesystem, SQLite, IndexedDB, or cloud storage
-- **Testing flexibility**: In-memory implementations enable fast unit tests
-- **Platform portability**: Core logic has no platform-specific dependencies
+- **Multiple worktrees**: Share history across working directories (like `git worktree`)
+- **Offline-first**: History can sync independently of checkout state
+- **Testing flexibility**: Swap filesystem for memory without affecting logic
 
 ### Streaming by Default
 
@@ -61,9 +64,8 @@ The type system and algorithms align with Eclipse JGit, a mature Java implementa
                             ▼
                    ┌──────────────────┐
                    │       core       │
-                   │ (repository,     │
-                   │  stores, packs,  │
-                   │  staging, refs)  │
+                   │ (history, stores,│
+                   │  workspace, packs)│
                    └────────┬─────────┘
                             │
                             ▼
@@ -81,14 +83,16 @@ The type system and algorithms align with Eclipse JGit, a mature Java implementa
 - Compression (zlib via pako, optional Node.js native)
 - Diff algorithms (Myers text diff, binary delta encoding)
 - Git delta format encoding/decoding
+- Varint encoding for pack files
 - Streaming utilities
 
 **@statewalker/vcs-core** defines the VCS contracts and object model:
-- Store interfaces (RawStore, GitObjectStore, CommitStore, etc.)
-- Git object types (blob, tree, commit, tag)
-- Reference management
-- Pack file format
-- Delta compression system
+- History interface (Blobs, Trees, Commits, Tags, Refs)
+- Workspace interfaces (Staging, Checkout, Worktree)
+- Storage abstractions (RawStorage, ChunkAccess, GitObjectStore)
+- Pack file format and delta compression
+- TransformationStore for operation state (merge, rebase, cherry-pick)
+- ResolutionStore for conflict management with rerere support
 
 ### Storage Layer
 
@@ -101,8 +105,6 @@ Storage backends implement core interfaces for different systems:
 | `@statewalker/vcs-store-sql` | SQLite | Server deployments |
 | `@statewalker/vcs-store-kv` | Key-value stores | Custom backends |
 | `@statewalker/vcs-sandbox` | Isolated storage | Safe experimentation |
-
-Note: `@statewalker/vcs-core` includes Git filesystem storage, staging/index area, delta storage engine, and working tree iteration - all consolidated from previously separate packages.
 
 ### Protocol Layer
 
@@ -119,67 +121,207 @@ Note: `@statewalker/vcs-core` includes Git filesystem storage, staging/index are
 - Clone, fetch, push
 - Commit, checkout
 - Branch management
+- Merge, rebase, cherry-pick
 
-## Layered Store Architecture
+## History Interface
 
-Each storage backend implements a layered structure:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Repository                              │
-│  Unified entry point with lifecycle management               │
-├─────────────────────────────────────────────────────────────┤
-│  CommitStore    TreeStore    BlobStore    TagStore           │
-│  Semantic operations on specific object types                │
-├─────────────────────────────────────────────────────────────┤
-│                    GitObjectStore                            │
-│  Unified object storage with type headers                    │
-├─────────────────────────────────────────────────────────────┤
-│               BinStore (binary storage)                      │
-│  Combines raw storage with delta compression                 │
-├─────────────────────────────────────────────────────────────┤
-│    RawStore              DeltaStore                          │
-│    (key-value bytes)     (delta relationships)               │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### RawStore - Foundation
-
-The lowest layer provides key-value byte storage:
+The History interface provides unified access to all immutable repository objects:
 
 ```typescript
-interface RawStore {
-  store(key: string, content: AsyncIterable<Uint8Array>): Promise<void>;
-  load(key: string): AsyncIterable<Uint8Array>;
-  has(key: string): Promise<boolean>;
-  delete(key: string): Promise<boolean>;
-  keys(): AsyncIterable<string>;
+interface History {
+  readonly blobs: Blobs;     // File content (streaming)
+  readonly trees: Trees;     // Directory snapshots
+  readonly commits: Commits; // Version history with ancestry
+  readonly tags: Tags;       // Annotated tags
+  readonly refs: Refs;       // Branch/tag pointers
+
+  initialize(): Promise<void>;
+  close(): Promise<void>;
+  collectReachableObjects(wants, exclude): AsyncIterable<ObjectId>;
 }
 ```
 
-Each storage backend (filesystem, SQLite, memory) implements this interface differently.
+### ObjectStorage Base Interface
 
-### GitObjectStore - Type Awareness
-
-Adds Git object semantics (type headers, content hashing):
+All object stores share a common base interface:
 
 ```typescript
-interface GitObjectStore {
-  store(type: ObjectTypeString, content: AsyncIterable<Uint8Array>): Promise<ObjectId>;
-  load(id: ObjectId): AsyncIterable<Uint8Array>;
-  getHeader(id: ObjectId): Promise<GitObjectHeader>;
+interface ObjectStorage<V> {
+  store(value: V): Promise<ObjectId>;      // Store and get content-addressed ID
+  load(id: ObjectId): Promise<V | undefined>;
   has(id: ObjectId): Promise<boolean>;
+  remove(id: ObjectId): Promise<boolean>;
+  keys(): AsyncIterable<ObjectId>;
 }
 ```
 
 ### Semantic Stores
 
-Built on GitObjectStore, these provide domain-specific operations:
+Built on ObjectStorage, each store adds domain-specific operations:
 
-- **BlobStore**: Raw file content storage
-- **TreeStore**: Directory snapshots with sorted entries
-- **CommitStore**: Commits with ancestry traversal and merge base detection
-- **TagStore**: Annotated tags with target resolution
+- **Blobs**: Raw file content with size queries
+- **Trees**: Directory snapshots with entry lookup and empty tree ID
+- **Commits**: Ancestry traversal, merge base detection, commit graph walking
+- **Tags**: Annotated tags with target resolution (peeling)
+- **Refs**: Named pointers with symbolic ref support
+
+## Workspace Architecture
+
+The workspace layer manages mutable local state:
+
+### Staging Interface
+
+```typescript
+interface Staging {
+  // Entry management
+  getEntry(path: string): StagingEntry | undefined;
+  setEntry(path: string, entry: StagingEntry): void;
+  removeEntry(path: string): boolean;
+
+  // Conflict handling
+  hasConflicts(): boolean;
+  getConflictedPaths(): string[];
+  resolveConflict(path: string, resolution: ConflictResolution): void;
+
+  // Tree operations
+  writeTree(): Promise<ObjectId>;
+  readTree(treeId: ObjectId): Promise<void>;
+}
+```
+
+### Checkout Interface
+
+```typescript
+interface Checkout {
+  readonly staging: Staging;
+
+  // HEAD management
+  getHead(): Promise<ObjectId | undefined>;
+  setHead(target: ObjectId | string): Promise<void>;
+  getCurrentBranch(): Promise<string | undefined>;
+  isDetached(): Promise<boolean>;
+
+  // Operation state
+  getOperationState(): Promise<CheckoutOperationState>;
+  hasOperationInProgress(): Promise<boolean>;
+  abortOperation(): Promise<void>;
+}
+```
+
+### Worktree Interface
+
+```typescript
+interface Worktree {
+  // File operations
+  readContent(path: string): AsyncIterable<Uint8Array>;
+  writeContent(path: string, content: AsyncIterable<Uint8Array>): Promise<void>;
+  exists(path: string): Promise<boolean>;
+  isIgnored(path: string): Promise<boolean>;
+
+  // Directory walking
+  walk(options?: WalkOptions): AsyncIterable<WalkEntry>;
+
+  // Checkout operations
+  checkoutTree(treeId: ObjectId): Promise<void>;
+  checkoutPaths(paths: string[], source: ObjectId): Promise<void>;
+}
+```
+
+## Transformation System
+
+The TransformationStore provides unified state management for multi-commit operations:
+
+```typescript
+interface TransformationStore {
+  readonly merge: MergeStateStore;
+  readonly rebase: RebaseStateStore;
+  readonly cherryPick: CherryPickStateStore;
+  readonly revert: RevertStateStore;
+  readonly sequencer: SequencerStore;
+  readonly resolution?: ResolutionStore;
+
+  getState(): Promise<TransformationState | undefined>;
+  getCapabilities(): Promise<TransformationCapabilities>;
+  hasOperationInProgress(): Promise<boolean>;
+  abortCurrent(): Promise<void>;
+}
+```
+
+### ResolutionStore
+
+Conflict tracking with rerere-like functionality:
+
+```typescript
+interface ResolutionStore {
+  // Conflict detection
+  getConflicts(): Promise<ConflictInfo[]>;
+  hasConflicts(): Promise<boolean>;
+
+  // Resolution workflow
+  markResolved(path: string, strategy: ResolutionStrategy): Promise<void>;
+  acceptOurs(path: string): Promise<void>;
+  acceptTheirs(path: string): Promise<void>;
+
+  // Rerere (reuse recorded resolution)
+  recordResolution(path: string): Promise<void>;
+  getSuggestedResolution(path: string): Promise<RecordedResolution | undefined>;
+  autoResolve(): Promise<string[]>;
+}
+```
+
+## Storage Backend Architecture
+
+The StorageBackend provides three perspectives on the same underlying data:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     StorageBackend                           │
+│  Unified entry point for all storage operations              │
+├─────────────────────────────────────────────────────────────┤
+│  StructuredStores   │   DeltaApi      │   SerializationApi   │
+│  (deprecated)       │   (compression) │   (pack handling)    │
+├─────────────────────┼─────────────────┼─────────────────────┤
+│  Use History        │   BlobDeltaApi  │   Pack encoding      │
+│  interface instead  │   Batch ops     │   Object serializing │
+│                     │   Chain queries │   Import/export      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### RawStorage - The Backend Boundary
+
+The lowest layer provides key-value byte storage:
+
+```typescript
+interface RawStorage {
+  store(key: string, content: AsyncIterable<Uint8Array>): Promise<void>;
+  load(key: string, options?: { start?: number; end?: number }): AsyncIterable<Uint8Array>;
+  has(key: string): Promise<boolean>;
+  remove(key: string): Promise<boolean>;
+  keys(): AsyncIterable<string>;
+  size(key: string): Promise<number>;
+}
+```
+
+Implementations:
+- **MemoryRawStorage**: In-memory Map-based storage for testing
+- **FileRawStorage**: Git-compatible two-level directory structure (XX/XXXXXX)
+- **CompressedRawStorage**: Decorator adding zlib compression
+- **ChunkedRawStorage**: Splits large objects into fixed-size chunks
+
+### ChunkAccess - Chunked Storage
+
+For storage backends with size limits (like browser storage):
+
+```typescript
+interface ChunkAccess {
+  storeChunk(key: string, index: number, data: Uint8Array): Promise<void>;
+  loadChunk(key: string, index: number): Promise<Uint8Array>;
+  getChunkCount(key: string): Promise<number>;
+  removeChunks(key: string): Promise<void>;
+  hasKey(key: string): Promise<boolean>;
+  keys(): AsyncIterable<string>;
+}
+```
 
 ## Content-Addressable Storage
 
@@ -195,72 +337,6 @@ This provides:
 - **Efficient sync**: Only transfer objects not already present
 - **Immutability**: Changing content changes the ID
 
-## Unified Storage Architecture
-
-The storage layer is organized into three main APIs accessed through the `StorageBackend` interface:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     StorageBackend                           │
-│  Unified entry point for all storage operations              │
-├─────────────────────────────────────────────────────────────┤
-│  StructuredStores   │   DeltaApi      │   SerializationApi   │
-│  (semantic objects) │   (compression) │   (format handling)  │
-├─────────────────────┼─────────────────┼─────────────────────┤
-│  BlobStore          │   BlobDeltaApi  │   Pack encoding      │
-│  TreeStore          │   Batch ops     │   Object serializing │
-│  CommitStore        │   Chain queries │   Format conversion  │
-│  TagStore           │                 │                      │
-│  RefStore           │                 │                      │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### StructuredStores - Semantic Object Access
-
-Bundles all five Git object stores under a single interface:
-
-```typescript
-interface StructuredStores {
-  readonly blobs: BlobStore;     // File content (streaming)
-  readonly trees: TreeStore;     // Directory snapshots
-  readonly commits: CommitStore; // Version history
-  readonly tags: TagStore;       // Annotated tags
-  readonly refs: RefStore;       // Branch/tag references
-}
-```
-
-### DeltaApi - Compression Operations
-
-Provides delta compression with a blobs-only strategy:
-
-```typescript
-interface DeltaApi {
-  readonly blobs: BlobDeltaApi;  // Blob-specific delta operations
-
-  isDelta(id: ObjectId): Promise<boolean>;
-  getDeltaChain(id: ObjectId): Promise<DeltaChainInfo | undefined>;
-  listDeltas(): AsyncIterable<DeltaRelationship>;
-  getDependents(baseId: ObjectId): AsyncIterable<ObjectId>;
-
-  // Batch operations for efficient packing
-  startBatch(): void;
-  endBatch(): Promise<void>;
-  cancelBatch(): void;
-}
-```
-
-### Blobs-Only Delta Strategy
-
-Delta compression is applied only to blob objects, not trees or commits:
-
-**Rationale:**
-- **90%+ of storage is blobs**: File content dominates repository size
-- **Trees/commits are small**: Typically < 1KB, delta overhead exceeds savings
-- **Simpler GC**: No tree delta chains to manage during garbage collection
-- **Faster access**: Commits/trees don't require delta reconstruction
-
-This matches Git's internal behavior where pack files primarily deltify blobs.
-
 ## Delta Compression
 
 Similar objects are stored as differences from a base object:
@@ -275,10 +351,15 @@ Delta:
   COPY from source offset 0, length 10   (block A)
 ```
 
-The delta system manages:
-- **Delta chains**: A → B → C where C is delta of B, B is delta of A
-- **Chain depth limits**: Prevent excessively long reconstruction chains
-- **Candidate selection**: Find good base objects for deltaification
+### Blobs-Only Delta Strategy
+
+Delta compression is applied only to blob objects:
+
+**Rationale:**
+- **90%+ of storage is blobs**: File content dominates repository size
+- **Trees/commits are small**: Typically < 1KB, delta overhead exceeds savings
+- **Simpler GC**: No tree delta chains to manage during garbage collection
+- **Faster access**: Commits/trees don't require delta reconstruction
 
 ## Transport Protocol
 
@@ -308,10 +389,10 @@ Features:
 
 ### Custom Storage Backends
 
-Implement the core interfaces for your storage system:
+Implement RawStorage for your storage system:
 
 ```typescript
-class MyRawStore implements RawStore {
+class MyRawStorage implements RawStorage {
   async store(key: string, content: AsyncIterable<Uint8Array>): Promise<void> {
     // Your storage logic
   }
@@ -319,16 +400,13 @@ class MyRawStore implements RawStore {
 }
 ```
 
-Then compose higher-level stores using provided implementations.
-
-### Custom Delta Strategies
-
-Implement `DeltaCandidateStrategy` for domain-specific delta selection:
+Then create a History using factory functions:
 
 ```typescript
-interface DeltaCandidateStrategy {
-  findCandidates(targetId: ObjectId, storage: StorageAnalyzer): AsyncIterable<ObjectId>;
-}
+import { createHistoryFromBackend } from "@statewalker/vcs-core";
+
+const history = await createHistoryFromBackend({ backend: myBackend });
+await history.initialize();
 ```
 
 ### Custom Compression
@@ -357,17 +435,24 @@ const server = createGitHttpServer({
 });
 ```
 
-## Development Packages
+## Browser Compatibility
 
-**@statewalker/vcs-testing** provides shared test utilities and fixtures for verifying storage implementations.
+The core packages work in browsers without polyfills:
+- **@statewalker/vcs-utils**: Pure TypeScript algorithms
+- **@statewalker/vcs-core**: Interface definitions and format handling
+- **@statewalker/vcs-transport**: Web Standard APIs (fetch, Request/Response)
 
-**@statewalker/vcs-storage-tests** contains parametrized test suites that validate any storage backend against the expected behavior.
+Storage backends may have platform requirements:
+- **core (Git storage)**: Requires FilesApi implementation
+- **store-sql**: Requires SQLite (Node.js only)
+- **store-mem**: Works everywhere
+- **store-kv**: Works with any key-value backend (IndexedDB, LocalStorage, etc.)
 
 ## Performance Considerations
 
 ### Streaming Everything
 
-Never buffer entire objects in memory. Use async generators for constant memory overhead:
+Never buffer entire objects in memory. Use async generators:
 
 ```typescript
 async function* processContent(input: AsyncIterable<Uint8Array>) {
@@ -388,16 +473,3 @@ Configure chain depth to balance compression ratio against reconstruction cost. 
 ### Pack File Optimization
 
 Large repositories benefit from periodic repacking to optimize delta relationships and reduce file count.
-
-## Browser Compatibility
-
-The core packages work in browsers without polyfills:
-- **@statewalker/vcs-utils**: Pure TypeScript algorithms
-- **@statewalker/vcs-core**: Interface definitions and format handling (Git filesystem storage requires a FilesApi implementation)
-- **@statewalker/vcs-transport**: Web Standard APIs (fetch, Request/Response)
-
-Storage backends may have platform requirements:
-- **core (Git storage)**: Requires FilesApi implementation (available for Node.js, browser IndexedDB, etc.)
-- **store-sql**: Requires SQLite (Node.js only)
-- **store-mem**: Works everywhere
-- **store-kv**: Works with any key-value backend (IndexedDB, LocalStorage, etc.)
