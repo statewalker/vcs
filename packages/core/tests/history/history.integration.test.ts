@@ -142,7 +142,7 @@ describe("History integration", () => {
 
       const entry = await history.trees.getEntry(treeId, "b.txt");
       expect(entry).toBeDefined();
-      expect(entry!.name).toBe("b.txt");
+      expect(entry?.name).toBe("b.txt");
 
       const missing = await history.trees.getEntry(treeId, "c.txt");
       expect(missing).toBeUndefined();
@@ -175,9 +175,9 @@ describe("History integration", () => {
 
       const loaded = await history.commits.load(commitId);
       expect(loaded).toBeDefined();
-      expect(loaded!.message).toBe("Initial commit\n");
-      expect(loaded!.tree).toBe(treeId);
-      expect(loaded!.parents).toHaveLength(0);
+      expect(loaded?.message).toBe("Initial commit\n");
+      expect(loaded?.tree).toBe(treeId);
+      expect(loaded?.parents).toHaveLength(0);
     });
 
     it("gets tree for commit", async () => {
@@ -238,7 +238,7 @@ describe("History integration", () => {
 
       const resolved = await history.refs.resolve("refs/heads/main");
       expect(resolved).toBeDefined();
-      expect(resolved!.objectId).toBe(commitId);
+      expect(resolved?.objectId).toBe(commitId);
     });
 
     it("sets and resolves symbolic refs", async () => {
@@ -258,7 +258,7 @@ describe("History integration", () => {
 
       const resolved = await history.refs.resolve("HEAD");
       expect(resolved).toBeDefined();
-      expect(resolved!.objectId).toBe(commitId);
+      expect(resolved?.objectId).toBe(commitId);
     });
 
     it("checks ref existence", async () => {
