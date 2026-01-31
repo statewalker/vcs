@@ -156,4 +156,90 @@ export class KVTagStore implements TagStore {
       yield key.slice(TAG_PREFIX.length);
     }
   }
+
+  // --- Extended query methods (O(n) scans) ---
+
+  /**
+   * Find tags by name pattern
+   *
+   * Note: This is an O(n) scan through all tags. For better performance,
+   * use SQL-backed storage instead.
+   *
+   * @param pattern Pattern to match (supports * and ? wildcards)
+   * @returns Async iterable of matching tag IDs
+   */
+  async *findByNamePattern(pattern: string): AsyncIterable<ObjectId> {
+    // Convert simple wildcards to regex
+    const regexPattern = pattern
+      .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*")
+      .replace(/\?/g, ".");
+    const regex = new RegExp(`^${regexPattern}$`, "i");
+
+    for await (const id of this.keys()) {
+      try {
+        const tag = await this.loadTag(id);
+        if (regex.test(tag.tag)) {
+          yield id;
+        }
+      } catch {
+        // Skip invalid tags
+      }
+    }
+  }
+
+  /**
+   * Find tags by tagger email
+   *
+   * Note: This is an O(n) scan through all tags. For better performance,
+   * use SQL-backed storage instead.
+   *
+   * @param email Tagger email to search for
+   * @returns Async iterable of matching tag IDs
+   */
+  async *findByTagger(email: string): AsyncIterable<ObjectId> {
+    for await (const id of this.keys()) {
+      try {
+        const tag = await this.loadTag(id);
+        if (tag.tagger?.email === email) {
+          yield id;
+        }
+      } catch {
+        // Skip invalid tags
+      }
+    }
+  }
+
+  /**
+   * Find tags by target object type
+   *
+   * Note: This is an O(n) scan through all tags. For better performance,
+   * use SQL-backed storage instead.
+   *
+   * @param targetType Target object type code (1=commit, 2=tree, 3=blob, 4=tag)
+   * @returns Async iterable of matching tag IDs
+   */
+  async *findByTargetType(targetType: number): AsyncIterable<ObjectId> {
+    for await (const id of this.keys()) {
+      try {
+        const tag = await this.loadTag(id);
+        if (tag.objectType === targetType) {
+          yield id;
+        }
+      } catch {
+        // Skip invalid tags
+      }
+    }
+  }
+
+  /**
+   * Get tag count
+   */
+  async count(): Promise<number> {
+    let count = 0;
+    for await (const _ of this.keys()) {
+      count++;
+    }
+    return count;
+  }
 }

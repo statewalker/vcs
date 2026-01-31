@@ -46,6 +46,16 @@ export interface SqlNativeCommitStore extends CommitStore {
    * Get commit count in the store
    */
   count(): Promise<number>;
+
+  /**
+   * Search commits by message content
+   *
+   * Uses LIKE for case-insensitive substring matching on commit messages.
+   *
+   * @param pattern Substring to search for in message
+   * @returns Async iterable of matching commit IDs (newest first)
+   */
+  searchMessage(pattern: string): AsyncIterable<ObjectId>;
 }
 
 /**
@@ -62,6 +72,18 @@ export interface SqlNativeTreeStore extends TreeStore {
    * @returns Async iterable of tree IDs containing the blob
    */
   findTreesWithBlob(blobId: ObjectId): AsyncIterable<ObjectId>;
+
+  /**
+   * Find tree entries matching a name pattern
+   *
+   * Uses SQL LIKE pattern matching (% for any chars, _ for single char).
+   *
+   * @param namePattern LIKE pattern for entry name (e.g., "%.ts", "src%")
+   * @returns Async iterable of matching entries with their tree IDs
+   */
+  findByNamePattern(
+    namePattern: string,
+  ): AsyncIterable<{ treeId: ObjectId; entry: { mode: number; name: string; id: ObjectId } }>;
 
   /**
    * Get tree count in the store
@@ -95,6 +117,22 @@ export interface SqlNativeTagStore extends TagStore {
    * @returns Async iterable of matching tag IDs
    */
   findByNamePattern(pattern: string): AsyncIterable<ObjectId>;
+
+  /**
+   * Find tags by tagger email
+   *
+   * @param email Tagger email to search for
+   * @returns Async iterable of matching tag IDs (newest first)
+   */
+  findByTagger(email: string): AsyncIterable<ObjectId>;
+
+  /**
+   * Find tags by target object type
+   *
+   * @param targetType Target object type code (1=commit, 2=tree, 3=blob, 4=tag)
+   * @returns Async iterable of matching tag IDs
+   */
+  findByTargetType(targetType: number): AsyncIterable<ObjectId>;
 
   /**
    * Get tag count in the store
