@@ -365,7 +365,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
       const resolvedContent = encoder.encode("resolved");
       const resolvedId = await repository.blobs.store([resolvedContent]);
 
-      const builder = workingCopy.staging.builder();
+      const builder = workingCopy.staging.createBuilder();
       builder.add({
         path: "file.txt",
         mode: 0o100644,

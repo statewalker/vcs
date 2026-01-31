@@ -299,7 +299,7 @@ export class RevertCommand extends GitCommand<RevertResult> {
     }
 
     // Build merged tree
-    const builder = this.store.staging.builder();
+    const builder = this.store.staging.createBuilder();
     for (const entry of mergedEntries.values()) {
       builder.add({
         path: entry.path,
@@ -488,7 +488,7 @@ export class RevertCommand extends GitCommand<RevertResult> {
     oursTree: Map<string, PathEntry>,
     conflicts: string[],
   ): Promise<void> {
-    const builder = this.store.staging.builder();
+    const builder = this.store.staging.createBuilder();
 
     // Add all non-conflicting entries at stage 0
     const conflictSet = new Set(conflicts);

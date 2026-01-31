@@ -173,7 +173,7 @@ export async function addFile(wc: WorkingCopy, path: string, content: string): P
   const objectId = await wc.repository.blobs.store([data]);
 
   // Add to staging
-  const editor = wc.staging.editor();
+  const editor = wc.staging.createEditor();
   editor.add({
     path,
     apply: () => ({
@@ -259,9 +259,9 @@ export async function createCommit(
  * @param path File path to remove
  */
 export async function removeFile(wc: WorkingCopy, path: string): Promise<void> {
-  const builder = wc.staging.builder();
+  const builder = wc.staging.createBuilder();
   // Add all entries except the one we want to remove
-  for await (const entry of wc.staging.listEntries()) {
+  for await (const entry of wc.staging.entries()) {
     if (entry.path !== path) {
       builder.add(entry);
     }

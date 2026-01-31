@@ -13,7 +13,8 @@ import type { ObjectId } from "../../common/id/index.js";
 import type { History } from "../../history/history.js";
 import type { HistoryStore } from "../../history/history-store.js";
 import type { Checkout } from "../checkout/checkout.js";
-import type { Staging, StagingStore } from "../staging/index.js";
+import type { Staging } from "../staging/index.js";
+import type { StagingStore } from "../staging/staging-store.js";
 import {
   createStatusCalculator,
   type RepositoryStatus,
@@ -28,7 +29,8 @@ import type {
   WorkingCopy,
   WorkingCopyConfig,
 } from "../working-copy.js";
-import type { Worktree, WorktreeStore } from "../worktree/index.js";
+import type { Worktree } from "../worktree/index.js";
+import type { WorktreeStore } from "../worktree/worktree-store.js";
 
 import type { CherryPickStateFilesApi } from "./cherry-pick-state-reader.js";
 import type { MergeStateFilesApi } from "./merge-state-reader.js";
@@ -93,12 +95,14 @@ export class GitWorkingCopy implements WorkingCopy {
 
   // Legacy properties (for backward compatibility)
   readonly repository: HistoryStore;
-  readonly worktree: WorktreeStore;
   readonly stash: StashStore;
   readonly config: WorkingCopyConfig;
 
   // Internal state for legacy mode
-  private _staging?: StagingStore;
+  private _legacyWorktree?: WorktreeStore;
+  private _legacyStaging?: StagingStore;
+  private _worktreeAdapter?: Worktree;
+  private _stagingAdapter?: Staging;
   private readonly files: WorkingCopyFilesApi;
   private readonly gitDir: string;
   private readonly useLegacyMode: boolean;
@@ -131,7 +135,7 @@ export class GitWorkingCopy implements WorkingCopy {
       this.checkout = options.checkout;
       this.worktreeInterface = options.worktreeInterface;
       this.repository = options.repository;
-      this.worktree = options.worktree;
+      this._legacyWorktree = options.worktree;
       this.stash = options.stash;
       this.config = options.config;
       this.files = options.files;
@@ -140,8 +144,8 @@ export class GitWorkingCopy implements WorkingCopy {
     } else {
       // Legacy positional arguments form
       this.repository = repositoryOrOptions;
-      this.worktree = worktree as WorktreeStore;
-      this._staging = staging;
+      this._legacyWorktree = worktree;
+      this._legacyStaging = staging;
       this.stash = stash as StashStore;
       this.config = config as WorkingCopyConfig;
       this.files = files as WorkingCopyFilesApi;
@@ -151,13 +155,31 @@ export class GitWorkingCopy implements WorkingCopy {
   }
 
   /**
-   * Staging area - delegates to checkout or legacy staging
+   * Worktree - delegates to worktreeInterface or creates adapter from legacy
    */
-  get staging(): Staging | StagingStore {
+  get worktree(): Worktree {
+    if (this.worktreeInterface) {
+      return this.worktreeInterface;
+    }
+    // Legacy mode - create adapter if needed
+    if (!this._worktreeAdapter && this._legacyWorktree) {
+      this._worktreeAdapter = this.createWorktreeAdapter();
+    }
+    return this._worktreeAdapter as Worktree;
+  }
+
+  /**
+   * Staging area - delegates to checkout or creates adapter from legacy
+   */
+  get staging(): Staging {
     if (this.checkout) {
       return this.checkout.staging;
     }
-    return this._staging as StagingStore;
+    // Legacy mode - create adapter if needed
+    if (!this._stagingAdapter && this._legacyStaging) {
+      this._stagingAdapter = this.createStagingAdapter();
+    }
+    return this._stagingAdapter as Staging;
   }
 
   /**
@@ -376,10 +398,10 @@ export class GitWorkingCopy implements WorkingCopy {
    * @internal
    */
   private createStagingAdapter(): Staging {
-    if (!this._staging) {
+    if (!this._legacyStaging) {
       throw new Error("Legacy staging store not available");
     }
-    const legacyStaging = this._staging;
+    const legacyStaging = this._legacyStaging;
     return {
       getEntryCount: () => legacyStaging.getEntryCount(),
       hasEntry: (path) => legacyStaging.hasEntry(path),
@@ -450,7 +472,10 @@ export class GitWorkingCopy implements WorkingCopy {
    * @internal
    */
   private createWorktreeAdapter(): Worktree {
-    const legacyWorktree = this.worktree;
+    if (!this._legacyWorktree) {
+      throw new Error("Legacy worktree store not available");
+    }
+    const legacyWorktree = this._legacyWorktree;
     return {
       walk: (opts) => legacyWorktree.walk(opts),
       getEntry: (path) => legacyWorktree.getEntry(path),

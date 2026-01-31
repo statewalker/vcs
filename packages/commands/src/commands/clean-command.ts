@@ -121,7 +121,7 @@ export class CleanCommand extends GitCommand<CleanResult> {
 
     // Get entries from staging to compare
     const stagedPaths = new Set<string>();
-    for await (const entry of this.store.staging.listEntries()) {
+    for await (const entry of this.store.staging.entries()) {
       stagedPaths.add(entry.path);
     }
 

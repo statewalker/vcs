@@ -13,9 +13,9 @@ import {
   type BlobStore,
   DeleteStagingEntry,
   FileMode,
-  type StagingStore,
+  type Staging,
   UpdateStagingEntry,
-  type WorktreeStore,
+  type Worktree,
 } from "@statewalker/vcs-core";
 import type { Add, AddOptions, AddResult } from "./add.command.js";
 
@@ -24,13 +24,13 @@ import type { Add, AddOptions, AddResult } from "./add.command.js";
  */
 export interface AddCommandOptions {
   /** Working tree iterator */
-  worktree: WorktreeStore;
+  worktree: Worktree;
 
   /** Blob storage for file content */
   blobs: BlobStore;
 
   /** Staging area (index) */
-  staging: StagingStore;
+  staging: Staging;
 }
 
 /**
@@ -99,9 +99,9 @@ function matchGlob(path: string, pattern: string): boolean {
  * AddCommand implementation.
  */
 export class AddCommand implements Add {
-  private readonly worktree: WorktreeStore;
+  private readonly worktree: Worktree;
   private readonly blobs: BlobStore;
-  private readonly staging: StagingStore;
+  private readonly staging: Staging;
 
   constructor(options: AddCommandOptions) {
     this.worktree = options.worktree;
@@ -147,7 +147,7 @@ export class AddCommand implements Add {
     // If update or all mode, check for deleted files in index
     if (update || all) {
       const indexedPaths = new Set<string>();
-      for await (const entry of this.staging.listEntries()) {
+      for await (const entry of this.staging.entries()) {
         if (entry.stage === 0) {
           indexedPaths.add(entry.path);
         }
@@ -174,7 +174,7 @@ export class AddCommand implements Add {
     // If update mode, filter to only tracked files
     if (update) {
       const trackedPaths = new Set<string>();
-      for await (const entry of this.staging.listEntries()) {
+      for await (const entry of this.staging.entries()) {
         if (entry.stage === 0) {
           trackedPaths.add(entry.path);
         }
@@ -186,7 +186,7 @@ export class AddCommand implements Add {
     }
 
     // Process files
-    const editor = this.staging.editor();
+    const editor = this.staging.createEditor();
     const total = filesToProcess.length;
     let current = 0;
 
