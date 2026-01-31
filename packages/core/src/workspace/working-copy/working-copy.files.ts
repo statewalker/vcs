@@ -342,9 +342,26 @@ export class GitWorkingCopy implements WorkingCopy {
    * Compares HEAD, staging area, and working tree.
    */
   async getStatus(options?: StatusOptions): Promise<RepositoryStatus> {
+    // Use new interfaces when available
+    if (!this.useLegacyMode && this.worktreeInterface && this.checkout) {
+      const calculator = createStatusCalculator({
+        worktree: this.worktreeInterface,
+        staging: this.checkout.staging,
+        trees: this.repository.trees,
+        commits: this.repository.commits,
+        refs: this.repository.refs,
+        blobs: this.repository.blobs,
+      });
+      return calculator.calculateStatus(options);
+    }
+
+    // Legacy mode - adapt legacy stores to new interfaces
+    const stagingAdapter = this.createStagingAdapter();
+    const worktreeAdapter = this.createWorktreeAdapter();
+
     const calculator = createStatusCalculator({
-      worktree: this.worktree,
-      staging: this.staging as StagingStore,
+      worktree: worktreeAdapter,
+      staging: stagingAdapter,
       trees: this.repository.trees,
       commits: this.repository.commits,
       refs: this.repository.refs,
@@ -352,6 +369,105 @@ export class GitWorkingCopy implements WorkingCopy {
     });
 
     return calculator.calculateStatus(options);
+  }
+
+  /**
+   * Create a Staging adapter from legacy StagingStore.
+   * @internal
+   */
+  private createStagingAdapter(): Staging {
+    if (!this._staging) {
+      throw new Error("Legacy staging store not available");
+    }
+    const legacyStaging = this._staging;
+    return {
+      getEntryCount: () => legacyStaging.getEntryCount(),
+      hasEntry: (path) => legacyStaging.hasEntry(path),
+      getEntry: (path, stage) =>
+        stage !== undefined
+          ? legacyStaging.getEntryByStage(path, stage)
+          : legacyStaging.getEntry(path),
+      getEntries: (path) => legacyStaging.getEntries(path),
+      setEntry: () => Promise.reject(new Error("setEntry not supported in legacy adapter")),
+      removeEntry: () => Promise.reject(new Error("removeEntry not supported in legacy adapter")),
+      entries: (opts) =>
+        opts?.prefix ? legacyStaging.listEntriesUnder(opts.prefix) : legacyStaging.listEntries(),
+      hasConflicts: () => legacyStaging.hasConflicts(),
+      getConflictedPaths: async () => {
+        const paths: string[] = [];
+        for await (const path of legacyStaging.getConflictPaths()) {
+          paths.push(path);
+        }
+        return paths;
+      },
+      resolveConflict: () =>
+        Promise.reject(new Error("resolveConflict not supported in legacy adapter")),
+      writeTree: (trees) =>
+        legacyStaging.writeTree(
+          trees as unknown as import("../../history/trees/tree-store.js").TreeStore,
+        ),
+      readTree: (trees, treeId) =>
+        legacyStaging.readTree(
+          trees as unknown as import("../../history/trees/tree-store.js").TreeStore,
+          treeId,
+        ),
+      createBuilder: () => {
+        const b = legacyStaging.builder();
+        return {
+          add: (e) => b.add(e),
+          keep: (s, c) => b.keep(s, c),
+          addTree: (t, id, p, st) =>
+            b.addTree(
+              t as unknown as import("../../history/trees/tree-store.js").TreeStore,
+              id,
+              p,
+              st,
+            ),
+          finish: () => b.finish(),
+        };
+      },
+      createEditor: () => {
+        const e = legacyStaging.editor();
+        return {
+          add: (ed) => e.add(ed),
+          remove: (p) => e.remove(p),
+          upsert: () => {
+            throw new Error("upsert not supported in legacy adapter");
+          },
+          finish: () => e.finish(),
+        };
+      },
+      read: () => legacyStaging.read(),
+      write: () => legacyStaging.write(),
+      isOutdated: () => legacyStaging.isOutdated(),
+      getUpdateTime: () => legacyStaging.getUpdateTime(),
+      clear: () => legacyStaging.clear(),
+    };
+  }
+
+  /**
+   * Create a Worktree adapter from legacy WorktreeStore.
+   * @internal
+   */
+  private createWorktreeAdapter(): Worktree {
+    const legacyWorktree = this.worktree;
+    return {
+      walk: (opts) => legacyWorktree.walk(opts),
+      getEntry: (path) => legacyWorktree.getEntry(path),
+      computeHash: (path) => legacyWorktree.computeHash(path),
+      readContent: (path) => legacyWorktree.readContent(path),
+      exists: async (path) => (await legacyWorktree.getEntry(path)) !== undefined,
+      isIgnored: async (path) => (await legacyWorktree.getEntry(path))?.isIgnored ?? false,
+      writeContent: () => Promise.reject(new Error("writeContent not supported in legacy adapter")),
+      remove: () => Promise.reject(new Error("remove not supported in legacy adapter")),
+      mkdir: () => Promise.reject(new Error("mkdir not supported in legacy adapter")),
+      rename: () => Promise.reject(new Error("rename not supported in legacy adapter")),
+      checkoutTree: () => Promise.reject(new Error("checkoutTree not supported in legacy adapter")),
+      checkoutPaths: () =>
+        Promise.reject(new Error("checkoutPaths not supported in legacy adapter")),
+      getRoot: () => "",
+      refreshIgnore: () => Promise.resolve(),
+    };
   }
 
   /**
