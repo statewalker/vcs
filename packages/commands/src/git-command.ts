@@ -1,8 +1,36 @@
-import type { ObjectId, Ref, SymbolicRef } from "@statewalker/vcs-core";
+import type {
+  Blobs,
+  Commits,
+  ObjectId,
+  Ref,
+  Refs,
+  Staging,
+  SymbolicRef,
+  Tags,
+  Trees,
+  WorkingCopy,
+  Worktree,
+} from "@statewalker/vcs-core";
 import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import { NoHeadError, RefNotFoundError } from "./errors/index.js";
 import type { GitStore } from "./types.js";
+
+/**
+ * Input type for GitCommand - accepts either GitStore or WorkingCopy.
+ *
+ * During migration, commands can receive either type:
+ * - GitStore: Legacy interface (deprecated)
+ * - WorkingCopy: New architecture
+ */
+export type GitCommandInput = GitStore | WorkingCopy;
+
+/**
+ * Type guard to check if input is a WorkingCopy.
+ */
+function isWorkingCopy(input: GitCommandInput): input is WorkingCopy {
+  return "getHead" in input && "getCurrentBranch" in input;
+}
 
 /**
  * Abstract base class for all Git commands.
@@ -10,16 +38,136 @@ import type { GitStore } from "./types.js";
  * Implements the Command pattern with single-use semantics.
  * Each command instance can only be called once.
  *
+ * Commands can be constructed with either GitStore (legacy) or WorkingCopy (new architecture).
+ * The unified accessor properties (blobs, trees, commits, tags, refs, staging) work with both.
+ *
  * Based on JGit's GitCommand<T> class.
  *
  * @typeParam T - The return type of the command's call() method
  */
 export abstract class GitCommand<T> {
+  /**
+   * @deprecated Access stores via unified accessors (blobs, trees, commits, etc.) instead
+   */
   protected readonly store: GitStore;
+  protected readonly _workingCopy?: WorkingCopy;
   private callable = true;
 
-  constructor(store: GitStore) {
-    this.store = store;
+  constructor(input: GitCommandInput) {
+    if (isWorkingCopy(input)) {
+      this._workingCopy = input;
+      // Create GitStore adapter from WorkingCopy for backward compatibility
+      this.store = this.createStoreFromWorkingCopy(input);
+    } else {
+      this.store = input;
+    }
+  }
+
+  /**
+   * Create a GitStore adapter from WorkingCopy.
+   * Uses new interfaces when available, falls back to legacy.
+   */
+  private createStoreFromWorkingCopy(wc: WorkingCopy): GitStore {
+    // Use new architecture if available, otherwise legacy
+    const blobs = wc.history?.blobs ?? wc.repository.blobs;
+    const trees = wc.history?.trees ?? wc.repository.trees;
+    const commits = wc.history?.commits ?? wc.repository.commits;
+    const tags = wc.history?.tags ?? wc.repository.tags;
+    const refs = wc.history?.refs ?? wc.repository.refs;
+    const staging = wc.checkout?.staging ?? wc.staging;
+
+    return {
+      blobs,
+      trees,
+      commits,
+      tags,
+      refs,
+      staging,
+      worktree: wc.worktree,
+    } as GitStore;
+  }
+
+  // ============ Unified Store Accessors ============
+
+  /**
+   * Access blob storage.
+   * Works with both GitStore and WorkingCopy.
+   */
+  protected get blobs(): Blobs {
+    if (this._workingCopy?.history?.blobs) {
+      return this._workingCopy.history.blobs;
+    }
+    return this.store.blobs as unknown as Blobs;
+  }
+
+  /**
+   * Access tree storage.
+   * Works with both GitStore and WorkingCopy.
+   */
+  protected get trees(): Trees {
+    if (this._workingCopy?.history?.trees) {
+      return this._workingCopy.history.trees;
+    }
+    return this.store.trees as unknown as Trees;
+  }
+
+  /**
+   * Access commit storage.
+   * Works with both GitStore and WorkingCopy.
+   */
+  protected get commits(): Commits {
+    if (this._workingCopy?.history?.commits) {
+      return this._workingCopy.history.commits;
+    }
+    return this.store.commits as unknown as Commits;
+  }
+
+  /**
+   * Access tag storage.
+   * Works with both GitStore and WorkingCopy.
+   */
+  protected get tags(): Tags | undefined {
+    if (this._workingCopy?.history?.tags) {
+      return this._workingCopy.history.tags;
+    }
+    return this.store.tags as unknown as Tags | undefined;
+  }
+
+  /**
+   * Access refs storage.
+   * Works with both GitStore and WorkingCopy.
+   */
+  protected get refs(): Refs {
+    if (this._workingCopy?.history?.refs) {
+      return this._workingCopy.history.refs;
+    }
+    return this.store.refs as unknown as Refs;
+  }
+
+  /**
+   * Access staging area.
+   * Works with both GitStore and WorkingCopy.
+   */
+  protected get staging(): Staging {
+    if (this._workingCopy?.checkout?.staging) {
+      return this._workingCopy.checkout.staging;
+    }
+    return this.store.staging as unknown as Staging;
+  }
+
+  /**
+   * Access worktree interface.
+   * Works with both GitStore and WorkingCopy.
+   */
+  protected get worktreeAccess(): Worktree | undefined {
+    return this._workingCopy?.worktreeInterface;
+  }
+
+  /**
+   * Get the WorkingCopy if available.
+   */
+  protected get workingCopy(): WorkingCopy | undefined {
+    return this._workingCopy;
   }
 
   /**
