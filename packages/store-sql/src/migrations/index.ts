@@ -196,6 +196,39 @@ export const migrations: Migration[] = [
       DROP TABLE IF EXISTS tree;
     `,
   },
+  {
+    version: 4,
+    name: "extended_query_indexes",
+    up: `
+      -- Commit indexes for extended queries
+      CREATE INDEX IF NOT EXISTS commit_author_email_idx ON vcs_commit(author_email);
+      CREATE INDEX IF NOT EXISTS commit_author_timestamp_idx ON vcs_commit(author_timestamp);
+      CREATE INDEX IF NOT EXISTS commit_committer_email_idx ON vcs_commit(committer_email);
+      CREATE INDEX IF NOT EXISTS commit_committer_timestamp_idx ON vcs_commit(committer_timestamp);
+      CREATE INDEX IF NOT EXISTS commit_message_idx ON vcs_commit(message);
+
+      -- Tag indexes for extended queries
+      CREATE INDEX IF NOT EXISTS tag_name_idx ON vcs_tag(tag_name);
+      CREATE INDEX IF NOT EXISTS tag_tagger_email_idx ON vcs_tag(tagger_email);
+      CREATE INDEX IF NOT EXISTS tag_object_type_idx ON vcs_tag(object_type);
+      CREATE INDEX IF NOT EXISTS tag_tagger_timestamp_idx ON vcs_tag(tagger_timestamp);
+
+      -- Tree entry indexes for extended queries
+      CREATE INDEX IF NOT EXISTS tree_entry_object_id_idx ON tree_entry(object_id);
+    `,
+    down: `
+      DROP INDEX IF EXISTS tree_entry_object_id_idx;
+      DROP INDEX IF EXISTS tag_tagger_timestamp_idx;
+      DROP INDEX IF EXISTS tag_object_type_idx;
+      DROP INDEX IF EXISTS tag_tagger_email_idx;
+      DROP INDEX IF EXISTS tag_name_idx;
+      DROP INDEX IF EXISTS commit_message_idx;
+      DROP INDEX IF EXISTS commit_committer_timestamp_idx;
+      DROP INDEX IF EXISTS commit_committer_email_idx;
+      DROP INDEX IF EXISTS commit_author_timestamp_idx;
+      DROP INDEX IF EXISTS commit_author_email_idx;
+    `,
+  },
 ];
 
 /**

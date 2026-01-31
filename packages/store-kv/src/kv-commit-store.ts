@@ -2,6 +2,7 @@
  * KV-based CommitStore implementation
  *
  * Stores commit objects using a key-value backend with JSON serialization.
+ * Includes extended query methods (O(n) scans - less efficient than SQL).
  */
 
 import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@statewalker/vcs-core";
@@ -169,5 +170,90 @@ export class KVCommitStore implements CommitStore {
    */
   async isAncestor(ancestorId: ObjectId, descendantId: ObjectId): Promise<boolean> {
     return isAncestorShared(this, ancestorId, descendantId);
+  }
+
+  // --- Extended query methods (O(n) scans) ---
+
+  /**
+   * Find commits by author email
+   *
+   * Note: This is an O(n) scan through all commits. For better performance,
+   * use SQL-backed storage instead.
+   *
+   * @param email Author email to search for
+   * @returns Async iterable of matching commit IDs (unsorted)
+   */
+  async *findByAuthor(email: string): AsyncIterable<ObjectId> {
+    for await (const id of this.keys()) {
+      try {
+        const commit = await this.loadCommit(id);
+        if (commit.author.email === email) {
+          yield id;
+        }
+      } catch {
+        // Skip invalid commits
+      }
+    }
+  }
+
+  /**
+   * Find commits in a date range
+   *
+   * Note: This is an O(n) scan through all commits. For better performance,
+   * use SQL-backed storage instead.
+   *
+   * @param since Start of date range
+   * @param until End of date range
+   * @returns Async iterable of matching commit IDs (unsorted)
+   */
+  async *findByDateRange(since: Date, until: Date): AsyncIterable<ObjectId> {
+    const sinceTs = Math.floor(since.getTime() / 1000);
+    const untilTs = Math.floor(until.getTime() / 1000);
+
+    for await (const id of this.keys()) {
+      try {
+        const commit = await this.loadCommit(id);
+        if (commit.author.timestamp >= sinceTs && commit.author.timestamp <= untilTs) {
+          yield id;
+        }
+      } catch {
+        // Skip invalid commits
+      }
+    }
+  }
+
+  /**
+   * Search commits by message content
+   *
+   * Note: This is an O(n) scan through all commits. For better performance,
+   * use SQL-backed storage with FTS5 instead.
+   *
+   * @param pattern Substring to search for in message
+   * @returns Async iterable of matching commit IDs (unsorted)
+   */
+  async *searchMessage(pattern: string): AsyncIterable<ObjectId> {
+    const lowerPattern = pattern.toLowerCase();
+
+    for await (const id of this.keys()) {
+      try {
+        const commit = await this.loadCommit(id);
+        if (commit.message.toLowerCase().includes(lowerPattern)) {
+          yield id;
+        }
+      } catch {
+        // Skip invalid commits
+      }
+    }
+  }
+
+  /**
+   * Get commit count
+   */
+  async count(): Promise<number> {
+    let count = 0;
+    for await (const _ of this.keys()) {
+      count++;
+    }
+    return count;
   }
 }
