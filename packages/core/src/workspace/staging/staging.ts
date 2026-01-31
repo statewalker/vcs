@@ -17,9 +17,9 @@
 import type { ObjectId } from "../../common/id/index.js";
 import type { Trees } from "../../history/trees/trees.js";
 import type {
-  MergeStageValue,
   StagingEntry as LegacyStagingEntry,
   StagingEntryOptions as LegacyStagingEntryOptions,
+  MergeStageValue,
 } from "./staging-store.js";
 
 // Re-export legacy types with new names during migration
