@@ -1,39 +1,17 @@
-import type { FileModeValue } from "../../common/files/index.js";
+/**
+ * WorktreeStore - Legacy worktree interface
+ *
+ * @deprecated Use the Worktree interface from worktree.ts instead.
+ * This file is kept for backward compatibility during migration.
+ * Types are now defined in types.ts and re-exported here.
+ */
+
 import type { ObjectId } from "../../common/id/index.js";
 
-/**
- * Represents a file or directory in the worktree (Part 2 of Three-Part Architecture).
- */
-export interface WorktreeEntry {
-  /** Relative path from repository root */
-  path: string;
-  /** Entry name (last path component) */
-  name: string;
-  /** File mode (regular, executable, symlink, directory) */
-  mode: FileModeValue | number;
-  /** File size in bytes (0 for directories) */
-  size: number;
-  /** Last modified time (milliseconds since epoch) */
-  mtime: number;
-  /** Whether this is a directory */
-  isDirectory: boolean;
-  /** Whether file is ignored by .gitignore */
-  isIgnored: boolean;
-}
+// Re-export shared types from types.ts for backward compatibility
+export type { WorktreeEntry, WorktreeStoreOptions } from "./types.js";
 
-/**
- * Options for worktree iteration.
- */
-export interface WorktreeStoreOptions {
-  /** Include ignored files (default: false) */
-  includeIgnored?: boolean;
-  /** Include directories in output (default: false) */
-  includeDirectories?: boolean;
-  /** Path prefix to filter (default: "" for all) */
-  pathPrefix?: string;
-  /** Custom ignore patterns (in addition to .gitignore) */
-  ignorePatterns?: string[];
-}
+import type { WorktreeEntry, WorktreeStoreOptions } from "./types.js";
 
 /**
  * WorktreeStore interface - user's checked-out files (Part 2 of Three-Part Architecture)
