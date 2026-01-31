@@ -11,9 +11,11 @@ import type { ObjectId } from "../common/id/index.js";
 import type { ObjectTypeString } from "../history/objects/object-types.js";
 import type { StructuredStores } from "../history/structured-stores.js";
 import type { BlobDeltaApi } from "../storage/delta/blob-delta-api.js";
-import { parsePackEntries } from "../storage/pack/pack-entries-parser.js";
-import { PackWriterStream } from "../storage/pack/pack-writer.js";
-import { PackObjectType } from "../storage/pack/types.js";
+import {
+  PackObjectType,
+  PackWriterStream,
+  parsePackEntries,
+} from "../storage/pack/index.js";
 import type {
   PackBuilder,
   PackBuildStats,
