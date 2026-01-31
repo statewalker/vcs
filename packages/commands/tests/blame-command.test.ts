@@ -26,10 +26,10 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
   describe("basic blame", () => {
     it("should blame all lines to initial commit", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Add a file with 3 lines
-      await addFile(store, "file.txt", "line 1\nline 2\nline 3\n");
+      await addFile(workingCopy, "file.txt", "line 1\nline 2\nline 3\n");
       await git.commit().setMessage("Add file with 3 lines").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -41,18 +41,18 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should track line additions across commits", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create first commit with one line
-      await addFile(store, "file.txt", "line 1\n");
+      await addFile(workingCopy, "file.txt", "line 1\n");
       await git.commit().setMessage("First commit").call();
 
       // Get the first commit's ID
-      const firstCommitRef = await store.refs.resolve("HEAD");
+      const firstCommitRef = await repository.refs.resolve("HEAD");
       const firstCommitId = firstCommitRef?.objectId ?? "";
 
       // Create second commit adding more lines
-      await addFile(store, "file.txt", "line 1\nline 2\nline 3\n");
+      await addFile(workingCopy, "file.txt", "line 1\nline 2\nline 3\n");
       await git.commit().setMessage("Add lines 2 and 3").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -72,20 +72,20 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should handle line modifications", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create first commit with 3 lines
-      await addFile(store, "file.txt", "original line 1\noriginal line 2\noriginal line 3\n");
+      await addFile(workingCopy, "file.txt", "original line 1\noriginal line 2\noriginal line 3\n");
       await git.commit().setMessage("Initial commit").call();
 
-      const firstCommitRef = await store.refs.resolve("HEAD");
+      const firstCommitRef = await repository.refs.resolve("HEAD");
       const firstCommitId = firstCommitRef?.objectId ?? "";
 
       // Modify line 2
-      await addFile(store, "file.txt", "original line 1\nmodified line 2\noriginal line 3\n");
+      await addFile(workingCopy, "file.txt", "original line 1\nmodified line 2\noriginal line 3\n");
       await git.commit().setMessage("Modify line 2").call();
 
-      const secondCommitRef = await store.refs.resolve("HEAD");
+      const secondCommitRef = await repository.refs.resolve("HEAD");
       const secondCommitId = secondCommitRef?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -101,20 +101,20 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should handle insertions in the middle", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create first commit with 2 lines
-      await addFile(store, "file.txt", "line 1\nline 3\n");
+      await addFile(workingCopy, "file.txt", "line 1\nline 3\n");
       await git.commit().setMessage("Initial commit").call();
 
-      const firstCommitRef = await store.refs.resolve("HEAD");
+      const firstCommitRef = await repository.refs.resolve("HEAD");
       const firstCommitId = firstCommitRef?.objectId ?? "";
 
       // Insert line 2 in the middle
-      await addFile(store, "file.txt", "line 1\nline 2\nline 3\n");
+      await addFile(workingCopy, "file.txt", "line 1\nline 2\nline 3\n");
       await git.commit().setMessage("Insert line 2").call();
 
-      const secondCommitRef = await store.refs.resolve("HEAD");
+      const secondCommitRef = await repository.refs.resolve("HEAD");
       const secondCommitId = secondCommitRef?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -132,14 +132,14 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should handle multiple commits with different authors", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create first commit with author A
-      await addFile(store, "file.txt", "author A line\n");
+      await addFile(workingCopy, "file.txt", "author A line\n");
       await git.commit().setMessage("Commit by A").setAuthor("Author A", "a@test.com").call();
 
       // Create second commit with author B adding a line
-      await addFile(store, "file.txt", "author A line\nauthor B line\n");
+      await addFile(workingCopy, "file.txt", "author A line\nauthor B line\n");
       await git.commit().setMessage("Commit by B").setAuthor("Author B", "b@test.com").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -156,9 +156,9 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
   describe("edge cases", () => {
     it("should handle empty file", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "empty.txt", "");
+      await addFile(workingCopy, "empty.txt", "");
       await git.commit().setMessage("Add empty file").call();
 
       const result = await git.blame().setFilePath("empty.txt").call();
@@ -168,9 +168,9 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should throw for non-existent file", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "file.txt", "content");
+      await addFile(workingCopy, "file.txt", "content");
       await git.commit().setMessage("Initial commit").call();
 
       await expect(git.blame().setFilePath("nonexistent.txt").call()).rejects.toThrow(
@@ -179,26 +179,26 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should throw when file path not set", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "file.txt", "content");
+      await addFile(workingCopy, "file.txt", "content");
       await git.commit().setMessage("Initial commit").call();
 
       await expect(git.blame().call()).rejects.toThrow("File path must be set");
     });
 
     it("should blame at specific commit", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create first commit
-      await addFile(store, "file.txt", "line 1\n");
+      await addFile(workingCopy, "file.txt", "line 1\n");
       await git.commit().setMessage("First commit").call();
 
-      const firstCommitRef = await store.refs.resolve("HEAD");
+      const firstCommitRef = await repository.refs.resolve("HEAD");
       const firstCommitId = firstCommitRef?.objectId ?? "";
 
       // Create second commit
-      await addFile(store, "file.txt", "line 1\nline 2\n");
+      await addFile(workingCopy, "file.txt", "line 1\nline 2\n");
       await git.commit().setMessage("Second commit").call();
 
       // Blame at first commit (only 1 line)
@@ -210,9 +210,9 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should handle file with no trailing newline", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "file.txt", "line 1\nline 2"); // No trailing newline
+      await addFile(workingCopy, "file.txt", "line 1\nline 2"); // No trailing newline
       await git.commit().setMessage("Add file").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -232,20 +232,20 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * the original lines retain their blame to the first commit.
      */
     it("should correctly blame after deleting trailing lines", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Step 1: Create file with 2 lines
-      await addFile(store, "file.txt", "a\nb\n");
+      await addFile(workingCopy, "file.txt", "a\nb\n");
       await git.commit().setMessage("create file").call();
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Step 2: Add trailing lines (a, b, c, d)
-      await addFile(store, "file.txt", "a\nb\nc\nd\n");
+      await addFile(workingCopy, "file.txt", "a\nb\nc\nd\n");
       await git.commit().setMessage("edit file").call();
 
       // Step 3: Delete trailing lines (back to a, b)
-      await addFile(store, "file.txt", "a\nb\n");
+      await addFile(workingCopy, "file.txt", "a\nb\n");
       await git.commit().setMessage("edit file").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -261,20 +261,20 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * the surrounding lines retain their blame to the first commit.
      */
     it("should correctly blame after deleting middle lines", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Step 1: Create file with 3 lines (a, c, e)
-      await addFile(store, "file.txt", "a\nc\ne\n");
+      await addFile(workingCopy, "file.txt", "a\nc\ne\n");
       await git.commit().setMessage("create file").call();
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Step 2: Add middle lines (a, b, c, d, e)
-      await addFile(store, "file.txt", "a\nb\nc\nd\ne\n");
+      await addFile(workingCopy, "file.txt", "a\nb\nc\nd\ne\n");
       await git.commit().setMessage("edit file").call();
 
       // Step 3: Delete middle lines (back to a, c, e)
-      await addFile(store, "file.txt", "a\nc\ne\n");
+      await addFile(workingCopy, "file.txt", "a\nc\ne\n");
       await git.commit().setMessage("edit file").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -291,16 +291,16 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * to the commit that modified them.
      */
     it("should blame all lines to second commit when all edited", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Step 1: Create file with original content
-      await addFile(store, "file.txt", "a\n1\n");
+      await addFile(workingCopy, "file.txt", "a\n1\n");
       await git.commit().setMessage("create file").call();
 
       // Step 2: Edit all lines
-      await addFile(store, "file.txt", "b\n2\n");
+      await addFile(workingCopy, "file.txt", "b\n2\n");
       await git.commit().setMessage("edit file").call();
-      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2Ref = await repository.refs.resolve("HEAD");
       const commit2 = commit2Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -316,20 +316,20 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * all lines are blamed to the commit that repopulated them.
      */
     it("should blame all lines to third commit after clear and repopulate", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Step 1: Create file with content
-      await addFile(store, "file.txt", "a\nb\nc\n");
+      await addFile(workingCopy, "file.txt", "a\nb\nc\n");
       await git.commit().setMessage("create file").call();
 
       // Step 2: Clear the file
-      await addFile(store, "file.txt", "");
+      await addFile(workingCopy, "file.txt", "");
       await git.commit().setMessage("clear file").call();
 
       // Step 3: Repopulate with same content
-      await addFile(store, "file.txt", "a\nb\nc\n");
+      await addFile(workingCopy, "file.txt", "a\nb\nc\n");
       await git.commit().setMessage("repopulate file").call();
-      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3Ref = await repository.refs.resolve("HEAD");
       const commit3 = commit3Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -353,14 +353,14 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Helper to rename a file in staging.
      */
     async function renameFile(
-      store: Awaited<ReturnType<typeof createInitializedGit>>["store"],
+      wc: Awaited<ReturnType<typeof createInitializedGit>>["workingCopy"],
       oldPath: string,
       newPath: string,
     ): Promise<void> {
       const entries: Array<{ path: string; objectId: string; mode: number }> = [];
 
       // Collect all entries except the old path
-      for await (const entry of store.staging.listEntries()) {
+      for await (const entry of wc.staging.listEntries()) {
         if (entry.path !== oldPath) {
           entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
         } else {
@@ -370,7 +370,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       }
 
       // Rebuild staging with renamed file
-      const builder = store.staging.builder();
+      const builder = wc.staging.builder();
       for (const entry of entries) {
         builder.add({
           path: entry.path,
@@ -389,24 +389,24 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Tests blame following a simple file rename.
      */
     it("should follow simple file rename", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create file with 3 lines
-      await addFile(store, "file1.txt", "a\nb\nc\n");
+      await addFile(workingCopy, "file1.txt", "a\nb\nc\n");
       await git.commit().setMessage("create file").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Rename file1.txt to file2.txt
-      await renameFile(store, "file1.txt", "file2.txt");
+      await renameFile(workingCopy, "file1.txt", "file2.txt");
       await git.commit().setMessage("moving file").call();
 
       // Edit last line
-      await addFile(store, "file2.txt", "a\nb\nc2\n");
+      await addFile(workingCopy, "file2.txt", "a\nb\nc2\n");
       await git.commit().setMessage("editing file").call();
 
-      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3Ref = await repository.refs.resolve("HEAD");
       const commit3 = commit3Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file2.txt").setFollowRenames(true).call();
@@ -430,24 +430,24 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Tests blame following a file rename within the same subdirectory.
      */
     it("should follow rename in subdirectory", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create file in subdirectory
-      await addFile(store, "subdir/file1.txt", "a\nb\nc\n");
+      await addFile(workingCopy, "subdir/file1.txt", "a\nb\nc\n");
       await git.commit().setMessage("create file").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Rename within same directory
-      await renameFile(store, "subdir/file1.txt", "subdir/file2.txt");
+      await renameFile(workingCopy, "subdir/file1.txt", "subdir/file2.txt");
       await git.commit().setMessage("moving file").call();
 
       // Edit last line
-      await addFile(store, "subdir/file2.txt", "a\nb\nc2\n");
+      await addFile(workingCopy, "subdir/file2.txt", "a\nb\nc2\n");
       await git.commit().setMessage("editing file").call();
 
-      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3Ref = await repository.refs.resolve("HEAD");
       const commit3 = commit3Ref?.objectId ?? "";
 
       const result = await git
@@ -475,24 +475,24 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Tests blame following a file move to a different directory.
      */
     it("should follow move to different directory", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create file in subdirectory
-      await addFile(store, "subdir/file1.txt", "a\nb\nc\n");
+      await addFile(workingCopy, "subdir/file1.txt", "a\nb\nc\n");
       await git.commit().setMessage("create file").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Move to different directory
-      await renameFile(store, "subdir/file1.txt", "otherdir/file1.txt");
+      await renameFile(workingCopy, "subdir/file1.txt", "otherdir/file1.txt");
       await git.commit().setMessage("moving file").call();
 
       // Edit last line
-      await addFile(store, "otherdir/file1.txt", "a\nb\nc2\n");
+      await addFile(workingCopy, "otherdir/file1.txt", "a\nb\nc2\n");
       await git.commit().setMessage("editing file").call();
 
-      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3Ref = await repository.refs.resolve("HEAD");
       const commit3 = commit3Ref?.objectId ?? "";
 
       const result = await git
@@ -520,28 +520,28 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Tests blame following a file through two consecutive renames.
      */
     it("should follow two consecutive renames", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create file.txt
-      await addFile(store, "file.txt", "a\n");
+      await addFile(workingCopy, "file.txt", "a\n");
       await git.commit().setMessage("create file").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Rename to file1.txt
-      await renameFile(store, "file.txt", "file1.txt");
+      await renameFile(workingCopy, "file.txt", "file1.txt");
       await git.commit().setMessage("moving file").call();
 
       // Edit and add line
-      await addFile(store, "file1.txt", "a\nb\n");
+      await addFile(workingCopy, "file1.txt", "a\nb\n");
       await git.commit().setMessage("editing file").call();
 
-      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3Ref = await repository.refs.resolve("HEAD");
       const commit3 = commit3Ref?.objectId ?? "";
 
       // Rename to file2.txt
-      await renameFile(store, "file1.txt", "file2.txt");
+      await renameFile(workingCopy, "file1.txt", "file2.txt");
       await git.commit().setMessage("moving file again").call();
 
       const result = await git.blame().setFilePath("file2.txt").setFollowRenames(true).call();
@@ -570,13 +570,13 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Tests blame with CRLF line endings in file content.
      */
     it("should correctly count lines with CRLF endings", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // File with Windows-style line endings (CRLF)
-      await addFile(store, "file.txt", "a\r\nb\r\nc\r\n");
+      await addFile(workingCopy, "file.txt", "a\r\nb\r\nc\r\n");
       await git.commit().setMessage("create file").call();
 
-      const commitRef = await store.refs.resolve("HEAD");
+      const commitRef = await repository.refs.resolve("HEAD");
       const commitId = commitRef?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -592,20 +592,20 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Tests blame tracking changes across CRLF and LF mixed content.
      */
     it("should track changes in files with mixed line endings", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Start with CRLF file
-      await addFile(store, "file.txt", "line1\r\nline2\r\n");
+      await addFile(workingCopy, "file.txt", "line1\r\nline2\r\n");
       await git.commit().setMessage("create file").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Add a new line (keeping CRLF)
-      await addFile(store, "file.txt", "line1\r\nline2\r\nline3\r\n");
+      await addFile(workingCopy, "file.txt", "line1\r\nline2\r\nline3\r\n");
       await git.commit().setMessage("add line").call();
 
-      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2Ref = await repository.refs.resolve("HEAD");
       const commit2 = commit2Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -621,13 +621,13 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * CR-only line endings are now supported by RawText.
      */
     it("should handle CR-only line endings", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // File with old Mac-style line endings (CR only)
-      await addFile(store, "file.txt", "a\rb\rc\r");
+      await addFile(workingCopy, "file.txt", "a\rb\rc\r");
       await git.commit().setMessage("create file").call();
 
-      const commitRef = await store.refs.resolve("HEAD");
+      const commitRef = await repository.refs.resolve("HEAD");
       const commitId = commitRef?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -658,53 +658,53 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Lines from different sources should be attributed correctly.
      */
     it("should correctly attribute lines after merge conflict resolution", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Base: create file with 5 lines
-      await addFile(store, "file.txt", "0\n1\n2\n3\n4\n");
+      await addFile(workingCopy, "file.txt", "0\n1\n2\n3\n4\n");
       await git.commit().setMessage("base commit").call();
 
-      const baseRef = await store.refs.resolve("HEAD");
+      const baseRef = await repository.refs.resolve("HEAD");
       const baseCommitId = baseRef?.objectId ?? "";
 
       // Create side branch
       await git.branchCreate().setName("side").call();
-      await store.refs.setSymbolic("HEAD", "refs/heads/side");
-      const sideRef = await store.refs.resolve("refs/heads/side");
-      const sideCommit = await store.commits.loadCommit(sideRef?.objectId ?? "");
-      await store.staging.readTree(store.trees, sideCommit.tree);
+      await repository.refs.setSymbolic("HEAD", "refs/heads/side");
+      const sideRef = await repository.refs.resolve("refs/heads/side");
+      const sideCommit = await repository.commits.loadCommit(sideRef?.objectId ?? "");
+      await workingCopy.staging.readTree(repository.trees, sideCommit.tree);
 
       // Modify on side branch
-      await addFile(store, "file.txt", "0\n1 side\n2\n3 on side\n4\n");
+      await addFile(workingCopy, "file.txt", "0\n1 side\n2\n3 on side\n4\n");
       await git.commit().setMessage("side changes").call();
 
-      const sideModRef = await store.refs.resolve("HEAD");
+      const sideModRef = await repository.refs.resolve("HEAD");
       const sideModCommitId = sideModRef?.objectId ?? "";
 
       // Switch to main and modify differently
-      await store.refs.setSymbolic("HEAD", "refs/heads/main");
-      const mainRef = await store.refs.resolve("refs/heads/main");
-      const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
-      await store.staging.readTree(store.trees, mainCommit.tree);
+      await repository.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await repository.refs.resolve("refs/heads/main");
+      const mainCommit = await repository.commits.loadCommit(mainRef?.objectId ?? "");
+      await workingCopy.staging.readTree(repository.trees, mainCommit.tree);
 
       // Remove line on main (will conflict with side's modification)
-      await addFile(store, "file.txt", "0\n1\n2\n");
+      await addFile(workingCopy, "file.txt", "0\n1\n2\n");
       await git.commit().setMessage("main removes lines").call();
 
       // Get the main commit ID before merge
-      const mainModRef = await store.refs.resolve("HEAD");
+      const mainModRef = await repository.refs.resolve("HEAD");
       const mainModCommitId = mainModRef?.objectId ?? "";
 
       // Resolve conflict manually - keep side's changes plus resolution
       // This creates a merge commit with TWO parents (main + side)
-      await addFile(store, "file.txt", "0\n1 side\n2\n3 resolved\n4\n");
+      await addFile(workingCopy, "file.txt", "0\n1 side\n2\n3 resolved\n4\n");
       await git
         .commit()
         .setMessage("merge resolution")
         .setParentIds(mainModCommitId, sideModCommitId)
         .call();
 
-      const mergeRef = await store.refs.resolve("HEAD");
+      const mergeRef = await repository.refs.resolve("HEAD");
       const mergeCommitId = mergeRef?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -731,38 +731,38 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Tests blame with multiple parents (merge commit).
      */
     it("should handle files modified in merge commits", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create base file
-      await addFile(store, "file.txt", "base line\n");
+      await addFile(workingCopy, "file.txt", "base line\n");
       await git.commit().setMessage("initial").call();
 
-      const baseRef = await store.refs.resolve("HEAD");
+      const baseRef = await repository.refs.resolve("HEAD");
       const baseCommitId = baseRef?.objectId ?? "";
 
       // Create branch and add line
       await git.branchCreate().setName("feature").call();
-      await store.refs.setSymbolic("HEAD", "refs/heads/feature");
-      const featureRef = await store.refs.resolve("refs/heads/feature");
-      const featureCommit = await store.commits.loadCommit(featureRef?.objectId ?? "");
-      await store.staging.readTree(store.trees, featureCommit.tree);
+      await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
+      const featureRef = await repository.refs.resolve("refs/heads/feature");
+      const featureCommit = await repository.commits.loadCommit(featureRef?.objectId ?? "");
+      await workingCopy.staging.readTree(repository.trees, featureCommit.tree);
 
-      await addFile(store, "file.txt", "base line\nfeature line\n");
+      await addFile(workingCopy, "file.txt", "base line\nfeature line\n");
       await git.commit().setMessage("feature addition").call();
 
-      const featureModRef = await store.refs.resolve("HEAD");
+      const featureModRef = await repository.refs.resolve("HEAD");
       const featureModCommitId = featureModRef?.objectId ?? "";
 
       // Switch back to main
-      await store.refs.setSymbolic("HEAD", "refs/heads/main");
-      const mainRef = await store.refs.resolve("refs/heads/main");
+      await repository.refs.setSymbolic("HEAD", "refs/heads/main");
+      const mainRef = await repository.refs.resolve("refs/heads/main");
       const mainCommitId = mainRef?.objectId ?? "";
-      const mainCommit = await store.commits.loadCommit(mainCommitId);
-      await store.staging.readTree(store.trees, mainCommit.tree);
+      const mainCommit = await repository.commits.loadCommit(mainCommitId);
+      await workingCopy.staging.readTree(repository.trees, mainCommit.tree);
 
       // Merge feature (should be clean merge)
       // Create a merge commit with TWO parents (main + feature)
-      await addFile(store, "file.txt", "base line\nfeature line\n");
+      await addFile(workingCopy, "file.txt", "base line\nfeature line\n");
       await git
         .commit()
         .setMessage("merge feature")
@@ -788,20 +788,20 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * are correctly attributed to the first commit.
      */
     it("should correctly track lines when line inserted at beginning", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Step 1: Create file with 2 lines
-      await addFile(store, "file.txt", "first\nsecond\n");
+      await addFile(workingCopy, "file.txt", "first\nsecond\n");
       await git.commit().setMessage("create file").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Step 2: Insert a line at the beginning (third, first, second)
-      await addFile(store, "file.txt", "third\nfirst\nsecond\n");
+      await addFile(workingCopy, "file.txt", "third\nfirst\nsecond\n");
       await git.commit().setMessage("add line at start").call();
 
-      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2Ref = await repository.refs.resolve("HEAD");
       const commit2 = commit2Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -823,29 +823,29 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Lines should be traced back through rename to original file.
      */
     it("should track lines through rename with insertion at start", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       const FILENAME_1 = "subdir/file1.txt";
       const FILENAME_2 = "subdir/file2.txt";
 
       // Step 1: Create file with 2 lines
-      await addFile(store, FILENAME_1, "first\nsecond\n");
+      await addFile(workingCopy, FILENAME_1, "first\nsecond\n");
       await git.commit().setMessage("create file1").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Step 2: Rename file1.txt to file2.txt
       // Need to implement renameFile helper
       const entries: Array<{ path: string; objectId: string; mode: number }> = [];
-      for await (const entry of store.staging.listEntries()) {
+      for await (const entry of workingCopy.staging.listEntries()) {
         if (entry.path !== FILENAME_1) {
           entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
         } else {
           entries.push({ path: FILENAME_2, objectId: entry.objectId, mode: entry.mode });
         }
       }
-      const builder = store.staging.builder();
+      const builder = workingCopy.staging.builder();
       for (const entry of entries) {
         builder.add({
           path: entry.path,
@@ -860,10 +860,10 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       await git.commit().setMessage("rename file1.txt to file2.txt").call();
 
       // Step 3: Add line at beginning
-      await addFile(store, FILENAME_2, "third\nfirst\nsecond\n");
+      await addFile(workingCopy, FILENAME_2, "third\nfirst\nsecond\n");
       await git.commit().setMessage("change file2").call();
 
-      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3Ref = await repository.refs.resolve("HEAD");
       const commit3 = commit3Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath(FILENAME_2).setFollowRenames(true).call();
@@ -888,21 +888,21 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * attributes to the restoration commit.
      */
     it("should attribute lines to restoration commit after clear", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Step 1: Create file with 3 lines
-      await addFile(store, "file.txt", "first\nsecond\nthird\n");
+      await addFile(workingCopy, "file.txt", "first\nsecond\nthird\n");
       await git.commit().setMessage("create file").call();
 
       // Step 2: Clear file (empty content)
-      await addFile(store, "file.txt", "");
+      await addFile(workingCopy, "file.txt", "");
       await git.commit().setMessage("clear file").call();
 
       // Step 3: Restore content
-      await addFile(store, "file.txt", "first\nsecond\nthird\n");
+      await addFile(workingCopy, "file.txt", "first\nsecond\nthird\n");
       await git.commit().setMessage("restore file").call();
 
-      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3Ref = await repository.refs.resolve("HEAD");
       const commit3 = commit3Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -925,12 +925,13 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Helper to add binary content to staging.
      */
     async function addBinaryFile(
-      store: Awaited<ReturnType<typeof createInitializedGit>>["store"],
+      wc: Awaited<ReturnType<typeof createInitializedGit>>["workingCopy"],
+      repo: Awaited<ReturnType<typeof createInitializedGit>>["repository"],
       filePath: string,
       content: Uint8Array,
     ): Promise<void> {
-      const objectId = await store.blobs.store([content]);
-      const editor = store.staging.editor();
+      const objectId = await repo.blobs.store([content]);
+      const editor = wc.staging.editor();
       editor.add({
         path: filePath,
         apply: () => ({
@@ -950,13 +951,13 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Tests blame when a NUL byte appears and is later removed.
      */
     it("should handle NUL byte appearing and being removed in history", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Step 1: Create file
-      await addFile(store, "file.txt", "First line\nAnother line\n");
+      await addFile(workingCopy, "file.txt", "First line\nAnother line\n");
       await git.commit().setMessage("create file").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Step 2: Add line with NUL byte (using Uint8Array for binary control)
@@ -969,23 +970,27 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       ]);
       const line3 = encoder.encode("Another line\n");
       const contentWithNul = new Uint8Array([...line1, ...lineWithNul, ...line3]);
-      await addBinaryFile(store, "file.txt", contentWithNul);
+      await addBinaryFile(workingCopy, repository, "file.txt", contentWithNul);
       await git.commit().setMessage("add line with NUL").call();
 
       // Step 3: Modify third line
       const line3Modified = encoder.encode("Third line\n");
       const contentModified = new Uint8Array([...line1, ...lineWithNul, ...line3Modified]);
-      await addBinaryFile(store, "file.txt", contentModified);
+      await addBinaryFile(workingCopy, repository, "file.txt", contentModified);
       await git.commit().setMessage("change third line").call();
 
-      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3Ref = await repository.refs.resolve("HEAD");
       const commit3 = commit3Ref?.objectId ?? "";
 
       // Step 4: Fix NUL line
-      await addFile(store, "file.txt", "First line\nSecond line with NUL >\\000<\nThird line\n");
+      await addFile(
+        workingCopy,
+        "file.txt",
+        "First line\nSecond line with NUL >\\000<\nThird line\n",
+      );
       await git.commit().setMessage("fix NUL line").call();
 
-      const commit4Ref = await store.refs.resolve("HEAD");
+      const commit4Ref = await repository.refs.resolve("HEAD");
       const commit4 = commit4Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -1001,13 +1006,13 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
      * Tests blame when the current revision contains a NUL byte.
      */
     it("should handle NUL byte in current revision", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Step 1: Create file
-      await addFile(store, "file.txt", "First line\nAnother line\n");
+      await addFile(workingCopy, "file.txt", "First line\nAnother line\n");
       await git.commit().setMessage("create file").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1 = commit1Ref?.objectId ?? "";
 
       // Step 2: Add line with NUL byte
@@ -1020,19 +1025,19 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       ]);
       const line3 = encoder.encode("Another line\n");
       const contentWithNul = new Uint8Array([...line1, ...lineWithNul, ...line3]);
-      await addBinaryFile(store, "file.txt", contentWithNul);
+      await addBinaryFile(workingCopy, repository, "file.txt", contentWithNul);
       await git.commit().setMessage("add line with NUL").call();
 
-      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2Ref = await repository.refs.resolve("HEAD");
       const commit2 = commit2Ref?.objectId ?? "";
 
       // Step 3: Change third line (keep NUL in second line)
       const line3Modified = encoder.encode("Third line\n");
       const contentModified = new Uint8Array([...line1, ...lineWithNul, ...line3Modified]);
-      await addBinaryFile(store, "file.txt", contentModified);
+      await addBinaryFile(workingCopy, repository, "file.txt", contentModified);
       await git.commit().setMessage("change third line").call();
 
-      const commit3Ref = await store.refs.resolve("HEAD");
+      const commit3Ref = await repository.refs.resolve("HEAD");
       const commit3 = commit3Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -1046,9 +1051,9 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
   describe("BlameResult methods", () => {
     it("getEntry should return correct entry for line", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "file.txt", "line 1\nline 2\nline 3\n");
+      await addFile(workingCopy, "file.txt", "line 1\nline 2\nline 3\n");
       await git.commit().setMessage("Initial").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -1061,9 +1066,9 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getSourceCommit should return commit for line", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "file.txt", "line 1\n");
+      await addFile(workingCopy, "file.txt", "line 1\n");
       await git.commit().setMessage("Initial").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -1074,9 +1079,9 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getSourceAuthor should return author for line", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "file.txt", "line 1\n");
+      await addFile(workingCopy, "file.txt", "line 1\n");
       await git.commit().setMessage("Initial").setAuthor("Test Author", "test@example.com").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -1087,18 +1092,18 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getSourceLine should return original line number in source", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create file with 3 lines
-      await addFile(store, "file.txt", "a\nc\ne\n");
+      await addFile(workingCopy, "file.txt", "a\nc\ne\n");
       await git.commit().setMessage("create file").call();
 
       // Add middle lines (a, b, c, d, e)
-      await addFile(store, "file.txt", "a\nb\nc\nd\ne\n");
+      await addFile(workingCopy, "file.txt", "a\nb\nc\nd\ne\n");
       await git.commit().setMessage("edit file").call();
 
       // Delete middle lines (back to a, c, e)
-      await addFile(store, "file.txt", "a\nc\ne\n");
+      await addFile(workingCopy, "file.txt", "a\nc\ne\n");
       await git.commit().setMessage("edit file").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -1110,9 +1115,9 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getSourcePath should return source path", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
-      await addFile(store, "file.txt", "line 1\n");
+      await addFile(workingCopy, "file.txt", "line 1\n");
       await git.commit().setMessage("Initial").call();
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -1121,20 +1126,20 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getLineTracking should return detailed tracking for all lines", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create first commit with author A
-      await addFile(store, "file.txt", "line A\n");
+      await addFile(workingCopy, "file.txt", "line A\n");
       await git.commit().setMessage("Commit by A").setAuthor("Author A", "a@test.com").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1Id = commit1Ref?.objectId ?? "";
 
       // Create second commit with author B adding a line
-      await addFile(store, "file.txt", "line A\nline B\n");
+      await addFile(workingCopy, "file.txt", "line A\nline B\n");
       await git.commit().setMessage("Commit by B").setAuthor("Author B", "b@test.com").call();
 
-      const commit2Ref = await store.refs.resolve("HEAD");
+      const commit2Ref = await repository.refs.resolve("HEAD");
       const commit2Id = commit2Ref?.objectId ?? "";
 
       const result = await git.blame().setFilePath("file.txt").call();
@@ -1158,25 +1163,25 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getLineTracking should track through renames", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create file1.txt with 2 lines
-      await addFile(store, "file1.txt", "a\nb\n");
+      await addFile(workingCopy, "file1.txt", "a\nb\n");
       await git.commit().setMessage("create file").call();
 
-      const commit1Ref = await store.refs.resolve("HEAD");
+      const commit1Ref = await repository.refs.resolve("HEAD");
       const commit1Id = commit1Ref?.objectId ?? "";
 
       // Rename to file2.txt
       const entries: Array<{ path: string; objectId: string; mode: number }> = [];
-      for await (const entry of store.staging.listEntries()) {
+      for await (const entry of workingCopy.staging.listEntries()) {
         if (entry.path !== "file1.txt") {
           entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
         } else {
           entries.push({ path: "file2.txt", objectId: entry.objectId, mode: entry.mode });
         }
       }
-      const builder = store.staging.builder();
+      const builder = workingCopy.staging.builder();
       for (const entry of entries) {
         builder.add({
           path: entry.path,

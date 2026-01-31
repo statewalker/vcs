@@ -39,7 +39,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should soft reset (move HEAD only)", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commit
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -48,7 +48,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
       await git.reset().setRef(initialCommitId).setMode(ResetMode.SOFT).call();
 
       // HEAD should point to initial commit
-      const headRef = await store.refs.resolve("HEAD");
+      const headRef = await repository.refs.resolve("HEAD");
       expect(headRef?.objectId).toBe(initialCommitId);
 
       // Staging should remain unchanged (soft reset doesn't touch it)
@@ -56,7 +56,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should mixed reset (move HEAD and reset staging)", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commit
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -65,17 +65,17 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
       await git.reset().setRef(initialCommitId).setMode(ResetMode.MIXED).call();
 
       // HEAD should point to initial commit
-      const headRef = await store.refs.resolve("HEAD");
+      const headRef = await repository.refs.resolve("HEAD");
       expect(headRef?.objectId).toBe(initialCommitId);
 
       // Staging should match initial commit's tree
-      const treeId = await store.staging.writeTree(store.trees);
-      const initialCommit = await store.commits.loadCommit(initialCommitId);
+      const treeId = await workingCopy.staging.writeTree(repository.trees);
+      const initialCommit = await repository.commits.loadCommit(initialCommitId);
       expect(treeId).toBe(initialCommit.tree);
     });
 
     it("should reset with HEAD~N notation", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -84,23 +84,23 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
       // Reset to HEAD~2 (should be initial commit)
       await git.reset().setRef("HEAD~2").call();
 
-      const headRef = await store.refs.resolve("HEAD");
+      const headRef = await repository.refs.resolve("HEAD");
       expect(headRef?.objectId).toBe(initialCommitId);
     });
 
     it("should reset with HEAD^ notation", async () => {
-      const { git, store } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create commit
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
-      const secondId = await store.commits.storeCommit(second);
+      const secondId = await repository.commits.storeCommit(second);
 
       await git.commit().setMessage("Third").setAllowEmpty(true).call();
 
       // Reset to HEAD^ (should be second commit)
       await git.reset().setRef("HEAD^").call();
 
-      const headRef = await store.refs.resolve("HEAD");
+      const headRef = await repository.refs.resolve("HEAD");
       expect(headRef?.objectId).toBe(secondId);
     });
 
@@ -118,7 +118,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should update branch ref", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -127,25 +127,25 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
       await git.reset().setRef(initialCommitId).call();
 
       // Branch should be updated
-      const branchRef = await store.refs.resolve("refs/heads/main");
+      const branchRef = await repository.refs.resolve("refs/heads/main");
       expect(branchRef?.objectId).toBe(initialCommitId);
     });
 
     it("should work with detached HEAD", async () => {
-      const { git, store, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commit
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
-      const secondId = await store.commits.storeCommit(second);
+      const secondId = await repository.commits.storeCommit(second);
 
       // Detach HEAD
-      await store.refs.set("HEAD", secondId);
+      await repository.refs.set("HEAD", secondId);
 
       // Reset
       await git.reset().setRef(initialCommitId).call();
 
       // HEAD should be updated directly
-      const head = await store.refs.get("HEAD");
+      const head = await repository.refs.get("HEAD");
       expect(head && "objectId" in head ? head.objectId : null).toBe(initialCommitId);
     });
 

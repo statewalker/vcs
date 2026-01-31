@@ -27,7 +27,7 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
     return result;
   }
   it("should support complete workflow: commit → log → branch → reset", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // === STEP 1: Create commits ===
     const _commit1 = await git
@@ -74,13 +74,13 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
 
     // === STEP 5: Soft reset ===
     // Remember current HEAD
-    const headBefore = await store.refs.resolve("HEAD");
+    const headBefore = await repository.refs.resolve("HEAD");
 
     // Soft reset to previous commit
     await git.reset().setRef("HEAD~1").setMode(ResetMode.SOFT).call();
 
     // Verify HEAD moved
-    const headAfter = await store.refs.resolve("HEAD");
+    const headAfter = await repository.refs.resolve("HEAD");
     expect(headAfter?.objectId).not.toBe(headBefore?.objectId);
 
     // Log should now show 2 commits
@@ -98,20 +98,20 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support branch switching simulation", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commits on main
     await git.commit().setMessage("Main commit 1").setAllowEmpty(true).call();
 
     const mainCommit2 = await git.commit().setMessage("Main commit 2").setAllowEmpty(true).call();
 
-    const _mainCommit2Id = await store.commits.storeCommit(mainCommit2);
+    const _mainCommit2Id = await repository.commits.storeCommit(mainCommit2);
 
     // Create feature branch from commit 1
     await git.branchCreate().setName("feature").setStartPoint("HEAD~1").call();
 
     // Simulate checkout to feature branch
-    await store.refs.setSymbolic("HEAD", "refs/heads/feature");
+    await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
 
     // Create commit on feature branch
     await git.commit().setMessage("Feature commit").setAllowEmpty(true).call();
@@ -123,7 +123,7 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
     expect(commits[1].message).toBe("Main commit 1");
 
     // Switch back to main
-    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
     // Log on main
     commits = await toArray(await git.log().call());
@@ -132,12 +132,12 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support tag workflow", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create release commits
     await git.commit().setMessage("Release 1.0.0").setAllowEmpty(true).call();
 
-    const _release1 = await store.refs.resolve("HEAD");
+    const _release1 = await repository.refs.resolve("HEAD");
 
     await git.tag().setName("v1.0.0").call();
 
@@ -244,25 +244,25 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     return result;
   }
   it("should support merge workflow: branch → commit → merge", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // === STEP 1: Create feature branch ===
     await git.branchCreate().setName("feature").call();
 
     // === STEP 2: Add commits on main ===
-    await addFile(store, "main.txt", "main content");
-    await store.staging.write();
+    await addFile(workingCopy, "main.txt", "main content");
+    await workingCopy.staging.write();
     await git.commit().setMessage("Add main.txt").call();
 
     // === STEP 3: Switch to feature and add commits ===
-    await store.refs.setSymbolic("HEAD", "refs/heads/feature");
+    await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
 
-    await addFile(store, "feature.txt", "feature content");
-    await store.staging.write();
+    await addFile(workingCopy, "feature.txt", "feature content");
+    await workingCopy.staging.write();
     await git.commit().setMessage("Add feature.txt").call();
 
     // === STEP 4: Switch back to main ===
-    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
     // === STEP 5: Merge feature into main ===
     const result = await git
@@ -274,9 +274,9 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     expect(result.status).toBe(MergeStatus.MERGED);
 
     // === STEP 6: Verify merge commit has both parents ===
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     expect(headRef?.objectId).toBeDefined();
-    const mergeCommit = await store.commits.loadCommit(headRef?.objectId ?? "");
+    const mergeCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
     expect(mergeCommit.parents.length).toBe(2);
 
     // === STEP 7: Log should show all commits ===
@@ -285,7 +285,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support fast-forward merge workflow", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create feature branch at initial commit
     await git.branchCreate().setName("feature").call();
@@ -295,7 +295,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     await git.commit().setMessage("Main commit 2").setAllowEmpty(true).call();
 
     // Switch to feature
-    await store.refs.setSymbolic("HEAD", "refs/heads/feature");
+    await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
 
     // Feature is behind main - merge main into feature (fast-forward)
     const result = await git.merge().include("refs/heads/main").call();
@@ -303,31 +303,31 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     expect(result.status).toBe(MergeStatus.FAST_FORWARD);
 
     // Feature branch should now be at same commit as main
-    const featureRef = await store.refs.resolve("refs/heads/feature");
-    const mainRef = await store.refs.resolve("refs/heads/main");
+    const featureRef = await repository.refs.resolve("refs/heads/feature");
+    const mainRef = await repository.refs.resolve("refs/heads/main");
     expect(featureRef?.objectId).toBe(mainRef?.objectId);
   });
 
   it("should support diff workflow: compare branches", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create feature branch
     await git.branchCreate().setName("feature").call();
 
     // Add file on main
-    await addFile(store, "main-only.txt", "main content");
-    await store.staging.write();
+    await addFile(workingCopy, "main-only.txt", "main content");
+    await workingCopy.staging.write();
     await git.commit().setMessage("Add main file").call();
 
     // Switch to feature - reset staging to match feature branch (initial empty tree)
-    await store.refs.setSymbolic("HEAD", "refs/heads/feature");
-    const featureRef = await store.refs.resolve("refs/heads/feature");
-    const featureCommit = await store.commits.loadCommit(featureRef?.objectId ?? "");
-    await store.staging.readTree(store.trees, featureCommit.tree);
+    await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
+    const featureRef = await repository.refs.resolve("refs/heads/feature");
+    const featureCommit = await repository.commits.loadCommit(featureRef?.objectId ?? "");
+    await workingCopy.staging.readTree(repository.trees, featureCommit.tree);
 
     // Add different file on feature
-    await addFile(store, "feature-only.txt", "feature content");
-    await store.staging.write();
+    await addFile(workingCopy, "feature-only.txt", "feature content");
+    await workingCopy.staging.write();
     await git.commit().setMessage("Add feature file").call();
 
     // === Diff feature vs main ===
@@ -348,24 +348,24 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support diff workflow: track changes across commits", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create file and commit
-    await addFile(store, "changing.txt", "version 1");
-    await store.staging.write();
+    await addFile(workingCopy, "changing.txt", "version 1");
+    await workingCopy.staging.write();
     const commit1 = await git.commit().setMessage("v1").call();
-    const commit1Id = await store.commits.storeCommit(commit1);
+    const commit1Id = await repository.commits.storeCommit(commit1);
 
     // Modify file
-    await addFile(store, "changing.txt", "version 2");
-    await store.staging.write();
+    await addFile(workingCopy, "changing.txt", "version 2");
+    await workingCopy.staging.write();
     await git.commit().setMessage("v2").call();
 
     // Add new file
-    await addFile(store, "new.txt", "new content");
-    await store.staging.write();
+    await addFile(workingCopy, "new.txt", "new content");
+    await workingCopy.staging.write();
     const commit3 = await git.commit().setMessage("v3").call();
-    const commit3Id = await store.commits.storeCommit(commit3);
+    const commit3Id = await repository.commits.storeCommit(commit3);
 
     // === Diff v1 vs v3 ===
     const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit3Id).call();
@@ -380,32 +380,32 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support complete workflow: branch → diff → merge → verify", async () => {
-    const { git, store } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // === Setup: Create diverging branches ===
 
     // Add base file
-    await addFile(store, "shared.txt", "base content");
-    await store.staging.write();
+    await addFile(workingCopy, "shared.txt", "base content");
+    await workingCopy.staging.write();
     await git.commit().setMessage("Add shared file").call();
 
     // Create feature branch
     await git.branchCreate().setName("feature").call();
 
     // Add file on main
-    await addFile(store, "main-feature.txt", "main feature");
-    await store.staging.write();
+    await addFile(workingCopy, "main-feature.txt", "main feature");
+    await workingCopy.staging.write();
     await git.commit().setMessage("Main feature").call();
 
     // Switch to feature branch - reset staging to match feature's tree
-    await store.refs.setSymbolic("HEAD", "refs/heads/feature");
-    const featureRef = await store.refs.resolve("refs/heads/feature");
-    const featureCommit = await store.commits.loadCommit(featureRef?.objectId ?? "");
-    await store.staging.readTree(store.trees, featureCommit.tree);
+    await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
+    const featureRef = await repository.refs.resolve("refs/heads/feature");
+    const featureCommit = await repository.commits.loadCommit(featureRef?.objectId ?? "");
+    await workingCopy.staging.readTree(repository.trees, featureCommit.tree);
 
     // Add different file on feature
-    await addFile(store, "feature-feature.txt", "feature work");
-    await store.staging.write();
+    await addFile(workingCopy, "feature-feature.txt", "feature work");
+    await workingCopy.staging.write();
     await git.commit().setMessage("Feature work").call();
 
     // === Diff: See what's different ===
@@ -420,19 +420,19 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
 
     // === Merge: Combine branches ===
     // Switch to main first
-    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
     const mergeResult = await git.merge().include("refs/heads/feature").call();
 
     expect(mergeResult.status).toBe(MergeStatus.MERGED);
 
     // === Verify: All files present after merge ===
-    const mainRef = await store.refs.resolve("refs/heads/main");
+    const mainRef = await repository.refs.resolve("refs/heads/main");
     expect(mainRef?.objectId).toBeDefined();
-    const mainCommit = await store.commits.loadCommit(mainRef?.objectId ?? "");
+    const mainCommit = await repository.commits.loadCommit(mainRef?.objectId ?? "");
     const entries = new Map<string, boolean>();
 
-    for await (const entry of store.trees.loadTree(mainCommit.tree)) {
+    for await (const entry of repository.trees.loadTree(mainCommit.tree)) {
       entries.set(entry.name, true);
     }
 

@@ -57,7 +57,7 @@ describe("InitCommand", () => {
     it("should set HEAD pointing to initial branch", async () => {
       const result = await Git.init().call();
 
-      const head = await result.store.refs.get("HEAD");
+      const head = await result.repository.refs.get("HEAD");
       expect(head).toBeDefined();
       expect(head && "target" in head && head.target).toBe("refs/heads/main");
     });
@@ -69,7 +69,7 @@ describe("InitCommand", () => {
 
       expect(result.initialBranch).toBe("master");
 
-      const head = await result.store.refs.get("HEAD");
+      const head = await result.repository.refs.get("HEAD");
       expect(head && "target" in head && head.target).toBe("refs/heads/master");
     });
 
@@ -85,7 +85,7 @@ describe("InitCommand", () => {
         .call();
 
       // Verify branch ref exists
-      const branchRef = await result.store.refs.get("refs/heads/develop");
+      const branchRef = await result.repository.refs.get("refs/heads/develop");
       expect(branchRef).toBeDefined();
       expect(branchRef && "objectId" in branchRef).toBe(true);
     });

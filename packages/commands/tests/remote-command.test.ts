@@ -8,7 +8,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Git } from "../src/index.js";
+import { Git, type GitStore } from "../src/index.js";
 import { backends } from "./test-helper.js";
 
 describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
@@ -21,10 +21,19 @@ describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
     }
   });
 
-  async function createTestStore() {
+  async function createTestStore(): Promise<GitStore> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    return ctx.store;
+    const wc = ctx.workingCopy;
+    // Construct GitStore-like object from WorkingCopy for transport tests
+    return {
+      blobs: wc.repository.blobs,
+      trees: wc.repository.trees,
+      commits: wc.repository.commits,
+      tags: wc.repository.tags,
+      refs: wc.repository.refs,
+      staging: wc.staging,
+    };
   }
 
   describe("basic operations", () => {
@@ -115,10 +124,18 @@ describe.each(backends)("RemoteRemoveCommand ($name backend)", ({ factory }) => 
     }
   });
 
-  async function createTestStore() {
+  async function createTestStore(): Promise<GitStore> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    return ctx.store;
+    const wc = ctx.workingCopy;
+    return {
+      blobs: wc.repository.blobs,
+      trees: wc.repository.trees,
+      commits: wc.repository.commits,
+      tags: wc.repository.tags,
+      refs: wc.repository.refs,
+      staging: wc.staging,
+    };
   }
 
   describe("basic operations", () => {
@@ -180,10 +197,18 @@ describe.each(backends)("RemoteListCommand ($name backend)", ({ factory }) => {
     }
   });
 
-  async function createTestStore() {
+  async function createTestStore(): Promise<GitStore> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    return ctx.store;
+    const wc = ctx.workingCopy;
+    return {
+      blobs: wc.repository.blobs,
+      trees: wc.repository.trees,
+      commits: wc.repository.commits,
+      tags: wc.repository.tags,
+      refs: wc.repository.refs,
+      staging: wc.staging,
+    };
   }
 
   describe("basic operations", () => {
@@ -235,10 +260,18 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
     }
   });
 
-  async function createTestStore() {
+  async function createTestStore(): Promise<GitStore> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    return ctx.store;
+    const wc = ctx.workingCopy;
+    return {
+      blobs: wc.repository.blobs,
+      trees: wc.repository.trees,
+      commits: wc.repository.commits,
+      tags: wc.repository.tags,
+      refs: wc.repository.refs,
+      staging: wc.staging,
+    };
   }
 
   describe("basic operations", () => {
