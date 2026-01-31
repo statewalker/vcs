@@ -59,30 +59,28 @@ pnpm test
 
 ### Basic Repository Operations
 
-The example application in [apps/example-git-cycle](apps/example-git-cycle) demonstrates the complete Git workflow. Here's a condensed version:
+The example application in [apps/example-git-cycle](apps/example-git-cycle) demonstrates the complete Git workflow. Here's a condensed version using the new History interface:
 
 ```typescript
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createGitRepository, FileMode } from "@statewalker/vcs-core";
+import { createHistoryFromBackend, FileMode } from "@statewalker/vcs-core";
 
-// Initialize an in-memory repository
+// Initialize an in-memory repository using the History interface
 const files = new FilesApi(new MemFilesApi());
-const repository = await createGitRepository(files, ".git", {
-  create: true,
-  defaultBranch: "main"
-});
+const history = await createHistoryFromBackend({ backend: createGitFilesBackend(files, ".git") });
+await history.initialize();
 
 // Store a file as a blob
 const content = new TextEncoder().encode("Hello, World!");
-const blobId = await repository.blobs.store([content]);
+const blobId = await history.blobs.store([content]);
 
 // Create a tree (directory snapshot)
-const treeId = await repository.trees.storeTree([
+const treeId = await history.trees.store([
   { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId }
 ]);
 
 // Create a commit
-const commitId = await repository.commits.storeCommit({
+const commitId = await history.commits.store({
   tree: treeId,
   parents: [],
   author: { name: "Alice", email: "alice@example.com", timestamp: Date.now() / 1000, tzOffset: "+0000" },
@@ -91,7 +89,9 @@ const commitId = await repository.commits.storeCommit({
 });
 
 // Update the branch reference
-await repository.refs.set("refs/heads/main", commitId);
+await history.refs.set("refs/heads/main", commitId);
+
+await history.close();
 ```
 
 > **Runnable example:** [apps/example-readme-scripts/src/basic-repository-operations.ts](apps/example-readme-scripts/src/basic-repository-operations.ts)
@@ -105,15 +105,12 @@ For performance benchmarks and pack file operations, see [apps/example-git-perf]
 For a higher-level API, use `@statewalker/vcs-commands` which provides Git-like commands:
 
 ```typescript
-import { Git, createGitStore } from "@statewalker/vcs-commands";
-import { createGitRepository } from "@statewalker/vcs-core";
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
+import { Git } from "@statewalker/vcs-commands";
+import { createWorkingCopy } from "@statewalker/vcs-core";
 
-// Create repository and staging
-const repository = await createGitRepository();
-const staging = new MemoryStagingStore();
-const store = createGitStore({ repository, staging });
-const git = Git.wrap(store);
+// Create working copy (links history + checkout + worktree)
+const workingCopy = await createWorkingCopy(/* ... */);
+const git = Git.fromWorkingCopy(workingCopy);
 
 // Stage and commit (like git add && git commit)
 await git.add().addFilepattern(".").call();
@@ -158,6 +155,48 @@ for (const chunk of chunks) {
 ```
 
 > **Runnable example:** [apps/example-readme-scripts/src/delta-compression.ts](apps/example-readme-scripts/src/delta-compression.ts)
+
+## Core Interfaces
+
+### History - Immutable Repository Objects
+
+The History interface provides unified access to content-addressed objects:
+
+```typescript
+interface History {
+  readonly blobs: Blobs;     // File content (streaming)
+  readonly trees: Trees;     // Directory snapshots
+  readonly commits: Commits; // Version history with ancestry
+  readonly tags: Tags;       // Annotated tags
+  readonly refs: Refs;       // Branch/tag pointers
+
+  initialize(): Promise<void>;
+  close(): Promise<void>;
+}
+```
+
+### Workspace - Mutable Local State
+
+The workspace layer manages checkout state:
+
+- **Staging**: Index/staging area with conflict handling
+- **Checkout**: HEAD management and operation state
+- **Worktree**: Working directory file access
+- **WorkingCopy**: Unified interface linking all three
+
+### TransformationStore - Operation State
+
+For multi-commit operations (merge, rebase, cherry-pick, revert):
+
+```typescript
+interface TransformationStore {
+  readonly merge: MergeStateStore;
+  readonly rebase: RebaseStateStore;
+  readonly cherryPick: CherryPickStateStore;
+  readonly revert: RevertStateStore;
+  readonly resolution?: ResolutionStore;  // Conflict management with rerere
+}
+```
 
 ## Example Applications
 

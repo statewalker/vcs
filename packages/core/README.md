@@ -39,45 +39,43 @@ This content-addressable design means identical content always produces identica
 The package organizes storage in layers, from raw bytes to semantic objects:
 
 ```
-HistoryStore (unified entry point for shared history)
-├── GitObjectStore (unified object storage with type headers)
-│   ├── BlobStore (file contents)
-│   ├── TreeStore (directory snapshots)
-│   ├── CommitStore (history with ancestry traversal)
-│   └── TagStore (annotated tags)
-├── RefStore (branches, tags, HEAD)
-└── Config (repository settings)
+History (unified entry point for immutable objects)
+├── Blobs (file contents, streaming)
+├── Trees (directory snapshots)
+├── Commits (history with ancestry traversal)
+├── Tags (annotated tags)
+└── Refs (branches, tags, HEAD)
 ```
 
-Lower layers handle raw storage and compression, while higher layers provide semantic operations like commit ancestry traversal or reference resolution.
+Lower layers (RawStorage, ChunkAccess) handle raw storage and compression, while higher layers provide semantic operations like commit ancestry traversal or reference resolution.
 
-### HistoryStore vs WorkingCopy
+### History vs WorkingCopy
 
-The package separates shared history storage from local checkout state:
+The package separates immutable history from mutable local state:
 
 | Concept | Purpose | Examples |
 |---------|---------|----------|
-| **HistoryStore** | Immutable shared history | Commits, trees, blobs, tags, branches |
-| **WorkingCopy** | Local checkout state | HEAD, staging area, merge state, stash |
+| **History** | Immutable content-addressed objects | Commits, trees, blobs, tags, refs |
+| **WorkingCopy** | Mutable local state | Staging area, HEAD, merge state, stash |
 
-Multiple WorkingCopies can share a single HistoryStore, similar to `git worktree`. This separation enables:
+Multiple WorkingCopies can share a single History, similar to `git worktree`. This separation enables:
 
 - Clean architectural boundaries
 - Multiple parallel checkouts
 - Clear ownership of state
 
 ```
-WorkingCopy (local checkout state)
-├── HEAD (current branch or detached commit)
-├── staging (index)
-├── worktree (filesystem)
+WorkingCopy (mutable local state)
+├── checkout (HEAD, staging, operation state)
+├── worktreeInterface (filesystem access)
 ├── stash
 ├── config (per-worktree settings)
-└── HistoryStore (shared history)
-        ├── objects (commits, trees, blobs, tags)
-        ├── refs (branches, tags, remotes)
-        └── config (shared settings)
+└── history (shared immutable objects)
+        ├── blobs, trees, commits, tags
+        └── refs (branches, tags, remotes)
 ```
+
+**Note:** `HistoryStore` is the deprecated legacy interface. Use `History` for new code.
 
 ## Public API
 
@@ -85,27 +83,24 @@ WorkingCopy (local checkout state)
 
 ```typescript
 import {
-  // HistoryStore interface (immutable shared history)
-  type HistoryStore,
-  type GitStores,
-  type HistoryStoreConfig,
+  // New interfaces (recommended)
+  type History,
+  type HistoryWithBackend,
+  type Blobs,
+  type Trees,
+  type Commits,
+  type Tags,
+  type Refs,
+  type ObjectStorage,
+  type Staging,
+  type Checkout,
+  type Worktree,
+  type WorkingCopy,
 
-  // Object stores
-  type GitObjectStore,
-  type BlobStore,
-  type TreeStore,
-  type CommitStore,
-  type TagStore,
-
-  // Reference management
-  type RefStore,
-  type Ref,
-  type SymbolicRef,
-
-  // Staging area
-  type StagingStore,
-  type StagingEntry,
-  type StagingBuilder,
+  // Factory functions
+  createHistoryFromBackend,
+  createHistoryFromStores,
+  createMemoryHistory,
 
   // Core types
   type ObjectId,
@@ -114,13 +109,24 @@ import {
   type Commit,
   type AnnotatedTag,
   type PersonIdent,
+  type Ref,
+  type SymbolicRef,
 
   // File modes
   FileMode,
 
-  // Commands
-  type Add,
-  type Checkout,
+  // Storage abstractions
+  type RawStorage,
+  type StorageBackend,
+
+  // Deprecated (for migration)
+  type HistoryStore,  // Use History instead
+  type BlobStore,     // Use Blobs instead
+  type TreeStore,     // Use Trees instead
+  type CommitStore,   // Use Commits instead
+  type TagStore,      // Use Tags instead
+  type RefStore,      // Use Refs instead
+  type StagingStore,  // Use Staging instead
 } from "@statewalker/vcs-core";
 ```
 
@@ -135,27 +141,89 @@ import {
 
 ### Key Interfaces
 
+**New Interfaces (Recommended):**
+
 | Interface | Purpose |
 |-----------|---------|
-| `HistoryStore` | Shared history storage (objects + refs) |
-| `WorkingCopy` | Local checkout state (HEAD, staging, stash) |
-| `CheckoutStore` | Checkout state management (staging, stash, operation state) |
-| `GitObjectStore` | Store/load any Git object by type |
-| `BlobStore` | Binary file content storage |
-| `TreeStore` | Directory structure snapshots |
-| `CommitStore` | Commits with ancestry traversal |
-| `TagStore` | Annotated tag objects |
-| `RefStore` | Branches, tags, HEAD management |
-| `StagingStore` | Index with conflict support |
-| `StashStore` | Stash operations (push, pop, list) |
-| `StatusCalculator` | Three-way diff (HEAD/index/worktree) |
-| `WorktreeStore` | Working tree filesystem access |
+| `History` | Immutable object storage (blobs, trees, commits, tags, refs) |
+| `HistoryWithBackend` | History with backend access for serialization/delta |
+| `ObjectStorage<V>` | Base interface for content-addressed stores |
+| `Blobs` | File content (streaming I/O) |
+| `Trees` | Directory snapshots with entry lookup |
+| `Commits` | Commits with ancestry traversal and merge base detection |
+| `Tags` | Annotated tags with target resolution |
+| `Refs` | Branches, tags, HEAD management |
+| `Staging` | Index with conflict resolution |
+| `Checkout` | HEAD management and operation state |
+| `Worktree` | Working directory filesystem access |
+| `WorkingCopy` | Links History + Checkout + Worktree |
+| `TransformationStore` | Merge, rebase, cherry-pick, revert state |
+| `ResolutionStore` | Conflict detection and rerere |
+
+**Deprecated Interfaces:**
+
+| Interface | Replacement |
+|-----------|-------------|
+| `HistoryStore` | Use `History` |
+| `BlobStore` | Use `Blobs` |
+| `TreeStore` | Use `Trees` |
+| `CommitStore` | Use `Commits` |
+| `TagStore` | Use `Tags` |
+| `RefStore` | Use `Refs` |
+| `StagingStore` | Use `Staging` |
+| `WorktreeStore` | Use `Worktree` |
 
 ## Usage Examples
 
-### Working with the HistoryStore Interface
+### Working with the History Interface (Recommended)
 
-The `HistoryStore` interface provides unified access to all VCS operations:
+The `History` interface provides unified access to all immutable objects:
+
+```typescript
+import type { History, Commit } from "@statewalker/vcs-core";
+import { createMemoryHistory, FileMode } from "@statewalker/vcs-core";
+
+// Create in-memory history for testing
+const history = createMemoryHistory();
+await history.initialize();
+
+// Store a blob
+const content = new TextEncoder().encode("Hello, World!");
+const blobId = await history.blobs.store([content]);
+
+// Create a tree
+const treeId = await history.trees.store([
+  { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId }
+]);
+
+// Create a commit
+const commit: Commit = {
+  tree: treeId,
+  parents: [],
+  author: {
+    name: "Developer",
+    email: "dev@example.com",
+    timestamp: Math.floor(Date.now() / 1000),
+    tzOffset: "+0000",
+  },
+  committer: {
+    name: "Developer",
+    email: "dev@example.com",
+    timestamp: Math.floor(Date.now() / 1000),
+    tzOffset: "+0000",
+  },
+  message: "Initial commit",
+};
+
+const commitId = await history.commits.store(commit);
+await history.refs.set("refs/heads/main", commitId);
+
+await history.close();
+```
+
+### Using Legacy HistoryStore Interface
+
+For backward compatibility, the deprecated `HistoryStore` interface still works:
 
 ```typescript
 import type { HistoryStore, Commit } from "@statewalker/vcs-core";
@@ -187,7 +255,7 @@ async function createCommit(repo: HistoryStore, message: string): Promise<Object
     message,
   };
 
-  // Store and update HEAD
+  // Store and update HEAD (legacy method names)
   const commitId = await repo.commits.storeCommit(commit);
   await repo.refs.set("refs/heads/main", commitId);
 
