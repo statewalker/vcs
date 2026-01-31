@@ -7,6 +7,7 @@ import {
   parseIndexFile,
   serializeIndexFile,
 } from "./index-format.js";
+import type { StagingBuilder, StagingEditor, StagingStore } from "./staging-store.js";
 import {
   MergeStage,
   type MergeStageValue,
@@ -14,7 +15,6 @@ import {
   type StagingEntry,
   type StagingEntryOptions,
 } from "./types.js";
-import type { StagingBuilder, StagingEditor, StagingStore } from "./staging-store.js";
 
 /**
  * File-based staging store implementation.

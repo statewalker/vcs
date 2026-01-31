@@ -10,10 +10,10 @@
  */
 
 import type { ObjectId } from "../../common/id/index.js";
+import type { Staging } from "./staging.js";
 import { ResolveStagingConflict } from "./staging-edits.js";
 import type { MergeStageValue, StagingEntry } from "./types.js";
 import { MergeStage } from "./types.js";
-import type { Staging } from "./staging.js";
 
 /**
  * Detailed information about a single conflict.

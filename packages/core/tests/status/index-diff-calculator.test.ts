@@ -1,18 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { FileMode } from "../../src/common/files/index.js";
 import type { TreeEntry, TreeStore } from "../../src/history/trees/index.js";
-import type {
-  MergeStageValue,
-  StagingEntry,
-  StagingStore,
-} from "../../src/workspace/staging/index.js";
+import type { MergeStageValue, StagingEntry } from "../../src/workspace/staging/index.js";
+import type { Staging } from "../../src/workspace/staging/staging.js";
 import {
   createEmptyIndexDiff,
   createIndexDiffCalculator,
   type IndexDiffDependencies,
   StageState,
 } from "../../src/workspace/status/index.js";
-import type { WorktreeEntry, WorktreeStore } from "../../src/workspace/worktree/index.js";
+import type { WorktreeEntry } from "../../src/workspace/worktree/index.js";
+import type { Worktree } from "../../src/workspace/worktree/worktree.js";
 
 /**
  * Helper to create mock tree store
@@ -33,39 +31,57 @@ function createMockTreeStore(entries: Map<string, TreeEntry[]>): TreeStore {
 }
 
 /**
- * Helper to create mock staging store
+ * Helper to create mock Staging (new interface)
  */
-function createMockStagingStore(entries: StagingEntry[]): StagingStore {
+function createMockStaging(stagingEntries: StagingEntry[]): Staging {
   return {
-    listEntries: vi.fn().mockImplementation(async function* () {
-      for (const entry of entries) {
+    getEntryCount: vi.fn().mockResolvedValue(stagingEntries.length),
+    hasEntry: vi.fn().mockImplementation(async (path: string) => {
+      return stagingEntries.some((e) => e.path === path);
+    }),
+    getEntry: vi.fn().mockImplementation(async (path: string, stage?: MergeStageValue) => {
+      const targetStage = stage ?? 0;
+      return stagingEntries.find((e) => e.path === path && e.stage === targetStage);
+    }),
+    getEntries: vi.fn().mockImplementation(async (path: string) => {
+      return stagingEntries.filter((e) => e.path === path);
+    }),
+    setEntry: vi.fn().mockResolvedValue(undefined),
+    removeEntry: vi.fn().mockResolvedValue(true),
+    entries: vi.fn().mockImplementation(async function* () {
+      for (const entry of stagingEntries) {
         yield entry;
       }
     }),
-    getEntry: vi.fn(),
-    getEntryByStage: vi.fn(),
-    getEntries: vi.fn(),
-    hasEntry: vi.fn(),
-    getEntryCount: vi.fn(),
-    listEntriesUnder: vi.fn(),
-    hasConflicts: vi.fn(),
-    getConflictPaths: vi.fn(),
-    builder: vi.fn(),
-    editor: vi.fn(),
-    clear: vi.fn(),
-    writeTree: vi.fn(),
-    readTree: vi.fn(),
-    read: vi.fn(),
-    write: vi.fn(),
-    isOutdated: vi.fn(),
-    getUpdateTime: vi.fn(),
-  } as unknown as StagingStore;
+    hasConflicts: vi.fn().mockResolvedValue(false),
+    getConflictedPaths: vi.fn().mockResolvedValue([]),
+    resolveConflict: vi.fn().mockResolvedValue(undefined),
+    writeTree: vi.fn().mockResolvedValue("4b825dc642cb6eb9a060e54bf8d69288fbee4904"),
+    readTree: vi.fn().mockResolvedValue(undefined),
+    createBuilder: vi.fn().mockReturnValue({
+      add: vi.fn(),
+      keep: vi.fn(),
+      addTree: vi.fn().mockResolvedValue(undefined),
+      finish: vi.fn().mockResolvedValue(undefined),
+    }),
+    createEditor: vi.fn().mockReturnValue({
+      add: vi.fn(),
+      remove: vi.fn(),
+      upsert: vi.fn(),
+      finish: vi.fn().mockResolvedValue(undefined),
+    }),
+    read: vi.fn().mockResolvedValue(undefined),
+    write: vi.fn().mockResolvedValue(undefined),
+    isOutdated: vi.fn().mockResolvedValue(false),
+    getUpdateTime: vi.fn().mockReturnValue(Date.now() - 10000),
+    clear: vi.fn().mockResolvedValue(undefined),
+  } as unknown as Staging;
 }
 
 /**
- * Helper to create mock working tree iterator
+ * Helper to create mock Worktree (new interface)
  */
-function createMockWorktree(entries: WorktreeEntry[], hashes: Map<string, string>): WorktreeStore {
+function createMockWorktree(entries: WorktreeEntry[], hashes: Map<string, string>): Worktree {
   return {
     walk: vi.fn().mockImplementation(async function* () {
       for (const entry of entries) {
@@ -78,8 +94,29 @@ function createMockWorktree(entries: WorktreeEntry[], hashes: Map<string, string
     computeHash: vi.fn().mockImplementation(async (path: string) => {
       return hashes.get(path) ?? "unknown-hash";
     }),
-    readContent: vi.fn(),
-  } as unknown as WorktreeStore;
+    readContent: vi.fn().mockImplementation(function* () {
+      yield new Uint8Array([]);
+    }),
+    exists: vi.fn().mockImplementation(async (path: string) => {
+      return entries.some((e) => e.path === path);
+    }),
+    isIgnored: vi.fn().mockImplementation(async (path: string) => {
+      const entry = entries.find((e) => e.path === path);
+      return entry?.isIgnored ?? false;
+    }),
+    writeContent: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(true),
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    rename: vi.fn().mockResolvedValue(undefined),
+    checkoutTree: vi
+      .fn()
+      .mockResolvedValue({ updated: [], removed: [], conflicts: [], failed: [] }),
+    checkoutPaths: vi
+      .fn()
+      .mockResolvedValue({ updated: [], removed: [], conflicts: [], failed: [] }),
+    getRoot: vi.fn().mockReturnValue("/mock/worktree"),
+    refreshIgnore: vi.fn().mockResolvedValue(undefined),
+  } as unknown as Worktree;
 }
 
 /**
@@ -141,7 +178,7 @@ describe("IndexDiffCalculator", () => {
     it("should return empty diff for empty repository", async () => {
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore([]),
+        staging: createMockStaging([]),
         worktree: createMockWorktree([], new Map()),
       };
 
@@ -158,7 +195,7 @@ describe("IndexDiffCalculator", () => {
       const worktreeEntries = [createWorktreeEntry("file.txt")];
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore([]),
+        staging: createMockStaging([]),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -180,7 +217,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map([["new-file.txt", "abc123"]])),
       };
 
@@ -205,7 +242,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map([["file.txt", "new-hash"]])),
       };
 
@@ -228,7 +265,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree([], new Map()),
       };
 
@@ -254,7 +291,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map([["file.txt", "worktree-hash"]])),
       };
 
@@ -278,7 +315,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map([["file.txt", "same-hash"]])),
       };
 
@@ -302,7 +339,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -324,7 +361,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -342,7 +379,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore([]),
+        staging: createMockStaging([]),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -358,7 +395,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore([]),
+        staging: createMockStaging([]),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -375,7 +412,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore([]),
+        staging: createMockStaging([]),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -391,7 +428,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore([]),
+        staging: createMockStaging([]),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -419,7 +456,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -440,7 +477,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -459,7 +496,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree([], new Map()),
       };
 
@@ -478,7 +515,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree([], new Map()),
       };
 
@@ -502,7 +539,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map()),
       };
 
@@ -521,7 +558,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map([["assumed.txt", "new-hash"]])),
       };
 
@@ -540,7 +577,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(new Map()),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(worktreeEntries, new Map([["assumed.txt", "new-hash"]])),
       };
 
@@ -572,7 +609,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(
           worktreeEntries,
           new Map([
@@ -616,7 +653,7 @@ describe("IndexDiffCalculator", () => {
 
       const deps: IndexDiffDependencies = {
         trees: createMockTreeStore(treeEntries),
-        staging: createMockStagingStore(stagingEntries),
+        staging: createMockStaging(stagingEntries),
         worktree: createMockWorktree(
           worktreeEntries,
           new Map([
