@@ -24,6 +24,23 @@ export {
   createRebaseStateStore,
   GitRebaseStateStore,
 } from "./rebase-state-store.js";
+export {
+  createResolutionStore,
+  GitResolutionStore,
+} from "./resolution-store.impl.js";
+// Resolution store
+export type { ResolutionStore } from "./resolution-store.js";
+// Resolution types
+export type {
+  ConflictEntry,
+  ConflictInfo,
+  ConflictStats,
+  ConflictType,
+  RecordedResolution,
+  Resolution,
+  ResolutionEvent,
+  ResolutionStrategy,
+} from "./resolution-types.js";
 // Revert state store
 export type { RevertStateStore } from "./revert-state-store.js";
 export {
@@ -37,7 +54,7 @@ export {
   GitSequencerStore,
 } from "./sequencer-store.js";
 // Unified transformation store
-export type { TransformationStore } from "./transformation-store.js";
+export type { TransformationStore, TransformationStoreConfig } from "./transformation-store.js";
 export {
   createTransformationStore,
   GitTransformationStore,
