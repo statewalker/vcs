@@ -16,26 +16,25 @@
 
 import type { ObjectId } from "../../common/id/index.js";
 import type { Trees } from "../../history/trees/trees.js";
-import type {
-  StagingEntry as LegacyStagingEntry,
-  StagingEntryOptions as LegacyStagingEntryOptions,
-  MergeStageValue,
-} from "./staging-store.js";
+import type { MergeStageValue, StagingEntry, StagingEntryOptions } from "./types.js";
 
-// Re-export legacy types with new names during migration
-export { MergeStage, type MergeStageValue } from "./staging-store.js";
-
-/**
- * Staging entry - re-export from legacy interface.
- *
- * During migration, use the same type to ensure compatibility.
- */
-export type IndexEntry = LegacyStagingEntry;
+// Re-export types for consumers
+export {
+  MergeStage,
+  type MergeStageValue,
+  type StagingEntry,
+  type StagingEntryOptions,
+} from "./types.js";
 
 /**
- * Options for creating an index entry.
+ * IndexEntry - alias for StagingEntry for the new Staging interface.
  */
-export type IndexEntryOptions = LegacyStagingEntryOptions;
+export type IndexEntry = StagingEntry;
+
+/**
+ * IndexEntryOptions - alias for StagingEntryOptions for the new Staging interface.
+ */
+export type IndexEntryOptions = StagingEntryOptions;
 
 /**
  * Options for iterating staging entries.
