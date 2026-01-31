@@ -1,9 +1,11 @@
 import type {
   // Legacy interfaces - used by commands internally
   BlobStore,
+  Checkout,
   CheckoutStore,
   CommitStore,
   FilesApi,
+  History,
   HistoryStore,
   RefStore,
   StagingStore,
@@ -11,16 +13,6 @@ import type {
   TreeStore,
   WorkingCopy,
   WorktreeStore,
-  // New interfaces (Phase C) - exported for convenience
-  Blobs,
-  Checkout,
-  Commits,
-  History,
-  Refs,
-  Staging,
-  Tags,
-  Trees,
-  Worktree,
 } from "@statewalker/vcs-core";
 
 /**
