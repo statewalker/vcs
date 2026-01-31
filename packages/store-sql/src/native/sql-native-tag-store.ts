@@ -233,4 +233,38 @@ export class SqlNativeTagStoreImpl implements SqlNativeTagStore {
     const result = await this.db.query<{ cnt: number }>("SELECT COUNT(*) as cnt FROM vcs_tag");
     return result[0].cnt;
   }
+
+  /**
+   * Find tags by tagger email
+   *
+   * @param email Tagger email to search for
+   * @returns Async iterable of matching tag IDs (newest first)
+   */
+  async *findByTagger(email: string): AsyncIterable<ObjectId> {
+    const rows = await this.db.query<{ tag_id: string }>(
+      "SELECT tag_id FROM vcs_tag WHERE tagger_email = ? ORDER BY tagger_timestamp DESC",
+      [email],
+    );
+
+    for (const row of rows) {
+      yield row.tag_id;
+    }
+  }
+
+  /**
+   * Find tags by target object type
+   *
+   * @param targetType Target object type code (1=commit, 2=tree, 3=blob, 4=tag)
+   * @returns Async iterable of matching tag IDs
+   */
+  async *findByTargetType(targetType: number): AsyncIterable<ObjectId> {
+    const rows = await this.db.query<{ tag_id: string }>(
+      "SELECT tag_id FROM vcs_tag WHERE object_type = ? ORDER BY tag_name",
+      [targetType],
+    );
+
+    for (const row of rows) {
+      yield row.tag_id;
+    }
+  }
 }

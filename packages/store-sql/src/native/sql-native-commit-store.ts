@@ -318,4 +318,25 @@ export class SqlNativeCommitStoreImpl implements SqlNativeCommitStore {
     const result = await this.db.query<{ cnt: number }>("SELECT COUNT(*) as cnt FROM vcs_commit");
     return result[0].cnt;
   }
+
+  /**
+   * Search commits by message content
+   *
+   * Uses LIKE for substring matching on commit messages.
+   * For more advanced full-text search, use a database with FTS5 support.
+   *
+   * @param pattern Substring to search for in message (case-insensitive)
+   * @returns Async iterable of matching commit IDs
+   */
+  async *searchMessage(pattern: string): AsyncIterable<ObjectId> {
+    const rows = await this.db.query<{ commit_id: string }>(
+      `SELECT commit_id FROM vcs_commit
+       WHERE message LIKE ?
+       ORDER BY author_timestamp DESC`,
+      [`%${pattern}%`],
+    );
+    for (const row of rows) {
+      yield row.commit_id;
+    }
+  }
 }

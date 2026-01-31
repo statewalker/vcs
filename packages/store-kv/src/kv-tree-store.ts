@@ -172,4 +172,80 @@ export class KVTreeStore implements TreeStore {
   getEmptyTreeId(): ObjectId {
     return EMPTY_TREE_ID;
   }
+
+  // --- Extended query methods (O(n) scans) ---
+
+  /**
+   * Find trees containing a specific blob
+   *
+   * Note: This is an O(n) scan through all trees. For better performance,
+   * use SQL-backed storage instead.
+   *
+   * @param blobId Blob object ID to search for
+   * @returns Async iterable of tree IDs containing the blob
+   */
+  async *findTreesWithBlob(blobId: ObjectId): AsyncIterable<ObjectId> {
+    for await (const treeId of this.keys()) {
+      try {
+        for await (const entry of this.loadTree(treeId)) {
+          if (entry.id === blobId && entry.mode !== FileMode.TREE) {
+            yield treeId;
+            break; // Found in this tree, move to next
+          }
+        }
+      } catch {
+        // Skip invalid trees
+      }
+    }
+  }
+
+  /**
+   * Find tree entries matching a name pattern
+   *
+   * Note: This is an O(n) scan through all trees. For better performance,
+   * use SQL-backed storage instead.
+   *
+   * @param namePattern Pattern to match (supports * and ? wildcards)
+   * @returns Async iterable of matching entries with their tree IDs
+   */
+  async *findByNamePattern(
+    namePattern: string,
+  ): AsyncIterable<{ treeId: ObjectId; entry: { mode: number; name: string; id: ObjectId } }> {
+    // Convert simple wildcards to regex
+    const regexPattern = namePattern
+      .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*")
+      .replace(/\?/g, ".");
+    const regex = new RegExp(`^${regexPattern}$`, "i");
+
+    for await (const treeId of this.keys()) {
+      try {
+        for await (const entry of this.loadTree(treeId)) {
+          if (regex.test(entry.name)) {
+            yield {
+              treeId,
+              entry: {
+                mode: entry.mode,
+                name: entry.name,
+                id: entry.id,
+              },
+            };
+          }
+        }
+      } catch {
+        // Skip invalid trees
+      }
+    }
+  }
+
+  /**
+   * Get tree count
+   */
+  async count(): Promise<number> {
+    let count = 0;
+    for await (const _ of this.keys()) {
+      count++;
+    }
+    return count;
+  }
 }

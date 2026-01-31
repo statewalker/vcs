@@ -265,4 +265,40 @@ export class SqlNativeTreeStoreImpl implements SqlNativeTreeStore {
     const result = await this.db.query<{ cnt: number }>("SELECT COUNT(*) as cnt FROM tree");
     return result[0].cnt;
   }
+
+  /**
+   * Find tree entries matching a name pattern
+   *
+   * Uses SQL LIKE pattern matching (% for any chars, _ for single char).
+   *
+   * @param namePattern LIKE pattern for entry name (e.g., "%.ts", "src%")
+   * @returns Async iterable of matching entries with their tree IDs
+   */
+  async *findByNamePattern(
+    namePattern: string,
+  ): AsyncIterable<{ treeId: ObjectId; entry: { mode: number; name: string; id: ObjectId } }> {
+    const rows = await this.db.query<{
+      tree_id: string;
+      mode: number;
+      name: string;
+      object_id: string;
+    }>(
+      `SELECT t.tree_id, te.mode, te.name, te.object_id FROM tree t
+       INNER JOIN tree_entry te ON te.tree_fk = t.id
+       WHERE te.name LIKE ?
+       ORDER BY t.tree_id, te.name`,
+      [namePattern],
+    );
+
+    for (const row of rows) {
+      yield {
+        treeId: row.tree_id,
+        entry: {
+          mode: row.mode,
+          name: row.name,
+          id: row.object_id,
+        },
+      };
+    }
+  }
 }
