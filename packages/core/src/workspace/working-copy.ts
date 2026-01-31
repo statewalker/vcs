@@ -13,11 +13,13 @@
  */
 
 import type { ObjectId } from "../common/id/index.js";
+import type { History } from "../history/history.js";
 import type { HistoryStore } from "../history/history-store.js";
-import type { StagingStore } from "./staging/index.js";
+import type { Checkout } from "./checkout/checkout.js";
+import type { Staging, StagingStore } from "./staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "./status/index.js";
 import type { RepositoryStateValue, StateCapabilities } from "./working-copy/repository-state.js";
-import type { WorktreeStore } from "./worktree/index.js";
+import type { Worktree, WorktreeStore } from "./worktree/index.js";
 
 /**
  * Working copy configuration
@@ -183,16 +185,48 @@ export interface RevertState {
  * ```
  */
 export interface WorkingCopy {
-  // ============ Links ============
+  // ============ New Architecture Components ============
 
-  /** The history store this working copy is linked to */
+  /**
+   * History interface (immutable repository objects)
+   *
+   * Provides access to blobs, trees, commits, tags, and refs.
+   * Optional during migration, will become required.
+   */
+  readonly history?: History;
+
+  /**
+   * Checkout interface (mutable local state)
+   *
+   * Manages HEAD, staging area, stash, and in-progress operations.
+   * Optional during migration, will become required.
+   */
+  readonly checkout?: Checkout;
+
+  /**
+   * Worktree interface (filesystem access)
+   *
+   * Provides read/write access to the working directory.
+   * Optional during migration, will become required.
+   */
+  readonly worktreeInterface?: Worktree;
+
+  // ============ Legacy Properties (deprecated) ============
+
+  /**
+   * @deprecated Use `history` instead. Will be removed in future version.
+   */
   readonly repository: HistoryStore;
 
-  /** Working tree filesystem access */
+  /**
+   * @deprecated Use `worktreeInterface` instead. Will be removed in future version.
+   */
   readonly worktree: WorktreeStore;
 
-  /** Staging area (the index) */
-  readonly staging: StagingStore;
+  /**
+   * @deprecated Use `checkout.staging` instead. Will be removed in future version.
+   */
+  readonly staging: StagingStore | Staging;
 
   /** Stash operations (storage is backend-dependent) */
   readonly stash: StashStore;
