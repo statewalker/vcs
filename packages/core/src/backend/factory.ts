@@ -31,7 +31,7 @@ const backendFactories = new Map<BackendType, (config: BackendConfig) => Promise
  * await backend.initialize();
  *
  * // Use the backend...
- * const commit = await backend.structured.commits.loadCommit(commitId);
+ * const commit = await backend.commits.loadCommit(commitId);
  *
  * await backend.close();
  * ```
