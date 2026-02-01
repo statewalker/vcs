@@ -367,15 +367,13 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     // Check if it's a local branch
     const isLocalBranch = await this.refsStore.has(`refs/heads/${this.name}`);
 
-    // Update staging area with target tree
+    // Sync staging to match target tree BEFORE updating HEAD
     const updated: string[] = [];
     const removed: string[] = [];
 
     if (targetTreeId) {
-      // Reset staging to target tree
-      const result = await this.resetStagingToTree(targetTreeId);
-      updated.push(...result.updated);
-      removed.push(...result.removed);
+      // Use this.trees which is CommandTrees (has loadTree method for TreeStore compatibility)
+      await this.staging.readTree(this.trees as any, targetTreeId);
 
       // Write files to working directory if not a bare repository
       if (this.hasFileWriteSupport()) {
