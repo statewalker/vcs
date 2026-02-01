@@ -9,7 +9,7 @@
  * is straightforward - load from source, store to destination.
  */
 
-import type { GitStores, ObjectId } from "@statewalker/vcs-core";
+import type { History, ObjectId } from "@statewalker/vcs-core";
 import type { SqlNativeStores } from "./native/types.js";
 
 /**
@@ -54,7 +54,7 @@ export interface SyncObject {
  * ```
  */
 export async function importToNative(
-  gitStores: GitStores,
+  gitStores: History,
   nativeStores: SqlNativeStores,
   objects: AsyncIterable<SyncObject>,
 ): Promise<number> {
@@ -67,8 +67,9 @@ export async function importToNative(
         if (await nativeStores.commits.has(id)) continue;
 
         // Load from Git store and convert to Commit object
-        const commit = await gitStores.commits.loadCommit(id);
-        await nativeStores.commits.storeCommit(commit);
+        const commit = await gitStores.commits.load(id);
+        if (!commit) throw new Error(`Commit not found: ${id}`);
+        await (nativeStores.commits as any).store(commit);
         count++;
         break;
       }
@@ -78,8 +79,9 @@ export async function importToNative(
         if (await nativeStores.trees.has(id)) continue;
 
         // Load entries from Git store
-        const entries = gitStores.trees.loadTree(id);
-        await nativeStores.trees.storeTree(entries);
+        const entries = await gitStores.trees.load(id);
+        if (!entries) throw new Error(`Tree not found: ${id}`);
+        await (nativeStores.trees as any).storeTree(entries);
         count++;
         break;
       }
@@ -89,7 +91,8 @@ export async function importToNative(
         if (await nativeStores.blobs.has(id)) continue;
 
         // Load content from Git store
-        const content = gitStores.blobs.load(id);
+        const content = await gitStores.blobs.load(id);
+        if (!content) throw new Error(`Blob not found: ${id}`);
         await nativeStores.blobs.store(content);
         count++;
         break;
@@ -100,8 +103,9 @@ export async function importToNative(
         if (await nativeStores.tags.has(id)) continue;
 
         // Load from Git store and convert to AnnotatedTag object
-        const tag = await gitStores.tags.loadTag(id);
-        await nativeStores.tags.storeTag(tag);
+        const tag = await gitStores.tags.load(id);
+        if (!tag) throw new Error(`Tag not found: ${id}`);
+        await (nativeStores.tags as any).storeTag(tag);
         count++;
         break;
       }
@@ -141,7 +145,7 @@ export async function importToNative(
  */
 export async function exportToGit(
   nativeStores: SqlNativeStores,
-  gitStores: GitStores,
+  gitStores: History,
   objects: AsyncIterable<SyncObject>,
 ): Promise<number> {
   let count = 0;
@@ -153,8 +157,9 @@ export async function exportToGit(
         if (await gitStores.commits.has(id)) continue;
 
         // Load from native store and store to Git store
-        const commit = await nativeStores.commits.loadCommit(id);
-        await gitStores.commits.storeCommit(commit);
+        const commit = await (nativeStores.commits as any).load(id);
+        if (!commit) throw new Error(`Commit not found: ${id}`);
+        await gitStores.commits.store(commit);
         count++;
         break;
       }
@@ -164,8 +169,9 @@ export async function exportToGit(
         if (await gitStores.trees.has(id)) continue;
 
         // Load entries from native store
-        const entries = nativeStores.trees.loadTree(id);
-        await gitStores.trees.storeTree(entries);
+        const entries = await (nativeStores.trees as any).load(id);
+        if (!entries) throw new Error(`Tree not found: ${id}`);
+        await (gitStores.trees as any).store(entries);
         count++;
         break;
       }
@@ -175,7 +181,8 @@ export async function exportToGit(
         if (await gitStores.blobs.has(id)) continue;
 
         // Load content from native store
-        const content = nativeStores.blobs.load(id);
+        const content = await nativeStores.blobs.load(id);
+        if (!content) throw new Error(`Blob not found: ${id}`);
         await gitStores.blobs.store(content);
         count++;
         break;
@@ -186,8 +193,9 @@ export async function exportToGit(
         if (await gitStores.tags.has(id)) continue;
 
         // Load from native store and store to Git store
-        const tag = await nativeStores.tags.loadTag(id);
-        await gitStores.tags.storeTag(tag);
+        const tag = await (nativeStores.tags as any).load(id);
+        if (!tag) throw new Error(`Tag not found: ${id}`);
+        await (gitStores.tags as any).store(tag);
         count++;
         break;
       }

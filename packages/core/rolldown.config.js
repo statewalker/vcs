@@ -4,7 +4,6 @@ export default defineConfig({
   input: {
     index: "src/index.ts",
     "workspace/staging/index": "src/workspace/staging/index.ts",
-    "common/format/index": "src/common/format/index.ts",
   },
   output: {
     dir: "dist",

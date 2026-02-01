@@ -14,11 +14,11 @@
 
 import type { ObjectId } from "../../common/id/index.js";
 import type { PersonIdent } from "../../common/person/person-ident.js";
-import type { HistoryStore } from "../../history/history-store.js";
+import type { History } from "../../history/history.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
-import type { StagingStore } from "../staging/index.js";
+import type { Staging } from "../staging/index.js";
 import type { StashEntry, StashPushOptions, StashStore } from "../working-copy.js";
-import type { WorktreeStore } from "../worktree/index.js";
+import type { Worktree } from "../worktree/index.js";
 
 /**
  * Files API subset needed for stash operations
@@ -35,12 +35,12 @@ export interface StashFilesApi {
  * Extended options for creating GitStashStore with full push/apply support.
  */
 export interface GitStashStoreOptions {
-  /** HistoryStore for object storage */
-  repository: HistoryStore;
+  /** History interface for object storage */
+  history: History;
   /** Staging area for index state */
-  staging: StagingStore;
+  staging: Staging;
   /** Working tree iterator for reading files */
-  worktree: WorktreeStore;
+  worktree: Worktree;
   /** Files API for stash metadata */
   files: StashFilesApi;
   /** Path to .git directory */
@@ -64,9 +64,9 @@ export interface GitStashStoreOptions {
  * Tree contains working tree state.
  */
 export class GitStashStore implements StashStore {
-  private readonly repository: HistoryStore;
-  private readonly staging: StagingStore;
-  private readonly worktree: WorktreeStore;
+  private readonly history: History;
+  private readonly staging: Staging;
+  private readonly worktree: Worktree;
   private readonly files: StashFilesApi;
   private readonly gitDir: string;
   private readonly getHead: () => Promise<ObjectId | undefined>;
@@ -74,7 +74,7 @@ export class GitStashStore implements StashStore {
   private readonly defaultAuthor: PersonIdent;
 
   constructor(options: GitStashStoreOptions) {
-    this.repository = options.repository;
+    this.history = options.history;
     this.staging = options.staging;
     this.worktree = options.worktree;
     this.files = options.files;
@@ -136,10 +136,10 @@ export class GitStashStore implements StashStore {
     };
 
     // 1. Create tree from index (this is what stash stores)
-    const indexTree = await this.staging.writeTree(this.repository.trees);
+    const indexTree = await this.staging.writeTree(this.history.trees);
 
     // 2. Create index state commit (parent = HEAD)
-    const indexCommitId = await this.repository.commits.storeCommit({
+    const indexCommitId = await this.history.commits.store({
       tree: indexTree,
       parents: [head],
       author,
@@ -163,7 +163,7 @@ export class GitStashStore implements StashStore {
 
     // 6. Create stash commit
     const stashMessage = options.message ?? `WIP on ${branch}`;
-    const stashCommitId = await this.repository.commits.storeCommit({
+    const stashCommitId = await this.history.commits.store({
       tree: worktreeTree,
       parents,
       author,
@@ -206,7 +206,7 @@ export class GitStashStore implements StashStore {
   ): Promise<ObjectId | undefined> {
     // Collect set of tracked paths from index
     const trackedPaths = new Set<string>();
-    for await (const entry of this.staging.listEntries()) {
+    for await (const entry of this.staging.entries()) {
       trackedPaths.add(entry.path);
     }
 
@@ -220,7 +220,7 @@ export class GitStashStore implements StashStore {
       // Check if file is tracked
       if (!trackedPaths.has(wtEntry.path)) {
         // Store blob content
-        const blobId = await this.repository.blobs.store(this.worktree.readContent(wtEntry.path));
+        const blobId = await this.history.blobs.store(this.worktree.readContent(wtEntry.path));
         untrackedEntries.push({
           name: wtEntry.path,
           mode: wtEntry.mode,
@@ -234,10 +234,10 @@ export class GitStashStore implements StashStore {
     }
 
     // Create tree with untracked files
-    const untrackedTree = await this.repository.trees.storeTree(untrackedEntries);
+    const untrackedTree = await this.history.trees.store(untrackedEntries);
 
     // Create orphan commit (no parents)
-    return this.repository.commits.storeCommit({
+    return this.history.commits.store({
       tree: untrackedTree,
       parents: [],
       author,
@@ -255,7 +255,12 @@ export class GitStashStore implements StashStore {
     // Collect all entries, checking for worktree modifications
     const entries: TreeEntry[] = [];
 
-    for await (const entry of this.repository.trees.loadTree(indexTree)) {
+    const indexTreeEntries = await this.history.trees.load(indexTree);
+    if (!indexTreeEntries) {
+      return this.history.trees.store([]);
+    }
+
+    for await (const entry of indexTreeEntries) {
       // Get worktree file content if it exists
       const wtEntry = await this.worktree.getEntry(entry.name);
       if (wtEntry && !wtEntry.isDirectory) {
@@ -263,7 +268,7 @@ export class GitStashStore implements StashStore {
         const wtHash = await this.worktree.computeHash(entry.name);
         if (wtHash !== entry.id) {
           // File is modified, store new content
-          const blobId = await this.repository.blobs.store(this.worktree.readContent(entry.name));
+          const blobId = await this.history.blobs.store(this.worktree.readContent(entry.name));
           entries.push({ ...entry, id: blobId });
         } else {
           entries.push(entry);
@@ -275,7 +280,7 @@ export class GitStashStore implements StashStore {
 
     // Create new tree if any modifications, otherwise return original
     if (entries.length > 0) {
-      return this.repository.trees.storeTree(entries);
+      return this.history.trees.store(entries);
     }
     return indexTree;
   }
@@ -299,10 +304,13 @@ export class GitStashStore implements StashStore {
     }
 
     // Get stash tree
-    const stashTree = await this.repository.commits.getTree(stashCommit);
+    const stashTree = await this.history.commits.getTree(stashCommit);
+    if (!stashTree) {
+      throw new Error(`Stash tree not found for commit ${stashCommit}`);
+    }
 
     // Restore index from stash tree
-    await this.staging.readTree(this.repository.trees, stashTree);
+    await this.staging.readTree(this.history.trees, stashTree);
   }
 
   /**

@@ -5,13 +5,15 @@
  * and to add additional worktrees to an existing repository.
  */
 
-import type { HistoryStore } from "../../history/history-store.js";
+import type { History } from "../../history/history.js";
+import type { Checkout } from "../checkout/checkout.js";
 import type {
   AddWorktreeOptions,
   WorkingCopy,
   WorkingCopyFactory,
   WorkingCopyOptions,
 } from "../working-copy.js";
+import type { Worktree } from "../worktree/worktree.js";
 
 import { createGitStashStore, type StashFilesApi } from "./stash-store.files.js";
 import { GitWorkingCopy, type WorkingCopyFilesApi } from "./working-copy.files.js";
@@ -34,15 +36,15 @@ export interface WorkingCopyFactoryFilesApi
  * Context required to create a GitWorkingCopy.
  *
  * This allows the factory to be used with different storage backends
- * for the repository, staging, and worktree components.
+ * for the repository, staging, worktree, and checkout components.
  */
 export interface GitWorkingCopyContext {
-  /** The history store to link to */
-  repository: HistoryStore;
-  /** Factory function to create the staging store */
-  createStagingStore: (gitDir: string) => Promise<import("../staging/index.js").StagingStore>;
-  /** Factory function to create the worktree store */
-  createWorktreeIterator: (worktreePath: string) => import("../worktree/index.js").WorktreeStore;
+  /** The history interface */
+  history: History;
+  /** Factory function to create the checkout interface */
+  createCheckout: (gitDir: string) => Promise<Checkout>;
+  /** Factory function to create the worktree interface */
+  createWorktree: (worktreePath: string) => Worktree;
 }
 
 /**
@@ -65,50 +67,38 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
     repositoryPath: string,
     options: WorkingCopyOptions = {},
   ): Promise<WorkingCopy> {
-    // 1. Get context (repository, staging, worktree factories)
+    // 1. Get context (history, checkout, worktree factories)
     const context = await this.createContext(repositoryPath, options);
 
-    // 2. Create staging store
-    const staging = await context.createStagingStore(repositoryPath);
+    // 2. Create checkout interface
+    const checkout = await context.createCheckout(repositoryPath);
 
-    // 3. Create working tree iterator
-    const worktree = context.createWorktreeIterator(worktreePath);
+    // 3. Create working tree interface
+    const worktreeInterface = context.createWorktree(worktreePath);
 
     // 4. Create stash store
     const stash = createGitStashStore({
-      repository: context.repository,
-      staging,
-      worktree,
+      history: context.history,
+      staging: checkout.staging,
+      worktree: worktreeInterface,
       files: this.files,
       gitDir: repositoryPath,
-      getHead: async () => {
-        const ref = await context.repository.refs.resolve("HEAD");
-        return ref?.objectId;
-      },
-      getBranch: async () => {
-        const headRef = await context.repository.refs.get("HEAD");
-        if (headRef && "target" in headRef) {
-          const target = headRef.target;
-          if (target.startsWith("refs/heads/")) {
-            return target.substring("refs/heads/".length);
-          }
-        }
-        return undefined;
-      },
+      getHead: async () => checkout.getHeadCommit(),
+      getBranch: async () => checkout.getCurrentBranch(),
     });
 
     // 5. Create config
     const config = await createWorkingCopyConfig(this.files, repositoryPath);
 
-    return new GitWorkingCopy(
-      context.repository,
-      worktree,
-      staging,
+    return new GitWorkingCopy({
+      history: context.history,
+      checkout,
+      worktreeInterface,
       stash,
       config,
-      this.files,
-      repositoryPath,
-    );
+      files: this.files,
+      gitDir: repositoryPath,
+    });
   }
 
   /**
@@ -125,25 +115,18 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
    * - Worktree .git is a file containing:
    *   gitdir: /path/to/main/.git/worktrees/NAME
    *
-   * @param repository Repository with config.path set to git directory
+   * @param history History interface
+   * @param gitDir Path to the main .git directory
    * @param worktreePath Path for new working directory
    * @param options Worktree options
    */
   async addWorktree(
-    repository: HistoryStore,
+    history: History,
+    gitDir: string,
     worktreePath: string,
     options: AddWorktreeOptions = {},
   ): Promise<WorkingCopy> {
     const { branch, commit, force = false } = options;
-
-    // Get git directory from repository config
-    const gitDir = repository.config.path as string | undefined;
-    if (!gitDir) {
-      throw new Error(
-        "Cannot add worktree: repository.config.path is not set. " +
-          "The repository must be created with a path in its config to support worktrees.",
-      );
-    }
 
     // Extract worktree name from path
     const worktreeName = worktreePath.split("/").pop() || "worktree";
@@ -173,18 +156,18 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
       await this.files.writeFile(`${worktreeGitDir}/HEAD`, `ref: ${branchRef}\n`);
 
       // If branch doesn't exist, create it pointing to current HEAD
-      const existingRef = await repository.refs.get(branchRef);
+      const existingRef = await history.refs.get(branchRef);
       if (!existingRef && force) {
-        const headRef = await repository.refs.resolve("HEAD");
+        const headRef = await history.refs.resolve("HEAD");
         if (headRef?.objectId) {
-          await repository.refs.set(branchRef, headRef.objectId);
+          await history.refs.set(branchRef, headRef.objectId);
         }
       } else if (!existingRef && !force) {
         throw new Error(`Branch '${branch}' does not exist. Use force: true to create it.`);
       }
     } else {
       // Default: detached HEAD at current commit
-      const headRef = await repository.refs.resolve("HEAD");
+      const headRef = await history.refs.resolve("HEAD");
       if (headRef?.objectId) {
         await this.files.writeFile(`${worktreeGitDir}/HEAD`, `${headRef.objectId}\n`);
       } else {
@@ -195,47 +178,35 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
     // Create the working copy using the worktree-specific git directory
     const context = await this.createContext(gitDir, {});
 
-    // Create staging store for the new worktree
-    const staging = await context.createStagingStore(worktreeGitDir);
+    // Create checkout interface for the new worktree
+    const checkout = await context.createCheckout(worktreeGitDir);
 
-    // Create working tree iterator
-    const worktree = context.createWorktreeIterator(worktreePath);
+    // Create working tree interface
+    const worktreeInterface = context.createWorktree(worktreePath);
 
     // Create stash store (uses main repo's stash)
     const stash = createGitStashStore({
-      repository: context.repository,
-      staging,
-      worktree,
+      history: context.history,
+      staging: checkout.staging,
+      worktree: worktreeInterface,
       files: this.files,
       gitDir: worktreeGitDir,
-      getHead: async () => {
-        const ref = await context.repository.refs.resolve("HEAD");
-        return ref?.objectId;
-      },
-      getBranch: async () => {
-        const headRef = await context.repository.refs.get("HEAD");
-        if (headRef && "target" in headRef) {
-          const target = headRef.target;
-          if (target.startsWith("refs/heads/")) {
-            return target.substring("refs/heads/".length);
-          }
-        }
-        return undefined;
-      },
+      getHead: async () => checkout.getHeadCommit(),
+      getBranch: async () => checkout.getCurrentBranch(),
     });
 
     // Create config
     const config = await createWorkingCopyConfig(this.files, worktreeGitDir);
 
-    return new GitWorkingCopy(
-      context.repository,
-      worktree,
-      staging,
+    return new GitWorkingCopy({
+      history: context.history,
+      checkout,
+      worktreeInterface,
       stash,
       config,
-      this.files,
-      worktreeGitDir,
-    );
+      files: this.files,
+      gitDir: worktreeGitDir,
+    });
   }
 }
 

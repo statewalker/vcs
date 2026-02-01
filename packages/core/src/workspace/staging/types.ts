@@ -7,7 +7,6 @@
 
 import type { FileModeValue } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
-import type { TreeStore } from "../../history/trees/index.js";
 
 /**
  * Merge stage for index entries.
@@ -113,64 +112,4 @@ export interface StagingEdit {
    * @returns New entry, or undefined to delete
    */
   apply(entry: StagingEntry | undefined): StagingEntry | undefined;
-}
-
-/**
- * Abstract staging area (index) interface.
- *
- * Manages the staging area for commits, supporting:
- * - Adding/removing/updating entries
- * - Conflict resolution (merge stages)
- * - Tree generation for commits
- * - Reading/writing persistent storage
- *
- * @deprecated Use the Staging interface from staging.ts instead.
- */
-export interface StagingStore {
-  getEntry(path: string): Promise<StagingEntry | undefined>;
-  getEntryByStage(path: string, stage: MergeStageValue): Promise<StagingEntry | undefined>;
-  getEntries(path: string): Promise<StagingEntry[]>;
-  hasEntry(path: string): Promise<boolean>;
-  getEntryCount(): Promise<number>;
-  listEntries(): AsyncIterable<StagingEntry>;
-  listEntriesUnder(prefix: string): AsyncIterable<StagingEntry>;
-  hasConflicts(): Promise<boolean>;
-  getConflictPaths(): AsyncIterable<string>;
-  builder(): StagingBuilder;
-  editor(): StagingEditor;
-  clear(): Promise<void>;
-  writeTree(treeStore: TreeStore): Promise<ObjectId>;
-  readTree(treeStore: TreeStore, treeId: ObjectId): Promise<void>;
-  read(): Promise<void>;
-  write(): Promise<void>;
-  isOutdated(): Promise<boolean>;
-  getUpdateTime(): number;
-}
-
-/**
- * Builder for bulk staging area modifications.
- *
- * @deprecated Use IndexBuilder from staging.ts instead.
- */
-export interface StagingBuilder {
-  add(entry: StagingEntryOptions): void;
-  keep(startIndex: number, count: number): void;
-  addTree(
-    treeStore: TreeStore,
-    treeId: ObjectId,
-    prefix: string,
-    stage?: MergeStageValue,
-  ): Promise<void>;
-  finish(): Promise<void>;
-}
-
-/**
- * Editor for targeted staging area modifications.
- *
- * @deprecated Use IndexEditor from staging.ts instead.
- */
-export interface StagingEditor {
-  add(edit: StagingEdit): void;
-  remove(path: string): void;
-  finish(): Promise<void>;
 }

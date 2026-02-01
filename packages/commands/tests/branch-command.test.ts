@@ -34,7 +34,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("CreateBranchCommand", () => {
     it("should create branch at HEAD", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const ref = await git.branchCreate().setName("feature").call();
 
@@ -81,7 +81,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should overwrite branch with force", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create branch
       await git.branchCreate().setName("feature").call();
@@ -107,7 +107,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("DeleteBranchCommand", () => {
     it("should delete branch", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.branchCreate().setName("feature").call();
       expect(await repository.refs.has("refs/heads/feature")).toBe(true);
@@ -119,7 +119,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should delete multiple branches", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.branchCreate().setName("feature1").call();
       await git.branchCreate().setName("feature2").call();
@@ -148,7 +148,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject deleting unmerged branch without force", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       // Create branch at initial commit
       await git.branchCreate().setName("feature").setStartPoint(initialCommitId).call();
@@ -181,7 +181,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should force delete unmerged branch", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       // Create branch with unique commit
       await git.branchCreate().setName("feature").setStartPoint(initialCommitId).call();
@@ -243,7 +243,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should list remote branches when mode is REMOTE", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Simulate remote tracking branch
       const headRef = await repository.refs.resolve("HEAD");
@@ -257,7 +257,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should list all branches when mode is ALL", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.branchCreate().setName("feature").call();
 
@@ -275,7 +275,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("RenameBranchCommand", () => {
     it("should rename branch", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.branchCreate().setName("old-name").call();
 
@@ -287,7 +287,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should rename current branch when oldName not specified", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const ref = await git.branchRename().setNewName("renamed-main").call();
 

@@ -36,7 +36,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRevert.
    */
   it("should revert a commit and generate correct message", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create file a
     await addFile(workingCopy, "a.txt", "first line\nsec. line\nthird line\n");
@@ -93,7 +93,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRevertMultiple.
    */
   it("should revert multiple commits in order", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial state
     await addFile(workingCopy, "a.txt", "first\n");
@@ -136,7 +136,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRevertConflictResolution.
    */
   it("should detect conflicts when reverting", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create file a
     await addFile(workingCopy, "a.txt", "a");
@@ -170,7 +170,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test revert with noCommit option.
    */
   it("should revert without committing when noCommit is true", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base file
     await addFile(workingCopy, "a.txt", "original");
@@ -210,7 +210,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test reverting a merge commit requires mainline parent.
    */
   it("should throw error when reverting merge commit without mainline parent", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base
     await addFile(workingCopy, "file.txt", "base");
@@ -256,7 +256,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test reverting a merge commit with mainline parent specified.
    */
   it("should revert merge commit when mainline parent is specified", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base commit
     await addFile(workingCopy, "file.txt", "base content");
@@ -312,7 +312,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test error when specifying invalid mainline parent number.
    */
   it("should throw error for invalid mainline parent number", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create a merge commit
     await addFile(workingCopy, "file.txt", "content");
@@ -355,7 +355,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test revert where file is added in reverted commit (should be deleted).
    */
   it("should handle file addition revert (delete the file)", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base
     await addFile(workingCopy, "existing.txt", "exists");
@@ -389,7 +389,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test revert where file is deleted in reverted commit (should be restored).
    */
   it("should handle file deletion revert (restore the file)", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base with file
     await addFile(workingCopy, "deleteme.txt", "content to restore");
@@ -420,7 +420,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
    * Test revert delete/modify conflict.
    */
   it("should detect delete/modify conflict when reverting", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base with file
     await addFile(workingCopy, "conflict.txt", "original");
@@ -537,7 +537,7 @@ describe.each(backends)("RevertCommand - Strategy and options ($name backend)", 
    * Test that options are correctly maintained through fluent API.
    */
   it("should chain all options fluently", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create setup for revert
     await addFile(workingCopy, "a.txt", "a");
@@ -582,7 +582,7 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Test that reverted commits have correct parentage.
    */
   it("should set correct parent for revert commit", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base with file a
     await addFile(workingCopy, "a.txt", "a");
@@ -615,7 +615,7 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Test revert message format with multi-line original message.
    */
   it("should use only first line of original message in revert title", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base
     await addFile(workingCopy, "a.txt", "a");
@@ -647,7 +647,7 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Test that revert of a file modification produces original content.
    */
   it("should restore original content when reverting modification", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base with specific content
     const originalContent = "original content here";
@@ -697,7 +697,7 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Based on JGit's testRevertMultipleWithFail.
    */
   it("should stop on first conflict when reverting multiple commits", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base
     await addFile(workingCopy, "a.txt", "base");
@@ -738,7 +738,7 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
    * Test command cannot be reused after call.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     await addFile(workingCopy, "a.txt", "a");
     await git.commit().setMessage("base").call();

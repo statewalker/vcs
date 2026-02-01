@@ -24,7 +24,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
     return result;
   }
   it("should format added file", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file
     await addFile(workingCopy, "new-file.txt", "line 1\nline 2\nline 3\n");
@@ -55,7 +55,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should format deleted file", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file
     await addFile(workingCopy, "to-delete.txt", "content\n");
@@ -84,7 +84,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should format modified file", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file
     await addFile(workingCopy, "modify.txt", "line 1\nline 2\nline 3\n");
@@ -116,7 +116,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should include context lines", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file with many lines
     const lines = `${Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join("\n")}\n`;
@@ -142,7 +142,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should format multiple hunks for distant changes", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file with many lines
     const lines = `${Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join("\n")}\n`;
@@ -166,7 +166,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should convert to string format", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file
     await addFile(workingCopy, "test.txt", "hello\n");
@@ -188,7 +188,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should format all entries at once", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add multiple files
     await addFile(workingCopy, "file1.txt", "content 1\n");
@@ -208,7 +208,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should abbreviate object IDs by default", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file
     await addFile(workingCopy, "test.txt", "content\n");
@@ -224,7 +224,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
   });
 
   it("should respect custom abbreviation length", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file and modify it (to get both old and new IDs)
     await addFile(workingCopy, "test.txt", "content\n");

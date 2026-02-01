@@ -134,15 +134,6 @@ export interface GitObjectStore {
   remove(id: ObjectId): Promise<boolean>;
 
   /**
-   * Delete object
-   *
-   * @param id ObjectId of the object
-   * @returns True if object was deleted, false if it didn't exist
-   * @deprecated Use remove() instead. This method will be removed in a future version.
-   */
-  delete(id: ObjectId): Promise<boolean>;
-
-  /**
    * List all object IDs
    *
    * @returns Async iterable of all object IDs

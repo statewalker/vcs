@@ -36,7 +36,7 @@ describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testUpToDate.
    */
   it("should return UP_TO_DATE when current commit is ancestor of upstream", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create commits on main
     await addFile(workingCopy, "file.txt", "v1");
@@ -57,7 +57,7 @@ describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testFastForward.
    */
   it("should fast-forward when possible", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial commit
     await addFile(workingCopy, "file.txt", "v1");
@@ -89,7 +89,7 @@ describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRebase.
    */
   it("should replay commits onto upstream", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial commit
     await addFile(workingCopy, "a.txt", "a");
@@ -124,7 +124,7 @@ describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
    * Test abort operation.
    */
   it("should abort rebase", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial commit
     await addFile(workingCopy, "file.txt", "v1");
@@ -221,7 +221,7 @@ describe.each(backends)("RebaseCommand - API options ($name backend)", ({ factor
    * Test fluent API chaining.
    */
   it("should support fluent API chaining", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();

@@ -1,18 +1,18 @@
 /**
- * SQL-based StagingStore implementation
+ * SQL-based Staging implementation
  *
  * Stores staging area entries in a SQL database.
  */
 
 import type {
+  IndexBuilder,
+  IndexEdit,
+  IndexEditor,
   MergeStageValue,
   ObjectId,
-  StagingBuilder,
-  StagingEdit,
-  StagingEditor,
+  Staging,
   StagingEntry,
   StagingEntryOptions,
-  StagingStore,
   TreeEntry,
   TreeStore,
 } from "@statewalker/vcs-core";
@@ -58,17 +58,18 @@ function rowToEntry(row: StagingRow): StagingEntry {
 }
 
 /**
- * SQL-based StagingStore implementation.
+ * SQL-based Staging implementation.
  */
-export class SQLStagingStore implements StagingStore {
+export class SQLStaging implements Staging {
   private updateTime: number = Date.now();
 
   constructor(private db: DatabaseClient) {}
 
   // ============ Reading Operations ============
 
-  async getEntry(path: string): Promise<StagingEntry | undefined> {
-    return this.getEntryByStage(path, MergeStage.MERGED);
+  async getEntry(path: string, stage?: MergeStageValue): Promise<StagingEntry | undefined> {
+    const actualStage = stage ?? MergeStage.MERGED;
+    return this.getEntryByStage(path, actualStage);
   }
 
   async getEntryByStage(path: string, stage: MergeStageValue): Promise<StagingEntry | undefined> {
@@ -148,14 +149,115 @@ export class SQLStagingStore implements StagingStore {
     }
   }
 
-  // ============ Writing Operations ============
-
-  builder(): StagingBuilder {
-    return new SQLStagingBuilder(this.db, this);
+  async setEntry(entry: StagingEntryOptions): Promise<void> {
+    const editor = this.createEditor();
+    editor.upsert(entry);
+    await editor.finish();
   }
 
-  editor(): StagingEditor {
-    return new SQLStagingEditor(this.db, this);
+  async removeEntry(path: string, stage?: MergeStageValue): Promise<boolean> {
+    const editor = this.createEditor();
+    if (stage === undefined) {
+      // Remove all stages for this path
+      const hadEntry = await this.hasEntry(path);
+      editor.remove(path);
+      await editor.finish();
+      return hadEntry;
+    } else {
+      // Remove specific stage
+      const hadEntry = (await this.getEntry(path, stage)) !== undefined;
+      editor.remove(path);
+      await editor.finish();
+      return hadEntry;
+    }
+  }
+
+  async *entries(options?: {
+    prefix?: string;
+    stages?: MergeStageValue[];
+  }): AsyncIterable<StagingEntry> {
+    const prefix = options?.prefix;
+    const stages = options?.stages;
+
+    for await (const entry of this.listEntries()) {
+      // Filter by prefix if specified
+      if (prefix) {
+        const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
+        if (!entry.path.startsWith(normalizedPrefix) && entry.path !== prefix) {
+          continue;
+        }
+      }
+
+      // Filter by stages if specified
+      if (stages && !stages.includes(entry.stage)) {
+        continue;
+      }
+
+      yield entry;
+    }
+  }
+
+  async getConflictedPaths(): Promise<string[]> {
+    const rows = await this.db.query<{ path: string }>(
+      "SELECT DISTINCT path FROM staging_entry WHERE stage > 0 ORDER BY path",
+      [],
+    );
+    return rows.map((row) => row.path);
+  }
+
+  async resolveConflict(
+    path: string,
+    resolution: "ours" | "theirs" | "base" | StagingEntry,
+  ): Promise<void> {
+    const editor = this.createEditor();
+
+    if (typeof resolution === "string") {
+      // Resolution is a stage name
+      let stage: MergeStageValue;
+      switch (resolution) {
+        case "base":
+          stage = MergeStage.BASE;
+          break;
+        case "ours":
+          stage = MergeStage.OURS;
+          break;
+        case "theirs":
+          stage = MergeStage.THEIRS;
+          break;
+        default:
+          throw new Error(`Invalid resolution: ${resolution}`);
+      }
+
+      // Find entry at the specified stage
+      const entry = await this.getEntry(path, stage);
+      if (!entry) {
+        throw new Error(`No entry at stage ${stage} for path: ${path}`);
+      }
+
+      // Create stage 0 entry from chosen stage
+      editor.upsert({
+        ...entry,
+        stage: MergeStage.MERGED,
+      });
+    } else {
+      // Resolution is a complete entry
+      editor.upsert({
+        ...resolution,
+        stage: MergeStage.MERGED,
+      });
+    }
+
+    await editor.finish();
+  }
+
+  // ============ Writing Operations ============
+
+  createBuilder(): IndexBuilder {
+    return new SQLIndexBuilder(this.db, this);
+  }
+
+  createEditor(): IndexEditor {
+    return new SQLIndexEditor(this.db, this);
   }
 
   async clear(): Promise<void> {
@@ -217,7 +319,9 @@ export class SQLStagingStore implements StagingStore {
       });
     }
 
-    return treeStore.storeTree(treeEntries);
+    return (treeStore as any).store
+      ? (treeStore as any).store(treeEntries)
+      : treeStore.storeTree(treeEntries);
   }
 
   async readTree(treeStore: TreeStore, treeId: ObjectId): Promise<void> {
@@ -232,7 +336,11 @@ export class SQLStagingStore implements StagingStore {
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    for await (const entry of treeStore.loadTree(treeId)) {
+    const treeIter = (treeStore as any).load
+      ? await (treeStore as any).load(treeId)
+      : treeStore.loadTree(treeId);
+    if (!treeIter) throw new Error("Tree not found");
+    for await (const entry of treeIter) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
@@ -276,13 +384,13 @@ export class SQLStagingStore implements StagingStore {
 /**
  * Builder for bulk staging area modifications.
  */
-class SQLStagingBuilder implements StagingBuilder {
+class SQLIndexBuilder implements IndexBuilder {
   private entries: StagingEntry[] = [];
   private keeping: Array<{ start: number; count: number }> = [];
 
   constructor(
     private readonly db: DatabaseClient,
-    private readonly store: SQLStagingStore,
+    private readonly store: SQLStaging,
   ) {}
 
   add(options: StagingEntryOptions): void {
@@ -313,11 +421,13 @@ class SQLStagingBuilder implements StagingBuilder {
   }
 
   async addTree(
-    treeStore: TreeStore,
+    trees: import("@statewalker/vcs-core").Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue = MergeStage.MERGED,
   ): Promise<void> {
+    // Handle both Trees and TreeStore interfaces
+    const treeStore = trees as any as TreeStore;
     await this.addTreeRecursive(treeStore, treeId, prefix, stage);
   }
 
@@ -327,7 +437,11 @@ class SQLStagingBuilder implements StagingBuilder {
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    for await (const entry of treeStore.loadTree(treeId)) {
+    const treeIter = (treeStore as any).load
+      ? await (treeStore as any).load(treeId)
+      : treeStore.loadTree(treeId);
+    if (!treeIter) throw new Error("Tree not found");
+    for await (const entry of treeIter) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
@@ -432,20 +546,34 @@ class SQLStagingBuilder implements StagingBuilder {
 /**
  * Editor for targeted staging area modifications.
  */
-class SQLStagingEditor implements StagingEditor {
-  private edits: StagingEdit[] = [];
+class SQLIndexEditor implements IndexEditor {
+  private edits: IndexEdit[] = [];
 
   constructor(
     private readonly db: DatabaseClient,
-    private readonly store: SQLStagingStore,
+    private readonly store: SQLStaging,
   ) {}
 
-  add(edit: StagingEdit): void {
+  add(edit: IndexEdit): void {
     this.edits.push(edit);
   }
 
-  remove(path: string): void {
+  remove(path: string, _stage?: MergeStageValue): void {
+    // For now, remove all stages (ignore stage parameter)
+    // TODO: Implement stage-specific removal if needed
     this.edits.push({ path, apply: () => undefined });
+  }
+
+  upsert(entry: StagingEntryOptions): void {
+    this.edits.push({
+      path: entry.path,
+      apply: () => ({
+        ...entry,
+        stage: entry.stage ?? MergeStage.MERGED,
+        size: entry.size ?? 0,
+        mtime: entry.mtime ?? Date.now(),
+      }),
+    });
   }
 
   async finish(): Promise<void> {
@@ -543,7 +671,7 @@ class SQLStagingEditor implements StagingEditor {
   private applyConflictResolution(
     entries: StagingEntry[],
     startIndex: number,
-    edit: StagingEdit & { chooseStage?: MergeStageValue },
+    edit: IndexEdit & { chooseStage?: MergeStageValue },
     output: StagingEntry[],
   ): void {
     let chosen: StagingEntry | undefined;
@@ -584,15 +712,13 @@ function comparePaths(a: string, b: string): number {
 /**
  * Type guard for DeleteStagingTree edit.
  */
-function isDeleteTree(edit: StagingEdit): edit is StagingEdit & { path: string } {
+function isDeleteTree(edit: IndexEdit): edit is IndexEdit & { path: string } {
   return edit.constructor.name === "DeleteStagingTree";
 }
 
 /**
  * Type guard for ResolveStagingConflict edit.
  */
-function isResolveConflict(
-  edit: StagingEdit,
-): edit is StagingEdit & { chooseStage: MergeStageValue } {
+function isResolveConflict(edit: IndexEdit): edit is IndexEdit & { chooseStage: MergeStageValue } {
   return "chooseStage" in edit;
 }

@@ -1,13 +1,11 @@
 import {
   createFileTreeIterator,
-  createGitRepository,
   createInMemoryFilesApi,
+  createMemoryHistory,
   type FilesApi,
   type Staging,
-  type StagingStore,
   type WorkingCopy,
   type Worktree,
-  type WorktreeStore,
 } from "@statewalker/vcs-core";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 
@@ -57,9 +55,9 @@ export class InitCommand {
   private gitDir?: string;
   private bare = false;
   private initialBranch = "main";
-  private stagingStore?: StagingStore;
+  private stagingStore?: Staging;
   private worktreeEnabled = false;
-  private worktreeStore?: WorktreeStore;
+  private worktreeStore?: Worktree;
   private callable = true;
 
   /**
@@ -157,7 +155,7 @@ export class InitCommand {
    *   .call();
    * ```
    */
-  setStagingStore(stagingStore: StagingStore): this {
+  setStagingStore(stagingStore: Staging): this {
     this.checkCallable();
     this.stagingStore = stagingStore;
     return this;
@@ -199,7 +197,7 @@ export class InitCommand {
    * @param worktree The worktree store to use
    * @returns this for method chaining
    */
-  setWorktreeStore(worktree: WorktreeStore): this {
+  setWorktreeStore(worktree: Worktree): this {
     this.checkCallable();
     this.worktreeStore = worktree;
     this.worktreeEnabled = true;
@@ -222,42 +220,39 @@ export class InitCommand {
     // Determine git directory
     const gitDir = this.resolveGitDir();
 
-    // Create the repository
-    const repository = await createGitRepository(files, gitDir, {
-      create: true,
-      defaultBranch: this.initialBranch,
-      bare: this.bare,
-    });
+    // Create the history (repository)
+    const history = createMemoryHistory();
+    await history.initialize();
+
+    // Set initial branch by creating symbolic ref for HEAD
+    await history.refs.setSymbolic("HEAD", `refs/heads/${this.initialBranch}`);
 
     // Create staging store (use provided or default to MemoryStagingStore)
     const staging = this.stagingStore ?? new MemoryStagingStore();
 
     // Create worktree if enabled and not bare
-    let worktree: WorktreeStore | undefined;
+    let worktree: Worktree | undefined;
     if (this.worktreeEnabled && !this.bare) {
       worktree =
         this.worktreeStore ??
-        createFileTreeIterator({
+        (createFileTreeIterator({
           files,
           rootPath: "",
           gitDir,
-        });
+        }) as unknown as Worktree);
     }
 
     // Create WorkingCopy from components
-    // Note: StagingStore/WorktreeStore are partial implementations of Staging/Worktree
+    // Note: Staging/Worktree implementations may be partial
     // Full implementations are provided at runtime by workspace integration
     // Use type assertion since init creates a minimal working copy
     const workingCopy = {
-      repository,
+      history,
       staging: staging as unknown as Staging,
       worktree: (worktree ?? {}) as unknown as Worktree,
       stash: {} as never, // Stash not available for newly init'd repos
       config: {} as never, // Config not set for newly init'd repos
       // Legacy getters for compatibility
-      get history() {
-        return undefined;
-      },
       get checkout() {
         return undefined;
       },
@@ -265,11 +260,11 @@ export class InitCommand {
         return worktree as unknown as Worktree | undefined;
       },
       async getHead() {
-        const ref = await repository.refs.resolve("HEAD");
+        const ref = await history.refs.resolve("HEAD");
         return ref?.objectId;
       },
       async getCurrentBranch() {
-        const ref = await repository.refs.get("HEAD");
+        const ref = await history.refs.get("HEAD");
         if (ref && "target" in ref) {
           return ref.target.replace("refs/heads/", "");
         }
@@ -318,7 +313,7 @@ export class InitCommand {
     return {
       git,
       workingCopy,
-      repository,
+      repository: history,
       initialBranch: this.initialBranch,
       bare: this.bare,
       gitDir,

@@ -9,6 +9,7 @@
 import { deflate, inflate } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
+import { PackObjectType, PackWriterStream, parsePackEntries } from "../backend/git/pack/index.js";
 import type { ObjectId } from "../common/id/index.js";
 import type { BlobStore } from "../history/blobs/blob-store.js";
 import type { BlobContent, Blobs } from "../history/blobs/blobs.js";
@@ -22,7 +23,6 @@ import type { TreeEntry } from "../history/trees/tree-entry.js";
 import type { TreeStore } from "../history/trees/tree-store.js";
 import type { Trees } from "../history/trees/trees.js";
 import type { BlobDeltaApi } from "../storage/delta/blob-delta-api.js";
-import { PackObjectType, PackWriterStream, parsePackEntries } from "../storage/pack/index.js";
 import type {
   PackBuilder,
   PackBuildStats,

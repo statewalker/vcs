@@ -1,4 +1,4 @@
-import type { HistoryStore, WorkingCopy } from "@statewalker/vcs-core";
+import type { History, WorkingCopy } from "@statewalker/vcs-core";
 
 import type { Git } from "../git.js";
 
@@ -14,8 +14,8 @@ export interface InitResult {
   /** WorkingCopy for direct repository access */
   workingCopy: WorkingCopy;
 
-  /** The underlying HistoryStore (repository) */
-  repository: HistoryStore;
+  /** The underlying History (repository) */
+  repository: History;
 
   /** Initial branch name */
   initialBranch: string;

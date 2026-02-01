@@ -7,15 +7,13 @@ import {
   parseIndexFile,
   serializeIndexFile,
 } from "./index-format.js";
+import type { IndexBuilder, IndexEditor, Staging } from "./staging.js";
 import {
   MergeStage,
   type MergeStageValue,
-  type StagingBuilder,
   type StagingEdit,
-  type StagingEditor,
   type StagingEntry,
   type StagingEntryOptions,
-  type StagingStore,
 } from "./types.js";
 
 /**
@@ -26,8 +24,8 @@ import {
  *
  * All entries are kept sorted by (path, stage) for binary search.
  */
-export class FileStagingStore implements StagingStore {
-  private entries: StagingEntry[] = [];
+export class FileStagingStore implements Staging {
+  private _entries: StagingEntry[] = [];
   private updateTime = 0;
   private version: IndexVersion = INDEX_VERSION_2;
 
@@ -38,14 +36,14 @@ export class FileStagingStore implements StagingStore {
 
   // ============ Reading Operations ============
 
-  async getEntry(path: string): Promise<StagingEntry | undefined> {
-    const index = this.findEntry(path, MergeStage.MERGED);
-    return index >= 0 ? this.entries[index] : undefined;
+  async getEntry(path: string, stage?: MergeStageValue): Promise<StagingEntry | undefined> {
+    const actualStage = stage ?? MergeStage.MERGED;
+    const index = this.findEntry(path, actualStage);
+    return index >= 0 ? this._entries[index] : undefined;
   }
 
   async getEntryByStage(path: string, stage: MergeStageValue): Promise<StagingEntry | undefined> {
-    const index = this.findEntry(path, stage);
-    return index >= 0 ? this.entries[index] : undefined;
+    return this.getEntry(path, stage);
   }
 
   async getEntries(path: string): Promise<StagingEntry[]> {
@@ -57,6 +55,29 @@ export class FileStagingStore implements StagingStore {
     return result;
   }
 
+  async setEntry(entry: StagingEntryOptions): Promise<void> {
+    const editor = this.createEditor();
+    editor.upsert(entry);
+    await editor.finish();
+  }
+
+  async removeEntry(path: string, stage?: MergeStageValue): Promise<boolean> {
+    const editor = this.createEditor();
+    if (stage === undefined) {
+      // Remove all stages for this path
+      const hadEntry = await this.hasEntry(path);
+      editor.remove(path);
+      await editor.finish();
+      return hadEntry;
+    } else {
+      // Remove specific stage
+      const hadEntry = (await this.getEntry(path, stage)) !== undefined;
+      editor.remove(path);
+      await editor.finish();
+      return hadEntry;
+    }
+  }
+
   async hasEntry(path: string): Promise<boolean> {
     // Check any stage
     for (const stage of [MergeStage.MERGED, MergeStage.BASE, MergeStage.OURS, MergeStage.THEIRS]) {
@@ -66,18 +87,42 @@ export class FileStagingStore implements StagingStore {
   }
 
   async getEntryCount(): Promise<number> {
-    return this.entries.length;
+    return this._entries.length;
+  }
+
+  async *entries(
+    options?: import("./staging.js").EntryIteratorOptions,
+  ): AsyncIterable<StagingEntry> {
+    const prefix = options?.prefix;
+    const stages = options?.stages;
+
+    for (const entry of this._entries) {
+      // Filter by prefix if specified
+      if (prefix) {
+        const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
+        if (!entry.path.startsWith(normalizedPrefix) && entry.path !== prefix) {
+          continue;
+        }
+      }
+
+      // Filter by stages if specified
+      if (stages && !stages.includes(entry.stage)) {
+        continue;
+      }
+
+      yield entry;
+    }
   }
 
   async *listEntries(): AsyncIterable<StagingEntry> {
-    for (const entry of this.entries) {
+    for (const entry of this._entries) {
       yield entry;
     }
   }
 
   async *listEntriesUnder(prefix: string): AsyncIterable<StagingEntry> {
     const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
-    for (const entry of this.entries) {
+    for (const entry of this._entries) {
       if (entry.path.startsWith(normalizedPrefix) || entry.path === prefix) {
         yield entry;
       }
@@ -85,12 +130,24 @@ export class FileStagingStore implements StagingStore {
   }
 
   async hasConflicts(): Promise<boolean> {
-    return this.entries.some((e) => e.stage !== MergeStage.MERGED);
+    return this._entries.some((e) => e.stage !== MergeStage.MERGED);
+  }
+
+  async getConflictedPaths(): Promise<string[]> {
+    const paths: string[] = [];
+    const seen = new Set<string>();
+    for (const entry of this._entries) {
+      if (entry.stage !== MergeStage.MERGED && !seen.has(entry.path)) {
+        seen.add(entry.path);
+        paths.push(entry.path);
+      }
+    }
+    return paths;
   }
 
   async *getConflictPaths(): AsyncIterable<string> {
     const seen = new Set<string>();
-    for (const entry of this.entries) {
+    for (const entry of this._entries) {
       if (entry.stage !== MergeStage.MERGED && !seen.has(entry.path)) {
         seen.add(entry.path);
         yield entry.path;
@@ -98,18 +155,63 @@ export class FileStagingStore implements StagingStore {
     }
   }
 
+  async resolveConflict(
+    path: string,
+    resolution: import("./staging.js").ConflictResolution,
+  ): Promise<void> {
+    const editor = this.createEditor();
+
+    if (typeof resolution === "string") {
+      // Resolution is a stage name
+      let stage: MergeStageValue;
+      switch (resolution) {
+        case "base":
+          stage = MergeStage.BASE;
+          break;
+        case "ours":
+          stage = MergeStage.OURS;
+          break;
+        case "theirs":
+          stage = MergeStage.THEIRS;
+          break;
+        default:
+          throw new Error(`Invalid resolution: ${resolution}`);
+      }
+
+      // Find entry at the specified stage
+      const entry = await this.getEntry(path, stage);
+      if (!entry) {
+        throw new Error(`No entry at stage ${stage} for path: ${path}`);
+      }
+
+      // Create stage 0 entry from chosen stage
+      editor.upsert({
+        ...entry,
+        stage: MergeStage.MERGED,
+      });
+    } else {
+      // Resolution is a complete entry
+      editor.upsert({
+        ...resolution,
+        stage: MergeStage.MERGED,
+      });
+    }
+
+    await editor.finish();
+  }
+
   // ============ Writing Operations ============
 
-  builder(): StagingBuilder {
+  createBuilder(): IndexBuilder {
     return new FileStagingBuilder(this);
   }
 
-  editor(): StagingEditor {
+  createEditor(): IndexEditor {
     return new FileStagingEditor(this);
   }
 
   async clear(): Promise<void> {
-    this.entries = [];
+    this._entries = [];
   }
 
   // ============ Tree Operations ============
@@ -121,7 +223,7 @@ export class FileStagingStore implements StagingStore {
     }
 
     // Build tree from stage 0 entries only
-    const stage0 = this.entries.filter((e) => e.stage === MergeStage.MERGED);
+    const stage0 = this._entries.filter((e) => e.stage === MergeStage.MERGED);
     return this.buildTreeRecursive(treeStore, stage0, "");
   }
 
@@ -170,7 +272,7 @@ export class FileStagingStore implements StagingStore {
   }
 
   async readTree(treeStore: TreeStore, treeId: ObjectId): Promise<void> {
-    this.entries = [];
+    this._entries = [];
     await this.addTreeRecursive(treeStore, treeId, "", MergeStage.MERGED);
     this.sortEntries();
   }
@@ -187,7 +289,7 @@ export class FileStagingStore implements StagingStore {
       if (entry.mode === FileMode.TREE) {
         await this.addTreeRecursive(treeStore, entry.id, path, stage);
       } else {
-        this.entries.push({
+        this._entries.push({
           path,
           mode: entry.mode,
           objectId: entry.id,
@@ -205,7 +307,7 @@ export class FileStagingStore implements StagingStore {
     const stats = await this.files.stats(this.indexPath);
     if (!stats) {
       // No index file - start empty
-      this.entries = [];
+      this._entries = [];
       this.updateTime = 0;
       return;
     }
@@ -213,13 +315,13 @@ export class FileStagingStore implements StagingStore {
     const data = await readFile(this.files, this.indexPath);
     const parsed = await parseIndexFile(data);
 
-    this.entries = parsed.entries;
+    this._entries = parsed.entries;
     this.version = parsed.version;
     this.updateTime = stats.lastModified ?? Date.now();
   }
 
   async write(): Promise<void> {
-    const data = await serializeIndexFile(this.entries, this.version);
+    const data = await serializeIndexFile(this._entries, this.version);
     await this.files.write(this.indexPath, [data]);
     this.updateTime = Date.now();
   }
@@ -242,11 +344,11 @@ export class FileStagingStore implements StagingStore {
    */
   private findEntry(path: string, stage: MergeStageValue): number {
     let low = 0;
-    let high = this.entries.length - 1;
+    let high = this._entries.length - 1;
 
     while (low <= high) {
       const mid = (low + high) >>> 1;
-      const entry = this.entries[mid];
+      const entry = this._entries[mid];
       const cmp = this.compareEntry(entry, path, stage);
 
       if (cmp < 0) {
@@ -268,7 +370,7 @@ export class FileStagingStore implements StagingStore {
   }
 
   private sortEntries(): void {
-    this.entries.sort((a, b) => {
+    this._entries.sort((a, b) => {
       const pathCmp = comparePaths(a.path, b.path);
       if (pathCmp !== 0) return pathCmp;
       return a.stage - b.stage;
@@ -277,12 +379,12 @@ export class FileStagingStore implements StagingStore {
 
   /** @internal - Used by builder/editor */
   _replaceEntries(newEntries: StagingEntry[]): void {
-    this.entries = newEntries;
+    this._entries = newEntries;
   }
 
   /** @internal - Used by builder/editor */
   _getEntries(): StagingEntry[] {
-    return this.entries;
+    return this._entries;
   }
 
   /** @internal - Get index version */
@@ -299,8 +401,8 @@ export class FileStagingStore implements StagingStore {
 /**
  * Builder for bulk staging area modifications.
  */
-class FileStagingBuilder implements StagingBuilder {
-  private entries: StagingEntry[] = [];
+class FileStagingBuilder implements IndexBuilder {
+  private _entries: StagingEntry[] = [];
   private keeping: Array<{ start: number; count: number }> = [];
 
   constructor(private readonly store: FileStagingStore) {}
@@ -321,7 +423,7 @@ class FileStagingBuilder implements StagingBuilder {
       skipWorktree: options.skipWorktree,
     };
 
-    this.entries.push(entry);
+    this._entries.push(entry);
   }
 
   keep(startIndex: number, count: number): void {
@@ -329,11 +431,13 @@ class FileStagingBuilder implements StagingBuilder {
   }
 
   async addTree(
-    treeStore: TreeStore,
+    trees: import("../../history/trees/trees.js").Trees | TreeStore,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue = MergeStage.MERGED,
   ): Promise<void> {
+    // Handle both Trees and TreeStore interfaces
+    const treeStore = trees as TreeStore;
     await this.addTreeRecursive(treeStore, treeId, prefix, stage);
   }
 
@@ -365,22 +469,22 @@ class FileStagingBuilder implements StagingBuilder {
     for (const { start, count } of this.keeping) {
       for (let i = 0; i < count; i++) {
         if (start + i < existingEntries.length) {
-          this.entries.push(existingEntries[start + i]);
+          this._entries.push(existingEntries[start + i]);
         }
       }
     }
 
     // Sort entries by (path, stage)
-    this.entries.sort((a, b) => {
+    this._entries.sort((a, b) => {
       const pathCmp = comparePaths(a.path, b.path);
       if (pathCmp !== 0) return pathCmp;
       return a.stage - b.stage;
     });
 
     // Check for duplicates
-    for (let i = 1; i < this.entries.length; i++) {
-      const prev = this.entries[i - 1];
-      const curr = this.entries[i];
+    for (let i = 1; i < this._entries.length; i++) {
+      const prev = this._entries[i - 1];
+      const curr = this._entries[i];
       if (prev.path === curr.path && prev.stage === curr.stage) {
         throw new Error(`Duplicate entry: ${curr.path} stage ${curr.stage}`);
       }
@@ -390,14 +494,14 @@ class FileStagingBuilder implements StagingBuilder {
     this.validateStages();
 
     // Replace store entries
-    this.store._replaceEntries(this.entries);
+    this.store._replaceEntries(this._entries);
   }
 
   private validateStages(): void {
     // If stage 0 exists for a path, no other stages should exist
     const pathStages = new Map<string, Set<MergeStageValue>>();
 
-    for (const entry of this.entries) {
+    for (const entry of this._entries) {
       if (!pathStages.has(entry.path)) {
         pathStages.set(entry.path, new Set());
       }
@@ -415,7 +519,7 @@ class FileStagingBuilder implements StagingBuilder {
 /**
  * Editor for targeted staging area modifications.
  */
-class FileStagingEditor implements StagingEditor {
+class FileStagingEditor implements IndexEditor {
   private edits: StagingEdit[] = [];
 
   constructor(private readonly store: FileStagingStore) {}
@@ -424,8 +528,22 @@ class FileStagingEditor implements StagingEditor {
     this.edits.push(edit);
   }
 
-  remove(path: string): void {
+  remove(path: string, _stage?: MergeStageValue): void {
+    // For now, remove all stages (ignore stage parameter)
+    // TODO: Implement stage-specific removal if needed
     this.edits.push({ path, apply: () => undefined });
+  }
+
+  upsert(entry: StagingEntryOptions): void {
+    this.edits.push({
+      path: entry.path,
+      apply: () => ({
+        ...entry,
+        stage: entry.stage ?? MergeStage.MERGED,
+        size: entry.size ?? 0,
+        mtime: entry.mtime ?? Date.now(),
+      }),
+    });
   }
 
   async finish(): Promise<void> {

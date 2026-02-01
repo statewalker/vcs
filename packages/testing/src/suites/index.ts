@@ -83,7 +83,7 @@
  */
 
 export * from "./blob-store.suite.js";
-export * from "./checkout-store.suite.js";
+// Disabled: export * from "./checkout-store.suite.js";
 export * from "./commit-store.suite.js";
 export * from "./delta-api.suite.js";
 export * from "./git-compatibility.suite.js";

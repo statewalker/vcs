@@ -1,20 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { HistoryStore } from "../../src/history/history-store.js";
-import type { StagingStore } from "../../src/workspace/staging/types.js";
+import type { History } from "../../src/history/history.js";
+import type { Checkout } from "../../src/workspace/checkout/checkout.js";
+import type { Staging } from "../../src/workspace/staging/staging.js";
 import { MemoryStashStore } from "../../src/workspace/working-copy/stash-store.memory.js";
 import { MemoryWorkingCopy } from "../../src/workspace/working-copy/working-copy.memory.js";
 import type { MergeState, RebaseState } from "../../src/workspace/working-copy.js";
-import type { WorktreeStore } from "../../src/workspace/worktree/types.js";
+import type { Worktree } from "../../src/workspace/worktree/worktree.js";
 
 describe("MemoryWorkingCopy", () => {
   let workingCopy: MemoryWorkingCopy;
-  let mockRepository: HistoryStore;
-  let mockWorktree: WorktreeStore;
-  let mockStaging: StagingStore;
+  let mockHistory: History;
+  let mockCheckout: Checkout;
+  let mockWorktree: Worktree;
+  let mockStaging: Staging;
 
   beforeEach(() => {
-    // Create mock repository
-    mockRepository = {
+    // Create mock history
+    mockHistory = {
       refs: {
         resolve: vi.fn().mockResolvedValue({ objectId: "abc123" }),
         get: vi.fn().mockResolvedValue({ target: "refs/heads/main" }),
@@ -28,16 +30,80 @@ describe("MemoryWorkingCopy", () => {
       config: {},
       close: vi.fn(),
       isInitialized: vi.fn().mockResolvedValue(true),
-    } as unknown as Repository;
+      initialize: vi.fn(),
+    } as unknown as History;
 
-    mockWorktree = {} as WorktreeStore;
+    mockWorktree = {
+      walk: vi.fn().mockImplementation(async function* () {}),
+      getEntry: vi.fn(),
+      computeHash: vi.fn(),
+      readContent: vi.fn(),
+      exists: vi.fn().mockResolvedValue(false),
+      isIgnored: vi.fn().mockResolvedValue(false),
+      writeContent: vi.fn(),
+      remove: vi.fn(),
+      mkdir: vi.fn(),
+      rename: vi.fn(),
+      checkoutTree: vi.fn(),
+      checkoutPaths: vi.fn(),
+      getRoot: vi.fn().mockReturnValue("/repo"),
+      refreshIgnore: vi.fn(),
+    } as unknown as Worktree;
 
     mockStaging = {
-      read: vi.fn().mockResolvedValue(undefined),
+      entries: vi.fn().mockImplementation(async function* () {}),
+      getEntry: vi.fn(),
+      getEntries: vi.fn(),
+      setEntry: vi.fn(),
+      removeEntry: vi.fn(),
+      hasEntry: vi.fn(),
+      getEntryCount: vi.fn(),
       hasConflicts: vi.fn().mockResolvedValue(false),
-    } as unknown as StagingStore;
+      getConflictedPaths: vi.fn().mockResolvedValue([]),
+      resolveConflict: vi.fn(),
+      createBuilder: vi.fn(),
+      createEditor: vi.fn(),
+      clear: vi.fn(),
+      writeTree: vi.fn(),
+      readTree: vi.fn(),
+      read: vi.fn().mockResolvedValue(undefined),
+      write: vi.fn(),
+      isOutdated: vi.fn(),
+      getUpdateTime: vi.fn().mockReturnValue(Date.now() - 10000),
+    } as unknown as Staging;
 
-    workingCopy = new MemoryWorkingCopy(mockRepository, mockWorktree, mockStaging);
+    mockCheckout = {
+      staging: mockStaging,
+      stash: undefined,
+      config: undefined,
+      getHead: vi.fn().mockResolvedValue({ type: "symbolic", target: "refs/heads/main" }),
+      setHead: vi.fn(),
+      getHeadCommit: vi.fn().mockResolvedValue("abc123"),
+      getCurrentBranch: vi.fn().mockResolvedValue("main"),
+      isDetached: vi.fn().mockResolvedValue(false),
+      getOperationState: vi.fn().mockResolvedValue(undefined),
+      hasOperationInProgress: vi.fn().mockResolvedValue(false),
+      getMergeState: vi.fn().mockResolvedValue(undefined),
+      setMergeState: vi.fn(),
+      getMergeHead: vi.fn().mockResolvedValue(undefined),
+      getRebaseState: vi.fn().mockResolvedValue(undefined),
+      setRebaseState: vi.fn(),
+      getCherryPickState: vi.fn().mockResolvedValue(undefined),
+      setCherryPickState: vi.fn(),
+      getRevertState: vi.fn().mockResolvedValue(undefined),
+      setRevertState: vi.fn(),
+      abortOperation: vi.fn(),
+      initialize: vi.fn(),
+      refresh: vi.fn(),
+      close: vi.fn(),
+      isInitialized: vi.fn().mockReturnValue(true),
+    } as unknown as Checkout;
+
+    workingCopy = new MemoryWorkingCopy({
+      history: mockHistory,
+      checkout: mockCheckout,
+      worktreeInterface: mockWorktree,
+    });
   });
 
   describe("constructor", () => {
@@ -48,19 +114,23 @@ describe("MemoryWorkingCopy", () => {
 
     it("should accept custom stash", () => {
       const customStash = new MemoryStashStore();
-      const wc = new MemoryWorkingCopy(mockRepository, mockWorktree, mockStaging, customStash);
+      const wc = new MemoryWorkingCopy({
+        history: mockHistory,
+        checkout: mockCheckout,
+        worktreeInterface: mockWorktree,
+        stash: customStash,
+      });
       expect(wc.stash).toBe(customStash);
     });
 
     it("should accept custom config", () => {
       const customConfig = { "core.autocrlf": true };
-      const wc = new MemoryWorkingCopy(
-        mockRepository,
-        mockWorktree,
-        mockStaging,
-        undefined,
-        customConfig,
-      );
+      const wc = new MemoryWorkingCopy({
+        history: mockHistory,
+        checkout: mockCheckout,
+        worktreeInterface: mockWorktree,
+        config: customConfig,
+      });
       expect(wc.config).toBe(customConfig);
     });
   });
@@ -74,6 +144,7 @@ describe("MemoryWorkingCopy", () => {
     });
 
     it("should resolve from repository refs when not set locally", async () => {
+      vi.mocked(mockHistory.refs.resolve).mockResolvedValue({ objectId: "abc123" });
       const head = await workingCopy.getHead();
       expect(head).toBe("abc123");
     });
