@@ -11,7 +11,6 @@ import {
   createFileWorktree,
   createInMemoryFilesApi,
   type FilesApi,
-  type HistoryStore,
   MemoryWorkingCopy,
   type WorkingCopy,
   type Worktree,
