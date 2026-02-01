@@ -19,11 +19,7 @@ import type {
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
-import type {
-  BackendCapabilities,
-  StorageBackend,
-  StorageOperations,
-} from "./storage-backend.js";
+import type { BackendCapabilities, StorageBackend, StorageOperations } from "./storage-backend.js";
 
 /**
  * Configuration for creating MemoryStorageBackend
