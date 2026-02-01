@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   type DeltaRelationshipSource,
   DeltaReverseIndex,
-} from "../../src/storage/pack/delta-reverse-index.js";
+} from "../../src/backend/git/pack/delta-reverse-index.js";
 
 describe("DeltaReverseIndex", () => {
   describe("add and get", () => {

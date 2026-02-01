@@ -2,17 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FileMode } from "../../src/common/files/index.js";
 import type { BlobStore } from "../../src/history/blobs/blob-store.js";
 import type { CommitStore } from "../../src/history/commits/commit-store.js";
-import type { HistoryStore } from "../../src/history/history-store.js";
+import type { History } from "../../src/history/history.js";
 import type { RefStore } from "../../src/history/refs/ref-store.js";
 import type { TreeEntry, TreeStore } from "../../src/history/trees/tree-store.js";
-import type { StagingEntry, StagingStore } from "../../src/workspace/staging/types.js";
+import type { Checkout } from "../../src/workspace/checkout/checkout.js";
+import type { Staging } from "../../src/workspace/staging/staging.js";
+import type { StagingEntry } from "../../src/workspace/staging/types.js";
 import { FileStatus } from "../../src/workspace/status/status-calculator.js";
 import { MemoryStashStore } from "../../src/workspace/working-copy/stash-store.memory.js";
 import {
   GitWorkingCopy,
   type WorkingCopyFilesApi,
 } from "../../src/workspace/working-copy/working-copy.files.js";
-import type { WorktreeEntry, WorktreeStore } from "../../src/workspace/worktree/types.js";
+import type { WorktreeEntry } from "../../src/workspace/worktree/types.js";
+import type { Worktree } from "../../src/workspace/worktree/worktree.js";
 
 /**
  * Create mock files API
@@ -48,14 +51,15 @@ function createMockTreeStore(entries: Map<string, TreeEntry[]>): TreeStore {
 }
 
 /**
- * Create mock staging store
+ * Create mock staging interface
  */
-function createMockStagingStore(
+function createMockStaging(
   stagingEntries: StagingEntry[] = [],
   conflictPaths: string[] = [],
-): StagingStore {
+): Staging {
   return {
-    listEntries: vi.fn().mockImplementation(async function* () {
+    // New Staging interface methods
+    entries: vi.fn().mockImplementation(async function* () {
       for (const entry of stagingEntries) {
         yield entry;
       }
@@ -63,19 +67,18 @@ function createMockStagingStore(
     getEntry: vi.fn().mockImplementation(async (path: string) => {
       return stagingEntries.find((e) => e.path === path && e.stage === 0);
     }),
-    getEntryByStage: vi.fn(),
-    getEntries: vi.fn(),
-    hasEntry: vi.fn(),
-    getEntryCount: vi.fn(),
-    listEntriesUnder: vi.fn(),
-    hasConflicts: vi.fn().mockResolvedValue(conflictPaths.length > 0),
-    getConflictPaths: vi.fn().mockImplementation(async function* () {
-      for (const path of conflictPaths) {
-        yield path;
-      }
+    getEntries: vi.fn().mockImplementation(async (path: string) => {
+      return stagingEntries.filter((e) => e.path === path);
     }),
-    builder: vi.fn(),
-    editor: vi.fn(),
+    setEntry: vi.fn(),
+    removeEntry: vi.fn(),
+    hasEntry: vi.fn(),
+    getEntryCount: vi.fn().mockResolvedValue(stagingEntries.length),
+    hasConflicts: vi.fn().mockResolvedValue(conflictPaths.length > 0),
+    getConflictedPaths: vi.fn().mockResolvedValue(conflictPaths),
+    resolveConflict: vi.fn(),
+    createBuilder: vi.fn(),
+    createEditor: vi.fn(),
     clear: vi.fn(),
     writeTree: vi.fn(),
     readTree: vi.fn(),
@@ -83,16 +86,16 @@ function createMockStagingStore(
     write: vi.fn(),
     isOutdated: vi.fn(),
     getUpdateTime: vi.fn().mockReturnValue(Date.now() - 10000),
-  } as unknown as StagingStore;
+  } as unknown as Staging;
 }
 
 /**
- * Create mock working tree iterator
+ * Create mock worktree interface
  */
 function createMockWorktree(
   entries: WorktreeEntry[] = [],
   hashes: Map<string, string> = new Map(),
-): WorktreeStore {
+): Worktree {
   return {
     walk: vi.fn().mockImplementation(async function* () {
       for (const entry of entries) {
@@ -106,7 +109,17 @@ function createMockWorktree(
       return hashes.get(path) ?? "unknown-hash";
     }),
     readContent: vi.fn(),
-  } as unknown as WorktreeStore;
+    exists: vi.fn().mockResolvedValue(false),
+    isIgnored: vi.fn().mockResolvedValue(false),
+    writeContent: vi.fn(),
+    remove: vi.fn(),
+    mkdir: vi.fn(),
+    rename: vi.fn(),
+    checkoutTree: vi.fn(),
+    checkoutPaths: vi.fn(),
+    getRoot: vi.fn().mockReturnValue("/repo"),
+    refreshIgnore: vi.fn(),
+  } as unknown as Worktree;
 }
 
 /**
@@ -164,14 +177,14 @@ function createMockBlobStore(): BlobStore {
 }
 
 /**
- * Create mock repository
+ * Create mock history interface
  */
-function createMockRepository(options: {
+function createMockHistory(options: {
   headCommit?: string;
   branch?: string;
   treeEntries?: Map<string, TreeEntry[]>;
   commitTrees?: Map<string, string>;
-}): HistoryStore {
+}): History {
   const { headCommit, branch = "main", treeEntries = new Map(), commitTrees = new Map() } = options;
 
   return {
@@ -185,7 +198,47 @@ function createMockRepository(options: {
     close: vi.fn(),
     isInitialized: vi.fn().mockResolvedValue(true),
     initialize: vi.fn(),
-  } as unknown as Repository;
+  } as unknown as History;
+}
+
+/**
+ * Create mock checkout interface
+ */
+function createMockCheckout(staging: Staging, headCommit?: string, branch?: string): Checkout {
+  return {
+    staging,
+    stash: undefined,
+    config: undefined,
+    getHead: vi.fn().mockImplementation(async () => {
+      if (branch) {
+        return { type: "symbolic", target: `refs/heads/${branch}` };
+      }
+      if (headCommit) {
+        return { type: "detached", commitId: headCommit };
+      }
+      return { type: "symbolic", target: "refs/heads/main" };
+    }),
+    setHead: vi.fn(),
+    getHeadCommit: vi.fn().mockResolvedValue(headCommit),
+    getCurrentBranch: vi.fn().mockResolvedValue(branch),
+    isDetached: vi.fn().mockResolvedValue(!branch),
+    getOperationState: vi.fn().mockResolvedValue(undefined),
+    hasOperationInProgress: vi.fn().mockResolvedValue(false),
+    getMergeState: vi.fn().mockResolvedValue(undefined),
+    setMergeState: vi.fn(),
+    getMergeHead: vi.fn().mockResolvedValue(undefined),
+    getRebaseState: vi.fn().mockResolvedValue(undefined),
+    setRebaseState: vi.fn(),
+    getCherryPickState: vi.fn().mockResolvedValue(undefined),
+    setCherryPickState: vi.fn(),
+    getRevertState: vi.fn().mockResolvedValue(undefined),
+    setRevertState: vi.fn(),
+    abortOperation: vi.fn(),
+    initialize: vi.fn(),
+    refresh: vi.fn(),
+    close: vi.fn(),
+    isInitialized: vi.fn().mockReturnValue(true),
+  } as unknown as Checkout;
 }
 
 /**
@@ -225,31 +278,33 @@ function createWorktreeEntry(path: string, options: Partial<WorktreeEntry> = {})
 
 describe("GitWorkingCopy", () => {
   let workingCopy: GitWorkingCopy;
-  let mockRepository: HistoryStore;
-  let mockWorktree: WorktreeStore;
-  let mockStaging: StagingStore;
+  let mockHistory: History;
+  let mockCheckout: Checkout;
+  let mockWorktree: Worktree;
+  let mockStaging: Staging;
   let mockStash: MemoryStashStore;
   let mockFiles: WorkingCopyFilesApi;
 
   beforeEach(() => {
-    mockRepository = createMockRepository({
+    mockHistory = createMockHistory({
       headCommit: "abc123",
       branch: "main",
     });
+    mockStaging = createMockStaging();
+    mockCheckout = createMockCheckout(mockStaging, "abc123", "main");
     mockWorktree = createMockWorktree();
-    mockStaging = createMockStagingStore();
     mockStash = new MemoryStashStore();
     mockFiles = createMockFilesApi();
 
-    workingCopy = new GitWorkingCopy(
-      mockRepository,
-      mockWorktree,
-      mockStaging,
-      mockStash,
-      {},
-      mockFiles,
-      "/repo/.git",
-    );
+    workingCopy = new GitWorkingCopy({
+      history: mockHistory,
+      checkout: mockCheckout,
+      worktreeInterface: mockWorktree,
+      stash: mockStash,
+      config: {},
+      files: mockFiles,
+      gitDir: "/repo/.git",
+    });
   });
 
   describe("getHead", () => {
@@ -259,16 +314,20 @@ describe("GitWorkingCopy", () => {
     });
 
     it("should return undefined when no HEAD", async () => {
-      mockRepository = createMockRepository({});
-      workingCopy = new GitWorkingCopy(
-        mockRepository,
-        mockWorktree,
-        mockStaging,
-        mockStash,
-        {},
-        mockFiles,
-        "/repo/.git",
-      );
+      mockHistory = createMockHistory({});
+      mockStaging = createMockStaging();
+      mockCheckout = createMockCheckout(mockStaging, undefined, undefined);
+      vi.mocked(mockCheckout.getHeadCommit).mockResolvedValue(undefined);
+
+      workingCopy = new GitWorkingCopy({
+        history: mockHistory,
+        checkout: mockCheckout,
+        worktreeInterface: mockWorktree,
+        stash: mockStash,
+        config: {},
+        files: mockFiles,
+        gitDir: "/repo/.git",
+      });
 
       const head = await workingCopy.getHead();
       expect(head).toBeUndefined();
@@ -282,7 +341,8 @@ describe("GitWorkingCopy", () => {
     });
 
     it("should return undefined when detached HEAD", async () => {
-      vi.mocked(mockRepository.refs.get).mockResolvedValue({ objectId: "abc123" });
+      vi.mocked(mockCheckout.getCurrentBranch).mockResolvedValue(undefined);
+      vi.mocked(mockCheckout.isDetached).mockResolvedValue(true);
 
       const branch = await workingCopy.getCurrentBranch();
       expect(branch).toBeUndefined();
@@ -309,7 +369,7 @@ describe("GitWorkingCopy", () => {
       const commitTrees = new Map<string, string>();
       commitTrees.set("head-commit", "head-tree");
 
-      mockRepository = createMockRepository({
+      mockHistory = createMockHistory({
         headCommit: "head-commit",
         branch: "main",
         treeEntries,
@@ -318,22 +378,23 @@ describe("GitWorkingCopy", () => {
 
       // Add file to staging
       const stagingEntries = [createStagingEntry("new-file.txt", "new-hash")];
-      mockStaging = createMockStagingStore(stagingEntries);
+      mockStaging = createMockStaging(stagingEntries);
+      mockCheckout = createMockCheckout(mockStaging, "head-commit", "main");
 
       // Add file to worktree
       const worktreeEntries = [createWorktreeEntry("new-file.txt")];
       const worktreeHashes = new Map([["new-file.txt", "new-hash"]]);
       mockWorktree = createMockWorktree(worktreeEntries, worktreeHashes);
 
-      workingCopy = new GitWorkingCopy(
-        mockRepository,
-        mockWorktree,
-        mockStaging,
-        mockStash,
-        {},
-        mockFiles,
-        "/repo/.git",
-      );
+      workingCopy = new GitWorkingCopy({
+        history: mockHistory,
+        checkout: mockCheckout,
+        worktreeInterface: mockWorktree,
+        stash: mockStash,
+        config: {},
+        files: mockFiles,
+        gitDir: "/repo/.git",
+      });
 
       const status = await workingCopy.getStatus();
 
@@ -348,15 +409,15 @@ describe("GitWorkingCopy", () => {
       const worktreeEntries = [createWorktreeEntry("untracked.txt")];
       mockWorktree = createMockWorktree(worktreeEntries);
 
-      workingCopy = new GitWorkingCopy(
-        mockRepository,
-        mockWorktree,
-        mockStaging,
-        mockStash,
-        {},
-        mockFiles,
-        "/repo/.git",
-      );
+      workingCopy = new GitWorkingCopy({
+        history: mockHistory,
+        checkout: mockCheckout,
+        worktreeInterface: mockWorktree,
+        stash: mockStash,
+        config: {},
+        files: mockFiles,
+        gitDir: "/repo/.git",
+      });
 
       const status = await workingCopy.getStatus();
 
@@ -369,20 +430,21 @@ describe("GitWorkingCopy", () => {
     });
 
     it("should detect conflicts", async () => {
-      mockStaging = createMockStagingStore([], ["conflict.txt"]);
+      mockStaging = createMockStaging([], ["conflict.txt"]);
+      mockCheckout = createMockCheckout(mockStaging, "abc123", "main");
 
       const worktreeEntries = [createWorktreeEntry("conflict.txt")];
       mockWorktree = createMockWorktree(worktreeEntries);
 
-      workingCopy = new GitWorkingCopy(
-        mockRepository,
-        mockWorktree,
-        mockStaging,
-        mockStash,
-        {},
-        mockFiles,
-        "/repo/.git",
-      );
+      workingCopy = new GitWorkingCopy({
+        history: mockHistory,
+        checkout: mockCheckout,
+        worktreeInterface: mockWorktree,
+        stash: mockStash,
+        config: {},
+        files: mockFiles,
+        gitDir: "/repo/.git",
+      });
 
       const status = await workingCopy.getStatus();
 
@@ -393,15 +455,15 @@ describe("GitWorkingCopy", () => {
       const worktreeEntries = [createWorktreeEntry("untracked.txt")];
       mockWorktree = createMockWorktree(worktreeEntries);
 
-      workingCopy = new GitWorkingCopy(
-        mockRepository,
-        mockWorktree,
-        mockStaging,
-        mockStash,
-        {},
-        mockFiles,
-        "/repo/.git",
-      );
+      workingCopy = new GitWorkingCopy({
+        history: mockHistory,
+        checkout: mockCheckout,
+        worktreeInterface: mockWorktree,
+        stash: mockStash,
+        config: {},
+        files: mockFiles,
+        gitDir: "/repo/.git",
+      });
 
       const status = await workingCopy.getStatus({ includeUntracked: false });
 
@@ -413,30 +475,41 @@ describe("GitWorkingCopy", () => {
     it("should set HEAD to branch", async () => {
       await workingCopy.setHead("feature");
 
-      expect(mockRepository.refs.setSymbolic).toHaveBeenCalledWith("HEAD", "refs/heads/feature");
+      expect(mockCheckout.setHead).toHaveBeenCalledWith({
+        type: "symbolic",
+        target: "refs/heads/feature",
+      });
     });
 
     it("should set HEAD to full ref path", async () => {
       await workingCopy.setHead("refs/heads/develop");
 
-      expect(mockRepository.refs.setSymbolic).toHaveBeenCalledWith("HEAD", "refs/heads/develop");
+      expect(mockCheckout.setHead).toHaveBeenCalledWith({
+        type: "symbolic",
+        target: "refs/heads/develop",
+      });
     });
 
     it("should set detached HEAD for commit ID", async () => {
       const commitId = "abcdef1234567890abcdef1234567890abcdef12";
       await workingCopy.setHead(commitId);
 
-      expect(mockRepository.refs.set).toHaveBeenCalledWith("HEAD", commitId);
+      expect(mockCheckout.setHead).toHaveBeenCalledWith({
+        type: "detached",
+        commitId,
+      });
     });
   });
 
   describe("isDetachedHead", () => {
     it("should return false when on branch", async () => {
+      vi.mocked(mockCheckout.isDetached).mockResolvedValue(false);
+
       expect(await workingCopy.isDetachedHead()).toBe(false);
     });
 
     it("should return true when detached", async () => {
-      vi.mocked(mockRepository.refs.get).mockResolvedValue({ objectId: "abc123" });
+      vi.mocked(mockCheckout.isDetached).mockResolvedValue(true);
 
       expect(await workingCopy.isDetachedHead()).toBe(true);
     });

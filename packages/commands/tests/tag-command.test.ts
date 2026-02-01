@@ -53,7 +53,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should create annotated tag", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const ref = await git
         .tag()
@@ -76,7 +76,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should create annotated tag when message is provided", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const ref = await git.tag().setName("v1.0.0").setMessage("Release").call();
 
@@ -103,7 +103,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should overwrite tag with force", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create tag at initial commit
       await git.tag().setName("v1.0.0").call();
@@ -129,7 +129,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
 
   describe("DeleteTagCommand", () => {
     it("should delete tag", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.tag().setName("v1.0.0").call();
       expect(await repository.refs.has("refs/tags/v1.0.0")).toBe(true);

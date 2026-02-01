@@ -57,7 +57,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
      * JGit: testAlreadyUpToDate
      */
     it("should report ALREADY_UP_TO_DATE when source is ancestor of HEAD", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       // Create a branch at initial commit
       await git.branchCreate().setName("branch1").setStartPoint(initialCommitId).call();
@@ -81,7 +81,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
      * JGit: testFastForward
      */
     it("should fast-forward when HEAD is ancestor of source", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create branch1 at initial commit
       await git.branchCreate().setName("branch1").call();
@@ -107,7 +107,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
     });
 
     it("should update staging area on fast-forward", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create branch1 at current commit
       await git.branchCreate().setName("branch1").call();
@@ -135,7 +135,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
      * JGit: testFastForwardOnly
      */
     it("should fail with FF_ONLY when fast-forward not possible", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create divergent branches
       await git.branchCreate().setName("branch1").call();
@@ -161,7 +161,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
      * JGit: testMergeNoFastForward
      */
     it("should create merge commit with NO_FF", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create branch1 at initial commit
       await git.branchCreate().setName("branch1").call();
@@ -187,7 +187,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
     });
 
     it("should merge divergent branches without conflicts", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create branch1
       await git.branchCreate().setName("branch1").call();
@@ -220,7 +220,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
     });
 
     it("should use custom merge message", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create branch1
       await git.branchCreate().setName("branch1").call();
@@ -250,7 +250,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
 
   describe("conflict handling", () => {
     it("should detect conflicts when same file modified differently", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Add a file on initial commit
       await addFile(workingCopy, "conflict.txt", "original");
@@ -282,7 +282,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
     });
 
     it("should write conflict stages to staging area", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Add a file
       await addFile(workingCopy, "conflict.txt", "original");
@@ -320,7 +320,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
 
   describe("squash merge", () => {
     it("should stage changes but not commit with squash (fast-forward case)", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create branch1 at initial commit
       await git.branchCreate().setName("branch1").call();
@@ -352,7 +352,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
 
   describe("no-commit mode", () => {
     it("should merge but not commit with setCommit(false)", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create branch1
       await git.branchCreate().setName("branch1").call();
@@ -419,7 +419,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
 
   describe("branch resolution", () => {
     it("should resolve branch name to commit", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create and checkout feature branch
       await git.branchCreate().setName("feature").call();
@@ -440,7 +440,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
     });
 
     it("should resolve commit ID directly", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create branch and add commit
       await git.branchCreate().setName("feature").call();
@@ -479,7 +479,7 @@ describe.each(backends)("MergeCommand with log verification ($name backend)", ({
   }
 
   it("should show merge commit in log with correct parents", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create divergent branches
     await git.branchCreate().setName("feature").call();
@@ -531,7 +531,7 @@ describe.each(backends)("MergeCommand - JGit deletion tests ($name backend)", ({
    * Tests merging a deletion from one branch into another.
    */
   it("should merge when one side deletes a file (single deletion)", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Setup: add files a, b, c, d
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -583,7 +583,7 @@ describe.each(backends)("MergeCommand - JGit deletion tests ($name backend)", ({
    * Both sides delete the same file.
    */
   it("should merge when both sides delete same file", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add file a
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -623,7 +623,7 @@ describe.each(backends)("MergeCommand - JGit deletion tests ($name backend)", ({
    * One side deletes a file, other side has unrelated conflict.
    */
   it("should handle deletion with unrelated conflict", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Setup files
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -668,7 +668,7 @@ describe.each(backends)("MergeCommand - JGit deletion tests ($name backend)", ({
    * Side deletes a file, main modifies it - should conflict.
    */
   it("should conflict when side deletes what main modified", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add files
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -707,7 +707,7 @@ describe.each(backends)("MergeCommand - JGit deletion tests ($name backend)", ({
    * Main deletes a file, side modifies it - should conflict.
    */
   it("should conflict when main deletes what side modified", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add files
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -763,7 +763,7 @@ describe.each(backends)("MergeCommand - JGit creation tests ($name backend)", ({
    * Both sides create same file with different content - should conflict.
    */
   it("should conflict when both sides create same file differently", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add initial file
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -803,7 +803,7 @@ describe.each(backends)("MergeCommand - JGit creation tests ($name backend)", ({
    * Both sides create same file with same content - should merge cleanly.
    */
   it("should merge when both sides create same file with same content", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add initial file
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -863,7 +863,7 @@ describe.each(backends)("MergeCommand - JGit squash tests ($name backend)", ({ f
    * Squash merge when fast-forward is possible.
    */
   it("should return FAST_FORWARD_SQUASHED when squashing fast-forward merge", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1 at initial commit
     await git.branchCreate().setName("branch1").call();
@@ -904,7 +904,7 @@ describe.each(backends)("MergeCommand - JGit squash tests ($name backend)", ({ f
    * Squash merge with divergent branches.
    */
   it("should return MERGED_SQUASHED when squashing three-way merge", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1 at initial commit
     await git.branchCreate().setName("branch1").call();
@@ -951,7 +951,7 @@ describe.each(backends)("MergeCommand - JGit squash tests ($name backend)", ({ f
    * Squash merge with conflict.
    */
   it("should return CONFLICTING when squash merge has conflicts", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1
     await git.branchCreate().setName("branch1").call();
@@ -1008,7 +1008,7 @@ describe.each(backends)("MergeCommand - JGit fast-forward tests ($name backend)"
    * Fast-forward with setCommit(false) - should still fast-forward.
    */
   it("should fast-forward even with setCommit(false)", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1 at initial commit
     await git.branchCreate().setName("branch1").call();
@@ -1037,7 +1037,7 @@ describe.each(backends)("MergeCommand - JGit fast-forward tests ($name backend)"
    * FF_ONLY mode when fast-forward is possible.
    */
   it("should fast-forward when FF_ONLY and fast-forward possible", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1
     await git.branchCreate().setName("branch1").call();
@@ -1069,7 +1069,7 @@ describe.each(backends)("MergeCommand - JGit fast-forward tests ($name backend)"
    * NO_FF mode - always create merge commit.
    */
   it("should create merge commit when NO_FF even if fast-forward possible", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1
     await git.branchCreate().setName("branch1").call();
@@ -1103,7 +1103,7 @@ describe.each(backends)("MergeCommand - JGit fast-forward tests ($name backend)"
    * NO_FF with setCommit(false) - merge but don't commit.
    */
   it("should merge but not commit when NO_FF with setCommit(false)", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1
     await git.branchCreate().setName("branch1").call();
@@ -1139,7 +1139,7 @@ describe.each(backends)("MergeCommand - JGit fast-forward tests ($name backend)"
    * Fast-forward merge updates staging area with new files.
    */
   it("should update staging with files on fast-forward merge", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add file1 on initial
     await addFile(workingCopy, "file1", "file1 content");
@@ -1206,7 +1206,7 @@ describe.each(backends)("MergeCommand - JGit content merge tests ($name backend)
    * - Same-file modifications result in conflict
    */
   it("should merge when each side modifies different files", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Setup initial files
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -1255,7 +1255,7 @@ describe.each(backends)("MergeCommand - JGit content merge tests ($name backend)
    * the current file-level merge marks it as conflict.
    */
   it("should conflict when both sides modify same file (file-level merge)", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Setup initial file
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -1295,7 +1295,7 @@ describe.each(backends)("MergeCommand - JGit content merge tests ($name backend)
    * Non-overlapping merge with setCommit(false).
    */
   it("should merge non-overlapping changes without commit when setCommit(false)", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Setup
     await addFile(workingCopy, "a", "1\na\n3\n");
@@ -1340,7 +1340,7 @@ describe.each(backends)("MergeCommand - JGit content merge tests ($name backend)
    * Merge using a tag reference.
    */
   it("should resolve and merge a tag", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create a commit on main
     await git.commit().setMessage("second commit").setAllowEmpty(true).call();
@@ -1386,7 +1386,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
    * OURS strategy keeps our tree unchanged, ignoring their changes.
    */
   it("should keep our tree with OURS strategy", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create side branch from initial commit (before main changes)
     await git.branchCreate().setName("side").setStartPoint(initialCommitId).call();
@@ -1435,7 +1435,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
    * THEIRS strategy replaces our tree with theirs.
    */
   it("should use their tree with THEIRS strategy", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create side branch from initial commit (before main changes)
     await git.branchCreate().setName("side").setStartPoint(initialCommitId).call();
@@ -1485,7 +1485,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
    * OURS strategy with no-commit.
    */
   it("should stage our tree with OURS strategy and setCommit(false)", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create side branch from initial commit (before main changes)
     await git.branchCreate().setName("side").setStartPoint(initialCommitId).call();
@@ -1531,7 +1531,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
    * THEIRS strategy with no-commit.
    */
   it("should stage their tree with THEIRS strategy and setCommit(false)", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create side branch from initial commit (before main changes)
     await git.branchCreate().setName("side").setStartPoint(initialCommitId).call();
@@ -1579,7 +1579,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
    * OURS strategy should still fast-forward when possible by default.
    */
   it("should fast-forward with OURS strategy when possible", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1 at initial commit
     await git.branchCreate().setName("branch1").call();
@@ -1611,7 +1611,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
    * THEIRS strategy should still fast-forward when possible by default.
    */
   it("should fast-forward with THEIRS strategy when possible", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1 at initial commit
     await git.branchCreate().setName("branch1").call();
@@ -1643,7 +1643,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
    * OURS strategy with NO_FF should create merge commit.
    */
   it("should create merge commit with OURS strategy and NO_FF", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Create branch1 at initial commit
     await git.branchCreate().setName("branch1").call();
@@ -1683,7 +1683,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Both sides modify the same file differently - should conflict.
      */
     it("should conflict when both sides modify same file with different content", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base content
       await addFile(workingCopy, "file.txt", "line1\nline2\nline3\n");
@@ -1721,7 +1721,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Only one side modifies - should merge cleanly.
      */
     it("should merge cleanly when only one side modifies a file", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base with two files
       await addFile(workingCopy, "unchanged.txt", "unchanged content\n");
@@ -1760,7 +1760,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Both sides modify different files - should merge cleanly.
      */
     it("should merge cleanly when both sides modify different files", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base with two files
       await addFile(workingCopy, "file-a.txt", "content a\n");
@@ -1799,7 +1799,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Both sides make identical modification - should merge cleanly.
      */
     it("should merge cleanly when both sides make identical changes", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base
       await addFile(workingCopy, "file.txt", "original\n");
@@ -1837,7 +1837,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * One side deletes, other modifies - should conflict.
      */
     it("should conflict when one side deletes and other modifies", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base
       await addFile(workingCopy, "file.txt", "content\n");
@@ -1875,7 +1875,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * One side adds new file, other modifies different file - no conflict.
      */
     it("should merge cleanly when one side adds file and other modifies different file", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base
       await addFile(workingCopy, "existing.txt", "content\n");
@@ -1949,7 +1949,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Test OURS content merge strategy resolves conflicts by taking our version.
      */
     it("should resolve conflicts using OURS content strategy", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base content
       await addFile(workingCopy, "file.txt", toLines("abc"));
@@ -1995,7 +1995,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Test THEIRS content merge strategy resolves conflicts by taking their version.
      */
     it("should resolve conflicts using THEIRS content strategy", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base content
       await addFile(workingCopy, "file.txt", toLines("abc"));
@@ -2041,7 +2041,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Test UNION content merge strategy concatenates both sides.
      */
     it("should resolve conflicts using UNION content strategy", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base content
       await addFile(workingCopy, "file.txt", toLines("abc"));
@@ -2089,7 +2089,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Test UNION does not duplicate when both sides make same change.
      */
     it("should not duplicate with UNION when both sides make same change", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base content
       await addFile(workingCopy, "file.txt", toLines("abc"));
@@ -2133,7 +2133,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Test content merge still applies non-conflicting changes.
      */
     it("should merge non-conflicting changes with content strategy", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base content with two files
       await addFile(workingCopy, "file-a.txt", toLines("abc"));
@@ -2186,7 +2186,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
      * Test without content strategy - conflict is still reported.
      */
     it("should report conflict without content strategy", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Base content
       await addFile(workingCopy, "file.txt", toLines("abc"));

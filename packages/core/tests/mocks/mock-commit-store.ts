@@ -24,12 +24,22 @@ export class MockCommitStore implements CommitStore {
     return id;
   }
 
+  // New interface (Commits)
+  async store(commit: Commit): Promise<ObjectId> {
+    return this.storeCommit(commit);
+  }
+
   async loadCommit(id: ObjectId): Promise<Commit> {
     const commit = this.commits.get(id);
     if (!commit) {
       throw new Error(`Commit not found: ${id}`);
     }
     return { ...commit };
+  }
+
+  // New interface (Commits)
+  async load(id: ObjectId): Promise<Commit | undefined> {
+    return this.commits.get(id);
   }
 
   async getParents(id: ObjectId): Promise<ObjectId[]> {

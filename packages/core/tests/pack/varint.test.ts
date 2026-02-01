@@ -10,7 +10,7 @@ import {
   writeOfsVarint,
   writePackHeader,
   writeVarint,
-} from "../../src/storage/pack/varint.js";
+} from "../../src/backend/git/pack/varint.js";
 
 describe("readVarint / writeVarint", () => {
   it("encodes and decodes single-byte values", () => {

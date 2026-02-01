@@ -1,5 +1,5 @@
 /**
- * FileTreeIterator - WorktreeStore implementation using FilesApi.
+ * FileTreeIterator - Worktree implementation using FilesApi.
  *
  * Walks a filesystem directory tree and yields entries compatible with
  * Git's worktree operations. Supports:
@@ -24,7 +24,7 @@ import {
 import type { ObjectId } from "../../common/id/index.js";
 import { createIgnoreManager } from "../ignore/ignore-manager.impl.js";
 import type { IgnoreManager } from "../ignore/ignore-manager.js";
-import type { WorktreeEntry, WorktreeStore, WorktreeStoreOptions } from "./types.js";
+import type { WorktreeEntry, WorktreeStoreOptions } from "./types.js";
 
 /**
  * Simplified file entry information for mode determination.
@@ -97,7 +97,7 @@ function createBlobHeader(size: number): Uint8Array {
  * Provides worktree iteration functionality using a platform-agnostic
  * FilesApi for filesystem access.
  */
-export class FileTreeIterator implements WorktreeStore {
+export class FileTreeIterator {
   private readonly files: FilesApi;
   private readonly rootPath: string;
   private readonly ignoreManager: IgnoreManager;
@@ -446,15 +446,14 @@ export class FileTreeIterator implements WorktreeStore {
 }
 
 /**
- * Create a FileTreeIterator (WorktreeStore implementation).
+ * Create a FileTreeIterator (Worktree implementation).
  *
  * @param options Iterator options
  * @returns A new FileTreeIterator instance
  */
-export function createFileTreeIterator(options: FileTreeIteratorOptions): WorktreeStore {
+export function createFileTreeIterator(options: FileTreeIteratorOptions): FileTreeIterator {
   return new FileTreeIterator(options);
 }
 
 // Backward compatibility alias
-/** @deprecated Use createFileTreeIterator instead */
 export { createFileTreeIterator as createWorktreeStore };

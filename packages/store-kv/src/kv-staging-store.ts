@@ -1,18 +1,18 @@
 /**
- * KV-based StagingStore implementation
+ * KV-based Staging implementation
  *
  * Stores staging area entries using a key-value backend with JSON serialization.
  */
 
 import type {
+  IndexBuilder,
+  IndexEditor,
   MergeStageValue,
   ObjectId,
-  StagingBuilder,
+  Staging,
   StagingEdit,
-  StagingEditor,
   StagingEntry,
   StagingEntryOptions,
-  StagingStore,
   TreeEntry,
   TreeStore,
 } from "@statewalker/vcs-core";
@@ -78,17 +78,18 @@ function comparePaths(a: string, b: string): number {
 }
 
 /**
- * KV-based StagingStore implementation.
+ * KV-based Staging implementation.
  */
-export class KVStagingStore implements StagingStore {
+export class KVStaging implements Staging {
   private updateTime: number = Date.now();
 
   constructor(private kv: KVStore) {}
 
   // ============ Reading Operations ============
 
-  async getEntry(path: string): Promise<StagingEntry | undefined> {
-    return this.getEntryByStage(path, MergeStage.MERGED);
+  async getEntry(path: string, stage?: MergeStageValue): Promise<StagingEntry | undefined> {
+    const actualStage = stage ?? MergeStage.MERGED;
+    return this.getEntryByStage(path, actualStage);
   }
 
   async getEntryByStage(path: string, stage: MergeStageValue): Promise<StagingEntry | undefined> {
@@ -190,14 +191,119 @@ export class KVStagingStore implements StagingStore {
     }
   }
 
-  // ============ Writing Operations ============
-
-  builder(): StagingBuilder {
-    return new KVStagingBuilder(this.kv, this);
+  async setEntry(entry: StagingEntryOptions): Promise<void> {
+    const editor = this.createEditor();
+    editor.upsert(entry);
+    await editor.finish();
   }
 
-  editor(): StagingEditor {
-    return new KVStagingEditor(this.kv, this);
+  async removeEntry(path: string, stage?: MergeStageValue): Promise<boolean> {
+    const editor = this.createEditor();
+    if (stage === undefined) {
+      // Remove all stages for this path
+      const hadEntry = await this.hasEntry(path);
+      editor.remove(path);
+      await editor.finish();
+      return hadEntry;
+    } else {
+      // Remove specific stage
+      const hadEntry = (await this.getEntry(path, stage)) !== undefined;
+      editor.remove(path);
+      await editor.finish();
+      return hadEntry;
+    }
+  }
+
+  async *entries(options?: {
+    prefix?: string;
+    stages?: MergeStageValue[];
+  }): AsyncIterable<StagingEntry> {
+    const prefix = options?.prefix;
+    const stages = options?.stages;
+
+    for await (const entry of this.listEntries()) {
+      // Filter by prefix if specified
+      if (prefix) {
+        const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
+        if (!entry.path.startsWith(normalizedPrefix) && entry.path !== prefix) {
+          continue;
+        }
+      }
+
+      // Filter by stages if specified
+      if (stages && !stages.includes(entry.stage)) {
+        continue;
+      }
+
+      yield entry;
+    }
+  }
+
+  async getConflictedPaths(): Promise<string[]> {
+    const paths: string[] = [];
+    const seen = new Set<string>();
+    for await (const entry of this.listEntries()) {
+      if (entry.stage !== MergeStage.MERGED && !seen.has(entry.path)) {
+        seen.add(entry.path);
+        paths.push(entry.path);
+      }
+    }
+    return paths;
+  }
+
+  async resolveConflict(
+    path: string,
+    resolution: "ours" | "theirs" | "base" | StagingEntry,
+  ): Promise<void> {
+    const editor = this.createEditor();
+
+    if (typeof resolution === "string") {
+      // Resolution is a stage name
+      let stage: MergeStageValue;
+      switch (resolution) {
+        case "base":
+          stage = MergeStage.BASE;
+          break;
+        case "ours":
+          stage = MergeStage.OURS;
+          break;
+        case "theirs":
+          stage = MergeStage.THEIRS;
+          break;
+        default:
+          throw new Error(`Invalid resolution: ${resolution}`);
+      }
+
+      // Find entry at the specified stage
+      const entry = await this.getEntry(path, stage);
+      if (!entry) {
+        throw new Error(`No entry at stage ${stage} for path: ${path}`);
+      }
+
+      // Create stage 0 entry from chosen stage
+      editor.upsert({
+        ...entry,
+        stage: MergeStage.MERGED,
+      });
+    } else {
+      // Resolution is a complete entry
+      editor.upsert({
+        ...resolution,
+        stage: MergeStage.MERGED,
+      });
+    }
+
+    await editor.finish();
+  }
+
+  // ============ Writing Operations ============
+
+  createBuilder(): IndexBuilder {
+    return new KVIndexBuilder(this.kv, this);
+  }
+
+  createEditor(): IndexEditor {
+    return new KVIndexEditor(this.kv, this);
   }
 
   async clear(): Promise<void> {
@@ -370,13 +476,13 @@ function serializeEntry(entry: StagingEntry): SerializedEntry {
 /**
  * Builder for bulk staging area modifications.
  */
-class KVStagingBuilder implements StagingBuilder {
+class KVIndexBuilder implements IndexBuilder {
   private entries: StagingEntry[] = [];
   private keeping: Array<{ start: number; count: number }> = [];
 
   constructor(
     private readonly kv: KVStore,
-    private readonly store: KVStagingStore,
+    private readonly store: KVStaging,
   ) {}
 
   add(options: StagingEntryOptions): void {
@@ -407,11 +513,13 @@ class KVStagingBuilder implements StagingBuilder {
   }
 
   async addTree(
-    treeStore: TreeStore,
+    trees: import("@statewalker/vcs-core").Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue = MergeStage.MERGED,
   ): Promise<void> {
+    // Handle both Trees and TreeStore interfaces
+    const treeStore = trees as any as TreeStore;
     await this.addTreeRecursive(treeStore, treeId, prefix, stage);
   }
 
@@ -508,20 +616,34 @@ class KVStagingBuilder implements StagingBuilder {
 /**
  * Editor for targeted staging area modifications.
  */
-class KVStagingEditor implements StagingEditor {
+class KVIndexEditor implements IndexEditor {
   private edits: StagingEdit[] = [];
 
   constructor(
     private readonly kv: KVStore,
-    private readonly store: KVStagingStore,
+    private readonly store: KVStaging,
   ) {}
 
   add(edit: StagingEdit): void {
     this.edits.push(edit);
   }
 
-  remove(path: string): void {
+  remove(path: string, _stage?: MergeStageValue): void {
+    // For now, remove all stages (ignore stage parameter)
+    // TODO: Implement stage-specific removal if needed
     this.edits.push({ path, apply: () => undefined });
+  }
+
+  upsert(entry: StagingEntryOptions): void {
+    this.edits.push({
+      path: entry.path,
+      apply: () => ({
+        ...entry,
+        stage: entry.stage ?? MergeStage.MERGED,
+        size: entry.size ?? 0,
+        mtime: entry.mtime ?? Date.now(),
+      }),
+    });
   }
 
   async finish(): Promise<void> {

@@ -36,7 +36,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testCherryPick prepareCherryPick pattern.
    */
   it("should detect conflicts when both sides modify same file", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create file a on main
     await addFile(workingCopy, "a.txt", "a");
@@ -90,7 +90,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testCherryPickNoCommit.
    */
   it("should cherry-pick without committing when noCommit is true", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial state
     await addFile(workingCopy, "a.txt", "initial");
@@ -140,7 +140,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testSequentialCherryPick.
    */
   it("should cherry-pick multiple commits sequentially", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create file a
     await addFile(workingCopy, "a.txt", "line 1\n");
@@ -201,7 +201,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testCherryPickMerge.
    */
   it("should throw error when cherry-picking merge commit without mainline parent", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base
     await addFile(workingCopy, "file.txt", "base");
@@ -258,7 +258,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testCherryPickMerge (success cases).
    */
   it("should cherry-pick merge commit when mainline parent is specified", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base commit
     await addFile(workingCopy, "file.txt", "base content");
@@ -319,7 +319,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
    * Test error when specifying invalid mainline parent number.
    */
   it("should throw error for invalid mainline parent number", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create a merge commit
     await addFile(workingCopy, "file.txt", "content");
@@ -371,7 +371,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
    * Test cherry-pick where file is added in cherry-picked commit.
    */
   it("should handle file addition in cherry-pick", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base
     await addFile(workingCopy, "existing.txt", "exists");
@@ -422,7 +422,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
    * Test cherry-pick where file is deleted in cherry-picked commit.
    */
   it("should handle file deletion in cherry-pick", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base with two files
     await addFile(workingCopy, "keep.txt", "keep");
@@ -475,7 +475,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
    * Test cherry-pick delete/modify conflict.
    */
   it("should detect delete/modify conflict", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base with file
     await addFile(workingCopy, "conflict.txt", "original");
@@ -606,7 +606,7 @@ describe.each(backends)("CherryPickCommand - Strategy and options ($name backend
    * Test that options are correctly maintained through fluent API.
    */
   it("should chain all options fluently", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create setup for cherry-pick
     await addFile(workingCopy, "a.txt", "a");
@@ -665,7 +665,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
    * Test cherry-picking preserves original author.
    */
   it("should preserve original commit author", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base
     await addFile(workingCopy, "a.txt", "a");
@@ -713,7 +713,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
    * Test cherry-picking preserves original commit message.
    */
   it("should preserve original commit message", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base
     await addFile(workingCopy, "a.txt", "a");
@@ -755,7 +755,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
    * Test that cherry-picked commits have correct parentage.
    */
   it("should set correct parent for cherry-picked commit", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create base
     await addFile(workingCopy, "a.txt", "a");
@@ -802,7 +802,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
    * Based on JGit's testRootCherryPick.
    */
   it("should cherry-pick a root commit", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create root commit on main branch
     await addFile(workingCopy, "a.txt", "a content");
@@ -838,7 +838,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
    * Based on JGit's testCherryPickConflictResolutionNoCommit.
    */
   it("should handle conflict with noCommit option", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create file a on main
     await addFile(workingCopy, "a.txt", "first master");
@@ -888,7 +888,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
    * Test command cannot be reused after call.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     await addFile(workingCopy, "a.txt", "a");
     await git.commit().setMessage("base").call();

@@ -156,14 +156,6 @@ export class GitObjectStoreImpl implements GitObjectStore {
   }
 
   /**
-   * Delete object
-   * @deprecated Use remove() instead
-   */
-  delete(id: ObjectId): Promise<boolean> {
-    return this.remove(id);
-  }
-
-  /**
    * List all object IDs
    */
   async *list(): AsyncIterable<ObjectId> {

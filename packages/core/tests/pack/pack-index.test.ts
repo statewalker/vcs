@@ -13,7 +13,7 @@ import {
   readPackIndex,
   writePackIndexV1,
   writePackIndexV2,
-} from "../../src/storage/pack/index.js";
+} from "../../src/backend/git/pack/index.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {

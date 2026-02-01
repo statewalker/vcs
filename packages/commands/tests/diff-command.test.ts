@@ -34,7 +34,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should detect added files", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Add a file and commit
     await addFile(workingCopy, "new-file.txt", "content");
@@ -51,7 +51,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should detect deleted files", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file and commit
     await addFile(workingCopy, "file.txt", "content");
@@ -76,7 +76,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should detect modified files", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add a file and commit
     await addFile(workingCopy, "file.txt", "original content");
@@ -101,7 +101,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should detect multiple changes", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add files and commit
     await addFile(workingCopy, "file1.txt", "content1");
@@ -134,7 +134,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should filter by path prefix", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Add files in different directories
     await addFile(workingCopy, "src/main.ts", "main");
@@ -157,7 +157,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should use HEAD as default old tree", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add file and commit
     await addFile(workingCopy, "file.txt", "content");
@@ -178,7 +178,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should compare to staging with cached=true", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add file and commit
     await addFile(workingCopy, "file.txt", "original");
@@ -199,7 +199,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should compare using branch names", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create a file and commit on main
     await addFile(workingCopy, "file.txt", "content");
@@ -227,7 +227,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should sort entries by path", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Add files in random order
     await addFile(workingCopy, "z-file.txt", "z");
@@ -256,7 +256,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should handle nested directories", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     // Add nested files
     await addFile(workingCopy, "a/b/c/deep.txt", "deep content");
@@ -294,7 +294,7 @@ describe.each(backends)("DiffEntry helpers ($name backend)", ({ factory }) => {
   }
 
   it("should include object IDs for modifications", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Add file
     const blob1 = await addFile(workingCopy, "file.txt", "original");

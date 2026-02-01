@@ -1,18 +1,18 @@
 /**
- * Parametrized test suite for WorktreeStore implementations
+ * Parametrized test suite for Worktree implementations
  *
- * This suite tests the core WorktreeStore interface contract.
+ * This suite tests the core Worktree interface contract.
  * All storage implementations must pass these tests.
  */
 
-import type { WorktreeStore } from "@statewalker/vcs-core";
+import type { Worktree } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**
  * Context provided by the storage factory
  */
 export interface WorktreeStoreTestContext {
-  worktreeStore: WorktreeStore;
+  worktreeStore: Worktree;
   /**
    * Helper to set up test files in the worktree.
    * Returns the paths of created files.

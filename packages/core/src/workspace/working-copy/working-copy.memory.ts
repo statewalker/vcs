@@ -13,10 +13,7 @@
 
 import type { ObjectId } from "../../common/id/index.js";
 import type { History } from "../../history/history.js";
-import type { HistoryStore } from "../../history/history-store.js";
 import type { Checkout } from "../checkout/checkout.js";
-import type { Staging } from "../staging/index.js";
-import type { StagingStore } from "../staging/types.js";
 import type { RepositoryStatus, StatusOptions } from "../status/index.js";
 import type {
   CherryPickState,
@@ -28,7 +25,6 @@ import type {
   WorkingCopyConfig,
 } from "../working-copy.js";
 import type { Worktree } from "../worktree/index.js";
-import type { WorktreeStore } from "../worktree/types.js";
 import {
   getStateCapabilities,
   RepositoryState,
@@ -41,22 +37,16 @@ import { MemoryStashStore } from "./stash-store.memory.js";
  * Options for MemoryWorkingCopy
  */
 export interface MemoryWorkingCopyOptions {
-  /** Legacy HistoryStore */
-  repository: HistoryStore;
-  /** Legacy WorktreeStore */
-  worktree: WorktreeStore;
-  /** Staging store */
-  staging: StagingStore;
+  /** History interface */
+  history: History;
+  /** Checkout interface */
+  checkout: Checkout;
+  /** Worktree interface */
+  worktreeInterface: Worktree;
   /** Optional stash store */
   stash?: StashStore;
   /** Optional configuration */
   config?: WorkingCopyConfig;
-  /** Optional History interface (new architecture) */
-  history?: History;
-  /** Optional Checkout interface (new architecture) */
-  checkout?: Checkout;
-  /** Optional Worktree interface (new architecture) */
-  worktreeInterface?: Worktree;
 }
 
 /**
@@ -64,9 +54,6 @@ export interface MemoryWorkingCopyOptions {
  *
  * Stores HEAD, merge state, and rebase state in memory.
  * Provides test helpers for setting these states directly.
- *
- * Can optionally use new architecture interfaces (History, Checkout, Worktree)
- * if provided, otherwise manages state internally.
  */
 export class MemoryWorkingCopy implements WorkingCopy {
   private headRef = "refs/heads/main";
@@ -77,187 +64,39 @@ export class MemoryWorkingCopy implements WorkingCopy {
   private _revertState: RevertState | undefined;
   private _repositoryState: RepositoryStateValue = RepositoryState.SAFE;
 
-  // New architecture components (optional)
-  readonly history?: History;
-  readonly checkout?: Checkout;
-  readonly worktreeInterface?: Worktree;
-
-  // Legacy properties
-  readonly repository: HistoryStore;
+  readonly history: History;
+  readonly checkout: Checkout;
+  readonly worktreeInterface: Worktree;
   readonly stash: StashStore;
   readonly config: WorkingCopyConfig;
 
-  // Internal legacy stores
-  private _legacyWorktree?: WorktreeStore;
-  private _legacyStaging?: StagingStore;
-  private _worktreeAdapter?: Worktree;
-  private _stagingAdapter?: Staging;
-
-  constructor(options: MemoryWorkingCopyOptions);
-  /** @deprecated Use options object instead */
-  constructor(
-    repository: HistoryStore,
-    worktree: WorktreeStore,
-    staging: StagingStore,
-    stash?: StashStore,
-    config?: WorkingCopyConfig,
-  );
-  constructor(
-    repositoryOrOptions: HistoryStore | MemoryWorkingCopyOptions,
-    worktree?: WorktreeStore,
-    staging?: StagingStore,
-    stash?: StashStore,
-    config?: WorkingCopyConfig,
-  ) {
-    if (typeof repositoryOrOptions === "object" && "repository" in repositoryOrOptions) {
-      // Options object form
-      const options = repositoryOrOptions;
-      this.repository = options.repository;
-      this._legacyWorktree = options.worktree;
-      this._legacyStaging = options.staging;
-      this.stash = options.stash ?? new MemoryStashStore();
-      this.config = options.config ?? {};
-      this.history = options.history;
-      this.checkout = options.checkout;
-      this.worktreeInterface = options.worktreeInterface;
-    } else {
-      // Legacy positional arguments form
-      this.repository = repositoryOrOptions;
-      this._legacyWorktree = worktree;
-      this._legacyStaging = staging;
-      this.stash = stash ?? new MemoryStashStore();
-      this.config = config ?? {};
-    }
+  constructor(options: MemoryWorkingCopyOptions) {
+    this.history = options.history;
+    this.checkout = options.checkout;
+    this.worktreeInterface = options.worktreeInterface;
+    this.stash = options.stash ?? new MemoryStashStore();
+    this.config = options.config ?? {};
   }
 
   /**
-   * Worktree - delegates to worktreeInterface or creates adapter from legacy
+   * Worktree - delegates to worktreeInterface
    */
   get worktree(): Worktree {
-    if (this.worktreeInterface) {
-      return this.worktreeInterface;
-    }
-    // Legacy mode - create adapter if needed
-    if (!this._worktreeAdapter && this._legacyWorktree) {
-      this._worktreeAdapter = this.createWorktreeAdapter();
-    }
-    return this._worktreeAdapter as Worktree;
+    return this.worktreeInterface;
   }
 
   /**
-   * Staging area - delegates to checkout or creates adapter from legacy
+   * Staging area - delegates to checkout.staging
    */
-  get staging(): Staging {
-    if (this.checkout) {
-      return this.checkout.staging;
-    }
-    // Legacy mode - create adapter if needed
-    if (!this._stagingAdapter && this._legacyStaging) {
-      this._stagingAdapter = this.createStagingAdapter();
-    }
-    return this._stagingAdapter as Staging;
+  get staging() {
+    return this.checkout.staging;
   }
 
   /**
-   * Create a Staging adapter from legacy StagingStore.
-   * @internal
+   * Repository - delegates to history (for backward compatibility)
    */
-  private createStagingAdapter(): Staging {
-    if (!this._legacyStaging) {
-      throw new Error("Legacy staging store not available");
-    }
-    const legacyStaging = this._legacyStaging;
-    return {
-      getEntryCount: () => legacyStaging.getEntryCount(),
-      hasEntry: (path) => legacyStaging.hasEntry(path),
-      getEntry: (path, stage) =>
-        stage !== undefined
-          ? legacyStaging.getEntryByStage(path, stage)
-          : legacyStaging.getEntry(path),
-      getEntries: (path) => legacyStaging.getEntries(path),
-      setEntry: () => Promise.reject(new Error("setEntry not supported in legacy adapter")),
-      removeEntry: () => Promise.reject(new Error("removeEntry not supported in legacy adapter")),
-      entries: (opts) =>
-        opts?.prefix ? legacyStaging.listEntriesUnder(opts.prefix) : legacyStaging.listEntries(),
-      hasConflicts: () => legacyStaging.hasConflicts(),
-      getConflictedPaths: async () => {
-        const paths: string[] = [];
-        for await (const path of legacyStaging.getConflictPaths()) {
-          paths.push(path);
-        }
-        return paths;
-      },
-      resolveConflict: () =>
-        Promise.reject(new Error("resolveConflict not supported in legacy adapter")),
-      writeTree: (trees) =>
-        legacyStaging.writeTree(
-          trees as unknown as import("../../history/trees/tree-store.js").TreeStore,
-        ),
-      readTree: (trees, treeId) =>
-        legacyStaging.readTree(
-          trees as unknown as import("../../history/trees/tree-store.js").TreeStore,
-          treeId,
-        ),
-      createBuilder: () => {
-        const b = legacyStaging.builder();
-        return {
-          add: (e) => b.add(e),
-          keep: (s, c) => b.keep(s, c),
-          addTree: (t, id, p, st) =>
-            b.addTree(
-              t as unknown as import("../../history/trees/tree-store.js").TreeStore,
-              id,
-              p,
-              st,
-            ),
-          finish: () => b.finish(),
-        };
-      },
-      createEditor: () => {
-        const e = legacyStaging.editor();
-        return {
-          add: (ed) => e.add(ed),
-          remove: (p) => e.remove(p),
-          upsert: () => {
-            throw new Error("upsert not supported in legacy adapter");
-          },
-          finish: () => e.finish(),
-        };
-      },
-      read: () => legacyStaging.read(),
-      write: () => legacyStaging.write(),
-      isOutdated: () => legacyStaging.isOutdated(),
-      getUpdateTime: () => legacyStaging.getUpdateTime(),
-      clear: () => legacyStaging.clear(),
-    };
-  }
-
-  /**
-   * Create a Worktree adapter from legacy WorktreeStore.
-   * @internal
-   */
-  private createWorktreeAdapter(): Worktree {
-    if (!this._legacyWorktree) {
-      throw new Error("Legacy worktree store not available");
-    }
-    const legacyWorktree = this._legacyWorktree;
-    return {
-      walk: (opts) => legacyWorktree.walk(opts),
-      getEntry: (path) => legacyWorktree.getEntry(path),
-      computeHash: (path) => legacyWorktree.computeHash(path),
-      readContent: (path) => legacyWorktree.readContent(path),
-      exists: async (path) => (await legacyWorktree.getEntry(path)) !== undefined,
-      isIgnored: async (path) => (await legacyWorktree.getEntry(path))?.isIgnored ?? false,
-      writeContent: () => Promise.reject(new Error("writeContent not supported in legacy adapter")),
-      remove: () => Promise.reject(new Error("remove not supported in legacy adapter")),
-      mkdir: () => Promise.reject(new Error("mkdir not supported in legacy adapter")),
-      rename: () => Promise.reject(new Error("rename not supported in legacy adapter")),
-      checkoutTree: () => Promise.reject(new Error("checkoutTree not supported in legacy adapter")),
-      checkoutPaths: () =>
-        Promise.reject(new Error("checkoutPaths not supported in legacy adapter")),
-      getRoot: () => "",
-      refreshIgnore: () => Promise.resolve(),
-    };
+  get repository(): History {
+    return this.history;
   }
 
   /**
@@ -454,30 +293,6 @@ export class MemoryWorkingCopy implements WorkingCopy {
 /**
  * Create a MemoryWorkingCopy instance.
  */
-export function createMemoryWorkingCopy(options: MemoryWorkingCopyOptions): MemoryWorkingCopy;
-/** @deprecated Use options object instead */
-export function createMemoryWorkingCopy(
-  repository: HistoryStore,
-  worktree: WorktreeStore,
-  staging: StagingStore,
-  stash?: StashStore,
-  config?: WorkingCopyConfig,
-): MemoryWorkingCopy;
-export function createMemoryWorkingCopy(
-  repositoryOrOptions: HistoryStore | MemoryWorkingCopyOptions,
-  worktree?: WorktreeStore,
-  staging?: StagingStore,
-  stash?: StashStore,
-  config?: WorkingCopyConfig,
-): MemoryWorkingCopy {
-  if (typeof repositoryOrOptions === "object" && "repository" in repositoryOrOptions) {
-    return new MemoryWorkingCopy(repositoryOrOptions);
-  }
-  return new MemoryWorkingCopy(
-    repositoryOrOptions,
-    worktree as WorktreeStore,
-    staging as StagingStore,
-    stash,
-    config,
-  );
+export function createMemoryWorkingCopy(options: MemoryWorkingCopyOptions): MemoryWorkingCopy {
+  return new MemoryWorkingCopy(options);
 }
