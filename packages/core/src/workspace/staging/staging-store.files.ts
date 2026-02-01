@@ -7,13 +7,15 @@ import {
   parseIndexFile,
   serializeIndexFile,
 } from "./index-format.js";
-import type { StagingBuilder, StagingEditor, StagingStore } from "./staging-store.js";
 import {
   MergeStage,
   type MergeStageValue,
+  type StagingBuilder,
   type StagingEdit,
+  type StagingEditor,
   type StagingEntry,
   type StagingEntryOptions,
+  type StagingStore,
 } from "./types.js";
 
 /**

@@ -19,7 +19,7 @@ import {
   parseIndexFile,
   serializeIndexFile,
 } from "../../src/workspace/staging/index-format.js";
-import type { StagingEntry } from "../../src/workspace/staging/staging-store.js";
+import type { StagingEntry } from "../../src/workspace/staging/types.js";
 
 /**
  * Create a minimal valid index file for testing.

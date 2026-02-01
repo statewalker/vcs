@@ -4,7 +4,7 @@ import {
   createMemoryCheckoutStore,
   MemoryCheckoutStore,
 } from "../../src/workspace/checkout/checkout-store.memory.js";
-import type { StagingStore } from "../../src/workspace/staging/staging-store.js";
+import type { StagingStore } from "../../src/workspace/staging/types.js";
 import { RepositoryState } from "../../src/workspace/working-copy/repository-state.js";
 import { MemoryStashStore } from "../../src/workspace/working-copy/stash-store.memory.js";
 import type {
