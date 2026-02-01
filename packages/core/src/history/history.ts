@@ -21,7 +21,9 @@
  * @see HistoryWithBackend for advanced operations (GC, delta, serialization)
  */
 
-import type { StorageBackend } from "../backend/storage-backend.js";
+import type { BackendCapabilities, StorageBackend } from "../backend/storage-backend.js";
+import type { SerializationApi } from "../serialization/serialization-api.js";
+import type { DeltaApi } from "../storage/delta/delta-api.js";
 import type { ObjectId } from "../common/id/index.js";
 import type { Blobs } from "./blobs/blobs.js";
 import type { Commits } from "./commits/commits.js";
@@ -127,7 +129,62 @@ export interface History {
 }
 
 /**
+ * Extended History interface with storage operations
+ *
+ * Used for operations that need low-level storage access:
+ * - Delta compression for storage optimization
+ * - Serialization for pack files and transport
+ * - Garbage collection for cleanup
+ *
+ * Most application code should use the plain History interface.
+ *
+ * @example
+ * ```typescript
+ * // Access delta API for GC
+ * history.delta.startBatch();
+ * await history.delta.blobs.deltifyBlob(blobId, baseId, delta);
+ * await history.delta.endBatch();
+ *
+ * // Access serialization API for transport
+ * const pack = history.serialization.createPack(objectIds);
+ *
+ * // Check backend capabilities
+ * if (history.capabilities.nativeBlobDeltas) {
+ *   // Use native delta support
+ * }
+ * ```
+ */
+export interface HistoryWithOperations extends History {
+  /**
+   * Delta compression API for storage optimization
+   *
+   * Only blobs have delta support in internal storage.
+   * Used for GC, repacking, and storage optimization.
+   */
+  readonly delta: DeltaApi;
+
+  /**
+   * Git-compatible serialization API
+   *
+   * For pack file creation/parsing and loose object I/O.
+   * Used for transport (fetch/push) and Git interoperability.
+   */
+  readonly serialization: SerializationApi;
+
+  /**
+   * Backend capabilities
+   *
+   * Describes what this backend supports natively.
+   * Used for optimization and feature detection.
+   */
+  readonly capabilities: BackendCapabilities;
+}
+
+/**
  * Extended History interface with backend access
+ *
+ * @deprecated Use HistoryWithOperations instead. This interface will be removed
+ * in a future version as part of the StorageBackend removal.
  *
  * Used internally for operations that need direct backend access:
  * - Delta compression for storage optimization

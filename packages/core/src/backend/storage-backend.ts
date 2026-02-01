@@ -128,6 +128,16 @@ export interface BackendConfig {
 /**
  * StorageBackend - The unified storage contract
  *
+ * @deprecated Use StorageOperations instead. This interface bundles typed stores
+ * with storage operations, creating redundancy with the History interface.
+ * StorageOperations provides only delta and serialization APIs without the stores.
+ * This interface will be removed in a future version.
+ *
+ * Migration path:
+ * - For delta/serialization operations: Use StorageOperations via backend.getOperations()
+ * - For typed object access: Use History interface (blobs, trees, commits, tags, refs)
+ * - For combined access: Use HistoryWithOperations instead of HistoryWithBackend
+ *
  * All storage implementations must provide the core APIs.
  * This enables consistent behavior across different storage types.
  */
@@ -202,6 +212,73 @@ export interface StorageBackend {
    *
    * Releases resources, flushes pending writes.
    * Backend should not be used after close().
+   */
+  close(): Promise<void>;
+}
+
+/**
+ * Storage operations for optimization and transport
+ *
+ * This interface provides low-level storage operations that are NOT part
+ * of the main History interface:
+ * - Delta compression for storage optimization
+ * - Serialization for pack file I/O and Git interoperability
+ *
+ * Unlike StorageBackend, this does not include typed stores (blobs, trees, etc.)
+ * which are provided by the History interface instead.
+ *
+ * @example
+ * ```typescript
+ * // Use delta API for storage optimization
+ * operations.delta.startBatch();
+ * await operations.delta.blobs.deltifyBlob(blobId, baseId, deltaStream);
+ * await operations.delta.endBatch();
+ *
+ * // Use serialization API for Git interop
+ * const pack = operations.serialization.createPack(objectIds);
+ * await operations.serialization.importPack(receivedPackStream);
+ * ```
+ */
+export interface StorageOperations {
+  /**
+   * Delta/raw content manipulation
+   *
+   * Only blobs have delta support in internal storage.
+   * Used for GC, repacking, and storage optimization.
+   */
+  readonly delta: DeltaApi;
+
+  /**
+   * Git-compatible serialization
+   *
+   * For pack file creation/parsing and loose object I/O.
+   * Used for transport (fetch/push) and Git interoperability.
+   */
+  readonly serialization: SerializationApi;
+
+  /**
+   * Backend capabilities
+   *
+   * Describes what this backend supports natively.
+   * Used for optimization and feature detection.
+   */
+  readonly capabilities: BackendCapabilities;
+
+  /**
+   * Initialize the storage operations
+   *
+   * Must be called before using any API.
+   * Creates storage structures if needed and configured.
+   *
+   * @throws Error if initialization fails
+   */
+  initialize(): Promise<void>;
+
+  /**
+   * Close the storage operations
+   *
+   * Releases resources, flushes pending writes.
+   * Should not be used after close().
    */
   close(): Promise<void>;
 }
