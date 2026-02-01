@@ -6,9 +6,9 @@
  */
 
 import type { StorageBackend } from "../../backend/storage-backend.js";
-import type { HistoryWithOperations } from "../../history/history.js";
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/object-id.js";
+import type { HistoryWithOperations } from "../../history/history.js";
 import { ObjectType } from "../../history/objects/object-types.js";
 
 import type { DeltaTarget } from "./candidate-finder.js";
@@ -96,10 +96,7 @@ export class GCController {
   private lastGC = 0;
   private pendingBlobs: ObjectId[] = [];
 
-  constructor(
-    backend: HistoryWithOperations | StorageBackend,
-    options: GCScheduleOptions = {},
-  ) {
+  constructor(backend: HistoryWithOperations | StorageBackend, options: GCScheduleOptions = {}) {
     this.backend = backend;
     this.options = {
       ...DEFAULT_GC_OPTIONS,
@@ -410,8 +407,7 @@ export class GCController {
       try {
         const size = await blobs.size(id);
         // Handle both BlobStore (has delete) and Blobs (has remove)
-        const deleted =
-          "delete" in blobs ? await blobs.delete(id) : await blobs.remove(id);
+        const deleted = "delete" in blobs ? await blobs.delete(id) : await blobs.remove(id);
         if (deleted) {
           blobsRemoved++;
           bytesFreed += size;
@@ -462,8 +458,7 @@ export class GCController {
     try {
       // Handle both TreeStore (has loadTree) and Trees (has load)
       const trees = this.backend.trees;
-      const treeEntries =
-        "loadTree" in trees ? trees.loadTree(treeId) : await trees.load(treeId);
+      const treeEntries = "loadTree" in trees ? trees.loadTree(treeId) : await trees.load(treeId);
       if (!treeEntries) return;
 
       for await (const entry of treeEntries) {
