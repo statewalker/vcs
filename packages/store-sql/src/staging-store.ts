@@ -10,10 +10,12 @@ import type {
   IndexEditor,
   MergeStageValue,
   ObjectId,
+  ReadTreeOptions,
   Staging,
   StagingEntry,
   StagingEntryOptions,
   TreeEntry,
+  Trees,
   TreeStore,
 } from "@statewalker/vcs-core";
 import { FileMode, MergeStage } from "@statewalker/vcs-core";
@@ -324,27 +326,35 @@ export class SQLStaging implements Staging {
       : treeStore.storeTree(treeEntries);
   }
 
-  async readTree(treeStore: TreeStore, treeId: ObjectId): Promise<void> {
-    await this.clear();
-    await this.addTreeRecursive(treeStore, treeId, "", MergeStage.MERGED);
+  async readTree(
+    trees: Trees | TreeStore,
+    treeId: ObjectId,
+    options?: ReadTreeOptions,
+  ): Promise<void> {
+    if (!options?.keepExisting) {
+      await this.clear();
+    }
+
+    const prefix = options?.prefix ?? "";
+    const stage = options?.stage ?? MergeStage.MERGED;
+
+    await this.addTreeRecursive(trees, treeId, prefix, stage);
     this.updateTime = Date.now();
   }
 
   private async addTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees | TreeStore,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    const treeIter = (treeStore as any).load
-      ? await (treeStore as any).load(treeId)
-      : treeStore.loadTree(treeId);
+    const treeIter = "load" in trees ? await trees.load(treeId) : trees.loadTree(treeId);
     if (!treeIter) throw new Error("Tree not found");
     for await (const entry of treeIter) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
-        await this.addTreeRecursive(treeStore, entry.id, path, stage);
+        await this.addTreeRecursive(trees, entry.id, path, stage);
       } else {
         await this.db.execute(
           `INSERT INTO staging_entry (path, stage, mode, object_id, size, mtime)
