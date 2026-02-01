@@ -5,10 +5,10 @@
  * Tests run against all storage backends (Memory, SQL).
  */
 
-import type { Ref } from "@statewalker/vcs-core";
+import type { Ref, WorkingCopy } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Git, type GitStore, TagOption } from "../src/index.js";
+import { Git, TagOption } from "../src/index.js";
 import { backends } from "./test-helper.js";
 import {
   addFileAndCommit,
@@ -26,28 +26,19 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
     }
   });
 
-  async function createTestStore(): Promise<GitStore> {
+  async function createTestWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const wc = ctx.workingCopy;
-    // Construct GitStore-like object from WorkingCopy for transport tests
-    return {
-      blobs: wc.repository.blobs,
-      trees: wc.repository.trees,
-      commits: wc.repository.commits,
-      tags: wc.repository.tags,
-      refs: wc.repository.refs,
-      staging: wc.staging,
-    };
+    return ctx.workingCopy;
   }
   describe("basic operations", () => {
     it("should clone a repository", async () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      // Create a new store for the clone
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      // Create a new WorkingCopy for the clone
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -71,8 +62,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -95,8 +86,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       await addFileAndCommit(server.serverStores, "file2.txt", "content 2", "Second commit");
       await addFileAndCommit(server.serverStores, "file3.txt", "content 3", "Third commit");
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -121,8 +112,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const mainRef = (await server.serverStores.refs.get("refs/heads/main")) as Ref | undefined;
       await server.serverStores.refs.set("refs/heads/feature", mainRef?.objectId ?? "");
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -140,8 +131,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -165,8 +156,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       await addFileAndCommit(server.serverStores, "file2.txt", "content 2", "Second commit");
       await addFileAndCommit(server.serverStores, "file3.txt", "content 3", "Third commit");
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -181,8 +172,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject invalid depth", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       expect(() => git.clone().setURI("http://example.com/repo.git").setDepth(0)).toThrow(
         "Depth must be at least 1",
@@ -199,8 +190,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -221,8 +212,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -242,8 +233,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -261,8 +252,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -279,15 +270,15 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
 
   describe("error handling", () => {
     it("should throw for missing URI", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       await expect(git.clone().call()).rejects.toThrow("URI must be specified for clone");
     });
 
     it("should throw for invalid remote", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = async () => {
@@ -304,8 +295,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
 
   describe("options getters", () => {
     it("should return correct values for getters", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .clone()
@@ -328,8 +319,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -354,8 +345,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const mainRef = (await server.serverStores.refs.get("refs/heads/main")) as Ref | undefined;
       await server.serverStores.refs.set("refs/heads/test", mainRef?.objectId ?? "");
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -389,8 +380,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -422,8 +413,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -453,8 +444,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -472,8 +463,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
     });
 
     it("should default to auto follow tags", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.clone().setURI("http://example.com/repo.git");
 
@@ -492,8 +483,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -525,8 +516,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
      * JGit: CloneCommandTest.testCloneRepositoryWithShallowSince()
      */
     it("should support shallow since option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const date = new Date("2024-01-01");
       const command = git.clone().setURI("http://example.com/repo.git").setShallowSince(date);
@@ -538,8 +529,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
      * JGit: CloneCommandTest.testCloneRepositoryWithShallowExclude()
      */
     it("should support shallow exclude option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .clone()
@@ -556,8 +547,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
    */
   describe("extended options getters", () => {
     it("should return correct values for all getters", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const date = new Date("2024-06-15");
       const command = git

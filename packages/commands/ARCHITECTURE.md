@@ -27,18 +27,16 @@ await git.commit()
 
 Each setter returns `this`, enabling fluent chains. The final `call()` executes the operation and returns the result.
 
-### Store Abstraction
+### WorkingCopy Abstraction
 
-Commands work with abstract store interfaces, not concrete implementations. The `GitStore` interface defines the minimum requirements:
+Commands work with the `WorkingCopy` interface from `@statewalker/vcs-core`, which provides unified access to repository components:
 
 ```typescript
-interface GitStore {
-  blobs: BlobStore;
-  trees: TreeStore;
-  commits: CommitStore;
-  refs: RefStore;
-  staging: StagingStore;
-  tags?: TagStore;
+interface WorkingCopy {
+  repository: HistoryStore;  // blobs, trees, commits, refs, tags
+  staging: Staging;          // index/staging area
+  worktree?: Worktree;       // optional filesystem access
+  // ... state methods
 }
 ```
 
@@ -86,11 +84,11 @@ All commands extend `GitCommand<T>` where `T` is the return type:
 
 ```typescript
 abstract class GitCommand<T> {
-  protected store: GitStore;
+  protected workingCopy: WorkingCopy;
   private called: boolean = false;
 
-  constructor(store: GitStore) {
-    this.store = store;
+  constructor(workingCopy: WorkingCopy) {
+    this.workingCopy = workingCopy;
   }
 
   async call(): Promise<T> {
@@ -246,17 +244,15 @@ The `Git` class acts as the entry point and command factory:
 
 ```typescript
 class Git implements Disposable {
-  private store: GitStore;
+  private workingCopy: WorkingCopy;
 
   // Factory methods
-  static wrap(store: GitStore): Git { ... }
-  static open(store: GitStore): Git { ... }
-  static fromRepository(options: { repository, staging }): Git { ... }
+  static fromWorkingCopy(workingCopy: WorkingCopy): Git { ... }
 
   // Command factories (40+)
-  add(): AddCommand { return new AddCommand(this.store); }
-  commit(): CommitCommand { return new CommitCommand(this.store); }
-  checkout(): CheckoutCommand { return new CheckoutCommand(this.store); }
+  add(): AddCommand { return new AddCommand(this.workingCopy); }
+  commit(): CommitCommand { return new CommitCommand(this.workingCopy); }
+  checkout(): CheckoutCommand { return new CheckoutCommand(this.workingCopy); }
   // ...
 
   // Lifecycle
@@ -434,22 +430,17 @@ transport.push({
 
 ### Storage Backend Integration
 
-Use `createGitStore` to bridge between repositories and the commands package:
+Use `Git.fromWorkingCopy()` to bridge between repositories and the commands package:
 
 ```typescript
-import { Git, createGitStore } from "@statewalker/vcs-commands";
-import { createGitRepository } from "@statewalker/vcs-core";
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
+import { Git } from "@statewalker/vcs-commands";
+import { createWorkingCopy } from "@statewalker/vcs-core";
 
-// Create repository from @statewalker/vcs-core
-const repository = await createGitRepository();
+// Create a working copy from @statewalker/vcs-core
+const workingCopy = await createWorkingCopy();
 
-// Create staging store from any backend
-const staging = new MemoryStagingStore();
-
-// Bridge to commands package
-const store = createGitStore({ repository, staging });
-const git = Git.wrap(store);
+// Create Git command interface
+const git = Git.fromWorkingCopy(workingCopy);
 ```
 
 ## Error Handling Strategy
@@ -592,18 +583,15 @@ export class FileNotInCommitError extends GitApiError {
 Use memory storage for fast tests:
 
 ```typescript
-import { Git, createGitStore } from "@statewalker/vcs-commands";
-import { createGitRepository } from "@statewalker/vcs-core";
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
+import { Git } from "@statewalker/vcs-commands";
+import { createWorkingCopy } from "@statewalker/vcs-core";
 
 describe("CommitCommand", () => {
   let git: Git;
 
   beforeEach(async () => {
-    const repo = await createGitRepository(); // In-memory by default
-    const staging = new MemoryStagingStore();
-    const store = createGitStore({ repository: repo, staging });
-    git = Git.wrap(store);
+    const workingCopy = await createWorkingCopy(); // In-memory by default
+    git = Git.fromWorkingCopy(workingCopy);
   });
 
   it("creates commit with message", async () => {

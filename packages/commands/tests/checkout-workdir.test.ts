@@ -8,9 +8,13 @@
  */
 
 import {
-  createFileTreeIterator,
+  createFileWorktree,
   createInMemoryFilesApi,
   type FilesApi,
+  type HistoryStore,
+  MemoryWorkingCopy,
+  type WorkingCopy,
+  type Worktree,
 } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
@@ -20,15 +24,60 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { CheckoutStatus } from "../src/commands/checkout-command.js";
-import { Git, type GitStore, type GitStoreWithFiles } from "../src/index.js";
+import { Git } from "../src/index.js";
+import { createSimpleHistory } from "./simple-history-store.js";
 import { testAuthor } from "./test-helper.js";
 
 /**
- * Add a file to a GitStore and stage it.
+ * Local store type for tests - used to construct WorkingCopy.
  */
-async function addFileToStore(store: GitStore, path: string, content: string): Promise<string> {
-  const blobId = await store.blobs.store([new TextEncoder().encode(content)]);
-  const editor = store.staging.createEditor();
+interface TestStores {
+  blobs: ReturnType<typeof createMemoryObjectStores>["blobs"];
+  trees: ReturnType<typeof createMemoryObjectStores>["trees"];
+  commits: ReturnType<typeof createMemoryObjectStores>["commits"];
+  tags: ReturnType<typeof createMemoryObjectStores>["tags"];
+  refs: MemoryRefStore;
+  staging: MemoryStagingStore;
+  worktree?: Worktree;
+}
+
+/**
+ * Create a WorkingCopy from test stores using MemoryWorkingCopy.
+ */
+function createWorkingCopyFromTestStores(stores: TestStores): WorkingCopy {
+  const repository = createSimpleHistory({
+    objects: (stores.blobs as { objects?: unknown }).objects,
+    blobs: stores.blobs,
+    trees: stores.trees,
+    commits: stores.commits,
+    tags: stores.tags,
+    refs: stores.refs,
+  });
+
+  return new MemoryWorkingCopy({
+    repository,
+    worktree: stores.worktree ?? ({} as never),
+    staging: stores.staging,
+    // Pass worktree as worktreeInterface for new architecture commands
+    worktreeInterface: stores.worktree,
+  });
+}
+
+/**
+ * Add a file to test stores and stage it.
+ */
+async function addFileToStore(stores: TestStores, path: string, content: string): Promise<string> {
+  const blobId = await stores.blobs.store([new TextEncoder().encode(content)]);
+  // Handle both Staging (createEditor) and StagingStore (editor) interfaces
+  const staging = stores.staging as unknown as {
+    createEditor?: () => { add(edit: unknown): void; finish(): Promise<void> };
+    editor?: () => { add(edit: unknown): void; finish(): Promise<void> };
+  };
+  const editorFn = staging.createEditor ?? staging.editor;
+  if (!editorFn) {
+    throw new Error("Staging must have either createEditor() or editor() method");
+  }
+  const editor = editorFn.call(staging);
   editor.add({
     path,
     apply: () => ({
@@ -75,51 +124,58 @@ async function fileExists(files: FilesApi, path: string): Promise<boolean> {
 }
 
 /**
- * Create a GitStore with files and workTreeRoot for working directory tests.
+ * Create test stores with files and worktree for working directory tests.
+ * Returns both stores and a WorkingCopy.
  */
-function createStoreWithFiles(files: FilesApi, workTreeRoot: string): GitStoreWithFiles {
-  const stores = createMemoryObjectStores();
+function createStoresWithFiles(
+  files: FilesApi,
+  workTreeRoot: string,
+): { stores: TestStores; workingCopy: WorkingCopy } {
+  const objectStores = createMemoryObjectStores();
   const staging = new MemoryStagingStore();
-  const worktree = createFileTreeIterator({
+  const worktree = createFileWorktree({
     files,
     rootPath: workTreeRoot,
     gitDir: ".git",
   });
 
-  return {
-    blobs: stores.blobs,
-    trees: stores.trees,
-    commits: stores.commits,
+  const stores: TestStores = {
+    blobs: objectStores.blobs,
+    trees: objectStores.trees,
+    commits: objectStores.commits,
     refs: new MemoryRefStore(),
     staging,
-    tags: stores.tags,
+    tags: objectStores.tags,
     worktree,
-    files,
-    workTreeRoot,
   };
+
+  return { stores, workingCopy: createWorkingCopyFromTestStores(stores) };
 }
 
 /**
- * Create a bare GitStore (no files or workTreeRoot).
+ * Create bare test stores (no files or worktree).
+ * Returns both stores and a WorkingCopy.
  */
-function createBareStore(): GitStore {
-  const stores = createMemoryObjectStores();
-  return {
-    blobs: stores.blobs,
-    trees: stores.trees,
-    commits: stores.commits,
+function createBareStores(): { stores: TestStores; workingCopy: WorkingCopy } {
+  const objectStores = createMemoryObjectStores();
+  const stores: TestStores = {
+    blobs: objectStores.blobs,
+    trees: objectStores.trees,
+    commits: objectStores.commits,
     refs: new MemoryRefStore(),
     staging: new MemoryStagingStore(),
-    tags: stores.tags,
+    tags: objectStores.tags,
   };
+
+  return { stores, workingCopy: createWorkingCopyFromTestStores(stores) };
 }
 
 /**
- * Initialize a store with an empty initial commit and set up HEAD.
+ * Initialize stores with an empty initial commit and set up HEAD.
  */
-async function initializeStore(store: GitStore): Promise<string> {
+async function initializeStores(stores: TestStores): Promise<string> {
   // Create and store empty tree
-  const emptyTreeId = await store.trees.storeTree([]);
+  const emptyTreeId = await stores.trees.storeTree([]);
 
   // Create initial commit
   const initialCommit = {
@@ -130,14 +186,14 @@ async function initializeStore(store: GitStore): Promise<string> {
     message: "Initial commit",
   };
 
-  const initialCommitId = await store.commits.storeCommit(initialCommit);
+  const initialCommitId = await stores.commits.storeCommit(initialCommit);
 
   // Set up refs
-  await store.refs.set("refs/heads/main", initialCommitId);
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
+  await stores.refs.set("refs/heads/main", initialCommitId);
+  await stores.refs.setSymbolic("HEAD", "refs/heads/main");
 
   // Initialize staging with empty tree
-  await store.staging.readTree(store.trees, emptyTreeId);
+  await stores.staging.readTree(stores.trees, emptyTreeId);
 
   return initialCommitId;
 }
@@ -147,15 +203,15 @@ describe("CheckoutCommand working directory updates", () => {
     it("should write files to working directory on checkout", async () => {
       // Create in-memory filesystem
       const files = createInMemoryFilesApi();
-      const store = createStoreWithFiles(files, "");
-      const git = Git.wrap(store);
+      const { stores, workingCopy } = createStoresWithFiles(files, "");
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Initialize repository
-      await initializeStore(store);
+      await initializeStores(stores);
 
       // Create initial commit with files
-      await addFileToStore(store, "file1.txt", "content1");
-      await addFileToStore(store, "file2.txt", "content2");
+      await addFileToStore(stores, "file1.txt", "content1");
+      await addFileToStore(stores, "file2.txt", "content2");
       await git.commit().setMessage("Add files").call();
 
       // Create a new branch
@@ -163,7 +219,7 @@ describe("CheckoutCommand working directory updates", () => {
 
       // Switch to feature branch and modify
       await git.checkout().setName("feature").call();
-      await addFileToStore(store, "file1.txt", "modified content");
+      await addFileToStore(stores, "file1.txt", "modified content");
       await git.commit().setMessage("Modify file1").call();
 
       // Switch back to main (force to bypass conflict detection since staging changed)
@@ -185,18 +241,18 @@ describe("CheckoutCommand working directory updates", () => {
     it("should update file content when checking out different commit", async () => {
       // Create in-memory filesystem
       const files = createInMemoryFilesApi();
-      const store = createStoreWithFiles(files, "");
-      const git = Git.wrap(store);
+      const { stores, workingCopy } = createStoresWithFiles(files, "");
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Initialize repository
-      await initializeStore(store);
+      await initializeStores(stores);
 
       // Create commit with file content "v1"
-      await addFileToStore(store, "version.txt", "v1");
+      await addFileToStore(stores, "version.txt", "v1");
       const commit1 = await git.commit().setMessage("Version 1").call();
 
       // Create commit with file content "v2"
-      await addFileToStore(store, "version.txt", "v2");
+      await addFileToStore(stores, "version.txt", "v2");
       await git.commit().setMessage("Version 2").call();
 
       // Checkout the first commit (detached HEAD) - force to bypass conflict detection
@@ -212,21 +268,21 @@ describe("CheckoutCommand working directory updates", () => {
     it("should update file when switching between branches", async () => {
       // Create in-memory filesystem
       const files = createInMemoryFilesApi();
-      const store = createStoreWithFiles(files, "");
-      const git = Git.wrap(store);
+      const { stores, workingCopy } = createStoresWithFiles(files, "");
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Initialize repository
-      await initializeStore(store);
+      await initializeStores(stores);
 
       // Create initial commit on main with file
-      await addFileToStore(store, "data.txt", "main-data");
+      await addFileToStore(stores, "data.txt", "main-data");
       await git.commit().setMessage("Main commit").call();
 
       // Create and checkout feature branch
       await git.checkout().setCreateBranch(true).setName("feature").call();
 
       // Modify file on feature branch
-      await addFileToStore(store, "data.txt", "feature-data");
+      await addFileToStore(stores, "data.txt", "feature-data");
       await git.commit().setMessage("Feature commit").call();
 
       // Checkout main branch (force to bypass conflict detection)
@@ -244,22 +300,21 @@ describe("CheckoutCommand working directory updates", () => {
     it("should create nested directory structure when checking out", async () => {
       // Create in-memory filesystem
       const files = createInMemoryFilesApi();
-      const store = createStoreWithFiles(files, "");
-      const git = Git.wrap(store);
+      const { stores, workingCopy } = createStoresWithFiles(files, "");
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Initialize repository
-      await initializeStore(store);
+      await initializeStores(stores);
 
       // Create commit with nested path "a/b/c/file.txt"
-      await addFileToStore(store, "a/b/c/file.txt", "nested content");
+      await addFileToStore(stores, "a/b/c/file.txt", "nested content");
       await git.commit().setMessage("Add nested file").call();
 
       // Create and checkout a new branch (to force checkout back)
       await git.checkout().setCreateBranch(true).setName("empty").call();
 
       // Clear the file by removing it from staging (simulate empty branch)
-      const builder = store.staging.createBuilder();
-      await builder.finish();
+      await stores.staging.clear();
       await git.commit().setMessage("Empty commit").setAllowEmpty(true).call();
 
       // Checkout main to restore the nested file (force to bypass conflict detection)
@@ -278,19 +333,19 @@ describe("CheckoutCommand working directory updates", () => {
     it("should handle deeply nested paths", async () => {
       // Create in-memory filesystem
       const files = createInMemoryFilesApi();
-      const store = createStoreWithFiles(files, "");
-      const git = Git.wrap(store);
+      const { stores, workingCopy } = createStoresWithFiles(files, "");
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Initialize repository
-      await initializeStore(store);
+      await initializeStores(stores);
 
       // Create commit with deep nested paths
       await addFileToStore(
-        store,
+        stores,
         "src/components/ui/button/index.ts",
         "export const Button = () => {};",
       );
-      await addFileToStore(store, "src/utils/helpers/format.ts", "export function format() {}");
+      await addFileToStore(stores, "src/utils/helpers/format.ts", "export function format() {}");
       await git.commit().setMessage("Add source files").call();
 
       // Create feature branch and switch back
@@ -310,14 +365,14 @@ describe("CheckoutCommand working directory updates", () => {
   describe("checkout skips workdir for bare repos", () => {
     it("should update HEAD and staging for bare repos without file errors", async () => {
       // Create a bare store (no files/workTreeRoot)
-      const store = createBareStore();
-      const git = Git.wrap(store);
+      const { stores, workingCopy } = createBareStores();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Initialize repository
-      await initializeStore(store);
+      await initializeStores(stores);
 
       // Create initial commit with file
-      await addFileToStore(store, "test.txt", "content");
+      await addFileToStore(stores, "test.txt", "content");
       await git.commit().setMessage("Initial content").call();
 
       // Create feature branch
@@ -327,7 +382,7 @@ describe("CheckoutCommand working directory updates", () => {
       await git.checkout().setName("feature").call();
 
       // Modify file on feature branch
-      await addFileToStore(store, "test.txt", "feature content");
+      await addFileToStore(stores, "test.txt", "feature content");
       await git.commit().setMessage("Feature change").call();
 
       // Checkout main branch - should not throw even without files/workTreeRoot
@@ -336,19 +391,19 @@ describe("CheckoutCommand working directory updates", () => {
       expect(result.status).toBe(CheckoutStatus.OK);
 
       // Verify HEAD updated to main
-      const headRaw = await store.refs.get("HEAD");
+      const headRaw = await stores.refs.get("HEAD");
       expect(headRaw).toBeDefined();
       if (headRaw && "target" in headRaw) {
         expect(headRaw.target).toBe("refs/heads/main");
       }
 
       // Verify staging updated to main's content
-      const entry = await store.staging.getEntry("test.txt");
+      const entry = await stores.staging.getEntry("test.txt");
       expect(entry).toBeDefined();
 
       // Load blob content to verify staging has correct version
       const chunks: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(entry?.objectId ?? "")) {
+      for await (const chunk of stores.blobs.load(entry?.objectId ?? "")) {
         chunks.push(chunk);
       }
       const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -364,22 +419,21 @@ describe("CheckoutCommand working directory updates", () => {
 
     it("should not attempt file writes when files is undefined", async () => {
       // Create a bare store
-      const store = createBareStore();
-      const git = Git.wrap(store);
+      const { stores, workingCopy } = createBareStores();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      // Verify store doesn't have files property
-      expect((store as GitStoreWithFiles).files).toBeUndefined();
-      expect((store as GitStoreWithFiles).workTreeRoot).toBeUndefined();
+      // Verify worktree is undefined (bare repo)
+      expect(stores.worktree).toBeUndefined();
 
       // Initialize repository
-      await initializeStore(store);
+      await initializeStores(stores);
 
       // Create commits on two branches
-      await addFileToStore(store, "file.txt", "main content");
+      await addFileToStore(stores, "file.txt", "main content");
       await git.commit().setMessage("Main commit").call();
 
       await git.checkout().setCreateBranch(true).setName("other").call();
-      await addFileToStore(store, "file.txt", "other content");
+      await addFileToStore(stores, "file.txt", "other content");
       await git.commit().setMessage("Other commit").call();
 
       // Checkout should complete without throwing
@@ -391,17 +445,17 @@ describe("CheckoutCommand working directory updates", () => {
 
     it("should handle detached HEAD checkout in bare repo", async () => {
       // Create a bare store
-      const store = createBareStore();
-      const git = Git.wrap(store);
+      const { stores, workingCopy } = createBareStores();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Initialize repository
-      await initializeStore(store);
+      await initializeStores(stores);
 
       // Create two commits
-      await addFileToStore(store, "version.txt", "v1");
+      await addFileToStore(stores, "version.txt", "v1");
       const commit1 = await git.commit().setMessage("Version 1").call();
 
-      await addFileToStore(store, "version.txt", "v2");
+      await addFileToStore(stores, "version.txt", "v2");
       await git.commit().setMessage("Version 2").call();
 
       // Checkout first commit (detached HEAD) - should not throw
@@ -410,15 +464,15 @@ describe("CheckoutCommand working directory updates", () => {
       expect(result.status).toBe(CheckoutStatus.OK);
 
       // Verify HEAD is detached at commit1
-      const head = await store.refs.resolve("HEAD");
+      const head = await stores.refs.resolve("HEAD");
       expect(head?.objectId).toBe(commit1.id);
 
       // Verify staging has v1 content
-      const entry = await store.staging.getEntry("version.txt");
+      const entry = await stores.staging.getEntry("version.txt");
       expect(entry).toBeDefined();
 
       const chunks: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(entry?.objectId ?? "")) {
+      for await (const chunk of stores.blobs.load(entry?.objectId ?? "")) {
         chunks.push(chunk);
       }
       // Combine chunks into single array for decoding
@@ -440,14 +494,14 @@ describe("CheckoutCommand working directory updates", () => {
       const files = createInMemoryFilesApi();
 
       // Use a non-empty workTreeRoot
-      const store = createStoreWithFiles(files, "/project");
-      const git = Git.wrap(store);
+      const { stores, workingCopy } = createStoresWithFiles(files, "/project");
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Initialize repository
-      await initializeStore(store);
+      await initializeStores(stores);
 
       // Create commit with file
-      await addFileToStore(store, "readme.txt", "Hello World");
+      await addFileToStore(stores, "readme.txt", "Hello World");
       await git.commit().setMessage("Add readme").call();
 
       // Create branch and switch back

@@ -123,7 +123,7 @@ export class RmCommand extends GitCommand<RmResult> {
     await this.staging.write();
 
     // Note: Working tree removal is not implemented here since
-    // GitStore doesn't provide working tree file deletion.
+    // WorkingCopy may not have worktree access for file deletion.
     // The cached flag controls whether working tree should be modified,
     // but actual deletion requires filesystem access which is
     // implementation-specific.

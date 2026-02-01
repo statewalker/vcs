@@ -114,7 +114,7 @@ export class ResetCommand extends GitCommand<Ref> {
 
     // Reset working tree (for HARD)
     // Note: Working tree reset is not implemented yet
-    // as it requires GitStoreWithWorkTree
+    // as it requires WorkingCopy with worktree access
     if (this.mode === ResetMode.HARD) {
       // Would reset working tree here
       // For now, just reset staging
