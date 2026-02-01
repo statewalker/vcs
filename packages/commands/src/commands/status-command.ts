@@ -67,7 +67,7 @@ export class StatusCommand extends GitCommand<Status> {
 
     // Get conflicting paths first
     const conflicting = new Set<string>();
-    for (const path of await this.store.staging.getConflictedPaths()) {
+    for (const path of await this.staging.getConflictedPaths()) {
       if (this.matchesPath(path)) {
         conflicting.add(path);
       }
@@ -75,11 +75,13 @@ export class StatusCommand extends GitCommand<Status> {
 
     // Get HEAD tree entries
     const headEntries = new Map<string, PathEntry>();
-    const headRef = await this.store.refs.resolve("HEAD");
+    const headRef = await this.refsStore.resolve("HEAD");
     if (headRef?.objectId) {
       try {
-        const headCommit = await this.store.commits.loadCommit(headRef.objectId);
-        await this.collectTreeEntries(headCommit.tree, "", headEntries);
+        const headCommit = await this.commits.load(headRef.objectId);
+        if (headCommit) {
+          await this.collectTreeEntries(headCommit.tree, "", headEntries);
+        }
       } catch {
         // No HEAD commit yet - headEntries stays empty
       }
@@ -87,7 +89,7 @@ export class StatusCommand extends GitCommand<Status> {
 
     // Get staging entries (only stage 0 = merged)
     const stagingEntries = new Map<string, PathEntry>();
-    for await (const entry of this.store.staging.entries()) {
+    for await (const entry of this.staging.entries()) {
       if (entry.stage === MergeStage.MERGED) {
         stagingEntries.set(entry.path, {
           path: entry.path,
@@ -155,7 +157,7 @@ export class StatusCommand extends GitCommand<Status> {
     prefix: string,
     entries: Map<string, PathEntry>,
   ): Promise<void> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {

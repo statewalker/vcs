@@ -152,14 +152,17 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
     this.setCallable(false);
 
     // Get HEAD commit
-    const headRef = await this.store.refs.resolve("HEAD");
+    const headRef = await this.refsStore.resolve("HEAD");
     if (!headRef?.objectId) {
       throw new NoHeadError("HEAD is required to apply stash");
     }
 
     // Get stash commit
     const stashId = await this.resolveStashRef();
-    const stashCommit = await this.store.commits.loadCommit(stashId);
+    const stashCommit = await this.commits.load(stashId);
+    if (!stashCommit) {
+      throw new RefNotFoundError(stashId, "Stash commit not found");
+    }
 
     // Validate stash commit structure
     if (stashCommit.parents.length < 2 || stashCommit.parents.length > 3) {
@@ -175,8 +178,12 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
     const stashUntrackedCommit = stashCommit.parents[2]; // Optional
 
     // Three-way merge: stash base -> current HEAD with stash changes
-    const headCommit = await this.store.commits.loadCommit(headRef.objectId);
-    const stashHeadTree = (await this.store.commits.loadCommit(stashHeadCommit)).tree;
+    const headCommit = await this.commits.load(headRef.objectId);
+    const stashHeadCommitObj = await this.commits.load(stashHeadCommit);
+    if (!headCommit || !stashHeadCommitObj) {
+      throw new RefNotFoundError(headRef.objectId, "Head or stash commit not found");
+    }
+    const stashHeadTree = stashHeadCommitObj.tree;
     const stashWorkingTree = stashCommit.tree;
 
     // Merge working tree changes
@@ -196,7 +203,8 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
 
     // If restoreIndex, also merge index changes
     if (this.restoreIndex) {
-      const stashIndexTree = (await this.store.commits.loadCommit(stashIndexCommit)).tree;
+      const stashIndexCommitObj = await this.commits.load(stashIndexCommit);
+      const stashIndexTree = stashIndexCommitObj?.tree ?? stashHeadTree;
       const indexMergeResult = await this.mergeTreesThreeWay(
         stashHeadTree,
         stashIndexTree,
@@ -214,7 +222,7 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
 
     // Handle untracked files
     if (this.restoreUntracked && stashUntrackedCommit) {
-      const _untrackedCommit = await this.store.commits.loadCommit(stashUntrackedCommit);
+      const _untrackedCommit = await this.commits.load(stashUntrackedCommit);
       // The untracked tree would need to be extracted to the working directory
       // This requires working tree access
     }
@@ -244,7 +252,7 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
 
       // For index 0, just resolve the ref
       if (index === 0) {
-        const ref = await this.store.refs.resolve(baseRef);
+        const ref = await this.refsStore.resolve(baseRef);
         if (!ref?.objectId) {
           throw new RefNotFoundError(refName);
         }
@@ -258,13 +266,13 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
     }
 
     // Try as direct ref
-    const ref = await this.store.refs.resolve(refName);
+    const ref = await this.refsStore.resolve(refName);
     if (ref?.objectId) {
       return ref.objectId;
     }
 
     // Try as commit ID
-    if (await this.store.commits.has(refName)) {
+    if (await this.commits.has(refName)) {
       return refName;
     }
 
@@ -283,7 +291,7 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
     treeId: ObjectId,
     prefix = "",
   ): AsyncGenerator<{ path: string; id: ObjectId; mode: number }> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const fullPath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if ((entry.mode & StashApplyCommand.TREE_MODE) === StashApplyCommand.TREE_MODE) {
@@ -336,7 +344,7 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
       mode,
     }));
 
-    return this.store.trees.storeTree(treeEntries);
+    return this.trees.storeTree(treeEntries);
   }
 
   /**

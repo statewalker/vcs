@@ -104,34 +104,26 @@ export class CleanCommand extends GitCommand<CleanResult> {
     const cleaned = new Set<string>();
 
     // Check if worktree is available
-    if (!("worktree" in this.store)) {
-      throw new Error("CleanCommand requires a GitStoreWithWorkTree");
-    }
-
-    const worktree = (this.store as { worktree: unknown }).worktree;
-    if (!worktree || typeof worktree !== "object") {
-      throw new Error("WorktreeStore not available");
-    }
-
-    // Walk the working tree to find untracked files
-    const walkMethod = (worktree as { walk?: unknown }).walk;
-    if (typeof walkMethod !== "function") {
-      throw new Error("WorktreeStore.walk not available");
+    const worktree = this.worktreeAccess;
+    if (!worktree) {
+      throw new Error("CleanCommand requires a WorkingCopy with worktree");
     }
 
     // Get entries from staging to compare
     const stagedPaths = new Set<string>();
-    for await (const entry of this.store.staging.entries()) {
+    for await (const entry of this.staging.entries()) {
       stagedPaths.add(entry.path);
     }
 
     // Get entries from HEAD commit (if any) to compare
     const headPaths = new Set<string>();
     try {
-      const head = await this.store.refs.resolve("HEAD");
+      const head = await this.refsStore.resolve("HEAD");
       if (head?.objectId) {
-        const commit = await this.store.commits.loadCommit(head.objectId);
-        await this.collectTreePaths(commit.tree, "", headPaths);
+        const commit = await this.commits.load(head.objectId);
+        if (commit) {
+          await this.collectTreePaths(commit.tree, "", headPaths);
+        }
       }
     } catch {
       // No HEAD yet, all files are "new"
@@ -143,7 +135,7 @@ export class CleanCommand extends GitCommand<CleanResult> {
       includeDirectories: this.directories,
     };
 
-    for await (const entry of walkMethod.call(worktree, options)) {
+    for await (const entry of worktree.walk(options)) {
       const entryTyped = entry as { path: string; isDirectory: boolean; isIgnored?: boolean };
 
       // Skip if in specific paths and not matching
@@ -199,7 +191,7 @@ export class CleanCommand extends GitCommand<CleanResult> {
     prefix: string,
     paths: Set<string>,
   ): Promise<void> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const fullPath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       // Check if directory mode (0o040000)

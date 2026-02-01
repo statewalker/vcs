@@ -92,8 +92,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Add more commits on server
-      await addFileAndCommit(server.serverStore, "file2.txt", "content 2", "Second commit");
-      await addFileAndCommit(server.serverStore, "file3.txt", "content 3", "Third commit");
+      await addFileAndCommit(server.serverStores, "file2.txt", "content 2", "Second commit");
+      await addFileAndCommit(server.serverStores, "file3.txt", "content 3", "Third commit");
 
       const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
@@ -118,8 +118,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create additional branch on server
-      const mainRef = (await server.serverStore.refs.get("refs/heads/main")) as Ref | undefined;
-      await server.serverStore.refs.set("refs/heads/feature", mainRef?.objectId ?? "");
+      const mainRef = (await server.serverStores.refs.get("refs/heads/main")) as Ref | undefined;
+      await server.serverStores.refs.set("refs/heads/feature", mainRef?.objectId ?? "");
 
       const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
@@ -162,8 +162,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Add more commits
-      await addFileAndCommit(server.serverStore, "file2.txt", "content 2", "Second commit");
-      await addFileAndCommit(server.serverStore, "file3.txt", "content 3", "Third commit");
+      await addFileAndCommit(server.serverStores, "file2.txt", "content 2", "Second commit");
+      await addFileAndCommit(server.serverStores, "file3.txt", "content 3", "Third commit");
 
       const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
@@ -351,8 +351,8 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create additional branch on server
-      const mainRef = (await server.serverStore.refs.get("refs/heads/main")) as Ref | undefined;
-      await server.serverStore.refs.set("refs/heads/test", mainRef?.objectId ?? "");
+      const mainRef = (await server.serverStores.refs.get("refs/heads/main")) as Ref | undefined;
+      await server.serverStores.refs.set("refs/heads/test", mainRef?.objectId ?? "");
 
       const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);

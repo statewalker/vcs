@@ -87,14 +87,14 @@ export class StashDropCommand extends GitCommand<ObjectId | undefined> {
     this.setCallable(false);
 
     // Check if stash ref exists
-    const stashRef = await this.store.refs.get(STASH_REF);
+    const stashRef = await this.refsStore.get(STASH_REF);
     if (!stashRef || !("objectId" in stashRef) || !stashRef.objectId) {
       return undefined;
     }
 
     // Drop all stashes - just delete the ref
     if (this.dropAll) {
-      await this.store.refs.delete(STASH_REF);
+      await this.refsStore.delete(STASH_REF);
       return undefined;
     }
 
@@ -109,7 +109,7 @@ export class StashDropCommand extends GitCommand<ObjectId | undefined> {
     }
 
     // Drop stash@{0} by deleting the ref
-    await this.store.refs.delete(STASH_REF);
+    await this.refsStore.delete(STASH_REF);
     return undefined;
   }
 }

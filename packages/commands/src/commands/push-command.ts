@@ -292,9 +292,42 @@ export class PushCommand extends TransportCommand<PushResult> {
       };
     }
 
-    // Build push options
-    const options: PushOptions = {
-      url: remoteUrl,
+    // Get tags store (use no-op fallback if not available)
+    const tagsStore = this.tagsStore ?? noOpTagStore;
+
+    // Create serialization API from typed stores
+    // Note: SerializationApiConfig accepts stores at top level
+    // Use type assertion since we're passing new interfaces to a legacy-compatible API
+    const serialization = new DefaultSerializationApi({
+      blobs: this.blobs,
+      trees: this.trees,
+      commits: this.commits,
+      tags: tagsStore,
+      refs: this.refsStore,
+    } as unknown as ConstructorParameters<typeof DefaultSerializationApi>[0]);
+
+    // Create repository facade for pack operations
+    // Use type assertion for legacy store-based API
+    const repository = createVcsRepositoryFacade({
+      blobs: this.blobs,
+      trees: this.trees,
+      commits: this.commits,
+      tags: tagsStore,
+      refs: this.refsStore,
+      serialization,
+    } as unknown as Parameters<typeof createVcsRepositoryFacade>[0]);
+
+    // Create transport ref store adapter
+    const refStore = this.createRefStoreAdapter();
+
+    // Build credentials in the expected format
+    const credentials =
+      this.credentials?.username && this.credentials?.password
+        ? { username: this.credentials.username, password: this.credentials.password }
+        : undefined;
+
+    // Execute push using new httpPush API
+    const transportResult = await httpPush(remoteUrl, repository, refStore, {
       refspecs,
       auth: this.credentials,
       headers: this.headers,
@@ -372,6 +405,51 @@ export class PushCommand extends TransportCommand<PushResult> {
   }
 
   /**
+   * Create a transport RefStore adapter from the history store refs.
+   */
+  private createRefStoreAdapter(): TransportRefStore {
+    const refs = this.refsStore;
+
+    return {
+      async get(name: string): Promise<string | undefined> {
+        const ref = await refs.resolve(name);
+        return ref?.objectId;
+      },
+
+      async update(name: string, oid: string): Promise<void> {
+        await refs.set(name, oid);
+      },
+
+      async listAll(): Promise<Iterable<[string, string]>> {
+        const result: Array<[string, string]> = [];
+        for await (const ref of refs.list()) {
+          if (!isSymbolicRef(ref) && ref.objectId) {
+            result.push([ref.name, ref.objectId]);
+          }
+        }
+        return result;
+      },
+
+      async getSymrefTarget(name: string): Promise<string | undefined> {
+        const ref = await refs.get(name);
+        if (ref && isSymbolicRef(ref)) {
+          return ref.target;
+        }
+        return undefined;
+      },
+
+      async isRefTip(oid: string): Promise<boolean> {
+        for await (const ref of refs.list()) {
+          if (!isSymbolicRef(ref) && ref.objectId === oid) {
+            return true;
+          }
+        }
+        return false;
+      },
+    };
+  }
+
+  /**
    * Build refspecs for the push.
    */
   private async buildRefSpecs(): Promise<string[]> {
@@ -388,7 +466,7 @@ export class PushCommand extends TransportCommand<PushResult> {
 
     // Push all branches
     if (this.pushAll) {
-      for await (const ref of this.store.refs.list("refs/heads/")) {
+      for await (const ref of this.refsStore.list("refs/heads/")) {
         const spec = `${ref.name}:${ref.name}`;
         specs.push(this.force ? `+${spec}` : spec);
       }
@@ -396,7 +474,7 @@ export class PushCommand extends TransportCommand<PushResult> {
 
     // Push all tags
     if (this.pushTags) {
-      for await (const ref of this.store.refs.list("refs/tags/")) {
+      for await (const ref of this.refsStore.list("refs/tags/")) {
         const spec = `${ref.name}:${ref.name}`;
         specs.push(this.force ? `+${spec}` : spec);
       }

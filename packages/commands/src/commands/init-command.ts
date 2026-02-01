@@ -5,6 +5,7 @@ import {
   type FilesApi,
   type Staging,
   type StagingStore,
+  type WorkingCopy,
   type Worktree,
   type WorktreeStore,
 } from "@statewalker/vcs-core";
@@ -12,7 +13,6 @@ import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 
 import { Git } from "../git.js";
 import type { InitResult } from "../results/init-result.js";
-import { createGitStore, type GitStore, type GitStoreWithWorkTree } from "../types.js";
 
 /**
  * Command to initialize a new Git repository.
@@ -244,21 +244,80 @@ export class InitCommand {
         });
     }
 
-    // Create GitStore from repository
-    // Note: MemoryStagingStore implements StagingStore, not Staging
-    // The cast is safe as the methods are compatible during migration
-    const store: GitStore | GitStoreWithWorkTree = createGitStore({
+    // Create WorkingCopy from components
+    // Note: StagingStore/WorktreeStore are partial implementations of Staging/Worktree
+    // Full implementations are provided at runtime by workspace integration
+    // Use type assertion since init creates a minimal working copy
+    const workingCopy = {
       repository,
       staging: staging as unknown as Staging,
-      worktree: worktree as unknown as Worktree,
-    });
+      worktree: (worktree ?? {}) as unknown as Worktree,
+      stash: {} as never, // Stash not available for newly init'd repos
+      config: {} as never, // Config not set for newly init'd repos
+      // Legacy getters for compatibility
+      get history() {
+        return undefined;
+      },
+      get checkout() {
+        return undefined;
+      },
+      get worktreeInterface() {
+        return worktree as unknown as Worktree | undefined;
+      },
+      async getHead() {
+        const ref = await repository.refs.resolve("HEAD");
+        return ref?.objectId;
+      },
+      async getCurrentBranch() {
+        const ref = await repository.refs.get("HEAD");
+        if (ref && "target" in ref) {
+          return ref.target.replace("refs/heads/", "");
+        }
+        return undefined;
+      },
+      async setHead() {
+        // No-op for init command
+      },
+      async isDetachedHead() {
+        return false;
+      },
+      async getMergeState() {
+        return undefined;
+      },
+      async getRebaseState() {
+        return undefined;
+      },
+      async getCherryPickState() {
+        return undefined;
+      },
+      async getRevertState() {
+        return undefined;
+      },
+      async hasOperationInProgress() {
+        return false;
+      },
+      async getStatus() {
+        // Return a minimal RepositoryStatus compatible object
+        return {
+          files: [],
+          staged: [],
+          unstaged: [],
+          untracked: [],
+          isClean: true,
+          hasStaged: false,
+          hasUnstaged: false,
+          hasUntracked: false,
+          hasConflicts: false,
+        };
+      },
+    } as unknown as WorkingCopy;
 
     // Create Git facade
-    const git = Git.wrap(store);
+    const git = Git.fromWorkingCopy(workingCopy);
 
     return {
       git,
-      store,
+      workingCopy,
       repository,
       initialBranch: this.initialBranch,
       bare: this.bare,

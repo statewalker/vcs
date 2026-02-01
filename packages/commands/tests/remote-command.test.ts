@@ -6,9 +6,10 @@
  * Tests run against all storage backends (Memory, SQL).
  */
 
+import type { WorkingCopy } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Git, type GitStore } from "../src/index.js";
+import { Git } from "../src/index.js";
 import { backends } from "./test-helper.js";
 
 describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
@@ -21,25 +22,16 @@ describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
     }
   });
 
-  async function createTestStore(): Promise<GitStore> {
+  async function createTestWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const wc = ctx.workingCopy;
-    // Construct GitStore-like object from WorkingCopy for transport tests
-    return {
-      blobs: wc.repository.blobs,
-      trees: wc.repository.trees,
-      commits: wc.repository.commits,
-      tags: wc.repository.tags,
-      refs: wc.repository.refs,
-      staging: wc.staging,
-    };
+    return ctx.workingCopy;
   }
 
   describe("basic operations", () => {
     it("should add a remote", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const result = await git
         .remoteAdd()
@@ -53,8 +45,8 @@ describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
     });
 
     it("should use custom fetch refspec", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const result = await git
         .remoteAdd()
@@ -67,14 +59,14 @@ describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
     });
 
     it("should throw for duplicate remote", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Add first remote
       await git.remoteAdd().setName("origin").setUri("https://github.com/user/repo").call();
 
       // Create a tracking ref to simulate the remote exists
-      await store.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
 
       // Try to add duplicate
       await expect(
@@ -83,8 +75,8 @@ describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
     });
 
     it("should throw for missing name", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       await expect(git.remoteAdd().setUri("https://github.com/user/repo").call()).rejects.toThrow(
         "Remote name must be specified",
@@ -92,8 +84,8 @@ describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
     });
 
     it("should throw for missing URI", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       await expect(git.remoteAdd().setName("origin").call()).rejects.toThrow(
         "Remote URI must be specified",
@@ -103,8 +95,8 @@ describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
 
   describe("getters", () => {
     it("should return correct values", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.remoteAdd().setName("origin").setUri("https://github.com/user/repo");
 
@@ -124,28 +116,20 @@ describe.each(backends)("RemoteRemoveCommand ($name backend)", ({ factory }) => 
     }
   });
 
-  async function createTestStore(): Promise<GitStore> {
+  async function createTestWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const wc = ctx.workingCopy;
-    return {
-      blobs: wc.repository.blobs,
-      trees: wc.repository.trees,
-      commits: wc.repository.commits,
-      tags: wc.repository.tags,
-      refs: wc.repository.refs,
-      staging: wc.staging,
-    };
+    return ctx.workingCopy;
   }
 
   describe("basic operations", () => {
     it("should remove a remote", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Create remote tracking refs
-      await store.refs.set("refs/remotes/origin/main", "a".repeat(40));
-      await store.refs.set("refs/remotes/origin/feature", "b".repeat(40));
+      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.repository.refs.set("refs/remotes/origin/feature", "b".repeat(40));
 
       const result = await git.remoteRemove().setRemoteName("origin").call();
 
@@ -153,15 +137,15 @@ describe.each(backends)("RemoteRemoveCommand ($name backend)", ({ factory }) => 
       expect(result?.name).toBe("origin");
 
       // Refs should be deleted
-      const mainRef = await store.refs.get("refs/remotes/origin/main");
-      const featureRef = await store.refs.get("refs/remotes/origin/feature");
+      const mainRef = await workingCopy.repository.refs.get("refs/remotes/origin/main");
+      const featureRef = await workingCopy.repository.refs.get("refs/remotes/origin/feature");
       expect(mainRef).toBeUndefined();
       expect(featureRef).toBeUndefined();
     });
 
     it("should return undefined for non-existent remote", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const result = await git.remoteRemove().setRemoteName("nonexistent").call();
 
@@ -169,8 +153,8 @@ describe.each(backends)("RemoteRemoveCommand ($name backend)", ({ factory }) => 
     });
 
     it("should throw for missing name", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       await expect(git.remoteRemove().call()).rejects.toThrow("Remote name must be specified");
     });
@@ -178,8 +162,8 @@ describe.each(backends)("RemoteRemoveCommand ($name backend)", ({ factory }) => 
 
   describe("getters", () => {
     it("should return correct values", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.remoteRemove().setRemoteName("origin");
       expect(command.getRemoteName()).toBe("origin");
@@ -197,28 +181,20 @@ describe.each(backends)("RemoteListCommand ($name backend)", ({ factory }) => {
     }
   });
 
-  async function createTestStore(): Promise<GitStore> {
+  async function createTestWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const wc = ctx.workingCopy;
-    return {
-      blobs: wc.repository.blobs,
-      trees: wc.repository.trees,
-      commits: wc.repository.commits,
-      tags: wc.repository.tags,
-      refs: wc.repository.refs,
-      staging: wc.staging,
-    };
+    return ctx.workingCopy;
   }
 
   describe("basic operations", () => {
     it("should list remotes", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Create remote tracking refs for multiple remotes
-      await store.refs.set("refs/remotes/origin/main", "a".repeat(40));
-      await store.refs.set("refs/remotes/upstream/main", "b".repeat(40));
+      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.repository.refs.set("refs/remotes/upstream/main", "b".repeat(40));
 
       const result = await git.remoteList().call();
 
@@ -228,8 +204,8 @@ describe.each(backends)("RemoteListCommand ($name backend)", ({ factory }) => {
     });
 
     it("should return empty array when no remotes", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const result = await git.remoteList().call();
 
@@ -237,10 +213,10 @@ describe.each(backends)("RemoteListCommand ($name backend)", ({ factory }) => {
     });
 
     it("should include default fetch refspec", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      await store.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
 
       const result = await git.remoteList().call();
 
@@ -260,27 +236,19 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
     }
   });
 
-  async function createTestStore(): Promise<GitStore> {
+  async function createTestWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const wc = ctx.workingCopy;
-    return {
-      blobs: wc.repository.blobs,
-      trees: wc.repository.trees,
-      commits: wc.repository.commits,
-      tags: wc.repository.tags,
-      refs: wc.repository.refs,
-      staging: wc.staging,
-    };
+    return ctx.workingCopy;
   }
 
   describe("basic operations", () => {
     it("should set URL for existing remote", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Create remote tracking refs
-      await store.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
 
       const result = await git
         .remoteSetUrl()
@@ -293,11 +261,11 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
     });
 
     it("should set push URL", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Create remote tracking refs
-      await store.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
 
       const result = await git
         .remoteSetUrl()
@@ -311,8 +279,8 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
     });
 
     it("should throw for non-existent remote", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       await expect(
         git
@@ -324,8 +292,8 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
     });
 
     it("should throw for missing name", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       await expect(
         git.remoteSetUrl().setRemoteUri("https://github.com/user/repo").call(),
@@ -333,8 +301,8 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
     });
 
     it("should throw for missing URI", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       await expect(git.remoteSetUrl().setRemoteName("origin").call()).rejects.toThrow(
         "Remote URI must be specified",
@@ -344,8 +312,8 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
 
   describe("getters", () => {
     it("should return correct values", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .remoteSetUrl()
@@ -361,8 +329,8 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
 
   describe("setOldUri", () => {
     it("should accept old URI parameter", async () => {
-      const store = await createTestStore();
-      const git = Git.wrap(store);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Just verify the method exists and is chainable
       const command = git

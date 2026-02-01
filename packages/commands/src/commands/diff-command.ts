@@ -118,15 +118,18 @@ export class DiffCommand extends GitCommand<DiffEntry[]> {
       newTreeId = await this.resolveTreeId(this.newTree);
     } else if (this.cached) {
       // Compare to staging area
-      newTreeId = await this.store.staging.writeTree(this.store.trees);
+      newTreeId = await this.staging.writeTree(this.trees);
     } else {
       // Default: compare HEAD to HEAD (no changes)
       // In a real implementation with working tree, this would compare to working tree
-      const headRef = await this.store.refs.resolve("HEAD");
+      const headRef = await this.refsStore.resolve("HEAD");
       if (!headRef?.objectId) {
         return [];
       }
-      const headCommit = await this.store.commits.loadCommit(headRef.objectId);
+      const headCommit = await this.commits.load(headRef.objectId);
+      if (!headCommit) {
+        return [];
+      }
       newTreeId = headCommit.tree;
     }
 
@@ -141,7 +144,11 @@ export class DiffCommand extends GitCommand<DiffEntry[]> {
     // Try to resolve as a commit ref first
     try {
       const commitId = await this.resolveRef(refOrId);
-      const commit = await this.store.commits.loadCommit(commitId);
+      const commit = await this.commits.load(commitId);
+      if (!commit) {
+        // Assume it's a tree ID directly
+        return refOrId;
+      }
       return commit.tree;
     } catch {
       // Assume it's a tree ID directly
@@ -217,7 +224,7 @@ export class DiffCommand extends GitCommand<DiffEntry[]> {
   ): Promise<void> {
     const TREE_MODE = 0o40000;
 
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === TREE_MODE) {

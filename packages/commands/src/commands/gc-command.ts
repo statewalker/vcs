@@ -109,14 +109,14 @@ export class GarbageCollectCommand extends GitCommand<GCCommandResult> {
 
     // Collect all ref roots
     const roots: ObjectId[] = [];
-    for await (const ref of this.store.refs.list("refs/")) {
+    for await (const ref of this.refsStore.list("refs/")) {
       if ("objectId" in ref && ref.objectId) {
         roots.push(ref.objectId);
       }
     }
 
     // Also include HEAD if it points to a commit
-    const head = await this.store.refs.resolve("HEAD");
+    const head = await this.refsStore.resolve("HEAD");
     if (head?.objectId) {
       roots.push(head.objectId);
     }
@@ -126,8 +126,8 @@ export class GarbageCollectCommand extends GitCommand<GCCommandResult> {
     // For now, we'll check if the RefStore supports the gc operations
 
     // Check if refs support packRefs
-    if (this._packRefs && this.store.refs.packRefs) {
-      await this.store.refs.packRefs([], { all: true, deleteLoose: true });
+    if (this._packRefs && this.refsStore.packRefs) {
+      await this.refsStore.packRefs([], { all: true, deleteLoose: true });
       refsPacked = true;
     }
 

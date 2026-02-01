@@ -84,7 +84,7 @@ export class DescribeCommand extends GitCommand<DescribeResult> {
    */
   async setTargetRef(rev: string): Promise<this> {
     this.checkCallable();
-    const resolved = await this.store.refs.resolve(rev);
+    const resolved = await this.refsStore.resolve(rev);
     if (!resolved?.objectId) {
       throw new RefNotFoundError(`Cannot resolve: ${rev}`);
     }
@@ -266,7 +266,7 @@ export class DescribeCommand extends GitCommand<DescribeResult> {
     const tagMap = new Map<ObjectId, string[]>();
     const prefix = this.useAll ? "refs/" : "refs/tags/";
 
-    for await (const ref of this.store.refs.list()) {
+    for await (const ref of this.refsStore.list()) {
       if (!ref.name.startsWith(prefix)) {
         continue;
       }
@@ -286,7 +286,7 @@ export class DescribeCommand extends GitCommand<DescribeResult> {
           // For annotated tags, we should resolve to the commit
           // Skip lightweight tags unless useTags is set
           try {
-            const tag = await this.store.tags?.loadTag(ref.objectId);
+            const tag = await this.tagsStore?.loadTag(ref.objectId);
             if (tag) {
               commitId = tag.object;
             }
@@ -398,10 +398,12 @@ export class DescribeCommand extends GitCommand<DescribeResult> {
 
         // Add parents to queue
         try {
-          const commit = await this.store.commits.loadCommit(commitId);
-          for (const parentId of commit.parents) {
-            if (!seen.has(parentId)) {
-              nextQueue.push(parentId);
+          const commit = await this.commits.load(commitId);
+          if (commit) {
+            for (const parentId of commit.parents) {
+              if (!seen.has(parentId)) {
+                nextQueue.push(parentId);
+              }
             }
           }
         } catch {

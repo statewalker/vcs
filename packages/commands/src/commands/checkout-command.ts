@@ -37,7 +37,6 @@ import {
   DeleteStagingEntry,
   detectCheckoutConflicts,
   FileMode,
-  joinPath,
   type ObjectId,
   type Ref,
   UpdateStagingEntry,
@@ -51,7 +50,6 @@ import {
   RefNotFoundError,
 } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
-import type { GitStoreWithFiles, GitStoreWithWorkTree } from "../types.js";
 
 /**
  * Stage to check out for conflicting files.
@@ -340,7 +338,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
         throw new RefNotFoundError(this.startPoint ?? "HEAD");
       }
 
-      await this.store.refs.set(`refs/heads/${this.name}`, startPointId);
+      await this.refsStore.set(`refs/heads/${this.name}`, startPointId);
     }
 
     // Resolve target
@@ -350,7 +348,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     }
 
     // Get target tree for conflict detection and checkout
-    const targetTreeId = targetId ? await this.store.commits.getTree(targetId) : undefined;
+    const targetTreeId = targetId ? await this.commits.getTree(targetId) : undefined;
 
     // Check for conflicts unless force
     if (!this.force && targetTreeId) {
@@ -367,7 +365,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     }
 
     // Check if it's a local branch
-    const isLocalBranch = await this.store.refs.has(`refs/heads/${this.name}`);
+    const isLocalBranch = await this.refsStore.has(`refs/heads/${this.name}`);
 
     // Update staging area with target tree
     const updated: string[] = [];
@@ -388,17 +386,17 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     // Update HEAD
     if (this.orphan) {
       // Orphan branch: symbolic ref to a branch that doesn't exist yet
-      await this.store.refs.setSymbolic("HEAD", `refs/heads/${this.name}`);
+      await this.refsStore.setSymbolic("HEAD", `refs/heads/${this.name}`);
     } else if (isLocalBranch) {
       // Local branch: symbolic ref
-      await this.store.refs.setSymbolic("HEAD", `refs/heads/${this.name}`);
+      await this.refsStore.setSymbolic("HEAD", `refs/heads/${this.name}`);
     } else if (targetId) {
       // Detached HEAD: direct object ID
-      await this.store.refs.set("HEAD", targetId);
+      await this.refsStore.set("HEAD", targetId);
     }
 
     // Get the ref we checked out
-    const ref = await this.store.refs.resolve("HEAD");
+    const ref = await this.refsStore.resolve("HEAD");
 
     return {
       status: CheckoutStatus.OK,
@@ -412,12 +410,10 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
   /**
    * Check if the store supports file writes (not a bare repository).
    *
-   * A repository is considered "bare" if it doesn't have a FilesApi
-   * and workTreeRoot configured for writing files.
+   * A repository is considered "bare" if it doesn't have a worktree interface.
    */
   private hasFileWriteSupport(): boolean {
-    const storeWithFiles = this.store as GitStoreWithFiles;
-    return !!(storeWithFiles.files && storeWithFiles.workTreeRoot !== undefined);
+    return !!this.worktreeAccess;
   }
 
   /**
@@ -427,10 +423,12 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
    * @param basePath The base path prefix for entries in this tree
    */
   private async writeTreeToWorkdir(treeId: ObjectId, basePath: string): Promise<void> {
-    const storeWithFiles = this.store as GitStoreWithFiles;
-    const { files, workTreeRoot } = storeWithFiles;
+    const worktree = this.worktreeAccess;
+    if (!worktree) {
+      throw new Error("Worktree not available for file writes");
+    }
 
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
       const isDirectory = entry.mode === FileMode.TREE;
 
@@ -438,24 +436,24 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
         // Recursively process subdirectories
         await this.writeTreeToWorkdir(entry.id, relativePath);
       } else {
-        // Load blob content and write to file
-        const absolutePath = joinPath(workTreeRoot, relativePath);
-
         // Ensure parent directory exists
         const lastSlash = relativePath.lastIndexOf("/");
         if (lastSlash > 0) {
-          const parentDir = joinPath(workTreeRoot, relativePath.substring(0, lastSlash));
-          await files.mkdir(parentDir);
+          const parentDir = relativePath.substring(0, lastSlash);
+          await worktree.mkdir(parentDir);
         }
 
         // Load blob content
         const chunks: Uint8Array[] = [];
-        for await (const chunk of this.store.blobs.load(entry.id)) {
-          chunks.push(chunk);
+        const blobContent = await this.blobs.load(entry.id);
+        if (blobContent) {
+          for await (const chunk of blobContent) {
+            chunks.push(chunk);
+          }
         }
 
-        // Write file
-        await files.write(absolutePath, chunks);
+        // Write file using worktree interface
+        await worktree.writeContent(relativePath, chunks);
       }
     }
   }
@@ -466,14 +464,14 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
   private async checkoutPathFromIndex(path: string): Promise<void> {
     // Find the entry in staging
     let found = false;
-    for await (const entry of this.store.staging.entries()) {
+    for await (const entry of this.staging.entries()) {
       if (entry.path !== path) continue;
 
       // Handle conflict stages
       if (entry.stage !== 0) {
         if (this.stage && entry.stage === this.stage) {
           // Replace with specified stage
-          const editor = this.store.staging.createEditor();
+          const editor = this.staging.createEditor();
           editor.add(
             new UpdateStagingEntry(path, entry.objectId, entry.mode, {
               size: entry.size,
@@ -506,7 +504,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
 
     for (let i = 0; i < parts.length; i++) {
       const name = parts[i];
-      const entry = await this.store.trees.getEntry(currentTreeId, name);
+      const entry = await this.trees.getEntry(currentTreeId, name);
 
       if (!entry) {
         throw new PathNotFoundInTreeError(path);
@@ -519,7 +517,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
         currentTreeId = entry.id;
       } else {
         // Found the file - update staging
-        const editor = this.store.staging.createEditor();
+        const editor = this.staging.createEditor();
         editor.add(
           new UpdateStagingEntry(path, entry.id, entry.mode, {
             size: 0,
@@ -542,7 +540,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
       await this.collectTreePaths(sourceTreeId, "", paths);
     } else {
       // Get all paths from staging
-      for await (const entry of this.store.staging.entries()) {
+      for await (const entry of this.staging.entries()) {
         if (entry.stage === 0 && !paths.includes(entry.path)) {
           paths.push(entry.path);
         }
@@ -556,7 +554,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
    * Collect all paths from a tree recursively.
    */
   private async collectTreePaths(treeId: ObjectId, prefix: string, paths: string[]): Promise<void> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
@@ -578,7 +576,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
 
     // Collect current staging entries
     const currentEntries = new Map<string, { objectId: ObjectId; mode: number }>();
-    for await (const entry of this.store.staging.entries()) {
+    for await (const entry of this.staging.entries()) {
       if (entry.stage === 0) {
         currentEntries.set(entry.path, { objectId: entry.objectId, mode: entry.mode });
       }
@@ -589,7 +587,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     await this.collectTreeEntries(treeId, "", targetEntries);
 
     // Calculate changes
-    const editor = this.store.staging.createEditor();
+    const editor = this.staging.createEditor();
 
     // Remove entries not in target
     for (const path of currentEntries.keys()) {
@@ -626,7 +624,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     prefix: string,
     entries: Map<string, { objectId: ObjectId; mode: number }>,
   ): Promise<void> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
@@ -643,7 +641,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
   private async resolveTreeId(refName: string): Promise<ObjectId | undefined> {
     const commitId = await this.resolveCommitId(refName);
     if (!commitId) return undefined;
-    return this.store.commits.getTree(commitId);
+    return this.commits.getTree(commitId);
   }
 
   /**
@@ -651,19 +649,19 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
    */
   private async resolveCommitId(refName: string): Promise<ObjectId | undefined> {
     // Try as branch
-    let ref = await this.store.refs.resolve(`refs/heads/${refName}`);
+    let ref = await this.refsStore.resolve(`refs/heads/${refName}`);
     if (ref?.objectId) return ref.objectId;
 
     // Try as tag
-    ref = await this.store.refs.resolve(`refs/tags/${refName}`);
+    ref = await this.refsStore.resolve(`refs/tags/${refName}`);
     if (ref?.objectId) return ref.objectId;
 
     // Try as direct ref (HEAD, etc.)
-    ref = await this.store.refs.resolve(refName);
+    ref = await this.refsStore.resolve(refName);
     if (ref?.objectId) return ref.objectId;
 
     // Try as commit ID
-    if (await this.store.commits.has(refName)) {
+    if (await this.commits.has(refName)) {
       return refName;
     }
 
@@ -678,20 +676,18 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
    */
   private async detectBranchCheckoutConflicts(targetTreeId: ObjectId): Promise<string[]> {
     // Get current HEAD tree for comparison
-    const headRef = await this.store.refs.resolve("HEAD");
-    const headTreeId = headRef?.objectId
-      ? await this.store.commits.getTree(headRef.objectId)
-      : undefined;
+    const headRef = await this.refsStore.resolve("HEAD");
+    const headTreeId = headRef?.objectId ? await this.commits.getTree(headRef.objectId) : undefined;
 
-    // Check if store has worktree for three-way detection
-    const storeWithWorkTree = this.store as GitStoreWithWorkTree;
-    if (storeWithWorkTree.worktree) {
+    // Check if worktree is available for three-way detection
+    const worktree = this.worktreeAccess;
+    if (worktree) {
       // Use three-way conflict detection
       const result = await detectCheckoutConflicts(
         {
-          trees: this.store.trees,
-          staging: this.store.staging,
-          worktree: storeWithWorkTree.worktree,
+          trees: this.trees,
+          staging: this.staging,
+          worktree,
         },
         headTreeId,
         targetTreeId,
@@ -710,7 +706,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
       await this.collectTreeObjectIds(headTreeId, "", headEntries);
 
       // Check staging for changes not in HEAD
-      for await (const entry of this.store.staging.entries()) {
+      for await (const entry of this.staging.entries()) {
         if (entry.stage !== 0) continue;
 
         const headObjectId = headEntries.get(entry.path);
@@ -732,7 +728,7 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
     prefix: string,
     entries: Map<string, ObjectId>,
   ): Promise<void> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {

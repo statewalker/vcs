@@ -10,7 +10,7 @@ import {
   NoMergeBaseError,
   NotFastForwardError,
 } from "../errors/merge-errors.js";
-import { NoHeadError } from "../errors/ref-errors.js";
+import { NoHeadError, RefNotFoundError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
 import {
   ContentMergeStrategy,
@@ -182,12 +182,12 @@ export class MergeCommand extends GitCommand<MergeResult> {
     }
 
     // Get HEAD
-    const head = await this.store.refs.get("HEAD");
+    const head = await this.refsStore.get("HEAD");
     if (!head) {
       throw new NoHeadError("Cannot merge without HEAD");
     }
 
-    const headId = await this.store.refs.resolve("HEAD");
+    const headId = await this.refsStore.resolve("HEAD");
     if (!headId?.objectId) {
       throw new NoHeadError("HEAD does not point to a commit");
     }
@@ -228,20 +228,22 @@ export class MergeCommand extends GitCommand<MergeResult> {
   private async doFastForward(
     headId: ObjectId,
     srcId: ObjectId,
-    head: Awaited<ReturnType<typeof this.store.refs.get>>,
+    head: Awaited<ReturnType<typeof this.refsStore.get>>,
   ): Promise<MergeResult> {
     if (!this.squash) {
       // Update HEAD/branch to point to source commit
       if (head && isSymbolicRef(head)) {
-        await this.store.refs.set(head.target, srcId);
+        await this.refsStore.set(head.target, srcId);
       } else {
-        await this.store.refs.set("HEAD", srcId);
+        await this.refsStore.set("HEAD", srcId);
       }
 
       // Update staging to match new HEAD
-      const srcCommit = await this.store.commits.loadCommit(srcId);
-      await this.store.staging.readTree(this.store.trees, srcCommit.tree);
-      await this.store.staging.write();
+      const srcCommitFF = await this.commits.load(srcId);
+      if (srcCommitFF) {
+        await this.staging.readTree(this.trees, srcCommitFF.tree);
+        await this.staging.write();
+      }
 
       return {
         status: MergeStatus.FAST_FORWARD,
@@ -251,9 +253,11 @@ export class MergeCommand extends GitCommand<MergeResult> {
     }
 
     // Squash: stage changes but don't update HEAD
-    const srcCommit = await this.store.commits.loadCommit(srcId);
-    await this.store.staging.readTree(this.store.trees, srcCommit.tree);
-    await this.store.staging.write();
+    const srcCommitSquash = await this.commits.load(srcId);
+    if (srcCommitSquash) {
+      await this.staging.readTree(this.trees, srcCommitSquash.tree);
+      await this.staging.write();
+    }
 
     return {
       status: MergeStatus.FAST_FORWARD_SQUASHED,
@@ -269,10 +273,10 @@ export class MergeCommand extends GitCommand<MergeResult> {
   private async doMerge(
     headId: ObjectId,
     srcId: ObjectId,
-    head: Awaited<ReturnType<typeof this.store.refs.get>>,
+    head: Awaited<ReturnType<typeof this.refsStore.get>>,
   ): Promise<MergeResult> {
     // Find merge base
-    const mergeBases = await this.store.commits.findMergeBase(headId, srcId);
+    const mergeBases = await this.commits.findMergeBase(headId, srcId);
     if (mergeBases.length === 0) {
       // No common ancestor - shouldn't happen with connected histories
       throw new NoMergeBaseError([headId, srcId]);
@@ -281,8 +285,12 @@ export class MergeCommand extends GitCommand<MergeResult> {
     const baseId = mergeBases[0]; // Use first merge base
 
     // Load commits
-    const headCommit = await this.store.commits.loadCommit(headId);
-    const srcCommit = await this.store.commits.loadCommit(srcId);
+    const headCommit = await this.commits.load(headId);
+    const srcCommit = await this.commits.load(srcId);
+
+    if (!headCommit || !srcCommit) {
+      throw new RefNotFoundError(headId, "Failed to load commits for merge");
+    }
 
     // Handle strategy-specific merge
     let treeId: ObjectId;
@@ -290,16 +298,19 @@ export class MergeCommand extends GitCommand<MergeResult> {
     if (this.strategy === MergeStrategy.OURS) {
       // OURS strategy: keep our tree unchanged, completely ignore theirs
       treeId = headCommit.tree;
-      await this.store.staging.readTree(this.store.trees, treeId);
-      await this.store.staging.write();
+      await this.staging.readTree(this.trees, treeId);
+      await this.staging.write();
     } else if (this.strategy === MergeStrategy.THEIRS) {
       // THEIRS strategy: replace our tree with theirs
       treeId = srcCommit.tree;
-      await this.store.staging.readTree(this.store.trees, treeId);
-      await this.store.staging.write();
+      await this.staging.readTree(this.trees, treeId);
+      await this.staging.write();
     } else {
       // RECURSIVE or RESOLVE strategy: do three-way merge
-      const baseCommit = await this.store.commits.loadCommit(baseId);
+      const baseCommit = await this.commits.load(baseId);
+      if (!baseCommit) {
+        throw new RefNotFoundError(baseId, "Failed to load merge base commit");
+      }
 
       // Perform tree-level merge
       const mergeResult = await this.mergeTreesThreeWay(
@@ -316,7 +327,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
           srcCommit.tree,
           mergeResult,
         );
-        await this.store.staging.write();
+        await this.staging.write();
 
         return {
           status: MergeStatus.CONFLICTING,
@@ -328,8 +339,8 @@ export class MergeCommand extends GitCommand<MergeResult> {
 
       // No conflicts - write merged tree to staging
       await this.writeMergedStaging(mergeResult);
-      await this.store.staging.write();
-      treeId = await this.store.staging.writeTree(this.store.trees);
+      await this.staging.write();
+      treeId = await this.staging.writeTree(this.trees);
     }
 
     if (!this.commit || this.squash) {
@@ -365,13 +376,13 @@ export class MergeCommand extends GitCommand<MergeResult> {
       message: mergeMessage,
     };
 
-    const newCommitId = await this.store.commits.storeCommit(mergeCommit);
+    const newCommitId = await this.commits.store(mergeCommit);
 
     // Update HEAD/branch
     if (head && isSymbolicRef(head)) {
-      await this.store.refs.set(head.target, newCommitId);
+      await this.refsStore.set(head.target, newCommitId);
     } else {
-      await this.store.refs.set("HEAD", newCommitId);
+      await this.refsStore.set("HEAD", newCommitId);
     }
 
     return {
@@ -402,10 +413,12 @@ export class MergeCommand extends GitCommand<MergeResult> {
       if (current === commitA) return true;
 
       try {
-        const commit = await this.store.commits.loadCommit(current);
-        for (const parent of commit.parents) {
-          if (!visited.has(parent)) {
-            queue.push(parent);
+        const commit = await this.commits.load(current);
+        if (commit) {
+          for (const parent of commit.parents) {
+            if (!visited.has(parent)) {
+              queue.push(parent);
+            }
           }
         }
       } catch {
@@ -517,7 +530,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
 
       // If using OURS/THEIRS/UNION, conflicts are auto-resolved
       // Store the merged content
-      const mergedBlobId = await this.store.blobs.store([mergeResult.content]);
+      const mergedBlobId = await this.blobs.store([mergeResult.content]);
 
       return {
         name: ours.name,
@@ -535,8 +548,11 @@ export class MergeCommand extends GitCommand<MergeResult> {
    */
   private async collectBlobContent(blobId: ObjectId): Promise<Uint8Array> {
     const chunks: Uint8Array[] = [];
-    for await (const chunk of this.store.blobs.load(blobId)) {
-      chunks.push(chunk);
+    const blobContent = await this.blobs.load(blobId);
+    if (blobContent) {
+      for await (const chunk of blobContent) {
+        chunks.push(chunk);
+      }
     }
     if (chunks.length === 0) {
       return new Uint8Array(0);
@@ -577,7 +593,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
     entries: Map<string, TreeEntry>,
     allPaths: Set<string>,
   ): Promise<void> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
@@ -642,7 +658,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
     _theirsTreeId: ObjectId,
     mergeResult: TreeMergeResult,
   ): Promise<void> {
-    const builder = this.store.staging.createBuilder();
+    const builder = this.staging.createBuilder();
 
     // Add merged entries (stage 0)
     for (const item of mergeResult.merged) {
@@ -689,7 +705,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
    * Write successfully merged entries to staging.
    */
   private async writeMergedStaging(mergeResult: TreeMergeResult): Promise<void> {
-    const builder = this.store.staging.createBuilder();
+    const builder = this.staging.createBuilder();
 
     for (const item of mergeResult.merged) {
       if (item.entry) {

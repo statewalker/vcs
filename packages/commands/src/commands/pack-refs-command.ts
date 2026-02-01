@@ -70,7 +70,7 @@ export class PackRefsCommand extends GitCommand<PackRefsResult> {
     this.setCallable(false);
 
     // Check if RefStore supports packRefs
-    if (!this.store.refs.packRefs) {
+    if (!this.refsStore.packRefs) {
       throw new Error("RefStore does not support packRefs");
     }
 
@@ -79,18 +79,18 @@ export class PackRefsCommand extends GitCommand<PackRefsResult> {
     if (this.all) {
       // Pack all refs - collect all ref names first
       const allRefs: string[] = [];
-      for await (const ref of this.store.refs.list("refs/")) {
+      for await (const ref of this.refsStore.list("refs/")) {
         allRefs.push(ref.name);
       }
       refsPacked = allRefs.length;
 
       if (allRefs.length > 0) {
-        await this.store.refs.packRefs(allRefs, { all: true, deleteLoose: true });
+        await this.refsStore.packRefs(allRefs, { all: true, deleteLoose: true });
       }
     } else if (this.refs.length > 0) {
       // Pack specific refs
       refsPacked = this.refs.length;
-      await this.store.refs.packRefs(this.refs, { deleteLoose: true });
+      await this.refsStore.packRefs(this.refs, { deleteLoose: true });
     }
 
     return {

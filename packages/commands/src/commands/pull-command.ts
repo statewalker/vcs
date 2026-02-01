@@ -179,7 +179,7 @@ export class PullCommand extends TransportCommand<PullResult> {
     const refspec = `refs/heads/${remoteBranch}:refs/remotes/${this.remote}/${remoteBranch}`;
 
     // Execute fetch
-    const fetchCommand = new FetchCommand(this.store);
+    const fetchCommand = new FetchCommand(this._workingCopy);
     fetchCommand.setRemote(this.remote);
     fetchCommand.setRefSpecs(refspec);
 
@@ -216,7 +216,7 @@ export class PullCommand extends TransportCommand<PullResult> {
 
     // Get the remote tracking ref to merge
     const trackingRef = `refs/remotes/${this.remote}/${remoteBranch}`;
-    const trackingRefResolved = await this.store.refs.resolve(trackingRef);
+    const trackingRefResolved = await this.refsStore.resolve(trackingRef);
 
     if (!trackingRefResolved?.objectId) {
       // Nothing to merge
@@ -235,7 +235,7 @@ export class PullCommand extends TransportCommand<PullResult> {
     }
 
     // Execute merge
-    const mergeCommand = new MergeCommand(this.store);
+    const mergeCommand = new MergeCommand(this._workingCopy);
     mergeCommand.include(trackingRefResolved.objectId);
 
     if (this.strategy) {

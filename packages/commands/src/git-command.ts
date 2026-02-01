@@ -1,12 +1,16 @@
 import type {
   Blobs,
+  Commit,
   Commits,
   ObjectId,
   Ref,
   Refs,
   Staging,
   SymbolicRef,
+  Tag,
   Tags,
+  Tree,
+  TreeEntry,
   Trees,
   WorkingCopy,
   Worktree,
@@ -14,22 +18,124 @@ import type {
 import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import { NoHeadError, RefNotFoundError } from "./errors/index.js";
-import type { GitStore } from "./types.js";
 
 /**
- * Input type for GitCommand - accepts either GitStore or WorkingCopy.
- *
- * During migration, commands can receive either type:
- * - GitStore: Legacy interface (deprecated)
- * - WorkingCopy: New architecture
+ * Extended Trees interface with legacy method names for command compatibility.
  */
-export type GitCommandInput = GitStore | WorkingCopy;
+export interface CommandTrees extends Trees {
+  /** Load tree entries - alias for load() */
+  loadTree(id: ObjectId): AsyncIterable<TreeEntry>;
+  /** Store tree - alias for store() */
+  storeTree(entries: Tree): Promise<ObjectId>;
+}
 
 /**
- * Type guard to check if input is a WorkingCopy.
+ * Extended Refs interface with legacy method names for command compatibility.
  */
-function isWorkingCopy(input: GitCommandInput): input is WorkingCopy {
-  return "getHead" in input && "getCurrentBranch" in input;
+export interface CommandRefs extends Refs {
+  /** Delete a reference - alias for remove() */
+  delete(name: string): Promise<boolean>;
+}
+
+/**
+ * Extended Tags interface with legacy method names for command compatibility.
+ */
+export interface CommandTags extends Tags {
+  /** Store tag - alias for store() */
+  storeTag(tag: Tag): Promise<ObjectId>;
+  /** Load tag - alias for load() */
+  loadTag(id: ObjectId): Promise<Tag | undefined>;
+}
+
+/**
+ * Extended Commits interface with legacy method names for command compatibility.
+ */
+export interface CommandCommits extends Commits {
+  /** Load commit - alias for legacy loadCommit() */
+  load(id: ObjectId): Promise<Commit | undefined>;
+  /** Store commit - alias for legacy storeCommit() */
+  store(commit: Commit): Promise<ObjectId>;
+}
+
+/**
+ * Create a CommandTrees adapter wrapping a Trees instance.
+ */
+function wrapTrees(trees: Trees): CommandTrees {
+  const wrapper = trees as CommandTrees;
+  if (!wrapper.loadTree) {
+    wrapper.loadTree = async function* (id: ObjectId): AsyncIterable<TreeEntry> {
+      const result = await trees.load(id);
+      if (result) {
+        yield* result;
+      }
+    };
+  }
+  if (!wrapper.storeTree) {
+    wrapper.storeTree = (entries: Tree) => trees.store(entries);
+  }
+  return wrapper;
+}
+
+/**
+ * Create a CommandRefs adapter wrapping a Refs instance.
+ */
+function wrapRefs(refs: Refs): CommandRefs {
+  const wrapper = refs as CommandRefs;
+  if (!wrapper.delete) {
+    wrapper.delete = (name: string) => refs.remove(name);
+  }
+  return wrapper;
+}
+
+/**
+ * Create a CommandTags adapter wrapping a Tags instance.
+ * Handles both new Tags interface (load/store) and legacy TagStore (loadTag/storeTag).
+ */
+function wrapTags(tags: Tags): CommandTags {
+  const wrapper = tags as CommandTags & {
+    loadTag?: (id: ObjectId) => Promise<Tag | undefined>;
+    storeTag?: (tag: Tag) => Promise<ObjectId>;
+  };
+  // Add load/store if missing (old TagStore uses loadTag/storeTag)
+  if (!wrapper.load && wrapper.loadTag) {
+    wrapper.load = wrapper.loadTag;
+  }
+  if (!wrapper.store && wrapper.storeTag) {
+    wrapper.store = wrapper.storeTag;
+  }
+  // Add loadTag/storeTag as aliases for new interface
+  if (!wrapper.loadTag) {
+    const loadFn = wrapper.load;
+    if (loadFn) {
+      wrapper.loadTag = (id: ObjectId) => loadFn(id);
+    }
+  }
+  if (!wrapper.storeTag) {
+    const storeFn = wrapper.store;
+    if (storeFn) {
+      wrapper.storeTag = (tag: Tag) => storeFn(tag);
+    }
+  }
+  return wrapper as CommandTags;
+}
+
+/**
+ * Create a CommandCommits adapter wrapping a Commits instance.
+ * Handles legacy CommitStore interface that uses loadCommit/storeCommit.
+ */
+function wrapCommits(commits: Commits): CommandCommits {
+  const wrapper = commits as CommandCommits & {
+    loadCommit?: (id: ObjectId) => Promise<Commit | undefined>;
+    storeCommit?: (commit: Commit) => Promise<ObjectId>;
+  };
+  // Add load/store if missing (old CommitStore uses loadCommit/storeCommit)
+  if (!wrapper.load && wrapper.loadCommit) {
+    wrapper.load = wrapper.loadCommit;
+  }
+  if (!wrapper.store && wrapper.storeCommit) {
+    wrapper.store = wrapper.storeCommit;
+  }
+  return wrapper as CommandCommits;
 }
 
 /**
@@ -38,137 +144,87 @@ function isWorkingCopy(input: GitCommandInput): input is WorkingCopy {
  * Implements the Command pattern with single-use semantics.
  * Each command instance can only be called once.
  *
- * Commands can be constructed with either GitStore (legacy) or WorkingCopy (new architecture).
- * The unified accessor properties (blobs, trees, commits, tags, refs, staging) work with both.
+ * Commands are constructed with a WorkingCopy that provides access to all repository components.
  *
  * Based on JGit's GitCommand<T> class.
  *
  * @typeParam T - The return type of the command's call() method
  */
 export abstract class GitCommand<T> {
-  /**
-   * @deprecated Access stores via unified accessors (blobs, trees, commits, etc.) instead
-   */
-  protected readonly store: GitStore;
-  protected readonly _workingCopy?: WorkingCopy;
+  protected readonly _workingCopy: WorkingCopy;
   private callable = true;
 
-  constructor(input: GitCommandInput) {
-    if (isWorkingCopy(input)) {
-      this._workingCopy = input;
-      // Create GitStore adapter from WorkingCopy for backward compatibility
-      this.store = this.createStoreFromWorkingCopy(input);
-    } else {
-      this.store = input;
-    }
+  constructor(workingCopy: WorkingCopy) {
+    this._workingCopy = workingCopy;
   }
 
-  /**
-   * Create a GitStore adapter from WorkingCopy.
-   * Uses new interfaces when available, falls back to legacy.
-   */
-  private createStoreFromWorkingCopy(wc: WorkingCopy): GitStore {
-    // Use new architecture if available, otherwise legacy
-    const blobs = wc.history?.blobs ?? wc.repository.blobs;
-    const trees = wc.history?.trees ?? wc.repository.trees;
-    const commits = wc.history?.commits ?? wc.repository.commits;
-    const tags = wc.history?.tags ?? wc.repository.tags;
-    const refs = wc.history?.refs ?? wc.repository.refs;
-    const staging = wc.checkout?.staging ?? wc.staging;
-
-    return {
-      blobs,
-      trees,
-      commits,
-      tags,
-      refs,
-      staging,
-      worktree: wc.worktree,
-    } as GitStore;
-  }
-
-  // ============ Unified Store Accessors ============
+  // ============ Store Accessors ============
 
   /**
    * Access blob storage.
-   * Works with both GitStore and WorkingCopy.
    */
   protected get blobs(): Blobs {
-    if (this._workingCopy?.history?.blobs) {
-      return this._workingCopy.history.blobs;
-    }
-    return this.store.blobs as unknown as Blobs;
+    return (this._workingCopy.history?.blobs ??
+      this._workingCopy.repository.blobs) as unknown as Blobs;
   }
 
   /**
    * Access tree storage.
-   * Works with both GitStore and WorkingCopy.
    */
-  protected get trees(): Trees {
-    if (this._workingCopy?.history?.trees) {
-      return this._workingCopy.history.trees;
-    }
-    return this.store.trees as unknown as Trees;
+  protected get trees(): CommandTrees {
+    return wrapTrees(
+      (this._workingCopy.history?.trees ?? this._workingCopy.repository.trees) as unknown as Trees,
+    );
   }
 
   /**
    * Access commit storage.
-   * Works with both GitStore and WorkingCopy.
    */
-  protected get commits(): Commits {
-    if (this._workingCopy?.history?.commits) {
-      return this._workingCopy.history.commits;
-    }
-    return this.store.commits as unknown as Commits;
+  protected get commits(): CommandCommits {
+    return wrapCommits(
+      (this._workingCopy.history?.commits ??
+        this._workingCopy.repository.commits) as unknown as Commits,
+    );
   }
 
   /**
    * Access tag storage.
-   * Works with both GitStore and WorkingCopy.
    * Named tagsStore to avoid conflict with command properties.
    */
-  protected get tagsStore(): Tags | undefined {
-    if (this._workingCopy?.history?.tags) {
-      return this._workingCopy.history.tags;
-    }
-    return this.store.tags as unknown as Tags | undefined;
+  protected get tagsStore(): CommandTags | undefined {
+    const tags = (this._workingCopy.history?.tags ??
+      this._workingCopy.repository.tags) as unknown as Tags | undefined;
+    return tags ? wrapTags(tags) : undefined;
   }
 
   /**
    * Access refs storage.
-   * Works with both GitStore and WorkingCopy.
    * Named refsStore to avoid conflict with command properties.
    */
-  protected get refsStore(): Refs {
-    if (this._workingCopy?.history?.refs) {
-      return this._workingCopy.history.refs;
-    }
-    return this.store.refs as unknown as Refs;
+  protected get refsStore(): CommandRefs {
+    return wrapRefs(
+      (this._workingCopy.history?.refs ?? this._workingCopy.repository.refs) as unknown as Refs,
+    );
   }
 
   /**
    * Access staging area.
-   * Works with both GitStore and WorkingCopy.
    */
   protected get staging(): Staging {
-    if (this._workingCopy?.checkout?.staging) {
-      return this._workingCopy.checkout.staging;
-    }
-    return this.store.staging as unknown as Staging;
+    return (this._workingCopy.checkout?.staging ?? this._workingCopy.staging) as unknown as Staging;
   }
 
   /**
    * Access worktree interface.
-   * Works with both GitStore and WorkingCopy.
    */
   protected get worktreeAccess(): Worktree | undefined {
-    return this._workingCopy?.worktreeInterface;
+    return this._workingCopy.worktreeInterface;
   }
 
   /**
-   * Get the WorkingCopy if available.
+   * Get the WorkingCopy.
    */
-  protected get workingCopy(): WorkingCopy | undefined {
+  protected get workingCopy(): WorkingCopy {
     return this._workingCopy;
   }
 
@@ -177,13 +233,6 @@ export abstract class GitCommand<T> {
    * Can only be called once per instance.
    */
   abstract call(): Promise<T>;
-
-  /**
-   * Get the store this command operates on.
-   */
-  getStore(): GitStore {
-    return this.store;
-  }
 
   /**
    * Verify the command hasn't been called yet.
@@ -209,7 +258,7 @@ export abstract class GitCommand<T> {
    * @throws NoHeadError if HEAD doesn't exist or cannot be resolved
    */
   protected async resolveHead(): Promise<ObjectId> {
-    const ref = await this.store.refs.resolve("HEAD");
+    const ref = await this.refsStore.resolve("HEAD");
     if (!ref?.objectId) {
       throw new NoHeadError("HEAD cannot be resolved");
     }
@@ -222,7 +271,7 @@ export abstract class GitCommand<T> {
    * @returns Branch name (e.g., "refs/heads/main") or undefined if detached
    */
   protected async getCurrentBranch(): Promise<string | undefined> {
-    const head = await this.store.refs.get("HEAD");
+    const head = await this.refsStore.get("HEAD");
     if (head && isSymbolicRef(head)) {
       return head.target;
     }
@@ -243,27 +292,27 @@ export abstract class GitCommand<T> {
     }
 
     // Try as direct ref first
-    const ref = await this.store.refs.resolve(refName);
+    const ref = await this.refsStore.resolve(refName);
     if (ref?.objectId) {
       // Peel tag objects to commits
       return this.peelToCommit(ref.objectId);
     }
 
     // Try as branch name
-    const branchRef = await this.store.refs.resolve(`refs/heads/${refName}`);
+    const branchRef = await this.refsStore.resolve(`refs/heads/${refName}`);
     if (branchRef?.objectId) {
       return branchRef.objectId;
     }
 
     // Try as tag name
-    const tagRef = await this.store.refs.resolve(`refs/tags/${refName}`);
+    const tagRef = await this.refsStore.resolve(`refs/tags/${refName}`);
     if (tagRef?.objectId) {
       // Peel tag objects to commits
       return this.peelToCommit(tagRef.objectId);
     }
 
     // Try as direct commit ID
-    if (await this.store.commits.has(refName)) {
+    if (await this.commits.has(refName)) {
       return refName;
     }
 
@@ -294,15 +343,18 @@ export abstract class GitCommand<T> {
       if (type === "~") {
         // ~N means follow first parent N times
         for (let i = 0; i < count; i++) {
-          const commit = await this.store.commits.loadCommit(commitId);
-          if (commit.parents.length === 0) {
+          const commit = await this.commits.load(commitId);
+          if (!commit || commit.parents.length === 0) {
             throw new RefNotFoundError(ref, `Cannot resolve ${ref}: no parent`);
           }
           commitId = commit.parents[0];
         }
       } else if (type === "^") {
         // ^N means follow Nth parent
-        const commit = await this.store.commits.loadCommit(commitId);
+        const commit = await this.commits.load(commitId);
+        if (!commit) {
+          throw new RefNotFoundError(ref, `Cannot resolve ${ref}: commit not found`);
+        }
         const parentIndex = count > 0 ? count - 1 : 0;
         if (commit.parents.length <= parentIndex) {
           throw new RefNotFoundError(ref, `Cannot resolve ${ref}: no parent ${count}`);
@@ -319,16 +371,19 @@ export abstract class GitCommand<T> {
    */
   private async peelToCommit(objectId: ObjectId): Promise<ObjectId> {
     // If it's already a commit, return it
-    if (await this.store.commits.has(objectId)) {
+    if (await this.commits.has(objectId)) {
       return objectId;
     }
 
     // Try to load as tag and get target
-    if (this.store.tags) {
+    const tags = this.tagsStore;
+    if (tags) {
       try {
-        const tag = await this.store.tags.loadTag(objectId);
-        // Recursively peel
-        return this.peelToCommit(tag.object);
+        const tag = await tags.load(objectId);
+        if (tag) {
+          // Recursively peel
+          return this.peelToCommit(tag.object);
+        }
       } catch {
         // Not a tag
       }
@@ -345,6 +400,6 @@ export abstract class GitCommand<T> {
    * @returns Ref object or undefined
    */
   protected async getRef(refName: string): Promise<Ref | SymbolicRef | undefined> {
-    return this.store.refs.get(refName);
+    return this.refsStore.get(refName);
   }
 }

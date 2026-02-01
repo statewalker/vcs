@@ -72,7 +72,7 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Add a tag on server
-      await server.serverStore.refs.set("refs/tags/v1.0", server.initialCommitId);
+      await server.serverStores.refs.set("refs/tags/v1.0", server.initialCommitId);
 
       const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
@@ -99,7 +99,7 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Add a tag on server
-      await server.serverStore.refs.set("refs/tags/v1.0", server.initialCommitId);
+      await server.serverStores.refs.set("refs/tags/v1.0", server.initialCommitId);
 
       const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
@@ -150,8 +150,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create additional branches on server
-      await server.serverStore.refs.set("refs/heads/feature", server.initialCommitId);
-      await server.serverStore.refs.set("refs/heads/develop", server.initialCommitId);
+      await server.serverStores.refs.set("refs/heads/feature", server.initialCommitId);
+      await server.serverStores.refs.set("refs/heads/develop", server.initialCommitId);
 
       const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
@@ -175,8 +175,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create tags
-      await server.serverStore.refs.set("refs/tags/v1.0", server.initialCommitId);
-      await server.serverStore.refs.set("refs/tags/v2.0", server.initialCommitId);
+      await server.serverStores.refs.set("refs/tags/v1.0", server.initialCommitId);
+      await server.serverStores.refs.set("refs/tags/v2.0", server.initialCommitId);
 
       const clientStore = await createTestStore();
       const git = Git.wrap(clientStore);
@@ -204,7 +204,7 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
 
       // Add a file and commit on server
       const _commitId = await addFileAndCommit(
-        server.serverStore,
+        server.serverStores,
         "README.md",
         "# Test",
         "Add README",
