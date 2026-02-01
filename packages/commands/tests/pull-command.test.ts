@@ -9,9 +9,10 @@
  * and error handling rather than full integration testing.
  */
 
+import type { WorkingCopy } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Git, type GitStore, TagOption } from "../src/index.js";
+import { Git, TagOption } from "../src/index.js";
 import { backends } from "./test-helper.js";
 
 describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
@@ -24,64 +25,55 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
     }
   });
 
-  async function createTestStore(): Promise<GitStore> {
+  async function createTestWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const wc = ctx.workingCopy;
-    // Construct GitStore-like object from WorkingCopy for transport tests
-    return {
-      blobs: wc.repository.blobs,
-      trees: wc.repository.trees,
-      commits: wc.repository.commits,
-      tags: wc.repository.tags,
-      refs: wc.repository.refs,
-      staging: wc.staging,
-    };
+    return ctx.workingCopy;
   }
   describe("options", () => {
     it("should default remote to origin", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull();
       expect(command.getRemote()).toBe("origin");
     });
 
     it("should set remote", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull().setRemote("upstream");
       expect(command.getRemote()).toBe("upstream");
     });
 
     it("should set remote branch name", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull().setRemoteBranchName("develop");
       expect(command.getRemoteBranchName()).toBe("develop");
     });
 
     it("should set rebase mode", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull().setRebase(true);
       expect(command.isRebase()).toBe(true);
     });
 
     it("should support setting merge strategy", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull().setStrategy("recursive");
       expect(command).toBeDefined();
     });
 
     it("should support fast-forward mode", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull().setFastForwardMode("ff-only");
       expect(command).toBeDefined();
@@ -90,19 +82,19 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
 
   describe("error handling", () => {
     it("should throw for detached HEAD", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Set up detached HEAD by pointing directly to a commit
-      await clientStore.refs.set("HEAD", `${"abc".repeat(13)}a`);
+      await workingCopy.repository.refs.set("HEAD", `${"abc".repeat(13)}a`);
 
       // Pull requires a branch, not a detached HEAD
       await expect(git.pull().call()).rejects.toThrow("Cannot pull with detached HEAD");
     });
 
     it("should throw for missing HEAD", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Don't set up HEAD at all
       await expect(git.pull().call()).rejects.toThrow();
@@ -111,8 +103,8 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
 
   describe("options getters", () => {
     it("should return correct values for all getters", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .pull()
@@ -126,16 +118,16 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
     });
 
     it("should return undefined for unset remote branch name", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull();
       expect(command.getRemoteBranchName()).toBeUndefined();
     });
 
     it("should default rebase to false", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull();
       expect(command.isRebase()).toBe(false);
@@ -144,8 +136,8 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
 
   describe("method chaining", () => {
     it("should support fluent API", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .pull()
@@ -168,8 +160,8 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
      * JGit: PullCommand.setTagOpt()
      */
     it("should support tag option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull().setTagOpt(TagOption.FETCH_TAGS);
 
@@ -177,8 +169,8 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
     });
 
     it("should default tag option to undefined", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull();
 
@@ -189,8 +181,8 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
      * JGit: PullCommand.setFastForward()
      */
     it("should support fast-forward mode getter", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.pull().setFastForwardMode("ff-only");
 
@@ -198,8 +190,8 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
     });
 
     it("should return all extended getter values", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .pull()

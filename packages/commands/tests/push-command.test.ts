@@ -5,12 +5,13 @@
  * Tests run against all storage backends (Memory, SQL).
  */
 
+import type { WorkingCopy } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Git, type GitStore } from "../src/index.js";
+import { Git } from "../src/index.js";
 import { backends } from "./test-helper.js";
 import {
-  addFileAndCommit,
+  addFileAndCommitWc,
   createInitializedTestServer,
   createTestUrl,
 } from "./transport-test-helper.js";
@@ -25,19 +26,10 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
     }
   });
 
-  async function createTestStore(): Promise<GitStore> {
+  async function createTestWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const wc = ctx.workingCopy;
-    // Construct GitStore-like object from WorkingCopy for transport tests
-    return {
-      blobs: wc.repository.blobs,
-      trees: wc.repository.trees,
-      commits: wc.repository.commits,
-      tags: wc.repository.tags,
-      refs: wc.repository.refs,
-      staging: wc.staging,
-    };
+    return ctx.workingCopy;
   }
   describe("basic operations", () => {
     it("should push refs to remote repository", async () => {
@@ -45,20 +37,20 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create client with its own commit
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Create initial commit in client
-      const commitId = await addFileAndCommit(
-        clientStore,
+      const commitId = await addFileAndCommitWc(
+        workingCopy,
         "client-file.txt",
         "client content",
         "Initial client commit",
       );
 
       // Set up HEAD on client
-      await clientStore.refs.set("HEAD", "refs/heads/main");
-      await clientStore.refs.set("refs/heads/main", commitId);
+      await workingCopy.repository.refs.set("HEAD", "refs/heads/main");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -82,8 +74,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create client without any refs
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -104,12 +96,12 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Create commit
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -131,13 +123,13 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Create commits for multiple branches
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
-      await clientStore.refs.set("refs/heads/feature", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.repository.refs.set("refs/heads/feature", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -159,12 +151,12 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
-      await clientStore.refs.set("refs/heads/feature", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.repository.refs.set("refs/heads/feature", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -189,11 +181,11 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -216,11 +208,11 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -245,14 +237,14 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Create multiple branches
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
-      await clientStore.refs.set("refs/heads/feature", commitId);
-      await clientStore.refs.set("refs/heads/develop", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.repository.refs.set("refs/heads/feature", commitId);
+      await workingCopy.repository.refs.set("refs/heads/develop", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -272,13 +264,13 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Create commit and tag
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
-      await clientStore.refs.set("refs/tags/v1.0", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.repository.refs.set("refs/tags/v1.0", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -298,11 +290,11 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -327,11 +319,11 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const _remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
 
       // Note: Dry run behavior depends on transport implementation
       // This test verifies the option is accepted
@@ -344,11 +336,11 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -375,11 +367,11 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -399,11 +391,11 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
 
   describe("error handling", () => {
     it("should throw for invalid remote", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
-      const commitId = await addFileAndCommit(clientStore, "file.txt", "content", "Commit");
-      await clientStore.refs.set("refs/heads/main", commitId);
+      const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
+      await workingCopy.repository.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = async () => {
@@ -426,8 +418,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
 
   describe("options getters", () => {
     it("should return correct values for getters", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .push()
@@ -453,8 +445,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
      * JGit: PushCommand.setUseBitmaps()
      */
     it("should support useBitmaps option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.push().setRemote("origin").setUseBitmaps(false);
 
@@ -462,8 +454,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
     });
 
     it("should default useBitmaps to true", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.push().setRemote("origin");
 
@@ -474,8 +466,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
      * JGit: PushCommand.setPushOptions()
      */
     it("should support push options", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .push()
@@ -489,8 +481,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
      * JGit: PushCommand.setReceivePack()
      */
     it("should support receive-pack option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.push().setRemote("origin").setReceivePack("/opt/git/receive-pack");
 
@@ -498,8 +490,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
     });
 
     it("should return all extended getter values", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .push()

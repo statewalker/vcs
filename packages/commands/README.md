@@ -24,22 +24,17 @@ pnpm add @statewalker/vcs-commands
 ## Quick Start
 
 ```typescript
-import { Git, createGitStore } from "@statewalker/vcs-commands";
-import { createGitRepository } from "@statewalker/vcs-core";
+import { Git } from "@statewalker/vcs-commands";
+import { createWorkingCopy } from "@statewalker/vcs-core";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 import * as fs from "node:fs/promises";
 
-// Create a Git-compatible repository
+// Create a Git-compatible working copy
 const files = createNodeFilesApi({ fs, rootDir: "/path/to/repo" });
-const repository = await createGitRepository(files, ".git");
-
-// Create a staging store (or use one from store-mem/store-sql)
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
-const staging = new MemoryStagingStore();
+const workingCopy = await createWorkingCopy(files, ".git");
 
 // Create the Git command interface
-const store = createGitStore({ repository, staging });
-const git = Git.wrap(store);
+const git = Git.fromWorkingCopy(workingCopy);
 
 // Stage and commit changes
 await git.add().addFilepattern(".").call();
@@ -64,13 +59,12 @@ import {
   GitCommand,
   TransportCommand,
 
-  // Store creation
-  createGitStore,
-
-  // Types
-  type GitStore,
-  type GitStoreWithWorkTree,
-  type CreateGitStoreOptions,
+  // Re-exported core types
+  type WorkingCopy,
+  type History,
+  type Checkout,
+  type Worktree,
+  type Staging,
 
   // Enums
   ResetMode,
@@ -298,19 +292,16 @@ await git.pull()
 ### Cloning Repositories
 
 ```typescript
-import { Git, createGitStore } from "@statewalker/vcs-commands";
-import { createGitRepository } from "@statewalker/vcs-core";
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
+import { Git } from "@statewalker/vcs-commands";
+import { createWorkingCopy } from "@statewalker/vcs-core";
 
-// Create an in-memory repository for the clone
-const repository = await createGitRepository();
-const staging = new MemoryStagingStore();
-const store = createGitStore({ repository, staging });
+// Create an in-memory working copy for the clone
+const workingCopy = await createWorkingCopy();
 
 // Clone a repository
 const result = await Git.clone()
   .setUri("https://github.com/user/repo.git")
-  .setStore(store)
+  .setWorkingCopy(workingCopy)
   .setCredentials({ token: "github_pat_xxx" })
   .setProgressCallback((progress) => {
     console.log(`${progress.phase}: ${progress.message}`);

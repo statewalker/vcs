@@ -341,6 +341,85 @@ export function createTestFetch(server: TestServer): typeof fetch {
 }
 
 /**
+ * Add a file to a WorkingCopy and create a commit.
+ *
+ * This function stores objects in Git format, compatible with
+ * transport operations.
+ */
+export async function addFileAndCommitWc(
+  wc: WorkingCopy,
+  path: string,
+  content: string,
+  message: string,
+): Promise<ObjectId> {
+  // Store blob
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const blobId = await wc.repository.blobs.store([data]);
+
+  // Update staging
+  const staging = wc.staging as unknown as {
+    createEditor?: () => { add(edit: unknown): void; finish(): Promise<void> };
+    editor?: () => { add(edit: unknown): void; finish(): Promise<void> };
+  };
+  const editorFn = staging.createEditor ?? staging.editor;
+  if (!editorFn) {
+    throw new Error("Staging must have either createEditor() or editor() method");
+  }
+  const editor = editorFn.call(staging);
+  editor.add({
+    path,
+    apply: () => ({
+      path,
+      mode: 0o100644,
+      objectId: blobId,
+      stage: 0,
+      size: data.length,
+      mtime: Date.now(),
+    }),
+  });
+  await editor.finish();
+
+  // Write tree
+  const treeId = await wc.staging.writeTree(wc.repository.trees);
+
+  // Get parent
+  let parents: ObjectId[] = [];
+  try {
+    const headRef = await wc.repository.refs.resolve("HEAD");
+    if (headRef?.objectId) {
+      parents = [headRef.objectId];
+    }
+  } catch {
+    // No HEAD yet
+  }
+
+  // Create commit
+  const commit = {
+    tree: treeId,
+    parents,
+    author: testAuthor(),
+    committer: testAuthor(),
+    message,
+  };
+
+  const commitId = await wc.repository.commits.storeCommit(commit);
+
+  // Update HEAD
+  const head = await wc.repository.refs.get("HEAD");
+  if (head && "target" in head) {
+    await wc.repository.refs.set(head.target, commitId);
+  } else {
+    await wc.repository.refs.set("HEAD", commitId);
+  }
+
+  // Update staging
+  await wc.staging.readTree(wc.repository.trees, treeId);
+
+  return commitId;
+}
+
+/**
  * Add a file to stores and create a commit.
  *
  * This function stores objects in Git format, compatible with

@@ -5,9 +5,10 @@
  * Tests run against all storage backends (Memory, SQL).
  */
 
+import type { WorkingCopy } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Git, type GitStore } from "../src/index.js";
+import { Git } from "../src/index.js";
 import { backends } from "./test-helper.js";
 import {
   addFileAndCommit,
@@ -26,19 +27,10 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
     }
   });
 
-  async function createTestStore(): Promise<GitStore> {
+  async function createTestWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const wc = ctx.workingCopy;
-    // Construct GitStore-like object from WorkingCopy for transport tests
-    return {
-      blobs: wc.repository.blobs,
-      trees: wc.repository.trees,
-      commits: wc.repository.commits,
-      tags: wc.repository.tags,
-      refs: wc.repository.refs,
-      staging: wc.staging,
-    };
+    return ctx.workingCopy;
   }
   describe("basic operations", () => {
     it("should list refs from remote repository", async () => {
@@ -47,8 +39,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create local client store
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Override fetch to use test server
       const originalFetch = globalThis.fetch;
@@ -74,8 +66,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       // Add a tag on server
       await server.serverStores.refs.set("refs/tags/v1.0", server.initialCommitId);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -101,8 +93,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       // Add a tag on server
       await server.serverStores.refs.set("refs/tags/v1.0", server.initialCommitId);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -119,8 +111,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
     });
 
     it("should throw for invalid remote", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       // Use a server that returns 404
       const _server = createTestServer();
@@ -137,8 +129,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
     });
 
     it("should require remote to be set", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       await expect(git.lsRemote().call()).rejects.toThrow();
     });
@@ -153,8 +145,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       await server.serverStores.refs.set("refs/heads/feature", server.initialCommitId);
       await server.serverStores.refs.set("refs/heads/develop", server.initialCommitId);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -178,8 +170,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       await server.serverStores.refs.set("refs/tags/v1.0", server.initialCommitId);
       await server.serverStores.refs.set("refs/tags/v2.0", server.initialCommitId);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -210,8 +202,8 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
         "Add README",
       );
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
