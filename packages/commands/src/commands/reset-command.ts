@@ -1,6 +1,7 @@
 import type { ObjectId, Ref } from "@statewalker/vcs-core";
 import { isSymbolicRef } from "@statewalker/vcs-core";
 
+import { RefNotFoundError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
 import { ResetMode } from "../types.js";
 
@@ -120,7 +121,7 @@ export class ResetCommand extends GitCommand<Ref> {
     }
 
     // Return the updated HEAD ref
-    const headRef = await this.store.refs.resolve("HEAD");
+    const headRef = await this.refsStore.resolve("HEAD");
     return headRef as Ref;
   }
 
@@ -133,11 +134,14 @@ export class ResetCommand extends GitCommand<Ref> {
     const targetId = await this.resolveRef(targetRef);
 
     // Load target commit's tree
-    const targetCommit = await this.store.commits.loadCommit(targetId);
+    const targetCommit = await this.commits.load(targetId);
+    if (!targetCommit) {
+      throw new RefNotFoundError(targetId, "Target commit not found");
+    }
     const treeId = targetCommit.tree;
 
     // Reset each path in staging
-    const editor = this.store.staging.createEditor();
+    const editor = this.staging.createEditor();
 
     for (const path of this.paths) {
       const entry = await this.getTreeEntryForPath(treeId, path);
@@ -164,9 +168,9 @@ export class ResetCommand extends GitCommand<Ref> {
     }
 
     await editor.finish();
-    await this.store.staging.write();
+    await this.staging.write();
 
-    const headRef = await this.store.refs.resolve("HEAD");
+    const headRef = await this.refsStore.resolve("HEAD");
     return headRef as Ref;
   }
 
@@ -174,14 +178,14 @@ export class ResetCommand extends GitCommand<Ref> {
    * Move HEAD (and branch if applicable) to target commit.
    */
   private async moveHead(targetId: ObjectId): Promise<void> {
-    const head = await this.store.refs.get("HEAD");
+    const head = await this.refsStore.get("HEAD");
 
     if (head && isSymbolicRef(head)) {
       // HEAD points to a branch - update the branch
-      await this.store.refs.set(head.target, targetId);
+      await this.refsStore.set(head.target, targetId);
     } else {
       // Detached HEAD - update HEAD directly
-      await this.store.refs.set("HEAD", targetId);
+      await this.refsStore.set("HEAD", targetId);
     }
   }
 
@@ -189,9 +193,11 @@ export class ResetCommand extends GitCommand<Ref> {
    * Reset staging area to match a tree.
    */
   private async resetStaging(commitId: ObjectId): Promise<void> {
-    const commit = await this.store.commits.loadCommit(commitId);
-    await this.store.staging.readTree(this.store.trees, commit.tree);
-    await this.store.staging.write();
+    const commit = await this.commits.load(commitId);
+    if (commit) {
+      await this.staging.readTree(this.trees, commit.tree);
+      await this.staging.write();
+    }
   }
 
   /**
@@ -208,7 +214,7 @@ export class ResetCommand extends GitCommand<Ref> {
       const name = parts[i];
       const isLast = i === parts.length - 1;
 
-      const entry = await this.store.trees.getEntry(currentTreeId, name);
+      const entry = await this.trees.getEntry(currentTreeId, name);
 
       if (!entry) {
         return undefined;

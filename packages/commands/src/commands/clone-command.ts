@@ -367,7 +367,7 @@ export class CloneCommand extends TransportCommand<CloneResult> {
       // For mirror mode, refs are stored directly without remotes prefix
       const localRefName = this.mirror ? this.toMirrorRefName(refName) : refName;
 
-      await this.store.refs.set(localRefName, objectIdHex);
+      await this.refsStore.set(localRefName, objectIdHex);
       trackingUpdates.push({
         localRef: localRefName,
         remoteRef: refName,
@@ -385,13 +385,13 @@ export class CloneCommand extends TransportCommand<CloneResult> {
       const trackingRef = `refs/remotes/${this.remoteName}/${defaultBranch}`;
       const localRef = `refs/heads/${defaultBranch}`;
 
-      const trackingRefValue = await this.store.refs.resolve(trackingRef);
+      const trackingRefValue = await this.refsStore.resolve(trackingRef);
       if (trackingRefValue?.objectId) {
-        await this.store.refs.set(localRef, trackingRefValue.objectId);
+        await this.refsStore.set(localRef, trackingRefValue.objectId);
         headCommit = trackingRefValue.objectId;
 
         // Set HEAD to point to local branch
-        await this.store.refs.setSymbolic("HEAD", localRef);
+        await this.refsStore.setSymbolic("HEAD", localRef);
 
         // Set up staging area from HEAD tree
         if (!this.noCheckout) {
@@ -401,7 +401,7 @@ export class CloneCommand extends TransportCommand<CloneResult> {
     } else if (this.bare || this.mirror) {
       // For bare/mirror repos, HEAD points to default branch
       if (defaultBranch) {
-        await this.store.refs.setSymbolic("HEAD", `refs/heads/${defaultBranch}`);
+        await this.refsStore.setSymbolic("HEAD", `refs/heads/${defaultBranch}`);
       }
     }
 
@@ -484,12 +484,12 @@ export class CloneCommand extends TransportCommand<CloneResult> {
    * Store received pack data.
    */
   private async storePack(packData: Uint8Array): Promise<void> {
-    // Check if store has pack storage capability
-    const storeWithPacks = this.store as {
+    // Check if working copy has pack storage capability
+    const wcWithPacks = this._workingCopy as {
       packs?: { store(data: Uint8Array): Promise<void> };
     };
-    if (storeWithPacks.packs?.store) {
-      await storeWithPacks.packs.store(packData);
+    if (wcWithPacks.packs?.store) {
+      await wcWithPacks.packs.store(packData);
     }
   }
 
@@ -498,9 +498,12 @@ export class CloneCommand extends TransportCommand<CloneResult> {
    */
   private async checkoutHead(commitId: ObjectId): Promise<void> {
     try {
-      const commit = await this.store.commits.loadCommit(commitId);
-      await this.store.staging.readTree(this.store.trees, commit.tree);
-      await this.store.staging.write();
+      const commit = await this.commits.load(commitId);
+      if (!commit) {
+        return;
+      }
+      await this.staging.readTree(this.trees, commit.tree);
+      await this.staging.write();
     } catch {
       // Commit not available yet (pack not unpacked)
     }

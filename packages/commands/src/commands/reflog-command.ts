@@ -53,11 +53,11 @@ export class ReflogCommand extends GitCommand<ReflogEntry[]> {
     this.setCallable(false);
 
     // Check if the RefStore supports reflog
-    if (!this.store.refs.getReflog) {
+    if (!this.refsStore.getReflog) {
       throw new Error("RefStore does not support reflog");
     }
 
-    const reader = await this.store.refs.getReflog(this.ref);
+    const reader = await this.refsStore.getReflog(this.ref);
     if (!reader) {
       // Return empty array if no reflog exists (consistent with git behavior)
       return [];

@@ -1,4 +1,16 @@
-import type { Checkout, History, WorkingCopy, Worktree } from "@statewalker/vcs-core";
+import type {
+  BlobStore,
+  Checkout,
+  CommitStore,
+  History,
+  HistoryStore,
+  RefStore,
+  Staging,
+  TagStore,
+  TreeStore,
+  WorkingCopy,
+  Worktree,
+} from "@statewalker/vcs-core";
 
 import {
   AddCommand,
@@ -41,12 +53,6 @@ import {
   StatusCommand,
   TagCommand,
 } from "./commands/index.js";
-import type { CreateGitStoreOptions, GitStore, GitStoresConfig } from "./types.js";
-import {
-  createGitStore,
-  createGitStoreFromStores,
-  createGitStoreFromWorkingCopy,
-} from "./types.js";
 
 /**
  * Main entry point for high-level Git operations.
@@ -56,7 +62,7 @@ import {
  *
  * Based on JGit's Git class.
  *
- * @example Using with WorkingCopy (recommended)
+ * @example
  * ```typescript
  * // Create a WorkingCopy
  * const workingCopy = await createWorkingCopy({ files, workDir: "/repo" });
@@ -75,20 +81,12 @@ import {
  * // Clean up
  * git.close();
  * ```
- *
- * @example Using with GitStore (legacy, for backward compatibility)
- * ```typescript
- * const store = createGitStore({ repository: repo, staging });
- * const git = Git.wrap(store);
- * ```
  */
 export class Git implements Disposable {
-  private readonly store: GitStore;
-  private readonly _workingCopy?: WorkingCopy;
+  private readonly _workingCopy: WorkingCopy;
   private closed = false;
 
-  private constructor(store: GitStore, workingCopy?: WorkingCopy) {
-    this.store = store;
+  private constructor(workingCopy: WorkingCopy) {
     this._workingCopy = workingCopy;
   }
 
@@ -118,108 +116,102 @@ export class Git implements Disposable {
    * @returns A Git instance wrapping the working copy
    */
   static fromWorkingCopy(workingCopy: WorkingCopy): Git {
-    const store = createGitStoreFromWorkingCopy(workingCopy);
-    return new Git(store, workingCopy);
+    return new Git(workingCopy);
   }
 
   /**
-   * Wrap an already-opened GitStore.
+   * @deprecated Use `Git.fromWorkingCopy()` instead. This method exists for backward compatibility with tests.
    *
-   * The caller is responsible for closing the store; close() on this
-   * instance does not close the underlying store.
+   * Wrap a store-like object in a Git facade.
+   * Creates a minimal WorkingCopy from the store components.
    *
-   * @deprecated Use `Git.fromWorkingCopy()` instead. This method will be removed in a future version.
-   * @param store The GitStore to wrap
-   * @returns A Git instance wrapping the store
+   * @param store Object with blobs, trees, commits, refs, staging, and optionally tags and worktree
    */
-  static wrap(store: GitStore): Git {
-    return new Git(store);
-  }
+  static wrap(store: {
+    blobs: BlobStore;
+    trees: TreeStore;
+    commits: CommitStore;
+    refs: RefStore;
+    staging: Staging;
+    tags?: TagStore;
+    worktree?: Worktree;
+  }): Git {
+    // Create a minimal WorkingCopy from the store components
+    const repository = {
+      blobs: store.blobs,
+      trees: store.trees,
+      commits: store.commits,
+      tags: store.tags,
+      refs: store.refs,
+      config: {},
+      async initialize() {},
+      async close() {},
+      async isInitialized() {
+        return true;
+      },
+    } as unknown as HistoryStore;
 
-  /**
-   * Open a Git facade for an already-opened GitStore.
-   *
-   * Alias for wrap() for compatibility with JGit patterns.
-   *
-   * @deprecated Use `Git.fromWorkingCopy()` instead. This method will be removed in a future version.
-   * @param store The GitStore to wrap
-   * @returns A Git instance wrapping the store
-   */
-  static open(store: GitStore): Git {
-    return new Git(store);
-  }
+    const workingCopy = {
+      repository,
+      staging: store.staging,
+      worktree: (store.worktree ?? {}) as unknown as Worktree,
+      stash: {} as never,
+      config: {} as never,
+      get history() {
+        return undefined;
+      },
+      get checkout() {
+        return undefined;
+      },
+      get worktreeInterface() {
+        return store.worktree;
+      },
+      async getHead() {
+        const ref = await store.refs.resolve("HEAD");
+        return ref?.objectId;
+      },
+      async getCurrentBranch() {
+        const ref = await store.refs.get("HEAD");
+        if (ref && "target" in ref) {
+          return (ref.target as string).replace("refs/heads/", "");
+        }
+        return undefined;
+      },
+      async setHead() {},
+      async isDetachedHead() {
+        return false;
+      },
+      async getMergeState() {
+        return undefined;
+      },
+      async getRebaseState() {
+        return undefined;
+      },
+      async getCherryPickState() {
+        return undefined;
+      },
+      async getRevertState() {
+        return undefined;
+      },
+      async hasOperationInProgress() {
+        return false;
+      },
+      async getStatus() {
+        return {
+          files: [],
+          staged: [],
+          unstaged: [],
+          untracked: [],
+          isClean: true,
+          hasStaged: false,
+          hasUnstaged: false,
+          hasUntracked: false,
+          hasConflicts: false,
+        };
+      },
+    } as unknown as WorkingCopy;
 
-  /**
-   * Create a Git facade from a HistoryStore and staging store.
-   *
-   * This factory method allows using any HistoryStore implementation
-   * (file-based, SQL, memory, etc.) with the Git command facade.
-   *
-   * @deprecated Use `Git.fromWorkingCopy()` instead. This method will be removed in a future version.
-   *
-   * @example
-   * ```typescript
-   * import { Git } from "@statewalker/vcs-commands";
-   * import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
-   *
-   * // Use with any HistoryStore implementation
-   * const staging = new MemoryStagingStore();
-   * const git = Git.fromRepository({ repository: repo, staging });
-   * await git.commit().setMessage("Initial commit").call();
-   * ```
-   *
-   * @param options Repository, staging store, and optional worktree
-   * @returns A Git instance wrapping the created store
-   */
-  static fromRepository(options: CreateGitStoreOptions): Git {
-    const store = createGitStore(options);
-    return new Git(store);
-  }
-
-  /**
-   * Create a Git facade from the three-part store architecture.
-   *
-   * This factory method uses the new store separation:
-   * - HistoryStore: Immutable history (commits, trees, blobs, refs, tags)
-   * - CheckoutStore: Mutable local state (staging, HEAD, in-progress ops)
-   * - WorktreeStore: Filesystem access (working tree files)
-   *
-   * @deprecated Use `Git.fromWorkingCopy()` instead. This method will be removed in a future version.
-   *
-   * @example
-   * ```typescript
-   * import { Git } from "@statewalker/vcs-commands";
-   *
-   * // Use with three-part store architecture
-   * const git = Git.fromStores({
-   *   history: historyStore,
-   *   checkout: checkoutStore,
-   *   worktree: worktreeStore,
-   * });
-   *
-   * await git.commit().setMessage("Initial commit").call();
-   * ```
-   *
-   * @example
-   * ```typescript
-   * // For read-only operations (no checkout store)
-   * const git = Git.fromStores({
-   *   history: historyStore,
-   *   staging: memoryStagingStore,
-   * });
-   *
-   * // Read-only commands work
-   * for await (const commit of await git.log().call()) {
-   *   console.log(commit.message);
-   * }
-   * ```
-   *
-   * @param config Store configuration with history, checkout, and worktree
-   * @returns A Git instance for executing commands
-   */
-  static fromStores(config: GitStoresConfig): Git {
-    const store = createGitStoreFromStores(config);
-    return new Git(store);
+    return new Git(workingCopy);
   }
 
   /**
@@ -265,7 +257,7 @@ export class Git implements Disposable {
   /**
    * Create an AddCommand for staging files from working tree.
    *
-   * Requires a GitStoreWithWorkTree (store with worktree iterator).
+   * Requires a WorkingCopy with worktree interface.
    *
    * @example
    * ```typescript
@@ -284,7 +276,7 @@ export class Git implements Disposable {
    */
   add(): AddCommand {
     this.checkClosed();
-    return new AddCommand(this.store);
+    return new AddCommand(this._workingCopy);
   }
 
   // ============ Blame Operations ============
@@ -305,7 +297,7 @@ export class Git implements Disposable {
    */
   blame(): BlameCommand {
     this.checkClosed();
-    return new BlameCommand(this.store);
+    return new BlameCommand(this._workingCopy);
   }
 
   // ============ Checkout Operations ============
@@ -333,7 +325,7 @@ export class Git implements Disposable {
    */
   checkout(): CheckoutCommand {
     this.checkClosed();
-    return new CheckoutCommand(this.store);
+    return new CheckoutCommand(this._workingCopy);
   }
 
   // ============ Commit Operations ============
@@ -351,7 +343,7 @@ export class Git implements Disposable {
    */
   commit(): CommitCommand {
     this.checkClosed();
-    return new CommitCommand(this.store);
+    return new CommitCommand(this._workingCopy);
   }
 
   // ============ Log Operations ============
@@ -368,7 +360,7 @@ export class Git implements Disposable {
    */
   log(): LogCommand {
     this.checkClosed();
-    return new LogCommand(this.store);
+    return new LogCommand(this._workingCopy);
   }
 
   /**
@@ -387,7 +379,7 @@ export class Git implements Disposable {
    */
   reflog(): ReflogCommand {
     this.checkClosed();
-    return new ReflogCommand(this.store);
+    return new ReflogCommand(this._workingCopy);
   }
 
   // ============ Branch Operations ============
@@ -402,7 +394,7 @@ export class Git implements Disposable {
    */
   branchCreate(): CreateBranchCommand {
     this.checkClosed();
-    return new CreateBranchCommand(this.store);
+    return new CreateBranchCommand(this._workingCopy);
   }
 
   /**
@@ -415,7 +407,7 @@ export class Git implements Disposable {
    */
   branchDelete(): DeleteBranchCommand {
     this.checkClosed();
-    return new DeleteBranchCommand(this.store);
+    return new DeleteBranchCommand(this._workingCopy);
   }
 
   /**
@@ -428,7 +420,7 @@ export class Git implements Disposable {
    */
   branchList(): ListBranchCommand {
     this.checkClosed();
-    return new ListBranchCommand(this.store);
+    return new ListBranchCommand(this._workingCopy);
   }
 
   /**
@@ -444,7 +436,7 @@ export class Git implements Disposable {
    */
   branchRename(): RenameBranchCommand {
     this.checkClosed();
-    return new RenameBranchCommand(this.store);
+    return new RenameBranchCommand(this._workingCopy);
   }
 
   // ============ Tag Operations ============
@@ -459,7 +451,7 @@ export class Git implements Disposable {
    */
   tag(): TagCommand {
     this.checkClosed();
-    return new TagCommand(this.store);
+    return new TagCommand(this._workingCopy);
   }
 
   /**
@@ -472,7 +464,7 @@ export class Git implements Disposable {
    */
   tagDelete(): DeleteTagCommand {
     this.checkClosed();
-    return new DeleteTagCommand(this.store);
+    return new DeleteTagCommand(this._workingCopy);
   }
 
   /**
@@ -485,7 +477,7 @@ export class Git implements Disposable {
    */
   tagList(): ListTagCommand {
     this.checkClosed();
-    return new ListTagCommand(this.store);
+    return new ListTagCommand(this._workingCopy);
   }
 
   // ============ Reset Operations ============
@@ -500,7 +492,7 @@ export class Git implements Disposable {
    */
   reset(): ResetCommand {
     this.checkClosed();
-    return new ResetCommand(this.store);
+    return new ResetCommand(this._workingCopy);
   }
 
   // ============ Merge Operations ============
@@ -515,7 +507,7 @@ export class Git implements Disposable {
    */
   merge(): MergeCommand {
     this.checkClosed();
-    return new MergeCommand(this.store);
+    return new MergeCommand(this._workingCopy);
   }
 
   // ============ Cherry-pick Operations ============
@@ -530,7 +522,7 @@ export class Git implements Disposable {
    */
   cherryPick(): CherryPickCommand {
     this.checkClosed();
-    return new CherryPickCommand(this.store);
+    return new CherryPickCommand(this._workingCopy);
   }
 
   // ============ Revert Operations ============
@@ -545,7 +537,7 @@ export class Git implements Disposable {
    */
   revert(): RevertCommand {
     this.checkClosed();
-    return new RevertCommand(this.store);
+    return new RevertCommand(this._workingCopy);
   }
 
   // ============ Rm Operations ============
@@ -569,7 +561,7 @@ export class Git implements Disposable {
    */
   rm(): RmCommand {
     this.checkClosed();
-    return new RmCommand(this.store);
+    return new RmCommand(this._workingCopy);
   }
 
   // ============ Describe Operations ============
@@ -592,7 +584,7 @@ export class Git implements Disposable {
    */
   describe(): DescribeCommand {
     this.checkClosed();
-    return new DescribeCommand(this.store);
+    return new DescribeCommand(this._workingCopy);
   }
 
   // ============ Maintenance Operations ============
@@ -613,7 +605,7 @@ export class Git implements Disposable {
    */
   gc(): GarbageCollectCommand {
     this.checkClosed();
-    return new GarbageCollectCommand(this.store);
+    return new GarbageCollectCommand(this._workingCopy);
   }
 
   /**
@@ -629,7 +621,7 @@ export class Git implements Disposable {
    */
   packRefs(): PackRefsCommand {
     this.checkClosed();
-    return new PackRefsCommand(this.store);
+    return new PackRefsCommand(this._workingCopy);
   }
 
   /**
@@ -645,7 +637,7 @@ export class Git implements Disposable {
    */
   clean(): CleanCommand {
     this.checkClosed();
-    return new CleanCommand(this.store);
+    return new CleanCommand(this._workingCopy);
   }
 
   // ============ Status Operations ============
@@ -663,7 +655,7 @@ export class Git implements Disposable {
    */
   status(): StatusCommand {
     this.checkClosed();
-    return new StatusCommand(this.store);
+    return new StatusCommand(this._workingCopy);
   }
 
   // ============ Diff Operations ============
@@ -681,7 +673,7 @@ export class Git implements Disposable {
    */
   diff(): DiffCommand {
     this.checkClosed();
-    return new DiffCommand(this.store);
+    return new DiffCommand(this._workingCopy);
   }
 
   // ============ Remote Operations ============
@@ -698,7 +690,7 @@ export class Git implements Disposable {
    */
   fetch(): FetchCommand {
     this.checkClosed();
-    return new FetchCommand(this.store);
+    return new FetchCommand(this._workingCopy);
   }
 
   /**
@@ -713,7 +705,7 @@ export class Git implements Disposable {
    */
   push(): PushCommand {
     this.checkClosed();
-    return new PushCommand(this.store);
+    return new PushCommand(this._workingCopy);
   }
 
   /**
@@ -728,7 +720,7 @@ export class Git implements Disposable {
    */
   pull(): PullCommand {
     this.checkClosed();
-    return new PullCommand(this.store);
+    return new PullCommand(this._workingCopy);
   }
 
   /**
@@ -743,7 +735,7 @@ export class Git implements Disposable {
    */
   clone(): CloneCommand {
     this.checkClosed();
-    return new CloneCommand(this.store);
+    return new CloneCommand(this._workingCopy);
   }
 
   /**
@@ -758,7 +750,7 @@ export class Git implements Disposable {
    */
   lsRemote(): LsRemoteCommand {
     this.checkClosed();
-    return new LsRemoteCommand(this.store);
+    return new LsRemoteCommand(this._workingCopy);
   }
 
   // ============ Remote Configuration Operations ============
@@ -776,7 +768,7 @@ export class Git implements Disposable {
    */
   remoteAdd(): RemoteAddCommand {
     this.checkClosed();
-    return new RemoteAddCommand(this.store);
+    return new RemoteAddCommand(this._workingCopy);
   }
 
   /**
@@ -791,7 +783,7 @@ export class Git implements Disposable {
    */
   remoteRemove(): RemoteRemoveCommand {
     this.checkClosed();
-    return new RemoteRemoveCommand(this.store);
+    return new RemoteRemoveCommand(this._workingCopy);
   }
 
   /**
@@ -804,7 +796,7 @@ export class Git implements Disposable {
    */
   remoteList(): RemoteListCommand {
     this.checkClosed();
-    return new RemoteListCommand(this.store);
+    return new RemoteListCommand(this._workingCopy);
   }
 
   /**
@@ -820,7 +812,7 @@ export class Git implements Disposable {
    */
   remoteSetUrl(): RemoteSetUrlCommand {
     this.checkClosed();
-    return new RemoteSetUrlCommand(this.store);
+    return new RemoteSetUrlCommand(this._workingCopy);
   }
 
   // ============ Rebase Operations ============
@@ -843,7 +835,7 @@ export class Git implements Disposable {
    */
   rebase(): RebaseCommand {
     this.checkClosed();
-    return new RebaseCommand(this.store);
+    return new RebaseCommand(this._workingCopy);
   }
 
   // ============ Stash Operations ============
@@ -861,7 +853,7 @@ export class Git implements Disposable {
    */
   stashCreate(): StashCreateCommand {
     this.checkClosed();
-    return new StashCreateCommand(this.store);
+    return new StashCreateCommand(this._workingCopy);
   }
 
   /**
@@ -880,7 +872,7 @@ export class Git implements Disposable {
    */
   stashApply(): StashApplyCommand {
     this.checkClosed();
-    return new StashApplyCommand(this.store);
+    return new StashApplyCommand(this._workingCopy);
   }
 
   /**
@@ -897,7 +889,7 @@ export class Git implements Disposable {
    */
   stashDrop(): StashDropCommand {
     this.checkClosed();
-    return new StashDropCommand(this.store);
+    return new StashDropCommand(this._workingCopy);
   }
 
   /**
@@ -913,28 +905,25 @@ export class Git implements Disposable {
    */
   stashList(): StashListCommand {
     this.checkClosed();
-    return new StashListCommand(this.store);
+    return new StashListCommand(this._workingCopy);
   }
 
   // ============ Component Access ============
 
   /**
-   * Get the underlying WorkingCopy (if available).
-   *
-   * Returns undefined if the Git instance was created with wrap() or fromRepository().
-   * Use fromWorkingCopy() to ensure access to the WorkingCopy.
+   * Get the underlying WorkingCopy.
    *
    * @example
    * ```typescript
    * const git = Git.fromWorkingCopy(workingCopy);
-   * const wc = git.workingCopy!;
+   * const wc = git.workingCopy;
    *
    * // Access full WorkingCopy API
    * const status = await wc.getStatus();
    * const branch = await wc.getCurrentBranch();
    * ```
    */
-  get workingCopy(): WorkingCopy | undefined {
+  get workingCopy(): WorkingCopy {
     return this._workingCopy;
   }
 
@@ -942,7 +931,7 @@ export class Git implements Disposable {
    * Get the History interface for accessing repository objects.
    *
    * Provides access to blobs, trees, commits, tags, and refs.
-   * Returns undefined if created with wrap() or if WorkingCopy doesn't have history.
+   * Returns undefined if WorkingCopy doesn't have history.
    *
    * @example
    * ```typescript
@@ -954,14 +943,14 @@ export class Git implements Disposable {
    * ```
    */
   get history(): History | undefined {
-    return this._workingCopy?.history;
+    return this._workingCopy.history;
   }
 
   /**
    * Get the Checkout interface for managing local state.
    *
    * Provides access to staging area, HEAD, and in-progress operations.
-   * Returns undefined if created with wrap() or if WorkingCopy doesn't have checkout.
+   * Returns undefined if WorkingCopy doesn't have checkout.
    *
    * Note: Named `checkoutState` to avoid conflict with `checkout()` command method.
    *
@@ -975,14 +964,14 @@ export class Git implements Disposable {
    * ```
    */
   get checkoutState(): Checkout | undefined {
-    return this._workingCopy?.checkout;
+    return this._workingCopy.checkout;
   }
 
   /**
    * Get the Worktree interface for filesystem operations.
    *
    * Provides access to working directory read/write operations.
-   * Returns undefined if created with wrap() or if WorkingCopy doesn't have worktree.
+   * Returns undefined if WorkingCopy doesn't have worktree.
    *
    * @example
    * ```typescript
@@ -995,19 +984,10 @@ export class Git implements Disposable {
    * ```
    */
   get worktree(): Worktree | undefined {
-    return this._workingCopy?.worktreeInterface;
+    return this._workingCopy.worktreeInterface;
   }
 
   // ============ Lifecycle ============
-
-  /**
-   * Get the underlying store.
-   *
-   * @deprecated Use component accessors (history, checkout, worktree) instead.
-   */
-  getStore(): GitStore {
-    return this.store;
-  }
 
   /**
    * Close the Git instance.

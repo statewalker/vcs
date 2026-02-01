@@ -1,7 +1,6 @@
-import type { HistoryStore } from "@statewalker/vcs-core";
+import type { HistoryStore, WorkingCopy } from "@statewalker/vcs-core";
 
 import type { Git } from "../git.js";
-import type { GitStore } from "../types.js";
 
 /**
  * Result of repository initialization.
@@ -12,8 +11,8 @@ export interface InitResult {
   /** Git facade for command execution */
   git: Git;
 
-  /** GitStore for direct store access */
-  store: GitStore;
+  /** WorkingCopy for direct repository access */
+  workingCopy: WorkingCopy;
 
   /** The underlying HistoryStore (repository) */
   repository: HistoryStore;

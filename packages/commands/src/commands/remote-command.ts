@@ -142,7 +142,7 @@ export class RemoteAddCommand extends GitCommand<RemoteConfig> {
   private async getRemoteConfig(name: string): Promise<RemoteConfig | undefined> {
     // Check if remote tracking refs exist
     let hasRefs = false;
-    for await (const _ref of this.store.refs.list(`refs/remotes/${name}/`)) {
+    for await (const _ref of this.refsStore.list(`refs/remotes/${name}/`)) {
       hasRefs = true;
       break;
     }
@@ -220,7 +220,7 @@ export class RemoteRemoveCommand extends GitCommand<RemoteConfig | undefined> {
 
     // Get refs to delete
     const refsToDelete: string[] = [];
-    for await (const ref of this.store.refs.list(`refs/remotes/${this.remoteName}/`)) {
+    for await (const ref of this.refsStore.list(`refs/remotes/${this.remoteName}/`)) {
       refsToDelete.push(ref.name);
     }
 
@@ -230,7 +230,7 @@ export class RemoteRemoveCommand extends GitCommand<RemoteConfig | undefined> {
 
     // Delete refs
     for (const refName of refsToDelete) {
-      await this.store.refs.delete(refName);
+      await this.refsStore.delete(refName);
     }
 
     return {
@@ -270,7 +270,7 @@ export class RemoteListCommand extends GitCommand<RemoteConfig[]> {
 
     // Discover remotes from refs/remotes/* namespace
     const remoteNames = new Set<string>();
-    for await (const ref of this.store.refs.list("refs/remotes/")) {
+    for await (const ref of this.refsStore.list("refs/remotes/")) {
       // Extract remote name from ref
       const parts = ref.name.split("/");
       if (parts.length >= 3) {
@@ -400,7 +400,7 @@ export class RemoteSetUrlCommand extends GitCommand<RemoteConfig> {
 
     // Check if remote exists
     let hasRefs = false;
-    for await (const _ref of this.store.refs.list(`refs/remotes/${this.remoteName}/`)) {
+    for await (const _ref of this.refsStore.list(`refs/remotes/${this.remoteName}/`)) {
       hasRefs = true;
       break;
     }

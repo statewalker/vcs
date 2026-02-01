@@ -238,7 +238,7 @@ export class TagCommand extends GitCommand<Ref> {
     const refName = `refs/tags/${this.name}`;
 
     // Check if already exists
-    if (!this.force && (await this.store.refs.has(refName))) {
+    if (!this.force && (await this.refsStore.has(refName))) {
       throw new RefAlreadyExistsError(refName, `Tag '${this.name}' already exists`);
     }
 
@@ -252,7 +252,7 @@ export class TagCommand extends GitCommand<Ref> {
 
     if (createAnnotated) {
       // Create annotated tag object
-      if (!this.store.tags) {
+      if (!this.tagsStore) {
         throw new StoreNotAvailableError(
           "TagStore",
           "Tag store is not available for annotated tags",
@@ -274,17 +274,17 @@ export class TagCommand extends GitCommand<Ref> {
         message: this.message ?? "",
       };
 
-      tagObjectId = await this.store.tags.storeTag(tag);
+      tagObjectId = await this.tagsStore.storeTag(tag);
     } else {
       // Lightweight tag - just point to the object
       tagObjectId = targetId;
     }
 
-    await this.store.refs.set(refName, tagObjectId);
+    await this.refsStore.set(refName, tagObjectId);
 
     this.setCallable(false);
 
-    const ref = await this.store.refs.get(refName);
+    const ref = await this.refsStore.get(refName);
     return ref as Ref;
   }
 }
@@ -329,11 +329,11 @@ export class DeleteTagCommand extends GitCommand<string[]> {
     for (const name of this.tags) {
       const refName = name.startsWith("refs/") ? name : `refs/tags/${name}`;
 
-      if (!(await this.store.refs.has(refName))) {
+      if (!(await this.refsStore.has(refName))) {
         throw new RefNotFoundError(refName, `Tag '${name}' not found`);
       }
 
-      await this.store.refs.delete(refName);
+      await this.refsStore.delete(refName);
       deleted.push(refName);
     }
 
@@ -364,7 +364,7 @@ export class ListTagCommand extends GitCommand<Ref[]> {
 
     const tags: Ref[] = [];
 
-    for await (const ref of this.store.refs.list("refs/tags/")) {
+    for await (const ref of this.refsStore.list("refs/tags/")) {
       if ("objectId" in ref) {
         tags.push(ref);
       }

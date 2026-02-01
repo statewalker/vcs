@@ -151,7 +151,7 @@ export class CreateBranchCommand extends GitCommand<Ref> {
     const refName = `refs/heads/${this.name}`;
 
     // Check if already exists
-    if (!this.force && (await this.store.refs.has(refName))) {
+    if (!this.force && (await this.refsStore.has(refName))) {
       throw new RefAlreadyExistsError(refName, `Branch '${this.name}' already exists`);
     }
 
@@ -160,11 +160,11 @@ export class CreateBranchCommand extends GitCommand<Ref> {
       ? await this.resolveRef(this.startPoint)
       : await this.resolveHead();
 
-    await this.store.refs.set(refName, targetId);
+    await this.refsStore.set(refName, targetId);
 
     this.setCallable(false);
 
-    const ref = await this.store.refs.get(refName);
+    const ref = await this.refsStore.get(refName);
     return ref as Ref;
   }
 }
@@ -245,7 +245,7 @@ export class DeleteBranchCommand extends GitCommand<string[]> {
       }
 
       // Check if exists
-      if (!(await this.store.refs.has(refName))) {
+      if (!(await this.refsStore.has(refName))) {
         throw new RefNotFoundError(refName, `Branch '${name}' not found`);
       }
 
@@ -257,7 +257,7 @@ export class DeleteBranchCommand extends GitCommand<string[]> {
         }
       }
 
-      await this.store.refs.delete(refName);
+      await this.refsStore.delete(refName);
       deleted.push(refName);
     }
 
@@ -268,7 +268,7 @@ export class DeleteBranchCommand extends GitCommand<string[]> {
    * Check if a branch is fully merged into HEAD or upstream.
    */
   private async isBranchMerged(refName: string): Promise<boolean> {
-    const ref = await this.store.refs.resolve(refName);
+    const ref = await this.refsStore.resolve(refName);
     if (!ref?.objectId) {
       return true; // Non-existent is "merged"
     }
@@ -276,7 +276,7 @@ export class DeleteBranchCommand extends GitCommand<string[]> {
     // Check if branch commit is ancestor of HEAD
     try {
       const headId = await this.resolveHead();
-      return this.store.commits.isAncestor(ref.objectId, headId);
+      return this.commits.isAncestor(ref.objectId, headId);
     } catch {
       // If HEAD doesn't exist, consider it merged
       return true;
@@ -353,7 +353,7 @@ export class ListBranchCommand extends GitCommand<Ref[]> {
     const branches: Ref[] = [];
 
     for (const prefix of prefixes) {
-      for await (const ref of this.store.refs.list(prefix)) {
+      for await (const ref of this.refsStore.list(prefix)) {
         // Skip symbolic refs
         if (isSymbolicRef(ref)) {
           continue;
@@ -361,7 +361,7 @@ export class ListBranchCommand extends GitCommand<Ref[]> {
 
         // Filter by contains
         if (this.containsCommit && ref.objectId) {
-          const contains = await this.store.commits.isAncestor(this.containsCommit, ref.objectId);
+          const contains = await this.commits.isAncestor(this.containsCommit, ref.objectId);
           if (!contains) {
             continue;
           }
@@ -459,29 +459,29 @@ export class RenameBranchCommand extends GitCommand<Ref> {
     const newRefName = `refs/heads/${this.newName}`;
 
     // Check old exists
-    const oldRef = await this.store.refs.resolve(oldRefName);
+    const oldRef = await this.refsStore.resolve(oldRefName);
     if (!oldRef?.objectId) {
       throw new RefNotFoundError(oldRefName);
     }
 
     // Check new doesn't exist
-    if (await this.store.refs.has(newRefName)) {
+    if (await this.refsStore.has(newRefName)) {
       throw new RefAlreadyExistsError(newRefName, `Branch '${this.newName}' already exists`);
     }
 
     // Create new and delete old
-    await this.store.refs.set(newRefName, oldRef.objectId);
-    await this.store.refs.delete(oldRefName);
+    await this.refsStore.set(newRefName, oldRef.objectId);
+    await this.refsStore.delete(oldRefName);
 
     // Update HEAD if it was pointing to old branch
-    const head = await this.store.refs.get("HEAD");
+    const head = await this.refsStore.get("HEAD");
     if (head && isSymbolicRef(head) && head.target === oldRefName) {
-      await this.store.refs.setSymbolic("HEAD", newRefName);
+      await this.refsStore.setSymbolic("HEAD", newRefName);
     }
 
     this.setCallable(false);
 
-    const ref = await this.store.refs.get(newRefName);
+    const ref = await this.refsStore.get(newRefName);
     return ref as Ref;
   }
 }

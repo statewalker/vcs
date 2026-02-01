@@ -5,10 +5,10 @@
  * Tests run against all storage backends (Memory, SQL).
  */
 
-import type { Ref } from "@statewalker/vcs-core";
+import type { Ref, WorkingCopy } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Git, type GitStore, RefUpdateStatus, TagOption } from "../src/index.js";
+import { Git, RefUpdateStatus, TagOption } from "../src/index.js";
 import { backends } from "./test-helper.js";
 import {
   addFileAndCommit,
@@ -26,27 +26,18 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
     }
   });
 
-  async function createTestStore(): Promise<GitStore> {
+  async function createTestWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const wc = ctx.workingCopy;
-    // Construct GitStore-like object from WorkingCopy for transport tests
-    return {
-      blobs: wc.repository.blobs,
-      trees: wc.repository.trees,
-      commits: wc.repository.commits,
-      tags: wc.repository.tags,
-      refs: wc.repository.refs,
-      staging: wc.staging,
-    };
+    return ctx.workingCopy;
   }
   describe("basic operations", () => {
     it("should fetch refs from remote repository", async () => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -63,7 +54,7 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
         expect(result.uri).toBe(remoteUrl);
 
         // Check that tracking ref was created
-        const trackingRef = (await clientStore.refs.get("refs/remotes/origin/main")) as
+        const trackingRef = (await workingCopy.repository.refs.get("refs/remotes/origin/main")) as
           | Ref
           | undefined;
         expect(trackingRef).toBeDefined();
@@ -78,8 +69,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -93,13 +84,13 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
           .call();
 
         // Get initial ref value
-        const initialRef = (await clientStore.refs.get("refs/remotes/origin/main")) as
+        const initialRef = (await workingCopy.repository.refs.get("refs/remotes/origin/main")) as
           | Ref
           | undefined;
         const initialObjectId = initialRef?.objectId;
 
         // Add a new commit on server
-        await addFileAndCommit(server.serverStore, "file2.txt", "content 2", "Second commit");
+        await addFileAndCommit(server.serverStores, "file2.txt", "content 2", "Second commit");
 
         // Second fetch should update the ref
         const result = await git
@@ -125,8 +116,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -143,7 +134,7 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
         expect(result.trackingRefUpdates.length).toBeGreaterThan(0);
 
         // But ref should not be created
-        const trackingRef = await clientStore.refs.get("refs/remotes/origin/main");
+        const trackingRef = await workingCopy.repository.refs.get("refs/remotes/origin/main");
         expect(trackingRef).toBeUndefined();
       } finally {
         globalThis.fetch = originalFetch;
@@ -157,11 +148,11 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create additional branches on server
-      await server.serverStore.refs.set("refs/heads/feature", server.initialCommitId);
-      await server.serverStore.refs.set("refs/heads/develop", server.initialCommitId);
+      await server.serverStores.refs.set("refs/heads/feature", server.initialCommitId);
+      await server.serverStores.refs.set("refs/heads/develop", server.initialCommitId);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -180,9 +171,9 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
         expect(result.trackingRefUpdates.length).toBe(3);
 
         // Verify all refs were created
-        const mainRef = await clientStore.refs.get("refs/remotes/origin/main");
-        const featureRef = await clientStore.refs.get("refs/remotes/origin/feature");
-        const developRef = await clientStore.refs.get("refs/remotes/origin/develop");
+        const mainRef = await workingCopy.repository.refs.get("refs/remotes/origin/main");
+        const featureRef = await workingCopy.repository.refs.get("refs/remotes/origin/feature");
+        const developRef = await workingCopy.repository.refs.get("refs/remotes/origin/develop");
 
         expect(mainRef).toBeDefined();
         expect(featureRef).toBeDefined();
@@ -196,8 +187,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -222,8 +213,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -245,8 +236,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -272,14 +263,14 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Get the actual main objectId
-      const mainRef = (await server.serverStore.refs.get("refs/heads/main")) as Ref | undefined;
+      const mainRef = (await server.serverStores.refs.get("refs/heads/main")) as Ref | undefined;
       expect(mainRef?.objectId).toBeDefined();
 
       // Create a tag on server using actual objectId
-      await server.serverStore.refs.set("refs/tags/v1.0", mainRef?.objectId ?? "");
+      await server.serverStores.refs.set("refs/tags/v1.0", mainRef?.objectId ?? "");
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -307,10 +298,10 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create a tag on server
-      await server.serverStore.refs.set("refs/tags/v1.0", server.initialCommitId);
+      await server.serverStores.refs.set("refs/tags/v1.0", server.initialCommitId);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -337,14 +328,14 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Get the actual main objectId
-      const mainRef = (await server.serverStore.refs.get("refs/heads/main")) as Ref | undefined;
+      const mainRef = (await server.serverStores.refs.get("refs/heads/main")) as Ref | undefined;
       expect(mainRef?.objectId).toBeDefined();
 
       // Create additional branch on server using actual objectId
-      await server.serverStore.refs.set("refs/heads/feature", mainRef?.objectId ?? "");
+      await server.serverStores.refs.set("refs/heads/feature", mainRef?.objectId ?? "");
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -361,11 +352,11 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
           .call();
 
         // Verify feature branch was fetched
-        const featureRef = await clientStore.refs.get("refs/remotes/origin/feature");
+        const featureRef = await workingCopy.repository.refs.get("refs/remotes/origin/feature");
         expect(featureRef).toBeDefined();
 
         // Delete feature branch on server
-        await server.serverStore.refs.delete("refs/heads/feature");
+        await server.serverStores.refs.delete("refs/heads/feature");
 
         // Fetch with prune using URL directly
         const result = await git
@@ -393,8 +384,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -421,8 +412,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -450,8 +441,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const server = await createInitializedTestServer();
       const remoteUrl = createTestUrl(server.baseUrl);
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -488,11 +479,11 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
       const remoteUrl = createTestUrl(server.baseUrl);
 
       // Create multiple commits on server
-      await addFileAndCommit(server.serverStore, "file2.txt", "content 2", "Second commit");
-      await addFileAndCommit(server.serverStore, "file3.txt", "content 3", "Third commit");
+      await addFileAndCommit(server.serverStores, "file2.txt", "content 2", "Second commit");
+      await addFileAndCommit(server.serverStores, "file3.txt", "content 3", "Third commit");
 
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -513,8 +504,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject invalid depth", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       expect(() => git.fetch().setRemote("http://example.com/repo.git").setDepth(0)).toThrow(
         "Depth must be at least 1",
@@ -528,8 +519,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
 
   describe("error handling", () => {
     it("should throw for invalid remote", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = async () => {
@@ -552,8 +543,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
 
   describe("options getters", () => {
     it("should return correct values for getters", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .fetch()
@@ -579,8 +570,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
      * JGit: FetchCommandTest.testCheckFetchedObjects()
      */
     it("should support checkFetchedObjects option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.fetch().setRemote("origin").setCheckFetchedObjects(true);
 
@@ -591,8 +582,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
      * JGit: FetchCommand.setInitialBranch()
      */
     it("should support initial branch option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.fetch().setRemote("origin").setInitialBranch("develop");
 
@@ -603,8 +594,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
      * JGit: FetchCommandTest.testShallowSince()
      */
     it("should support shallow since option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const date = new Date("2024-01-15T10:30:00Z");
       const command = git.fetch().setRemote("origin").setShallowSince(date);
@@ -616,8 +607,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
      * JGit: FetchCommandTest.testShallowExclude()
      */
     it("should support shallow exclude option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git
         .fetch()
@@ -632,8 +623,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
      * JGit: FetchCommandTest.testUnshallow()
      */
     it("should support unshallow option", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const command = git.fetch().setRemote("origin").setUnshallow(true);
 
@@ -641,8 +632,8 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should return all extended getter values", async () => {
-      const clientStore = await createTestStore();
-      const git = Git.wrap(clientStore);
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
 
       const date = new Date("2024-06-20");
       const command = git

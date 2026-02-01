@@ -35,7 +35,7 @@ export class StashListCommand extends GitCommand<StashEntry[]> {
     this.setCallable(false);
 
     // Check if stash ref exists
-    const stashRef = await this.store.refs.get(STASH_REF);
+    const stashRef = await this.refsStore.get(STASH_REF);
     if (!stashRef || !("objectId" in stashRef) || !stashRef.objectId) {
       return [];
     }
@@ -64,16 +64,18 @@ export class StashListCommand extends GitCommand<StashEntry[]> {
    */
   private async getStashReflog(): Promise<Array<{ commitId: ObjectId; message: string }>> {
     // Without reflog support, we can only return the current stash ref
-    const stashRef = await this.store.refs.resolve(STASH_REF);
+    const stashRef = await this.refsStore.resolve(STASH_REF);
     if (stashRef?.objectId) {
       // Get the commit message from the stash commit
-      const commit = await this.store.commits.loadCommit(stashRef.objectId);
-      return [
-        {
-          commitId: stashRef.objectId,
-          message: commit.message.split("\n")[0],
-        },
-      ];
+      const commit = await this.commits.load(stashRef.objectId);
+      if (commit) {
+        return [
+          {
+            commitId: stashRef.objectId,
+            message: commit.message.split("\n")[0],
+          },
+        ];
+      }
     }
 
     return [];
@@ -88,7 +90,10 @@ export class StashListCommand extends GitCommand<StashEntry[]> {
     index: number,
   ): Promise<StashEntry | undefined> {
     try {
-      const commit = await this.store.commits.loadCommit(commitId);
+      const commit = await this.commits.load(commitId);
+      if (!commit) {
+        return undefined;
+      }
 
       // Stash commits should have 2 or 3 parents
       if (commit.parents.length < 2) {
