@@ -8,10 +8,14 @@
 
 import {
   type BackendCapabilities,
+  type BlobStore,
+  type CommitStore,
   DefaultSerializationApi,
+  type RefStore,
   type SerializationApi,
   type StorageBackend,
-  type StructuredStores,
+  type TagStore,
+  type TreeStore,
 } from "@statewalker/vcs-core";
 import { SQLCommitStore } from "./commit-store.js";
 import type { DatabaseClient } from "./database-client.js";
@@ -49,8 +53,8 @@ export interface SQLStorageBackendConfig {
  * const backend = new SQLStorageBackend({ db });
  * await backend.initialize();
  *
- * // Use structured stores for application logic
- * const commit = await backend.structured.commits.loadCommit(commitId);
+ * // Use stores for application logic
+ * const commit = await backend.commits.loadCommit(commitId);
  *
  * // Use delta API for storage optimization
  * backend.delta.startBatch();
@@ -61,7 +65,11 @@ export interface SQLStorageBackendConfig {
  * ```
  */
 export class SQLStorageBackend implements StorageBackend {
-  readonly structured: StructuredStores;
+  readonly blobs: BlobStore;
+  readonly trees: TreeStore;
+  readonly commits: CommitStore;
+  readonly tags: TagStore;
+  readonly refs: RefStore;
   readonly delta: SqlDeltaApi;
   readonly serialization: SerializationApi;
   readonly capabilities: BackendCapabilities = {
@@ -79,21 +87,23 @@ export class SQLStorageBackend implements StorageBackend {
     this.db = config.db;
     this.autoMigrate = config.autoMigrate ?? true;
 
-    // Create structured stores
-    const blobs = new SqlNativeBlobStoreImpl(this.db);
-    const trees = new SQLTreeStore(this.db);
-    const commits = new SQLCommitStore(this.db);
-    const tags = new SQLTagStore(this.db);
-    const refs = new SQLRefStore(this.db);
-
-    this.structured = { blobs, trees, commits, tags, refs };
+    // Create stores
+    this.blobs = new SqlNativeBlobStoreImpl(this.db);
+    this.trees = new SQLTreeStore(this.db);
+    this.commits = new SQLCommitStore(this.db);
+    this.tags = new SQLTagStore(this.db);
+    this.refs = new SQLRefStore(this.db);
 
     // Create delta API
     this.delta = new SqlDeltaApi(this.db);
 
     // Create serialization API
     this.serialization = new DefaultSerializationApi({
-      stores: this.structured,
+      blobs: this.blobs,
+      trees: this.trees,
+      commits: this.commits,
+      tags: this.tags,
+      refs: this.refs,
       blobDeltaApi: this.delta.blobs,
     });
   }

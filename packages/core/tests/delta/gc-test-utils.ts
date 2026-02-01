@@ -296,7 +296,7 @@ export async function getStatistics(ctx: GCTestContext): Promise<RepoStatistics>
   let looseCount = 0;
   let deltaCount = 0;
 
-  for await (const id of ctx.backend.structured.blobs.keys()) {
+  for await (const id of ctx.backend.blobs.keys()) {
     if (await ctx.backend.delta.isDelta(id)) {
       deltaCount++;
     } else {
@@ -315,7 +315,7 @@ export async function getStatistics(ctx: GCTestContext): Promise<RepoStatistics>
  */
 export async function countBlobs(ctx: GCTestContext): Promise<number> {
   let count = 0;
-  for await (const _ of ctx.backend.structured.blobs.keys()) {
+  for await (const _ of ctx.backend.blobs.keys()) {
     count++;
   }
   return count;
@@ -325,7 +325,7 @@ export async function countBlobs(ctx: GCTestContext): Promise<number> {
  * Check if repository has a blob
  */
 export async function hasBlob(ctx: GCTestContext, blobId: ObjectId): Promise<boolean> {
-  return ctx.backend.structured.blobs.has(blobId);
+  return ctx.backend.blobs.has(blobId);
 }
 
 /**
@@ -350,7 +350,7 @@ export async function hasObject(ctx: GCTestContext, objectId: ObjectId): Promise
   }
 
   // Check blobs
-  return ctx.backend.structured.blobs.has(objectId);
+  return ctx.backend.blobs.has(objectId);
 }
 
 /**

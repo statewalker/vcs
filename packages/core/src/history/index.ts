@@ -26,7 +26,5 @@ export * from "./history-store.js";
 export * from "./object-storage.js";
 export * from "./objects/index.js";
 export * from "./refs/index.js";
-// Legacy StructuredStores (deprecated - use History instead)
-export * from "./structured-stores.js";
 export * from "./tags/index.js";
 export * from "./trees/index.js";

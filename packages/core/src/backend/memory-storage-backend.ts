@@ -9,7 +9,6 @@ import type { ObjectId } from "../common/id/object-id.js";
 import type { BlobStore } from "../history/blobs/blob-store.js";
 import type { CommitStore } from "../history/commits/commit-store.js";
 import type { RefStore } from "../history/refs/ref-store.js";
-import type { StructuredStores } from "../history/structured-stores.js";
 import type { TagStore } from "../history/tags/tag-store.js";
 import type { TreeStore } from "../history/trees/tree-store.js";
 import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
@@ -181,7 +180,11 @@ class MemoryDeltaApi implements DeltaApi {
  * Does not provide efficient delta compression.
  */
 export class MemoryStorageBackend implements StorageBackend {
-  readonly structured: StructuredStores;
+  readonly blobs: BlobStore;
+  readonly trees: TreeStore;
+  readonly commits: CommitStore;
+  readonly tags: TagStore;
+  readonly refs: RefStore;
   readonly delta: DeltaApi;
   readonly serialization: SerializationApi;
   readonly capabilities: BackendCapabilities = {
@@ -194,17 +197,19 @@ export class MemoryStorageBackend implements StorageBackend {
   private initialized = false;
 
   constructor(config: MemoryStorageBackendConfig) {
-    this.structured = {
-      blobs: config.blobs,
-      trees: config.trees,
-      commits: config.commits,
-      tags: config.tags,
-      refs: config.refs,
-    };
+    this.blobs = config.blobs;
+    this.trees = config.trees;
+    this.commits = config.commits;
+    this.tags = config.tags;
+    this.refs = config.refs;
 
     this.delta = new MemoryDeltaApi(config.blobs, config.deltaTracker);
     this.serialization = new DefaultSerializationApi({
-      stores: this.structured,
+      blobs: this.blobs,
+      trees: this.trees,
+      commits: this.commits,
+      tags: this.tags,
+      refs: this.refs,
       blobDeltaApi: this.delta.blobs,
     });
   }

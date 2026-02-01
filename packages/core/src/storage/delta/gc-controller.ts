@@ -69,7 +69,7 @@ const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
  * Key differences from V1:
  * - Only processes blobs (trees and commits are not deltified)
  * - Uses StorageBackend.delta API for all delta operations
- * - Uses StorageBackend.structured for object access
+ * - Uses StorageBackend stores (blobs, commits, trees) for object access
  *
  * @example
  * ```typescript
@@ -134,7 +134,7 @@ export class GCController {
 
     try {
       for (const blobId of this.pendingBlobs) {
-        const size = await this.backend.structured.blobs.size(blobId);
+        const size = await this.backend.blobs.size(blobId);
 
         const target: DeltaTarget = {
           id: blobId,
@@ -179,7 +179,7 @@ export class GCController {
     let looseCount = 0;
     let deepChains = 0;
 
-    for await (const id of this.backend.structured.blobs.keys()) {
+    for await (const id of this.backend.blobs.keys()) {
       if (!(await this.backend.delta.isDelta(id))) {
         looseCount++;
       } else {
@@ -233,7 +233,7 @@ export class GCController {
     const maxChainDepth = options?.maxChainDepth ?? this.options.maxChainDepth;
     const deltaEngine = this.options.deltaEngine;
     const deltaApi = this.backend.delta;
-    const blobs = this.backend.structured.blobs;
+    const blobs = this.backend.blobs;
 
     let objectsProcessed = 0;
     let deltasCreated = 0;
@@ -371,7 +371,7 @@ export class GCController {
     const startTime = Date.now();
     const expireTime = expire?.getTime() ?? 0;
 
-    const { blobs } = this.backend.structured;
+    const { blobs } = this.backend;
 
     // Find all reachable blobs
     const reachable = new Set<string>();
@@ -423,7 +423,7 @@ export class GCController {
     reachable.add(commitId);
 
     try {
-      const commit = await this.backend.structured.commits.loadCommit(commitId);
+      const commit = await this.backend.commits.loadCommit(commitId);
       await this.walkTree(commit.tree, reachable);
 
       for (const parent of commit.parents) {
@@ -442,7 +442,7 @@ export class GCController {
     reachable.add(treeId);
 
     try {
-      for await (const entry of this.backend.structured.trees.loadTree(treeId)) {
+      for await (const entry of this.backend.trees.loadTree(treeId)) {
         reachable.add(entry.id);
         if (entry.mode === FileMode.TREE) {
           await this.walkTree(entry.id, reachable);

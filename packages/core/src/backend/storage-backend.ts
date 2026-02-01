@@ -2,13 +2,19 @@
  * StorageBackend - Unified interface for VCS storage
  *
  * The unified storage contract that all backends must implement.
- * Provides three perspectives on the same underlying data:
+ * Provides two perspectives on the same underlying data:
  *
- * 1. **StructuredStores** - Typed access to parsed Git objects
- * 2. **DeltaApi** - Blob delta operations for storage optimization
- * 3. **SerializationApi** - Git-compatible wire format I/O
+ * 1. **DeltaApi** - Blob delta operations for storage optimization
+ * 2. **SerializationApi** - Git-compatible wire format I/O
  *
- * Each backend implements all three APIs optimally for its storage type:
+ * For typed access to Git objects, use the History interface instead:
+ * ```typescript
+ * import { createHistoryFromBackend } from "@statewalker/vcs-core";
+ * const history = createHistoryFromBackend({ backend });
+ * const commit = await history.commits.load(commitId);
+ * ```
+ *
+ * Each backend implements all APIs optimally for its storage type:
  * - Git Files: Direct file access, pack files for delta/serialization
  * - SQL: Tables with indexed fields, transactions for atomicity
  * - Memory: In-memory maps, fast for testing
@@ -20,9 +26,9 @@
  * const backend = createStorageBackend("git-files", { path: ".git" });
  * await backend.initialize();
  *
- * // Use structured stores for application logic
- * const commit = await backend.structured.commits.loadCommit(commitId);
- * const tree = backend.structured.trees.loadTree(commit.tree);
+ * // Use History for typed object access
+ * const history = createHistoryFromBackend({ backend });
+ * const commit = await history.commits.load(commitId);
  *
  * // Use delta API for storage optimization
  * backend.delta.startBatch();
@@ -38,7 +44,11 @@
  * ```
  */
 
-import type { StructuredStores } from "../history/structured-stores.js";
+import type { BlobStore } from "../history/blobs/blob-store.js";
+import type { CommitStore } from "../history/commits/commit-store.js";
+import type { RefStore } from "../history/refs/ref-store.js";
+import type { TagStore } from "../history/tags/tag-store.js";
+import type { TreeStore } from "../history/trees/tree-store.js";
 import type { SerializationApi } from "../serialization/serialization-api.js";
 import type { DeltaApi } from "../storage/delta/delta-api.js";
 
@@ -118,28 +128,43 @@ export interface BackendConfig {
 /**
  * StorageBackend - The unified storage contract
  *
- * All storage implementations must provide all three APIs.
+ * All storage implementations must provide the core APIs.
  * This enables consistent behavior across different storage types.
  */
 export interface StorageBackend {
   /**
-   * API 1: Structured access to typed objects
+   * Blob (file content) storage
    *
-   * @deprecated Use {@link History} via `createHistoryFromBackend({ backend })` instead.
-   *
-   * Provides BlobStore, TreeStore, CommitStore, TagStore, RefStore.
-   * In the new architecture, use History for typed object access:
+   * Access via History interface is recommended:
    * ```typescript
    * const history = createHistoryFromBackend({ backend });
-   * const commit = await history.commits.load(commitId);
+   * const blob = await history.blobs.load(blobId);
    * ```
-   *
-   * This property will be removed in a future version.
    */
-  readonly structured: StructuredStores;
+  readonly blobs: BlobStore;
 
   /**
-   * API 2: Delta/raw content manipulation
+   * Tree (directory structure) storage
+   */
+  readonly trees: TreeStore;
+
+  /**
+   * Commit (version snapshot) storage
+   */
+  readonly commits: CommitStore;
+
+  /**
+   * Tag (annotated tag) storage
+   */
+  readonly tags: TagStore;
+
+  /**
+   * Reference (branch/tag pointer) storage
+   */
+  readonly refs: RefStore;
+
+  /**
+   * Delta/raw content manipulation
    *
    * Only blobs have delta support in internal storage.
    * Used for GC, repacking, and storage optimization.
