@@ -45,35 +45,6 @@ export interface PushCommand {
 }
 
 /**
- * Zero OID constant for creating/deleting refs.
- */
-export const ZERO_OID = "0".repeat(40);
-
-/**
- * Parse a refspec string into components.
- */
-export function parseRefspec(refspec: string): {
-  src: string | null;
-  dst: string;
-  force: boolean;
-} {
-  let force = false;
-  let spec = refspec;
-
-  if (spec.startsWith("+")) {
-    force = true;
-    spec = spec.slice(1);
-  }
-
-  if (spec.includes(":")) {
-    const [src, dst] = spec.split(":", 2);
-    return { src: src || null, dst, force };
-  }
-
-  return { src: spec, dst: spec, force };
-}
-
-/**
  * Map server rejection reason to PushCommandResult.
  */
 export function mapRejectReason(reason: string): PushCommandResult {

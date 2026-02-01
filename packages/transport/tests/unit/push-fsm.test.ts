@@ -11,11 +11,11 @@ import {
   clientPushTransitions,
   mapRejectReason,
   type PushCommand,
-  parseRefspec,
   serverPushHandlers,
   serverPushTransitions,
   ZERO_OID,
 } from "../../src/fsm/push/index.js";
+import { parseRefSpec } from "../../src/utils/refspec.js";
 
 // Mock transport that records calls and returns configured responses
 function createMockTransport(responses: PktLineResult[] = []): TransportApi & {
@@ -131,40 +131,48 @@ function createMockRefStore(refs: Map<string, string> = new Map()): RefStore {
 }
 
 describe("Push FSM Types", () => {
-  describe("parseRefspec", () => {
+  describe("parseRefSpec", () => {
     it("parses simple refspec", () => {
-      const result = parseRefspec("refs/heads/main:refs/heads/main");
+      const result = parseRefSpec("refs/heads/main:refs/heads/main");
       expect(result).toEqual({
-        src: "refs/heads/main",
-        dst: "refs/heads/main",
+        source: "refs/heads/main",
+        destination: "refs/heads/main",
         force: false,
+        negative: false,
+        wildcard: false,
       });
     });
 
     it("parses force refspec", () => {
-      const result = parseRefspec("+refs/heads/main:refs/heads/main");
+      const result = parseRefSpec("+refs/heads/main:refs/heads/main");
       expect(result).toEqual({
-        src: "refs/heads/main",
-        dst: "refs/heads/main",
+        source: "refs/heads/main",
+        destination: "refs/heads/main",
         force: true,
+        negative: false,
+        wildcard: false,
       });
     });
 
     it("parses refspec without colon", () => {
-      const result = parseRefspec("refs/heads/main");
+      const result = parseRefSpec("refs/heads/main");
       expect(result).toEqual({
-        src: "refs/heads/main",
-        dst: "refs/heads/main",
+        source: "refs/heads/main",
+        destination: null,
         force: false,
+        negative: false,
+        wildcard: false,
       });
     });
 
     it("parses delete refspec", () => {
-      const result = parseRefspec(":refs/heads/feature");
+      const result = parseRefSpec(":refs/heads/feature");
       expect(result).toEqual({
-        src: null,
-        dst: "refs/heads/feature",
+        source: null,
+        destination: "refs/heads/feature",
         force: false,
+        negative: false,
+        wildcard: false,
       });
     });
   });
