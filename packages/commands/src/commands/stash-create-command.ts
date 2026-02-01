@@ -37,7 +37,7 @@ const MSG_UNTRACKED = "untracked files on {0}: {1} {2}";
  * Interface for providing working tree and index state.
  *
  * The stash create operation requires access to the working directory
- * and index, which is not available in the base GitStore interface.
+ * and index, which requires a WorkingCopy with worktree access.
  */
 export interface StashWorkingTreeProvider {
   /**

@@ -10,7 +10,9 @@
 
 import {
   FileMode,
+  type HistoryStore,
   type ObjectId,
+  type WorkingCopy,
   type Worktree,
   type WorktreeCheckoutOptions,
   type WorktreeCheckoutResult,
@@ -22,7 +24,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { NoFilepatternError } from "../src/errors/index.js";
 import { Git } from "../src/git.js";
-import type { GitStoreWithWorkTree } from "../src/types.js";
 import { backends, type WorkingCopyFactory } from "./test-helper.js";
 
 /**
@@ -207,14 +208,83 @@ class MockWorkingTree implements Worktree {
 }
 
 /**
+ * Create a WorkingCopy with a mock worktree for testing.
+ */
+function createWorkingCopyWithMockWorktree(
+  repository: HistoryStore,
+  staging: WorkingCopy["staging"],
+  worktree: MockWorkingTree,
+): WorkingCopy {
+  return {
+    repository,
+    staging,
+    worktree: worktree as unknown as Worktree,
+    stash: {} as never,
+    config: {} as never,
+    get history() {
+      return undefined;
+    },
+    get checkout() {
+      return undefined;
+    },
+    get worktreeInterface() {
+      return worktree as unknown as Worktree;
+    },
+    async getHead() {
+      const ref = await repository.refs.resolve("HEAD");
+      return ref?.objectId;
+    },
+    async getCurrentBranch() {
+      const ref = await repository.refs.get("HEAD");
+      if (ref && "target" in ref) {
+        return (ref.target as string).replace("refs/heads/", "");
+      }
+      return undefined;
+    },
+    async setHead() {},
+    async isDetachedHead() {
+      return false;
+    },
+    async getMergeState() {
+      return undefined;
+    },
+    async getRebaseState() {
+      return undefined;
+    },
+    async getCherryPickState() {
+      return undefined;
+    },
+    async getRevertState() {
+      return undefined;
+    },
+    async hasOperationInProgress() {
+      return false;
+    },
+    async getStatus() {
+      return {
+        files: [],
+        staged: [],
+        unstaged: [],
+        untracked: [],
+        isClean: true,
+        hasStaged: false,
+        hasUnstaged: false,
+        hasUntracked: false,
+        hasConflicts: false,
+      };
+    },
+  } as unknown as WorkingCopy;
+}
+
+/**
  * Create an initialized Git instance with working tree support using a factory.
  */
 async function createInitializedGitWithWorkTreeFromFactory(factory: WorkingCopyFactory): Promise<{
   git: Git;
-  store: GitStoreWithWorkTree;
   worktree: MockWorkingTree;
-  workingCopy: typeof ctx.workingCopy;
-  repository: typeof ctx.repository;
+  workingCopy: WorkingCopy;
+  repository: HistoryStore;
+  staging: WorkingCopy["staging"];
   initialCommitId: string;
   cleanup?: () => Promise<void>;
 }> {
@@ -222,13 +292,14 @@ async function createInitializedGitWithWorkTreeFromFactory(factory: WorkingCopyF
   const repository = ctx.repository;
   const worktree = new MockWorkingTree();
 
-  const store: GitStoreWithWorkTree = {
-    ...repository,
-    staging: ctx.workingCopy.staging,
+  // Create a WorkingCopy with the mock worktree
+  const workingCopy = createWorkingCopyWithMockWorktree(
+    repository,
+    ctx.workingCopy.staging,
     worktree,
-  };
+  );
 
-  const git = Git.wrap(store);
+  const git = Git.fromWorkingCopy(workingCopy);
 
   // Create and store empty tree
   const emptyTreeId = await repository.trees.storeTree([]);
@@ -263,10 +334,10 @@ async function createInitializedGitWithWorkTreeFromFactory(factory: WorkingCopyF
 
   return {
     git,
-    store,
     worktree,
-    workingCopy: ctx.workingCopy,
+    workingCopy,
     repository,
+    staging: ctx.workingCopy.staging,
     initialCommitId,
     cleanup: ctx.cleanup,
   };
@@ -288,13 +359,74 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
     return result;
   }
 
-  async function createEmptyStore() {
+  /**
+   * Create an empty WorkingCopy without a worktree.
+   * Used for testing custom worktree iterator functionality.
+   */
+  async function createEmptyWorkingCopy(): Promise<WorkingCopy> {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    // Return a GitStore-like object with staging
+    const repository = ctx.repository;
+    const staging = ctx.workingCopy.staging;
+
     return {
-      ...ctx.repository,
-      staging: ctx.workingCopy.staging,
+      repository,
+      staging,
+      worktree: undefined as unknown as Worktree,
+      stash: {} as never,
+      config: {} as never,
+      get history() {
+        return undefined;
+      },
+      get checkout() {
+        return undefined;
+      },
+      get worktreeInterface() {
+        return undefined;
+      },
+      async getHead() {
+        const ref = await repository.refs.resolve("HEAD");
+        return ref?.objectId;
+      },
+      async getCurrentBranch() {
+        const ref = await repository.refs.get("HEAD");
+        if (ref && "target" in ref) {
+          return (ref.target as string).replace("refs/heads/", "");
+        }
+        return undefined;
+      },
+      async setHead() {},
+      async isDetachedHead() {
+        return false;
+      },
+      async getMergeState() {
+        return undefined;
+      },
+      async getRebaseState() {
+        return undefined;
+      },
+      async getCherryPickState() {
+        return undefined;
+      },
+      async getRevertState() {
+        return undefined;
+      },
+      async hasOperationInProgress() {
+        return false;
+      },
+      async getStatus() {
+        return {
+          files: [],
+          staged: [],
+          unstaged: [],
+          untracked: [],
+          isClean: true,
+          hasStaged: false,
+          hasUnstaged: false,
+          hasUntracked: false,
+          hasConflicts: false,
+        };
+      },
     };
   }
   describe("validation", () => {
@@ -315,7 +447,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Adding a non-existing file should not fail, just skip it.
      */
     it("testAddNonExistingSingleFile - should handle non-existing file", async () => {
-      const { git, store } = await createInitializedGitWithWorkTree();
+      const { git, staging } = await createInitializedGitWithWorkTree();
 
       const result = await git.add().addFilepattern("nonexistent.txt").call();
 
@@ -324,7 +456,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
 
       // Verify index is still empty
       let count = 0;
-      for await (const _ of store.staging.entries()) {
+      for await (const _ of staging.entries()) {
         count++;
       }
       expect(count).toBe(0);
@@ -335,7 +467,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Adding an existing file should stage it.
      */
     it("testAddExistingSingleFile - should stage existing file", async () => {
-      const { git, store, worktree } = await createInitializedGitWithWorkTree();
+      const { git, staging, worktree } = await createInitializedGitWithWorkTree();
 
       // Create file in working tree
       worktree.addFile("a.txt", "content");
@@ -347,7 +479,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       expect(result.totalProcessed).toBe(1);
 
       // Verify file is in index
-      const entry = await store.staging.getEntry("a.txt");
+      const entry = await staging.getEntry("a.txt");
       expect(entry).toBeDefined();
       expect(entry?.path).toBe("a.txt");
     });
@@ -357,7 +489,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Adding a file in a subdirectory should work.
      */
     it("testAddExistingSingleFileInSubDir - should stage file in subdirectory", async () => {
-      const { git, store, worktree } = await createInitializedGitWithWorkTree();
+      const { git, staging, worktree } = await createInitializedGitWithWorkTree();
 
       worktree.addFile("sub/a.txt", "content");
 
@@ -365,7 +497,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
 
       expect(result.added).toContain("sub/a.txt");
 
-      const entry = await store.staging.getEntry("sub/a.txt");
+      const entry = await staging.getEntry("sub/a.txt");
       expect(entry).toBeDefined();
     });
 
@@ -374,7 +506,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Adding multiple files at once.
      */
     it("testAddTwoFiles - should stage multiple files", async () => {
-      const { git, store, worktree } = await createInitializedGitWithWorkTree();
+      const { git, staging, worktree } = await createInitializedGitWithWorkTree();
 
       worktree.addFile("a.txt", "content a");
       worktree.addFile("b.txt", "content b");
@@ -385,8 +517,8 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       expect(result.added).toContain("a.txt");
       expect(result.added).toContain("b.txt");
 
-      const entryA = await store.staging.getEntry("a.txt");
-      const entryB = await store.staging.getEntry("b.txt");
+      const entryA = await staging.getEntry("a.txt");
+      const entryB = await staging.getEntry("b.txt");
       expect(entryA).toBeDefined();
       expect(entryB).toBeDefined();
     });
@@ -434,20 +566,20 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Adding a modified file should update the index.
      */
     it("testAddExistingSingleFileTwice - should update index for modified file", async () => {
-      const { git, store, worktree } = await createInitializedGitWithWorkTree();
+      const { git, staging, worktree } = await createInitializedGitWithWorkTree();
 
       // First add
       worktree.addFile("a.txt", "content");
       await git.add().addFilepattern("a.txt").call();
 
-      const firstEntry = await store.staging.getEntry("a.txt");
+      const firstEntry = await staging.getEntry("a.txt");
       const firstOid = firstEntry?.objectId;
 
       // Modify and add again
       worktree.addFile("a.txt", "modified content");
       await git.add().addFilepattern("a.txt").call();
 
-      const secondEntry = await store.staging.getEntry("a.txt");
+      const secondEntry = await staging.getEntry("a.txt");
       const secondOid = secondEntry?.objectId;
 
       // Object IDs should be different
@@ -492,7 +624,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Without update mode but with all=true, deletions are staged.
      */
     it("testAddWithoutParameterUpdate - should stage deletions with all mode", async () => {
-      const { git, store, worktree } = await createInitializedGitWithWorkTree();
+      const { git, staging, worktree } = await createInitializedGitWithWorkTree();
 
       // Initial setup
       worktree.addFile("sub/a.txt", "content a");
@@ -514,7 +646,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       // Deletion should NOT be staged
       expect(result.removed).not.toContain("sub/b.txt");
       // b.txt should still be in index
-      let entryB = await store.staging.getEntry("sub/b.txt");
+      let entryB = await staging.getEntry("sub/b.txt");
       expect(entryB).toBeDefined();
 
       // Now use setAll(true) - should stage deletion
@@ -523,7 +655,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       // Deletion should now be staged
       expect(result.removed).toContain("sub/b.txt");
       // b.txt should be removed from index
-      entryB = await store.staging.getEntry("sub/b.txt");
+      entryB = await staging.getEntry("sub/b.txt");
       expect(entryB).toBeUndefined();
     });
   });
@@ -534,7 +666,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Ignored files should be skipped unless force is used.
      */
     it("testAddIgnoredFile - should skip ignored files", async () => {
-      const { git, store, worktree } = await createInitializedGitWithWorkTree();
+      const { git, staging, worktree } = await createInitializedGitWithWorkTree();
 
       worktree.addFile("sub/a.txt", "content a");
       worktree.addFile("sub/b.txt", "content b");
@@ -549,8 +681,8 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       expect(result.added).not.toContain("sub/b.txt");
 
       // Only a.txt in index
-      const entryA = await store.staging.getEntry("sub/a.txt");
-      const entryB = await store.staging.getEntry("sub/b.txt");
+      const entryA = await staging.getEntry("sub/a.txt");
+      const entryB = await staging.getEntry("sub/b.txt");
       expect(entryA).toBeDefined();
       expect(entryB).toBeUndefined();
     });
@@ -559,7 +691,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Test force flag adds ignored files.
      */
     it("should add ignored files with force flag", async () => {
-      const { git, store, worktree } = await createInitializedGitWithWorkTree();
+      const { git, staging, worktree } = await createInitializedGitWithWorkTree();
 
       worktree.addFile("ignored.txt", "content");
       worktree.markIgnored("ignored.txt");
@@ -572,7 +704,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       result = await git.add().addFilepattern("ignored.txt").setForce(true).call();
       expect(result.added).toContain("ignored.txt");
 
-      const entry = await store.staging.getEntry("ignored.txt");
+      const entry = await staging.getEntry("ignored.txt");
       expect(entry).toBeDefined();
     });
   });
@@ -622,7 +754,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Test intent-to-add mode creates placeholder entries.
      */
     it("should create placeholder entries with intent-to-add", async () => {
-      const { git, store, worktree } = await createInitializedGitWithWorkTree();
+      const { git, staging, worktree } = await createInitializedGitWithWorkTree();
 
       worktree.addFile("new.txt", "content");
 
@@ -630,7 +762,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
 
       expect(result.added).toContain("new.txt");
 
-      const entry = await store.staging.getEntry("new.txt");
+      const entry = await staging.getEntry("new.txt");
       expect(entry).toBeDefined();
       // Intent-to-add entries have empty object ID and zero size
       expect(entry?.objectId).toBe("");
@@ -702,12 +834,13 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
      * Test using custom working tree iterator.
      */
     it("should use custom iterator when set", async () => {
-      // Create standard store without worktree
-      const baseStore = await createEmptyStore();
-      const git = Git.wrap(baseStore);
+      // Create WorkingCopy without worktree
+      const workingCopy = await createEmptyWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+      const { repository, staging } = workingCopy;
 
       // Initialize store - store the empty tree first
-      const emptyTreeId = await baseStore.trees.storeTree([]);
+      const emptyTreeId = await repository.trees.storeTree([]);
       const commit = {
         tree: emptyTreeId,
         parents: [],
@@ -725,10 +858,10 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
         },
         message: "Initial",
       };
-      const commitId = await baseStore.commits.storeCommit(commit);
-      await baseStore.refs.set("refs/heads/main", commitId);
-      await baseStore.refs.setSymbolic("HEAD", "refs/heads/main");
-      await baseStore.staging.readTree(baseStore.trees, emptyTreeId);
+      const commitId = await repository.commits.storeCommit(commit);
+      await repository.refs.set("refs/heads/main", commitId);
+      await repository.refs.setSymbolic("HEAD", "refs/heads/main");
+      await staging.readTree(repository.trees, emptyTreeId);
 
       // Create custom iterator
       const customWorktree = new MockWorkingTree();

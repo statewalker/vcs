@@ -44,30 +44,20 @@ export enum ListBranchMode {
  * ```
  */
 export type {
-  /** BlobStore interface - legacy blob storage */
-  BlobStore,
   /** Blobs interface - file content storage */
   Blobs,
   /** Checkout interface - mutable local state */
   Checkout,
-  /** CommitStore interface - legacy commit storage */
-  CommitStore,
   /** Commits interface - commit object storage */
   Commits,
   /** History interface - immutable repository objects */
   History,
-  /** RefStore interface - legacy reference storage */
-  RefStore,
   /** Refs interface - branch and tag references */
   Refs,
   /** Staging interface - index/staging area */
   Staging,
-  /** TagStore interface - legacy tag storage */
-  TagStore,
   /** Tags interface - annotated tag storage */
   Tags,
-  /** TreeStore interface - legacy tree storage */
-  TreeStore,
   /** Trees interface - directory structure storage */
   Trees,
   /** WorkingCopy interface - unified repository access */
@@ -75,38 +65,3 @@ export type {
   /** Worktree interface - filesystem access */
   Worktree,
 } from "@statewalker/vcs-core";
-
-// ============ Deprecated Types for Backward Compatibility ============
-
-import type {
-  BlobStore,
-  CommitStore,
-  RefStore,
-  Staging,
-  TagStore,
-  TreeStore,
-  Worktree,
-} from "@statewalker/vcs-core";
-
-/**
- * @deprecated Use WorkingCopy instead. This type exists for backward compatibility with tests.
- *
- * Legacy store interface used by Git.wrap().
- */
-export interface GitStore {
-  blobs: BlobStore;
-  trees: TreeStore;
-  commits: CommitStore;
-  refs: RefStore;
-  staging: Staging;
-  tags?: TagStore;
-}
-
-/**
- * @deprecated Use WorkingCopy with worktreeInterface instead. This type exists for backward compatibility.
- *
- * Legacy store interface with working tree support.
- */
-export interface GitStoreWithWorkTree extends GitStore {
-  worktree: Worktree;
-}

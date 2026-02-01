@@ -1,16 +1,4 @@
-import type {
-  BlobStore,
-  Checkout,
-  CommitStore,
-  History,
-  HistoryStore,
-  RefStore,
-  Staging,
-  TagStore,
-  TreeStore,
-  WorkingCopy,
-  Worktree,
-} from "@statewalker/vcs-core";
+import type { Checkout, History, WorkingCopy, Worktree } from "@statewalker/vcs-core";
 
 import {
   AddCommand,
@@ -116,101 +104,6 @@ export class Git implements Disposable {
    * @returns A Git instance wrapping the working copy
    */
   static fromWorkingCopy(workingCopy: WorkingCopy): Git {
-    return new Git(workingCopy);
-  }
-
-  /**
-   * @deprecated Use `Git.fromWorkingCopy()` instead. This method exists for backward compatibility with tests.
-   *
-   * Wrap a store-like object in a Git facade.
-   * Creates a minimal WorkingCopy from the store components.
-   *
-   * @param store Object with blobs, trees, commits, refs, staging, and optionally tags and worktree
-   */
-  static wrap(store: {
-    blobs: BlobStore;
-    trees: TreeStore;
-    commits: CommitStore;
-    refs: RefStore;
-    staging: Staging;
-    tags?: TagStore;
-    worktree?: Worktree;
-  }): Git {
-    // Create a minimal WorkingCopy from the store components
-    const repository = {
-      blobs: store.blobs,
-      trees: store.trees,
-      commits: store.commits,
-      tags: store.tags,
-      refs: store.refs,
-      config: {},
-      async initialize() {},
-      async close() {},
-      async isInitialized() {
-        return true;
-      },
-    } as unknown as HistoryStore;
-
-    const workingCopy = {
-      repository,
-      staging: store.staging,
-      worktree: (store.worktree ?? {}) as unknown as Worktree,
-      stash: {} as never,
-      config: {} as never,
-      get history() {
-        return undefined;
-      },
-      get checkout() {
-        return undefined;
-      },
-      get worktreeInterface() {
-        return store.worktree;
-      },
-      async getHead() {
-        const ref = await store.refs.resolve("HEAD");
-        return ref?.objectId;
-      },
-      async getCurrentBranch() {
-        const ref = await store.refs.get("HEAD");
-        if (ref && "target" in ref) {
-          return (ref.target as string).replace("refs/heads/", "");
-        }
-        return undefined;
-      },
-      async setHead() {},
-      async isDetachedHead() {
-        return false;
-      },
-      async getMergeState() {
-        return undefined;
-      },
-      async getRebaseState() {
-        return undefined;
-      },
-      async getCherryPickState() {
-        return undefined;
-      },
-      async getRevertState() {
-        return undefined;
-      },
-      async hasOperationInProgress() {
-        return false;
-      },
-      async getStatus() {
-        return {
-          files: [],
-          staged: [],
-          unstaged: [],
-          untracked: [],
-          isClean: true,
-          hasStaged: false,
-          hasUnstaged: false,
-          hasUntracked: false,
-          hasConflicts: false,
-        };
-      },
-    } as unknown as WorkingCopy;
-
     return new Git(workingCopy);
   }
 

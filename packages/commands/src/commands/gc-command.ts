@@ -134,7 +134,7 @@ export class GarbageCollectCommand extends GitCommand<GCCommandResult> {
     // Note: Full GC requires Repository.gc which provides access to
     // GCController with collectGarbage(). This command provides the
     // interface but full implementation requires Repository access.
-    // The GitStore interface doesn't expose gc, so we'd need to extend
+    // The WorkingCopy interface doesn't expose gc, so we'd need to extend
     // the interface or use a different pattern.
 
     // For aggressive mode, we could trigger repack here
