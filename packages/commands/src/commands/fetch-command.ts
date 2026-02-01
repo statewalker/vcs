@@ -151,14 +151,9 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     return this.removeDeletedRefs;
   }
 
-  /**
-   * Set tag fetching behavior.
-   *
-   * @param option Tag option
-   */
   setTagOpt(option: TagOption): this {
     this.checkCallable();
-    this._tagOption = option;
+    this.tagOption = option;
     return this;
   }
 
@@ -356,28 +351,29 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     }
 
     // Get tags store (use no-op fallback if not available)
-    const tagsStore = this.store.tags ?? noOpTagStore;
+    const tagsStore = this.tagsStore ?? noOpTagStore;
 
     // Create serialization API from typed stores
+    // Note: SerializationApiConfig accepts stores at top level
+    // Use type assertion since we're passing new interfaces to a legacy-compatible API
     const serialization = new DefaultSerializationApi({
-      stores: {
-        blobs: this.store.blobs,
-        trees: this.store.trees,
-        commits: this.store.commits,
-        tags: tagsStore,
-        refs: this.store.refs,
-      },
-    });
+      blobs: this.blobs,
+      trees: this.trees,
+      commits: this.commits,
+      tags: tagsStore,
+      refs: this.refsStore,
+    } as unknown as ConstructorParameters<typeof DefaultSerializationApi>[0]);
 
     // Create repository facade for pack operations
+    // Use type assertion for legacy store-based API
     const repository = createVcsRepositoryFacade({
-      blobs: this.store.blobs,
-      trees: this.store.trees,
-      commits: this.store.commits,
+      blobs: this.blobs,
+      trees: this.trees,
+      commits: this.commits,
       tags: tagsStore,
-      refs: this.store.refs,
+      refs: this.refsStore,
       serialization,
-    });
+    } as unknown as Parameters<typeof createVcsRepositoryFacade>[0]);
 
     // Create transport ref store adapter
     const refStore = this.createRefStoreAdapter();
@@ -463,7 +459,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     // Try to get remote URL from config
     // For now, we check if refs store has remote config
     // In a full implementation, this would read from git config
-    const remoteRef = await this.store.refs.get(`refs/remotes/${remote}/HEAD`);
+    const remoteRef = await this.refsStore.get(`refs/remotes/${remote}/HEAD`);
     if (remoteRef) {
       // Remote exists, but we need the URL
       // This is a simplified implementation
@@ -479,7 +475,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
    * Create a transport RefStore adapter from the history store refs.
    */
   private createRefStoreAdapter(): TransportRefStore {
-    const refs = this.store.refs;
+    const refs = this.refsStore;
 
     return {
       async get(name: string): Promise<string | undefined> {
@@ -524,7 +520,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
    * Update a local ref.
    */
   private async updateRef(localRef: string, newObjectId: ObjectId): Promise<TrackingRefUpdate> {
-    const existingRef = await this.store.refs.resolve(localRef);
+    const existingRef = await this.refsStore.resolve(localRef);
     const oldObjectId = existingRef?.objectId;
 
     let status: RefUpdateStatus;
@@ -542,7 +538,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
 
     // Actually update the ref
     if (status !== RefUpdateStatus.NO_CHANGE && status !== RefUpdateStatus.REJECTED) {
-      await this.store.refs.set(localRef, newObjectId);
+      await this.refsStore.set(localRef, newObjectId);
     }
 
     return {
@@ -574,8 +570,10 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       visited.add(current);
 
       try {
-        const commit = await this.store.commits.loadCommit(current);
-        queue.push(...commit.parents);
+        const commit = await this.commits.load(current);
+        if (commit) {
+          queue.push(...commit.parents);
+        }
       } catch {
         // Commit not found, skip
       }
@@ -603,7 +601,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     }
 
     // Find local tracking refs that don't exist on remote
-    for await (const ref of this.store.refs.list(prefix)) {
+    for await (const ref of this.refsStore.list(prefix)) {
       // Skip symbolic refs
       if (isSymbolicRef(ref)) {
         continue;
@@ -615,7 +613,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
 
       if (!remoteRefNames.has(ref.name) && !remoteRefNames.has(remoteRefName)) {
         // Delete the local tracking ref
-        await this.store.refs.delete(ref.name);
+        await this.refsStore.delete(ref.name);
         updates.push({
           localRef: ref.name,
           remoteRef: remoteRefName,

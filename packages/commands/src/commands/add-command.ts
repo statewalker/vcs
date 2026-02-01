@@ -35,7 +35,7 @@ import {
   DeleteStagingEntry,
   FileMode,
   UpdateStagingEntry,
-  type WorktreeStore,
+  type Worktree,
 } from "@statewalker/vcs-core";
 
 import {
@@ -44,7 +44,6 @@ import {
   StoreNotAvailableError,
 } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
-import type { GitStoreWithWorkTree } from "../types.js";
 
 /**
  * Result of AddCommand execution.
@@ -145,7 +144,7 @@ export class AddCommand extends GitCommand<AddResult> {
   private all: boolean | undefined;
   private force = false;
   private intentToAdd = false;
-  private worktreeIterator: WorktreeStore | undefined;
+  private worktreeIterator: Worktree | undefined;
 
   /**
    * Add a path to a file/directory whose content should be added.
@@ -267,7 +266,7 @@ export class AddCommand extends GitCommand<AddResult> {
    * @param iterator Custom working tree iterator
    * @returns this for chaining
    */
-  setWorktreeStore(iterator: WorktreeStore): this {
+  setWorktreeStore(iterator: Worktree): this {
     this.checkCallable();
     this.worktreeIterator = iterator;
     return this;
@@ -308,9 +307,9 @@ export class AddCommand extends GitCommand<AddResult> {
     const worktree = this.getWorktreeIterator();
     if (!worktree) {
       throw new StoreNotAvailableError(
-        "WorktreeStore",
+        "Worktree",
         "Working tree iterator not available. " +
-          "Use GitStoreWithWorkTree or call setWorktreeStore().",
+          "Ensure WorkingCopy has worktreeInterface or call setWorktreeStore().",
       );
     }
 
@@ -327,21 +326,20 @@ export class AddCommand extends GitCommand<AddResult> {
   /**
    * Get working tree iterator from store or explicitly set.
    */
-  private getWorktreeIterator(): WorktreeStore | undefined {
+  private getWorktreeIterator(): Worktree | undefined {
     if (this.worktreeIterator) {
       return this.worktreeIterator;
     }
 
-    // Try to get from store if it's a GitStoreWithWorkTree
-    const store = this.store as GitStoreWithWorkTree;
-    return store.worktree;
+    // Get worktree from WorkingCopy
+    return this.worktreeAccess;
   }
 
   /**
    * Process files for staging.
    */
   private async processFiles(
-    worktree: WorktreeStore,
+    worktree: Worktree,
     patterns: string[],
     stageDeletions: boolean,
   ): Promise<AddResult> {
@@ -381,7 +379,7 @@ export class AddCommand extends GitCommand<AddResult> {
     // If update or all mode, check for deleted files in index
     if (this.update || stageDeletions) {
       const indexedPaths = new Set<string>();
-      for await (const entry of this.store.staging.entries()) {
+      for await (const entry of this.staging.entries()) {
         if (entry.stage === 0) {
           indexedPaths.add(entry.path);
         }
@@ -408,7 +406,7 @@ export class AddCommand extends GitCommand<AddResult> {
     // If update mode, filter to only tracked files
     if (this.update) {
       const trackedPaths = new Set<string>();
-      for await (const entry of this.store.staging.entries()) {
+      for await (const entry of this.staging.entries()) {
         if (entry.stage === 0) {
           trackedPaths.add(entry.path);
         }
@@ -420,7 +418,7 @@ export class AddCommand extends GitCommand<AddResult> {
     }
 
     // Process files
-    const editor = this.store.staging.createEditor();
+    const editor = this.staging.createEditor();
 
     for (const file of filesToProcess) {
       if (!file.exists) {
@@ -468,7 +466,7 @@ export class AddCommand extends GitCommand<AddResult> {
     await editor.finish();
 
     // Persist staging changes (required for FileStagingStore)
-    await this.store.staging.write();
+    await this.staging.write();
 
     return {
       added,
@@ -483,7 +481,7 @@ export class AddCommand extends GitCommand<AddResult> {
    *
    * Note: The object store handles blob header internally.
    */
-  private async storeFileContent(worktree: WorktreeStore, path: string): Promise<string> {
+  private async storeFileContent(worktree: Worktree, path: string): Promise<string> {
     // Read content from working tree
     const chunks: Uint8Array[] = [];
     for await (const chunk of worktree.readContent(path)) {
@@ -491,6 +489,6 @@ export class AddCommand extends GitCommand<AddResult> {
     }
 
     // Store raw content - the blob store handles blob formatting
-    return this.store.blobs.store(chunks);
+    return this.blobs.store(chunks);
   }
 }

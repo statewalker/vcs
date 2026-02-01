@@ -6,11 +6,19 @@
  */
 
 import {
+  type BlobStore,
+  type CommitStore,
   type RefStore as CoreRefStore,
   DefaultSerializationApi,
   type GitObjectStore,
+  type HistoryStore,
   isSymbolicRef,
   type ObjectId,
+  type Staging,
+  type TagStore,
+  type TreeStore,
+  type WorkingCopy,
+  type Worktree,
 } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
@@ -24,25 +32,37 @@ import {
   type RefStore as TransportRefStore,
 } from "@statewalker/vcs-transport";
 
-import { Git, type GitStore } from "../src/index.js";
+import { Git } from "../src/index.js";
 import { testAuthor } from "./test-helper.js";
 
 /**
- * Extended GitStore that also exposes the underlying object store.
- * This is needed for creating RepositoryFacade for transport operations.
+ * Transport test store configuration.
+ * Contains all the stores needed for transport operations.
  */
-export interface ExtendedGitStore extends GitStore {
+export interface TransportTestStores {
   /** Low-level Git object store for pack operations */
   objects: GitObjectStore;
+  /** Blob storage */
+  blobs: BlobStore;
+  /** Tree storage */
+  trees: TreeStore;
+  /** Commit storage */
+  commits: CommitStore;
+  /** Reference storage */
+  refs: CoreRefStore;
+  /** Tag storage */
+  tags: TagStore;
+  /** Staging area */
+  staging: Staging;
 }
 
 /**
- * Create a GitStore with Git-format object storage for testing.
+ * Create transport test stores with Git-format object storage.
  *
  * All stores coordinate to use Git-format SHA-1 IDs, making this
  * compatible with transport operations.
  */
-export function createGitFormatTestStore(): ExtendedGitStore {
+export function createTransportTestStores(): TransportTestStores {
   const objectStores = createMemoryObjectStores();
   return {
     objects: objectStores.objects,
@@ -56,6 +76,87 @@ export function createGitFormatTestStore(): ExtendedGitStore {
 }
 
 /**
+ * Create a minimal WorkingCopy from transport test stores.
+ */
+export function createWorkingCopyFromStores(stores: TransportTestStores): WorkingCopy {
+  // Create a HistoryStore-like wrapper
+  const repository = {
+    objects: stores.objects,
+    blobs: stores.blobs,
+    trees: stores.trees,
+    commits: stores.commits,
+    tags: stores.tags,
+    refs: stores.refs,
+    config: {},
+    async initialize() {},
+    async close() {},
+    async isInitialized() {
+      return true;
+    },
+  } as unknown as HistoryStore;
+
+  return {
+    repository,
+    staging: stores.staging,
+    worktree: {} as unknown as Worktree,
+    stash: {} as never,
+    config: {} as never,
+    get history() {
+      return undefined;
+    },
+    get checkout() {
+      return undefined;
+    },
+    get worktreeInterface() {
+      return undefined;
+    },
+    async getHead() {
+      const ref = await stores.refs.resolve("HEAD");
+      return ref?.objectId;
+    },
+    async getCurrentBranch() {
+      const ref = await stores.refs.get("HEAD");
+      if (ref && "target" in ref) {
+        return ref.target.replace("refs/heads/", "");
+      }
+      return undefined;
+    },
+    async setHead() {},
+    async isDetachedHead() {
+      return false;
+    },
+    async getMergeState() {
+      return undefined;
+    },
+    async getRebaseState() {
+      return undefined;
+    },
+    async getCherryPickState() {
+      return undefined;
+    },
+    async getRevertState() {
+      return undefined;
+    },
+    async hasOperationInProgress() {
+      return false;
+    },
+    async getStatus() {
+      return {
+        files: [],
+        staged: [],
+        unstaged: [],
+        untracked: [],
+        isClean: true,
+        hasStaged: false,
+        hasUnstaged: false,
+        hasUntracked: false,
+        hasConflicts: false,
+      };
+    },
+  } as unknown as WorkingCopy;
+}
+
+/**
  * Test server setup result.
  */
 export interface TestServer {
@@ -65,8 +166,10 @@ export interface TestServer {
   mockFetch: typeof globalThis.fetch;
   /** Base URL for the server */
   baseUrl: string;
-  /** The server-side GitStore */
-  serverStore: ExtendedGitStore;
+  /** The server-side stores */
+  serverStores: TransportTestStores;
+  /** The server-side WorkingCopy */
+  serverWorkingCopy: WorkingCopy;
   /** The server-side Git facade */
   serverGit: Git;
 }
@@ -141,33 +244,32 @@ function createTransportRefStoreAdapter(refs: CoreRefStore): TransportRefStore {
 /**
  * Create a test HTTP server for Git operations.
  *
- * @param serverStore Optional pre-configured server store
+ * @param serverStores Optional pre-configured server stores
  * @returns Test server configuration
  */
-export function createTestServer(serverStore?: ExtendedGitStore): TestServer {
-  const store = serverStore ?? createGitFormatTestStore();
+export function createTestServer(serverStores?: TransportTestStores): TestServer {
+  const stores = serverStores ?? createTransportTestStores();
+  const workingCopy = createWorkingCopyFromStores(stores);
 
   // Create serialization API for pack operations
   const serialization = new DefaultSerializationApi({
-    stores: {
-      blobs: store.blobs,
-      trees: store.trees,
-      commits: store.commits,
-      tags: store.tags,
-    },
+    blobs: stores.blobs,
+    trees: stores.trees,
+    commits: stores.commits,
+    tags: stores.tags,
   });
 
   // Create repository facade for transport operations
   const repository = createRepositoryFacade({
-    objects: store.objects,
-    commits: store.commits,
-    tags: store.tags,
-    refs: store.refs,
+    objects: stores.objects,
+    commits: stores.commits,
+    tags: stores.tags,
+    refs: stores.refs,
     serialization,
   });
 
   // Create transport ref store adapter
-  const refStore = createTransportRefStoreAdapter(store.refs);
+  const refStore = createTransportRefStoreAdapter(stores.refs);
 
   const serverFetch = createFetchHandler({
     async resolveRepository(repoPath) {
@@ -184,8 +286,9 @@ export function createTestServer(serverStore?: ExtendedGitStore): TestServer {
     fetch: serverFetch,
     mockFetch: createMockFetch(serverFetch),
     baseUrl,
-    serverStore: store,
-    serverGit: Git.wrap(store),
+    serverStores: stores,
+    serverWorkingCopy: workingCopy,
+    serverGit: Git.fromWorkingCopy(workingCopy),
   };
 }
 
@@ -195,11 +298,12 @@ export function createTestServer(serverStore?: ExtendedGitStore): TestServer {
 export async function createInitializedTestServer(): Promise<
   TestServer & { initialCommitId: string }
 > {
-  const store = createGitFormatTestStore();
-  const git = Git.wrap(store);
+  const stores = createTransportTestStores();
+  const workingCopy = createWorkingCopyFromStores(stores);
+  const git = Git.fromWorkingCopy(workingCopy);
 
   // Create and store empty tree
-  const emptyTreeId = await store.trees.storeTree([]);
+  const emptyTreeId = await stores.trees.storeTree([]);
 
   // Create initial commit
   const initialCommit = {
@@ -210,36 +314,34 @@ export async function createInitializedTestServer(): Promise<
     message: "Initial commit",
   };
 
-  const initialCommitId = await store.commits.storeCommit(initialCommit);
+  const initialCommitId = await stores.commits.storeCommit(initialCommit);
 
   // Set up refs
-  await store.refs.set("refs/heads/main", initialCommitId);
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
+  await stores.refs.set("refs/heads/main", initialCommitId);
+  await stores.refs.setSymbolic("HEAD", "refs/heads/main");
 
   // Initialize staging
-  await store.staging.readTree(store.trees, emptyTreeId);
+  await stores.staging.readTree(stores.trees, emptyTreeId);
 
   // Create serialization API for pack operations
   const serialization = new DefaultSerializationApi({
-    stores: {
-      blobs: store.blobs,
-      trees: store.trees,
-      commits: store.commits,
-      tags: store.tags,
-    },
+    blobs: stores.blobs,
+    trees: stores.trees,
+    commits: stores.commits,
+    tags: stores.tags,
   });
 
   // Create repository facade for transport operations
   const repository = createRepositoryFacade({
-    objects: store.objects,
-    commits: store.commits,
-    tags: store.tags,
-    refs: store.refs,
+    objects: stores.objects,
+    commits: stores.commits,
+    tags: stores.tags,
+    refs: stores.refs,
     serialization,
   });
 
   // Create transport ref store adapter
-  const refStore = createTransportRefStoreAdapter(store.refs);
+  const refStore = createTransportRefStoreAdapter(stores.refs);
 
   const serverFetch = createFetchHandler({
     async resolveRepository(repoPath) {
@@ -256,7 +358,8 @@ export async function createInitializedTestServer(): Promise<
     fetch: serverFetch,
     mockFetch: createMockFetch(serverFetch),
     baseUrl,
-    serverStore: store,
+    serverStores: stores,
+    serverWorkingCopy: workingCopy,
     serverGit: git,
     initialCommitId,
   };
@@ -283,13 +386,13 @@ export function createTestFetch(server: TestServer): typeof fetch {
 }
 
 /**
- * Add a file to a store and create a commit.
+ * Add a file to stores and create a commit.
  *
  * This function stores objects in Git format, compatible with
  * transport operations.
  */
 export async function addFileAndCommit(
-  store: GitStore,
+  stores: TransportTestStores,
   path: string,
   content: string,
   message: string,
@@ -297,10 +400,18 @@ export async function addFileAndCommit(
   // Store blob using BlobStore (handles Git header automatically)
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
-  const blobId = await store.blobs.store([data]);
+  const blobId = await stores.blobs.store([data]);
 
-  // Update staging
-  const editor = store.staging.createEditor();
+  // Update staging - handle both Staging (createEditor) and StagingStore (editor) interfaces
+  const staging = stores.staging as unknown as {
+    createEditor?: () => { add(edit: unknown): void; finish(): Promise<void> };
+    editor?: () => { add(edit: unknown): void; finish(): Promise<void> };
+  };
+  const editorFn = staging.createEditor ?? staging.editor;
+  if (!editorFn) {
+    throw new Error("Staging must have either createEditor() or editor() method");
+  }
+  const editor = editorFn.call(staging);
   editor.add({
     path,
     apply: () => ({
@@ -315,12 +426,12 @@ export async function addFileAndCommit(
   await editor.finish();
 
   // Write tree
-  const treeId = await store.staging.writeTree(store.trees);
+  const treeId = await stores.staging.writeTree(stores.trees);
 
   // Get parent
   let parents: ObjectId[] = [];
   try {
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await stores.refs.resolve("HEAD");
     if (headRef?.objectId) {
       parents = [headRef.objectId];
     }
@@ -337,18 +448,18 @@ export async function addFileAndCommit(
     message,
   };
 
-  const commitId = await store.commits.storeCommit(commit);
+  const commitId = await stores.commits.storeCommit(commit);
 
   // Update HEAD
-  const head = await store.refs.get("HEAD");
+  const head = await stores.refs.get("HEAD");
   if (head && "target" in head) {
-    await store.refs.set(head.target, commitId);
+    await stores.refs.set(head.target, commitId);
   } else {
-    await store.refs.set("HEAD", commitId);
+    await stores.refs.set("HEAD", commitId);
   }
 
   // Update staging
-  await store.staging.readTree(store.trees, treeId);
+  await stores.staging.readTree(stores.trees, treeId);
 
   return commitId;
 }

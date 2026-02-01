@@ -304,7 +304,7 @@ export class LogCommand extends GitCommand<AsyncIterable<LogResult>> {
    */
   private async getAllRefs(): Promise<ObjectId[]> {
     const ids: ObjectId[] = [];
-    for await (const ref of this.store.refs.list()) {
+    for await (const ref of this.refsStore.list()) {
       if ("objectId" in ref && ref.objectId) {
         ids.push(ref.objectId);
       }
@@ -322,7 +322,7 @@ export class LogCommand extends GitCommand<AsyncIterable<LogResult>> {
     // Build set of excluded commits (including their ancestors)
     const excludedSet = await this.buildExcludedSet();
 
-    for await (const commitId of this.store.commits.walkAncestry(starts, {
+    for await (const commitId of this.commits.walkAncestry(starts, {
       firstParentOnly: this.firstParentOnly,
     })) {
       // Skip excluded commits
@@ -330,7 +330,10 @@ export class LogCommand extends GitCommand<AsyncIterable<LogResult>> {
         continue;
       }
 
-      const commit = await this.store.commits.loadCommit(commitId);
+      const commit = await this.commits.load(commitId);
+      if (!commit) {
+        continue;
+      }
 
       // RevFilter - ONLY_MERGES or NO_MERGES
       if (this.revFilter === RevFilter.ONLY_MERGES) {
@@ -401,7 +404,7 @@ export class LogCommand extends GitCommand<AsyncIterable<LogResult>> {
     }
 
     const excluded = new Set<ObjectId>();
-    for await (const commitId of this.store.commits.walkAncestry(this.excludeCommits, {
+    for await (const commitId of this.commits.walkAncestry(this.excludeCommits, {
       firstParentOnly: false,
     })) {
       excluded.add(commitId);
@@ -437,7 +440,10 @@ export class LogCommand extends GitCommand<AsyncIterable<LogResult>> {
     }
 
     // Compare with first parent's tree
-    const parentCommit = await this.store.commits.loadCommit(commit.parents[0]);
+    const parentCommit = await this.commits.load(commit.parents[0]);
+    if (!parentCommit) {
+      return true; // No parent found, consider it affects paths
+    }
     const parentTree = parentCommit.tree;
 
     // Check if any path differs between trees
@@ -474,7 +480,10 @@ export class LogCommand extends GitCommand<AsyncIterable<LogResult>> {
     }
 
     // Compare with first parent's tree
-    const parentCommit = await this.store.commits.loadCommit(commit.parents[0]);
+    const parentCommit = await this.commits.load(commit.parents[0]);
+    if (!parentCommit) {
+      return false; // No parent found, don't filter out
+    }
 
     // Check each excluded path - if ALL changes are to excluded paths, return true
     for (const path of this.excludePaths) {
@@ -521,7 +530,7 @@ export class LogCommand extends GitCommand<AsyncIterable<LogResult>> {
       const name = parts[i];
       const isLast = i === parts.length - 1;
 
-      const entry = await this.store.trees.getEntry(currentTreeId, name);
+      const entry = await this.trees.getEntry(currentTreeId, name);
 
       if (!entry) {
         return undefined;

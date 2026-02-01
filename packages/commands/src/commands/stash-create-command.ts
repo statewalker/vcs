@@ -1,6 +1,6 @@
 import type { ObjectId, PersonIdent } from "@statewalker/vcs-core";
 
-import { NoHeadError } from "../errors/index.js";
+import { NoHeadError, RefNotFoundError } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 import { STASH_REF } from "./stash-list-command.js";
 
@@ -199,12 +199,15 @@ export class StashCreateCommand extends GitCommand<ObjectId | undefined> {
     this.setCallable(false);
 
     // Get current HEAD
-    const headRef = await this.store.refs.resolve("HEAD");
+    const headRef = await this.refsStore.resolve("HEAD");
     if (!headRef?.objectId) {
       throw new NoHeadError("HEAD is required to stash");
     }
 
-    const headCommit = await this.store.commits.loadCommit(headRef.objectId);
+    const headCommit = await this.commits.load(headRef.objectId);
+    if (!headCommit) {
+      throw new RefNotFoundError(headRef.objectId, "HEAD commit not found");
+    }
     const branch = await this.getCurrentBranchName();
 
     // Get author/committer
@@ -250,7 +253,7 @@ export class StashCreateCommand extends GitCommand<ObjectId | undefined> {
       this.formatMessage(this.workingDirectoryMessage, branch, abbrev, shortMessage);
 
     // Create index commit (parent: HEAD)
-    const indexCommit = await this.store.commits.storeCommit({
+    const indexCommit = await this.commits.store({
       tree: indexTree,
       parents: [headRef.objectId],
       author,
@@ -262,7 +265,7 @@ export class StashCreateCommand extends GitCommand<ObjectId | undefined> {
     let untrackedCommit: ObjectId | undefined;
     if (untrackedTree) {
       const untrackedMsg = this.formatMessage(MSG_UNTRACKED, branch, abbrev, shortMessage);
-      untrackedCommit = await this.store.commits.storeCommit({
+      untrackedCommit = await this.commits.store({
         tree: untrackedTree,
         parents: [],
         author,
@@ -278,7 +281,7 @@ export class StashCreateCommand extends GitCommand<ObjectId | undefined> {
       parents.push(untrackedCommit);
     }
 
-    const stashCommit = await this.store.commits.storeCommit({
+    const stashCommit = await this.commits.store({
       tree: workingTree,
       parents,
       author,
@@ -331,6 +334,6 @@ export class StashCreateCommand extends GitCommand<ObjectId | undefined> {
    */
   private async updateStashRef(ref: string, commitId: ObjectId, _message: string): Promise<void> {
     // Update ref
-    await this.store.refs.set(ref, commitId);
+    await this.refsStore.set(ref, commitId);
   }
 }

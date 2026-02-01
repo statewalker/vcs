@@ -1,15 +1,16 @@
-import type { Commit, ObjectId, PersonIdent, WorktreeStore } from "@statewalker/vcs-core";
+import type { Commit, ObjectId, PersonIdent, Worktree } from "@statewalker/vcs-core";
 import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import {
   EmptyCommitError,
   IncompatibleOptionsError,
+  NoHeadError,
   NoMessageError,
+  RefNotFoundError,
   StoreNotAvailableError,
   UnmergedPathsError,
 } from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
-import type { GitStoreWithWorkTree } from "../types.js";
 import { AddCommand } from "./add-command.js";
 
 /**
@@ -79,7 +80,7 @@ function getTimezoneOffset(): string {
  * const commit = await git.commit()
  *   .setMessage("All changes")
  *   .setAll(true)
- *   .setWorktreeStore(worktree)
+ *   .setWorktree(worktree)
  *   .call();
  * ```
  */
@@ -92,7 +93,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
   private parents: ObjectId[] = [];
   private onlyPaths: string[] = [];
   private all = false;
-  private worktreeIterator: WorktreeStore | undefined;
+  private worktreeIterator: Worktree | undefined;
 
   /**
    * Set the commit message.
@@ -259,7 +260,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
    * @param iterator Custom working tree iterator
    * @returns this for chaining
    */
-  setWorktreeStore(iterator: WorktreeStore): this {
+  setWorktree(iterator: Worktree): this {
     this.checkCallable();
     this.worktreeIterator = iterator;
     return this;
@@ -287,8 +288,8 @@ export class CommitCommand extends GitCommand<CommitResult> {
     }
 
     // Check for conflicts
-    if (await this.store.staging.hasConflicts()) {
-      const conflictPaths = await this.store.staging.getConflictedPaths();
+    if (await this.staging.hasConflicts()) {
+      const conflictPaths = await this.staging.getConflictedPaths();
       throw new UnmergedPathsError(conflictPaths);
     }
 
@@ -298,7 +299,10 @@ export class CommitCommand extends GitCommand<CommitResult> {
 
     if (this.amend) {
       const headId = await this.resolveHead();
-      previousCommit = await this.store.commits.loadCommit(headId);
+      previousCommit = await this.commits.load(headId);
+      if (!previousCommit) {
+        throw new NoHeadError("Cannot amend: HEAD commit not found");
+      }
       if (!finalMessage) {
         finalMessage = previousCommit.message;
       }
@@ -340,7 +344,10 @@ export class CommitCommand extends GitCommand<CommitResult> {
     } else if (this.amend) {
       // Use amended commit's parents
       const headId = await this.resolveHead();
-      const headCommit = await this.store.commits.loadCommit(headId);
+      const headCommit = await this.commits.load(headId);
+      if (!headCommit) {
+        throw new NoHeadError("Cannot amend: HEAD commit not found");
+      }
       parents = headCommit.parents;
     } else {
       // Normal commit - HEAD as parent (if exists)
@@ -361,13 +368,13 @@ export class CommitCommand extends GitCommand<CommitResult> {
       treeId = await this.buildOnlyTree(parents[0]);
     } else {
       // Normal mode: use full staging area
-      treeId = await this.store.staging.writeTree(this.store.trees);
+      treeId = await this.staging.writeTree(this.trees);
     }
 
     // Check for empty commit
     if (!this.allowEmpty && parents.length > 0) {
-      const parentCommit = await this.store.commits.loadCommit(parents[0]);
-      if (parentCommit.tree === treeId) {
+      const parentCommit = await this.commits.load(parents[0]);
+      if (parentCommit && parentCommit.tree === treeId) {
         throw new EmptyCommitError();
       }
     }
@@ -381,16 +388,16 @@ export class CommitCommand extends GitCommand<CommitResult> {
       message: finalMessage,
     };
 
-    const commitId = await this.store.commits.storeCommit(commit);
+    const commitId = await this.commits.store(commit);
 
     // Update HEAD/branch ref
-    const head = await this.store.refs.get("HEAD");
+    const head = await this.refsStore.get("HEAD");
     if (head && isSymbolicRef(head)) {
       // HEAD points to a branch - update the branch
-      await this.store.refs.set(head.target, commitId);
+      await this.refsStore.set(head.target, commitId);
     } else {
       // Detached HEAD - update HEAD directly
-      await this.store.refs.set("HEAD", commitId);
+      await this.refsStore.set("HEAD", commitId);
     }
 
     this.setCallable(false);
@@ -408,13 +415,16 @@ export class CommitCommand extends GitCommand<CommitResult> {
    * @returns Tree ObjectId
    */
   private async buildOnlyTree(parentCommitId: ObjectId): Promise<ObjectId> {
-    const parentCommit = await this.store.commits.loadCommit(parentCommitId);
+    const parentCommit = await this.commits.load(parentCommitId);
+    if (!parentCommit) {
+      throw new RefNotFoundError(parentCommitId, "Parent commit not found");
+    }
 
     // Collect staging entries for onlyPaths
     const onlyPathSet = new Set(this.onlyPaths);
     const stagingEntriesMap = new Map<string, { objectId: ObjectId; mode: number }>();
 
-    for await (const entry of this.store.staging.entries()) {
+    for await (const entry of this.staging.entries()) {
       if (onlyPathSet.has(entry.path) && entry.stage === 0) {
         stagingEntriesMap.set(entry.path, {
           objectId: entry.objectId,
@@ -424,7 +434,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
     }
 
     // Create builder and populate with filtered tree
-    const builder = this.store.staging.createBuilder();
+    const builder = this.staging.createBuilder();
 
     // Walk parent tree and add entries NOT in onlyPaths
     await this.addTreeFiltered(builder, parentCommit.tree, "", onlyPathSet);
@@ -443,19 +453,19 @@ export class CommitCommand extends GitCommand<CommitResult> {
     await builder.finish();
 
     // Now write tree from staging
-    return await this.store.staging.writeTree(this.store.trees);
+    return await this.staging.writeTree(this.trees);
   }
 
   /**
    * Recursively walk tree and add entries to builder, excluding specified paths.
    */
   private async addTreeFiltered(
-    builder: ReturnType<typeof this.store.staging.createBuilder>,
+    builder: ReturnType<typeof this.staging.createBuilder>,
     treeId: ObjectId,
     prefix: string,
     excludePaths: Set<string>,
   ): Promise<void> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const fullPath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       // Check if this is a tree (directory)
@@ -490,14 +500,14 @@ export class CommitCommand extends GitCommand<CommitResult> {
     const worktree = this.getWorktreeIterator();
     if (!worktree) {
       throw new StoreNotAvailableError(
-        "WorktreeStore",
+        "Worktree",
         "Working tree iterator required for --all mode. " +
-          "Use GitStoreWithWorkTree or call setWorktreeStore().",
+          "Ensure WorkingCopy has worktreeInterface or call setWorktreeStore().",
       );
     }
 
     // Use AddCommand to stage all modified tracked files
-    const addCommand = new AddCommand(this.store);
+    const addCommand = new AddCommand(this._workingCopy);
     addCommand.addFilepattern(".");
     addCommand.setUpdate(true);
     addCommand.setWorktreeStore(worktree);
@@ -507,13 +517,12 @@ export class CommitCommand extends GitCommand<CommitResult> {
   /**
    * Get working tree iterator from store or explicitly set.
    */
-  private getWorktreeIterator(): WorktreeStore | undefined {
+  private getWorktreeIterator(): Worktree | undefined {
     if (this.worktreeIterator) {
       return this.worktreeIterator;
     }
 
-    // Try to get from store if it's a GitStoreWithWorkTree
-    const store = this.store as GitStoreWithWorkTree;
-    return store.worktree;
+    // Get worktree from WorkingCopy
+    return this.worktreeAccess;
   }
 }

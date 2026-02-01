@@ -89,7 +89,7 @@ export class RmCommand extends GitCommand<RmResult> {
     const removedPaths: string[] = [];
 
     // Read current staging area
-    await this.store.staging.read();
+    await this.staging.read();
 
     // Get all entries from staging
     const entriesToKeep: Array<{
@@ -99,7 +99,7 @@ export class RmCommand extends GitCommand<RmResult> {
       stage: MergeStageValue;
     }> = [];
 
-    for await (const entry of this.store.staging.entries()) {
+    for await (const entry of this.staging.entries()) {
       const shouldRemove = this.matchesPattern(entry.path);
 
       if (shouldRemove) {
@@ -115,12 +115,12 @@ export class RmCommand extends GitCommand<RmResult> {
     }
 
     // Rebuild staging with entries that weren't removed
-    const builder = this.store.staging.createBuilder();
+    const builder = this.staging.createBuilder();
     for (const entry of entriesToKeep) {
       builder.add(entry);
     }
     await builder.finish();
-    await this.store.staging.write();
+    await this.staging.write();
 
     // Note: Working tree removal is not implemented here since
     // GitStore doesn't provide working tree file deletion.

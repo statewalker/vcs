@@ -2,6 +2,7 @@ import type { Commit, ObjectId, PersonIdent, TreeEntry } from "@statewalker/vcs-
 import type { Edit } from "@statewalker/vcs-utils";
 import { MyersDiff, RawText, RawTextComparator } from "@statewalker/vcs-utils";
 
+import { RefNotFoundError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
 import { DEFAULT_RENAME_SCORE, SimilarityIndex } from "../rename/index.js";
 
@@ -257,7 +258,7 @@ export class BlameCommand extends GitCommand<BlameResult> {
     // Resolve starting commit
     let startId = this.startCommit;
     if (!startId) {
-      const head = await this.store.refs.resolve("HEAD");
+      const head = await this.refsStore.resolve("HEAD");
       if (!head?.objectId) {
         throw new Error("No HEAD commit found");
       }
@@ -268,7 +269,10 @@ export class BlameCommand extends GitCommand<BlameResult> {
     const entries: BlameEntry[] = [];
 
     // Load the file content at the starting commit
-    const startCommit = await this.store.commits.loadCommit(startId);
+    const startCommit = await this.commits.load(startId);
+    if (!startCommit) {
+      throw new RefNotFoundError(`Cannot find commit: ${startId}`);
+    }
     const blobId = await this.getFileBlob(startCommit.tree, resultPath);
 
     if (!blobId) {
@@ -352,7 +356,12 @@ export class BlameCommand extends GitCommand<BlameResult> {
     entries: BlameEntry[],
   ): Promise<number> {
     const parentId = candidate.commit.parents[0];
-    const parentCommit = await this.store.commits.loadCommit(parentId);
+    const parentCommit = await this.commits.load(parentId);
+    if (!parentCommit) {
+      // Parent commit not found - blame all regions to this commit
+      this.blameRegions(entries, candidate);
+      return this.countRegionLines(candidate.regions);
+    }
 
     // Check if file exists in parent
     let parentBlobId = await this.getFileBlob(parentCommit.tree, candidate.path);
@@ -449,7 +458,11 @@ export class BlameCommand extends GitCommand<BlameResult> {
     // First pass: check all parents for the file
     for (let pIdx = 0; pIdx < parentCount; pIdx++) {
       const parentId = candidate.commit.parents[pIdx];
-      const parentCommit = await this.store.commits.loadCommit(parentId);
+      const parentCommit = await this.commits.load(parentId);
+      if (!parentCommit) {
+        parentInfos.push(null);
+        continue;
+      }
 
       let parentBlobId = await this.getFileBlob(parentCommit.tree, candidate.path);
       let parentPath = candidate.path;
@@ -994,7 +1007,7 @@ export class BlameCommand extends GitCommand<BlameResult> {
   ): Promise<void> {
     const TREE_MODE = 0o40000;
 
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === TREE_MODE) {
@@ -1014,9 +1027,12 @@ export class BlameCommand extends GitCommand<BlameResult> {
     const chunks: Uint8Array[] = [];
     let totalLength = 0;
 
-    for await (const chunk of this.store.blobs.load(blobId)) {
-      chunks.push(chunk);
-      totalLength += chunk.length;
+    const blobContent = await this.blobs.load(blobId);
+    if (blobContent) {
+      for await (const chunk of blobContent) {
+        chunks.push(chunk);
+        totalLength += chunk.length;
+      }
     }
 
     // Combine chunks into single buffer
@@ -1041,7 +1057,7 @@ export class BlameCommand extends GitCommand<BlameResult> {
       const name = parts[i];
       const isLast = i === parts.length - 1;
 
-      const entry = await this.store.trees.getEntry(currentTreeId, name);
+      const entry = await this.trees.getEntry(currentTreeId, name);
       if (!entry) {
         return undefined;
       }

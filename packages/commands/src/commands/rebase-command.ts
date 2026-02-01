@@ -290,7 +290,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
     }
 
     // Get current HEAD
-    const headResolved = await this.store.refs.resolve("HEAD");
+    const headResolved = await this.refsStore.resolve("HEAD");
     if (!headResolved?.objectId) {
       throw new NoHeadError("HEAD cannot be resolved");
     }
@@ -298,7 +298,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
     const headCommit = headResolved.objectId;
 
     // Get HEAD's target branch name (if symbolic)
-    const headRef = await this.store.refs.get("HEAD");
+    const headRef = await this.refsStore.get("HEAD");
     const headName = headRef && "target" in headRef ? headRef.target : headCommit;
 
     // Check if already up to date
@@ -334,7 +334,8 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
     // Build todo list
     const todoSteps: RebaseTodoLine[] = [];
     for (const commitId of commitsToRebase) {
-      const commit = await this.store.commits.loadCommit(commitId);
+      const commit = await this.commits.load(commitId);
+      if (!commit) continue;
       const shortMessage = commit.message.split("\n")[0].substring(0, 50);
       todoSteps.push({
         action: RebaseAction.PICK,
@@ -358,7 +359,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
       doneSteps: [],
       inProgress: true,
     };
-    RebaseCommand.rebaseStates.set(this.store, state);
+    RebaseCommand.rebaseStates.set(this._workingCopy, state);
 
     // Reset HEAD to onto
     await this.updateHead(headName, this.upstreamCommit);
@@ -420,7 +421,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
 
     // Rebase complete - clean up state
     state.inProgress = false;
-    RebaseCommand.rebaseStates.delete(this.store);
+    RebaseCommand.rebaseStates.delete(this._workingCopy);
 
     // Update branch ref to point to new head
     await this.updateHead(state.headName, newHead);
@@ -439,7 +440,10 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
     ontoCommit: ObjectId,
     _state: RebaseState,
   ): Promise<RebaseResult> {
-    const commit = await this.store.commits.loadCommit(commitId);
+    const commit = await this.commits.load(commitId);
+    if (!commit) {
+      throw new CommitNotFoundError(commitId);
+    }
 
     // Skip merge commits unless preserveMerges is set
     if (commit.parents.length > 1 && !this.preserveMerges) {
@@ -462,8 +466,11 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
     }
 
     // Three-way merge: parent -> commit changes applied to onto
-    const parentCommit = await this.store.commits.loadCommit(parentId);
-    const ontoCommitObj = await this.store.commits.loadCommit(ontoCommit);
+    const parentCommit = await this.commits.load(parentId);
+    const ontoCommitObj = await this.commits.load(ontoCommit);
+    if (!parentCommit || !ontoCommitObj) {
+      throw new CommitNotFoundError(parentId);
+    }
 
     // Simple tree merge (for now, we just use the commit's tree if no conflicts)
     // In a full implementation, this would do a proper three-way merge
@@ -502,7 +509,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
     treeId: ObjectId,
     prefix = "",
   ): AsyncGenerator<{ path: string; id: ObjectId; mode: number }> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const fullPath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if ((entry.mode & RebaseCommand.TREE_MODE) === RebaseCommand.TREE_MODE) {
@@ -555,7 +562,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
       mode,
     }));
 
-    return this.store.trees.storeTree(treeEntries);
+    return this.trees.storeTree(treeEntries);
   }
 
   /**
@@ -667,7 +674,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
   ): Promise<ObjectId> {
     const committer = await this.getCommitter();
 
-    return this.store.commits.storeCommit({
+    return this.commits.store({
       tree: treeId,
       parents: [parentId],
       author: original.author,
@@ -692,7 +699,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
    * Abort the rebase and restore original HEAD.
    */
   private async abort(): Promise<RebaseResult> {
-    const state = RebaseCommand.rebaseStates.get(this.store);
+    const state = RebaseCommand.rebaseStates.get(this._workingCopy);
     if (!state) {
       return {
         status: RebaseStatus.ABORTED,
@@ -703,7 +710,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
     await this.updateHead(state.headName, state.originalHead);
 
     // Clean up state
-    RebaseCommand.rebaseStates.delete(this.store);
+    RebaseCommand.rebaseStates.delete(this._workingCopy);
 
     return {
       status: RebaseStatus.ABORTED,
@@ -715,13 +722,13 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
    * Continue rebase after conflict resolution.
    */
   private async continueRebase(): Promise<RebaseResult> {
-    const state = RebaseCommand.rebaseStates.get(this.store);
+    const state = RebaseCommand.rebaseStates.get(this._workingCopy);
     if (!state || !state.inProgress) {
       throw new NoRebaseInProgressError();
     }
 
     // Get current HEAD
-    const headRef = await this.store.refs.resolve("HEAD");
+    const headRef = await this.refsStore.resolve("HEAD");
     if (!headRef?.objectId) {
       throw new NoHeadError("HEAD cannot be resolved");
     }
@@ -742,7 +749,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
    * Skip current commit and continue.
    */
   private async skip(): Promise<RebaseResult> {
-    const state = RebaseCommand.rebaseStates.get(this.store);
+    const state = RebaseCommand.rebaseStates.get(this._workingCopy);
     if (!state || !state.inProgress) {
       throw new NoRebaseInProgressError();
     }
@@ -771,12 +778,12 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
 
     // Get all commits reachable from upstream
     const upstreamCommits = new Set<ObjectId>();
-    for await (const commitId of this.store.commits.walkAncestry([upstream])) {
+    for await (const commitId of this.commits.walkAncestry([upstream])) {
       upstreamCommits.add(commitId);
     }
 
     // Walk from head and collect commits not in upstream
-    for await (const commitId of this.store.commits.walkAncestry([head])) {
+    for await (const commitId of this.commits.walkAncestry([head])) {
       if (upstreamCommits.has(commitId)) {
         break;
       }
@@ -796,7 +803,7 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
   private async isAncestor(a: ObjectId, b: ObjectId): Promise<boolean> {
     if (a === b) return true;
 
-    for await (const commitId of this.store.commits.walkAncestry([b])) {
+    for await (const commitId of this.commits.walkAncestry([b])) {
       if (commitId === a) {
         return true;
       }
@@ -810,9 +817,9 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
   private async updateHead(headName: string, commitId: ObjectId): Promise<void> {
     if (headName.startsWith("refs/")) {
       // Update the branch ref
-      await this.store.refs.set(headName, commitId);
+      await this.refsStore.set(headName, commitId);
     }
     // HEAD is symbolic, so it should follow
-    await this.store.refs.set("HEAD", commitId);
+    await this.refsStore.set("HEAD", commitId);
   }
 }

@@ -198,7 +198,7 @@ export class RevertCommand extends GitCommand<RevertResult> {
     this.setCallable(false);
 
     // Get current HEAD
-    const headRef = await this.store.refs.resolve("HEAD");
+    const headRef = await this.refsStore.resolve("HEAD");
     if (!headRef?.objectId) {
       throw new NoHeadError("Repository has no HEAD");
     }
@@ -230,14 +230,12 @@ export class RevertCommand extends GitCommand<RevertResult> {
    */
   private async revertOne(refOrId: string, headId: ObjectId): Promise<RevertResult> {
     // Resolve the commit to revert
-    const resolved = await this.store.refs.resolve(refOrId);
+    const resolved = await this.refsStore.resolve(refOrId);
     const commitId = resolved?.objectId ?? refOrId;
 
     // Load the commit
-    let commit: Commit;
-    try {
-      commit = await this.store.commits.loadCommit(commitId);
-    } catch {
+    const commit = await this.commits.load(commitId);
+    if (!commit) {
       throw new RefNotFoundError(`Cannot find commit: ${refOrId}`);
     }
 
@@ -245,7 +243,7 @@ export class RevertCommand extends GitCommand<RevertResult> {
     let parentId: ObjectId;
     if (commit.parents.length === 0) {
       // Root commit - diff against empty tree
-      parentId = this.store.trees.getEmptyTreeId();
+      parentId = this.trees.getEmptyTreeId();
     } else if (commit.parents.length === 1) {
       parentId = commit.parents[0];
     } else {
@@ -264,7 +262,10 @@ export class RevertCommand extends GitCommand<RevertResult> {
     // Collect tree entries into Maps by path
     // For revert: base=commit, ours=head, theirs=parent
     // This is the OPPOSITE of cherry-pick
-    const headCommit = await this.store.commits.loadCommit(headId);
+    const headCommit = await this.commits.load(headId);
+    if (!headCommit) {
+      throw new RefNotFoundError(`Cannot find head commit: ${headId}`);
+    }
     const headTree = new Map<string, PathEntry>();
     const commitTree = new Map<string, PathEntry>();
     const parentTree = new Map<string, PathEntry>();
@@ -272,9 +273,12 @@ export class RevertCommand extends GitCommand<RevertResult> {
 
     await this.collectTreeEntries(headCommit.tree, "", headTree, allPaths);
     await this.collectTreeEntries(commit.tree, "", commitTree, allPaths);
-    if (parentId !== this.store.trees.getEmptyTreeId()) {
+    if (parentId !== this.trees.getEmptyTreeId()) {
       // parentId is a commit ID, so we need to load the commit to get its tree
-      const parentCommit = await this.store.commits.loadCommit(parentId);
+      const parentCommit = await this.commits.load(parentId);
+      if (!parentCommit) {
+        throw new RefNotFoundError(`Cannot find parent commit: ${parentId}`);
+      }
       await this.collectTreeEntries(parentCommit.tree, "", parentTree, allPaths);
     }
 
@@ -299,7 +303,7 @@ export class RevertCommand extends GitCommand<RevertResult> {
     }
 
     // Build merged tree
-    const builder = this.store.staging.createBuilder();
+    const builder = this.staging.createBuilder();
     for (const entry of mergedEntries.values()) {
       builder.add({
         path: entry.path,
@@ -311,7 +315,7 @@ export class RevertCommand extends GitCommand<RevertResult> {
     await builder.finish();
 
     // Write tree
-    const newTreeId = await this.store.staging.writeTree(this.store.trees);
+    const newTreeId = await this.staging.writeTree(this.trees);
 
     // Create commit if not noCommit mode
     if (!this.noCommit) {
@@ -327,14 +331,14 @@ export class RevertCommand extends GitCommand<RevertResult> {
         message: revertMessage,
       };
 
-      const newCommitId = await this.store.commits.storeCommit(newCommit);
+      const newCommitId = await this.commits.store(newCommit);
 
       // Update HEAD
-      const head = await this.store.refs.get("HEAD");
+      const head = await this.refsStore.get("HEAD");
       if (head && "target" in head) {
-        await this.store.refs.set(head.target, newCommitId);
+        await this.refsStore.set(head.target, newCommitId);
       } else {
-        await this.store.refs.set("HEAD", newCommitId);
+        await this.refsStore.set("HEAD", newCommitId);
       }
 
       return {
@@ -361,7 +365,7 @@ export class RevertCommand extends GitCommand<RevertResult> {
     entries: Map<string, PathEntry>,
     allPaths: Set<string>,
   ): Promise<void> {
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
@@ -488,7 +492,7 @@ export class RevertCommand extends GitCommand<RevertResult> {
     oursTree: Map<string, PathEntry>,
     conflicts: string[],
   ): Promise<void> {
-    const builder = this.store.staging.createBuilder();
+    const builder = this.staging.createBuilder();
 
     // Add all non-conflicting entries at stage 0
     const conflictSet = new Set(conflicts);

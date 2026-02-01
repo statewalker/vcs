@@ -306,28 +306,29 @@ export class PushCommand extends TransportCommand<PushResult> {
     }
 
     // Get tags store (use no-op fallback if not available)
-    const tagsStore = this.store.tags ?? noOpTagStore;
+    const tagsStore = this.tagsStore ?? noOpTagStore;
 
     // Create serialization API from typed stores
+    // Note: SerializationApiConfig accepts stores at top level
+    // Use type assertion since we're passing new interfaces to a legacy-compatible API
     const serialization = new DefaultSerializationApi({
-      stores: {
-        blobs: this.store.blobs,
-        trees: this.store.trees,
-        commits: this.store.commits,
-        tags: tagsStore,
-        refs: this.store.refs,
-      },
-    });
+      blobs: this.blobs,
+      trees: this.trees,
+      commits: this.commits,
+      tags: tagsStore,
+      refs: this.refsStore,
+    } as unknown as ConstructorParameters<typeof DefaultSerializationApi>[0]);
 
     // Create repository facade for pack operations
+    // Use type assertion for legacy store-based API
     const repository = createVcsRepositoryFacade({
-      blobs: this.store.blobs,
-      trees: this.store.trees,
-      commits: this.store.commits,
+      blobs: this.blobs,
+      trees: this.trees,
+      commits: this.commits,
       tags: tagsStore,
-      refs: this.store.refs,
+      refs: this.refsStore,
       serialization,
-    });
+    } as unknown as Parameters<typeof createVcsRepositoryFacade>[0]);
 
     // Create transport ref store adapter
     const refStore = this.createRefStoreAdapter();
@@ -425,7 +426,7 @@ export class PushCommand extends TransportCommand<PushResult> {
    * Create a transport RefStore adapter from the history store refs.
    */
   private createRefStoreAdapter(): TransportRefStore {
-    const refs = this.store.refs;
+    const refs = this.refsStore;
 
     return {
       async get(name: string): Promise<string | undefined> {
@@ -483,7 +484,7 @@ export class PushCommand extends TransportCommand<PushResult> {
 
     // Push all branches
     if (this.pushAll) {
-      for await (const ref of this.store.refs.list("refs/heads/")) {
+      for await (const ref of this.refsStore.list("refs/heads/")) {
         const spec = `${ref.name}:${ref.name}`;
         specs.push(this.force ? `+${spec}` : spec);
       }
@@ -491,7 +492,7 @@ export class PushCommand extends TransportCommand<PushResult> {
 
     // Push all tags
     if (this.pushTags) {
-      for await (const ref of this.store.refs.list("refs/tags/")) {
+      for await (const ref of this.refsStore.list("refs/tags/")) {
         const spec = `${ref.name}:${ref.name}`;
         specs.push(this.force ? `+${spec}` : spec);
       }
