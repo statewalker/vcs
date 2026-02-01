@@ -8,7 +8,7 @@
  */
 
 import type { HistoryStore, WorkingCopy } from "@statewalker/vcs-core";
-import { MemoryWorkingCopy } from "@statewalker/vcs-core";
+import { MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
   MemoryRefStore,
@@ -18,7 +18,7 @@ import {
   createSqlObjectStores,
   initializeSchema,
   SQLRefStore,
-  SQLStagingStore,
+  SQLStaging,
 } from "@statewalker/vcs-store-sql";
 import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
@@ -70,13 +70,16 @@ export const memoryFactory: WorkingCopyFactory = async () => {
   });
 
   // Create mock Worktree
-  const worktree = createMockWorktree();
+  const worktreeInterface = createMockWorktree();
+
+  // Create Checkout with staging
+  const checkout = new MemoryCheckout({ staging });
 
   // Create WorkingCopy
   const workingCopy = new MemoryWorkingCopy({
-    repository,
-    worktree,
-    staging,
+    history: repository,
+    checkout,
+    worktreeInterface,
   });
 
   return { workingCopy, repository };
@@ -92,7 +95,7 @@ export const sqlFactory: WorkingCopyFactory = async () => {
   await initializeSchema(db);
   const stores = createSqlObjectStores({ db });
   const refs = new SQLRefStore(db);
-  const staging = new SQLStagingStore(db);
+  const staging = new SQLStaging(db);
 
   // Create History wrapper (also provides HistoryStore for backward compatibility)
   const repository = createSimpleHistory({
@@ -105,13 +108,16 @@ export const sqlFactory: WorkingCopyFactory = async () => {
   });
 
   // Create mock Worktree
-  const worktree = createMockWorktree();
+  const worktreeInterface = createMockWorktree();
+
+  // Create Checkout with staging
+  const checkout = new MemoryCheckout({ staging });
 
   // Create WorkingCopy
   const workingCopy = new MemoryWorkingCopy({
-    repository,
-    worktree,
-    staging,
+    history: repository,
+    checkout,
+    worktreeInterface,
   });
 
   return {
