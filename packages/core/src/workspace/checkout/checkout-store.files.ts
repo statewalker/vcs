@@ -31,7 +31,7 @@ import type {
   RevertState,
   StashStore,
 } from "../working-copy.js";
-import type { CheckoutStore, CheckoutStoreConfig } from "./checkout-store.js";
+import type { CheckoutStore, CheckoutStoreConfig } from "./types.js";
 
 /**
  * Files API subset needed for FileCheckoutStore

@@ -17,7 +17,7 @@ import {
   resolveMarkersByStrategy,
   strategyToStage,
 } from "../../src/workspace/staging/conflict-utils.js";
-import { MergeStage, type StagingEntry } from "../../src/workspace/staging/staging-store.js";
+import { MergeStage, type StagingEntry } from "../../src/workspace/staging/types.js";
 
 const sampleObjectId = "0".repeat(40) as ObjectId;
 const anotherObjectId = "a".repeat(40) as ObjectId;
