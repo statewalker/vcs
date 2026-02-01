@@ -23,8 +23,12 @@ import type {
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
-import type { PackDeltaStore } from "../storage/pack/index.js";
-import type { BackendCapabilities, StorageBackend } from "./storage-backend.js";
+import type { PackDeltaStore } from "./git/pack/index.js";
+import type {
+  BackendCapabilities,
+  StorageBackend,
+  StorageOperations,
+} from "./storage-backend.js";
 
 /**
  * Configuration for GitFilesStorageBackend
@@ -287,6 +291,48 @@ export class GitFilesStorageBackend implements StorageBackend {
    */
   getPackDeltaStore(): PackDeltaStore {
     return this.packDeltaStore;
+  }
+
+  /**
+   * Get storage operations (delta and serialization APIs)
+   *
+   * Returns a StorageOperations interface without the typed stores.
+   * This is the preferred way to access delta and serialization APIs
+   * going forward, as it separates concerns from the History interface.
+   *
+   * @returns StorageOperations implementation
+   */
+  getOperations(): StorageOperations {
+    return new GitFilesStorageOperations(this);
+  }
+}
+
+/**
+ * StorageOperations implementation for GitFilesStorageBackend
+ *
+ * Wraps the backend's delta and serialization APIs without exposing stores.
+ */
+class GitFilesStorageOperations implements StorageOperations {
+  constructor(private readonly backend: GitFilesStorageBackend) {}
+
+  get delta(): DeltaApi {
+    return this.backend.delta;
+  }
+
+  get serialization(): SerializationApi {
+    return this.backend.serialization;
+  }
+
+  get capabilities(): BackendCapabilities {
+    return this.backend.capabilities;
+  }
+
+  initialize(): Promise<void> {
+    return this.backend.initialize();
+  }
+
+  close(): Promise<void> {
+    return this.backend.close();
   }
 }
 
