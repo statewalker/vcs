@@ -55,7 +55,7 @@ describe("SQLStorageBackend", () => {
     });
   });
 
-  describe("structured stores", () => {
+  describe("stores", () => {
     describe("blobs", () => {
       it("stores and loads blob content", async () => {
         const content = new TextEncoder().encode("Hello, World!");
@@ -64,11 +64,11 @@ describe("SQLStorageBackend", () => {
           yield content;
         }
 
-        const id = await backend.structured.blobs.store(chunks());
+        const id = await backend.blobs.store(chunks());
         expect(id).toBeTruthy();
 
         const loaded: Uint8Array[] = [];
-        for await (const chunk of backend.structured.blobs.load(id)) {
+        for await (const chunk of backend.blobs.load(id)) {
           loaded.push(chunk);
         }
 
@@ -89,12 +89,10 @@ describe("SQLStorageBackend", () => {
           yield content;
         }
 
-        const id = await backend.structured.blobs.store(chunks());
+        const id = await backend.blobs.store(chunks());
 
-        expect(await backend.structured.blobs.has(id)).toBe(true);
-        expect(await backend.structured.blobs.has("0000000000000000000000000000000000000000")).toBe(
-          false,
-        );
+        expect(await backend.blobs.has(id)).toBe(true);
+        expect(await backend.blobs.has("0000000000000000000000000000000000000000")).toBe(false);
       });
 
       it("returns blob size", async () => {
@@ -104,9 +102,9 @@ describe("SQLStorageBackend", () => {
           yield content;
         }
 
-        const id = await backend.structured.blobs.store(chunks());
+        const id = await backend.blobs.store(chunks());
 
-        expect(await backend.structured.blobs.size(id)).toBe(13);
+        expect(await backend.blobs.size(id)).toBe(13);
       });
 
       it("lists blob keys", async () => {
@@ -120,11 +118,11 @@ describe("SQLStorageBackend", () => {
           yield content2;
         }
 
-        const id1 = await backend.structured.blobs.store(chunks1());
-        const id2 = await backend.structured.blobs.store(chunks2());
+        const id1 = await backend.blobs.store(chunks1());
+        const id2 = await backend.blobs.store(chunks2());
 
         const keys: ObjectId[] = [];
-        for await (const key of backend.structured.blobs.keys()) {
+        for await (const key of backend.blobs.keys()) {
           keys.push(key);
         }
 
@@ -139,12 +137,12 @@ describe("SQLStorageBackend", () => {
           yield content;
         }
 
-        const id = await backend.structured.blobs.store(chunks());
-        expect(await backend.structured.blobs.has(id)).toBe(true);
+        const id = await backend.blobs.store(chunks());
+        expect(await backend.blobs.has(id)).toBe(true);
 
-        const deleted = await backend.structured.blobs.delete(id);
+        const deleted = await backend.blobs.delete(id);
         expect(deleted).toBe(true);
-        expect(await backend.structured.blobs.has(id)).toBe(false);
+        expect(await backend.blobs.has(id)).toBe(false);
       });
     });
 
@@ -156,15 +154,15 @@ describe("SQLStorageBackend", () => {
           yield blobContent;
         }
 
-        const blobId = await backend.structured.blobs.store(blobChunks());
+        const blobId = await backend.blobs.store(blobChunks());
 
         const entries = [{ mode: 0o100644, name: "file.txt", id: blobId }];
 
-        const treeId = await backend.structured.trees.storeTree(entries);
+        const treeId = await backend.trees.storeTree(entries);
         expect(treeId).toBeTruthy();
 
         const loaded = [];
-        for await (const entry of backend.structured.trees.loadTree(treeId)) {
+        for await (const entry of backend.trees.loadTree(treeId)) {
           loaded.push(entry);
         }
 
@@ -174,14 +172,14 @@ describe("SQLStorageBackend", () => {
       });
 
       it("returns empty tree ID", () => {
-        const emptyTreeId = backend.structured.trees.getEmptyTreeId();
+        const emptyTreeId = backend.trees.getEmptyTreeId();
         expect(emptyTreeId).toBe("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
       });
     });
 
     describe("commits", () => {
       it("stores and loads commits", async () => {
-        const emptyTreeId = backend.structured.trees.getEmptyTreeId();
+        const emptyTreeId = backend.trees.getEmptyTreeId();
 
         const commit = {
           tree: emptyTreeId,
@@ -201,17 +199,17 @@ describe("SQLStorageBackend", () => {
           message: "Initial commit",
         };
 
-        const commitId = await backend.structured.commits.storeCommit(commit);
+        const commitId = await backend.commits.storeCommit(commit);
         expect(commitId).toBeTruthy();
 
-        const loaded = await backend.structured.commits.loadCommit(commitId);
+        const loaded = await backend.commits.loadCommit(commitId);
         expect(loaded.tree).toBe(emptyTreeId);
         expect(loaded.message).toBe("Initial commit");
         expect(loaded.author.name).toBe("Test Author");
       });
 
       it("returns parent commits", async () => {
-        const emptyTreeId = backend.structured.trees.getEmptyTreeId();
+        const emptyTreeId = backend.trees.getEmptyTreeId();
 
         const commit1 = {
           tree: emptyTreeId,
@@ -231,7 +229,7 @@ describe("SQLStorageBackend", () => {
           message: "First commit",
         };
 
-        const commitId1 = await backend.structured.commits.storeCommit(commit1);
+        const commitId1 = await backend.commits.storeCommit(commit1);
 
         const commit2 = {
           tree: emptyTreeId,
@@ -251,16 +249,16 @@ describe("SQLStorageBackend", () => {
           message: "Second commit",
         };
 
-        const commitId2 = await backend.structured.commits.storeCommit(commit2);
+        const commitId2 = await backend.commits.storeCommit(commit2);
 
-        const parents = await backend.structured.commits.getParents(commitId2);
+        const parents = await backend.commits.getParents(commitId2);
         expect(parents).toEqual([commitId1]);
       });
     });
 
     describe("refs", () => {
       it("sets and gets refs", async () => {
-        const emptyTreeId = backend.structured.trees.getEmptyTreeId();
+        const emptyTreeId = backend.trees.getEmptyTreeId();
 
         const commit = {
           tree: emptyTreeId,
@@ -280,17 +278,17 @@ describe("SQLStorageBackend", () => {
           message: "Test commit",
         };
 
-        const commitId = await backend.structured.commits.storeCommit(commit);
+        const commitId = await backend.commits.storeCommit(commit);
 
-        await backend.structured.refs.set("refs/heads/main", commitId);
+        await backend.refs.set("refs/heads/main", commitId);
 
-        const ref = await backend.structured.refs.get("refs/heads/main");
+        const ref = await backend.refs.get("refs/heads/main");
         expect(ref).toBeDefined();
         expect((ref as { objectId: string }).objectId).toBe(commitId);
       });
 
       it("sets and resolves symbolic refs", async () => {
-        const emptyTreeId = backend.structured.trees.getEmptyTreeId();
+        const emptyTreeId = backend.trees.getEmptyTreeId();
 
         const commit = {
           tree: emptyTreeId,
@@ -310,12 +308,12 @@ describe("SQLStorageBackend", () => {
           message: "Test commit",
         };
 
-        const commitId = await backend.structured.commits.storeCommit(commit);
+        const commitId = await backend.commits.storeCommit(commit);
 
-        await backend.structured.refs.set("refs/heads/main", commitId);
-        await backend.structured.refs.setSymbolic("HEAD", "refs/heads/main");
+        await backend.refs.set("refs/heads/main", commitId);
+        await backend.refs.setSymbolic("HEAD", "refs/heads/main");
 
-        const resolved = await backend.structured.refs.resolve("HEAD");
+        const resolved = await backend.refs.resolve("HEAD");
         expect(resolved).toBeDefined();
         expect(resolved?.objectId).toBe(commitId);
       });
@@ -350,8 +348,8 @@ describe("SQLStorageBackend", () => {
         yield content2;
       }
 
-      const baseId = await backend.structured.blobs.store(chunks1());
-      const targetId = await backend.structured.blobs.store(chunks2());
+      const baseId = await backend.blobs.store(chunks1());
+      const targetId = await backend.blobs.store(chunks2());
 
       // Initially not a delta
       expect(await backend.delta.isDelta(targetId)).toBe(false);
@@ -386,8 +384,8 @@ describe("SQLStorageBackend", () => {
         yield content2;
       }
 
-      const baseId = await backend.structured.blobs.store(chunks1());
-      const targetId = await backend.structured.blobs.store(chunks2());
+      const baseId = await backend.blobs.store(chunks1());
+      const targetId = await backend.blobs.store(chunks2());
 
       const deltaBytes = new TextEncoder().encode("delta");
 
@@ -421,9 +419,9 @@ describe("SQLStorageBackend", () => {
         yield content3;
       }
 
-      const baseId = await backend.structured.blobs.store(chunks1());
-      const targetId1 = await backend.structured.blobs.store(chunks2());
-      const targetId2 = await backend.structured.blobs.store(chunks3());
+      const baseId = await backend.blobs.store(chunks1());
+      const targetId1 = await backend.blobs.store(chunks2());
+      const targetId2 = await backend.blobs.store(chunks3());
 
       const deltaBytes = new TextEncoder().encode("delta");
 
@@ -457,8 +455,8 @@ describe("SQLStorageBackend", () => {
         yield content2;
       }
 
-      const baseId = await backend.structured.blobs.store(chunks1());
-      const targetId = await backend.structured.blobs.store(chunks2());
+      const baseId = await backend.blobs.store(chunks1());
+      const targetId = await backend.blobs.store(chunks2());
 
       const deltaBytes = new TextEncoder().encode("delta");
 

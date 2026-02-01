@@ -16,7 +16,6 @@ import type { Commit, CommitStore } from "../history/commits/commit-store.js";
 import type { Commits } from "../history/commits/commits.js";
 import type { History } from "../history/history.js";
 import type { ObjectTypeString } from "../history/objects/object-types.js";
-import type { StructuredStores } from "../history/structured-stores.js";
 import type { AnnotatedTag, TagStore } from "../history/tags/tag-store.js";
 import type { Tag, Tags } from "../history/tags/tags.js";
 import type { TreeEntry } from "../history/trees/tree-entry.js";
@@ -51,12 +50,16 @@ export interface SerializationApiConfig {
   history?: History;
 
   /**
-   * Structured stores for object access
+   * Direct store access for object access
    *
-   * @deprecated Use `history` instead. This is kept for backward compatibility
-   * during the migration period. Will be removed in a future version.
+   * Use these when you have individual store instances from a StorageBackend.
+   * All four stores must be provided together if using this approach.
    */
-  stores?: StructuredStores;
+  blobs?: BlobStore;
+  trees?: TreeStore;
+  commits?: CommitStore;
+  tags?: TagStore;
+  refs?: unknown; // Refs are not used by serialization but included for API consistency
 
   /** Blob delta API for delta-aware import */
   blobDeltaApi?: BlobDeltaApi;
@@ -87,14 +90,16 @@ export class DefaultSerializationApi implements SerializationApi {
       this._trees = config.history.trees;
       this._commits = config.history.commits;
       this._tags = config.history.tags;
-    } else if (config.stores) {
-      // Adapt deprecated StructuredStores to new interfaces
-      this._blobs = new BlobsLegacyAdapter(config.stores.blobs);
-      this._trees = new TreesLegacyAdapter(config.stores.trees);
-      this._commits = new CommitsLegacyAdapter(config.stores.commits);
-      this._tags = new TagsLegacyAdapter(config.stores.tags);
+    } else if (config.blobs && config.trees && config.commits && config.tags) {
+      // Use direct store properties - adapt to new interfaces
+      this._blobs = new BlobsLegacyAdapter(config.blobs);
+      this._trees = new TreesLegacyAdapter(config.trees);
+      this._commits = new CommitsLegacyAdapter(config.commits);
+      this._tags = new TagsLegacyAdapter(config.tags);
     } else {
-      throw new Error("SerializationApiConfig must have either 'history' or 'stores'");
+      throw new Error(
+        "SerializationApiConfig must have either 'history' or all store properties (blobs, trees, commits, tags)",
+      );
     }
     this.blobDeltaApi = config.blobDeltaApi;
   }

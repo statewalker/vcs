@@ -141,11 +141,10 @@ export function createHistoryFromComponents(config: HistoryComponentsConfig): Hi
  * Create History from a storage backend
  *
  * This is the primary factory for production use.
- * The backend provides all necessary components through its StructuredStores.
+ * The backend provides all necessary components through its store properties.
  *
  * Note: This creates adapters from old store interfaces (BlobStore, TreeStore, etc.)
- * to new interfaces (Blobs, Trees, etc.). After full migration (C5), the backend
- * will directly provide new interface implementations.
+ * to new interfaces (Blobs, Trees, etc.).
  *
  * @param config Backend configuration
  * @returns HistoryWithBackend instance with backend access
@@ -164,15 +163,13 @@ export function createHistoryFromComponents(config: HistoryComponentsConfig): Hi
  */
 export function createHistoryFromBackend(config: HistoryBackendConfig): HistoryWithBackend {
   const { backend } = config;
-  const { structured } = backend;
 
   // Create adapters from old store interfaces to new interfaces
-  // TODO: After C5 migration, backend.structured will provide new interfaces directly
-  const blobs = new BlobsAdapter(structured.blobs);
-  const trees = new TreesAdapter(structured.trees);
-  const commits = new CommitsAdapter(structured.commits);
-  const tags = new TagsAdapter(structured.tags);
-  const refs = createRefsAdapter(structured.refs);
+  const blobs = new BlobsAdapter(backend.blobs);
+  const trees = new TreesAdapter(backend.trees);
+  const commits = new CommitsAdapter(backend.commits);
+  const tags = new TagsAdapter(backend.tags);
+  const refs = createRefsAdapter(backend.refs);
 
   return new HistoryWithBackendImpl(blobs, trees, commits, tags, refs, backend);
 }
