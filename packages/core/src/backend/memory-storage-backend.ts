@@ -19,7 +19,11 @@ import type {
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
-import type { BackendCapabilities, StorageBackend } from "./storage-backend.js";
+import type {
+  BackendCapabilities,
+  StorageBackend,
+  StorageOperations,
+} from "./storage-backend.js";
 
 /**
  * Configuration for creating MemoryStorageBackend
@@ -224,6 +228,48 @@ export class MemoryStorageBackend implements StorageBackend {
 
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  /**
+   * Get storage operations (delta and serialization APIs)
+   *
+   * Returns a StorageOperations interface without the typed stores.
+   * This is the preferred way to access delta and serialization APIs
+   * going forward, as it separates concerns from the History interface.
+   *
+   * @returns StorageOperations implementation
+   */
+  getOperations(): StorageOperations {
+    return new MemoryStorageOperations(this);
+  }
+}
+
+/**
+ * StorageOperations implementation for MemoryStorageBackend
+ *
+ * Wraps the backend's delta and serialization APIs without exposing stores.
+ */
+class MemoryStorageOperations implements StorageOperations {
+  constructor(private readonly backend: MemoryStorageBackend) {}
+
+  get delta(): DeltaApi {
+    return this.backend.delta;
+  }
+
+  get serialization(): SerializationApi {
+    return this.backend.serialization;
+  }
+
+  get capabilities(): BackendCapabilities {
+    return this.backend.capabilities;
+  }
+
+  initialize(): Promise<void> {
+    return this.backend.initialize();
+  }
+
+  close(): Promise<void> {
+    return this.backend.close();
   }
 }
 

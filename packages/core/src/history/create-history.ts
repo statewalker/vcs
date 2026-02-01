@@ -14,8 +14,8 @@ import { createBlobs } from "./blobs/blobs.impl.js";
 import type { Blobs } from "./blobs/blobs.js";
 import { createCommits } from "./commits/commits.impl.js";
 import type { Commits } from "./commits/commits.js";
-import { HistoryImpl, HistoryWithBackendImpl } from "./history.impl.js";
-import type { History, HistoryWithBackend } from "./history.js";
+import { HistoryImpl, HistoryWithBackendImpl, HistoryWithOperationsImpl } from "./history.impl.js";
+import type { History, HistoryWithBackend, HistoryWithOperations } from "./history.js";
 import { createGitObjectStore } from "./objects/index.js";
 import type { GitObjectStore } from "./objects/object-store.js";
 import type { RefStore } from "./refs/ref-store.js";
@@ -138,7 +138,60 @@ export function createHistoryFromComponents(config: HistoryComponentsConfig): Hi
 }
 
 /**
- * Create History from a storage backend
+ * Create History from a storage backend (new API)
+ *
+ * This is the recommended factory for production use.
+ * Returns HistoryWithOperations with flattened delta/serialization APIs.
+ *
+ * @param config Backend configuration
+ * @returns HistoryWithOperations instance
+ *
+ * @example
+ * ```typescript
+ * const backend = await createGitFilesBackend({ path: ".git" });
+ * const history = createHistoryWithOperations({ backend });
+ *
+ * // Use history for normal operations
+ * const commit = await history.commits.load(commitId);
+ *
+ * // Use delta API for GC
+ * history.delta.startBatch();
+ * await history.delta.blobs.deltifyBlob(blobId, baseId, delta);
+ * await history.delta.endBatch();
+ *
+ * // Use serialization for transport
+ * const pack = history.serialization.createPack(objectIds);
+ * ```
+ */
+export function createHistoryWithOperations(config: HistoryBackendConfig): HistoryWithOperations {
+  const { backend } = config;
+
+  // Create adapters from old store interfaces to new interfaces
+  const blobs = new BlobsAdapter(backend.blobs);
+  const trees = new TreesAdapter(backend.trees);
+  const commits = new CommitsAdapter(backend.commits);
+  const tags = new TagsAdapter(backend.tags);
+  const refs = createRefsAdapter(backend.refs);
+
+  return new HistoryWithOperationsImpl(
+    blobs,
+    trees,
+    commits,
+    tags,
+    refs,
+    backend.delta,
+    backend.serialization,
+    backend.capabilities,
+    () => backend.initialize(),
+    () => backend.close(),
+  );
+}
+
+/**
+ * Create History from a storage backend (legacy API)
+ *
+ * @deprecated Use createHistoryWithOperations instead for a cleaner API without
+ * the redundant backend property. This function will be removed in a future version.
  *
  * This is the primary factory for production use.
  * The backend provides all necessary components through its store properties.

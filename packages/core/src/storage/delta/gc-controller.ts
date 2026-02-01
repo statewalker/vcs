@@ -6,6 +6,7 @@
  */
 
 import type { StorageBackend } from "../../backend/storage-backend.js";
+import type { HistoryWithOperations } from "../../history/history.js";
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/object-id.js";
 import { ObjectType } from "../../history/objects/object-types.js";
@@ -61,18 +62,25 @@ const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
 };
 
 /**
- * GC Controller V2 - Uses StorageBackend
+ * GC Controller V2 - Uses HistoryWithOperations or StorageBackend
  *
  * Simplified GC controller that focuses on blob-only delta compression.
- * Uses the unified StorageBackend interface instead of RawStoreWithDelta.
+ * Accepts either HistoryWithOperations (recommended) or StorageBackend (legacy).
  *
- * Key differences from V1:
+ * Key features:
  * - Only processes blobs (trees and commits are not deltified)
- * - Uses StorageBackend.delta API for all delta operations
- * - Uses StorageBackend stores (blobs, commits, trees) for object access
+ * - Uses delta API for all delta operations
+ * - Uses blob store for object access
  *
  * @example
  * ```typescript
+ * // With HistoryWithOperations (recommended)
+ * const gc = new GCController(history, {
+ *   deltaEngine: myDeltaEngine,
+ *   looseBlobThreshold: 100,
+ * });
+ *
+ * // With StorageBackend (legacy)
  * const gc = new GCController(backend, {
  *   deltaEngine: myDeltaEngine,
  *   looseBlobThreshold: 100,
@@ -83,12 +91,15 @@ const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
  * ```
  */
 export class GCController {
-  private readonly backend: StorageBackend;
+  private readonly backend: HistoryWithOperations | StorageBackend;
   private readonly options: ResolvedGCOptions;
   private lastGC = 0;
   private pendingBlobs: ObjectId[] = [];
 
-  constructor(backend: StorageBackend, options: GCScheduleOptions = {}) {
+  constructor(
+    backend: HistoryWithOperations | StorageBackend,
+    options: GCScheduleOptions = {},
+  ) {
     this.backend = backend;
     this.options = {
       ...DEFAULT_GC_OPTIONS,
@@ -398,7 +409,9 @@ export class GCController {
       // Delete unreachable blob
       try {
         const size = await blobs.size(id);
-        const deleted = await blobs.delete(id);
+        // Handle both BlobStore (has delete) and Blobs (has remove)
+        const deleted =
+          "delete" in blobs ? await blobs.delete(id) : await blobs.remove(id);
         if (deleted) {
           blobsRemoved++;
           bytesFreed += size;
@@ -423,7 +436,12 @@ export class GCController {
     reachable.add(commitId);
 
     try {
-      const commit = await this.backend.commits.loadCommit(commitId);
+      // Handle both CommitStore (has loadCommit) and Commits (has load)
+      const commits = this.backend.commits;
+      const commit =
+        "loadCommit" in commits ? await commits.loadCommit(commitId) : await commits.load(commitId);
+      if (!commit) return;
+
       await this.walkTree(commit.tree, reachable);
 
       for (const parent of commit.parents) {
@@ -442,7 +460,13 @@ export class GCController {
     reachable.add(treeId);
 
     try {
-      for await (const entry of this.backend.trees.loadTree(treeId)) {
+      // Handle both TreeStore (has loadTree) and Trees (has load)
+      const trees = this.backend.trees;
+      const treeEntries =
+        "loadTree" in trees ? trees.loadTree(treeId) : await trees.load(treeId);
+      if (!treeEntries) return;
+
+      for await (const entry of treeEntries) {
         reachable.add(entry.id);
         if (entry.mode === FileMode.TREE) {
           await this.walkTree(entry.id, reachable);
