@@ -5,14 +5,14 @@ import type { CommitStore } from "../../src/history/commits/commit-store.js";
 import type { HistoryStore } from "../../src/history/history-store.js";
 import type { RefStore } from "../../src/history/refs/ref-store.js";
 import type { TreeEntry, TreeStore } from "../../src/history/trees/tree-store.js";
-import type { StagingEntry, StagingStore } from "../../src/workspace/staging/staging-store.js";
+import type { StagingEntry, StagingStore } from "../../src/workspace/staging/types.js";
 import { FileStatus } from "../../src/workspace/status/status-calculator.js";
 import { MemoryStashStore } from "../../src/workspace/working-copy/stash-store.memory.js";
 import {
   GitWorkingCopy,
   type WorkingCopyFilesApi,
 } from "../../src/workspace/working-copy/working-copy.files.js";
-import type { WorktreeEntry, WorktreeStore } from "../../src/workspace/worktree/worktree-store.js";
+import type { WorktreeEntry, WorktreeStore } from "../../src/workspace/worktree/types.js";
 
 /**
  * Create mock files API

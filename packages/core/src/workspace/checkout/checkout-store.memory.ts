@@ -23,7 +23,7 @@ import type {
   RevertState,
   StashStore,
 } from "../working-copy.js";
-import type { CheckoutStore, CheckoutStoreConfig } from "./checkout-store.js";
+import type { CheckoutStore, CheckoutStoreConfig } from "./types.js";
 
 /**
  * In-memory CheckoutStore implementation.

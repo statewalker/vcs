@@ -16,7 +16,7 @@ import type { History } from "../../history/history.js";
 import type { HistoryStore } from "../../history/history-store.js";
 import type { Checkout } from "../checkout/checkout.js";
 import type { Staging } from "../staging/index.js";
-import type { StagingStore } from "../staging/staging-store.js";
+import type { StagingStore } from "../staging/types.js";
 import type { RepositoryStatus, StatusOptions } from "../status/index.js";
 import type {
   CherryPickState,
@@ -28,7 +28,7 @@ import type {
   WorkingCopyConfig,
 } from "../working-copy.js";
 import type { Worktree } from "../worktree/index.js";
-import type { WorktreeStore } from "../worktree/worktree-store.js";
+import type { WorktreeStore } from "../worktree/types.js";
 import {
   getStateCapabilities,
   RepositoryState,

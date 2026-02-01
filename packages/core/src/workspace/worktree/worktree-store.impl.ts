@@ -24,7 +24,7 @@ import {
 import type { ObjectId } from "../../common/id/index.js";
 import { createIgnoreManager } from "../ignore/ignore-manager.impl.js";
 import type { IgnoreManager } from "../ignore/ignore-manager.js";
-import type { WorktreeEntry, WorktreeStore, WorktreeStoreOptions } from "./worktree-store.js";
+import type { WorktreeEntry, WorktreeStore, WorktreeStoreOptions } from "./types.js";
 
 /**
  * Simplified file entry information for mode determination.
