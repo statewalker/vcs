@@ -24,12 +24,6 @@ import { parsePacket } from "./pkt-line-codec.js";
 import type { ServiceType } from "./types.js";
 
 /**
- * Git protocol service types for the wire protocol.
- * @deprecated Use ServiceType from protocol/types.ts instead.
- */
-export type GitProtocolService = ServiceType;
-
-/**
  * Parsed git:// protocol request.
  */
 export interface GitProtocolRequest {

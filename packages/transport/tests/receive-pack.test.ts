@@ -17,9 +17,9 @@ import {
   type PushCommand,
   type PushCommandResult,
   type PushCommandType,
-  parseRefspec,
   ZERO_OID,
 } from "../src/fsm/push/types.js";
+import { parseRefSpec } from "../src/utils/refspec.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Command Parsing Tests
@@ -437,43 +437,53 @@ describe("Status Reporting", () => {
 
 describe("Refspec Parsing", () => {
   it("should parse source:destination refspec", () => {
-    const result = parseRefspec("refs/heads/local:refs/heads/remote");
+    const result = parseRefSpec("refs/heads/local:refs/heads/remote");
 
-    expect(result.src).toBe("refs/heads/local");
-    expect(result.dst).toBe("refs/heads/remote");
+    expect(result.source).toBe("refs/heads/local");
+    expect(result.destination).toBe("refs/heads/remote");
     expect(result.force).toBe(false);
+    expect(result.negative).toBe(false);
+    expect(result.wildcard).toBe(false);
   });
 
   it("should parse force push refspec", () => {
-    const result = parseRefspec("+refs/heads/main:refs/heads/main");
+    const result = parseRefSpec("+refs/heads/main:refs/heads/main");
 
-    expect(result.src).toBe("refs/heads/main");
-    expect(result.dst).toBe("refs/heads/main");
+    expect(result.source).toBe("refs/heads/main");
+    expect(result.destination).toBe("refs/heads/main");
     expect(result.force).toBe(true);
+    expect(result.negative).toBe(false);
+    expect(result.wildcard).toBe(false);
   });
 
   it("should parse delete refspec", () => {
-    const result = parseRefspec(":refs/heads/to-delete");
+    const result = parseRefSpec(":refs/heads/to-delete");
 
-    expect(result.src).toBeNull();
-    expect(result.dst).toBe("refs/heads/to-delete");
+    expect(result.source).toBeNull();
+    expect(result.destination).toBe("refs/heads/to-delete");
     expect(result.force).toBe(false);
+    expect(result.negative).toBe(false);
+    expect(result.wildcard).toBe(false);
   });
 
   it("should parse force delete refspec", () => {
-    const result = parseRefspec("+:refs/heads/to-delete");
+    const result = parseRefSpec("+:refs/heads/to-delete");
 
-    expect(result.src).toBeNull();
-    expect(result.dst).toBe("refs/heads/to-delete");
+    expect(result.source).toBeNull();
+    expect(result.destination).toBe("refs/heads/to-delete");
     expect(result.force).toBe(true);
+    expect(result.negative).toBe(false);
+    expect(result.wildcard).toBe(false);
   });
 
   it("should parse shorthand refspec (same src and dst)", () => {
-    const result = parseRefspec("refs/heads/main");
+    const result = parseRefSpec("refs/heads/main");
 
-    expect(result.src).toBe("refs/heads/main");
-    expect(result.dst).toBe("refs/heads/main");
+    expect(result.source).toBe("refs/heads/main");
+    expect(result.destination).toBeNull();
     expect(result.force).toBe(false);
+    expect(result.negative).toBe(false);
+    expect(result.wildcard).toBe(false);
   });
 });
 

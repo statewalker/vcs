@@ -50,34 +50,6 @@ export interface PushCommand {
 }
 
 /**
- * Parse a refspec string into components.
- *
- * @deprecated Use parseRefSpec from utils/refspec.js for full refspec support
- * including wildcards and negative refspecs. This simplified version is kept
- * for backward compatibility in the push FSM.
- */
-export function parseRefspec(refspec: string): {
-  src: string | null;
-  dst: string;
-  force: boolean;
-} {
-  let force = false;
-  let spec = refspec;
-
-  if (spec.startsWith("+")) {
-    force = true;
-    spec = spec.slice(1);
-  }
-
-  if (spec.includes(":")) {
-    const [src, dst] = spec.split(":", 2);
-    return { src: src || null, dst, force };
-  }
-
-  return { src: spec, dst: spec, force };
-}
-
-/**
  * Map server rejection reason to PushCommandResult.
  */
 export function mapRejectReason(reason: string): PushCommandResult {

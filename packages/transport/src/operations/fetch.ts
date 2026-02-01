@@ -8,12 +8,6 @@
 import type { Credentials, ProgressInfo } from "../api/credentials.js";
 
 /**
- * Authentication credentials for transport operations.
- * @deprecated Use Credentials from api/credentials.js instead
- */
-export type TransportAuth = Credentials;
-
-/**
  * Options for the fetch operation.
  */
 export interface FetchOptions {

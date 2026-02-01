@@ -19,13 +19,13 @@ import {
   type ProcessContext,
 } from "../../context/context-adapters.js";
 import { createEmptyPack } from "../../protocol/pack-utils.js";
+import { parseRefSpec } from "../../utils/refspec.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 import {
   mapRejectReason,
   type PushCommand,
   type PushCommandResult,
   type PushCommandType,
-  parseRefspec,
   ZERO_OID,
 } from "./types.js";
 
@@ -157,12 +157,12 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         const pushCommands: PushCommand[] = [];
 
         for (const refspec of config.pushRefspecs ?? []) {
-          const { src, dst, force } = parseRefspec(refspec);
+          const { source, destination, force } = parseRefSpec(refspec);
 
           // Get local ref value
-          const localOid = src ? await refStore.get(src) : undefined;
+          const localOid = source ? await refStore.get(source) : undefined;
           // Get remote ref value
-          const remoteOid = state.refs.get(dst) ?? ZERO_OID;
+          const remoteOid = state.refs.get(destination ?? "") ?? ZERO_OID;
 
           // Determine command type
           let type: PushCommandType;
@@ -181,14 +181,14 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
           // Check if non-fast-forward is allowed
           if (type === "UPDATE_NONFASTFORWARD" && !force) {
-            output.error = `Cannot push non-fast-forward to ${dst} without force`;
+            output.error = `Cannot push non-fast-forward to ${destination ?? ""} without force`;
             return "LOCAL_VALIDATION_FAILED";
           }
 
           pushCommands.push({
             oldOid: remoteOid,
             newOid: localOid ?? ZERO_OID,
-            refName: dst,
+            refName: destination ?? "",
             type,
             result: "NOT_ATTEMPTED",
           });

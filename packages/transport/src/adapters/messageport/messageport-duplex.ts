@@ -133,27 +133,3 @@ export function createMessagePortDuplex(port: MessagePort): Duplex {
     },
   };
 }
-
-/**
- * Extended Duplex with required close capability.
- *
- * Use this type when you need a Duplex that is guaranteed to have close().
- * The base Duplex interface has close() as optional.
- */
-export interface CloseableDuplex extends Duplex {
-  /** Close the duplex stream */
-  close(): Promise<void>;
-}
-
-/**
- * Creates a closeable Duplex from a MessagePort.
- *
- * @deprecated Use createMessagePortDuplex instead - it now includes close().
- *
- * @param port - MessagePort to wrap
- * @returns Closeable Duplex stream
- */
-export function createCloseableMessagePortDuplex(port: MessagePort): CloseableDuplex {
-  // createMessagePortDuplex now has close() built-in
-  return createMessagePortDuplex(port) as CloseableDuplex;
-}
