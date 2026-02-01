@@ -33,8 +33,6 @@
 export * from "./binary-storage/index.js";
 // High-level store implementations
 export * from "./commit-store.js";
-// Factory functions
-export * from "./create-streaming-stores.js";
 // Database client interface
 export * from "./database-client.js";
 // Migrations

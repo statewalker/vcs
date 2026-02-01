@@ -10,8 +10,6 @@
 export * from "./adapters/index.js";
 // Binary storage (new architecture)
 export * from "./binary-storage/index.js";
-// Factory function for streaming stores
-export * from "./create-streaming-stores.js";
 // Store implementations
 export * from "./kv-commit-store.js";
 export * from "./kv-ref-store.js";
