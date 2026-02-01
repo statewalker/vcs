@@ -151,6 +151,12 @@ export function createMockStagingStore(
         }
       }
     }),
+    // New Staging interface method
+    entries: vi.fn().mockImplementation(async function* (_options?: EntryIteratorOptions) {
+      for (const entry of entries) {
+        yield entry;
+      }
+    }),
     hasConflicts: vi.fn().mockReturnValue(conflictPaths.length > 0),
     getConflictPaths: vi.fn().mockImplementation(async function* () {
       for (const path of conflictPaths) {

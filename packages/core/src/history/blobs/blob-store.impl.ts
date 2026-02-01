@@ -81,6 +81,6 @@ export class GitBlobStore implements BlobStore {
    * Delete a blob from storage
    */
   delete(id: ObjectId): Promise<boolean> {
-    return this.objects.delete(id);
+    return this.objects.remove(id);
   }
 }

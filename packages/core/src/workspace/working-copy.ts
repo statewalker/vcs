@@ -14,9 +14,7 @@
 
 import type { ObjectId } from "../common/id/index.js";
 import type { History } from "../history/history.js";
-import type { HistoryStore } from "../history/history-store.js";
 import type { Checkout } from "./checkout/checkout.js";
-import type { Staging } from "./staging/index.js";
 import type { RepositoryStatus, StatusOptions } from "./status/index.js";
 import type { RepositoryStateValue, StateCapabilities } from "./working-copy/repository-state.js";
 import type { Worktree } from "./worktree/index.js";
@@ -150,8 +148,8 @@ export interface RevertState {
 /**
  * WorkingCopy - a checked-out working directory
  *
- * Links to a HistoryStore and adds local state.
- * Multiple WorkingCopies can share one HistoryStore.
+ * Links to a History and adds local state.
+ * Multiple WorkingCopies can share one History.
  *
  * @example Checking branch and status
  * ```typescript
@@ -210,23 +208,6 @@ export interface WorkingCopy {
    * Optional during migration, will become required.
    */
   readonly worktreeInterface?: Worktree;
-
-  // ============ Legacy Properties (deprecated) ============
-
-  /**
-   * @deprecated Use `history` instead. Will be removed in future version.
-   */
-  readonly repository: HistoryStore;
-
-  /**
-   * @deprecated Use `worktreeInterface` instead. Will be removed in future version.
-   */
-  readonly worktree: Worktree;
-
-  /**
-   * @deprecated Use `checkout.staging` instead. Will be removed in future version.
-   */
-  readonly staging: Staging;
 
   /** Stash operations (storage is backend-dependent) */
   readonly stash: StashStore;
@@ -376,7 +357,8 @@ export interface WorkingCopyFactory {
    * @param options Worktree options
    */
   addWorktree(
-    repository: HistoryStore,
+    history: History,
+    gitDir: string,
     worktreePath: string,
     options?: AddWorktreeOptions,
   ): Promise<WorkingCopy>;

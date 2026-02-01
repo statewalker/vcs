@@ -39,7 +39,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should soft reset (move HEAD only)", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       // Create commit
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -56,7 +56,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should mixed reset (move HEAD and reset staging)", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       // Create commit
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -75,7 +75,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reset with HEAD~N notation", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       // Create commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -89,7 +89,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reset with HEAD^ notation", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create commit
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -118,7 +118,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should update branch ref", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       // Create commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -132,7 +132,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should work with detached HEAD", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       // Create commit
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();

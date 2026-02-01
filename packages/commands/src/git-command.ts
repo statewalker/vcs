@@ -164,27 +164,30 @@ export abstract class GitCommand<T> {
    * Access blob storage.
    */
   protected get blobs(): Blobs {
-    return (this._workingCopy.history?.blobs ??
-      this._workingCopy.repository.blobs) as unknown as Blobs;
+    if (!this._workingCopy.history) {
+      throw new Error("WorkingCopy.history is required for commands");
+    }
+    return this._workingCopy.history.blobs as unknown as Blobs;
   }
 
   /**
    * Access tree storage.
    */
   protected get trees(): CommandTrees {
-    return wrapTrees(
-      (this._workingCopy.history?.trees ?? this._workingCopy.repository.trees) as unknown as Trees,
-    );
+    if (!this._workingCopy.history) {
+      throw new Error("WorkingCopy.history is required for commands");
+    }
+    return wrapTrees(this._workingCopy.history.trees as unknown as Trees);
   }
 
   /**
    * Access commit storage.
    */
   protected get commits(): CommandCommits {
-    return wrapCommits(
-      (this._workingCopy.history?.commits ??
-        this._workingCopy.repository.commits) as unknown as Commits,
-    );
+    if (!this._workingCopy.history) {
+      throw new Error("WorkingCopy.history is required for commands");
+    }
+    return wrapCommits(this._workingCopy.history.commits as unknown as Commits);
   }
 
   /**
@@ -192,8 +195,10 @@ export abstract class GitCommand<T> {
    * Named tagsStore to avoid conflict with command properties.
    */
   protected get tagsStore(): CommandTags | undefined {
-    const tags = (this._workingCopy.history?.tags ??
-      this._workingCopy.repository.tags) as unknown as Tags | undefined;
+    if (!this._workingCopy.history) {
+      throw new Error("WorkingCopy.history is required for commands");
+    }
+    const tags = this._workingCopy.history.tags as unknown as Tags | undefined;
     return tags ? wrapTags(tags) : undefined;
   }
 
@@ -202,16 +207,20 @@ export abstract class GitCommand<T> {
    * Named refsStore to avoid conflict with command properties.
    */
   protected get refsStore(): CommandRefs {
-    return wrapRefs(
-      (this._workingCopy.history?.refs ?? this._workingCopy.repository.refs) as unknown as Refs,
-    );
+    if (!this._workingCopy.history) {
+      throw new Error("WorkingCopy.history is required for commands");
+    }
+    return wrapRefs(this._workingCopy.history.refs as unknown as Refs);
   }
 
   /**
    * Access staging area.
    */
   protected get staging(): Staging {
-    return (this._workingCopy.checkout?.staging ?? this._workingCopy.staging) as unknown as Staging;
+    if (this._workingCopy.checkout?.staging) {
+      return this._workingCopy.checkout.staging as unknown as Staging;
+    }
+    throw new Error("WorkingCopy.checkout.staging is required for commands");
   }
 
   /**

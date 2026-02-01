@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { HistoryStore } from "../../src/history/history-store.js";
+import type { History } from "../../src/history/index.js";
 import type { StashFilesApi } from "../../src/workspace/working-copy/stash-store.files.js";
 
 import { GitStashStore } from "../../src/workspace/working-copy/stash-store.files.js";
@@ -51,27 +51,50 @@ function createMockBlobStore() {
   const blobs = new Map<string, Uint8Array>();
   let idCounter = 0;
 
-  return {
-    store: vi.fn().mockImplementation(async function* (content: AsyncIterable<Uint8Array>) {
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of content) {
+  const storeImpl = async (content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>) => {
+    const chunks: Uint8Array[] = [];
+    if (Symbol.asyncIterator in content) {
+      for await (const chunk of content as AsyncIterable<Uint8Array>) {
         chunks.push(chunk);
       }
-      const data = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
-      let offset = 0;
-      for (const chunk of chunks) {
-        data.set(chunk, offset);
-        offset += chunk.length;
+    } else {
+      for (const chunk of content as Iterable<Uint8Array>) {
+        chunks.push(chunk);
       }
-      const id = `blob${(idCounter++).toString().padStart(36, "0")}`;
-      blobs.set(id, data);
-      return id;
-    }),
-    load: vi.fn().mockImplementation(async function* (id: string) {
-      const data = blobs.get(id);
-      if (data) yield data;
-    }),
+    }
+    const data = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
+    let offset = 0;
+    for (const chunk of chunks) {
+      data.set(chunk, offset);
+      offset += chunk.length;
+    }
+    const id = `blob${(idCounter++).toString().padStart(36, "0")}`;
+    blobs.set(id, data);
+    return id;
+  };
+
+  const loadImpl = async (id: string) => {
+    const data = blobs.get(id);
+    if (!data) return undefined;
+    return (async function* () {
+      yield data;
+    })();
+  };
+
+  return {
+    // New interface (Blobs)
+    store: vi.fn().mockImplementation(storeImpl),
+    load: vi.fn().mockImplementation(loadImpl),
     has: vi.fn().mockImplementation(async (id: string) => blobs.has(id)),
+    size: vi.fn().mockImplementation(async (id: string) => {
+      const data = blobs.get(id);
+      return data ? data.length : -1;
+    }),
+    keys: vi.fn().mockImplementation(async function* () {
+      for (const key of blobs.keys()) {
+        yield key;
+      }
+    }),
     getBlobs: () => blobs,
   };
 }
@@ -79,7 +102,7 @@ function createMockBlobStore() {
 /**
  * Create a mock repository for testing.
  */
-function createMockRepository() {
+function createMockRepository(): History {
   const treeStore = createMockTreeStore({
     "tree-1": [{ name: "file.txt", id: "blob-1", mode: 0o100644 }],
     "tree-2": [
@@ -95,14 +118,15 @@ function createMockRepository() {
     commits: commitStore,
     trees: treeStore,
     blobs: blobStore,
-    refs: {} as Repository["refs"],
-    tags: undefined,
-  } as unknown as Repository;
+    refs: {} as History["refs"],
+    tags: {} as History["tags"],
+    objects: {} as History["objects"],
+  } as unknown as History;
 }
 
 describe("GitStashStore", () => {
   let stash: GitStashStore;
-  let repository: HistoryStore;
+  let repository: History;
   let filesApi: ReturnType<typeof createMockFilesApi>;
   let headCommitId: string;
   let headTreeId: string;
@@ -133,7 +157,7 @@ describe("GitStashStore", () => {
     );
 
     stash = new GitStashStore({
-      repository,
+      history: repository,
       staging,
       worktree,
       files: filesApi,
@@ -186,7 +210,7 @@ describe("GitStashStore", () => {
 
     it("should throw when no HEAD commit exists", async () => {
       const noHeadStash = new GitStashStore({
-        repository,
+        history: repository,
         staging: createMockStagingStore([]),
         worktree: createMockWorktree([]),
         files: filesApi,
@@ -265,7 +289,7 @@ describe("GitStashStore", () => {
       staging.readTree = vi.fn().mockResolvedValue(undefined);
 
       const stashWithMockStaging = new GitStashStore({
-        repository,
+        history: repository,
         staging,
         worktree: createMockWorktree([]),
         files: filesApi,
@@ -304,7 +328,7 @@ describe("GitStashStore", () => {
       staging.readTree = vi.fn().mockResolvedValue(undefined);
 
       const stashWithMockStaging = new GitStashStore({
-        repository,
+        history: repository,
         staging,
         worktree: createMockWorktree([]),
         files: filesApi,
@@ -452,7 +476,7 @@ describe("GitStashStore", () => {
       staging.writeTree = vi.fn().mockResolvedValue("tree-1");
 
       const stashWithModified = new GitStashStore({
-        repository,
+        history: repository,
         staging,
         worktree: modifiedWorktree,
         files: filesApi,
@@ -498,7 +522,7 @@ describe("GitStashStore", () => {
       stagingWithTracked.writeTree = vi.fn().mockResolvedValue("tree-1");
 
       const stashWithUntracked = new GitStashStore({
-        repository,
+        history: repository,
         staging: stagingWithTracked,
         worktree: worktreeWithUntracked,
         files: filesApi,
@@ -534,7 +558,7 @@ describe("GitStashStore", () => {
       stagingAllTracked.writeTree = vi.fn().mockResolvedValue("tree-1");
 
       const stashAllTracked = new GitStashStore({
-        repository,
+        history: repository,
         staging: stagingAllTracked,
         worktree: worktreeAllTracked,
         files: filesApi,

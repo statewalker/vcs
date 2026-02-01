@@ -7,8 +7,6 @@
       "@statewalker/vcs-commands/*": ["packages/commands/src/*"],
       "@statewalker/vcs-core": ["packages/core/src"],
       "@statewalker/vcs-core/*": ["packages/core/src/*"],
-      "@statewalker/vcs-storage-tests": ["packages/storage-tests/src"],
-      "@statewalker/vcs-storage-tests/*": ["packages/storage-tests/src/*"],
       "@statewalker/vcs-store-kv": ["packages/store-kv/src"],
       "@statewalker/vcs-store-kv/*": ["packages/store-kv/src/*"],
       "@statewalker/vcs-store-mem": ["packages/store-mem/src"],
@@ -32,7 +30,6 @@
     { "path": "packages/store-kv" },
     { "path": "packages/store-mem" },
     { "path": "packages/store-sql" },
-    { "path": "packages/storage-tests" },
     { "path": "packages/commands" }
   ]
 }

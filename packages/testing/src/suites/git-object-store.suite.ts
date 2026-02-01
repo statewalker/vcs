@@ -138,13 +138,13 @@ export function createGitObjectStoreTests(name: string, factory: GitObjectStoreF
 
         expect(await ctx.objectStore.has(id)).toBe(true);
 
-        const deleted = await ctx.objectStore.delete(id);
+        const deleted = await ctx.objectStore.remove(id);
         expect(deleted).toBe(true);
         expect(await ctx.objectStore.has(id)).toBe(false);
       });
 
       it("returns false when deleting non-existent object", async () => {
-        const deleted = await ctx.objectStore.delete("0000000000000000000000000000000000000000");
+        const deleted = await ctx.objectStore.remove("0000000000000000000000000000000000000000");
         expect(deleted).toBe(false);
       });
 
@@ -396,7 +396,7 @@ export function createGitObjectStoreTests(name: string, factory: GitObjectStoreF
         const content = encoder.encode("cycle test");
 
         const id1 = await ctx.objectStore.store("blob", toStream(content));
-        await ctx.objectStore.delete(id1);
+        await ctx.objectStore.remove(id1);
 
         const id2 = await ctx.objectStore.store("blob", toStream(content));
         expect(id2).toBe(id1);

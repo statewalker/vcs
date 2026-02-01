@@ -192,7 +192,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should update branch ref after commit", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const commit = await git.commit().setMessage("New commit").setAllowEmpty(true).call();
 
@@ -259,7 +259,7 @@ describe.each(backends)("CommitCommand with --only flag ($name backend)", ({ fac
   }
 
   it("should commit only specified paths", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial commit with two files
     await addFile(workingCopy, "file1.txt", "content1\n");
@@ -293,7 +293,7 @@ describe.each(backends)("CommitCommand with --only flag ($name backend)", ({ fac
   });
 
   it("should commit multiple specified paths", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial commit with three files
     await addFile(workingCopy, "a.txt", "a\n");
@@ -330,7 +330,7 @@ describe.each(backends)("CommitCommand with --only flag ($name backend)", ({ fac
   });
 
   it("should work with files in subdirectories", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create files in subdirectories
     await addFile(workingCopy, "src/main.ts", "main\n");
@@ -545,7 +545,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   }
 
   it("should auto-stage modified tracked files", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial commit with files
     await addFile(workingCopy, "file1.txt", "original1\n");
@@ -581,7 +581,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   });
 
   it("should auto-stage deleted tracked files", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial commit with files
     await addFile(workingCopy, "file1.txt", "content1\n");
@@ -624,7 +624,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   });
 
   it("should throw when combining --all with --only (JGit behavior)", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial commit with file
     await addFile(workingCopy, "file.txt", "content\n");
@@ -638,7 +638,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   });
 
   it("should not add new untracked files", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create initial commit with one file
     await addFile(workingCopy, "tracked.txt", "tracked\n");

@@ -1,11 +1,11 @@
 /**
- * Parametrized test suite for GitStores (streaming stores) implementations
+ * Parametrized test suite for History (streaming stores) implementations
  *
  * Tests the streaming stores architecture across different backends
  * to verify Git-compatible object ID generation.
  */
 
-import type { GitStores } from "@statewalker/vcs-core";
+import type { History } from "@statewalker/vcs-core";
 import { ObjectType } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
  * Context provided by the stores factory
  */
 export interface StreamingStoresTestContext {
-  stores: GitStores;
+  stores: History;
   cleanup?: () => Promise<void>;
 }
 
@@ -87,7 +87,9 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
 
         expect(id).toMatch(/^[0-9a-f]{40}$/);
 
-        const loaded = await collectBytes(ctx.stores.blobs.load(id));
+        const blobContent = await ctx.stores.blobs.load(id);
+        if (!blobContent) throw new Error("Blob not found");
+        const loaded = await collectBytes(blobContent);
         expect(decoder.decode(loaded)).toBe("Hello, World!");
       });
 
@@ -116,14 +118,16 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
         const blobId = await ctx.stores.blobs.store(toStream(blobContent));
 
         // Store tree with entry
-        const treeId = await ctx.stores.trees.storeTree([
+        const treeId = await ctx.stores.trees.store([
           { mode: 0o100644, name: "test.txt", id: blobId },
         ]);
 
         expect(treeId).toMatch(/^[0-9a-f]{40}$/);
 
         // Load and verify
-        const entries = await toArray(ctx.stores.trees.loadTree(treeId));
+        const treeIter = await ctx.stores.trees.load(treeId);
+        if (!treeIter) throw new Error("Tree not found");
+        const entries = await toArray(treeIter);
         expect(entries).toHaveLength(1);
         expect(entries[0].name).toBe("test.txt");
         expect(entries[0].mode).toBe(0o100644);
@@ -134,12 +138,14 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
         const blobId = await ctx.stores.blobs.store(toStream(encoder.encode("x")));
 
         // Store tree with entries in wrong order
-        const treeId = await ctx.stores.trees.storeTree([
+        const treeId = await ctx.stores.trees.store([
           { mode: 0o100644, name: "z.txt", id: blobId },
           { mode: 0o100644, name: "a.txt", id: blobId },
         ]);
 
-        const entries = await toArray(ctx.stores.trees.loadTree(treeId));
+        const treeIter = await ctx.stores.trees.load(treeId);
+        if (!treeIter) throw new Error("Tree not found");
+        const entries = await toArray(treeIter);
         expect(entries[0].name).toBe("a.txt");
         expect(entries[1].name).toBe("z.txt");
       });
@@ -149,12 +155,12 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
       it("stores and loads commit", async () => {
         // Create a tree
         const blobId = await ctx.stores.blobs.store(toStream(encoder.encode("content")));
-        const treeId = await ctx.stores.trees.storeTree([
+        const treeId = await ctx.stores.trees.store([
           { mode: 0o100644, name: "file.txt", id: blobId },
         ]);
 
         // Store commit
-        const commitId = await ctx.stores.commits.storeCommit({
+        const commitId = await ctx.stores.commits.store({
           tree: treeId,
           parents: [],
           author: {
@@ -175,7 +181,8 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
         expect(commitId).toMatch(/^[0-9a-f]{40}$/);
 
         // Load and verify
-        const commit = await ctx.stores.commits.loadCommit(commitId);
+        const commit = await ctx.stores.commits.load(commitId);
+        if (!commit) throw new Error("Commit not found");
         expect(commit.tree).toBe(treeId);
         expect(commit.message).toBe("Initial commit");
         expect(commit.author.name).toBe("Test");
@@ -184,10 +191,10 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
       it("stores commit with parent", async () => {
         // Create first commit
         const blobId = await ctx.stores.blobs.store(toStream(encoder.encode("v1")));
-        const treeId1 = await ctx.stores.trees.storeTree([
+        const treeId1 = await ctx.stores.trees.store([
           { mode: 0o100644, name: "file.txt", id: blobId },
         ]);
-        const parentId = await ctx.stores.commits.storeCommit({
+        const parentId = await ctx.stores.commits.store({
           tree: treeId1,
           parents: [],
           author: {
@@ -207,10 +214,10 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
 
         // Create second commit with parent
         const blobId2 = await ctx.stores.blobs.store(toStream(encoder.encode("v2")));
-        const treeId2 = await ctx.stores.trees.storeTree([
+        const treeId2 = await ctx.stores.trees.store([
           { mode: 0o100644, name: "file.txt", id: blobId2 },
         ]);
-        const commitId = await ctx.stores.commits.storeCommit({
+        const commitId = await ctx.stores.commits.store({
           tree: treeId2,
           parents: [parentId],
           author: {
@@ -228,7 +235,8 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
           message: "Second commit",
         });
 
-        const commit = await ctx.stores.commits.loadCommit(commitId);
+        const commit = await ctx.stores.commits.load(commitId);
+        if (!commit) throw new Error("Commit not found");
         expect(commit.parents).toEqual([parentId]);
       });
     });
@@ -237,10 +245,10 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
       it("stores and loads tag", async () => {
         // Create a commit to tag
         const blobId = await ctx.stores.blobs.store(toStream(encoder.encode("content")));
-        const treeId = await ctx.stores.trees.storeTree([
+        const treeId = await ctx.stores.trees.store([
           { mode: 0o100644, name: "file.txt", id: blobId },
         ]);
-        const commitId = await ctx.stores.commits.storeCommit({
+        const commitId = await ctx.stores.commits.store({
           tree: treeId,
           parents: [],
           author: {
@@ -259,7 +267,7 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
         });
 
         // Store tag
-        const tagId = await ctx.stores.tags.storeTag({
+        const tagId = await ctx.stores.tags.store({
           object: commitId,
           objectType: ObjectType.COMMIT,
           tag: "v1.0.0",
@@ -275,7 +283,8 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
         expect(tagId).toMatch(/^[0-9a-f]{40}$/);
 
         // Load and verify
-        const tag = await ctx.stores.tags.loadTag(tagId);
+        const tag = await ctx.stores.tags.load(tagId);
+        if (!tag) throw new Error("Tag not found");
         expect(tag.object).toBe(commitId);
         expect(tag.objectType).toBe(ObjectType.COMMIT);
         expect(tag.tag).toBe("v1.0.0");
@@ -299,7 +308,9 @@ export function createStreamingStoresTests(name: string, factory: StreamingStore
         const id1 = await ctx.stores.blobs.store(toStream(content));
 
         // Load and re-store should produce same ID
-        const loaded = await collectBytes(ctx.stores.blobs.load(id1));
+        const blobContent = await ctx.stores.blobs.load(id1);
+        if (!blobContent) throw new Error("Blob not found");
+        const loaded = await collectBytes(blobContent);
         const id2 = await ctx.stores.blobs.store(toStream(loaded));
 
         expect(id1).toBe(id2);
@@ -331,14 +342,17 @@ export function createCrossBackendTests(
             const fromId = await fromCtx.stores.blobs.store(toStream(content));
 
             // Load from source and store in target
-            const loaded = fromCtx.stores.blobs.load(fromId);
+            const loaded = await fromCtx.stores.blobs.load(fromId);
+            if (!loaded) throw new Error("Blob not found");
             const toId = await toCtx.stores.blobs.store(loaded);
 
             // IDs should match
             expect(toId).toBe(fromId);
 
             // Content should match
-            const roundtripped = await collectBytes(toCtx.stores.blobs.load(toId));
+            const roundtrippedContent = await toCtx.stores.blobs.load(toId);
+            if (!roundtrippedContent) throw new Error("Blob not found");
+            const roundtripped = await collectBytes(roundtrippedContent);
             expect(decoder.decode(roundtripped)).toBe(`Content from ${from.name} to ${to.name}`);
           } finally {
             await fromCtx.cleanup?.();
@@ -355,18 +369,19 @@ export function createCrossBackendTests(
             const blobId = await fromCtx.stores.blobs.store(
               toStream(encoder.encode("file content")),
             );
-            const fromTreeId = await fromCtx.stores.trees.storeTree([
+            const fromTreeId = await fromCtx.stores.trees.store([
               { mode: 0o100644, name: "test.txt", id: blobId },
             ]);
 
             // Re-create in target (trees need to be serialized/deserialized)
             // First transfer the blob
-            const blobContent = fromCtx.stores.blobs.load(blobId);
+            const blobContent = await fromCtx.stores.blobs.load(blobId);
+            if (!blobContent) throw new Error("Blob not found");
             const toBlobId = await toCtx.stores.blobs.store(blobContent);
             expect(toBlobId).toBe(blobId);
 
             // Then create the same tree
-            const toTreeId = await toCtx.stores.trees.storeTree([
+            const toTreeId = await toCtx.stores.trees.store([
               { mode: 0o100644, name: "test.txt", id: toBlobId },
             ]);
 

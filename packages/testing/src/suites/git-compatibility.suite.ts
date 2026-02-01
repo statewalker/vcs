@@ -7,7 +7,7 @@
  * Based on JGit patterns and Git format specifications.
  */
 
-import type { GitStores } from "@statewalker/vcs-core";
+import type { History } from "@statewalker/vcs-core";
 import { ObjectType } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
  * Context provided by the stores factory
  */
 export interface GitCompatibilityTestContext {
-  stores: GitStores;
+  stores: History;
   cleanup?: () => Promise<void>;
 }
 
@@ -127,7 +127,7 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
        * Empty tree has a well-known hash.
        */
       it("should produce well-known empty tree hash", async () => {
-        const id = await ctx.stores.trees.storeTree([]);
+        const id = await ctx.stores.trees.store([]);
         expect(id).toBe(EMPTY_TREE_ID);
       });
 
@@ -140,14 +140,16 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
         const blobId = await ctx.stores.blobs.store(toStream(encoder.encode("content")));
 
         // Add entries in reverse order - tree should sort them
-        const treeId = await ctx.stores.trees.storeTree([
+        const treeId = await ctx.stores.trees.store([
           { mode: 0o100644, name: "z.txt", id: blobId },
           { mode: 0o100644, name: "a.txt", id: blobId },
           { mode: 0o100644, name: "m.txt", id: blobId },
         ]);
 
         // Load and verify sorted order
-        const entries = await toArray(ctx.stores.trees.loadTree(treeId));
+        const treeIter = await ctx.stores.trees.load(treeId);
+        if (!treeIter) throw new Error("Tree not found");
+        const entries = await toArray(treeIter);
         expect(entries.map((e) => e.name)).toEqual(["a.txt", "m.txt", "z.txt"]);
       });
 
@@ -157,15 +159,17 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
        */
       it("should sort directories correctly relative to files", async () => {
         const blobId = await ctx.stores.blobs.store(toStream(encoder.encode("file")));
-        const dirTreeId = await ctx.stores.trees.storeTree([]);
+        const dirTreeId = await ctx.stores.trees.store([]);
 
-        const treeId = await ctx.stores.trees.storeTree([
+        const treeId = await ctx.stores.trees.store([
           { mode: 0o100644, name: "a.txt", id: blobId },
           { mode: 0o040000, name: "a", id: dirTreeId },
           { mode: 0o100644, name: "a-file", id: blobId },
         ]);
 
-        const entries = await toArray(ctx.stores.trees.loadTree(treeId));
+        const treeIter = await ctx.stores.trees.load(treeId);
+        if (!treeIter) throw new Error("Tree not found");
+        const entries = await toArray(treeIter);
         // Git order: "a-file" < "a.txt" < "a" (dir)
         // Because dir "a" compares as "a/" and "/" (47) > "." (46) > "-" (45)
         expect(entries.map((e) => e.name)).toEqual(["a-file", "a.txt", "a"]);
@@ -181,16 +185,18 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
        */
       it("should handle all file modes", async () => {
         const blobId = await ctx.stores.blobs.store(toStream(encoder.encode("content")));
-        const treeId = await ctx.stores.trees.storeTree([]);
+        const treeId = await ctx.stores.trees.store([]);
 
-        const parentTree = await ctx.stores.trees.storeTree([
+        const parentTree = await ctx.stores.trees.store([
           { mode: 0o100644, name: "regular.txt", id: blobId },
           { mode: 0o100755, name: "executable.sh", id: blobId },
           { mode: 0o120000, name: "symlink", id: blobId },
           { mode: 0o040000, name: "subdir", id: treeId },
         ]);
 
-        const entries = await toArray(ctx.stores.trees.loadTree(parentTree));
+        const treeIter = await ctx.stores.trees.load(parentTree);
+        if (!treeIter) throw new Error("Tree not found");
+        const entries = await toArray(treeIter);
 
         const findEntry = (name: string) => entries.find((e) => e.name === name);
         expect(findEntry("regular.txt")?.mode).toBe(0o100644);
@@ -224,8 +230,8 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
           message: "Test commit message\n",
         };
 
-        const id1 = await ctx.stores.commits.storeCommit(commitData);
-        const id2 = await ctx.stores.commits.storeCommit(commitData);
+        const id1 = await ctx.stores.commits.store(commitData);
+        const id2 = await ctx.stores.commits.store(commitData);
 
         expect(id1).toBe(id2);
         expect(id1).toMatch(/^[0-9a-f]{40}$/);
@@ -236,7 +242,7 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
        */
       it("should handle merge commit with multiple parents", async () => {
         // Create two parent commits
-        const parent1 = await ctx.stores.commits.storeCommit({
+        const parent1 = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [],
           author: { name: "A", email: "a@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -244,7 +250,7 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
           message: "Parent 1",
         });
 
-        const parent2 = await ctx.stores.commits.storeCommit({
+        const parent2 = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [],
           author: { name: "A", email: "a@test.com", timestamp: 2000, tzOffset: "+0000" },
@@ -253,7 +259,7 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
         });
 
         // Create merge commit
-        const merge = await ctx.stores.commits.storeCommit({
+        const merge = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [parent1, parent2],
           author: { name: "A", email: "a@test.com", timestamp: 3000, tzOffset: "+0000" },
@@ -262,7 +268,8 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
         });
 
         // Load and verify parents
-        const loaded = await ctx.stores.commits.loadCommit(merge);
+        const loaded = await ctx.stores.commits.load(merge);
+        if (!loaded) throw new Error("Commit not found");
         expect(loaded.parents).toEqual([parent1, parent2]);
       });
 
@@ -273,7 +280,7 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
         const timezones = ["+0000", "-0500", "+0530", "+1200", "-1100"];
 
         for (const tz of timezones) {
-          const commit = await ctx.stores.commits.storeCommit({
+          const commit = await ctx.stores.commits.store({
             tree: EMPTY_TREE_ID,
             parents: [],
             author: { name: "A", email: "a@test.com", timestamp: 1000000, tzOffset: tz },
@@ -281,7 +288,8 @@ export function createGitCompatibilityTests(name: string, factory: GitCompatibil
             message: `TZ: ${tz}`,
           });
 
-          const loaded = await ctx.stores.commits.loadCommit(commit);
+          const loaded = await ctx.stores.commits.load(commit);
+          if (!loaded) throw new Error("Commit not found");
           expect(loaded.author.tzOffset).toBe(tz);
           expect(loaded.committer.tzOffset).toBe(tz);
         }
@@ -301,7 +309,7 @@ Second paragraph with details.
 Signed-off-by: Test <test@example.com>
 `;
 
-        const commit = await ctx.stores.commits.storeCommit({
+        const commit = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [],
           author: { name: "A", email: "a@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -309,7 +317,8 @@ Signed-off-by: Test <test@example.com>
           message,
         });
 
-        const loaded = await ctx.stores.commits.loadCommit(commit);
+        const loaded = await ctx.stores.commits.load(commit);
+        if (!loaded) throw new Error("Commit not found");
         expect(loaded.message).toBe(message);
       });
     });
@@ -320,7 +329,7 @@ Signed-off-by: Test <test@example.com>
        */
       it("should create Git-compatible annotated tag", async () => {
         // First create a commit to tag
-        const commitId = await ctx.stores.commits.storeCommit({
+        const commitId = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [],
           author: { name: "A", email: "a@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -328,7 +337,7 @@ Signed-off-by: Test <test@example.com>
           message: "Initial commit",
         });
 
-        const tagId = await ctx.stores.tags.storeTag({
+        const tagId = await ctx.stores.tags.store({
           object: commitId,
           objectType: ObjectType.COMMIT,
           tag: "v1.0.0",
@@ -338,7 +347,8 @@ Signed-off-by: Test <test@example.com>
 
         expect(tagId).toMatch(/^[0-9a-f]{40}$/);
 
-        const loaded = await ctx.stores.tags.loadTag(tagId);
+        const loaded = await ctx.stores.tags.load(tagId);
+        if (!loaded) throw new Error("Tag not found");
         expect(loaded.object).toBe(commitId);
         expect(loaded.objectType).toBe(ObjectType.COMMIT);
         expect(loaded.tag).toBe("v1.0.0");
@@ -357,7 +367,7 @@ Signed-off-by: Test <test@example.com>
        */
       it("should create stash with correct parent structure", async () => {
         // Create HEAD commit
-        const headCommit = await ctx.stores.commits.storeCommit({
+        const headCommit = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [],
           author: { name: "A", email: "a@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -366,7 +376,7 @@ Signed-off-by: Test <test@example.com>
         });
 
         // Create index commit (first parent is HEAD)
-        const indexCommit = await ctx.stores.commits.storeCommit({
+        const indexCommit = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [headCommit],
           author: { name: "A", email: "a@test.com", timestamp: 2000, tzOffset: "+0000" },
@@ -375,7 +385,7 @@ Signed-off-by: Test <test@example.com>
         });
 
         // Create stash commit (two parents: HEAD, index)
-        const stashCommit = await ctx.stores.commits.storeCommit({
+        const stashCommit = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [headCommit, indexCommit],
           author: { name: "A", email: "a@test.com", timestamp: 2000, tzOffset: "+0000" },
@@ -383,7 +393,8 @@ Signed-off-by: Test <test@example.com>
           message: "WIP on main: abc1234 HEAD commit",
         });
 
-        const loaded = await ctx.stores.commits.loadCommit(stashCommit);
+        const loaded = await ctx.stores.commits.load(stashCommit);
+        if (!loaded) throw new Error("Commit not found");
         expect(loaded.parents.length).toBe(2);
         expect(loaded.parents[0]).toBe(headCommit);
         expect(loaded.parents[1]).toBe(indexCommit);
@@ -394,7 +405,7 @@ Signed-off-by: Test <test@example.com>
        * Stash with untracked files has three parents.
        */
       it("should support stash with untracked files (3 parents)", async () => {
-        const headCommit = await ctx.stores.commits.storeCommit({
+        const headCommit = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [],
           author: { name: "A", email: "a@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -402,7 +413,7 @@ Signed-off-by: Test <test@example.com>
           message: "HEAD",
         });
 
-        const indexCommit = await ctx.stores.commits.storeCommit({
+        const indexCommit = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [headCommit],
           author: { name: "A", email: "a@test.com", timestamp: 2000, tzOffset: "+0000" },
@@ -412,11 +423,11 @@ Signed-off-by: Test <test@example.com>
 
         // Untracked files tree
         const untrackedBlob = await ctx.stores.blobs.store(toStream(encoder.encode("untracked")));
-        const untrackedTree = await ctx.stores.trees.storeTree([
+        const untrackedTree = await ctx.stores.trees.store([
           { mode: 0o100644, name: "new-file.txt", id: untrackedBlob },
         ]);
 
-        const untrackedCommit = await ctx.stores.commits.storeCommit({
+        const untrackedCommit = await ctx.stores.commits.store({
           tree: untrackedTree,
           parents: [],
           author: { name: "A", email: "a@test.com", timestamp: 2000, tzOffset: "+0000" },
@@ -425,7 +436,7 @@ Signed-off-by: Test <test@example.com>
         });
 
         // Stash with 3 parents
-        const stashCommit = await ctx.stores.commits.storeCommit({
+        const stashCommit = await ctx.stores.commits.store({
           tree: EMPTY_TREE_ID,
           parents: [headCommit, indexCommit, untrackedCommit],
           author: { name: "A", email: "a@test.com", timestamp: 2000, tzOffset: "+0000" },
@@ -433,7 +444,8 @@ Signed-off-by: Test <test@example.com>
           message: "WIP on main: abc HEAD",
         });
 
-        const loaded = await ctx.stores.commits.loadCommit(stashCommit);
+        const loaded = await ctx.stores.commits.load(stashCommit);
+        if (!loaded) throw new Error("Commit not found");
         expect(loaded.parents.length).toBe(3);
         expect(loaded.parents[2]).toBe(untrackedCommit);
       });
@@ -448,10 +460,10 @@ Signed-off-by: Test <test@example.com>
         expect(blobId).toMatch(/^[0-9a-f]{40}$/);
         expect(blobId).toBe(blobId.toLowerCase());
 
-        const treeId = await ctx.stores.trees.storeTree([]);
+        const treeId = await ctx.stores.trees.store([]);
         expect(treeId).toMatch(/^[0-9a-f]{40}$/);
 
-        const commitId = await ctx.stores.commits.storeCommit({
+        const commitId = await ctx.stores.commits.store({
           tree: treeId,
           parents: [],
           author: { name: "A", email: "a@test.com", timestamp: 1000, tzOffset: "+0000" },
