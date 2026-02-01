@@ -1,3 +1,11 @@
+export type { CloneOptions, CloneResult } from "./clone.js";
+export { clone } from "./clone.js";
+export type {
+  FetchOptions,
+  HttpFetchResult,
+} from "./fetch.js";
+export { fetch } from "./fetch.js";
+export type { FetchOverDuplexOptions } from "./fetch-over-duplex.js";
 export { fetchOverDuplex } from "./fetch-over-duplex.js";
 export type { FetchOverDuplexOptions } from "./fetch-over-duplex.js";
 

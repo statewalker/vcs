@@ -124,33 +124,3 @@ export function createMessagePortDuplex(port: MessagePort): Duplex {
     },
   };
 }
-
-/**
- * Extended Duplex with close capability.
- */
-export interface CloseableDuplex extends Duplex {
-  /** Close the duplex stream */
-  close(): void;
-}
-
-/**
- * Creates a closeable Duplex from a MessagePort.
- *
- * Similar to createMessagePortDuplex but adds a close() method
- * that signals the other end and closes the port.
- *
- * @param port - MessagePort to wrap
- * @returns Closeable Duplex stream
- */
-export function createCloseableMessagePortDuplex(port: MessagePort): CloseableDuplex {
-  const baseDuplex = createMessagePortDuplex(port);
-
-  return {
-    ...baseDuplex,
-    close(): void {
-      // Send close signal to other end
-      port.postMessage("__close__");
-      port.close();
-    },
-  };
-}

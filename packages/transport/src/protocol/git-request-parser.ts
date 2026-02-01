@@ -23,12 +23,6 @@
 import { parsePacket } from "./pkt-line-codec.js";
 
 /**
- * Git protocol service types for the wire protocol.
- * Note: This is an alias for compatibility. Use ServiceType from protocol/types.ts when possible.
- */
-export type GitProtocolService = "git-upload-pack" | "git-receive-pack";
-
-/**
  * Parsed git:// protocol request.
  */
 export interface GitProtocolRequest {
