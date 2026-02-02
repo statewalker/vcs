@@ -1,18 +1,18 @@
 /**
  * RepositoryFacade adapter for transport integration tests
  *
- * Creates a RepositoryFacade from a HistoryStore for use in
+ * Creates a RepositoryFacade from a HistoryWithBackend for use in
  * transport operations (fetch, push).
  */
 
-import type { HistoryStore } from "@statewalker/vcs-core";
+import type { HistoryWithBackend, HistoryWithOperations } from "@statewalker/vcs-core";
 import {
-  createRepositoryFacade as createFacadeFromStores,
+  createRepositoryFacade as createFacadeFromHistory,
   type RepositoryFacade,
 } from "@statewalker/vcs-transport";
 
 /**
- * Creates a RepositoryFacade from a HistoryStore
+ * Creates a RepositoryFacade from a HistoryWithBackend or HistoryWithOperations
  *
  * The RepositoryFacade provides transport-layer operations:
  * - importPack: Import objects from a pack stream
@@ -20,14 +20,13 @@ import {
  * - has: Check if an object exists
  * - walkAncestors: Walk commit ancestry for negotiation
  *
- * @param repository HistoryStore from createGitRepository
+ * @param history HistoryWithBackend or HistoryWithOperations instance
  * @returns RepositoryFacade for transport operations
- * @throws Error if repository has no backend (required for serialization)
  *
  * @example
  * ```typescript
- * const repository = await createGitRepository(...);
- * const facade = createRepositoryFacade(repository);
+ * const history = createHistoryWithOperations({ backend });
+ * const facade = createRepositoryFacade(history);
  *
  * // Check object existence
  * const exists = await facade.has(commitId);
@@ -36,19 +35,8 @@ import {
  * const pack = facade.exportPack(new Set([wantOid]), new Set([haveOid]));
  * ```
  */
-export function createRepositoryFacade(repository: HistoryStore): RepositoryFacade {
-  if (!repository.backend) {
-    throw new Error(
-      "Repository must have a backend for transport operations. " +
-        "Use createGitRepository() to create a repository with a backend.",
-    );
-  }
-
-  return createFacadeFromStores({
-    objects: repository.objects,
-    commits: repository.commits,
-    tags: repository.tags,
-    refs: repository.refs,
-    serialization: repository.backend.serialization,
-  });
+export function createRepositoryFacade(
+  history: HistoryWithBackend | HistoryWithOperations,
+): RepositoryFacade {
+  return createFacadeFromHistory({ history });
 }

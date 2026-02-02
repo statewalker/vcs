@@ -9,7 +9,7 @@
  * These tests focus on the repository integration aspects.
  */
 
-import { type CloseableDuplex, createCloseableMessagePortDuplex } from "@statewalker/vcs-transport";
+import { createMessagePortDuplex, type Duplex } from "@statewalker/vcs-transport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createInitializedTestRepository,
@@ -21,18 +21,25 @@ import {
 } from "../helpers/index.js";
 
 /**
+ * Duplex with close method for tests
+ */
+interface DuplexWithClose extends Duplex {
+  close(): Promise<void>;
+}
+
+/**
  * Create a connected pair of MessagePort transports for testing.
  */
 function createTestTransportPair(): {
-  client: CloseableDuplex;
-  server: CloseableDuplex;
+  client: DuplexWithClose;
+  server: DuplexWithClose;
   cleanup: () => void;
 } {
   const channel = new MessageChannel();
 
   return {
-    client: createCloseableMessagePortDuplex(channel.port1),
-    server: createCloseableMessagePortDuplex(channel.port2),
+    client: createMessagePortDuplex(channel.port1) as DuplexWithClose,
+    server: createMessagePortDuplex(channel.port2) as DuplexWithClose,
     cleanup: () => {
       channel.port1.close();
       channel.port2.close();

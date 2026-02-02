@@ -1987,7 +1987,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
       // Verify merged content is ours (Z)
       const entry = await workingCopy.checkout.staging.getEntry("file.txt");
       expect(entry).toBeDefined();
-      const content = await collectBytes(repository.blobs.load(entry?.objectId ?? ""));
+      const content = await collectBytes(repository.blobs.loadBlob(entry?.objectId ?? ""));
       expect(new TextDecoder().decode(content)).toBe(toLines("aZc"));
     });
 
@@ -2033,7 +2033,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
       // Verify merged content is theirs (Y)
       const entry = await workingCopy.checkout.staging.getEntry("file.txt");
       expect(entry).toBeDefined();
-      const content = await collectBytes(repository.blobs.load(entry?.objectId ?? ""));
+      const content = await collectBytes(repository.blobs.loadBlob(entry?.objectId ?? ""));
       expect(new TextDecoder().decode(content)).toBe(toLines("aYc"));
     });
 
@@ -2079,7 +2079,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
       // Verify merged content has both Z and Y (union)
       const entry = await workingCopy.checkout.staging.getEntry("file.txt");
       expect(entry).toBeDefined();
-      const content = await collectBytes(repository.blobs.load(entry?.objectId ?? ""));
+      const content = await collectBytes(repository.blobs.loadBlob(entry?.objectId ?? ""));
       const contentStr = new TextDecoder().decode(content);
       // UNION puts ours first, then theirs (skipping duplicates)
       expect(contentStr).toBe(toLines("aZYc"));
@@ -2125,7 +2125,7 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
 
       // Verify no duplication
       const entry = await workingCopy.checkout.staging.getEntry("file.txt");
-      const content = await collectBytes(repository.blobs.load(entry?.objectId ?? ""));
+      const content = await collectBytes(repository.blobs.loadBlob(entry?.objectId ?? ""));
       expect(new TextDecoder().decode(content)).toBe(toLines("aZc"));
     });
 
@@ -2173,12 +2173,12 @@ describe.each(backends)("MergeCommand - Merge strategies ($name backend)", ({ fa
 
       // file-a should have ours (Z)
       const entryA = await workingCopy.checkout.staging.getEntry("file-a.txt");
-      const contentA = await collectBytes(repository.blobs.load(entryA?.objectId ?? ""));
+      const contentA = await collectBytes(repository.blobs.loadBlob(entryA?.objectId ?? ""));
       expect(new TextDecoder().decode(contentA)).toBe(toLines("aZc"));
 
       // file-b should have theirs (side version) since only they changed it
       const entryB = await workingCopy.checkout.staging.getEntry("file-b.txt");
-      const contentB = await collectBytes(repository.blobs.load(entryB?.objectId ?? ""));
+      const contentB = await collectBytes(repository.blobs.loadBlob(entryB?.objectId ?? ""));
       expect(new TextDecoder().decode(contentB)).toBe("side version");
     });
 

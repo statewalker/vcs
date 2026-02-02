@@ -2,32 +2,77 @@
  * Test helpers for integration tests
  *
  * Provides utilities for testing Git operations across multiple storage backends.
+ *
+ * For multi-backend testing, use `createInitializedGitFromFactory()` with
+ * different backend factories.
  */
 
-import { Git, type GitStore } from "@statewalker/vcs-commands";
-import type { ObjectId, PersonIdent } from "@statewalker/vcs-core";
+import { Git } from "@statewalker/vcs-commands";
+import type {
+  BlobStore,
+  CommitStore,
+  GitObjectStore,
+  ObjectId,
+  PersonIdent,
+  RefStore,
+  Staging,
+  TagStore,
+  TreeStore,
+  WorkingCopy,
+} from "@statewalker/vcs-core";
 import { FileMode } from "@statewalker/vcs-core";
 
 import {
   backends,
   defaultFactory,
-  filesApiFactory,
-  type GitStoreFactory,
-  type GitStoreTestContext,
   memoryFactory,
   sqlFactory,
+  type WorkingCopyFactory,
+  type WorkingCopyTestContext,
 } from "./backend-factories.js";
+import type { SimpleHistory } from "./helpers/simple-history.js";
 
 // Re-export factory types and functions for convenience
-export type { GitStoreFactory, GitStoreTestContext };
-export { backends, defaultFactory, filesApiFactory, memoryFactory, sqlFactory };
+export type { WorkingCopyFactory, WorkingCopyTestContext };
+export { backends, defaultFactory, memoryFactory, sqlFactory };
+
+/**
+ * Combined store for test convenience
+ *
+ * Provides unified access to history stores and staging area
+ * without needing to navigate the WorkingCopy architecture.
+ */
+export interface TestStore {
+  /** Object store for raw Git objects */
+  objects: GitObjectStore;
+  /** Blob storage */
+  blobs: BlobStore;
+  /** Tree storage */
+  trees: TreeStore;
+  /** Commit storage */
+  commits: CommitStore;
+  /** Tag storage */
+  tags: TagStore;
+  /** Reference storage */
+  refs: RefStore;
+  /** Staging area from checkout */
+  staging: Staging;
+}
 
 /**
  * Result of creating an initialized Git instance
  */
 export interface InitializedGitResult {
   git: Git;
-  store: GitStore;
+  /** The WorkingCopy instance */
+  workingCopy: WorkingCopy;
+  /** Direct access to the repository for test setup/verification */
+  repository: SimpleHistory;
+  /**
+   * Combined store for test convenience
+   * Contains history stores (blobs, trees, commits, tags, refs) + staging
+   */
+  store: TestStore;
   initialCommitId: ObjectId;
   cleanup?: () => Promise<void>;
 }
@@ -40,17 +85,18 @@ export interface InitializedGitResult {
  * - Initial empty commit on main
  *
  * @param factory The factory function to use
- * @returns Initialized Git with store and cleanup function
+ * @returns Initialized Git with workingCopy, repository, and cleanup function
  */
 export async function createInitializedGitFromFactory(
-  factory: GitStoreFactory,
+  factory: WorkingCopyFactory,
 ): Promise<InitializedGitResult> {
   const ctx = await factory();
-  const store = ctx.store;
-  const git = Git.wrap(store);
+  const { workingCopy, repository } = ctx;
+  // Use Git.fromWorkingCopy for the new architecture
+  const git = Git.fromWorkingCopy(workingCopy);
 
   // Create and store empty tree
-  const emptyTreeId = await store.trees.storeTree([]);
+  const emptyTreeId = await repository.trees.storeTree([]);
 
   // Create initial commit
   const initialCommit = {
@@ -61,16 +107,28 @@ export async function createInitializedGitFromFactory(
     message: "Initial commit",
   };
 
-  const initialCommitId = await store.commits.storeCommit(initialCommit);
+  const initialCommitId = await repository.commits.storeCommit(initialCommit);
 
   // Set up refs
-  await store.refs.set("refs/heads/main", initialCommitId);
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
+  await repository.refs.set("refs/heads/main", initialCommitId);
+  await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
   // Initialize staging with empty tree
-  await store.staging.readTree(store.trees, emptyTreeId);
+  const staging = workingCopy.checkout.staging;
+  await staging.readTree(repository.trees, emptyTreeId);
 
-  return { git, store, initialCommitId, cleanup: ctx.cleanup };
+  // Create combined store for test convenience
+  const store: TestStore = {
+    objects: repository.objects,
+    blobs: repository.blobs,
+    trees: repository.trees,
+    commits: repository.commits,
+    tags: repository.tags,
+    refs: repository.refs,
+    staging,
+  };
+
+  return { git, workingCopy, repository, store, initialCommitId, cleanup: ctx.cleanup };
 }
 
 /**
@@ -94,13 +152,19 @@ export function testAuthor(name = "Test Author", email = "test@example.com"): Pe
 
 /**
  * Add a file to the staging area and return its object ID.
+ *
+ * @param store TestStore to use (provides blobs and staging)
+ * @param path File path
+ * @param content File content
  */
-export async function addFile(store: GitStore, path: string, content: string): Promise<ObjectId> {
+export async function addFile(store: TestStore, path: string, content: string): Promise<ObjectId> {
+  // Store the content as a blob
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
   const objectId = await store.blobs.store([data]);
 
-  const editor = store.staging.editor();
+  // Add to staging
+  const editor = store.staging.createEditor();
   editor.add({
     path,
     apply: () => ({
@@ -118,21 +182,81 @@ export async function addFile(store: GitStore, path: string, content: string): P
 }
 
 /**
- * Create a commit with the given message and optional files.
+ * Minimal blob store interface for addFile
+ * Compatible with both BlobStore and History.blobs
+ */
+interface BlobStoreForAddFile {
+  store(content: Iterable<Uint8Array> | AsyncIterable<Uint8Array>): Promise<ObjectId>;
+}
+
+/**
+ * Minimal store interface for addFile function
+ */
+interface StoreForAddFile {
+  blobs: BlobStoreForAddFile;
+  staging: Staging;
+}
+
+/**
+ * Add a file using a minimal store interface.
+ * Works with both TestStore and WorkingCopy-derived stores.
+ */
+async function addFileInternal(
+  store: StoreForAddFile,
+  path: string,
+  content: string,
+): Promise<ObjectId> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const objectId = await store.blobs.store([data]);
+
+  const editor = store.staging.createEditor();
+  editor.add({
+    path,
+    apply: () => ({
+      path,
+      mode: FileMode.REGULAR_FILE,
+      objectId,
+      stage: 0,
+      size: data.length,
+      mtime: Date.now(),
+    }),
+  });
+  await editor.finish();
+
+  return objectId;
+}
+
+/**
+ * Create a commit with the given message and files.
+ *
+ * @param wc WorkingCopy to use
+ * @param message Commit message
+ * @param files Optional files to add (path -> content)
+ * @param parentIds Optional parent commit IDs (defaults to HEAD)
  */
 export async function createCommit(
-  store: GitStore,
+  wc: WorkingCopy,
   message: string,
   files: Record<string, string> = {},
   parentIds?: ObjectId[],
 ): Promise<ObjectId> {
+  const { history, checkout } = wc;
+  const staging = checkout.staging;
+
+  // Create a store interface compatible with addFileInternal
+  const store: StoreForAddFile = {
+    blobs: history.blobs,
+    staging,
+  };
+
   // Add files to staging
   for (const [path, content] of Object.entries(files)) {
-    await addFile(store, path, content);
+    await addFileInternal(store, path, content);
   }
 
   // Write tree from staging
-  const treeId = await store.staging.writeTree(store.trees);
+  const treeId = await staging.writeTree(history.trees);
 
   // Get parent(s)
   let parents: ObjectId[];
@@ -140,7 +264,7 @@ export async function createCommit(
     parents = parentIds;
   } else {
     try {
-      const headRef = await store.refs.resolve("HEAD");
+      const headRef = await history.refs.resolve("HEAD");
       parents = headRef?.objectId ? [headRef.objectId] : [];
     } catch {
       parents = [];
@@ -156,28 +280,37 @@ export async function createCommit(
     message,
   };
 
-  const commitId = await store.commits.storeCommit(commit);
+  // Store commit - handle both new Commits (.store) and legacy CommitStore (.storeCommit)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const commitsAny = history.commits as any;
+  const commitId: ObjectId = commitsAny.storeCommit
+    ? await commitsAny.storeCommit(commit)
+    : await commitsAny.store(commit);
 
   // Update HEAD
-  const head = await store.refs.get("HEAD");
+  const head = await history.refs.get("HEAD");
   if (head && "target" in head) {
-    await store.refs.set(head.target, commitId);
+    await history.refs.set(head.target, commitId);
   } else {
-    await store.refs.set("HEAD", commitId);
+    await history.refs.set("HEAD", commitId);
   }
 
   // Update staging to match new tree
-  await store.staging.readTree(store.trees, treeId);
+  await staging.readTree(history.trees, treeId);
 
   return commitId;
 }
 
 /**
  * Remove a file from the staging area.
+ *
+ * @param wc WorkingCopy to use
+ * @param path File path to remove
  */
-export async function removeFile(store: GitStore, path: string): Promise<void> {
-  const builder = store.staging.builder();
-  for await (const entry of store.staging.listEntries()) {
+export async function removeFile(wc: WorkingCopy, path: string): Promise<void> {
+  const builder = wc.checkout.staging.createBuilder();
+  // Add all entries except the one we want to remove
+  for await (const entry of wc.checkout.staging.entries()) {
     if (entry.path !== path) {
       builder.add(entry);
     }

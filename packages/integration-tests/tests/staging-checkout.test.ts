@@ -36,7 +36,7 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
 
       await addFile(store, "test.txt", "content");
 
-      const entries = await toArray(store.staging.listEntries());
+      const entries = await toArray(store.staging.entries());
       expect(entries.length).toBeGreaterThan(0);
 
       const entry = entries.find((e) => e.path === "test.txt");
@@ -56,7 +56,7 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
       await addFile(store, "file2.txt", "content2");
       await addFile(store, "src/index.ts", "code");
 
-      const entries = await toArray(store.staging.listEntries());
+      const entries = await toArray(store.staging.entries());
       const paths = entries.map((e) => e.path).sort();
 
       expect(paths).toContain("file1.txt");
@@ -74,7 +74,7 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
 
       const blobId = await addFile(store, "new.txt", "new content");
 
-      const entries = await toArray(store.staging.listEntries());
+      const entries = await toArray(store.staging.entries());
       const newEntry = entries.find((e) => e.path === "new.txt");
 
       expect(newEntry).toBeDefined();
@@ -91,7 +91,7 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
 
       expect(blob1).not.toBe(blob2);
 
-      const entries = await toArray(store.staging.listEntries());
+      const entries = await toArray(store.staging.entries());
       const entry = entries.find((e) => e.path === "file.txt");
 
       expect(entry?.objectId).toBe(blob2);
@@ -109,15 +109,15 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
       await addFile(store, "remove.txt", "remove");
 
       // Remove file using builder
-      const builder = store.staging.builder();
-      for await (const entry of store.staging.listEntries()) {
+      const builder = store.staging.createBuilder();
+      for await (const entry of store.staging.entries()) {
         if (entry.path !== "remove.txt") {
           builder.add(entry);
         }
       }
       await builder.finish();
 
-      const entries = await toArray(store.staging.listEntries());
+      const entries = await toArray(store.staging.entries());
       const paths = entries.map((e) => e.path);
 
       expect(paths).toContain("keep.txt");
@@ -186,7 +186,7 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
       expect(entry).toBeDefined();
 
       // Restore to staging
-      const editor = store.staging.editor();
+      const editor = store.staging.createEditor();
       editor.add({
         path: "config.json",
         apply: () => ({
@@ -201,7 +201,7 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
       await editor.finish();
 
       // Verify staging has old version
-      const entries = await toArray(store.staging.listEntries());
+      const entries = await toArray(store.staging.entries());
       const configEntry = entries.find((e) => e.path === "config.json");
       expect(configEntry?.objectId).toBe(entry?.id);
     });
@@ -281,7 +281,7 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
       expect(head?.objectId).toBe(commit1Id);
 
       // Staging should match commit1
-      const entries = await toArray(store.staging.listEntries());
+      const entries = await toArray(store.staging.entries());
       const paths = entries.map((e) => e.path);
       expect(paths).toContain("file.txt");
       expect(paths).not.toContain("file2.txt");

@@ -7,7 +7,7 @@
  * @see WorkingCopy for the primary architecture
  */
 
-import type { HistoryStore, WorkingCopy } from "@statewalker/vcs-core";
+import type { History, WorkingCopy } from "@statewalker/vcs-core";
 import { MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
@@ -25,7 +25,7 @@ import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 
 import { createMockWorktree } from "./mock-worktree-store.js";
-import { createSimpleHistory } from "./simple-history-store.js";
+import { createSimpleHistoryFromLegacyStores } from "./simple-history-store.js";
 
 // Enable Node.js compression for SQL backend
 setCompressionUtils(createNodeCompression());
@@ -38,8 +38,8 @@ setCompressionUtils(createNodeCompression());
 export interface WorkingCopyTestContext {
   /** The WorkingCopy instance (primary interface) */
   workingCopy: WorkingCopy;
-  /** Direct access to the repository (HistoryStore) for test setup/verification */
-  repository: HistoryStore;
+  /** Direct access to the repository (History) for test setup/verification */
+  repository: History;
   /** Cleanup function to call after test */
   cleanup?: () => Promise<void>;
 }
@@ -59,9 +59,8 @@ export const memoryFactory: WorkingCopyFactory = async () => {
   const refs = new MemoryRefStore();
   const staging = new MemoryStagingStore();
 
-  // Create History wrapper (also provides HistoryStore for backward compatibility)
-  const repository = createSimpleHistory({
-    objects: stores.objects,
+  // Create History wrapper using adapters for legacy store interfaces
+  const repository = createSimpleHistoryFromLegacyStores({
     blobs: stores.blobs,
     trees: stores.trees,
     commits: stores.commits,
@@ -97,9 +96,8 @@ export const sqlFactory: WorkingCopyFactory = async () => {
   const refs = new SQLRefStore(db);
   const staging = new SQLStaging(db);
 
-  // Create History wrapper (also provides HistoryStore for backward compatibility)
-  const repository = createSimpleHistory({
-    objects: stores.objects,
+  // Create History wrapper using adapters for legacy store interfaces
+  const repository = createSimpleHistoryFromLegacyStores({
     blobs: stores.blobs,
     trees: stores.trees,
     commits: stores.commits,

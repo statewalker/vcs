@@ -5,13 +5,9 @@
  * (fetch, push) with real pack generation and ref updates.
  */
 
-import {
-  createGitRepository,
-  createInMemoryFilesApi,
-  type HistoryStore,
-  type TreeEntry,
-} from "@statewalker/vcs-core";
-import { testAuthor } from "../../test-helper.js";
+import type { TreeEntry } from "@statewalker/vcs-core";
+import type { SimpleHistory } from "../../helpers/simple-history.js";
+import { memoryFactory, testAuthor } from "../../test-helper.js";
 
 /**
  * Context for a test repository
@@ -21,7 +17,7 @@ import { testAuthor } from "../../test-helper.js";
  */
 export interface TestRepositoryContext {
   /** Full history store with all object stores */
-  repository: HistoryStore;
+  repository: SimpleHistory;
   /** Cleanup function to release resources */
   cleanup: () => Promise<void>;
 }
@@ -50,17 +46,15 @@ export interface TestRepositoryContext {
  * ```
  */
 export async function createTestRepository(): Promise<TestRepositoryContext> {
-  const filesApi = createInMemoryFilesApi();
-  const repository = await createGitRepository(filesApi, ".git", {
-    create: true,
-    defaultBranch: "main",
-  });
+  const ctx = await memoryFactory();
+  const { repository } = ctx;
+
+  // Set up initial HEAD (symbolic ref to main)
+  await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
   return {
     repository,
-    cleanup: async () => {
-      await repository.close();
-    },
+    cleanup: ctx.cleanup ?? (async () => {}),
   };
 }
 
@@ -122,7 +116,7 @@ export async function createInitializedTestRepository(
  * @returns Commit object ID
  */
 export async function createTestCommit(
-  repository: HistoryStore,
+  repository: SimpleHistory,
   message: string,
   files: Record<string, string>,
 ): Promise<string> {

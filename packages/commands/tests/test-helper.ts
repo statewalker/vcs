@@ -7,7 +7,7 @@
  * different backend factories.
  */
 
-import type { HistoryStore, ObjectId, PersonIdent, WorkingCopy } from "@statewalker/vcs-core";
+import type { History, ObjectId, PersonIdent, WorkingCopy } from "@statewalker/vcs-core";
 import { FileMode, MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
@@ -25,7 +25,7 @@ import {
   type WorkingCopyTestContext,
 } from "./backend-factories.js";
 import { createMockWorktree } from "./mock-worktree-store.js";
-import { createSimpleHistory } from "./simple-history-store.js";
+import { createSimpleHistoryFromLegacyStores } from "./simple-history-store.js";
 
 // Re-export factory types and functions for convenience
 export type { WorkingCopyFactory, WorkingCopyTestContext };
@@ -37,14 +37,13 @@ export { backends, defaultFactory, memoryFactory, sqlFactory };
  *
  * For multi-backend testing, use `createInitializedGitFromFactory()` instead.
  */
-export function createTestWorkingCopy(): { workingCopy: WorkingCopy; repository: HistoryStore } {
+export function createTestWorkingCopy(): { workingCopy: WorkingCopy; repository: History } {
   const stores = createMemoryObjectStores();
   const refs = new MemoryRefStore();
   const staging = new MemoryStagingStore();
 
-  // Create HistoryStore wrapper
-  const repository = createSimpleHistory({
-    objects: stores.objects,
+  // Create History wrapper using adapters for legacy store interfaces
+  const repository = createSimpleHistoryFromLegacyStores({
     blobs: stores.blobs,
     trees: stores.trees,
     commits: stores.commits,
@@ -88,8 +87,8 @@ export interface InitializedGitResult {
   git: Git;
   /** The WorkingCopy instance */
   workingCopy: WorkingCopy;
-  /** Direct access to the repository (HistoryStore) for test setup/verification */
-  repository: HistoryStore;
+  /** Direct access to the repository (History) for test setup/verification */
+  repository: History;
   initialCommitId: ObjectId;
   cleanup?: () => Promise<void>;
 }
@@ -126,8 +125,8 @@ export async function createInitializedGitFromFactory(
   // Use Git.fromWorkingCopy for the new architecture
   const git = Git.fromWorkingCopy(workingCopy);
 
-  // Create and store empty tree (storeTree returns the well-known empty tree ID)
-  const emptyTreeId = await repository.trees.storeTree([]);
+  // Create and store empty tree (store returns the well-known empty tree ID)
+  const emptyTreeId = await repository.trees.store([]);
 
   // Create initial commit
   const initialCommit = {
@@ -138,7 +137,7 @@ export async function createInitializedGitFromFactory(
     message: "Initial commit",
   };
 
-  const initialCommitId = await repository.commits.storeCommit(initialCommit);
+  const initialCommitId = await repository.commits.store(initialCommit);
 
   // Set up refs
   await repository.refs.set("refs/heads/main", initialCommitId);
@@ -240,7 +239,7 @@ export async function createCommit(
     message,
   };
 
-  const commitId = await history.commits.storeCommit(commit);
+  const commitId = await history.commits.store(commit);
 
   // Update HEAD
   const head = await history.refs.get("HEAD");

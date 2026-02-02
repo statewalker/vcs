@@ -227,8 +227,8 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       const commit1Id = await store.commits.storeCommit(commit1);
 
       // Remove file2 by rebuilding staging without it
-      const builder = store.staging.builder();
-      for await (const entry of store.staging.listEntries()) {
+      const builder = store.staging.createBuilder();
+      for await (const entry of store.staging.entries()) {
         if (entry.path !== "file2.txt") {
           builder.add(entry);
         }
