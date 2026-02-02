@@ -1,6 +1,13 @@
 import type { Commit, ObjectId, PersonIdent, TreeEntry } from "@statewalker/vcs-core";
 import type { Edit } from "@statewalker/vcs-utils";
-import { MyersDiff, RawText, RawTextComparator } from "@statewalker/vcs-utils";
+import {
+  DEFAULT_ALGORITHM,
+  type DiffAlgorithm,
+  getAlgorithm,
+  RawText,
+  RawTextComparator,
+  type SupportedAlgorithm,
+} from "@statewalker/vcs-utils";
 
 import { RefNotFoundError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
@@ -189,6 +196,7 @@ export class BlameCommand extends GitCommand<BlameResult> {
   private startCommit?: ObjectId;
   private followRenames = false;
   private renameScore = DEFAULT_RENAME_SCORE;
+  private diffAlgorithm: DiffAlgorithm = getAlgorithm(DEFAULT_ALGORITHM);
 
   /**
    * Set the file path to blame.
@@ -236,6 +244,17 @@ export class BlameCommand extends GitCommand<BlameResult> {
   setRenameScore(score: number): this {
     this.checkCallable();
     this.renameScore = Math.max(0, Math.min(100, score));
+    return this;
+  }
+
+  /**
+   * Set the diff algorithm to use.
+   *
+   * @param algorithm The algorithm to use (default: histogram)
+   */
+  setAlgorithm(algorithm: SupportedAlgorithm): this {
+    this.checkCallable();
+    this.diffAlgorithm = getAlgorithm(algorithm);
     return this;
   }
 
@@ -529,7 +548,7 @@ export class BlameCommand extends GitCommand<BlameResult> {
 
       // Compute diff between parent and candidate
       const comparator = RawTextComparator.DEFAULT;
-      const edits = MyersDiff.diff(comparator, parentInfo.rawText, candidate.rawText);
+      const edits = this.diffAlgorithm(comparator, parentInfo.rawText, candidate.rawText);
 
       // Split regions between parent and candidate
       const { parentRegions, childRegions } = this.takeBlame(edits, currentRegions);
@@ -783,7 +802,7 @@ export class BlameCommand extends GitCommand<BlameResult> {
   ): Promise<number> {
     // Compute diff
     const comparator = RawTextComparator.DEFAULT;
-    const edits = MyersDiff.diff(comparator, parentRawText, candidate.rawText);
+    const edits = this.diffAlgorithm(comparator, parentRawText, candidate.rawText);
 
     if (edits.length === 0) {
       // No changes (might happen with whitespace-ignoring comparator)

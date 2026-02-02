@@ -2,6 +2,7 @@
 
 export * from "./binary-comparator.js";
 export * from "./binary-sequence.js";
+export * from "./diff-algorithm.js";
 export * from "./edit.js";
 export * from "./hashed-sequence.js";
 export * from "./histogram-diff.js";

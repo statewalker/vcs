@@ -12,8 +12,13 @@
  * @module
  */
 
+import {
+  DEFAULT_ALGORITHM,
+  type DiffAlgorithm,
+  getAlgorithm,
+  type SupportedAlgorithm,
+} from "./diff-algorithm.js";
 import type { Edit, EditList } from "./edit.js";
-import { MyersDiff } from "./myers-diff.js";
 import { RawText } from "./raw-text.js";
 import { RawTextComparator } from "./raw-text-comparator.js";
 
@@ -84,6 +89,16 @@ interface MergeChunk {
 }
 
 /**
+ * Options for the merge operation.
+ */
+export interface MergeOptions {
+  /** Strategy for resolving conflicts */
+  strategy?: MergeContentStrategy;
+  /** Diff algorithm to use (default: histogram) */
+  algorithm?: SupportedAlgorithm;
+}
+
+/**
  * Three-way merge algorithm.
  *
  * Merges two versions against a common base, identifying conflicts
@@ -91,9 +106,16 @@ interface MergeChunk {
  */
 export class MergeAlgorithm {
   private comparator: RawTextComparator;
+  private diffAlgorithm: DiffAlgorithm;
 
-  constructor() {
+  /**
+   * Create a new merge algorithm instance.
+   *
+   * @param algorithm The diff algorithm to use (default: histogram)
+   */
+  constructor(algorithm?: SupportedAlgorithm) {
     this.comparator = RawTextComparator.DEFAULT;
+    this.diffAlgorithm = getAlgorithm(algorithm ?? DEFAULT_ALGORITHM);
   }
 
   /**
@@ -102,28 +124,35 @@ export class MergeAlgorithm {
    * @param base The common ancestor content
    * @param ours Our version of the content
    * @param theirs Their version of the content
-   * @param strategy Strategy for resolving conflicts (default: produce conflict markers)
+   * @param strategyOrOptions Strategy or options for the merge
    * @returns Merge result with merged content and conflict information
    */
   merge(
     base: Uint8Array | string,
     ours: Uint8Array | string,
     theirs: Uint8Array | string,
-    strategy?: MergeContentStrategy,
+    strategyOrOptions?: MergeContentStrategy | MergeOptions,
   ): MergeResult {
+    // Handle both old API (strategy only) and new API (options object)
+    const options: MergeOptions =
+      typeof strategyOrOptions === "string" ? { strategy: strategyOrOptions } : strategyOrOptions ?? {};
+
     const baseText = new RawText(base);
     const oursText = new RawText(ours);
     const theirsText = new RawText(theirs);
 
+    // Use algorithm from options, or fall back to instance algorithm
+    const diff = options.algorithm ? getAlgorithm(options.algorithm) : this.diffAlgorithm;
+
     // Get diffs between base-ours and base-theirs
-    const oursEdits = MyersDiff.diff(this.comparator, baseText, oursText);
-    const theirsEdits = MyersDiff.diff(this.comparator, baseText, theirsText);
+    const oursEdits = diff(this.comparator, baseText, oursText);
+    const theirsEdits = diff(this.comparator, baseText, theirsText);
 
     // Build merge chunks by combining the edits
     const chunks = this.buildMergeChunks(baseText, oursText, theirsText, oursEdits, theirsEdits);
 
     // Resolve chunks to produce output
-    return this.resolveChunks(baseText, oursText, theirsText, chunks, strategy);
+    return this.resolveChunks(baseText, oursText, theirsText, chunks, options.strategy);
   }
 
   /**
@@ -469,15 +498,28 @@ export class MergeAlgorithm {
  * @param base The common ancestor content
  * @param ours Our version of the content
  * @param theirs Their version of the content
- * @param strategy Strategy for resolving conflicts
+ * @param options Merge options (strategy and algorithm)
  * @returns Merge result
+ *
+ * @example
+ * ```typescript
+ * // Using default algorithm (histogram)
+ * const result = merge3Way(base, ours, theirs);
+ *
+ * // Using specific algorithm
+ * import { SupportedAlgorithm } from "./diff-algorithm.js";
+ * const result = merge3Way(base, ours, theirs, {
+ *   algorithm: SupportedAlgorithm.MYERS,
+ *   strategy: MergeContentStrategy.OURS
+ * });
+ * ```
  */
 export function merge3Way(
   base: Uint8Array | string,
   ours: Uint8Array | string,
   theirs: Uint8Array | string,
-  strategy?: MergeContentStrategy,
+  options?: MergeOptions,
 ): MergeResult {
-  const algorithm = new MergeAlgorithm();
-  return algorithm.merge(base, ours, theirs, strategy);
+  const algorithm = new MergeAlgorithm(options?.algorithm);
+  return algorithm.merge(base, ours, theirs, options);
 }
