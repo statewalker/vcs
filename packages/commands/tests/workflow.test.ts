@@ -27,7 +27,7 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
     return result;
   }
   it("should support complete workflow: commit → log → branch → reset", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // === STEP 1: Create commits ===
     const _commit1 = await git
@@ -98,7 +98,7 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support branch switching simulation", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commits on main
     await git.commit().setMessage("Main commit 1").setAllowEmpty(true).call();
@@ -132,7 +132,7 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support tag workflow", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create release commits
     await git.commit().setMessage("Release 1.0.0").setAllowEmpty(true).call();
@@ -171,7 +171,7 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support branch cleanup", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commit
     await git.commit().setMessage("Base commit").setAllowEmpty(true).call();
@@ -203,7 +203,7 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support log filtering by count", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create 10 commits
     for (let i = 1; i <= 10; i++) {
@@ -244,7 +244,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     return result;
   }
   it("should support merge workflow: branch → commit → merge", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // === STEP 1: Create feature branch ===
     await git.branchCreate().setName("feature").call();
@@ -285,7 +285,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support fast-forward merge workflow", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create feature branch at initial commit
     await git.branchCreate().setName("feature").call();
@@ -309,7 +309,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support diff workflow: compare branches", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create feature branch
     await git.branchCreate().setName("feature").call();
@@ -348,7 +348,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support diff workflow: track changes across commits", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create file and commit
     await addFile(workingCopy, "changing.txt", "version 1");
@@ -380,7 +380,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
   });
 
   it("should support complete workflow: branch → diff → merge → verify", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // === Setup: Create diverging branches ===
 

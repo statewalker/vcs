@@ -30,7 +30,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testDescribe.
    */
   it("should return tag name when commit matches tag exactly", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a commit
     await addFile(workingCopy, "file.txt", "content");
@@ -51,7 +51,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with commits after the tag.
    */
   it("should return tag-depth-gSHA format when commits exist after tag", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create initial commit
     await addFile(workingCopy, "file.txt", "v1");
@@ -82,7 +82,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with long format enabled.
    */
   it("should always use long format when setLong(true)", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a commit and tag
     await addFile(workingCopy, "file.txt", "content");
@@ -104,7 +104,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with always option when no tags exist.
    */
   it("should return abbreviated commit hash when always is true and no tags", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a commit without tags
     await addFile(workingCopy, "file.txt", "content");
@@ -124,7 +124,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe returns undefined when no tags and always is false.
    */
   it("should return undefined when no tags and always is false", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create a commit without tags
     await addFile(workingCopy, "file.txt", "content");
@@ -141,7 +141,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with custom abbreviation length.
    */
   it("should use custom abbreviation length", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "v1");
     await git.commit().setMessage("initial").call();
@@ -162,7 +162,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with match pattern.
    */
   it("should only match tags matching pattern", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commits and tags
     await addFile(workingCopy, "file.txt", "v1");
@@ -184,7 +184,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with exclude pattern.
    */
   it("should exclude tags matching exclude pattern", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commits and tags
     await addFile(workingCopy, "file.txt", "v1");
@@ -207,7 +207,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe with specific target commit.
    */
   it("should describe specific target commit", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create commits
     await addFile(workingCopy, "file.txt", "v1");
@@ -238,7 +238,7 @@ describe.each(backends)("DescribeCommand ($name backend)", ({ factory }) => {
    * Test describe picks closest tag when multiple ancestors have tags.
    */
   it("should pick the closest tag", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     // Create first commit with tag
     await addFile(workingCopy, "file.txt", "v1");
@@ -282,7 +282,7 @@ describe.each(backends)("DescribeCommand - API options ($name backend)", ({ fact
    * Test getAbbrev returns set value.
    */
   it("should track abbrev setting", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     const command = git.describe();
     expect(command.getAbbrev()).toBe(7); // default
@@ -295,7 +295,7 @@ describe.each(backends)("DescribeCommand - API options ($name backend)", ({ fact
    * Test abbrev is clamped to valid range.
    */
   it("should clamp abbrev to valid range", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     const command = git.describe();
 
@@ -312,7 +312,7 @@ describe.each(backends)("DescribeCommand - API options ($name backend)", ({ fact
    * Test fluent API chaining.
    */
   it("should support fluent API chaining", async () => {
-    const { git } = await createInitializedGit();
+    const { git, workingCopy, repository } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
