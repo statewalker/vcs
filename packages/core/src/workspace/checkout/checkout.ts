@@ -8,18 +8,8 @@
  * - Stash (saved work-in-progress)
  * - Local configuration
  *
- * This is the new interface for checkout state. Key differences from CheckoutStore:
- * - Renamed interface for consistency
- * - Added getOperationState() unified method
- * - Added abortOperation() method
- * - Uses Staging interface instead of StagingStore
- *
- * Note: Operation state types are prefixed with "Checkout" to avoid conflicts
- * with existing types in working-copy.ts during migration.
- *
  * @see History for immutable repository history (Part 1)
  * @see Worktree for working directory access (Part 2)
- * @see CheckoutStore for the legacy interface (to be removed in C4.11)
  */
 
 import type { ObjectId } from "../../common/id/index.js";

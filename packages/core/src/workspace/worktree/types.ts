@@ -1,8 +1,5 @@
 /**
  * Worktree types - Shared types for worktree operations
- *
- * These types are used by both the new Worktree interface and the
- * legacy WorktreeStore interface during migration.
  */
 
 import type { FileModeValue } from "../../common/files/index.js";

@@ -11,14 +11,8 @@
  * - Mutable: Changes as user edits files
  * - Separate from staging: Changes must be explicitly staged
  *
- * Key differences from WorktreeStore:
- * - Added write operations (writeContent, remove, mkdir, rename)
- * - Added checkout operations (checkoutTree, checkoutPaths)
- * - Added exists() and isIgnored() methods
- *
  * @see History for immutable repository history (Part 1)
  * @see Checkout for mutable local state (Part 3)
- * @see WorktreeStore for the legacy interface (to be removed in C4.11)
  */
 
 import type { ObjectId } from "../../common/id/index.js";

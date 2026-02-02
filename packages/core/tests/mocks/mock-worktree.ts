@@ -1,13 +1,10 @@
 /**
  * Mock Worktree for testing
- *
- * Also exports legacy WorktreeStore interface for backward compatibility.
  */
 
 import { vi } from "vitest";
 
 import type { Worktree, WorktreeEntry } from "../../src/workspace/worktree/worktree.js";
-import type { WorktreeStore } from "../../src/workspace/worktree/worktree-store.js";
 
 /**
  * Create a working tree entry for tests.
@@ -87,18 +84,4 @@ export function createMockWorktree(
     getRoot: vi.fn().mockReturnValue("/mock/worktree"),
     refreshIgnore: vi.fn().mockResolvedValue(undefined),
   } as unknown as Worktree;
-}
-
-/**
- * Create a mock WorktreeStore for testing.
- * @deprecated Use createMockWorktree() instead
- *
- * @param entries Working tree entries
- * @param hashes Map of path -> object hash
- */
-export function createMockWorktreeStore(
-  entries: WorktreeEntry[] = [],
-  hashes: Map<string, string> = new Map(),
-): WorktreeStore {
-  return createMockWorktree(entries, hashes) as unknown as WorktreeStore;
 }
