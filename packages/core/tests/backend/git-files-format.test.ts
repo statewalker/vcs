@@ -9,11 +9,10 @@
  * - Blob, tree, and commit object formats
  */
 
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
-
 import { deflate, inflate } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createInMemoryFilesApi, type FilesApi, joinPath } from "../../src/common/files/index.js";
 import { createMemoryHistory, type History } from "../../src/history/index.js";
@@ -102,7 +101,7 @@ describe("Git Files Format Compliance", () => {
     });
 
     it("parses tree header correctly", () => {
-      const data = toBytes("tree 100\0" + "x".repeat(100));
+      const data = toBytes(`tree 100\0${"x".repeat(100)}`);
       const parsed = parseHeader(data);
 
       expect(parsed.type).toBe("tree");
@@ -112,7 +111,7 @@ describe("Git Files Format Compliance", () => {
     });
 
     it("parses commit header correctly", () => {
-      const data = toBytes("commit 50\0" + "y".repeat(50));
+      const data = toBytes(`commit 50\0${"y".repeat(50)}`);
       const parsed = parseHeader(data);
 
       expect(parsed.type).toBe("commit");
@@ -468,10 +467,10 @@ describe("Git Files Format Compliance", () => {
       // Load and verify commit
       const commit = await history.commits.load(commitId);
       expect(commit).toBeDefined();
-      expect(commit!.tree).toBe(emptyTree);
-      expect(commit!.parents).toEqual([]);
-      expect(commit!.author.name).toBe("Test Author");
-      expect(commit!.message).toBe("Initial commit");
+      expect(commit?.tree).toBe(emptyTree);
+      expect(commit?.parents).toEqual([]);
+      expect(commit?.author.name).toBe("Test Author");
+      expect(commit?.message).toBe("Initial commit");
     });
 
     it("stores commit with parents", async () => {
@@ -496,7 +495,7 @@ describe("Git Files Format Compliance", () => {
       });
 
       const loaded = await history.commits.load(commit2);
-      expect(loaded!.parents).toEqual([commit1]);
+      expect(loaded?.parents).toEqual([commit1]);
     });
 
     it("stores merge commit with multiple parents", async () => {
@@ -538,9 +537,9 @@ describe("Git Files Format Compliance", () => {
       });
 
       const loaded = await history.commits.load(merge);
-      expect(loaded!.parents).toHaveLength(2);
-      expect(loaded!.parents).toContain(branch1);
-      expect(loaded!.parents).toContain(branch2);
+      expect(loaded?.parents).toHaveLength(2);
+      expect(loaded?.parents).toContain(branch1);
+      expect(loaded?.parents).toContain(branch2);
     });
 
     it("stores annotated tag with correct format", async () => {
@@ -565,9 +564,9 @@ describe("Git Files Format Compliance", () => {
 
       const loaded = await history.tags.load(tagId);
       expect(loaded).toBeDefined();
-      expect(loaded!.tag).toBe("v1.0.0");
-      expect(loaded!.object).toBe(commitId);
-      expect(loaded!.message).toBe("Release v1.0.0");
+      expect(loaded?.tag).toBe("v1.0.0");
+      expect(loaded?.object).toBe(commitId);
+      expect(loaded?.message).toBe("Release v1.0.0");
     });
   });
 
@@ -594,7 +593,9 @@ describe("Git Files Format Compliance", () => {
         expect(blobId).toBe("b6fc4c620b67d95f953a5c1c1230aaab5db5a1b0");
 
         // Store tree with that blob
-        const treeId = await history.trees.store([{ mode: 0o100644, name: "hello.txt", id: blobId }]);
+        const treeId = await history.trees.store([
+          { mode: 0o100644, name: "hello.txt", id: blobId },
+        ]);
 
         // Tree hash should be deterministic
         expect(treeId).toMatch(/^[0-9a-f]{40}$/);

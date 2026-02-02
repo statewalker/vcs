@@ -9,10 +9,9 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-
-import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
-import { MemoryChunkAccess } from "../../src/storage/chunked/memory-chunk-access.js";
 import { ChunkedRawStorage } from "../../src/storage/chunked/chunked-raw-storage.js";
+import { MemoryChunkAccess } from "../../src/storage/chunked/memory-chunk-access.js";
+import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 
 // Helper to convert string to async iterable
 async function* toAsyncIterable(data: string): AsyncIterable<Uint8Array> {

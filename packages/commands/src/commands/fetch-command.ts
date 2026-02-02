@@ -62,7 +62,6 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   private remote = "origin";
   private refSpecs: string[] = [];
   private removeDeletedRefs = false;
-  private tagOption: TagOption = TagOption.AUTO_FOLLOW;
   private thin = true;
   private depth?: number;
   private dryRun = false;
