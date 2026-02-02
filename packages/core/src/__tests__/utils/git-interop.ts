@@ -1,16 +1,16 @@
-import { execFile } from "node:child_process";
+import { exec as execCallback } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
+const exec = promisify(execCallback);
 
 /**
  * Check if git is available.
  */
 export async function isGitAvailable(): Promise<boolean> {
   try {
-    await execFileAsync("git", ["--version"]);
+    await exec("git --version");
     return true;
   } catch {
     return false;
@@ -23,13 +23,15 @@ export async function isGitAvailable(): Promise<boolean> {
 export async function execGit(
   cwd: string,
   args: string[],
-  options?: { input?: string; env?: Record<string, string> },
+  options?: { env?: Record<string, string> },
 ): Promise<{ stdout: string; stderr: string }> {
-  const result = await execFileAsync("git", args, {
+  // Build command string with proper escaping
+  const command = ["git", ...args].map((arg) => (arg.includes(" ") ? `"${arg}"` : arg)).join(" ");
+
+  const result = await exec(command, {
     cwd,
     encoding: "utf8",
     env: { ...process.env, ...options?.env },
-    input: options?.input,
   });
   return { stdout: result.stdout, stderr: result.stderr };
 }

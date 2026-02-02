@@ -59,9 +59,7 @@ export async function lsRemote(
   }
 
   // Perform the HTTP request
-  const controller = options?.timeout
-    ? new AbortController()
-    : undefined;
+  const controller = options?.timeout ? new AbortController() : undefined;
   const timeoutId = options?.timeout
     ? setTimeout(() => controller?.abort(), options.timeout)
     : undefined;
@@ -76,9 +74,7 @@ export async function lsRemote(
     if (timeoutId) clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(
-        `HTTP error ${response.status}: ${response.statusText}`,
-      );
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
     }
 
     if (!response.body) {
@@ -148,11 +144,7 @@ function parseRefAdvertisement(data: Uint8Array): Map<string, string> {
       const refName = refPart.slice(spaceIndex + 1).trim();
 
       // Skip capabilities^{} pseudo-ref and peeled refs
-      if (
-        !refName.endsWith("^{}") &&
-        !refName.startsWith("capabilities") &&
-        refName.length > 0
-      ) {
+      if (!refName.endsWith("^{}") && !refName.startsWith("capabilities") && refName.length > 0) {
         refs.set(refName, oid);
       }
     }

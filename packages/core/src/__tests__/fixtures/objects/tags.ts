@@ -1,4 +1,4 @@
-import type { Person } from "../../../history/commits/types.js";
+import type { PersonIdent } from "../../../common/person/person-ident.js";
 
 /**
  * Test tag fixtures.
@@ -24,8 +24,8 @@ export const TAG_FIXTURES = {
       name: "Test Tagger",
       email: "tagger@test.com",
       timestamp: 1700010000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     message: "Release version 1.0.0\n",
     hash: "computed",
   },
@@ -41,8 +41,8 @@ export const TAG_FIXTURES = {
       name: "Test Tagger",
       email: "tagger@test.com",
       timestamp: 1700020000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     message: "Release version 2.0.0\n\nThis is a major release with breaking changes.\n",
     hash: "computed",
   },
@@ -58,8 +58,8 @@ export const TAG_FIXTURES = {
       name: "Test Tagger",
       email: "tagger@test.com",
       timestamp: 1700030000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     message: "Important file snapshot\n",
     hash: "computed",
   },
@@ -75,8 +75,8 @@ export const TAG_FIXTURES = {
       name: "Test Tagger",
       email: "tagger@test.com",
       timestamp: 1700040000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     message: "Tree snapshot\n",
     hash: "computed",
   },
