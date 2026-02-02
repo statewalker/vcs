@@ -135,7 +135,9 @@ export class MergeAlgorithm {
   ): MergeResult {
     // Handle both old API (strategy only) and new API (options object)
     const options: MergeOptions =
-      typeof strategyOrOptions === "string" ? { strategy: strategyOrOptions } : strategyOrOptions ?? {};
+      typeof strategyOrOptions === "string"
+        ? { strategy: strategyOrOptions }
+        : (strategyOrOptions ?? {});
 
     const baseText = new RawText(base);
     const oursText = new RawText(ours);
