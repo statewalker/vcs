@@ -237,7 +237,7 @@ export class GitCheckout implements Checkout {
 
       await this.mkdir(rebaseDir);
       await this.writeFile(`${rebaseDir}/onto`, state.onto);
-      await this.writeFile(`${rebaseDir}/head`, state.originalHead);
+      await this.writeFile(`${rebaseDir}/orig-head`, state.originalHead);
       await this.writeFile(`${rebaseDir}/msgnum`, String(state.currentIndex));
       await this.writeFile(`${rebaseDir}/end`, String(state.totalCommits));
 
