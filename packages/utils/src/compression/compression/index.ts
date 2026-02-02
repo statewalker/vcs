@@ -64,11 +64,6 @@ export function setCompressionUtils(impl: Partial<CompressionUtils>): void {
 }
 
 /**
- * @deprecated Use setCompressionUtils instead
- */
-export const setCompression = setCompressionUtils;
-
-/**
  * Compress a byte stream using DEFLATE
  *
  * @param stream Input byte stream

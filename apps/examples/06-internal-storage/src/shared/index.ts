@@ -6,12 +6,12 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { FilesApi, GitRepository, ObjectId, PersonIdent } from "@statewalker/vcs-core";
-import { setCompression } from "@statewalker/vcs-utils";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 
 // Initialize compression (required before any storage operations)
-setCompression(createNodeCompression());
+setCompressionUtils(createNodeCompression());
 
 // ============================================================================
 // Configuration
