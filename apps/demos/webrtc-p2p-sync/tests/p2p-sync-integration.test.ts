@@ -8,14 +8,24 @@
  * - All commits are properly transferred
  */
 
-import { createGitStore, Git } from "@statewalker/vcs-commands";
+import { Git } from "@statewalker/vcs-commands";
+import type { History, SerializationApi } from "@statewalker/vcs-core";
 import {
-  createFileTreeIterator,
-  createGitRepository,
-  createInMemoryFilesApi,
-  FileStagingStore,
-  type StorageBackend,
+  createMemoryHistory,
+  createSimpleStaging,
+  DefaultSerializationApi,
+  MemoryCheckout,
+  MemoryWorkingCopy,
+  MemoryWorktree,
 } from "@statewalker/vcs-core";
+
+/**
+ * Create SerializationApi from History facade.
+ */
+function createSerializationApi(history: History): SerializationApi {
+  return new DefaultSerializationApi({ history });
+}
+
 import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -45,12 +55,12 @@ import {
   createRepositoryController,
   createSessionController,
   createSyncController,
-  setFilesApi,
   setGit,
-  setGitStore,
-  setRepository,
+  setHistory,
   setRepositoryAccess,
-  setStorageBackend,
+  setSerializationApi,
+  setWorkingCopy,
+  setWorktree,
 } from "../src/controllers/index.js";
 import {
   getActivityLogModel,
@@ -322,6 +332,7 @@ class MockPeerJsApi implements PeerJsApi {
 
 /**
  * Create a test context with in-memory Git infrastructure.
+ * Uses the new Three-Part Architecture (History/Checkout/Worktree).
  */
 async function createTestAppContext(registry: MockPeerRegistry): Promise<AppContext> {
   const ctx: AppContext = {};
@@ -334,38 +345,48 @@ async function createTestAppContext(registry: MockPeerRegistry): Promise<AppCont
   getActivityLogModel(ctx);
   getUserActionsModel(ctx);
 
-  // Initialize Git infrastructure
-  const files = createInMemoryFilesApi();
-  setFilesApi(ctx, files);
+  // Initialize Git infrastructure using Three-Part Architecture
 
-  const repository = await createGitRepository(files, ".git", {
-    create: true,
-    defaultBranch: "main",
-  });
-  setRepository(ctx, repository);
+  // 1. Create in-memory History (blobs, trees, commits, tags, refs)
+  const history = createMemoryHistory();
+  await history.initialize();
+  setHistory(ctx, history);
 
-  // Set up StorageBackend and RepositoryAccess for transport
-  const backend = repository.backend as StorageBackend | undefined;
-  if (backend) {
-    setStorageBackend(ctx, backend);
-    const repositoryAccess = createVcsRepositoryAccess(backend.structured);
-    setRepositoryAccess(ctx, repositoryAccess);
-  }
+  // 2. Create in-memory Staging
+  const staging = createSimpleStaging();
 
-  const staging = new FileStagingStore(files, ".git/index");
-  await staging.read();
-
-  const worktree = createFileTreeIterator({
-    files,
-    rootPath: "",
-    gitDir: ".git",
+  // 3. Create in-memory Checkout (HEAD, operation states)
+  const checkout = new MemoryCheckout({
+    staging,
+    initialHead: { type: "symbolic", target: "refs/heads/main" },
   });
 
-  const store = createGitStore({ repository, staging, worktree, files, workTreeRoot: "" });
-  setGitStore(ctx, store);
+  // 4. Create in-memory Worktree (file storage)
+  const worktreeInterface = new MemoryWorktree({
+    blobs: history.blobs,
+    trees: history.trees,
+  });
+  setWorktree(ctx, worktreeInterface);
 
-  const git = Git.wrap(store);
+  // 5. Create WorkingCopy (combines history, checkout, worktree)
+  const workingCopy = new MemoryWorkingCopy({
+    history,
+    checkout,
+    worktreeInterface,
+  });
+  setWorkingCopy(ctx, workingCopy);
+
+  // 6. Create Git porcelain API
+  const git = Git.fromWorkingCopy(workingCopy);
   setGit(ctx, git);
+
+  // 7. Create RepositoryAccess for transport operations
+  const repositoryAccess = createVcsRepositoryAccess({ history });
+  setRepositoryAccess(ctx, repositoryAccess);
+
+  // 8. Create SerializationApi for pack import/export
+  const serialization = createSerializationApi(history);
+  setSerializationApi(ctx, serialization);
 
   // Inject mock APIs
   setPeerJsApi(ctx, new MockPeerJsApi(registry));
