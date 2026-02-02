@@ -31,7 +31,7 @@ import {
 } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 import type { AppContext } from "./index.js";
-import { getFilesApi, getGit, getRepository } from "./index.js";
+import { getGit, getHistory, getWorktree } from "./index.js";
 
 /**
  * Create the repository controller.
@@ -107,13 +107,13 @@ export function createRepositoryController(ctx: AppContext): () => void {
   // ============ File Helper Methods ============
 
   /**
-   * Write a file to the working directory.
+   * Write a file to the working directory (in-memory worktree).
    */
   async function writeFile(path: string, content: string): Promise<void> {
-    const files = getFilesApi(ctx);
-    if (!files) throw new Error("FilesApi not initialized");
+    const worktree = getWorktree(ctx);
+    if (!worktree) throw new Error("Worktree not initialized");
     const encoder = new TextEncoder();
-    await files.write(path, [encoder.encode(content)]);
+    await worktree.writeContent(path, encoder.encode(content));
   }
 
   // ============ Action Handlers ============
@@ -312,10 +312,9 @@ export function createRepositoryController(ctx: AppContext): () => void {
    * Update repository model from current state.
    */
   async function refreshRepositoryState(git: Git): Promise<void> {
-    const files = getFilesApi(ctx);
-    const repository = getRepository(ctx);
+    const history = getHistory(ctx);
 
-    if (!files || !repository) {
+    if (!history) {
       logModel.error("Repository infrastructure not initialized");
       return;
     }
@@ -339,7 +338,7 @@ export function createRepositoryController(ctx: AppContext): () => void {
       // Get current branch from HEAD
       let currentBranch = "main";
       try {
-        const headRef = await repository.refs.get("HEAD");
+        const headRef = await history.refs.get("HEAD");
         if (headRef && "target" in headRef && headRef.target) {
           // HEAD is symbolic ref pointing to a branch
           const branchName = headRef.target.replace("refs/heads/", "");
@@ -352,9 +351,9 @@ export function createRepositoryController(ctx: AppContext): () => void {
       // Get files from HEAD tree (recursive)
       const fileList: FileEntry[] = [];
       if (commits.length > 0) {
-        const headCommit = await repository.commits.loadCommit(commits[0].id);
+        const headCommit = await history.commits.loadCommit(commits[0].id);
         if (headCommit.tree) {
-          await collectFilesFromTree(repository, headCommit.tree, "", fileList);
+          await collectFilesFromTree(history, headCommit.tree, "", fileList);
         }
       }
       // Sort files: directories first, then alphabetically by path
@@ -401,20 +400,20 @@ export function createRepositoryController(ctx: AppContext): () => void {
 /**
  * Recursively collect files from a tree.
  *
- * @param repository The history store to read trees from
+ * @param history The history store to read trees from
  * @param treeId The tree ID to read
  * @param basePath The base path for entries in this tree
  * @param fileList The array to append entries to
  */
 async function collectFilesFromTree(
-  repository: {
+  history: {
     trees: { loadTree(id: string): AsyncIterable<{ name: string; mode: number; id: string }> };
   },
   treeId: string,
   basePath: string,
   fileList: FileEntry[],
 ): Promise<void> {
-  for await (const entry of repository.trees.loadTree(treeId)) {
+  for await (const entry of history.trees.loadTree(treeId)) {
     const fullPath = basePath ? `${basePath}/${entry.name}` : entry.name;
     const isDirectory = entry.mode === 0o040000;
 
@@ -428,7 +427,7 @@ async function collectFilesFromTree(
 
     // Recursively process subdirectories
     if (isDirectory) {
-      await collectFilesFromTree(repository, entry.id, fullPath, fileList);
+      await collectFilesFromTree(history, entry.id, fullPath, fileList);
     }
   }
 }
