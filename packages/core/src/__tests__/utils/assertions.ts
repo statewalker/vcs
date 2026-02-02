@@ -96,7 +96,7 @@ export async function expectRefEquals(
 ): Promise<void> {
   const resolved = await refs.resolve(refName);
   expect(resolved).toBeDefined();
-  expect(resolved?.id).toBe(expectedCommit);
+  expect(resolved?.objectId).toBe(expectedCommit);
 }
 
 /**

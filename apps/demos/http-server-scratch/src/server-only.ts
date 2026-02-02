@@ -18,14 +18,15 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { createGitRepository, type GitRepository } from "@statewalker/vcs-core";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 
 import {
+  createFileHistory,
   createVcsHttpServer,
   ensureDirectory,
+  type FileHistory,
   printError,
   printInfo,
   printSection,
@@ -71,7 +72,7 @@ async function main(): Promise<void> {
   printInfo(`Port: ${port}`);
 
   // Cache open repositories
-  const openRepos = new Map<string, GitRepository>();
+  const openRepos = new Map<string, FileHistory>();
 
   // Start server
   let server: VcsHttpServer | null = null;
@@ -104,11 +105,13 @@ async function main(): Promise<void> {
 
         try {
           const files = createNodeFilesApi({ rootDir: fullPath });
-          const repository = await createGitRepository(files, gitDir, {
+          const history = await createFileHistory({
+            files,
+            gitDir,
             create: false,
           });
-          openRepos.set(repoPath, repository);
-          return repository;
+          openRepos.set(repoPath, history);
+          return history;
         } catch (error) {
           console.error(`Failed to open repository ${repoPath}:`, error);
           return null;

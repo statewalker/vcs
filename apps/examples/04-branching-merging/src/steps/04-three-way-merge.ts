@@ -18,13 +18,13 @@ export async function step04ThreeWayMerge(): Promise<void> {
   printStep(4, "Three-Way Merge");
 
   // Fresh start for clean demonstration
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Setup: create initial commit
   console.log("\n--- Setup: Creating divergent branches ---");
-  await addFileToStaging(store, "README.md", "# Three-Way Merge Demo");
-  await addFileToStaging(store, "shared.ts", "export const shared = 1;");
+  await addFileToStaging(workingCopy, "README.md", "# Three-Way Merge Demo");
+  await addFileToStaging(workingCopy, "shared.ts", "export const shared = 1;");
   await git.commit().setMessage("Initial commit").call();
   console.log("  Created initial commit");
 
@@ -32,27 +32,29 @@ export async function step04ThreeWayMerge(): Promise<void> {
   await git.branchCreate().setName("feature-3way").call();
 
   // Add commits on main (diverging from feature)
-  await addFileToStaging(store, "main-only.ts", "// Added only on main");
+  await addFileToStaging(workingCopy, "main-only.ts", "// Added only on main");
   await git.commit().setMessage("Add main-only file").call();
   console.log("  Added commit on main");
 
-  await addFileToStaging(store, "another-main.ts", "// Another main file");
+  await addFileToStaging(workingCopy, "another-main.ts", "// Another main file");
   await git.commit().setMessage("Add another main file").call();
   console.log("  Added second commit on main");
 
   // Switch to feature branch and add commits
-  await store.refs.setSymbolic("HEAD", "refs/heads/feature-3way");
-  const featureRef = await store.refs.resolve("refs/heads/feature-3way");
+  await history.refs.setSymbolic("HEAD", "refs/heads/feature-3way");
+  const featureRef = await history.refs.resolve("refs/heads/feature-3way");
   if (featureRef?.objectId) {
-    const commit = await store.commits.loadCommit(featureRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
+    const commit = await history.commits.load(featureRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+    }
   }
 
-  await addFileToStaging(store, "feature-only.ts", "// Added only on feature");
+  await addFileToStaging(workingCopy, "feature-only.ts", "// Added only on feature");
   await git.commit().setMessage("Add feature-only file").call();
   console.log("  Added commit on feature-3way");
 
-  await addFileToStaging(store, "another-feature.ts", "// Another feature file");
+  await addFileToStaging(workingCopy, "another-feature.ts", "// Another feature file");
   await git.commit().setMessage("Add another feature file").call();
   console.log("  Added second commit on feature-3way");
 
@@ -68,11 +70,13 @@ export async function step04ThreeWayMerge(): Promise<void> {
   console.log("  A three-way merge is required.");
 
   // Switch back to main for merge
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
-  const mainRef = await store.refs.resolve("refs/heads/main");
+  await history.refs.setSymbolic("HEAD", "refs/heads/main");
+  const mainRef = await history.refs.resolve("refs/heads/main");
   if (mainRef?.objectId) {
-    const commit = await store.commits.loadCommit(mainRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
+    const commit = await history.commits.load(mainRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+    }
   }
 
   // Explain three-way merge
@@ -101,13 +105,15 @@ export async function step04ThreeWayMerge(): Promise<void> {
 
   if (result.status === MergeStatus.MERGED && result.newHead) {
     // Verify merge commit has two parents
-    const mergeCommit = await store.commits.loadCommit(result.newHead);
-    console.log(`\n  Merge commit details:`);
-    console.log(`    Parents: ${mergeCommit.parents.length}`);
-    for (const parent of mergeCommit.parents) {
-      console.log(`      - ${shortId(parent)}`);
+    const mergeCommit = await history.commits.load(result.newHead);
+    if (mergeCommit) {
+      console.log(`\n  Merge commit details:`);
+      console.log(`    Parents: ${mergeCommit.parents.length}`);
+      for (const parent of mergeCommit.parents) {
+        console.log(`      - ${shortId(parent)}`);
+      }
+      console.log(`    Message: ${mergeCommit.message}`);
     }
-    console.log(`    Message: ${mergeCommit.message}`);
   }
 
   console.log("\n--- After merge ---");

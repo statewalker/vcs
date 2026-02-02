@@ -17,29 +17,29 @@ import {
 export async function step01LogTraversal(): Promise<void> {
   printStep(1, "Log Traversal");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Create a series of commits for log demonstration
   console.log("\n--- Setting up commit history ---");
 
-  await addFileToStaging(store, "README.md", "# History Demo");
+  await addFileToStaging(workingCopy, "README.md", "# History Demo");
   await git.commit().setMessage("Initial commit").call();
   console.log("  Created: Initial commit");
 
-  await addFileToStaging(store, "src/index.ts", "export const version = 1;");
+  await addFileToStaging(workingCopy, "src/index.ts", "export const version = 1;");
   await git.commit().setMessage("Add src/index.ts").call();
   console.log("  Created: Add src/index.ts");
 
-  await addFileToStaging(store, "src/utils.ts", "export const utils = {};");
+  await addFileToStaging(workingCopy, "src/utils.ts", "export const utils = {};");
   await git.commit().setMessage("Add src/utils.ts").call();
   console.log("  Created: Add src/utils.ts");
 
-  await addFileToStaging(store, "docs/guide.md", "# Guide");
+  await addFileToStaging(workingCopy, "docs/guide.md", "# Guide");
   await git.commit().setMessage("Add documentation").call();
   console.log("  Created: Add documentation");
 
-  await addFileToStaging(store, "src/index.ts", "export const version = 2;");
+  await addFileToStaging(workingCopy, "src/index.ts", "export const version = 2;");
   await git.commit().setMessage("Update version to 2").call();
   console.log("  Created: Update version to 2");
 
@@ -50,7 +50,7 @@ export async function step01LogTraversal(): Promise<void> {
   let count = 0;
   for await (const commit of await git.log().call()) {
     console.log(
-      `  ${shortId(await store.commits.storeCommit(commit))} ${commit.message.split("\n")[0]}`,
+      `  ${shortId(await history.commits.store(commit))} ${commit.message.split("\n")[0]}`,
     );
     count++;
   }
@@ -62,7 +62,7 @@ export async function step01LogTraversal(): Promise<void> {
 
   for await (const commit of await git.log().setMaxCount(3).call()) {
     console.log(
-      `  ${shortId(await store.commits.storeCommit(commit))} ${commit.message.split("\n")[0]}`,
+      `  ${shortId(await history.commits.store(commit))} ${commit.message.split("\n")[0]}`,
     );
   }
 
@@ -72,7 +72,7 @@ export async function step01LogTraversal(): Promise<void> {
 
   let i = 0;
   for await (const commit of await git.log().setMaxCount(2).call()) {
-    const commitId = await store.commits.storeCommit(commit);
+    const commitId = await history.commits.store(commit);
     console.log(`\n  Commit ${++i}:`);
     console.log(`    ID:        ${commitId}`);
     console.log(`    Message:   ${commit.message.split("\n")[0]}`);
@@ -84,13 +84,15 @@ export async function step01LogTraversal(): Promise<void> {
 
   // Walk ancestry directly (low-level)
   console.log("\n--- Low-level: Walking ancestry ---");
-  console.log("\nUsing store.commits.walkAncestry():");
+  console.log("\nUsing history.commits.walkAncestry():");
 
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (head?.objectId) {
-    for await (const id of store.commits.walkAncestry(head.objectId, { limit: 3 })) {
-      const commit = await store.commits.loadCommit(id);
-      console.log(`  ${shortId(id)} ${commit.message.split("\n")[0]}`);
+    for await (const id of history.commits.walkAncestry(head.objectId, { limit: 3 })) {
+      const commit = await history.commits.load(id);
+      if (commit) {
+        console.log(`  ${shortId(id)} ${commit.message.split("\n")[0]}`);
+      }
     }
   }
 
@@ -103,7 +105,7 @@ export async function step01LogTraversal(): Promise<void> {
     .call()                    - Execute and return async iterable
 
   Low-level:
-    store.commits.walkAncestry(startId, { limit })
+    history.commits.walkAncestry(startId, { limit })
   `);
 
   console.log("\nStep 1 completed!");

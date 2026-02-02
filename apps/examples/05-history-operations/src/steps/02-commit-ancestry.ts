@@ -16,21 +16,21 @@ import {
 export async function step02CommitAncestry(): Promise<void> {
   printStep(2, "Commit Ancestry");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Setup: create commits and branches
   console.log("\n--- Setting up commit graph ---");
 
-  await addFileToStaging(store, "README.md", "# Ancestry Demo");
+  await addFileToStaging(workingCopy, "README.md", "# Ancestry Demo");
   await git.commit().setMessage("Initial commit (A)").call();
-  const headA = await store.refs.resolve("HEAD");
+  const headA = await history.refs.resolve("HEAD");
   const commitA = headA?.objectId ?? "";
   console.log(`  A: ${shortId(commitA)} - Initial commit`);
 
-  await addFileToStaging(store, "file1.ts", "content1");
+  await addFileToStaging(workingCopy, "file1.ts", "content1");
   await git.commit().setMessage("Second commit (B)").call();
-  const headB = await store.refs.resolve("HEAD");
+  const headB = await history.refs.resolve("HEAD");
   const commitB = headB?.objectId ?? "";
   console.log(`  B: ${shortId(commitB)} - Second commit`);
 
@@ -38,23 +38,25 @@ export async function step02CommitAncestry(): Promise<void> {
   await git.branchCreate().setName("feature").call();
 
   // Continue on main
-  await addFileToStaging(store, "main-file.ts", "main content");
+  await addFileToStaging(workingCopy, "main-file.ts", "main content");
   await git.commit().setMessage("Main commit (C)").call();
-  const headC = await store.refs.resolve("HEAD");
+  const headC = await history.refs.resolve("HEAD");
   const commitC = headC?.objectId ?? "";
   console.log(`  C: ${shortId(commitC)} - Main commit`);
 
   // Switch to feature and add commit
-  await store.refs.setSymbolic("HEAD", "refs/heads/feature");
-  const featureRef = await store.refs.resolve("refs/heads/feature");
+  await history.refs.setSymbolic("HEAD", "refs/heads/feature");
+  const featureRef = await history.refs.resolve("refs/heads/feature");
   if (featureRef?.objectId) {
-    const commit = await store.commits.loadCommit(featureRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
+    const commit = await history.commits.load(featureRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+    }
   }
 
-  await addFileToStaging(store, "feature-file.ts", "feature content");
+  await addFileToStaging(workingCopy, "feature-file.ts", "feature content");
   await git.commit().setMessage("Feature commit (D)").call();
-  const headD = await store.refs.resolve("HEAD");
+  const headD = await history.refs.resolve("HEAD");
   const commitD = headD?.objectId ?? "";
   console.log(`  D: ${shortId(commitD)} - Feature commit`);
 
@@ -73,35 +75,37 @@ export async function step02CommitAncestry(): Promise<void> {
   console.log("\n--- Checking ancestry ---");
 
   // Is A ancestor of C?
-  const aIsAncestorOfC = await isAncestor(store, commitA, commitC);
+  const aIsAncestorOfC = await isAncestor(history, commitA, commitC);
   console.log(`  Is A ancestor of C? ${aIsAncestorOfC}`); // true
 
   // Is A ancestor of D?
-  const aIsAncestorOfD = await isAncestor(store, commitA, commitD);
+  const aIsAncestorOfD = await isAncestor(history, commitA, commitD);
   console.log(`  Is A ancestor of D? ${aIsAncestorOfD}`); // true
 
   // Is C ancestor of D?
-  const cIsAncestorOfD = await isAncestor(store, commitC, commitD);
+  const cIsAncestorOfD = await isAncestor(history, commitC, commitD);
   console.log(`  Is C ancestor of D? ${cIsAncestorOfD}`); // false
 
   // Is D ancestor of C?
-  const dIsAncestorOfC = await isAncestor(store, commitD, commitC);
+  const dIsAncestorOfC = await isAncestor(history, commitD, commitC);
   console.log(`  Is D ancestor of C? ${dIsAncestorOfC}`); // false
 
   // Find merge base (common ancestor)
   console.log("\n--- Finding merge base ---");
   console.log("\nMerge base is the common ancestor used for three-way merges.");
 
-  const mergeBase = await store.commits.findMergeBase(commitC, commitD);
+  const mergeBase = await history.commits.findMergeBase(commitC, commitD);
   if (mergeBase.length > 0) {
     console.log(`\n  Merge base of C and D: ${shortId(mergeBase[0])}`);
-    const baseCommit = await store.commits.loadCommit(mergeBase[0]);
-    console.log(`  Message: "${baseCommit.message.split("\n")[0]}"`);
-    console.log(`  (This should be B)`);
+    const baseCommit = await history.commits.load(mergeBase[0]);
+    if (baseCommit) {
+      console.log(`  Message: "${baseCommit.message.split("\n")[0]}"`);
+      console.log(`  (This should be B)`);
+    }
   }
 
   // Merge base between B and D
-  const mergeBase2 = await store.commits.findMergeBase(commitB, commitD);
+  const mergeBase2 = await history.commits.findMergeBase(commitB, commitD);
   if (mergeBase2.length > 0) {
     console.log(`\n  Merge base of B and D: ${shortId(mergeBase2[0])}`);
     console.log(`  (Should be B itself, since B is ancestor of D)`);
@@ -129,7 +133,7 @@ export async function step02CommitAncestry(): Promise<void> {
  * Check if commitA is an ancestor of commitB
  */
 async function isAncestor(
-  store: Awaited<ReturnType<typeof getGit>>["store"],
+  history: Awaited<ReturnType<typeof getGit>>["history"],
   commitA: string,
   commitB: string,
 ): Promise<boolean> {
@@ -146,10 +150,12 @@ async function isAncestor(
     if (current === commitA) return true;
 
     try {
-      const commit = await store.commits.loadCommit(current);
-      for (const parent of commit.parents) {
-        if (!visited.has(parent)) {
-          queue.push(parent);
+      const commit = await history.commits.load(current);
+      if (commit) {
+        for (const parent of commit.parents) {
+          if (!visited.has(parent)) {
+            queue.push(parent);
+          }
         }
       }
     } catch {

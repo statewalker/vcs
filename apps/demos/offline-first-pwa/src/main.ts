@@ -4,9 +4,8 @@
  * Demonstrates Git operations that work completely offline.
  */
 
-import { createGitStore, Git, type GitStore } from "@statewalker/vcs-commands";
-import { createGitRepository, FileMode, type GitRepository } from "@statewalker/vcs-core";
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
+import { Git } from "@statewalker/vcs-commands";
+import { FileMode, type History, type WorkingCopy } from "@statewalker/vcs-core";
 import {
   createMemoryStorage,
   createPersistentStorage,
@@ -17,8 +16,8 @@ import {
 
 // App state
 let currentStorage: StorageBackend | null = null;
-let repository: GitRepository | null = null;
-let store: GitStore | null = null;
+let _history: History | null = null;
+let _workingCopy: WorkingCopy | null = null;
 let git: Git | null = null;
 const stagedFiles = new Map<string, string>();
 
@@ -134,8 +133,8 @@ function checkPwaMode() {
 async function switchStorage(type: StorageType) {
   try {
     // Reset state
-    repository = null;
-    store = null;
+    _history = null;
+    _workingCopy = null;
     git = null;
     stagedFiles.clear();
 

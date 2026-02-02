@@ -11,12 +11,7 @@
  * - Pack format: PACK header + version + object count + entries + checksum
  */
 
-import {
-  type GitRepository,
-  ObjectType,
-  PackWriterStream,
-  writePackIndexV2,
-} from "@statewalker/vcs-core";
+import { ObjectType, PackWriterStream, writePackIndexV2 } from "@statewalker/vcs-core";
 import { bytesToHex, decompressBlock } from "@statewalker/vcs-utils";
 import {
   countLooseObjects,
@@ -119,9 +114,9 @@ async function collectLooseObjectIds(): Promise<string[]> {
 export async function run(): Promise<void> {
   logSection("Step 02: Understanding Pack Files");
 
-  const repository = state.repository as GitRepository | undefined;
-  if (!repository) {
-    throw new Error("Repository not initialized. Run step 01 first.");
+  const history = state.history;
+  if (!history) {
+    throw new Error("History not initialized. Run step 01 first.");
   }
 
   // Check current state

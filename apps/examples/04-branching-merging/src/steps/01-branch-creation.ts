@@ -9,14 +9,14 @@ import { addFileToStaging, getGit, printSection, printStep, shortId } from "../s
 export async function step01BranchCreation(): Promise<void> {
   printStep(1, "Branch Creation");
 
-  const { git, store } = await getGit();
+  const { git, workingCopy, history } = await getGit();
 
   // Create initial commit if needed
   console.log("\nSetting up initial commit...");
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (!head?.objectId) {
     await addFileToStaging(
-      store,
+      workingCopy,
       "README.md",
       "# Branching Example\n\nDemonstrating Git branch operations.",
     );
@@ -38,7 +38,7 @@ export async function step01BranchCreation(): Promise<void> {
   console.log(`  Created branch: ${developBranch.name}`);
 
   // Create a branch from a specific commit
-  const currentHead = await store.refs.resolve("HEAD");
+  const currentHead = await history.refs.resolve("HEAD");
   if (currentHead?.objectId) {
     console.log("\nCreating 'release' branch from specific commit...");
     const releaseBranch = await git
@@ -62,8 +62,8 @@ export async function step01BranchCreation(): Promise<void> {
 
   // List refs directly (low-level approach)
   console.log("\n--- Low-level: Listing refs/heads/* directly ---");
-  for await (const ref of store.refs.list({ prefix: "refs/heads/" })) {
-    const resolved = await store.refs.resolve(ref.name);
+  for await (const ref of history.refs.list("refs/heads/")) {
+    const resolved = await history.refs.resolve(ref.name);
     console.log(
       `    ${ref.name} -> ${resolved?.objectId ? shortId(resolved.objectId) : "unresolved"}`,
     );

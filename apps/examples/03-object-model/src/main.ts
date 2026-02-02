@@ -34,7 +34,7 @@ async function main() {
 
   try {
     // Reset any previous state
-    resetState();
+    await resetState();
 
     // Step 1: Blob Storage
     printSection("Step 1: Blob Storage");

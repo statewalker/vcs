@@ -39,12 +39,12 @@ async function main() {
   try {
     // Step 1: Branch Creation
     printSection("Step 1: Branch Creation");
-    resetState();
+    await resetState();
     await step01BranchCreation();
 
     // Step 2: HEAD Management
     printSection("Step 2: HEAD Management");
-    resetState();
+    await resetState();
     await step02HeadManagement();
 
     // Step 3: Fast-Forward Merge

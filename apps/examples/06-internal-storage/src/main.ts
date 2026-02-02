@@ -121,9 +121,9 @@ async function main(): Promise<void> {
     console.log("  - Understanding Git internals for debugging");
   }
 
-  // Cleanup: close repository
-  if (state.repository) {
-    await state.repository.close();
+  // Cleanup: close history
+  if (state.history) {
+    await state.history.close();
   }
 
   console.log("\nExample completed successfully!\n");

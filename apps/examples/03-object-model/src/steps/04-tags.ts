@@ -8,7 +8,7 @@
 import { ObjectType } from "@statewalker/vcs-core";
 import {
   FileMode,
-  getRepository,
+  getHistory,
   printSection,
   printStep,
   printSubsection,
@@ -19,25 +19,25 @@ import {
 export async function step04Tags(): Promise<void> {
   printStep(4, "Tags");
 
-  const { repository } = await getRepository();
+  const { history } = await getHistory();
 
   // Ensure we have a commit
-  let headRef = await repository.refs.resolve("refs/heads/main");
+  let headRef = await history.refs.resolve("refs/heads/main");
   if (!headRef?.objectId) {
-    const blobId = await storeBlob(repository, "# Project v1.0");
-    const treeId = await repository.trees.storeTree([
+    const blobId = await storeBlob(history, "# Project v1.0");
+    const treeId = await history.trees.store([
       { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId },
     ]);
     const now = Date.now() / 1000;
-    const commitId = await repository.commits.storeCommit({
+    const commitId = await history.commits.store({
       tree: treeId,
       parents: [],
       author: { name: "Dev", email: "dev@example.com", timestamp: now, tzOffset: "+0000" },
       committer: { name: "Dev", email: "dev@example.com", timestamp: now, tzOffset: "+0000" },
       message: "Release v1.0",
     });
-    await repository.refs.set("refs/heads/main", commitId);
-    headRef = await repository.refs.resolve("refs/heads/main");
+    await history.refs.set("refs/heads/main", commitId);
+    headRef = await history.refs.resolve("refs/heads/main");
   }
 
   const commitId = headRef?.objectId ?? "";
@@ -48,9 +48,9 @@ export async function step04Tags(): Promise<void> {
   console.log(`  They're stored in .git/refs/tags/{name}`);
 
   // Create lightweight tag
-  await repository.refs.set("refs/tags/v1.0.0", commitId);
+  await history.refs.set("refs/tags/v1.0.0", commitId);
 
-  const v1Tag = await repository.refs.resolve("refs/tags/v1.0.0");
+  const v1Tag = await history.refs.resolve("refs/tags/v1.0.0");
   console.log(`\n  Created lightweight tag 'v1.0.0':`);
   console.log(`    refs/tags/v1.0.0 -> ${shortId(v1Tag?.objectId ?? "")}`);
   console.log(`    (points directly to the commit)`);
@@ -61,7 +61,7 @@ export async function step04Tags(): Promise<void> {
   console.log(`  They contain: object reference, tagger info, and message.`);
 
   const now = Date.now() / 1000;
-  const tagId = await repository.tags.storeTag({
+  const tagId = await history.tags.store({
     object: commitId,
     objectType: ObjectType.COMMIT,
     tag: "v2.0.0",
@@ -79,10 +79,13 @@ export async function step04Tags(): Promise<void> {
   console.log(`    Points to commit: ${shortId(commitId)}`);
 
   // Update ref to point to tag object
-  await repository.refs.set("refs/tags/v2.0.0", tagId);
+  await history.refs.set("refs/tags/v2.0.0", tagId);
 
   // Load and display tag object
-  const tag = await repository.tags.loadTag(tagId);
+  const tag = await history.tags.load(tagId);
+  if (!tag) {
+    throw new Error(`Tag not found: ${tagId}`);
+  }
   console.log(`\n  Tag object contents:`);
   console.log(`    object: ${shortId(tag.object)}`);
   console.log(
@@ -96,11 +99,11 @@ export async function step04Tags(): Promise<void> {
 
   console.log(`\n  Both types of tags resolve to the same commit:`);
 
-  const lightweight = await repository.refs.resolve("refs/tags/v1.0.0");
+  const lightweight = await history.refs.resolve("refs/tags/v1.0.0");
   console.log(`    v1.0.0 (lightweight): ${shortId(lightweight?.objectId ?? "")}`);
 
   // For annotated tag, we need to follow the tag object to the commit
-  const annotated = await repository.refs.resolve("refs/tags/v2.0.0");
+  const annotated = await history.refs.resolve("refs/tags/v2.0.0");
   console.log(`    v2.0.0 (annotated tag object): ${shortId(annotated?.objectId ?? "")}`);
   console.log(`    v2.0.0 (target commit): ${shortId(tag.object)}`);
 

@@ -7,6 +7,7 @@
 import {
   addFileToStaging,
   getGit,
+  MergeStage,
   printSection,
   printStep,
   resetState,
@@ -16,35 +17,39 @@ import {
 export async function step05CheckoutFiles(): Promise<void> {
   printStep(5, "Checkout Files");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Create commits with file changes
   console.log("\n--- Creating commit history ---");
 
-  await addFileToStaging(store, "config.json", '{"version": 1}');
+  await addFileToStaging(workingCopy, "config.json", '{"version": 1}');
   await git.commit().setMessage("v1 config").call();
-  const head1 = await store.refs.resolve("HEAD");
+  const head1 = await history.refs.resolve("HEAD");
   const commit1 = head1?.objectId ?? "";
   console.log(`  Commit 1: ${shortId(commit1)} - v1 config`);
 
-  await addFileToStaging(store, "config.json", '{"version": 2, "feature": true}');
+  await addFileToStaging(workingCopy, "config.json", '{"version": 2, "feature": true}');
   await git.commit().setMessage("v2 config with feature").call();
-  const head2 = await store.refs.resolve("HEAD");
+  const head2 = await history.refs.resolve("HEAD");
   const commit2 = head2?.objectId ?? "";
   console.log(`  Commit 2: ${shortId(commit2)} - v2 config with feature`);
 
-  await addFileToStaging(store, "config.json", '{"version": 3, "feature": true, "debug": false}');
+  await addFileToStaging(
+    workingCopy,
+    "config.json",
+    '{"version": 3, "feature": true, "debug": false}',
+  );
   await git.commit().setMessage("v3 config with debug").call();
-  const head3 = await store.refs.resolve("HEAD");
+  const head3 = await history.refs.resolve("HEAD");
   const commit3 = head3?.objectId ?? "";
   console.log(`  Commit 3: ${shortId(commit3)} - v3 config with debug`);
 
   // Show current file content
   console.log("\n--- Current config.json (HEAD) ---");
-  const currentEntry = await getEntry(store, "config.json");
+  const currentEntry = await getEntry(workingCopy, "config.json");
   if (currentEntry) {
-    const content = await getBlobContent(store, currentEntry.objectId);
+    const content = await getBlobContent(history, currentEntry.objectId);
     console.log(`  ${content}`);
   }
 
@@ -62,26 +67,30 @@ export async function step05CheckoutFiles(): Promise<void> {
   // Manual checkout by reading from commit tree
   console.log("  Manually restoring from commit 1...");
 
-  const commit1Data = await store.commits.loadCommit(commit1);
-  const blobId = await getFileBlobId(store, commit1Data.tree, "config.json");
+  const commit1Data = await history.commits.load(commit1);
+  if (!commit1Data) {
+    console.log("  Commit not found");
+    return;
+  }
+  const blobId = await getFileBlobId(history, commit1Data.tree, "config.json");
 
   if (blobId) {
     // Update staging with old version
-    const editor = store.staging.editor();
+    const editor = workingCopy.checkout.staging.createEditor();
     editor.add({
       path: "config.json",
       apply: (existing) => ({
         path: "config.json",
         mode: existing?.mode ?? 0o100644,
         objectId: blobId,
-        stage: 0,
+        stage: MergeStage.MERGED,
         size: existing?.size ?? 0,
         mtime: Date.now(),
       }),
     });
     await editor.finish();
 
-    const content = await getBlobContent(store, blobId);
+    const content = await getBlobContent(history, blobId);
     console.log(`  Restored content: ${content}`);
   }
 
@@ -104,25 +113,29 @@ export async function step05CheckoutFiles(): Promise<void> {
 
   // Restore to HEAD
   console.log("\n--- Restoring to HEAD ---");
-  const headCommit = await store.commits.loadCommit(commit3);
-  const headBlobId = await getFileBlobId(store, headCommit.tree, "config.json");
+  const headCommit = await history.commits.load(commit3);
+  if (!headCommit) {
+    console.log("  Commit not found");
+    return;
+  }
+  const headBlobId = await getFileBlobId(history, headCommit.tree, "config.json");
 
   if (headBlobId) {
-    const editor = store.staging.editor();
+    const editor = workingCopy.checkout.staging.createEditor();
     editor.add({
       path: "config.json",
       apply: (existing) => ({
         path: "config.json",
         mode: existing?.mode ?? 0o100644,
         objectId: headBlobId,
-        stage: 0,
+        stage: MergeStage.MERGED,
         size: existing?.size ?? 0,
         mtime: Date.now(),
       }),
     });
     await editor.finish();
 
-    const content = await getBlobContent(store, headBlobId);
+    const content = await getBlobContent(history, headBlobId);
     console.log(`  Restored to HEAD: ${content}`);
   }
 
@@ -135,8 +148,8 @@ export async function step05CheckoutFiles(): Promise<void> {
     .call();
 
   // Low-level: Read blob from commit tree
-  const commit = await store.commits.loadCommit(commitId);
-  const blobId = await store.trees.getEntry(commit.tree, "file");
+  const commit = await history.commits.load(commitId);
+  const blobId = await history.trees.getEntry(commit.tree, "file");
   // Then update staging with blobId
   `);
 
@@ -144,8 +157,11 @@ export async function step05CheckoutFiles(): Promise<void> {
 }
 
 // Helper: Get staging entry
-async function getEntry(store: Awaited<ReturnType<typeof getGit>>["store"], path: string) {
-  for await (const entry of store.staging.listEntries()) {
+async function getEntry(
+  workingCopy: Awaited<ReturnType<typeof getGit>>["workingCopy"],
+  path: string,
+) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     if (entry.path === path) return entry;
   }
   return undefined;
@@ -153,12 +169,15 @@ async function getEntry(store: Awaited<ReturnType<typeof getGit>>["store"], path
 
 // Helper: Get blob content
 async function getBlobContent(
-  store: Awaited<ReturnType<typeof getGit>>["store"],
+  history: Awaited<ReturnType<typeof getGit>>["history"],
   blobId: string,
 ): Promise<string> {
   const chunks: Uint8Array[] = [];
-  for await (const chunk of store.blobs.load(blobId)) {
-    chunks.push(chunk);
+  const content = await history.blobs.load(blobId);
+  if (content) {
+    for await (const chunk of content) {
+      chunks.push(chunk);
+    }
   }
   const total = chunks.reduce((s, c) => s + c.length, 0);
   const result = new Uint8Array(total);
@@ -172,11 +191,11 @@ async function getBlobContent(
 
 // Helper: Get blob ID from tree
 async function getFileBlobId(
-  store: Awaited<ReturnType<typeof getGit>>["store"],
+  history: Awaited<ReturnType<typeof getGit>>["history"],
   treeId: string,
   path: string,
 ): Promise<string | undefined> {
-  const entry = await store.trees.getEntry(treeId, path);
+  const entry = await history.trees.getEntry(treeId, path);
   return entry?.id;
 }
 

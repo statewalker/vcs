@@ -9,18 +9,18 @@ import { addFileToStaging, getGit, printSection, printStep } from "../shared.js"
 export async function step03Checkout(): Promise<void> {
   printStep(3, "Checkout");
 
-  const { git, store } = await getGit();
+  const { git, workingCopy, history } = await getGit();
 
   // Ensure we have a commit and branches
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (!head?.objectId) {
-    await addFileToStaging(store, "README.md", "# Project");
+    await addFileToStaging(workingCopy, "README.md", "# Project");
     await git.commit().setMessage("Initial commit").call();
     await git.branchCreate().setName("feature").call();
   }
 
   // Show current branch
-  const headRef = await store.refs.get("HEAD");
+  const headRef = await history.refs.get("HEAD");
   if (headRef && "target" in headRef) {
     console.log(`\nCurrent branch: ${headRef.target.replace("refs/heads/", "")}`);
   }
@@ -31,7 +31,7 @@ export async function step03Checkout(): Promise<void> {
   console.log(`  Checkout status: ${result.status}`);
 
   // Verify HEAD changed
-  const newHead = await store.refs.get("HEAD");
+  const newHead = await history.refs.get("HEAD");
   if (newHead && "target" in newHead) {
     console.log(`  HEAD now points to: ${newHead.target}`);
   }
@@ -40,7 +40,7 @@ export async function step03Checkout(): Promise<void> {
   console.log("\nCreating and checking out 'new-feature' in one step...");
   await git.checkout().setCreateBranch(true).setName("new-feature").call();
 
-  const afterCreate = await store.refs.get("HEAD");
+  const afterCreate = await history.refs.get("HEAD");
   if (afterCreate && "target" in afterCreate) {
     console.log(`  HEAD now points to: ${afterCreate.target}`);
   }
@@ -49,7 +49,7 @@ export async function step03Checkout(): Promise<void> {
   console.log("\nSwitching back to 'main'...");
   await git.checkout().setName("main").call();
 
-  const finalHead = await store.refs.get("HEAD");
+  const finalHead = await history.refs.get("HEAD");
   if (finalHead && "target" in finalHead) {
     console.log(`  HEAD now points to: ${finalHead.target}`);
   }

@@ -11,12 +11,7 @@
  * Run with: pnpm start
  */
 
-import {
-  createGitRepository,
-  createInMemoryFilesApi,
-  FileMode,
-  type GitRepository,
-} from "@statewalker/vcs-core";
+import { createMemoryHistory, FileMode, type History } from "@statewalker/vcs-core";
 
 // ============================================================================
 // Content Generation
@@ -78,13 +73,13 @@ const encoder = new TextEncoder();
  * Create a commit with the given tree and parents
  */
 async function createCommit(
-  repo: GitRepository,
+  history: History,
   treeId: string,
   parents: string[],
   message: string,
 ): Promise<string> {
   const timestamp = Math.floor(Date.now() / 1000);
-  return repo.commits.storeCommit({
+  return history.commits.store({
     tree: treeId,
     parents,
     author: {
@@ -125,8 +120,8 @@ const results: BenchmarkResult[] = [];
 
 // Initialize repository
 console.log("Initializing repository...");
-const files = createInMemoryFilesApi();
-const repo = await createGitRepository(files, ".git", { create: true });
+const history: History = createMemoryHistory();
+await history.initialize();
 
 console.log("-".repeat(80));
 console.log("Running benchmarks...");

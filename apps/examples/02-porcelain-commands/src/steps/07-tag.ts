@@ -9,12 +9,12 @@ import { addFileToStaging, getGit, printSection, printStep, shortId } from "../s
 export async function step07Tag(): Promise<void> {
   printStep(7, "Tags");
 
-  const { git, store } = await getGit();
+  const { git, workingCopy, history } = await getGit();
 
   // Ensure we have a commit
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (!head?.objectId) {
-    await addFileToStaging(store, "README.md", "# Project v1.0.0");
+    await addFileToStaging(workingCopy, "README.md", "# Project v1.0.0");
     await git.commit().setMessage("Initial release").call();
   }
 

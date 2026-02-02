@@ -13,7 +13,6 @@
 
 import * as http from "node:http";
 import {
-  type GitRepository,
   type ObjectTypeCode,
   PackWriterStream,
   typeCodeToString,
@@ -34,14 +33,16 @@ import {
 import { decompressBlockPartial } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 
+import { type FileHistory, getHead } from "./file-history.js";
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 export interface VcsHttpServerOptions {
   /** Port to listen on */
   port: number;
-  /** Storage getter - returns the GitRepository for a given repository path */
-  getStorage: (repoPath: string) => Promise<GitRepository | null>;
+  /** Storage getter - returns the FileHistory for a given repository path */
+  getStorage: (repoPath: string) => Promise<FileHistory | null>;
 }
 
 /**
@@ -50,7 +51,7 @@ export interface VcsHttpServerOptions {
 export class VcsHttpServer {
   private server: http.Server | null = null;
   private port: number;
-  private getStorage: (repoPath: string) => Promise<GitRepository | null>;
+  private getStorage: (repoPath: string) => Promise<FileHistory | null>;
 
   constructor(options: VcsHttpServerOptions) {
     this.port = options.port;
@@ -142,7 +143,7 @@ export class VcsHttpServer {
   private async handleInfoRefs(
     _req: http.IncomingMessage,
     res: http.ServerResponse,
-    storage: GitRepository,
+    storage: FileHistory,
     url: URL,
   ): Promise<void> {
     const service = url.searchParams.get("service");
@@ -196,7 +197,7 @@ export class VcsHttpServer {
   private async handleUploadPack(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    storage: GitRepository,
+    storage: FileHistory,
   ): Promise<void> {
     // Collect request body
     const body = await this.collectRequestBody(req);
@@ -258,7 +259,7 @@ export class VcsHttpServer {
   private async handleReceivePack(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    storage: GitRepository,
+    storage: FileHistory,
   ): Promise<void> {
     const body = await this.collectRequestBody(req);
     const { updates, packData } = this.parseReceivePackRequest(body);
@@ -320,10 +321,10 @@ export class VcsHttpServer {
   /**
    * Collect all refs from storage.
    */
-  private async collectRefs(storage: GitRepository): Promise<Map<string, string>> {
+  private async collectRefs(storage: FileHistory): Promise<Map<string, string>> {
     const refs = new Map<string, string>();
 
-    const head = await storage.getHead();
+    const head = await getHead(storage);
     if (head) {
       refs.set("HEAD", head);
     }
@@ -368,7 +369,7 @@ export class VcsHttpServer {
    * Build a pack file containing wanted objects.
    */
   private async buildPackForWants(
-    storage: GitRepository,
+    storage: FileHistory,
     wants: string[],
     haves: string[],
   ): Promise<{ packData: Uint8Array }> {
@@ -390,14 +391,19 @@ export class VcsHttpServer {
       objectsToSend.push({ id, type: typeStringToCode(header.type), content });
 
       if (header.type === "commit") {
-        const commit = await storage.commits.loadCommit(id);
-        await collectObject(commit.tree);
-        for (const parent of commit.parents) {
-          await collectObject(parent);
+        const commit = await storage.commits.load(id);
+        if (commit) {
+          await collectObject(commit.tree);
+          for (const parent of commit.parents) {
+            await collectObject(parent);
+          }
         }
       } else if (header.type === "tree") {
-        for await (const entry of storage.trees.loadTree(id)) {
-          await collectObject(entry.id);
+        const entries = await storage.trees.load(id);
+        if (entries) {
+          for await (const entry of entries) {
+            await collectObject(entry.id);
+          }
         }
       }
     };
@@ -503,7 +509,7 @@ export class VcsHttpServer {
   /**
    * Process a received pack file.
    */
-  private async processReceivedPack(storage: GitRepository, packData: Uint8Array): Promise<void> {
+  private async processReceivedPack(storage: FileHistory, packData: Uint8Array): Promise<void> {
     const objectCache = new Map<number, { type: number; content: Uint8Array; id: string }>();
     const objectById = new Map<string, { type: number; content: Uint8Array }>();
 
@@ -593,13 +599,13 @@ export class VcsHttpServer {
    * Apply ref update.
    */
   private async applyRefUpdate(
-    storage: GitRepository,
+    storage: FileHistory,
     update: { oldId: string; newId: string; refName: string },
   ): Promise<void> {
     const zeroId = "0".repeat(40);
 
     if (update.newId === zeroId) {
-      await storage.refs.delete(update.refName);
+      await storage.refs.remove(update.refName);
     } else {
       await storage.refs.set(update.refName, update.newId);
     }

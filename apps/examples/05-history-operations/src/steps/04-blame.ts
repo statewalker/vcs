@@ -17,15 +17,15 @@ import {
 export async function step04Blame(): Promise<void> {
   printStep(4, "Blame");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Create a file with history from multiple commits
   console.log("\n--- Creating file with history ---");
 
   // First version
   await addFileToStaging(
-    store,
+    workingCopy,
     "src/config.ts",
     `// Configuration file
 export const config = {
@@ -39,7 +39,7 @@ export const config = {
 
   // Second version - add debug flag
   await addFileToStaging(
-    store,
+    workingCopy,
     "src/config.ts",
     `// Configuration file
 export const config = {
@@ -54,7 +54,7 @@ export const config = {
 
   // Third version - update version and add feature
   await addFileToStaging(
-    store,
+    workingCopy,
     "src/config.ts",
     `// Configuration file
 // Updated for v2
@@ -87,21 +87,23 @@ export const config = {
   const lineTracking = result.getLineTracking();
 
   // Read file content to show alongside blame
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (head?.objectId) {
-    const commit = await store.commits.loadCommit(head.objectId);
-    const blobId = await getFileBlobId(store, commit.tree, "src/config.ts");
-    if (blobId) {
-      const content = await collectBlob(store, blobId);
-      const lines = new TextDecoder().decode(content).split("\n");
+    const commit = await history.commits.load(head.objectId);
+    if (commit) {
+      const blobId = await getFileBlobId(history, commit.tree, "src/config.ts");
+      if (blobId) {
+        const content = await collectBlob(history, blobId);
+        const lines = new TextDecoder().decode(content).split("\n");
 
-      for (let i = 0; i < lines.length && i < lineTracking.length; i++) {
-        const tracking = lineTracking[i];
-        const line = lines[i];
-        const authorName = tracking.commit.author.name.slice(0, 12).padEnd(12);
-        console.log(
-          `  ${String(i + 1).padStart(4)} | ${shortId(tracking.commitId)} | ${authorName} | ${line}`,
-        );
+        for (let i = 0; i < lines.length && i < lineTracking.length; i++) {
+          const tracking = lineTracking[i];
+          const line = lines[i];
+          const authorName = tracking.commit.author.name.slice(0, 12).padEnd(12);
+          console.log(
+            `  ${String(i + 1).padStart(4)} | ${shortId(tracking.commitId)} | ${authorName} | ${line}`,
+          );
+        }
       }
     }
   }
@@ -154,7 +156,7 @@ export const config = {
 
 // Helper: Get blob ID for a file in a tree
 async function getFileBlobId(
-  store: Awaited<ReturnType<typeof getGit>>["store"],
+  history: Awaited<ReturnType<typeof getGit>>["history"],
   treeId: string,
   path: string,
 ): Promise<string | undefined> {
@@ -165,7 +167,7 @@ async function getFileBlobId(
     const name = parts[i];
     const isLast = i === parts.length - 1;
 
-    const entry = await store.trees.getEntry(currentTreeId, name);
+    const entry = await history.trees.getEntry(currentTreeId, name);
     if (!entry) return undefined;
 
     if (isLast) return entry.id;
@@ -177,12 +179,15 @@ async function getFileBlobId(
 
 // Helper: Collect blob content
 async function collectBlob(
-  store: Awaited<ReturnType<typeof getGit>>["store"],
+  history: Awaited<ReturnType<typeof getGit>>["history"],
   blobId: string,
 ): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
-  for await (const chunk of store.blobs.load(blobId)) {
-    chunks.push(chunk);
+  const content = await history.blobs.load(blobId);
+  if (content) {
+    for await (const chunk of content) {
+      chunks.push(chunk);
+    }
   }
 
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);

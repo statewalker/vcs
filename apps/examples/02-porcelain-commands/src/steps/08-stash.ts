@@ -9,12 +9,12 @@ import { addFileToStaging, getGit, printSection, printStep, shortId } from "../s
 export async function step08Stash(): Promise<void> {
   printStep(8, "Stash");
 
-  const { git, store } = await getGit();
+  const { git, workingCopy, history } = await getGit();
 
   // Ensure we have a commit
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (!head?.objectId) {
-    await addFileToStaging(store, "README.md", "# Project");
+    await addFileToStaging(workingCopy, "README.md", "# Project");
     await git.commit().setMessage("Initial commit").call();
   }
 
@@ -28,7 +28,7 @@ export async function step08Stash(): Promise<void> {
 
   // Create a stash
   console.log("\nCreating a stash with git.stashCreate()...");
-  await addFileToStaging(store, "work-in-progress.ts", "// WIP code");
+  await addFileToStaging(workingCopy, "work-in-progress.ts", "// WIP code");
   const stashCommit = await git.stashCreate().setMessage("WIP: feature work").call();
 
   if (stashCommit) {

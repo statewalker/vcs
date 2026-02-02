@@ -9,37 +9,35 @@ import { addFileToStaging, getGit, printSection, printStep, shortId } from "../s
 export async function step01InitAndCommit(): Promise<void> {
   printStep(1, "Initialize and Commit");
 
-  const { git, store } = await getGit();
+  const { git, workingCopy } = await getGit();
 
-  console.log("\nCreating Git facade with Git.wrap()...");
+  console.log("\nCreating Git facade with Git.fromWorkingCopy()...");
   console.log("Git facade created!");
 
   // Stage files
   console.log("\nStaging files...");
-  await addFileToStaging(store, "README.md", "# My Project\n\nA sample project.");
-  await addFileToStaging(store, "src/index.ts", 'console.log("Hello, World!");');
+  await addFileToStaging(workingCopy, "README.md", "# My Project\n\nA sample project.");
+  await addFileToStaging(workingCopy, "src/index.ts", 'console.log("Hello, World!");');
   console.log("  Staged: README.md");
   console.log("  Staged: src/index.ts");
 
   // Create commit using Commands API
   console.log("\nCreating commit with git.commit()...");
   const commitResult = await git.commit().setMessage("Initial commit").call();
-  const commitId = await store.commits.storeCommit(commitResult);
 
-  console.log(`  Commit created: ${shortId(commitId)}`);
+  console.log(`  Commit created: ${shortId(commitResult.id)}`);
   console.log(`  Message: "${commitResult.message}"`);
 
   // Create a second commit
   console.log("\nAdding more content...");
   await addFileToStaging(
-    store,
+    workingCopy,
     "src/utils.ts",
     "export const add = (a: number, b: number) => a + b;",
   );
   const commit2 = await git.commit().setMessage("Add utility functions").call();
-  const commit2Id = await store.commits.storeCommit(commit2);
 
-  console.log(`  Second commit: ${shortId(commit2Id)}`);
+  console.log(`  Second commit: ${shortId(commit2.id)}`);
 
   console.log("\nStep 1 completed!");
 }

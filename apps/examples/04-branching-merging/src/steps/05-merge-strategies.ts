@@ -29,35 +29,39 @@ export async function step05MergeStrategies(): Promise<void> {
 
   // Demo 1: OURS strategy
   console.log("\n--- Demo 1: OURS Strategy ---");
-  resetState();
-  const { git: git1, store: store1 } = await getGit();
+  await resetState();
+  const { git: git1, workingCopy: workingCopy1, history: history1 } = await getGit();
 
   // Setup
-  await addFileToStaging(store1, "config.json", '{"version": 1}');
+  await addFileToStaging(workingCopy1, "config.json", '{"version": 1}');
   await git1.commit().setMessage("Initial config").call();
 
   await git1.branchCreate().setName("their-changes").call();
 
   // Our change
-  await addFileToStaging(store1, "config.json", '{"version": 2, "ourFeature": true}');
+  await addFileToStaging(workingCopy1, "config.json", '{"version": 2, "ourFeature": true}');
   await git1.commit().setMessage("Our config update").call();
 
   // Their change
-  await store1.refs.setSymbolic("HEAD", "refs/heads/their-changes");
-  const theirRef = await store1.refs.resolve("refs/heads/their-changes");
+  await history1.refs.setSymbolic("HEAD", "refs/heads/their-changes");
+  const theirRef = await history1.refs.resolve("refs/heads/their-changes");
   if (theirRef?.objectId) {
-    const commit = await store1.commits.loadCommit(theirRef.objectId);
-    await store1.staging.readTree(store1.trees, commit.tree);
+    const commit = await history1.commits.load(theirRef.objectId);
+    if (commit) {
+      await workingCopy1.checkout.staging.readTree(history1.trees, commit.tree);
+    }
   }
-  await addFileToStaging(store1, "config.json", '{"version": 3, "theirFeature": true}');
+  await addFileToStaging(workingCopy1, "config.json", '{"version": 3, "theirFeature": true}');
   await git1.commit().setMessage("Their config update").call();
 
   // Switch back to main
-  await store1.refs.setSymbolic("HEAD", "refs/heads/main");
-  const mainRef1 = await store1.refs.resolve("refs/heads/main");
+  await history1.refs.setSymbolic("HEAD", "refs/heads/main");
+  const mainRef1 = await history1.refs.resolve("refs/heads/main");
   if (mainRef1?.objectId) {
-    const commit = await store1.commits.loadCommit(mainRef1.objectId);
-    await store1.staging.readTree(store1.trees, commit.tree);
+    const commit = await history1.commits.load(mainRef1.objectId);
+    if (commit) {
+      await workingCopy1.checkout.staging.readTree(history1.trees, commit.tree);
+    }
   }
 
   // Merge with OURS strategy
@@ -88,43 +92,51 @@ export async function step05MergeStrategies(): Promise<void> {
 
   // Demo UNION strategy
   console.log("\n--- Demo 2: UNION Content Strategy ---");
-  resetState();
-  const { git: git2, store: store2 } = await getGit();
+  await resetState();
+  const { git: git2, workingCopy: workingCopy2, history: history2 } = await getGit();
 
   // Setup with a changelog-style file
-  await addFileToStaging(store2, "CHANGELOG.md", "# Changelog\n\n## v1.0.0\n- Initial release\n");
+  await addFileToStaging(
+    workingCopy2,
+    "CHANGELOG.md",
+    "# Changelog\n\n## v1.0.0\n- Initial release\n",
+  );
   await git2.commit().setMessage("Initial changelog").call();
 
   await git2.branchCreate().setName("changelog-branch").call();
 
   // Our addition
   await addFileToStaging(
-    store2,
+    workingCopy2,
     "CHANGELOG.md",
     "# Changelog\n\n## v1.1.0\n- Our feature\n\n## v1.0.0\n- Initial release\n",
   );
   await git2.commit().setMessage("Add our changelog entry").call();
 
   // Their addition
-  await store2.refs.setSymbolic("HEAD", "refs/heads/changelog-branch");
-  const clRef = await store2.refs.resolve("refs/heads/changelog-branch");
+  await history2.refs.setSymbolic("HEAD", "refs/heads/changelog-branch");
+  const clRef = await history2.refs.resolve("refs/heads/changelog-branch");
   if (clRef?.objectId) {
-    const commit = await store2.commits.loadCommit(clRef.objectId);
-    await store2.staging.readTree(store2.trees, commit.tree);
+    const commit = await history2.commits.load(clRef.objectId);
+    if (commit) {
+      await workingCopy2.checkout.staging.readTree(history2.trees, commit.tree);
+    }
   }
   await addFileToStaging(
-    store2,
+    workingCopy2,
     "CHANGELOG.md",
     "# Changelog\n\n## v1.0.1\n- Their bugfix\n\n## v1.0.0\n- Initial release\n",
   );
   await git2.commit().setMessage("Add their changelog entry").call();
 
   // Switch back and merge with UNION
-  await store2.refs.setSymbolic("HEAD", "refs/heads/main");
-  const mainRef2 = await store2.refs.resolve("refs/heads/main");
+  await history2.refs.setSymbolic("HEAD", "refs/heads/main");
+  const mainRef2 = await history2.refs.resolve("refs/heads/main");
   if (mainRef2?.objectId) {
-    const commit = await store2.commits.loadCommit(mainRef2.objectId);
-    await store2.staging.readTree(store2.trees, commit.tree);
+    const commit = await history2.commits.load(mainRef2.objectId);
+    if (commit) {
+      await workingCopy2.checkout.staging.readTree(history2.trees, commit.tree);
+    }
   }
 
   const unionResult = await git2
