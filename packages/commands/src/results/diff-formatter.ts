@@ -5,7 +5,15 @@
  */
 
 import type { BlobStore, ObjectId } from "@statewalker/vcs-core";
-import { type EditList, MyersDiff, RawText, RawTextComparator } from "@statewalker/vcs-utils";
+import {
+  DEFAULT_ALGORITHM,
+  type DiffAlgorithm,
+  type EditList,
+  getAlgorithm,
+  RawText,
+  RawTextComparator,
+  type SupportedAlgorithm,
+} from "@statewalker/vcs-utils";
 
 import { ChangeType, type DiffEntry } from "./diff-entry.js";
 
@@ -21,6 +29,8 @@ export interface DiffFormatterOptions {
   abbreviateIds?: boolean;
   /** Length of abbreviated object IDs (default: 7) */
   abbreviationLength?: number;
+  /** Diff algorithm to use (default: histogram) */
+  algorithm?: SupportedAlgorithm;
 }
 
 /**
@@ -85,6 +95,7 @@ export class DiffFormatter {
   private includeHeaders: boolean;
   private abbreviateIds: boolean;
   private abbreviationLength: number;
+  private diffAlgorithm: DiffAlgorithm;
 
   constructor(
     private readonly blobs: BlobStore,
@@ -94,6 +105,7 @@ export class DiffFormatter {
     this.includeHeaders = options.includeHeaders ?? true;
     this.abbreviateIds = options.abbreviateIds ?? true;
     this.abbreviationLength = options.abbreviationLength ?? 7;
+    this.diffAlgorithm = getAlgorithm(options.algorithm ?? DEFAULT_ALGORITHM);
   }
 
   /**
@@ -142,7 +154,7 @@ export class DiffFormatter {
     const oldText = oldContent ? new RawText(oldContent) : RawText.EMPTY_TEXT;
     const newText = newContent ? new RawText(newContent) : RawText.EMPTY_TEXT;
 
-    const edits = MyersDiff.diff(RawTextComparator.DEFAULT, oldText, newText);
+    const edits = this.diffAlgorithm(RawTextComparator.DEFAULT, oldText, newText);
 
     if (edits.length > 0) {
       result.hunks = this.formatEdits(oldText, newText, edits);
