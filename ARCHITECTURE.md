@@ -414,10 +414,10 @@ await history.initialize();
 The compression layer supports pluggable implementations:
 
 ```typescript
-import { setCompression } from "@statewalker/vcs-utils/compression";
+import { setCompressionUtils } from "@statewalker/vcs-utils/compression";
 import { createNodeCompression } from "@statewalker/vcs-utils/compression-node";
 
-setCompression(createNodeCompression()); // Use native zlib
+setCompressionUtils(createNodeCompression()); // Use native zlib
 ```
 
 ### Custom Authentication

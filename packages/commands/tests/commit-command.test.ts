@@ -650,12 +650,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
     worktree.addFile("untracked.txt", "new file\n");
 
     // Commit with --all (should only stage tracked file, not untracked)
-    await git
-      .commit()
-      .setMessage("update tracked only")
-      .setAll(true)
-      .setWorktree(worktree)
-      .call();
+    await git.commit().setMessage("update tracked only").setAll(true).setWorktree(worktree).call();
 
     // Verify untracked file was NOT added
     const headRef = await repository.refs.resolve("HEAD");
