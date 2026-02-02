@@ -9,8 +9,8 @@ import type {
   StagingEntry,
   StagingEntryOptions,
   TreeEntry,
-  Trees,
   TreeStore,
+  Trees,
 } from "@statewalker/vcs-core";
 import { FileMode, MergeStage } from "@statewalker/vcs-core";
 
