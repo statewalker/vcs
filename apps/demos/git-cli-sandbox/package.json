@@ -3,13 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Git CLI sandbox using VCS porcelain API - clone, commit, branch, merge, push via HTTP",
+  "description": "Git CLI sandbox using VCS porcelain API - clone, commit, branch, merge, push via HTTP (WIP - requires @statewalker/vcs-store-fs)",
   "bin": {
     "vcs-git": "./dist/main.js"
   },
   "scripts": {
     "start": "tsx src/main.ts",
-    "build": "tsc",
     "git": "tsx src/main.ts"
   },
   "dependencies": {

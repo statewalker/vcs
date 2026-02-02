@@ -14,9 +14,11 @@ import type {
   GitObjectStore,
   ObjectId,
   RefStore,
+  SerializationApi,
   TagStore,
   TreeStore,
 } from "@statewalker/vcs-core";
+import { DefaultSerializationApi } from "@statewalker/vcs-core";
 
 /**
  * Options for creating a SimpleHistory
@@ -49,6 +51,7 @@ export class SimpleHistory {
   readonly commits: CommitStore;
   readonly tags: TagStore;
   readonly refs: RefStore;
+  readonly serialization: SerializationApi;
 
   private _initialized = false;
 
@@ -59,6 +62,9 @@ export class SimpleHistory {
     this.commits = options.commits;
     this.tags = options.tags;
     this.refs = options.refs;
+    // Create serialization API for pack import/export operations
+    // Cast this to History since DefaultSerializationApi expects History interface
+    this.serialization = new DefaultSerializationApi({ history: this as any });
   }
 
   async initialize(): Promise<void> {

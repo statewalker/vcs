@@ -4,9 +4,17 @@
  * Manages document versions using VCS storage.
  */
 
-import { createGitStore, Git, type GitStore } from "@statewalker/vcs-commands";
-import { createGitRepository, FileMode, type GitRepository } from "@statewalker/vcs-core";
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
+import { Git } from "@statewalker/vcs-commands";
+import {
+  createMemoryCheckout,
+  createMemoryHistory,
+  createMemoryWorkingCopy,
+  createMemoryWorktree,
+  createSimpleStaging,
+  FileMode,
+  type History,
+  type WorkingCopy,
+} from "@statewalker/vcs-core";
 
 /**
  * Version information
@@ -22,8 +30,8 @@ export interface VersionInfo {
  * Version tracker for document management
  */
 export class VersionTracker {
-  private repository: GitRepository | null = null;
-  private store: GitStore | null = null;
+  private history: History | null = null;
+  private workingCopy: WorkingCopy | null = null;
   private git: Git | null = null;
   private initialized = false;
 
@@ -31,10 +39,31 @@ export class VersionTracker {
    * Initialize the version tracker with a new repository.
    */
   async initialize(): Promise<void> {
-    this.repository = await createGitRepository();
-    const staging = new MemoryStagingStore();
-    this.store = createGitStore({ repository: this.repository, staging });
-    this.git = Git.wrap(this.store);
+    // Create the History (object store)
+    this.history = createMemoryHistory();
+    await this.history.initialize();
+
+    // Create the Staging area
+    const staging = createSimpleStaging();
+
+    // Create the Checkout (HEAD, staging, operation states)
+    const checkout = createMemoryCheckout({ staging });
+
+    // Create the Worktree (filesystem access)
+    const worktree = createMemoryWorktree({
+      blobs: this.history.blobs,
+      trees: this.history.trees,
+    });
+
+    // Compose into WorkingCopy
+    this.workingCopy = createMemoryWorkingCopy({
+      history: this.history,
+      checkout,
+      worktree,
+    });
+
+    // Create Git facade
+    this.git = Git.fromWorkingCopy(this.workingCopy);
     this.initialized = true;
   }
 
@@ -53,16 +82,16 @@ export class VersionTracker {
    * @returns Version ID (commit hash)
    */
   async saveVersion(components: Map<string, Uint8Array>, message: string): Promise<string> {
-    if (!this.store || !this.git) {
+    if (!this.workingCopy || !this.git || !this.history) {
       throw new Error("Version tracker not initialized");
     }
 
     // Build staging from components
-    const editor = this.store.staging.editor();
+    const editor = this.workingCopy.checkout.staging.createEditor();
 
     for (const [path, content] of components) {
       // Store blob
-      const blobId = await this.store.blobs.store([content]);
+      const blobId = await this.history.blobs.store([content]);
 
       // Add to staging (flatten paths by replacing / with _)
       const safePath = path.replace(/\//g, "__");
@@ -83,7 +112,7 @@ export class VersionTracker {
 
     // Create commit
     const commit = await this.git.commit().setMessage(message).call();
-    const commitId = await this.store.commits.storeCommit(commit);
+    const commitId = await this.history.commits.store(commit);
 
     return commitId;
   }
@@ -95,19 +124,30 @@ export class VersionTracker {
    * @returns Map of file paths to content
    */
   async getVersion(versionId: string): Promise<Map<string, Uint8Array>> {
-    if (!this.store) {
+    if (!this.history) {
       throw new Error("Version tracker not initialized");
     }
 
-    const commit = await this.store.commits.loadCommit(versionId);
-    const components = new Map<string, Uint8Array>();
+    const commit = await this.history.commits.load(versionId);
+    if (!commit) {
+      throw new Error(`Commit not found: ${versionId}`);
+    }
 
-    for await (const entry of this.store.trees.loadTree(commit.tree)) {
+    const components = new Map<string, Uint8Array>();
+    const tree = await this.history.trees.load(commit.tree);
+    if (!tree) {
+      return components;
+    }
+
+    for (const entry of tree) {
       if (entry.mode !== FileMode.TREE) {
         // Collect blob content
         const chunks: Uint8Array[] = [];
-        for await (const chunk of this.store.blobs.load(entry.id)) {
-          chunks.push(chunk);
+        const blobContent = await this.history.blobs.load(entry.id);
+        if (blobContent) {
+          for await (const chunk of blobContent) {
+            chunks.push(chunk);
+          }
         }
 
         // Combine chunks
@@ -134,27 +174,29 @@ export class VersionTracker {
    * @returns Array of version info
    */
   async listVersions(): Promise<VersionInfo[]> {
-    if (!this.store) {
+    if (!this.history) {
       throw new Error("Version tracker not initialized");
     }
 
     const versions: VersionInfo[] = [];
 
     // Get HEAD
-    const head = await this.store.refs.resolve("HEAD");
+    const head = await this.history.refs.resolve("HEAD");
     if (!head?.objectId) {
       return versions;
     }
 
     // Walk ancestry
-    for await (const id of this.store.commits.walkAncestry(head.objectId)) {
-      const commit = await this.store.commits.loadCommit(id);
-      versions.push({
-        id,
-        message: commit.message.trim(),
-        date: new Date(commit.author.timestamp * 1000),
-        author: commit.author.name,
-      });
+    for await (const id of this.history.commits.walkAncestry(head.objectId)) {
+      const commit = await this.history.commits.load(id);
+      if (commit) {
+        versions.push({
+          id,
+          message: commit.message.trim(),
+          date: new Date(commit.author.timestamp * 1000),
+          author: commit.author.name,
+        });
+      }
     }
 
     return versions;
@@ -164,11 +206,11 @@ export class VersionTracker {
    * Get the latest version ID.
    */
   async getLatestVersionId(): Promise<string | undefined> {
-    if (!this.store) {
+    if (!this.history) {
       return undefined;
     }
 
-    const head = await this.store.refs.resolve("HEAD");
+    const head = await this.history.refs.resolve("HEAD");
     return head?.objectId;
   }
 
