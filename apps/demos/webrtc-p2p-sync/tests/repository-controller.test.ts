@@ -5,13 +5,15 @@
  * with in-memory Git repositories and mocked WebRTC APIs.
  */
 
-import { createGitStore, Git } from "@statewalker/vcs-commands";
+import { Git } from "@statewalker/vcs-commands";
 import {
-  createFileTreeIterator,
-  createGitRepository,
-  createInMemoryFilesApi,
-  FileStagingStore,
+  createMemoryHistory,
+  createSimpleStaging,
+  MemoryCheckout,
+  MemoryWorkingCopy,
+  MemoryWorktree,
 } from "@statewalker/vcs-core";
+import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   enqueueAddFileAction,
@@ -23,12 +25,13 @@ import { MockTimerApi, setPeerJsApi, setTimerApi } from "../src/apis/index.js";
 import type { AppContext } from "../src/controllers/index.js";
 import {
   createRepositoryController,
-  getFilesApi,
   getGit,
-  setFilesApi,
+  getWorktree,
   setGit,
-  setGitStore,
-  setRepository,
+  setHistory,
+  setRepositoryAccess,
+  setWorkingCopy,
+  setWorktree,
 } from "../src/controllers/index.js";
 import {
   getActivityLogModel,
@@ -183,6 +186,7 @@ class MockPeerJsApi implements PeerJsApi {
 
 /**
  * Create a test context with in-memory Git infrastructure.
+ * Uses the new Three-Part Architecture (History/Checkout/Worktree).
  */
 async function createTestAppContext(): Promise<AppContext> {
   const ctx: AppContext = {};
@@ -195,30 +199,44 @@ async function createTestAppContext(): Promise<AppContext> {
   getActivityLogModel(ctx);
   getUserActionsModel(ctx);
 
-  // Initialize Git infrastructure (same as createAppContext)
-  const files = createInMemoryFilesApi();
-  setFilesApi(ctx, files);
+  // Initialize Git infrastructure using Three-Part Architecture
 
-  const repository = await createGitRepository(files, ".git", {
-    create: true,
-    defaultBranch: "main",
-  });
-  setRepository(ctx, repository);
+  // 1. Create in-memory History (blobs, trees, commits, tags, refs)
+  const history = createMemoryHistory();
+  await history.initialize();
+  setHistory(ctx, history);
 
-  const staging = new FileStagingStore(files, ".git/index");
-  await staging.read();
+  // 2. Create in-memory Staging
+  const staging = createSimpleStaging();
 
-  const worktree = createFileTreeIterator({
-    files,
-    rootPath: "",
-    gitDir: ".git",
+  // 3. Create in-memory Checkout (HEAD, operation states)
+  const checkout = new MemoryCheckout({
+    staging,
+    initialHead: { type: "symbolic", target: "refs/heads/main" },
   });
 
-  const store = createGitStore({ repository, staging, worktree });
-  setGitStore(ctx, store);
+  // 4. Create in-memory Worktree (file storage)
+  const worktreeInterface = new MemoryWorktree({
+    blobs: history.blobs,
+    trees: history.trees,
+  });
+  setWorktree(ctx, worktreeInterface);
 
-  const git = Git.wrap(store);
+  // 5. Create WorkingCopy (combines history, checkout, worktree)
+  const workingCopy = new MemoryWorkingCopy({
+    history,
+    checkout,
+    worktreeInterface,
+  });
+  setWorkingCopy(ctx, workingCopy);
+
+  // 6. Create Git porcelain API
+  const git = Git.fromWorkingCopy(workingCopy);
   setGit(ctx, git);
+
+  // 7. Create RepositoryAccess for transport operations
+  const repositoryAccess = createVcsRepositoryAccess({ history });
+  setRepositoryAccess(ctx, repositoryAccess);
 
   // Inject mock APIs
   setPeerJsApi(ctx, new MockPeerJsApi());
@@ -538,9 +556,9 @@ describe("RepositoryController", () => {
 
     it("should store files in the repository", async () => {
       const actionsModel = getUserActionsModel(ctx);
-      const files = getFilesApi(ctx);
-      if (!files) {
-        throw new Error("FilesApi not initialized");
+      const worktree = getWorktree(ctx);
+      if (!worktree) {
+        throw new Error("Worktree not initialized");
       }
 
       // Initialize
@@ -553,7 +571,7 @@ describe("RepositoryController", () => {
 
       // Verify file exists in working directory
       const content: Uint8Array[] = [];
-      for await (const chunk of files.read("hello.txt")) {
+      for await (const chunk of worktree.readContent("hello.txt")) {
         content.push(chunk);
       }
       const text = new TextDecoder().decode(content[0]);
