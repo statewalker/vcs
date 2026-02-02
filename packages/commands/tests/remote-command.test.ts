@@ -66,7 +66,7 @@ describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
       await git.remoteAdd().setName("origin").setUri("https://github.com/user/repo").call();
 
       // Create a tracking ref to simulate the remote exists
-      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.history.refs.set("refs/remotes/origin/main", "a".repeat(40));
 
       // Try to add duplicate
       await expect(
@@ -128,8 +128,8 @@ describe.each(backends)("RemoteRemoveCommand ($name backend)", ({ factory }) => 
       const git = Git.fromWorkingCopy(workingCopy);
 
       // Create remote tracking refs
-      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
-      await workingCopy.repository.refs.set("refs/remotes/origin/feature", "b".repeat(40));
+      await workingCopy.history.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.history.refs.set("refs/remotes/origin/feature", "b".repeat(40));
 
       const result = await git.remoteRemove().setRemoteName("origin").call();
 
@@ -137,8 +137,8 @@ describe.each(backends)("RemoteRemoveCommand ($name backend)", ({ factory }) => 
       expect(result?.name).toBe("origin");
 
       // Refs should be deleted
-      const mainRef = await workingCopy.repository.refs.get("refs/remotes/origin/main");
-      const featureRef = await workingCopy.repository.refs.get("refs/remotes/origin/feature");
+      const mainRef = await workingCopy.history.refs.get("refs/remotes/origin/main");
+      const featureRef = await workingCopy.history.refs.get("refs/remotes/origin/feature");
       expect(mainRef).toBeUndefined();
       expect(featureRef).toBeUndefined();
     });
@@ -193,8 +193,8 @@ describe.each(backends)("RemoteListCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       // Create remote tracking refs for multiple remotes
-      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
-      await workingCopy.repository.refs.set("refs/remotes/upstream/main", "b".repeat(40));
+      await workingCopy.history.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.history.refs.set("refs/remotes/upstream/main", "b".repeat(40));
 
       const result = await git.remoteList().call();
 
@@ -216,7 +216,7 @@ describe.each(backends)("RemoteListCommand ($name backend)", ({ factory }) => {
       const workingCopy = await createTestWorkingCopy();
       const git = Git.fromWorkingCopy(workingCopy);
 
-      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.history.refs.set("refs/remotes/origin/main", "a".repeat(40));
 
       const result = await git.remoteList().call();
 
@@ -248,7 +248,7 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
       const git = Git.fromWorkingCopy(workingCopy);
 
       // Create remote tracking refs
-      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.history.refs.set("refs/remotes/origin/main", "a".repeat(40));
 
       const result = await git
         .remoteSetUrl()
@@ -265,7 +265,7 @@ describe.each(backends)("RemoteSetUrlCommand ($name backend)", ({ factory }) => 
       const git = Git.fromWorkingCopy(workingCopy);
 
       // Create remote tracking refs
-      await workingCopy.repository.refs.set("refs/remotes/origin/main", "a".repeat(40));
+      await workingCopy.history.refs.set("refs/remotes/origin/main", "a".repeat(40));
 
       const result = await git
         .remoteSetUrl()

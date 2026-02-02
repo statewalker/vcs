@@ -37,9 +37,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     await git.commit().setMessage("initial").call();
 
     // Verify file is in staging
-    await workingCopy.staging.read();
+    await workingCopy.checkout.staging.read();
     let hasFile = false;
-    for await (const entry of workingCopy.staging.entries()) {
+    for await (const entry of workingCopy.checkout.staging.entries()) {
       if (entry.path === "file.txt") {
         hasFile = true;
         break;
@@ -53,9 +53,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     expect(result.removedPaths).toContain("file.txt");
 
     // Verify file is no longer in staging
-    await workingCopy.staging.read();
+    await workingCopy.checkout.staging.read();
     hasFile = false;
-    for await (const entry of workingCopy.staging.entries()) {
+    for await (const entry of workingCopy.checkout.staging.entries()) {
       if (entry.path === "file.txt") {
         hasFile = true;
         break;
@@ -84,9 +84,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     expect(result.removedPaths).not.toContain("c.txt");
 
     // Verify only c.txt remains
-    await workingCopy.staging.read();
+    await workingCopy.checkout.staging.read();
     const remaining: string[] = [];
-    for await (const entry of workingCopy.staging.entries()) {
+    for await (const entry of workingCopy.checkout.staging.entries()) {
       remaining.push(entry.path);
     }
     expect(remaining).toEqual(["c.txt"]);
@@ -112,9 +112,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     expect(result.removedPaths).not.toContain("lib/c.txt");
 
     // Verify only lib/c.txt remains
-    await workingCopy.staging.read();
+    await workingCopy.checkout.staging.read();
     const remaining: string[] = [];
-    for await (const entry of workingCopy.staging.entries()) {
+    for await (const entry of workingCopy.checkout.staging.entries()) {
       remaining.push(entry.path);
     }
     expect(remaining).toEqual(["lib/c.txt"]);
@@ -136,9 +136,9 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
     expect(result.removedPaths).toEqual([]);
 
     // Original file should still be there
-    await workingCopy.staging.read();
+    await workingCopy.checkout.staging.read();
     const entries: string[] = [];
-    for await (const entry of workingCopy.staging.entries()) {
+    for await (const entry of workingCopy.checkout.staging.entries()) {
       entries.push(entry.path);
     }
     expect(entries).toContain("file.txt");

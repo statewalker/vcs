@@ -45,7 +45,7 @@ async function readStagedFile(
   },
   path: string,
 ): Promise<string> {
-  const entry = await workingCopy.staging.getEntry(path);
+  const entry = await workingCopy.checkout.staging.getEntry(path);
   if (!entry) {
     throw new Error(`File not found in staging: ${path}`);
   }
@@ -309,11 +309,11 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(branchRef?.objectId).toBe(first.id);
 
       // Staging should have first commit's content
-      const entryA = await workingCopy.staging.getEntry("a.txt");
+      const entryA = await workingCopy.checkout.staging.getEntry("a.txt");
       expect(entryA).toBeDefined();
 
       // b.txt should not exist in staging (wasn't in first commit)
-      const entryB = await workingCopy.staging.getEntry("b.txt");
+      const entryB = await workingCopy.checkout.staging.getEntry("b.txt");
       expect(entryB).toBeUndefined();
     });
   });
@@ -540,7 +540,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       await addFile(workingCopy, "a.txt", "test-a");
       await addFile(workingCopy, "c.txt", "test-c");
       // Remove b.txt
-      const editor = workingCopy.staging.createEditor();
+      const editor = workingCopy.checkout.staging.createEditor();
       editor.add(new DeleteStagingEntry("b.txt"));
       await editor.finish();
       await git.commit().setMessage("Test commit").call();
@@ -555,7 +555,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
       expect(await readStagedFile(workingCopy, repository, "b.txt")).toBe("main-b");
 
       // c.txt should not exist
-      const entryC = await workingCopy.staging.getEntry("c.txt");
+      const entryC = await workingCopy.checkout.staging.getEntry("c.txt");
       expect(entryC).toBeUndefined();
     });
 

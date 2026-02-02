@@ -51,7 +51,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const firstCommit = await repository.commits.loadCommit(firstMaster?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, firstCommit.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, firstCommit.tree);
 
     // Modify a on side branch
     await addFile(workingCopy, "a.txt", "a(side)");
@@ -60,7 +60,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
 
     // Checkout main
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
-    await workingCopy.staging.readTree(repository.trees, firstCommit.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, firstCommit.tree);
 
     // Modify a on main differently
     await addFile(workingCopy, "a.txt", "a(master)");
@@ -76,11 +76,11 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     expect(result.conflicts).toContain("a.txt");
 
     // Verify conflict stages in staging
-    const hasConflicts = await workingCopy.staging.hasConflicts();
+    const hasConflicts = await workingCopy.checkout.staging.hasConflicts();
     expect(hasConflicts).toBe(true);
 
     // Check that we have entries at different stages
-    const entries = await workingCopy.staging.getEntries("a.txt");
+    const entries = await workingCopy.checkout.staging.getEntries("a.txt");
     expect(entries.length).toBeGreaterThan(1);
   });
 
@@ -105,7 +105,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const firstCommitData = await repository.commits.loadCommit(initialCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, firstCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, firstCommitData.tree);
 
     // Add new file on side branch
     await addFile(workingCopy, "b.txt", "side file");
@@ -114,7 +114,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
 
     // Checkout main
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
-    await workingCopy.staging.readTree(repository.trees, firstCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, firstCommitData.tree);
 
     // Cherry-pick with noCommit
     const result = await git
@@ -130,7 +130,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     expect(newHeadRef?.objectId).toBe(initialCommit?.objectId);
 
     // But staging should have the new file
-    const entry = await workingCopy.staging.getEntry("b.txt");
+    const entry = await workingCopy.checkout.staging.getEntry("b.txt");
     expect(entry).toBeDefined();
   });
 
@@ -167,7 +167,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     // Checkout side
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const commit1Data = await repository.commits.loadCommit(commit1?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, commit1Data.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, commit1Data.tree);
 
     // Add different file on side
     await addFile(workingCopy, "b.txt", "side content");
@@ -223,7 +223,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     // Checkout side and modify
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "side.txt", "side");
     await git.commit().setMessage("side change").call();
 
@@ -241,7 +241,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
       .setStartPoint(baseCommit?.objectId ?? "")
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/target");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     // Try to cherry-pick merge commit without mainline parent
     await expect(
@@ -280,7 +280,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     // Checkout side and add different file
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "side-file.txt", "from side");
     await git.commit().setMessage("side add").call();
 
@@ -298,7 +298,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
       .setStartPoint(baseCommit?.objectId ?? "")
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/target");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     // Cherry-pick with mainline parent 1 (side is parent 1)
     // This means we diff merge commit against side, so we get main's changes
@@ -311,7 +311,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(CherryPickStatus.OK);
 
     // Should have the main-file.txt from cherry-pick
-    const entry = await workingCopy.staging.getEntry("main-file.txt");
+    const entry = await workingCopy.checkout.staging.getEntry("main-file.txt");
     expect(entry).toBeDefined();
   });
 
@@ -338,7 +338,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
 
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "side.txt", "side");
     await git.commit().setMessage("side").call();
 
@@ -355,7 +355,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
       .setStartPoint(baseCommit?.objectId ?? "")
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/target");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     // Try with invalid parent number 3 (merge has only 2 parents)
     await expect(
@@ -392,7 +392,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     // Checkout side and add different file
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "new-side.txt", "from side");
     await git.commit().setMessage("add file on side").call();
     const sideCommit = await repository.refs.resolve("HEAD");
@@ -401,7 +401,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
     const mainRef = await repository.refs.resolve("refs/heads/main");
     const mainData = await repository.commits.loadCommit(mainRef?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, mainData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, mainData.tree);
 
     // Cherry-pick side - should add new-side.txt cleanly
     const result = await git
@@ -412,8 +412,8 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(CherryPickStatus.OK);
 
     // Both files should exist
-    const mainFile = await workingCopy.staging.getEntry("new-main.txt");
-    const sideFile = await workingCopy.staging.getEntry("new-side.txt");
+    const mainFile = await workingCopy.checkout.staging.getEntry("new-main.txt");
+    const sideFile = await workingCopy.checkout.staging.getEntry("new-side.txt");
     expect(mainFile).toBeDefined();
     expect(sideFile).toBeDefined();
   });
@@ -443,7 +443,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     // Checkout side and delete the file
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     // Remove delete.txt from staging
     await removeFile(workingCopy, "delete.txt");
@@ -454,7 +454,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
     const mainRef = await repository.refs.resolve("refs/heads/main");
     const mainData = await repository.commits.loadCommit(mainRef?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, mainData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, mainData.tree);
 
     // Cherry-pick side - should delete delete.txt
     const result = await git
@@ -465,8 +465,8 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(CherryPickStatus.OK);
 
     // delete.txt should be gone, keep.txt should exist
-    const keepFile = await workingCopy.staging.getEntry("keep.txt");
-    const deleteFile = await workingCopy.staging.getEntry("delete.txt");
+    const keepFile = await workingCopy.checkout.staging.getEntry("keep.txt");
+    const deleteFile = await workingCopy.checkout.staging.getEntry("delete.txt");
     expect(keepFile).toBeDefined();
     expect(deleteFile).toBeUndefined();
   });
@@ -496,7 +496,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     // Checkout side and modify the file
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "conflict.txt", "modified");
     await git.commit().setMessage("modify on side").call();
     const sideCommit = await repository.refs.resolve("HEAD");
@@ -505,7 +505,7 @@ describe.each(backends)("CherryPickCommand ($name backend)", ({ factory }) => {
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
     const mainRef = await repository.refs.resolve("refs/heads/main");
     const mainData = await repository.commits.loadCommit(mainRef?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, mainData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, mainData.tree);
 
     // Cherry-pick side - should conflict (we deleted, they modified)
     const result = await git
@@ -620,14 +620,14 @@ describe.each(backends)("CherryPickCommand - Strategy and options ($name backend
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     await addFile(workingCopy, "b.txt", "b");
     await git.commit().setMessage("side commit").call();
     const sideCommit = await repository.refs.resolve("HEAD");
 
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     // Chain all options
     const result = await git
@@ -680,7 +680,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     // Add file with custom author
     await addFile(workingCopy, "b.txt", "new content");
@@ -693,7 +693,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
 
     // Checkout main
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     // Cherry-pick
     const result = await git
@@ -727,7 +727,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     const detailedMessage =
       "This is a detailed commit message\n\nWith multiple lines\nAnd description";
@@ -737,7 +737,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
 
     // Checkout main
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     // Cherry-pick
     const result = await git
@@ -769,7 +769,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     await addFile(workingCopy, "b.txt", "b");
     await git.commit().setMessage("side commit").call();
@@ -777,7 +777,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
 
     // Checkout main and make another commit
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "c.txt", "c");
     await git.commit().setMessage("main commit 2").call();
     const mainCommit2 = await repository.refs.resolve("HEAD");
@@ -826,8 +826,8 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
     expect(result.status).toBe(CherryPickStatus.OK);
 
     // Should have both files now
-    const aEntry = await workingCopy.staging.getEntry("a.txt");
-    const bEntry = await workingCopy.staging.getEntry("b.txt");
+    const aEntry = await workingCopy.checkout.staging.getEntry("a.txt");
+    const bEntry = await workingCopy.checkout.staging.getEntry("b.txt");
     expect(aEntry).toBeDefined();
     expect(bEntry).toBeDefined();
   });
@@ -853,7 +853,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const firstCommit = await repository.commits.loadCommit(firstMaster?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, firstCommit.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, firstCommit.tree);
 
     // Modify a on side branch
     await addFile(workingCopy, "a.txt", "a(side)");
@@ -862,7 +862,7 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
 
     // Checkout main
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
-    await workingCopy.staging.readTree(repository.trees, firstCommit.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, firstCommit.tree);
 
     // Modify a on main differently
     await addFile(workingCopy, "a.txt", "a(master)");
@@ -901,14 +901,14 @@ describe.each(backends)("CherryPickCommand - JGit additional tests ($name backen
       .call();
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     await addFile(workingCopy, "b.txt", "b");
     await git.commit().setMessage("side commit").call();
     const sideCommit = await repository.refs.resolve("HEAD");
 
     await repository.refs.setSymbolic("HEAD", "refs/heads/main");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
 
     const command = git.cherryPick().include(sideCommit?.objectId ?? "");
     await command.call();

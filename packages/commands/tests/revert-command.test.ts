@@ -159,10 +159,10 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.conflicts).toContain("a.txt");
 
     // Verify conflict stages in staging
-    const hasConflicts = await workingCopy.staging.hasConflicts();
+    const hasConflicts = await workingCopy.checkout.staging.hasConflicts();
     expect(hasConflicts).toBe(true);
 
-    const entries = await workingCopy.staging.getEntries("a.txt");
+    const entries = await workingCopy.checkout.staging.getEntries("a.txt");
     expect(entries.length).toBeGreaterThan(1);
   });
 
@@ -196,12 +196,12 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(afterRevertHead?.objectId).toBe(beforeRevertHead?.objectId);
 
     // But staging should reflect the reverted content
-    const entry = await workingCopy.staging.getEntry("a.txt");
+    const entry = await workingCopy.checkout.staging.getEntry("a.txt");
     expect(entry).toBeDefined();
 
     // The tree in staging should match the base commit's tree content
     const baseCommitData = await repository.commits.loadCommit(baseCommit);
-    const stagingTreeId = await workingCopy.staging.writeTree(repository.trees);
+    const stagingTreeId = await workingCopy.checkout.staging.writeTree(repository.trees);
     // The trees should be identical since we reverted to base
     expect(stagingTreeId).toBe(baseCommitData.tree);
   });
@@ -232,7 +232,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     // Checkout side and modify
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "side.txt", "side");
     await git.commit().setMessage("side change").call();
 
@@ -278,7 +278,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     // Checkout side and add different file
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "side-file.txt", "from side");
     await git.commit().setMessage("side add").call();
 
@@ -300,11 +300,11 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(RevertStatus.OK);
 
     // main-file.txt should be removed (reverted)
-    const mainFileEntry = await workingCopy.staging.getEntry("main-file.txt");
+    const mainFileEntry = await workingCopy.checkout.staging.getEntry("main-file.txt");
     expect(mainFileEntry).toBeUndefined();
 
     // side-file.txt should still exist
-    const sideFileEntry = await workingCopy.staging.getEntry("side-file.txt");
+    const sideFileEntry = await workingCopy.checkout.staging.getEntry("side-file.txt");
     expect(sideFileEntry).toBeDefined();
   });
 
@@ -331,7 +331,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
 
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
     const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, baseCommitData.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "side.txt", "side");
     await git.commit().setMessage("side").call();
 
@@ -368,7 +368,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     const addCommit = addCommitRef?.objectId ?? "";
 
     // Verify file exists
-    let entry = await workingCopy.staging.getEntry("new-file.txt");
+    let entry = await workingCopy.checkout.staging.getEntry("new-file.txt");
     expect(entry).toBeDefined();
 
     // Revert the add - should delete the file
@@ -377,11 +377,11 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(RevertStatus.OK);
 
     // new-file.txt should be gone
-    entry = await workingCopy.staging.getEntry("new-file.txt");
+    entry = await workingCopy.checkout.staging.getEntry("new-file.txt");
     expect(entry).toBeUndefined();
 
     // existing.txt should still exist
-    const existingEntry = await workingCopy.staging.getEntry("existing.txt");
+    const existingEntry = await workingCopy.checkout.staging.getEntry("existing.txt");
     expect(existingEntry).toBeDefined();
   });
 
@@ -403,7 +403,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     const deleteCommit = deleteCommitRef?.objectId ?? "";
 
     // Verify file is gone
-    let entry = await workingCopy.staging.getEntry("deleteme.txt");
+    let entry = await workingCopy.checkout.staging.getEntry("deleteme.txt");
     expect(entry).toBeUndefined();
 
     // Revert the delete - should restore the file
@@ -412,7 +412,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.status).toBe(RevertStatus.OK);
 
     // deleteme.txt should be restored
-    entry = await workingCopy.staging.getEntry("deleteme.txt");
+    entry = await workingCopy.checkout.staging.getEntry("deleteme.txt");
     expect(entry).toBeDefined();
   });
 
