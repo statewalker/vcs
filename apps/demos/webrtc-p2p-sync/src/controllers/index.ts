@@ -8,15 +8,24 @@
  */
 
 import { Git } from "@statewalker/vcs-commands";
-import type { History, WorkingCopy } from "@statewalker/vcs-core";
+import type { History, SerializationApi, WorkingCopy } from "@statewalker/vcs-core";
 import {
   createMemoryHistory,
   createSimpleStaging,
+  DefaultSerializationApi,
   MemoryCheckout,
   MemoryWorkingCopy,
   MemoryWorktree,
 } from "@statewalker/vcs-core";
 import type { RepositoryAccess } from "@statewalker/vcs-transport";
+
+/**
+ * Create SerializationApi from History facade.
+ */
+function createSerializationApi(history: History): SerializationApi {
+  return new DefaultSerializationApi({ history });
+}
+
 import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 import type { PeerConnection, PeerInstance } from "../apis/index.js";
 import {
@@ -66,10 +75,7 @@ export const [getWorkingCopy, setWorkingCopy] = newAdapter<WorkingCopy | null>(
  * Context adapter for MemoryWorktree (in-memory file storage).
  * Provides access to the worktree for file operations in the demo.
  */
-export const [getWorktree, setWorktree] = newAdapter<MemoryWorktree | null>(
-  "worktree",
-  () => null,
-);
+export const [getWorktree, setWorktree] = newAdapter<MemoryWorktree | null>("worktree", () => null);
 
 /**
  * Context adapter for Git porcelain API.
@@ -82,6 +88,15 @@ export const [getGit, setGit] = newAdapter<Git | null>("git", () => null);
  */
 export const [getRepositoryAccess, setRepositoryAccess] = newAdapter<RepositoryAccess | null>(
   "repository-access",
+  () => null,
+);
+
+/**
+ * Context adapter for SerializationApi.
+ * Used for pack import/export operations.
+ */
+export const [getSerializationApi, setSerializationApi] = newAdapter<SerializationApi | null>(
+  "serialization-api",
   () => null,
 );
 
@@ -127,6 +142,10 @@ async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
   // 7. Create RepositoryAccess for transport operations
   const repositoryAccess = createVcsRepositoryAccess({ history });
   setRepositoryAccess(ctx, repositoryAccess);
+
+  // 8. Create SerializationApi for pack import/export
+  const serialization = createSerializationApi(history);
+  setSerializationApi(ctx, serialization);
 }
 
 /**

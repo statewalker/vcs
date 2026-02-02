@@ -35,7 +35,12 @@ import {
 } from "../services/index.js";
 import { newRegistry } from "../utils/index.js";
 import type { AppContext } from "./index.js";
-import { getPeerConnections, getRepository, getRepositoryAccess } from "./index.js";
+import {
+  getPeerConnections,
+  getRepository,
+  getRepositoryAccess,
+  getSerializationApi,
+} from "./index.js";
 
 // How long to show "complete" state before resetting
 const COMPLETE_DISPLAY_MS = 2000;
@@ -209,8 +214,9 @@ export function createSyncController(ctx: AppContext): () => void {
         throw new Error(fetchResult.error ?? "Fetch failed");
       }
 
-      // Get repository for pack import and ref updates
+      // Get repository and serialization API for pack import and ref updates
       const repository = getRepository(ctx);
+      const serialization = getSerializationApi(ctx);
 
       // Import the pack data into our repository (if we received objects)
       if (fetchResult.packData.length > 0 && fetchResult.objectsReceived > 0) {
@@ -219,12 +225,12 @@ export function createSyncController(ctx: AppContext): () => void {
         );
 
         // Import pack using serialization API
-        if (repository?.backend?.serialization) {
+        if (serialization) {
           // Wrap pack data as async iterable
           async function* packStream() {
             yield fetchResult.packData;
           }
-          await repository.backend.serialization.importPack(packStream());
+          await serialization.importPack(packStream());
           logModel.info("Pack imported successfully");
         }
       } else {

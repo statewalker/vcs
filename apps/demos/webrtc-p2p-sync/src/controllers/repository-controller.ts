@@ -351,7 +351,7 @@ export function createRepositoryController(ctx: AppContext): () => void {
       // Get files from HEAD tree (recursive)
       const fileList: FileEntry[] = [];
       if (commits.length > 0) {
-        const headCommit = await history.commits.loadCommit(commits[0].id);
+        const headCommit = await history.commits.load(commits[0].id);
         if (headCommit.tree) {
           await collectFilesFromTree(history, headCommit.tree, "", fileList);
         }
