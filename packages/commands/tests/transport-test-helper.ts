@@ -103,9 +103,6 @@ export function createWorkingCopyFromStores(stores: TransportTestStores): Workin
     get checkout() {
       return undefined;
     },
-    get worktreeInterface() {
-      return undefined;
-    },
     async getHead() {
       const ref = await stores.refs.resolve("HEAD");
       return ref?.objectId;

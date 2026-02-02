@@ -59,7 +59,7 @@ export interface GitWorkingCopyOptions {
   /** Checkout interface */
   checkout: Checkout;
   /** Worktree interface */
-  worktreeInterface: Worktree;
+  worktree: Worktree;
   /** Stash store */
   stash: StashStore;
   /** Configuration */
@@ -81,7 +81,7 @@ export interface GitWorkingCopyOptions {
 export class GitWorkingCopy implements WorkingCopy {
   readonly history: History;
   readonly checkout: Checkout;
-  readonly worktreeInterface: Worktree;
+  readonly worktree: Worktree;
   readonly stash: StashStore;
   readonly config: WorkingCopyConfig;
 
@@ -91,7 +91,7 @@ export class GitWorkingCopy implements WorkingCopy {
   constructor(options: GitWorkingCopyOptions) {
     this.history = options.history;
     this.checkout = options.checkout;
-    this.worktreeInterface = options.worktreeInterface;
+    this.worktree = options.worktree;
     this.stash = options.stash;
     this.config = options.config;
     this.files = options.files;
@@ -99,24 +99,10 @@ export class GitWorkingCopy implements WorkingCopy {
   }
 
   /**
-   * Worktree - delegates to worktreeInterface
-   */
-  get worktree(): Worktree {
-    return this.worktreeInterface;
-  }
-
-  /**
    * Staging area - delegates to checkout.staging
    */
   get staging(): Staging {
     return this.checkout.staging;
-  }
-
-  /**
-   * Repository - delegates to history (for backward compatibility)
-   */
-  get repository(): History {
-    return this.history;
   }
 
   /**
@@ -240,7 +226,7 @@ export class GitWorkingCopy implements WorkingCopy {
    */
   async getStatus(options?: StatusOptions): Promise<RepositoryStatus> {
     const calculator = createStatusCalculator({
-      worktree: this.worktreeInterface,
+      worktree: this.worktree,
       staging: this.checkout.staging,
       // Cast new interfaces to old ones for compatibility with createStatusCalculator
       // TODO: Update createStatusCalculator to use new interfaces

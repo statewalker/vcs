@@ -502,7 +502,7 @@ export class CommitCommand extends GitCommand<CommitResult> {
       throw new StoreNotAvailableError(
         "Worktree",
         "Working tree iterator required for --all mode. " +
-          "Ensure WorkingCopy has worktreeInterface or call setWorktreeStore().",
+          "Ensure WorkingCopy has worktree or call setWorktreeStore().",
       );
     }
 

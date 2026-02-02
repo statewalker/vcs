@@ -309,7 +309,7 @@ export class AddCommand extends GitCommand<AddResult> {
       throw new StoreNotAvailableError(
         "Worktree",
         "Working tree iterator not available. " +
-          "Ensure WorkingCopy has worktreeInterface or call setWorktreeStore().",
+          "Ensure WorkingCopy has worktree or call setWorktreeStore().",
       );
     }
 

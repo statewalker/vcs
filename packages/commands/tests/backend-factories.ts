@@ -70,7 +70,7 @@ export const memoryFactory: WorkingCopyFactory = async () => {
   });
 
   // Create mock Worktree
-  const worktreeInterface = createMockWorktree();
+  const worktree = createMockWorktree();
 
   // Create Checkout with staging
   const checkout = new MemoryCheckout({ staging });
@@ -79,7 +79,7 @@ export const memoryFactory: WorkingCopyFactory = async () => {
   const workingCopy = new MemoryWorkingCopy({
     history: repository,
     checkout,
-    worktreeInterface,
+    worktree,
   });
 
   return { workingCopy, repository };
@@ -108,7 +108,7 @@ export const sqlFactory: WorkingCopyFactory = async () => {
   });
 
   // Create mock Worktree
-  const worktreeInterface = createMockWorktree();
+  const worktree = createMockWorktree();
 
   // Create Checkout with staging
   const checkout = new MemoryCheckout({ staging });
@@ -117,7 +117,7 @@ export const sqlFactory: WorkingCopyFactory = async () => {
   const workingCopy = new MemoryWorkingCopy({
     history: repository,
     checkout,
-    worktreeInterface,
+    worktree,
   });
 
   return {

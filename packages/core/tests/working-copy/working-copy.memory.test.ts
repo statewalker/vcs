@@ -102,7 +102,7 @@ describe("MemoryWorkingCopy", () => {
     workingCopy = new MemoryWorkingCopy({
       history: mockHistory,
       checkout: mockCheckout,
-      worktreeInterface: mockWorktree,
+      worktree: mockWorktree,
     });
   });
 
@@ -117,7 +117,7 @@ describe("MemoryWorkingCopy", () => {
       const wc = new MemoryWorkingCopy({
         history: mockHistory,
         checkout: mockCheckout,
-        worktreeInterface: mockWorktree,
+        worktree: mockWorktree,
         stash: customStash,
       });
       expect(wc.stash).toBe(customStash);
@@ -128,7 +128,7 @@ describe("MemoryWorkingCopy", () => {
       const wc = new MemoryWorkingCopy({
         history: mockHistory,
         checkout: mockCheckout,
-        worktreeInterface: mockWorktree,
+        worktree: mockWorktree,
         config: customConfig,
       });
       expect(wc.config).toBe(customConfig);

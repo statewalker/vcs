@@ -227,9 +227,6 @@ function createWorkingCopyWithMockWorktree(
     get checkout() {
       return { staging } as never;
     },
-    get worktreeInterface() {
-      return worktree as unknown as Worktree;
-    },
     async getHead() {
       const ref = await repository.refs.resolve("HEAD");
       return ref?.objectId;
@@ -380,9 +377,6 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       },
       get checkout() {
         return { staging } as never;
-      },
-      get worktreeInterface() {
-        return undefined;
       },
       async getHead() {
         const ref = await repository.refs.resolve("HEAD");
