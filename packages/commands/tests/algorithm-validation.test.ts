@@ -10,7 +10,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DiffFormatter, Git } from "../src/index.js";
 import { addFile, backends, createInitializedGitFromFactory } from "./test-helper.js";
 
-describe.each(backends)("V3: DiffFormatter Algorithm Configuration ($name backend)", ({ factory }) => {
+describe.each(backends)("V3: DiffFormatter Algorithm Configuration ($name backend)", ({
+  factory,
+}) => {
   let cleanup: (() => Promise<void>) | undefined;
 
   afterEach(async () => {
@@ -87,7 +89,9 @@ describe.each(backends)("V3: DiffFormatter Algorithm Configuration ($name backen
   });
 });
 
-describe.each(backends)("V4: BlameCommand Algorithm Configuration ($name backend)", ({ factory }) => {
+describe.each(backends)("V4: BlameCommand Algorithm Configuration ($name backend)", ({
+  factory,
+}) => {
   let cleanup: (() => Promise<void>) | undefined;
 
   afterEach(async () => {

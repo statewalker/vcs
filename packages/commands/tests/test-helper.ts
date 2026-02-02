@@ -8,7 +8,7 @@
  */
 
 import type { HistoryStore, ObjectId, PersonIdent, WorkingCopy } from "@statewalker/vcs-core";
-import { FileMode, MemoryWorkingCopy } from "@statewalker/vcs-core";
+import { FileMode, MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
   MemoryRefStore,
@@ -53,13 +53,16 @@ export function createTestWorkingCopy(): { workingCopy: WorkingCopy; repository:
   });
 
   // Create mock Worktree
-  const worktree = createMockWorktree();
+  const worktreeInterface = createMockWorktree();
+
+  // Create Checkout with staging
+  const checkout = new MemoryCheckout({ staging });
 
   // Create WorkingCopy
   const workingCopy = new MemoryWorkingCopy({
-    repository,
-    worktree,
-    staging,
+    history: repository,
+    checkout,
+    worktreeInterface,
   });
 
   return { workingCopy, repository };
