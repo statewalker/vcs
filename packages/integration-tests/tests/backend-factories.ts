@@ -1,14 +1,14 @@
 /**
  * Backend factory functions for integration tests
  *
- * Provides factory functions to create GitStore instances with 3 backends:
- * 1. Memory - Fastest, pure in-memory storage
- * 2. SQL - sql.js in-memory database
- * 3. FilesAPI - Git-compatible file-based storage (in-memory FilesAPI)
+ * Provides factory functions to create WorkingCopy instances with multiple backends.
+ * Used for testing Git operations across Memory and SQL storage implementations.
+ *
+ * @see WorkingCopy for the primary architecture
  */
 
-import { createGitStore, type GitStore } from "@statewalker/vcs-commands";
-import { createGitRepository, createInMemoryFilesApi } from "@statewalker/vcs-core";
+import type { WorkingCopy } from "@statewalker/vcs-core";
+import { MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-core";
 import {
   createMemoryObjectStores,
   MemoryRefStore,
@@ -18,61 +18,113 @@ import {
   createSqlObjectStores,
   initializeSchema,
   SQLRefStore,
-  SQLStagingStore,
+  SQLStaging,
 } from "@statewalker/vcs-store-sql";
 import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 
+import { createMockWorktree } from "./helpers/mock-worktree.js";
+import { createSimpleHistory, type SimpleHistory } from "./helpers/simple-history.js";
+
 // Enable Node.js compression for SQL backend
 setCompressionUtils(createNodeCompression());
 
 /**
- * Test context for GitStore tests
+ * Test context for WorkingCopy tests
+ *
+ * Provides access to WorkingCopy and its underlying repository for testing.
  */
-export interface GitStoreTestContext {
-  store: GitStore;
+export interface WorkingCopyTestContext {
+  /** The WorkingCopy instance (primary interface) */
+  workingCopy: WorkingCopy;
+  /** Direct access to the repository for test setup/verification */
+  repository: SimpleHistory;
+  /** Cleanup function to call after test */
   cleanup?: () => Promise<void>;
 }
 
 /**
- * Factory function to create GitStore instances for testing
+ * Factory function to create WorkingCopy instances for testing
  */
-export type GitStoreFactory = () => Promise<GitStoreTestContext>;
+export type WorkingCopyFactory = () => Promise<WorkingCopyTestContext>;
 
 /**
- * Memory backend factory (fastest, no cleanup needed)
+ * Memory backend factory (default, fastest)
+ *
+ * Creates a WorkingCopy with in-memory storage.
  */
-export const memoryFactory: GitStoreFactory = async () => {
+export const memoryFactory: WorkingCopyFactory = async () => {
   const stores = createMemoryObjectStores();
-  const store: GitStore = {
+  const refs = new MemoryRefStore();
+  const staging = new MemoryStagingStore();
+
+  // Create History wrapper
+  const repository = createSimpleHistory({
+    objects: stores.objects,
     blobs: stores.blobs,
     trees: stores.trees,
     commits: stores.commits,
-    refs: new MemoryRefStore(),
-    staging: new MemoryStagingStore(),
     tags: stores.tags,
-  };
-  return { store };
+    refs,
+  });
+
+  // Create mock Worktree
+  const worktree = createMockWorktree();
+
+  // Create Checkout with staging
+  const checkout = new MemoryCheckout({ staging });
+
+  // Create WorkingCopy (SimpleHistory is duck-type compatible with History)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const workingCopy = new MemoryWorkingCopy({
+    history: repository as any,
+    checkout,
+    worktree,
+  });
+
+  return { workingCopy, repository };
 };
 
 /**
- * SQL backend factory (uses sql.js in-memory)
+ * SQL backend factory (persistent, uses sql.js in-memory)
+ *
+ * Creates a WorkingCopy with SQL-backed storage.
  */
-export const sqlFactory: GitStoreFactory = async () => {
+export const sqlFactory: WorkingCopyFactory = async () => {
   const db = await SqlJsAdapter.create();
   await initializeSchema(db);
   const stores = createSqlObjectStores({ db });
-  const store: GitStore = {
+  const refs = new SQLRefStore(db);
+  const staging = new SQLStaging(db);
+
+  // Create History wrapper
+  const repository = createSimpleHistory({
+    objects: stores.objects,
     blobs: stores.blobs,
     trees: stores.trees,
     commits: stores.commits,
-    refs: new SQLRefStore(db),
-    staging: new SQLStagingStore(db),
     tags: stores.tags,
-  };
+    refs,
+  });
+
+  // Create mock Worktree
+  const worktree = createMockWorktree();
+
+  // Create Checkout with staging
+  const checkout = new MemoryCheckout({ staging });
+
+  // Create WorkingCopy (SimpleHistory is duck-type compatible with History)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const workingCopy = new MemoryWorkingCopy({
+    history: repository as any,
+    checkout,
+    worktree,
+  });
+
   return {
-    store,
+    workingCopy,
+    repository,
     cleanup: async () => {
       await db.close();
     },
@@ -80,26 +132,11 @@ export const sqlFactory: GitStoreFactory = async () => {
 };
 
 /**
- * FilesAPI backend factory (Git-compatible file storage, in-memory)
- */
-export const filesApiFactory: GitStoreFactory = async () => {
-  const files = createInMemoryFilesApi();
-  const repository = await createGitRepository(files, ".git", {
-    create: true,
-    defaultBranch: "main",
-  });
-  const staging = new MemoryStagingStore();
-  const store = createGitStore({ repository, staging });
-  return { store };
-};
-
-/**
  * All available backends for cross-backend testing
  */
-export const backends: Array<{ name: string; factory: GitStoreFactory }> = [
+export const backends: Array<{ name: string; factory: WorkingCopyFactory }> = [
   { name: "Memory", factory: memoryFactory },
   { name: "SQL", factory: sqlFactory },
-  { name: "FilesAPI", factory: filesApiFactory },
 ];
 
 /**

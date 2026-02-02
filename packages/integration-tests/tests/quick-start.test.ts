@@ -28,10 +28,10 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
   it("should initialize repository and store HEAD", async () => {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const store = ctx.store;
+    const { repository } = ctx;
 
     // Initialize refs
-    const emptyTreeId = await store.trees.storeTree([]);
+    const emptyTreeId = await repository.trees.storeTree([]);
     const initialCommit = {
       tree: emptyTreeId,
       parents: [],
@@ -39,28 +39,28 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       committer: testAuthor(),
       message: "Initial commit",
     };
-    const commitId = await store.commits.storeCommit(initialCommit);
+    const commitId = await repository.commits.storeCommit(initialCommit);
 
     // Set up refs
-    await store.refs.set("refs/heads/main", commitId);
-    await store.refs.setSymbolic("HEAD", "refs/heads/main");
+    await repository.refs.set("refs/heads/main", commitId);
+    await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
     // Verify HEAD resolution
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await repository.refs.resolve("HEAD");
     expect(headRef?.objectId).toBe(commitId);
   });
 
   it("should store blob content and return consistent IDs", async () => {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const store = ctx.store;
+    const { repository } = ctx;
 
     const encoder = new TextEncoder();
     const content = encoder.encode("# My Project\n\nWelcome!");
 
     // Store the same content twice
-    const blobId1 = await store.blobs.store([content]);
-    const blobId2 = await store.blobs.store([content]);
+    const blobId1 = await repository.blobs.store([content]);
+    const blobId2 = await repository.blobs.store([content]);
 
     // Same content should produce same ID (content-addressable)
     expect(blobId1).toBe(blobId2);
@@ -68,7 +68,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
 
     // Load and verify content
     const chunks: Uint8Array[] = [];
-    for await (const chunk of store.blobs.load(blobId1)) {
+    for await (const chunk of repository.blobs.load(blobId1)) {
       chunks.push(chunk);
     }
     const loaded = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
@@ -83,19 +83,19 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
   it("should create tree with file entries", async () => {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const store = ctx.store;
+    const { repository } = ctx;
 
     const encoder = new TextEncoder();
-    const blobId = await store.blobs.store([encoder.encode("README content")]);
+    const blobId = await repository.blobs.store([encoder.encode("README content")]);
 
-    const treeId = await store.trees.storeTree([
+    const treeId = await repository.trees.storeTree([
       { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId },
     ]);
 
     expect(treeId).toMatch(/^[0-9a-f]{40}$/);
 
     // Load and verify tree entries
-    const entries = await toArray(store.trees.loadTree(treeId));
+    const entries = await toArray(repository.trees.loadTree(treeId));
     expect(entries).toHaveLength(1);
     expect(entries[0].name).toBe("README.md");
     expect(entries[0].id).toBe(blobId);
@@ -105,11 +105,11 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
   it("should create commit with tree, author, and message", async () => {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const store = ctx.store;
+    const { repository } = ctx;
 
     const encoder = new TextEncoder();
-    const blobId = await store.blobs.store([encoder.encode("content")]);
-    const treeId = await store.trees.storeTree([
+    const blobId = await repository.blobs.store([encoder.encode("content")]);
+    const treeId = await repository.trees.storeTree([
       { mode: FileMode.REGULAR_FILE, name: "file.txt", id: blobId },
     ]);
 
@@ -132,11 +132,11 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       message: "Initial commit",
     };
 
-    const commitId = await store.commits.storeCommit(commit);
+    const commitId = await repository.commits.storeCommit(commit);
     expect(commitId).toMatch(/^[0-9a-f]{40}$/);
 
     // Load and verify commit
-    const loaded = await store.commits.loadCommit(commitId);
+    const loaded = await repository.commits.loadCommit(commitId);
     expect(loaded.tree).toBe(treeId);
     expect(loaded.parents).toEqual([]);
     expect(loaded.author.name).toBe("Developer");
@@ -146,10 +146,10 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
   it("should update branch reference", async () => {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const store = ctx.store;
+    const { repository } = ctx;
 
-    const emptyTreeId = await store.trees.storeTree([]);
-    const commit1 = await store.commits.storeCommit({
+    const emptyTreeId = await repository.trees.storeTree([]);
+    const commit1 = await repository.commits.storeCommit({
       tree: emptyTreeId,
       parents: [],
       author: testAuthor(),
@@ -157,15 +157,15 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       message: "First commit",
     });
 
-    await store.refs.set("refs/heads/main", commit1);
+    await repository.refs.set("refs/heads/main", commit1);
 
     // Verify ref points to commit
-    const ref = await store.refs.get("refs/heads/main");
+    const ref = await repository.refs.get("refs/heads/main");
     expect(ref).toBeDefined();
     expect(ref && "objectId" in ref && ref.objectId).toBe(commit1);
 
     // Create second commit and update ref
-    const commit2 = await store.commits.storeCommit({
+    const commit2 = await repository.commits.storeCommit({
       tree: emptyTreeId,
       parents: [commit1],
       author: testAuthor(),
@@ -173,21 +173,21 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       message: "Second commit",
     });
 
-    await store.refs.set("refs/heads/main", commit2);
+    await repository.refs.set("refs/heads/main", commit2);
 
-    const updatedRef = await store.refs.get("refs/heads/main");
+    const updatedRef = await repository.refs.get("refs/heads/main");
     expect(updatedRef && "objectId" in updatedRef && updatedRef.objectId).toBe(commit2);
   });
 
   it("should walk commit ancestry in order", async () => {
     const ctx = await factory();
     cleanup = ctx.cleanup;
-    const store = ctx.store;
+    const { repository } = ctx;
 
-    const emptyTreeId = await store.trees.storeTree([]);
+    const emptyTreeId = await repository.trees.storeTree([]);
 
     // Create chain of 3 commits
-    const commit1 = await store.commits.storeCommit({
+    const commit1 = await repository.commits.storeCommit({
       tree: emptyTreeId,
       parents: [],
       author: testAuthor(),
@@ -195,7 +195,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       message: "First",
     });
 
-    const commit2 = await store.commits.storeCommit({
+    const commit2 = await repository.commits.storeCommit({
       tree: emptyTreeId,
       parents: [commit1],
       author: testAuthor(),
@@ -203,7 +203,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       message: "Second",
     });
 
-    const commit3 = await store.commits.storeCommit({
+    const commit3 = await repository.commits.storeCommit({
       tree: emptyTreeId,
       parents: [commit2],
       author: testAuthor(),
@@ -212,7 +212,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
     });
 
     // Walk ancestry from commit3
-    const ancestryIds = await toArray(store.commits.walkAncestry(commit3));
+    const ancestryIds = await toArray(repository.commits.walkAncestry(commit3));
 
     // Should return commits in reverse chronological order
     expect(ancestryIds).toEqual([commit3, commit2, commit1]);

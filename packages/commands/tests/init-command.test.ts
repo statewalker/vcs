@@ -24,8 +24,8 @@ describe("InitCommand", () => {
       const result = await Git.init().call();
 
       expect(result.git).toBeInstanceOf(Git);
-      expect(result.store).toBeDefined();
-      expect(result.history).toBeDefined();
+      expect(result.workingCopy).toBeDefined();
+      expect(result.repository).toBeDefined();
       expect(result.initialBranch).toBe("main");
       expect(result.bare).toBe(false);
       expect(result.gitDir).toBe(".git");
@@ -57,7 +57,7 @@ describe("InitCommand", () => {
     it("should set HEAD pointing to initial branch", async () => {
       const result = await Git.init().call();
 
-      const head = await result.history.refs.get("HEAD");
+      const head = await result.repository.refs.get("HEAD");
       expect(head).toBeDefined();
       expect(head && "target" in head && head.target).toBe("refs/heads/main");
     });
@@ -69,7 +69,7 @@ describe("InitCommand", () => {
 
       expect(result.initialBranch).toBe("master");
 
-      const head = await result.history.refs.get("HEAD");
+      const head = await result.repository.refs.get("HEAD");
       expect(head && "target" in head && head.target).toBe("refs/heads/master");
     });
 
@@ -85,7 +85,7 @@ describe("InitCommand", () => {
         .call();
 
       // Verify branch ref exists
-      const branchRef = await result.history.refs.get("refs/heads/develop");
+      const branchRef = await result.repository.refs.get("refs/heads/develop");
       expect(branchRef).toBeDefined();
       expect(branchRef && "objectId" in branchRef).toBe(true);
     });
@@ -112,7 +112,7 @@ describe("InitCommand", () => {
 
       expect(result.bare).toBe(true);
       // Worktree should not be set for bare repos
-      expect(result.store.worktree).toBeUndefined();
+      expect(result.workingCopy.worktree).toBeUndefined();
     });
   });
 
@@ -144,7 +144,7 @@ describe("InitCommand", () => {
       const files = createInMemoryFilesApi();
       const result = await Git.init().setFilesApi(files).call();
 
-      expect(result.history).toBeDefined();
+      expect(result.repository).toBeDefined();
 
       // Should be able to create commits
       const commit = await result.git
@@ -164,7 +164,7 @@ describe("InitCommand", () => {
       const result = await Git.init().setStagingStore(staging).call();
 
       // The store should be using our staging store
-      expect(result.store.staging).toBe(staging);
+      expect(result.workingCopy.staging).toBe(staging);
     });
   });
 
@@ -174,13 +174,13 @@ describe("InitCommand", () => {
       const result = await Git.init().setFilesApi(files).setWorktree(true).call();
 
       // Store should have worktree
-      expect(result.store.worktree).toBeDefined();
+      expect(result.workingCopy.worktree).toBeDefined();
     });
 
     it("should not enable worktree by default", async () => {
       const result = await Git.init().call();
 
-      expect(result.store.worktree).toBeUndefined();
+      expect(result.workingCopy.worktree).toBeUndefined();
     });
   });
 

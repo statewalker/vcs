@@ -4,7 +4,7 @@
  * Based on JGit's DiffFormatter class.
  */
 
-import type { BlobStore, ObjectId } from "@statewalker/vcs-core";
+import type { Blobs, ObjectId } from "@statewalker/vcs-core";
 import {
   DEFAULT_ALGORITHM,
   type DiffAlgorithm,
@@ -98,7 +98,7 @@ export class DiffFormatter {
   private diffAlgorithm: DiffAlgorithm;
 
   constructor(
-    private readonly blobs: BlobStore,
+    private readonly blobs: Blobs,
     options: DiffFormatterOptions = {},
   ) {
     this.contextLines = options.contextLines ?? 3;
@@ -224,8 +224,12 @@ export class DiffFormatter {
    * Load blob content from storage.
    */
   private async loadContent(objectId: ObjectId): Promise<Uint8Array> {
+    const content = await this.blobs.load(objectId);
+    if (!content) {
+      throw new Error(`Blob not found: ${objectId}`);
+    }
     const chunks: Uint8Array[] = [];
-    for await (const chunk of this.blobs.load(objectId)) {
+    for await (const chunk of content) {
       chunks.push(chunk);
     }
 

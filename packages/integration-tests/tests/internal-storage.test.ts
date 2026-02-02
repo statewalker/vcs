@@ -9,7 +9,7 @@
  * Step 05: Delta Internals - delta ranges, apply delta
  *
  * Note: Some low-level storage operations (file-system based loose objects,
- * pack file creation) are not directly testable through the GitStore interface.
+ * pack file creation) are not directly testable through the storage interface.
  * These tests focus on the observable behavior through the storage abstraction.
  */
 
@@ -33,16 +33,16 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should store and retrieve blobs correctly", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
       const content = encoder.encode("Hello World! This is test content.");
 
-      const blobId = await store.blobs.store([content]);
+      const blobId = await repository.blobs.store([content]);
 
       // Retrieve and verify
       const chunks: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(blobId)) {
+      for await (const chunk of repository.blobs.load(blobId)) {
         chunks.push(chunk);
       }
 
@@ -60,15 +60,15 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should produce consistent SHA-1 hashes", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
       const content = encoder.encode("Same content");
 
       // Store same content multiple times
-      const id1 = await store.blobs.store([content]);
-      const id2 = await store.blobs.store([content]);
-      const id3 = await store.blobs.store([content]);
+      const id1 = await repository.blobs.store([content]);
+      const id2 = await repository.blobs.store([content]);
+      const id3 = await repository.blobs.store([content]);
 
       // All should produce same SHA-1
       expect(id1).toBe(id2);
@@ -79,19 +79,19 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should store trees with correct structure", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
-      const readmeId = await store.blobs.store([encoder.encode("# README")]);
-      const configId = await store.blobs.store([encoder.encode("version = 1")]);
+      const readmeId = await repository.blobs.store([encoder.encode("# README")]);
+      const configId = await repository.blobs.store([encoder.encode("version = 1")]);
 
-      const treeId = await store.trees.storeTree([
+      const treeId = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
         { mode: FileMode.REGULAR_FILE, name: "config.txt", id: configId },
       ]);
 
       // Verify tree contents
-      const entries = await toArray(store.trees.loadTree(treeId));
+      const entries = await toArray(repository.trees.loadTree(treeId));
       expect(entries.length).toBe(2);
 
       const names = entries.map((e) => e.name).sort();
@@ -101,16 +101,16 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should store commits with all metadata", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
-      const blobId = await store.blobs.store([encoder.encode("content")]);
-      const treeId = await store.trees.storeTree([
+      const blobId = await repository.blobs.store([encoder.encode("content")]);
+      const treeId = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "file.txt", id: blobId },
       ]);
 
       const author = testAuthor("Alice", "alice@example.com");
-      const commitId = await store.commits.storeCommit({
+      const commitId = await repository.commits.storeCommit({
         tree: treeId,
         parents: [],
         author,
@@ -118,7 +118,7 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
         message: "Initial commit\n\nWith detailed description.",
       });
 
-      const commit = await store.commits.loadCommit(commitId);
+      const commit = await repository.commits.loadCommit(commitId);
       expect(commit.tree).toBe(treeId);
       expect(commit.author.name).toBe("Alice");
       expect(commit.message).toContain("Initial commit");
@@ -130,7 +130,7 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should efficiently store many objects", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
 
@@ -138,14 +138,14 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
       const blobIds: string[] = [];
       for (let i = 0; i < 20; i++) {
         const content = encoder.encode(`File content ${i}\nWith some text`);
-        const id = await store.blobs.store([content]);
+        const id = await repository.blobs.store([content]);
         blobIds.push(id);
       }
 
       // All should be retrievable
       for (const id of blobIds) {
         const chunks: Uint8Array[] = [];
-        for await (const chunk of store.blobs.load(id)) {
+        for await (const chunk of repository.blobs.load(id)) {
           chunks.push(chunk);
         }
         expect(chunks.length).toBeGreaterThan(0);
@@ -155,16 +155,16 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should handle similar content efficiently via deduplication", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
 
       // Create many trees pointing to same blob
-      const sharedBlobId = await store.blobs.store([encoder.encode("Shared content")]);
+      const sharedBlobId = await repository.blobs.store([encoder.encode("Shared content")]);
 
       const treeIds: string[] = [];
       for (let i = 0; i < 10; i++) {
-        const treeId = await store.trees.storeTree([
+        const treeId = await repository.trees.storeTree([
           { mode: FileMode.REGULAR_FILE, name: `file${i}.txt`, id: sharedBlobId },
         ]);
         treeIds.push(treeId);
@@ -176,7 +176,7 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
 
       // But all point to same blob
       for (const treeId of treeIds) {
-        const entries = await toArray(store.trees.loadTree(treeId));
+        const entries = await toArray(repository.trees.loadTree(treeId));
         expect(entries[0].id).toBe(sharedBlobId);
       }
     });
@@ -187,22 +187,22 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should allow direct object manipulation without workflow", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
 
       // Directly store objects without using Git commands
-      const blob1 = await store.blobs.store([encoder.encode("Direct content 1")]);
-      const blob2 = await store.blobs.store([encoder.encode("Direct content 2")]);
+      const blob1 = await repository.blobs.store([encoder.encode("Direct content 1")]);
+      const blob2 = await repository.blobs.store([encoder.encode("Direct content 2")]);
 
       // Create tree directly
-      const tree = await store.trees.storeTree([
+      const tree = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "a.txt", id: blob1 },
         { mode: FileMode.REGULAR_FILE, name: "b.txt", id: blob2 },
       ]);
 
       // Create commit directly
-      const commit = await store.commits.storeCommit({
+      const commit = await repository.commits.storeCommit({
         tree,
         parents: [],
         author: testAuthor(),
@@ -211,49 +211,49 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
       });
 
       // Set ref directly
-      await store.refs.set("refs/heads/direct", commit);
+      await repository.refs.set("refs/heads/direct", commit);
 
       // Verify
-      const ref = await store.refs.resolve("refs/heads/direct");
+      const ref = await repository.refs.resolve("refs/heads/direct");
       expect(ref?.objectId).toBe(commit);
 
-      const loadedCommit = await store.commits.loadCommit(commit);
+      const loadedCommit = await repository.commits.loadCommit(commit);
       expect(loadedCommit.tree).toBe(tree);
     });
 
     it("should support building complex object graphs", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
 
       // Build a nested tree structure
-      const file1 = await store.blobs.store([encoder.encode("File 1")]);
-      const file2 = await store.blobs.store([encoder.encode("File 2")]);
-      const file3 = await store.blobs.store([encoder.encode("File 3")]);
+      const file1 = await repository.blobs.store([encoder.encode("File 1")]);
+      const file2 = await repository.blobs.store([encoder.encode("File 2")]);
+      const file3 = await repository.blobs.store([encoder.encode("File 3")]);
 
       // Create subdirectory tree
-      const subTree = await store.trees.storeTree([
+      const subTree = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "nested1.txt", id: file2 },
         { mode: FileMode.REGULAR_FILE, name: "nested2.txt", id: file3 },
       ]);
 
       // Create root tree with subdirectory
-      const rootTree = await store.trees.storeTree([
+      const rootTree = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "root.txt", id: file1 },
         { mode: FileMode.TREE, name: "subdir", id: subTree },
       ]);
 
       // Verify structure
-      const rootEntries = await toArray(store.trees.loadTree(rootTree));
+      const rootEntries = await toArray(repository.trees.loadTree(rootTree));
       expect(rootEntries.length).toBe(2);
 
       const subdirEntry = rootEntries.find((e) => e.name === "subdir");
       expect(subdirEntry).toBeDefined();
       expect(subdirEntry?.mode).toBe(FileMode.TREE);
 
-      const subEntries = await toArray(store.trees.loadTree(subdirEntry?.id));
+      const subEntries = await toArray(repository.trees.loadTree(subdirEntry?.id));
       expect(subEntries.length).toBe(2);
     });
   });
@@ -263,7 +263,7 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should efficiently handle incrementally changing content", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
 
@@ -271,26 +271,26 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
       const base = encoder.encode(
         "# Document\n\nThis is the original content.\nIt has multiple lines.\n",
       );
-      const baseId = await store.blobs.store([base]);
+      const baseId = await repository.blobs.store([base]);
 
       // Store slightly modified content
       const modified = encoder.encode(
         "# Document\n\nThis is the modified content.\nIt has multiple lines.\nAnd a new line.\n",
       );
-      const modifiedId = await store.blobs.store([modified]);
+      const modifiedId = await repository.blobs.store([modified]);
 
       // Both should be stored (different content = different IDs)
       expect(baseId).not.toBe(modifiedId);
 
       // Both should be retrievable
       const chunks1: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(baseId)) {
+      for await (const chunk of repository.blobs.load(baseId)) {
         chunks1.push(chunk);
       }
       expect(chunks1.length).toBeGreaterThan(0);
 
       const chunks2: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(modifiedId)) {
+      for await (const chunk of repository.blobs.load(modifiedId)) {
         chunks2.push(chunk);
       }
       expect(chunks2.length).toBeGreaterThan(0);
@@ -299,7 +299,7 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should handle large content", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       // Create larger content (simulate a code file)
       const lines: string[] = [];
@@ -308,11 +308,11 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
       }
       const content = new TextEncoder().encode(lines.join("\n"));
 
-      const blobId = await store.blobs.store([content]);
+      const blobId = await repository.blobs.store([content]);
 
       // Retrieve and verify size
       const chunks: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(blobId)) {
+      for await (const chunk of repository.blobs.load(blobId)) {
         chunks.push(chunk);
       }
 
@@ -323,7 +323,7 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
     it("should handle binary-like content", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       // Create content with various byte values
       const content = new Uint8Array(256);
@@ -331,11 +331,11 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
         content[i] = i;
       }
 
-      const blobId = await store.blobs.store([content]);
+      const blobId = await repository.blobs.store([content]);
 
       // Retrieve and verify
       const chunks: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(blobId)) {
+      for await (const chunk of repository.blobs.load(blobId)) {
         chunks.push(chunk);
       }
 

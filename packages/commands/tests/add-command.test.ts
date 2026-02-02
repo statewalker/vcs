@@ -10,7 +10,7 @@
 
 import {
   FileMode,
-  type HistoryStore,
+  type History,
   type ObjectId,
   type WorkingCopy,
   type Worktree,
@@ -211,12 +211,11 @@ class MockWorkingTree implements Worktree {
  * Create a WorkingCopy with a mock worktree for testing.
  */
 function createWorkingCopyWithMockWorktree(
-  repository: HistoryStore,
+  repository: History,
   staging: WorkingCopy["staging"],
   worktree: MockWorkingTree,
 ): WorkingCopy {
   return {
-    repository,
     staging,
     worktree: worktree as unknown as Worktree,
     stash: {} as never,
@@ -280,7 +279,7 @@ async function createInitializedGitWithWorkTreeFromFactory(factory: WorkingCopyF
   git: Git;
   worktree: MockWorkingTree;
   workingCopy: WorkingCopy;
-  repository: HistoryStore;
+  repository: History;
   staging: WorkingCopy["staging"];
   initialCommitId: string;
   cleanup?: () => Promise<void>;

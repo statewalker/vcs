@@ -29,11 +29,11 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should store content and return SHA-1 hash", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
       const content = encoder.encode("Hello, World! This is my first blob.");
-      const blobId = await store.blobs.store([content]);
+      const blobId = await repository.blobs.store([content]);
 
       // SHA-1 produces 40 hex characters
       expect(blobId).toMatch(/^[0-9a-f]{40}$/);
@@ -42,13 +42,13 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should return consistent IDs for same content", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
       const content = encoder.encode("Same content");
 
-      const id1 = await store.blobs.store([content]);
-      const id2 = await store.blobs.store([content]);
+      const id1 = await repository.blobs.store([content]);
+      const id2 = await repository.blobs.store([content]);
 
       expect(id1).toBe(id2);
     });
@@ -56,14 +56,14 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should retrieve stored content", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
       const originalContent = "Hello, World!";
-      const blobId = await store.blobs.store([encoder.encode(originalContent)]);
+      const blobId = await repository.blobs.store([encoder.encode(originalContent)]);
 
       const chunks: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(blobId)) {
+      for await (const chunk of repository.blobs.load(blobId)) {
         chunks.push(chunk);
       }
 
@@ -84,20 +84,20 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should create tree with file entries", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
-      const readmeId = await store.blobs.store([encoder.encode("# README")]);
-      const indexId = await store.blobs.store([encoder.encode("console.log('hello');")]);
+      const readmeId = await repository.blobs.store([encoder.encode("# README")]);
+      const indexId = await repository.blobs.store([encoder.encode("console.log('hello');")]);
 
-      const treeId = await store.trees.storeTree([
+      const treeId = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
         { mode: FileMode.REGULAR_FILE, name: "index.js", id: indexId },
       ]);
 
       expect(treeId).toMatch(/^[0-9a-f]{40}$/);
 
-      const entries = await toArray(store.trees.loadTree(treeId));
+      const entries = await toArray(repository.trees.loadTree(treeId));
       expect(entries).toHaveLength(2);
 
       const names = entries.map((e) => e.name).sort();
@@ -107,50 +107,50 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should support nested trees (directories)", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
-      const indexId = await store.blobs.store([encoder.encode("// index")]);
-      const utilsId = await store.blobs.store([encoder.encode("// utils")]);
+      const indexId = await repository.blobs.store([encoder.encode("// index")]);
+      const utilsId = await repository.blobs.store([encoder.encode("// utils")]);
 
       // Create src/ subtree
-      const srcTreeId = await store.trees.storeTree([
+      const srcTreeId = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "index.js", id: indexId },
         { mode: FileMode.REGULAR_FILE, name: "utils.js", id: utilsId },
       ]);
 
       // Create root tree with src/ directory
-      const rootTreeId = await store.trees.storeTree([
+      const rootTreeId = await repository.trees.storeTree([
         { mode: FileMode.TREE, name: "src", id: srcTreeId },
       ]);
 
-      const rootEntries = await toArray(store.trees.loadTree(rootTreeId));
+      const rootEntries = await toArray(repository.trees.loadTree(rootTreeId));
       expect(rootEntries).toHaveLength(1);
       expect(rootEntries[0].mode).toBe(FileMode.TREE);
       expect(rootEntries[0].name).toBe("src");
 
       // Verify subtree
-      const srcEntries = await toArray(store.trees.loadTree(srcTreeId));
+      const srcEntries = await toArray(repository.trees.loadTree(srcTreeId));
       expect(srcEntries).toHaveLength(2);
     });
 
     it("should support different file modes", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
-      const fileId = await store.blobs.store([encoder.encode("content")]);
-      const execId = await store.blobs.store([encoder.encode("#!/bin/bash")]);
-      const linkId = await store.blobs.store([encoder.encode("target")]);
+      const fileId = await repository.blobs.store([encoder.encode("content")]);
+      const execId = await repository.blobs.store([encoder.encode("#!/bin/bash")]);
+      const linkId = await repository.blobs.store([encoder.encode("target")]);
 
-      const treeId = await store.trees.storeTree([
+      const treeId = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "file.txt", id: fileId },
         { mode: FileMode.EXECUTABLE_FILE, name: "script.sh", id: execId },
         { mode: FileMode.SYMLINK, name: "link", id: linkId },
       ]);
 
-      const entries = await toArray(store.trees.loadTree(treeId));
+      const entries = await toArray(repository.trees.loadTree(treeId));
 
       const fileEntry = entries.find((e) => e.name === "file.txt");
       const execEntry = entries.find((e) => e.name === "script.sh");
@@ -164,21 +164,21 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should look up specific tree entries", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
-      const readmeId = await store.blobs.store([encoder.encode("# README")]);
+      const readmeId = await repository.blobs.store([encoder.encode("# README")]);
 
-      const treeId = await store.trees.storeTree([
+      const treeId = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
       ]);
 
-      const entry = await store.trees.getEntry(treeId, "README.md");
+      const entry = await repository.trees.getEntry(treeId, "README.md");
       expect(entry).toBeDefined();
       expect(entry?.id).toBe(readmeId);
       expect(entry?.mode).toBe(FileMode.REGULAR_FILE);
 
-      const missing = await store.trees.getEntry(treeId, "MISSING.md");
+      const missing = await repository.trees.getEntry(treeId, "MISSING.md");
       expect(missing).toBeUndefined();
     });
   });
@@ -188,11 +188,11 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should create commit with tree and metadata", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
-      const blobId = await store.blobs.store([encoder.encode("# Project")]);
-      const treeId = await store.trees.storeTree([
+      const blobId = await repository.blobs.store([encoder.encode("# Project")]);
+      const treeId = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId },
       ]);
 
@@ -204,7 +204,7 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
         tzOffset: "-0500",
       };
 
-      const commitId = await store.commits.storeCommit({
+      const commitId = await repository.commits.storeCommit({
         tree: treeId,
         parents: [],
         author,
@@ -214,7 +214,7 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
 
       expect(commitId).toMatch(/^[0-9a-f]{40}$/);
 
-      const commit = await store.commits.loadCommit(commitId);
+      const commit = await repository.commits.loadCommit(commitId);
       expect(commit.tree).toBe(treeId);
       expect(commit.parents).toHaveLength(0);
       expect(commit.author.name).toBe("Alice Developer");
@@ -224,15 +224,15 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should create commit with parent chain", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
-      const blobId = await store.blobs.store([encoder.encode("content")]);
-      const treeId = await store.trees.storeTree([
+      const blobId = await repository.blobs.store([encoder.encode("content")]);
+      const treeId = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "file.txt", id: blobId },
       ]);
 
-      const commit1Id = await store.commits.storeCommit({
+      const commit1Id = await repository.commits.storeCommit({
         tree: treeId,
         parents: [],
         author: testAuthor(),
@@ -240,7 +240,7 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
         message: "First",
       });
 
-      const commit2Id = await store.commits.storeCommit({
+      const commit2Id = await repository.commits.storeCommit({
         tree: treeId,
         parents: [commit1Id],
         author: testAuthor(),
@@ -248,16 +248,16 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
         message: "Second",
       });
 
-      const commit2 = await store.commits.loadCommit(commit2Id);
+      const commit2 = await repository.commits.loadCommit(commit2Id);
       expect(commit2.parents).toEqual([commit1Id]);
     });
 
     it("should support different author and committer", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
-      const treeId = await store.trees.storeTree([]);
+      const treeId = await repository.trees.storeTree([]);
       const now = Math.floor(Date.now() / 1000);
 
       const author = {
@@ -274,7 +274,7 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
         tzOffset: "-0500",
       };
 
-      const commitId = await store.commits.storeCommit({
+      const commitId = await repository.commits.storeCommit({
         tree: treeId,
         parents: [],
         author,
@@ -282,7 +282,7 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
         message: "Test",
       });
 
-      const commit = await store.commits.loadCommit(commitId);
+      const commit = await repository.commits.loadCommit(commitId);
       expect(commit.author.name).toBe("Alice");
       expect(commit.committer.name).toBe("Bob");
     });
@@ -293,10 +293,10 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should create lightweight tags (refs)", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
-      const treeId = await store.trees.storeTree([]);
-      const commitId = await store.commits.storeCommit({
+      const treeId = await repository.trees.storeTree([]);
+      const commitId = await repository.commits.storeCommit({
         tree: treeId,
         parents: [],
         author: testAuthor(),
@@ -305,19 +305,19 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
       });
 
       // Lightweight tag is just a ref
-      await store.refs.set("refs/tags/v1.0.0", commitId);
+      await repository.refs.set("refs/tags/v1.0.0", commitId);
 
-      const tagRef = await store.refs.resolve("refs/tags/v1.0.0");
+      const tagRef = await repository.refs.resolve("refs/tags/v1.0.0");
       expect(tagRef?.objectId).toBe(commitId);
     });
 
     it("should create annotated tags with metadata", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
-      const treeId = await store.trees.storeTree([]);
-      const commitId = await store.commits.storeCommit({
+      const treeId = await repository.trees.storeTree([]);
+      const commitId = await repository.commits.storeCommit({
         tree: treeId,
         parents: [],
         author: testAuthor(),
@@ -326,7 +326,7 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
       });
 
       const now = Math.floor(Date.now() / 1000);
-      const tagId = await store.tags.storeTag({
+      const tagId = await repository.tags.storeTag({
         object: commitId,
         objectType: ObjectType.COMMIT,
         tag: "v2.0.0",
@@ -341,7 +341,7 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
 
       expect(tagId).toMatch(/^[0-9a-f]{40}$/);
 
-      const tag = await store.tags.loadTag(tagId);
+      const tag = await repository.tags.loadTag(tagId);
       expect(tag.object).toBe(commitId);
       expect(tag.objectType).toBe(ObjectType.COMMIT);
       expect(tag.tag).toBe("v2.0.0");
@@ -355,14 +355,14 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should deduplicate identical content", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
       const content = encoder.encode("Same content repeated multiple times");
 
-      const id1 = await store.blobs.store([content]);
-      const id2 = await store.blobs.store([content]);
-      const id3 = await store.blobs.store([content]);
+      const id1 = await repository.blobs.store([content]);
+      const id2 = await repository.blobs.store([content]);
+      const id3 = await repository.blobs.store([content]);
 
       expect(id1).toBe(id2);
       expect(id2).toBe(id3);
@@ -371,13 +371,13 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should produce different IDs for different content", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
 
-      const id1 = await store.blobs.store([encoder.encode("Content A")]);
-      const id2 = await store.blobs.store([encoder.encode("Content B")]);
-      const id3 = await store.blobs.store([encoder.encode("Content C")]);
+      const id1 = await repository.blobs.store([encoder.encode("Content A")]);
+      const id2 = await repository.blobs.store([encoder.encode("Content B")]);
+      const id3 = await repository.blobs.store([encoder.encode("Content C")]);
 
       expect(id1).not.toBe(id2);
       expect(id2).not.toBe(id3);
@@ -387,18 +387,18 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should efficiently store multiple files with shared content", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
       const sharedContent = encoder.encode("This content is shared");
       const uniqueContent1 = encoder.encode("Unique content 1");
       const uniqueContent2 = encoder.encode("Unique content 2");
 
-      const sharedId = await store.blobs.store([sharedContent]);
-      const file1Id = await store.blobs.store([sharedContent]); // Same as shared
-      const file2Id = await store.blobs.store([uniqueContent1]);
-      const file3Id = await store.blobs.store([sharedContent]); // Same as shared
-      const file4Id = await store.blobs.store([uniqueContent2]);
+      const sharedId = await repository.blobs.store([sharedContent]);
+      const file1Id = await repository.blobs.store([sharedContent]); // Same as shared
+      const file2Id = await repository.blobs.store([uniqueContent1]);
+      const file3Id = await repository.blobs.store([sharedContent]); // Same as shared
+      const file4Id = await repository.blobs.store([uniqueContent2]);
 
       // All shared content produces same ID
       expect(file1Id).toBe(sharedId);
@@ -413,17 +413,17 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
     it("should deduplicate trees with identical structure", async () => {
       const ctx = await factory();
       cleanup = ctx.cleanup;
-      const store = ctx.store;
+      const { repository } = ctx;
 
       const encoder = new TextEncoder();
-      const blobId = await store.blobs.store([encoder.encode("content")]);
+      const blobId = await repository.blobs.store([encoder.encode("content")]);
 
       // Create same tree structure twice
-      const tree1Id = await store.trees.storeTree([
+      const tree1Id = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "file.txt", id: blobId },
       ]);
 
-      const tree2Id = await store.trees.storeTree([
+      const tree2Id = await repository.trees.storeTree([
         { mode: FileMode.REGULAR_FILE, name: "file.txt", id: blobId },
       ]);
 
