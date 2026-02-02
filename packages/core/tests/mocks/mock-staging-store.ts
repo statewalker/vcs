@@ -1,7 +1,5 @@
 /**
  * Mock Staging for testing
- *
- * Also exports legacy StagingStore interface for backward compatibility.
  */
 
 import { vi } from "vitest";
@@ -17,7 +15,6 @@ import {
   MergeStage,
   type MergeStageValue,
   type StagingEntry,
-  type StagingStore,
 } from "../../src/workspace/staging/types.js";
 
 /**
@@ -112,65 +109,4 @@ export function createMockStaging(
     getUpdateTime: vi.fn().mockReturnValue(Date.now()),
     clear: vi.fn().mockResolvedValue(undefined),
   } as unknown as Staging;
-}
-
-/**
- * Create a mock StagingStore for testing.
- * @deprecated Use createMockStaging() instead
- *
- * @param entries Stage 0 entries to include
- * @param conflictPaths Paths that have conflicts
- */
-export function createMockStagingStore(
-  entries: StagingEntry[] = [],
-  conflictPaths: string[] = [],
-): StagingStore {
-  return {
-    listEntries: vi.fn().mockImplementation(async function* () {
-      for (const entry of entries) {
-        yield entry;
-      }
-    }),
-    getEntry: vi.fn().mockImplementation(async (path: string) => {
-      return entries.find((e) => e.path === path && e.stage === 0);
-    }),
-    getEntryByStage: vi.fn().mockImplementation(async (path: string, stage: number) => {
-      return entries.find((e) => e.path === path && e.stage === stage);
-    }),
-    getEntries: vi.fn().mockImplementation(async (path: string) => {
-      return entries.filter((e) => e.path === path);
-    }),
-    hasEntry: vi.fn().mockImplementation(async (path: string) => {
-      return entries.some((e) => e.path === path);
-    }),
-    getEntryCount: vi.fn().mockReturnValue(entries.length),
-    listEntriesUnder: vi.fn().mockImplementation(async function* (prefix: string) {
-      for (const entry of entries) {
-        if (entry.path.startsWith(prefix)) {
-          yield entry;
-        }
-      }
-    }),
-    // New Staging interface method
-    entries: vi.fn().mockImplementation(async function* (_options?: EntryIteratorOptions) {
-      for (const entry of entries) {
-        yield entry;
-      }
-    }),
-    hasConflicts: vi.fn().mockReturnValue(conflictPaths.length > 0),
-    getConflictPaths: vi.fn().mockImplementation(async function* () {
-      for (const path of conflictPaths) {
-        yield path;
-      }
-    }),
-    builder: vi.fn(),
-    editor: vi.fn(),
-    clear: vi.fn(),
-    writeTree: vi.fn(),
-    readTree: vi.fn(),
-    read: vi.fn(),
-    write: vi.fn(),
-    isOutdated: vi.fn().mockReturnValue(false),
-    getUpdateTime: vi.fn().mockReturnValue(Date.now()),
-  } as unknown as StagingStore;
 }

@@ -1,13 +1,13 @@
-// Shared types (canonical source) - includes deprecated StagingStore for backward compatibility
+// Shared types (canonical source)
 
 // Utilities
 export * from "./conflict-utils.js";
-// New Staging implementations (Phase C4)
+// Staging implementations
 export * from "./git-staging.js";
 export * from "./simple-staging.js";
-// New Staging interface (Phase C4)
+// Staging interface
 export * from "./staging.js";
 export * from "./staging-edits.js";
-// Legacy implementation (for backward compatibility)
+// File-based implementation
 export * from "./staging-store.files.js";
 export * from "./types.js";

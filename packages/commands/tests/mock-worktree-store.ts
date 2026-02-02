@@ -3,8 +3,6 @@
  *
  * Provides a simple in-memory implementation of the Worktree interface
  * for creating WorkingCopy instances in tests.
- *
- * Also exported as MockWorktreeStore for backward compatibility.
  */
 
 import type {
@@ -22,8 +20,6 @@ import type {
  *
  * Provides basic implementation that stores files in memory.
  * Use this when you need a Worktree for MemoryWorkingCopy.
- *
- * Also implements the legacy WorktreeStore interface for backward compatibility.
  */
 export class MockWorktree implements Worktree {
   private files = new Map<string, { content: Uint8Array; mode: number; mtime: number }>();
@@ -193,21 +189,8 @@ export class MockWorktree implements Worktree {
 }
 
 /**
- * @deprecated Use MockWorktree instead
- */
-export const MockWorktreeStore = MockWorktree;
-
-/**
  * Create a mock Worktree for testing
  */
 export function createMockWorktree(): MockWorktree {
-  return new MockWorktree();
-}
-
-/**
- * Create a mock WorktreeStore for testing
- * @deprecated Use createMockWorktree() instead
- */
-export function createMockWorktreeStore(): MockWorktree {
   return new MockWorktree();
 }
