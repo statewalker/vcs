@@ -1,17 +1,10 @@
 /**
- * Staging - The index/staging area for preparing commits (Phase C4)
+ * Staging - The index/staging area for preparing commits
  *
- * This is the new interface for the staging area. It extends the concepts
- * from StagingStore with additional methods and cleaner naming.
- *
- * Key differences from StagingStore:
- * - Interface renamed for consistency
- * - Added resolveConflict() method
- * - Added clear() method
- * - removeEntry() returns boolean
- * - Uses Trees interface instead of TreeStore
- *
- * @see StagingStore for the legacy interface (to be removed in C4.11)
+ * This interface provides operations for the staging area (Git index).
+ * Use factory functions to create instances:
+ * - createGitStaging() for Git index file format
+ * - createSimpleStaging() for in-memory/testing
  */
 
 import type { ObjectId } from "../../common/id/index.js";

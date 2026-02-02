@@ -9,7 +9,7 @@ import type { StashFilesApi } from "../../src/workspace/working-copy/stash-store
 
 import { GitStashStore } from "../../src/workspace/working-copy/stash-store.files.js";
 import { MockCommitStore } from "../mocks/mock-commit-store.js";
-import { createMockStagingStore, createStagingEntry } from "../mocks/mock-staging-store.js";
+import { createMockStaging, createStagingEntry } from "../mocks/mock-staging-store.js";
 import { createMockTreeStore } from "../mocks/mock-tree-store.js";
 import { createMockWorktree, createWorktreeEntry } from "../mocks/mock-worktree.js";
 
@@ -145,7 +145,7 @@ describe("GitStashStore", () => {
       message: "Initial commit",
     });
 
-    const staging = createMockStagingStore([createStagingEntry("file.txt", "blob-1")]);
+    const staging = createMockStaging([createStagingEntry("file.txt", "blob-1")]);
 
     // Mock writeTree to return a tree ID
     staging.writeTree = vi.fn().mockResolvedValue("tree-1");
@@ -211,7 +211,7 @@ describe("GitStashStore", () => {
     it("should throw when no HEAD commit exists", async () => {
       const noHeadStash = new GitStashStore({
         history: repository,
-        staging: createMockStagingStore([]),
+        staging: createMockStaging([]),
         worktree: createMockWorktree([]),
         files: filesApi,
         gitDir: ".git",
@@ -284,7 +284,7 @@ describe("GitStashStore", () => {
 
   describe("apply", () => {
     it("should apply stash at index 0", async () => {
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       staging.writeTree = vi.fn().mockResolvedValue("tree-1");
       staging.readTree = vi.fn().mockResolvedValue(undefined);
 
@@ -323,7 +323,7 @@ describe("GitStashStore", () => {
 
   describe("pop", () => {
     it("should apply and drop stash at index 0", async () => {
-      const staging = createMockStagingStore([]);
+      const staging = createMockStaging([]);
       staging.writeTree = vi.fn().mockResolvedValue("tree-1");
       staging.readTree = vi.fn().mockResolvedValue(undefined);
 
@@ -472,7 +472,7 @@ describe("GitStashStore", () => {
         new Map([["file.txt", "modified-blob"]]),
       );
 
-      const staging = createMockStagingStore([createStagingEntry("file.txt", "blob-1")]);
+      const staging = createMockStaging([createStagingEntry("file.txt", "blob-1")]);
       staging.writeTree = vi.fn().mockResolvedValue("tree-1");
 
       const stashWithModified = new GitStashStore({
@@ -518,7 +518,7 @@ describe("GitStashStore", () => {
       );
 
       // Only file.txt is in staging (tracked)
-      const stagingWithTracked = createMockStagingStore([createStagingEntry("file.txt", "blob-1")]);
+      const stagingWithTracked = createMockStaging([createStagingEntry("file.txt", "blob-1")]);
       stagingWithTracked.writeTree = vi.fn().mockResolvedValue("tree-1");
 
       const stashWithUntracked = new GitStashStore({
@@ -554,7 +554,7 @@ describe("GitStashStore", () => {
         new Map([["file.txt", "blob-1"]]),
       );
 
-      const stagingAllTracked = createMockStagingStore([createStagingEntry("file.txt", "blob-1")]);
+      const stagingAllTracked = createMockStaging([createStagingEntry("file.txt", "blob-1")]);
       stagingAllTracked.writeTree = vi.fn().mockResolvedValue("tree-1");
 
       const stashAllTracked = new GitStashStore({

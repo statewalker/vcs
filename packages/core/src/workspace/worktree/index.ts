@@ -1,11 +1,11 @@
-// Shared types (canonical source) - includes deprecated WorktreeStore for backward compatibility
+// Shared types (canonical source)
 
-// New Worktree implementations (Phase C4)
+// Worktree implementations
 export * from "./file-worktree.js";
 export * from "./memory-worktree.js";
 export * from "./types.js";
-// New Worktree interface (Phase C4)
+// Worktree interface
 export * from "./worktree.js";
 
-// Legacy implementation (for backward compatibility)
+// FileTreeIterator implementation
 export * from "./worktree-store.impl.js";

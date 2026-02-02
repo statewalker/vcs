@@ -1,8 +1,5 @@
 /**
  * Staging types - Shared types for staging/index operations
- *
- * These types are used by both the new Staging interface and the
- * legacy StagingStore interface during migration.
  */
 
 import type { FileModeValue } from "../../common/files/index.js";
