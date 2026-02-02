@@ -4,11 +4,11 @@
 
 import { createNodeCompression } from "../packages/utils/src/compression/compression-node/index.js";
 import { createDelta, createDeltaRanges } from "../packages/utils/src/diff/index.js";
-import { collect, setCompression } from "../packages/utils/src/index.js";
+import { collect, setCompressionUtils } from "../packages/utils/src/index.js";
 import { newByteSplitter, readHeader } from "../packages/utils/src/streams/index.js";
 
 // Initialize compression
-setCompression(createNodeCompression());
+setCompressionUtils(createNodeCompression());
 
 /**
  * Strip Git header from buffer (same as in raw-store-with-delta.ts)

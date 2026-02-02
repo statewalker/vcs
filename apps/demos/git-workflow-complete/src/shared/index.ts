@@ -9,12 +9,12 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Git, GitStore } from "@statewalker/vcs-commands";
 import type { GitRepository, ObjectId } from "@statewalker/vcs-core";
-import { setCompression } from "@statewalker/vcs-utils";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi, type FilesApi } from "@statewalker/vcs-utils-node/files";
 
 // Initialize compression (required before any storage operations)
-setCompression(createNodeCompression());
+setCompressionUtils(createNodeCompression());
 
 // ============================================================================
 // Configuration

@@ -7,10 +7,10 @@ import {
   parseGitDelta,
   serializeDeltaToGit,
 } from "../packages/utils/src/diff/delta/git-delta-format.js";
-import { createDelta, createDeltaRanges, setCompression } from "../packages/utils/src/index.js";
+import { createDelta, createDeltaRanges, setCompressionUtils } from "../packages/utils/src/index.js";
 
 // Initialize compression
-setCompression(createNodeCompression());
+setCompressionUtils(createNodeCompression());
 
 // Simulate what happens in defaultComputeDelta
 async function main() {

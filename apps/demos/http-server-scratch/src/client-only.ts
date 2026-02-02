@@ -24,7 +24,7 @@ import {
   writePackIndex,
 } from "@statewalker/vcs-core";
 import { clone, type PushObject, push } from "@statewalker/vcs-transport";
-import { setCompression } from "@statewalker/vcs-utils";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
@@ -45,7 +45,7 @@ import {
 } from "./shared/index.js";
 
 // Initialize compression
-setCompression(createNodeCompression());
+setCompressionUtils(createNodeCompression());
 
 const textEncoder = new TextEncoder();
 

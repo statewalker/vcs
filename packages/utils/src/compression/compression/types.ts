@@ -82,8 +82,3 @@ export interface CompressionUtils {
   /** Optional: decompress with bytes consumed tracking (for pack files) */
   decompressBlockPartial?: DecompressBlockPartialFunction;
 }
-
-/**
- * @deprecated Use CompressionUtils instead
- */
-export type CompressionImplementation = CompressionUtils;
