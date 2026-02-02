@@ -29,12 +29,12 @@ export async function step06ConflictHandling(): Promise<void> {
 
   // Create a conflict scenario
   console.log("\n--- Creating a conflict scenario ---");
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Initial commit with a file
   await addFileToStaging(
-    store,
+    workingCopy,
     "app.config.ts",
     `export const config = {
   version: "1.0.0",
@@ -51,7 +51,7 @@ export async function step06ConflictHandling(): Promise<void> {
 
   // Modify on main (change debug to true)
   await addFileToStaging(
-    store,
+    workingCopy,
     "app.config.ts",
     `export const config = {
   version: "1.0.0",
@@ -64,15 +64,17 @@ export async function step06ConflictHandling(): Promise<void> {
   console.log("  Modified config on main (debug: true)");
 
   // Switch to branch and modify differently
-  await store.refs.setSymbolic("HEAD", "refs/heads/conflict-branch");
-  const branchRef = await store.refs.resolve("refs/heads/conflict-branch");
+  await history.refs.setSymbolic("HEAD", "refs/heads/conflict-branch");
+  const branchRef = await history.refs.resolve("refs/heads/conflict-branch");
   if (branchRef?.objectId) {
-    const commit = await store.commits.loadCommit(branchRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
+    const commit = await history.commits.load(branchRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+    }
   }
 
   await addFileToStaging(
-    store,
+    workingCopy,
     "app.config.ts",
     `export const config = {
   version: "2.0.0",  // Changed version
@@ -95,11 +97,13 @@ export async function step06ConflictHandling(): Promise<void> {
   `);
 
   // Switch back to main and try to merge
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
-  const mainRef = await store.refs.resolve("refs/heads/main");
+  await history.refs.setSymbolic("HEAD", "refs/heads/main");
+  const mainRef = await history.refs.resolve("refs/heads/main");
   if (mainRef?.objectId) {
-    const commit = await store.commits.loadCommit(mainRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
+    const commit = await history.commits.load(mainRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+    }
   }
 
   // Attempt merge
@@ -134,7 +138,7 @@ export async function step06ConflictHandling(): Promise<void> {
 
     // Show staging state
     console.log("\n--- Staging area with conflicts ---");
-    for await (const entry of store.staging.listEntries()) {
+    for await (const entry of workingCopy.checkout.staging.entries()) {
       const stageName =
         entry.stage === 0
           ? "MERGED"

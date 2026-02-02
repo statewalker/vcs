@@ -78,43 +78,51 @@ export function createMockFilesApi(): FilesApi & {
     _files: files,
     _dirs: dirs,
 
-    async readBinary(path: string): Promise<Uint8Array> {
+    async *read(path: string): AsyncIterable<Uint8Array> {
       const content = files.get(path);
       if (!content) throw new Error(`File not found: ${path}`);
-      return content;
+      yield content;
     },
 
-    async readText(path: string): Promise<string> {
-      const content = await this.readBinary(path);
-      return new TextDecoder().decode(content);
-    },
-
-    async writeBinary(path: string, content: Uint8Array): Promise<void> {
-      files.set(path, content);
-    },
-
-    async writeText(path: string, content: string): Promise<void> {
-      await this.writeBinary(path, new TextEncoder().encode(content));
+    async write(
+      path: string,
+      content: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
+    ): Promise<void> {
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of content) {
+        chunks.push(chunk);
+      }
+      const total = chunks.reduce((s, c) => s + c.length, 0);
+      const result = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        result.set(chunk, offset);
+        offset += chunk.length;
+      }
+      files.set(path, result);
     },
 
     async exists(path: string): Promise<boolean> {
       return files.has(path) || dirs.has(path);
     },
 
-    async mkdir(path: string, _options?: { recursive?: boolean }): Promise<void> {
+    async mkdir(path: string): Promise<void> {
       dirs.add(path);
     },
 
-    async readdir(path: string): Promise<string[]> {
-      const entries: string[] = [];
+    async *list(
+      path: string,
+    ): AsyncIterable<{ name: string; path: string; kind: "file" | "directory" }> {
       const prefix = path.endsWith("/") ? path : `${path}/`;
+      const seen = new Set<string>();
 
-      for (const file of files.keys()) {
-        if (file.startsWith(prefix)) {
-          const relative = file.slice(prefix.length);
+      for (const filePath of files.keys()) {
+        if (filePath.startsWith(prefix)) {
+          const relative = filePath.slice(prefix.length);
           const parts = relative.split("/");
-          if (parts.length === 1) {
-            entries.push(parts[0]);
+          if (parts.length === 1 && !seen.has(parts[0])) {
+            seen.add(parts[0]);
+            yield { name: parts[0], path: filePath, kind: "file" };
           }
         }
       }
@@ -123,56 +131,53 @@ export function createMockFilesApi(): FilesApi & {
         if (dir.startsWith(prefix)) {
           const relative = dir.slice(prefix.length);
           const parts = relative.split("/");
-          if (parts.length === 1) {
-            entries.push(parts[0]);
+          if (parts.length === 1 && !seen.has(parts[0])) {
+            seen.add(parts[0]);
+            yield { name: parts[0], path: dir, kind: "directory" };
           }
         }
       }
-
-      return entries;
     },
 
-    async remove(path: string): Promise<void> {
-      files.delete(path);
-      dirs.delete(path);
+    async remove(path: string): Promise<boolean> {
+      const hadFile = files.delete(path);
+      const hadDir = dirs.delete(path);
+      return hadFile || hadDir;
     },
 
-    async rename(oldPath: string, newPath: string): Promise<void> {
-      const content = files.get(oldPath);
+    async move(source: string, target: string): Promise<boolean> {
+      const content = files.get(source);
       if (content) {
-        files.set(newPath, content);
-        files.delete(oldPath);
+        files.set(target, content);
+        files.delete(source);
+        return true;
       }
+      return false;
     },
 
-    async stat(path: string): Promise<FileStats> {
+    async stats(path: string): Promise<FileStats | undefined> {
       if (files.has(path)) {
         return {
-          isFile: true,
-          isDirectory: false,
+          kind: "file",
           size: files.get(path)?.length ?? 0,
-          mtime: Date.now(),
+          lastModified: Date.now(),
         };
       }
       if (dirs.has(path)) {
         return {
-          isFile: false,
-          isDirectory: true,
+          kind: "directory",
           size: 0,
-          mtime: Date.now(),
+          lastModified: Date.now(),
         };
       }
-      throw new Error(`File not found: ${path}`);
+      return undefined;
     },
 
-    async chmod(_path: string, _mode: number): Promise<void> {
-      // No-op for mock
-    },
-
-    async copyFile(src: string, dest: string): Promise<void> {
-      const content = files.get(src);
-      if (!content) throw new Error(`File not found: ${src}`);
-      files.set(dest, new Uint8Array(content));
+    async copy(source: string, target: string): Promise<boolean> {
+      const content = files.get(source);
+      if (!content) return false;
+      files.set(target, new Uint8Array(content));
+      return true;
     },
   };
 }

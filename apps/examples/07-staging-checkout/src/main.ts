@@ -43,7 +43,7 @@ async function main() {
 
     // Step 2: Staging Changes
     printSection("Step 2: Staging Changes");
-    resetState();
+    await resetState();
     await step02StagingChanges();
 
     // Step 3: Unstaging

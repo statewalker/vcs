@@ -7,7 +7,7 @@
 
 import {
   FileMode,
-  getRepository,
+  getHistory,
   printSection,
   printStep,
   printSubsection,
@@ -18,12 +18,12 @@ import {
 export async function step03CommitAnatomy(): Promise<void> {
   printStep(3, "Commit Anatomy");
 
-  const { repository } = await getRepository();
+  const { history } = await getHistory();
 
   printSubsection("Creating content for the commit");
 
-  const readmeId = await storeBlob(repository, "# My Project\n\nVersion 1");
-  const treeId = await repository.trees.storeTree([
+  const readmeId = await storeBlob(history, "# My Project\n\nVersion 1");
+  const treeId = await history.trees.store([
     { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
   ]);
 
@@ -39,7 +39,7 @@ export async function step03CommitAnatomy(): Promise<void> {
     tzOffset: "-0500",
   };
 
-  const commitId = await repository.commits.storeCommit({
+  const commitId = await history.commits.store({
     tree: treeId,
     parents: [], // Initial commit has no parents
     author,
@@ -52,7 +52,10 @@ export async function step03CommitAnatomy(): Promise<void> {
 
   printSubsection("Commit object structure");
 
-  const commit = await repository.commits.loadCommit(commitId);
+  const commit = await history.commits.load(commitId);
+  if (!commit) {
+    throw new Error(`Commit not found: ${commitId}`);
+  }
 
   console.log(`\n  Commit components:`);
   console.log(`    tree:      ${shortId(commit.tree)}`);
@@ -67,12 +70,12 @@ export async function step03CommitAnatomy(): Promise<void> {
 
   printSubsection("Creating a second commit with parent");
 
-  const readmeV2Id = await storeBlob(repository, "# My Project\n\nVersion 2 - with updates!");
-  const treeV2Id = await repository.trees.storeTree([
+  const readmeV2Id = await storeBlob(history, "# My Project\n\nVersion 2 - with updates!");
+  const treeV2Id = await history.trees.store([
     { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeV2Id },
   ]);
 
-  const commit2Id = await repository.commits.storeCommit({
+  const commit2Id = await history.commits.store({
     tree: treeV2Id,
     parents: [commitId], // Reference to parent commit
     author: {
@@ -90,7 +93,10 @@ export async function step03CommitAnatomy(): Promise<void> {
     message: "Update README with version 2",
   });
 
-  const commit2 = await repository.commits.loadCommit(commit2Id);
+  const commit2 = await history.commits.load(commit2Id);
+  if (!commit2) {
+    throw new Error(`Commit not found: ${commit2Id}`);
+  }
 
   console.log(`\n  Second commit: ${shortId(commit2Id)}`);
   console.log(`    parents: [${commit2.parents.map(shortId).join(", ")}]`);
@@ -115,7 +121,7 @@ export async function step03CommitAnatomy(): Promise<void> {
   console.log(`    - message: description of changes`);
 
   // Update refs
-  await repository.refs.set("refs/heads/main", commit2Id);
+  await history.refs.set("refs/heads/main", commit2Id);
 
   console.log("\nStep 3 completed!");
 }

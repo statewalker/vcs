@@ -17,15 +17,15 @@ import {
 export async function step05FileHistory(): Promise<void> {
   printStep(5, "File History");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Create a file with rich history
   console.log("\n--- Creating file with history ---");
 
   // Create initial file
   await addFileToStaging(
-    store,
+    workingCopy,
     "src/main.ts",
     `// Main entry point
 console.log("v1");
@@ -35,13 +35,13 @@ console.log("v1");
   console.log("  Commit 1: Create main.ts");
 
   // Add another file (won't affect main.ts history)
-  await addFileToStaging(store, "src/utils.ts", "export const utils = {};");
+  await addFileToStaging(workingCopy, "src/utils.ts", "export const utils = {};");
   await git.commit().setMessage("Add utils.ts").call();
   console.log("  Commit 2: Add utils.ts");
 
   // Modify main.ts
   await addFileToStaging(
-    store,
+    workingCopy,
     "src/main.ts",
     `// Main entry point
 import { utils } from "./utils";
@@ -52,13 +52,13 @@ console.log("v2");
   console.log("  Commit 3: Update main.ts with import");
 
   // Another unrelated change
-  await addFileToStaging(store, "README.md", "# Project");
+  await addFileToStaging(workingCopy, "README.md", "# Project");
   await git.commit().setMessage("Add README").call();
   console.log("  Commit 4: Add README");
 
   // More changes to main.ts
   await addFileToStaging(
-    store,
+    workingCopy,
     "src/main.ts",
     `// Main entry point
 import { utils } from "./utils";
@@ -80,7 +80,7 @@ console.log("v3");
     blobId: string;
   }> = [];
 
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (!head?.objectId) {
     console.log("  No commits found");
     return;
@@ -89,11 +89,12 @@ console.log("v3");
   let previousBlobId: string | undefined;
 
   // Walk all commits
-  for await (const commitId of store.commits.walkAncestry(head.objectId)) {
-    const commit = await store.commits.loadCommit(commitId);
+  for await (const commitId of history.commits.walkAncestry(head.objectId)) {
+    const commit = await history.commits.load(commitId);
+    if (!commit) continue;
 
     // Check if file exists and get its blob
-    const blobId = await getFileBlobId(store, commit.tree, "src/main.ts");
+    const blobId = await getFileBlobId(history, commit.tree, "src/main.ts");
 
     if (blobId && blobId !== previousBlobId) {
       // File exists and changed (or is new)
@@ -122,11 +123,11 @@ console.log("v3");
     const earliest = fileHistory[fileHistory.length - 1];
 
     console.log(`\n  Earliest version (${shortId(earliest.commitId)}):`);
-    const earliestContent = await collectBlob(store, earliest.blobId);
+    const earliestContent = await collectBlob(history, earliest.blobId);
     console.log(`  ${new TextDecoder().decode(earliestContent).split("\n").join("\n  ")}`);
 
     console.log(`\n  Latest version (${shortId(latest.commitId)}):`);
-    const latestContent = await collectBlob(store, latest.blobId);
+    const latestContent = await collectBlob(history, latest.blobId);
     console.log(`  ${new TextDecoder().decode(latestContent).split("\n").join("\n  ")}`);
   }
 
@@ -164,7 +165,7 @@ console.log("v3");
 
 // Helper: Get blob ID for a file in a tree
 async function getFileBlobId(
-  store: Awaited<ReturnType<typeof getGit>>["store"],
+  history: Awaited<ReturnType<typeof getGit>>["history"],
   treeId: string,
   path: string,
 ): Promise<string | undefined> {
@@ -176,7 +177,7 @@ async function getFileBlobId(
     const isLast = i === parts.length - 1;
 
     try {
-      const entry = await store.trees.getEntry(currentTreeId, name);
+      const entry = await history.trees.getEntry(currentTreeId, name);
       if (!entry) return undefined;
 
       if (isLast) return entry.id;
@@ -191,12 +192,15 @@ async function getFileBlobId(
 
 // Helper: Collect blob content
 async function collectBlob(
-  store: Awaited<ReturnType<typeof getGit>>["store"],
+  history: Awaited<ReturnType<typeof getGit>>["history"],
   blobId: string,
 ): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
-  for await (const chunk of store.blobs.load(blobId)) {
-    chunks.push(chunk);
+  const content = await history.blobs.load(blobId);
+  if (content) {
+    for await (const chunk of content) {
+      chunks.push(chunk);
+    }
   }
 
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);

@@ -4,14 +4,19 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { createGitStore, Git, type GitStore } from "@statewalker/vcs-commands";
+import { Git } from "@statewalker/vcs-commands";
 import {
-  createFileTreeIterator,
-  createGitRepository,
+  createFileWorktree,
+  createHistoryFromBackend,
+  createMemoryCheckout,
+  createMemoryWorkingCopy,
+  createMemoryWorktree,
   FileStagingStore,
   type FilesApi,
-  type GitRepository,
+  type History,
+  type WorkingCopy,
 } from "@statewalker/vcs-core";
+import { createGitFilesBackend } from "@statewalker/vcs-store-fs";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
@@ -25,8 +30,8 @@ setCompressionUtils(createNodeCompression());
 export interface CliContext {
   cwd: string;
   git: Git;
-  store: GitStore;
-  repository: GitRepository;
+  workingCopy: WorkingCopy;
+  history: History;
   files: FilesApi;
 }
 
@@ -61,34 +66,46 @@ export async function findRepoRoot(startDir: string): Promise<string | null> {
 export async function openRepository(repoDir: string): Promise<CliContext> {
   const files = createNodeFilesApi({ rootDir: repoDir });
 
-  const repository = await createGitRepository(files, ".git", {
+  // Create backend and history
+  const backend = await createGitFilesBackend({
+    files,
+    gitDir: ".git",
     create: false,
   });
+  const history = createHistoryFromBackend({ backend });
+  await history.initialize();
 
-  // Create worktree iterator for filesystem operations
-  const worktree = createFileTreeIterator({
+  // Create staging
+  const staging = new FileStagingStore(files, ".git/index");
+  await staging.read();
+
+  // Create checkout (manages HEAD, staging, operation states)
+  const checkout = createMemoryCheckout({ staging });
+
+  // Create worktree for filesystem operations
+  const worktree = createFileWorktree({
     files,
     rootPath: "",
+    blobs: history.blobs,
+    trees: history.trees,
     gitDir: ".git",
   });
 
-  const staging = new FileStagingStore(files, ".git/index");
-  await staging.read();
-  const store = createGitStore({
-    repository,
-    staging,
+  // Create WorkingCopy
+  const workingCopy = createMemoryWorkingCopy({
+    history,
+    checkout,
     worktree,
-    files,
-    workTreeRoot: "",
   });
 
-  const git = Git.wrap(store);
+  // Create Git facade
+  const git = Git.fromWorkingCopy(workingCopy);
 
   return {
     cwd: repoDir,
     git,
-    store,
-    repository,
+    workingCopy,
+    history,
     files,
   };
 }
@@ -103,37 +120,57 @@ export async function initRepository(
   const files = createNodeFilesApi({ rootDir: repoDir });
 
   const gitDir = options.bare ? "." : ".git";
-  const repository = await createGitRepository(files, gitDir, {
-    create: true,
-    bare: options.bare,
-    defaultBranch: options.defaultBranch || "main",
-  });
 
-  // Create worktree iterator for filesystem operations (if not bare)
+  // Create backend and history
+  const backend = await createGitFilesBackend({
+    files,
+    gitDir,
+    create: true,
+  });
+  const history = createHistoryFromBackend({ backend });
+  await history.initialize();
+
+  // Set initial branch
+  const defaultBranch = options.defaultBranch || "main";
+  await history.refs.setSymbolic("HEAD", `refs/heads/${defaultBranch}`);
+
+  // Create staging
+  const indexPath = options.bare ? "index" : ".git/index";
+  const staging = new FileStagingStore(files, indexPath);
+
+  // Create checkout
+  const checkout = createMemoryCheckout({ staging });
+
+  // Create worktree for filesystem operations
+  // For bare repos, use a memory worktree (it won't be used but is required by the interface)
   const worktree = options.bare
-    ? undefined
-    : createFileTreeIterator({
+    ? createMemoryWorktree({
+        blobs: history.blobs,
+        trees: history.trees,
+      })
+    : createFileWorktree({
         files,
         rootPath: "",
+        blobs: history.blobs,
+        trees: history.trees,
         gitDir: ".git",
       });
 
-  const indexPath = options.bare ? "index" : ".git/index";
-  const staging = new FileStagingStore(files, indexPath);
-  const store = createGitStore({
-    repository,
-    staging,
+  // Create WorkingCopy
+  const workingCopy = createMemoryWorkingCopy({
+    history,
+    checkout,
     worktree,
-    files: options.bare ? undefined : files,
-    workTreeRoot: options.bare ? undefined : "",
   });
-  const git = Git.wrap(store);
+
+  // Create Git facade
+  const git = Git.fromWorkingCopy(workingCopy);
 
   return {
     cwd: repoDir,
     git,
-    store,
-    repository,
+    workingCopy,
+    history,
     files,
   };
 }

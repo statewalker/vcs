@@ -7,9 +7,9 @@
 
 import {
   FileMode,
+  getHistory,
   getModeString,
   getModeType,
-  getRepository,
   printSection,
   printStep,
   printSubsection,
@@ -20,13 +20,13 @@ import {
 export async function step02TreeStructure(): Promise<void> {
   printStep(2, "Tree Structure");
 
-  const { repository } = await getRepository();
+  const { history } = await getHistory();
 
   printSubsection("Creating files for the tree");
 
-  const readmeId = await storeBlob(repository, "# My Project\n\nA sample project.");
-  const indexId = await storeBlob(repository, 'console.log("Hello!");');
-  const packageId = await storeBlob(repository, '{ "name": "my-project" }');
+  const readmeId = await storeBlob(history, "# My Project\n\nA sample project.");
+  const indexId = await storeBlob(history, 'console.log("Hello!");');
+  const packageId = await storeBlob(history, '{ "name": "my-project" }');
 
   console.log(`\n  Created blobs:`);
   console.log(`    README.md:     ${shortId(readmeId)}`);
@@ -35,7 +35,7 @@ export async function step02TreeStructure(): Promise<void> {
 
   printSubsection("Creating a tree");
 
-  const treeId = await repository.trees.storeTree([
+  const treeId = await history.trees.store([
     { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
     { mode: FileMode.REGULAR_FILE, name: "index.js", id: indexId },
     { mode: FileMode.REGULAR_FILE, name: "package.json", id: packageId },
@@ -46,23 +46,26 @@ export async function step02TreeStructure(): Promise<void> {
   printSubsection("Reading tree entries");
 
   console.log(`\n  Tree entries (like 'git ls-tree'):`);
-  for await (const entry of repository.trees.loadTree(treeId)) {
-    const modeStr = getModeString(entry.mode);
-    const typeStr = getModeType(entry.mode).padEnd(4);
-    console.log(`    ${modeStr} ${typeStr} ${shortId(entry.id)}  ${entry.name}`);
+  const treeEntries = await history.trees.load(treeId);
+  if (treeEntries) {
+    for await (const entry of treeEntries) {
+      const modeStr = getModeString(entry.mode);
+      const typeStr = getModeType(entry.mode).padEnd(4);
+      console.log(`    ${modeStr} ${typeStr} ${shortId(entry.id)}  ${entry.name}`);
+    }
   }
 
   printSubsection("Nested directories");
 
   // Create a subdirectory
-  const utilsId = await storeBlob(repository, "export const add = (a, b) => a + b;");
-  const srcTreeId = await repository.trees.storeTree([
+  const utilsId = await storeBlob(history, "export const add = (a, b) => a + b;");
+  const srcTreeId = await history.trees.store([
     { mode: FileMode.REGULAR_FILE, name: "index.js", id: indexId },
     { mode: FileMode.REGULAR_FILE, name: "utils.js", id: utilsId },
   ]);
 
   // Create root tree with subdirectory
-  const rootTreeId = await repository.trees.storeTree([
+  const rootTreeId = await history.trees.store([
     { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
     { mode: FileMode.REGULAR_FILE, name: "package.json", id: packageId },
     { mode: FileMode.TREE, name: "src", id: srcTreeId }, // Subdirectory!
@@ -73,15 +76,18 @@ export async function step02TreeStructure(): Promise<void> {
   console.log(`    src/ tree: ${shortId(srcTreeId)}`);
 
   console.log(`\n  Root tree entries:`);
-  for await (const entry of repository.trees.loadTree(rootTreeId)) {
-    const modeStr = getModeString(entry.mode);
-    const typeStr = getModeType(entry.mode).padEnd(4);
-    console.log(`    ${modeStr} ${typeStr} ${shortId(entry.id)}  ${entry.name}`);
+  const rootTreeEntries = await history.trees.load(rootTreeId);
+  if (rootTreeEntries) {
+    for await (const entry of rootTreeEntries) {
+      const modeStr = getModeString(entry.mode);
+      const typeStr = getModeType(entry.mode).padEnd(4);
+      console.log(`    ${modeStr} ${typeStr} ${shortId(entry.id)}  ${entry.name}`);
+    }
   }
 
   printSubsection("Looking up specific entries");
 
-  const entry = await repository.trees.getEntry(rootTreeId, "README.md");
+  const entry = await history.trees.getEntry(rootTreeId, "README.md");
   console.log(`\n  Looking up "README.md":`);
   console.log(`    Found: ${entry !== undefined}`);
   if (entry) {

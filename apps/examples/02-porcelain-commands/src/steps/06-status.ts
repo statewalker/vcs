@@ -9,12 +9,12 @@ import { addFileToStaging, getGit, printSection, printStep } from "../shared.js"
 export async function step06Status(): Promise<void> {
   printStep(6, "Status");
 
-  const { git, store } = await getGit();
+  const { git, workingCopy, history } = await getGit();
 
   // Ensure we have a commit
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (!head?.objectId) {
-    await addFileToStaging(store, "README.md", "# Project");
+    await addFileToStaging(workingCopy, "README.md", "# Project");
     await git.commit().setMessage("Initial commit").call();
   }
 
@@ -31,7 +31,7 @@ export async function step06Status(): Promise<void> {
 
   // Stage a new file
   console.log("\nStaging a new file...");
-  await addFileToStaging(store, "new-file.ts", "// New file content");
+  await addFileToStaging(workingCopy, "new-file.ts", "// New file content");
 
   // Check status again
   const status2 = await git.status().call();

@@ -4,13 +4,13 @@
  * Handles UI interactions and VCS operations.
  */
 
-import { Git, type GitStore, type GitStoreWithWorkTree } from "@statewalker/vcs-commands";
+import { Git } from "@statewalker/vcs-commands";
 import {
   FileMode,
   FileStagingStore,
-  type GitRepository,
+  type History,
   type StagingStore,
-  type WorktreeStore,
+  type WorkingCopy,
 } from "@statewalker/vcs-core";
 import {
   createBrowserFsStorage,
@@ -35,11 +35,10 @@ let initBtn: HTMLButtonElement;
 
 // App State
 let currentStorage: StorageBackend | null = null;
-let repository: GitRepository | null = null;
-let store: GitStore | GitStoreWithWorkTree | null = null;
+let history: History | null = null;
+let _workingCopy: WorkingCopy | null = null;
 let git: Git | null = null;
 let staging: StagingStore | null = null;
-let _worktree: WorktreeStore | null = null;
 const stagedFiles: Map<string, string> = new Map();
 let workingDirFiles: string[] = [];
 const trackedFiles: Set<string> = new Set();
@@ -110,11 +109,11 @@ function setupEventListeners(): void {
  */
 async function switchStorage(type: StorageType): Promise<void> {
   try {
-    // Close existing repository
-    if (repository) {
-      await repository.close();
-      repository = null;
-      store = null;
+    // Close existing history
+    if (history) {
+      await history.close();
+      history = null;
+      _workingCopy = null;
       git = null;
     }
 

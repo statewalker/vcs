@@ -17,12 +17,12 @@ export async function step03FastForward(): Promise<void> {
   printStep(3, "Fast-Forward Merge");
 
   // Fresh start for clean demonstration
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Setup: create initial commit on main
   console.log("\n--- Setup: Creating initial state ---");
-  await addFileToStaging(store, "README.md", "# Fast-Forward Demo");
+  await addFileToStaging(workingCopy, "README.md", "# Fast-Forward Demo");
   await git.commit().setMessage("Initial commit").call();
   console.log("  Created initial commit on main");
 
@@ -31,19 +31,21 @@ export async function step03FastForward(): Promise<void> {
   console.log("  Created 'feature-ff' branch");
 
   // Switch to feature branch and add commits
-  await store.refs.setSymbolic("HEAD", "refs/heads/feature-ff");
-  const featureRef = await store.refs.resolve("refs/heads/feature-ff");
+  await history.refs.setSymbolic("HEAD", "refs/heads/feature-ff");
+  const featureRef = await history.refs.resolve("refs/heads/feature-ff");
   if (featureRef?.objectId) {
-    const commit = await store.commits.loadCommit(featureRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
+    const commit = await history.commits.load(featureRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+    }
   }
 
   // Add commits on feature branch
-  await addFileToStaging(store, "feature1.ts", "export const feature1 = true;");
+  await addFileToStaging(workingCopy, "feature1.ts", "export const feature1 = true;");
   await git.commit().setMessage("Add feature1").call();
   console.log("  Added commit 1 on feature-ff");
 
-  await addFileToStaging(store, "feature2.ts", "export const feature2 = true;");
+  await addFileToStaging(workingCopy, "feature2.ts", "export const feature2 = true;");
   await git.commit().setMessage("Add feature2").call();
   console.log("  Added commit 2 on feature-ff");
 
@@ -60,15 +62,17 @@ export async function step03FastForward(): Promise<void> {
   console.log("  This allows a fast-forward merge.");
 
   // Switch back to main
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
-  const mainRef = await store.refs.resolve("refs/heads/main");
+  await history.refs.setSymbolic("HEAD", "refs/heads/main");
+  const mainRef = await history.refs.resolve("refs/heads/main");
   if (mainRef?.objectId) {
-    const commit = await store.commits.loadCommit(mainRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
+    const commit = await history.commits.load(mainRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+    }
   }
 
   console.log("\n--- Performing fast-forward merge ---");
-  const mainBefore = await store.refs.resolve("refs/heads/main");
+  const mainBefore = await history.refs.resolve("refs/heads/main");
   console.log(
     `  Main before merge: ${mainBefore?.objectId ? shortId(mainBefore.objectId) : "none"}`,
   );
@@ -80,7 +84,7 @@ export async function step03FastForward(): Promise<void> {
   console.log(`    Status: ${result.status}`);
   console.log(`    New HEAD: ${result.newHead ? shortId(result.newHead) : "none"}`);
 
-  const mainAfter = await store.refs.resolve("refs/heads/main");
+  const mainAfter = await history.refs.resolve("refs/heads/main");
   console.log(`  Main after merge: ${mainAfter?.objectId ? shortId(mainAfter.objectId) : "none"}`);
 
   // Explain fast-forward

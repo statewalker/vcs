@@ -2,49 +2,85 @@
  * Shared utilities for the porcelain commands example
  */
 
-import { createGitStore, Git, type GitStore } from "@statewalker/vcs-commands";
-import { createGitRepository, FileMode, type GitRepository } from "@statewalker/vcs-core";
-import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
+import { Git } from "@statewalker/vcs-commands";
+import {
+  createMemoryCheckout,
+  createMemoryHistory,
+  createMemoryWorkingCopy,
+  createMemoryWorktree,
+  createSimpleStaging,
+  FileMode,
+  type History,
+  type WorkingCopy,
+} from "@statewalker/vcs-core";
 
 // Shared state
-let sharedStore: GitStore | null = null;
+let sharedWorkingCopy: WorkingCopy | null = null;
 let sharedGit: Git | null = null;
-let sharedRepository: GitRepository | null = null;
+let sharedHistory: History | null = null;
 
 /**
- * Get or create the shared Git store and facade
+ * Get or create the shared Git working copy and facade
  */
-export async function getGit(): Promise<{ git: Git; store: GitStore; repository: GitRepository }> {
-  if (!sharedStore || !sharedGit || !sharedRepository) {
-    sharedRepository = await createGitRepository();
-    const staging = new MemoryStagingStore();
-    sharedStore = createGitStore({ repository: sharedRepository, staging });
-    sharedGit = Git.wrap(sharedStore);
+export async function getGit(): Promise<{
+  git: Git;
+  workingCopy: WorkingCopy;
+  history: History;
+}> {
+  if (!sharedWorkingCopy || !sharedGit || !sharedHistory) {
+    // Create the History (object store)
+    sharedHistory = createMemoryHistory();
+    await sharedHistory.initialize();
+
+    // Create the Staging area
+    const staging = createSimpleStaging();
+
+    // Create the Checkout (HEAD, staging, operation states)
+    const checkout = createMemoryCheckout({ staging });
+
+    // Create the Worktree (filesystem access)
+    const worktree = createMemoryWorktree({
+      blobs: sharedHistory.blobs,
+      trees: sharedHistory.trees,
+    });
+
+    // Compose into WorkingCopy
+    sharedWorkingCopy = createMemoryWorkingCopy({
+      history: sharedHistory,
+      checkout,
+      worktree,
+    });
+
+    // Create Git facade
+    sharedGit = Git.fromWorkingCopy(sharedWorkingCopy);
   }
-  return { git: sharedGit, store: sharedStore, repository: sharedRepository };
+  return { git: sharedGit, workingCopy: sharedWorkingCopy, history: sharedHistory };
 }
 
 /**
  * Reset the shared state (for fresh start)
  */
-export function resetState(): void {
-  sharedStore = null;
+export async function resetState(): Promise<void> {
+  if (sharedHistory) {
+    await sharedHistory.close();
+  }
+  sharedWorkingCopy = null;
   sharedGit = null;
-  sharedRepository = null;
+  sharedHistory = null;
 }
 
 /**
  * Helper function to add a file to staging
  */
 export async function addFileToStaging(
-  store: GitStore,
+  workingCopy: WorkingCopy,
   path: string,
   content: string,
 ): Promise<string> {
   const data = new TextEncoder().encode(content);
-  const objectId = await store.blobs.store([data]);
+  const objectId = await workingCopy.history.blobs.store([data]);
 
-  const editor = store.staging.editor();
+  const editor = workingCopy.checkout.staging.createEditor();
   editor.add({
     path,
     apply: () => ({
@@ -84,6 +120,7 @@ export function printStep(num: number, title: string): void {
   console.log(`\n--- Step ${num}: ${title} ---`);
 }
 
-export type { Git, GitStore } from "@statewalker/vcs-commands";
+export type { Git } from "@statewalker/vcs-commands";
+export type { WorkingCopy } from "@statewalker/vcs-core";
 // Re-export types
 export { FileMode } from "@statewalker/vcs-core";

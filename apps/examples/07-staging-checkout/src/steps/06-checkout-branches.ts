@@ -4,6 +4,7 @@
  * Demonstrates switching branches with checkout.
  */
 
+import { isSymbolicRef } from "@statewalker/vcs-core";
 import {
   addFileToStaging,
   getGit,
@@ -16,14 +17,14 @@ import {
 export async function step06CheckoutBranches(): Promise<void> {
   printStep(6, "Checkout Branches");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Create initial state
   console.log("\n--- Setting up branches ---");
 
-  await addFileToStaging(store, "README.md", "# Checkout Demo");
-  await addFileToStaging(store, "main.ts", "// Main branch content");
+  await addFileToStaging(workingCopy, "README.md", "# Checkout Demo");
+  await addFileToStaging(workingCopy, "main.ts", "// Main branch content");
   await git.commit().setMessage("Initial commit on main").call();
   console.log("  Created initial commit on main");
 
@@ -32,14 +33,17 @@ export async function step06CheckoutBranches(): Promise<void> {
   console.log("  Created 'feature' branch");
 
   // Add commit on main
-  await addFileToStaging(store, "main-only.ts", "// Only on main");
+  await addFileToStaging(workingCopy, "main-only.ts", "// Only on main");
   await git.commit().setMessage("Add main-only file").call();
   console.log("  Added commit on main");
 
   // Show current state
-  const currentHead = await store.refs.resolve("HEAD");
+  const currentHeadRef = await history.refs.get("HEAD");
+  const currentHeadResolved = await history.refs.resolve("HEAD");
+  const currentHeadTarget =
+    currentHeadRef && isSymbolicRef(currentHeadRef) ? currentHeadRef.target : undefined;
   console.log(
-    `\n  Current HEAD: ${currentHead?.symbolicRef} (${shortId(currentHead?.objectId || "")})`,
+    `\n  Current HEAD: ${currentHeadTarget} (${shortId(currentHeadResolved?.objectId || "")})`,
   );
 
   // Method 1: git.checkout() for branch switching
@@ -61,39 +65,44 @@ export async function step06CheckoutBranches(): Promise<void> {
   console.log("  Switching to 'feature' branch...");
 
   // Step 1: Update HEAD symbolic ref
-  await store.refs.setSymbolic("HEAD", "refs/heads/feature");
+  await history.refs.setSymbolic("HEAD", "refs/heads/feature");
   console.log("    Updated HEAD -> refs/heads/feature");
 
   // Step 2: Update staging to match branch
-  const featureRef = await store.refs.resolve("refs/heads/feature");
+  const featureRef = await history.refs.resolve("refs/heads/feature");
   if (featureRef?.objectId) {
-    const commit = await store.commits.loadCommit(featureRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
-    console.log(`    Updated staging to tree ${shortId(commit.tree)}`);
+    const commit = await history.commits.load(featureRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+      console.log(`    Updated staging to tree ${shortId(commit.tree)}`);
+    }
   }
 
   // Verify switch
-  const newHead = await store.refs.resolve("HEAD");
-  console.log(`\n  Now on: ${newHead?.symbolicRef}`);
+  const newHeadRef = await history.refs.get("HEAD");
+  const newHeadTarget = newHeadRef && isSymbolicRef(newHeadRef) ? newHeadRef.target : undefined;
+  console.log(`\n  Now on: ${newHeadTarget}`);
 
   // Show staging contents
   console.log("\n  Staging area (feature branch):");
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     console.log(`    ${entry.path}`);
   }
 
   // Switch back to main
   console.log("\n--- Switching back to main ---");
 
-  await store.refs.setSymbolic("HEAD", "refs/heads/main");
-  const mainRef = await store.refs.resolve("refs/heads/main");
+  await history.refs.setSymbolic("HEAD", "refs/heads/main");
+  const mainRef = await history.refs.resolve("refs/heads/main");
   if (mainRef?.objectId) {
-    const commit = await store.commits.loadCommit(mainRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
+    const commit = await history.commits.load(mainRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+    }
   }
 
   console.log("  Staging area (main branch):");
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     console.log(`    ${entry.path}`);
   }
 
@@ -121,14 +130,14 @@ export async function step06CheckoutBranches(): Promise<void> {
   console.log("\n--- Create and checkout new branch ---");
 
   // Using low-level API
-  const currentMainRef = await store.refs.resolve("refs/heads/main");
+  const currentMainRef = await history.refs.resolve("refs/heads/main");
   if (currentMainRef?.objectId) {
     // Create new branch at current commit
-    await store.refs.set("refs/heads/develop", currentMainRef.objectId);
+    await history.refs.set("refs/heads/develop", currentMainRef.objectId);
     console.log("  Created 'develop' branch");
 
     // Switch to it
-    await store.refs.setSymbolic("HEAD", "refs/heads/develop");
+    await history.refs.setSymbolic("HEAD", "refs/heads/develop");
     console.log("  Switched to 'develop'");
   }
 
@@ -150,8 +159,8 @@ export async function step06CheckoutBranches(): Promise<void> {
       .call()
 
   Low-level:
-    store.refs.setSymbolic("HEAD", "refs/heads/branch")
-    staging.readTree(trees, treeId)
+    history.refs.setSymbolic("HEAD", "refs/heads/branch")
+    workingCopy.checkout.staging.readTree(history.trees, treeId)
   `);
 
   console.log("\nStep 6 completed!");

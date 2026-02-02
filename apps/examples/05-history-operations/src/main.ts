@@ -43,7 +43,7 @@ async function main() {
 
     // Step 3: Diff Commits
     printSection("Step 3: Diff Commits");
-    resetState();
+    await resetState();
     await step03DiffCommits();
 
     // Step 4: Blame

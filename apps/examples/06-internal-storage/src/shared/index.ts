@@ -5,7 +5,21 @@
 import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { FilesApi, GitRepository, ObjectId, PersonIdent } from "@statewalker/vcs-core";
+import type {
+  FilesApi,
+  GitObjectStore,
+  History,
+  ObjectId,
+  PersonIdent,
+} from "@statewalker/vcs-core";
+import {
+  CompressedRawStorage,
+  createFileRefStore,
+  createGitObjectStore,
+  createHistoryFromComponents,
+  FileRawStorage,
+  joinPath,
+} from "@statewalker/vcs-core";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
@@ -23,11 +37,24 @@ export const OBJECTS_DIR = path.join(REPO_DIR, GIT_DIR, "objects");
 export const PACK_DIR = path.join(OBJECTS_DIR, "pack");
 
 // ============================================================================
+// Extended History type with objects access
+// ============================================================================
+
+/**
+ * Extended History type that also exposes the GitObjectStore for low-level operations.
+ * This is needed for internal storage demonstrations.
+ */
+export interface FileHistory extends History {
+  /** Low-level object store for raw object access */
+  readonly objects: GitObjectStore;
+}
+
+// ============================================================================
 // Shared state between steps
 // ============================================================================
 
 export interface AppState {
-  repository?: GitRepository;
+  history?: FileHistory;
   commits: CommitInfo[];
   objectIds: string[];
 }
@@ -88,6 +115,74 @@ export function shortId(id: ObjectId): string {
 }
 
 // ============================================================================
+// History factory
+// ============================================================================
+
+/**
+ * Create a file-based History instance with objects access.
+ */
+export async function createFileHistory(options: {
+  files: FilesApi;
+  gitDir: string;
+  create?: boolean;
+  defaultBranch?: string;
+}): Promise<FileHistory> {
+  const { files, gitDir, create = false, defaultBranch = "main" } = options;
+
+  const objectsDir = joinPath(gitDir, "objects");
+
+  // Create compressed file storage for objects
+  const looseStorage = new FileRawStorage(files, objectsDir);
+  const compressedStorage = new CompressedRawStorage(looseStorage);
+
+  // Create blob storage (blobs are stored separately for efficiency)
+  const blobStorage = new CompressedRawStorage(new FileRawStorage(files, objectsDir));
+
+  // Create Git object store for trees, commits, tags
+  const objects = createGitObjectStore(compressedStorage);
+
+  // Create file-based ref store
+  const refStore = createFileRefStore(files, gitDir);
+
+  // Create History from components
+  const history = createHistoryFromComponents({
+    blobStorage,
+    objects,
+    refs: { type: "adapter", refStore },
+  });
+
+  // Initialize if creating
+  if (create) {
+    await files.mkdir(gitDir);
+    await files.mkdir(objectsDir);
+    await files.mkdir(joinPath(objectsDir, "pack"));
+    await files.mkdir(joinPath(gitDir, "refs"));
+    await files.mkdir(joinPath(gitDir, "refs", "heads"));
+    await files.mkdir(joinPath(gitDir, "refs", "tags"));
+
+    // Write HEAD
+    const headContent = `ref: refs/heads/${defaultBranch}\n`;
+    await files.write(joinPath(gitDir, "HEAD"), [new TextEncoder().encode(headContent)]);
+
+    // Write basic config
+    const configContent = `[core]
+\trepositoryformatversion = 0
+\tfilemode = true
+\tbare = false
+`;
+    await files.write(joinPath(gitDir, "config"), [new TextEncoder().encode(configContent)]);
+  }
+
+  await history.initialize();
+
+  // Return extended History with objects access
+  return {
+    ...history,
+    objects,
+  };
+}
+
+// ============================================================================
 // Repository utilities
 // ============================================================================
 
@@ -104,9 +199,9 @@ export function createAuthor(
   };
 }
 
-export async function storeBlob(repository: GitRepository, content: string): Promise<ObjectId> {
+export async function storeBlob(history: History, content: string): Promise<ObjectId> {
   const bytes = new TextEncoder().encode(content);
-  return repository.blobs.store([bytes]);
+  return history.blobs.store([bytes]);
 }
 
 // ============================================================================

@@ -40,7 +40,7 @@ async function main() {
 
   try {
     // Reset any previous state
-    resetState();
+    await resetState();
 
     // Step 1: Initialize and Commit
     printSection("Step 1: Initialize and Commit");
@@ -83,7 +83,7 @@ async function main() {
   This example demonstrated the Git Commands API (porcelain layer):
 
     1. Initialize and Commit
-       - Git.wrap() creates a Git facade
+       - Git.fromWorkingCopy() creates a Git facade
        - git.commit() creates commits from staged changes
 
     2. Branching

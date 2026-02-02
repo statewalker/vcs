@@ -17,37 +17,41 @@ import {
 export async function step03DiffCommits(): Promise<void> {
   printStep(3, "Diff Between Commits");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Create commits with various changes
   console.log("\n--- Setting up commits with changes ---");
 
   // Initial commit
-  await addFileToStaging(store, "README.md", "# Diff Demo\n\nInitial content.");
-  await addFileToStaging(store, "src/index.ts", "export const version = 1;");
+  await addFileToStaging(workingCopy, "README.md", "# Diff Demo\n\nInitial content.");
+  await addFileToStaging(workingCopy, "src/index.ts", "export const version = 1;");
   await git.commit().setMessage("Initial commit").call();
-  const head1 = await store.refs.resolve("HEAD");
+  const head1 = await history.refs.resolve("HEAD");
   const commit1 = head1?.objectId ?? "";
   console.log(`  Commit 1: ${shortId(commit1)} - Initial commit`);
 
   // Second commit - modify and add
   await addFileToStaging(
-    store,
+    workingCopy,
     "src/index.ts",
     "export const version = 2;\nexport const name = 'app';",
   );
-  await addFileToStaging(store, "src/utils.ts", "export function helper() {}");
+  await addFileToStaging(workingCopy, "src/utils.ts", "export function helper() {}");
   await git.commit().setMessage("Update index, add utils").call();
-  const head2 = await store.refs.resolve("HEAD");
+  const head2 = await history.refs.resolve("HEAD");
   const commit2 = head2?.objectId ?? "";
   console.log(`  Commit 2: ${shortId(commit2)} - Update index, add utils`);
 
   // Third commit - delete and modify
   // Note: We simulate delete by not including the file in new tree
-  await addFileToStaging(store, "README.md", "# Diff Demo\n\nUpdated content.\n\nNew section.");
+  await addFileToStaging(
+    workingCopy,
+    "README.md",
+    "# Diff Demo\n\nUpdated content.\n\nNew section.",
+  );
   await git.commit().setMessage("Update README").call();
-  const head3 = await store.refs.resolve("HEAD");
+  const head3 = await history.refs.resolve("HEAD");
   const commit3 = head3?.objectId ?? "";
   console.log(`  Commit 3: ${shortId(commit3)} - Update README`);
 
