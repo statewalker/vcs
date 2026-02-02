@@ -1,4 +1,4 @@
-import type { Person } from "../../../history/commits/types.js";
+import type { PersonIdent } from "../../../common/person/person-ident.js";
 import { TREE_FIXTURES } from "./trees.js";
 
 /**
@@ -15,14 +15,14 @@ export const COMMIT_FIXTURES = {
       name: "Test Author",
       email: "author@test.com",
       timestamp: 1700000000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     committer: {
       name: "Test Committer",
       email: "committer@test.com",
       timestamp: 1700000000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     message: "Initial commit\n",
     hash: "computed",
   },
@@ -37,14 +37,14 @@ export const COMMIT_FIXTURES = {
       name: "Test Author",
       email: "author@test.com",
       timestamp: 1700001000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     committer: {
       name: "Test Committer",
       email: "committer@test.com",
       timestamp: 1700001000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     message: "Add more files\n",
     hash: "computed",
   },
@@ -59,14 +59,14 @@ export const COMMIT_FIXTURES = {
       name: "Test Author",
       email: "author@test.com",
       timestamp: 1700002000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     committer: {
       name: "Test Committer",
       email: "committer@test.com",
       timestamp: 1700002000,
-      timezone: "+0000",
-    } as Person,
+      tzOffset: "+0000",
+    } as PersonIdent,
     message: "Merge branch 'feature'\n",
     hash: "computed",
   },

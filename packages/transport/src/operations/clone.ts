@@ -5,8 +5,8 @@
  * over HTTP/HTTPS.
  */
 
-import { fetch as httpFetch } from "./fetch.js";
 import type { Credentials, ProgressInfo } from "../api/credentials.js";
+import { fetch as httpFetch } from "./fetch.js";
 
 /**
  * Options for the clone operation.

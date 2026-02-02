@@ -1,5 +1,5 @@
+import type { FileStats, FilesApi } from "../../common/files/index.js";
 import type { RawStorage } from "../../storage/raw/raw-storage.js";
-import type { FilesApi } from "../../workspace/worktree/types.js";
 
 /**
  * Create a mock RawStorage that records all operations.
@@ -78,34 +78,34 @@ export function createMockFilesApi(): FilesApi & {
     _files: files,
     _dirs: dirs,
 
-    async readBinary(path) {
+    async readBinary(path: string): Promise<Uint8Array> {
       const content = files.get(path);
       if (!content) throw new Error(`File not found: ${path}`);
       return content;
     },
 
-    async readText(path) {
+    async readText(path: string): Promise<string> {
       const content = await this.readBinary(path);
       return new TextDecoder().decode(content);
     },
 
-    async writeBinary(path, content) {
+    async writeBinary(path: string, content: Uint8Array): Promise<void> {
       files.set(path, content);
     },
 
-    async writeText(path, content) {
+    async writeText(path: string, content: string): Promise<void> {
       await this.writeBinary(path, new TextEncoder().encode(content));
     },
 
-    async exists(path) {
+    async exists(path: string): Promise<boolean> {
       return files.has(path) || dirs.has(path);
     },
 
-    async mkdir(path, _options) {
+    async mkdir(path: string, _options?: { recursive?: boolean }): Promise<void> {
       dirs.add(path);
     },
 
-    async readdir(path) {
+    async readdir(path: string): Promise<string[]> {
       const entries: string[] = [];
       const prefix = path.endsWith("/") ? path : `${path}/`;
 
@@ -132,12 +132,12 @@ export function createMockFilesApi(): FilesApi & {
       return entries;
     },
 
-    async remove(path) {
+    async remove(path: string): Promise<void> {
       files.delete(path);
       dirs.delete(path);
     },
 
-    async rename(oldPath, newPath) {
+    async rename(oldPath: string, newPath: string): Promise<void> {
       const content = files.get(oldPath);
       if (content) {
         files.set(newPath, content);
@@ -145,12 +145,12 @@ export function createMockFilesApi(): FilesApi & {
       }
     },
 
-    async stat(path) {
+    async stat(path: string): Promise<FileStats> {
       if (files.has(path)) {
         return {
           isFile: true,
           isDirectory: false,
-          size: files.get(path)?.length,
+          size: files.get(path)?.length ?? 0,
           mtime: Date.now(),
         };
       }
@@ -165,11 +165,11 @@ export function createMockFilesApi(): FilesApi & {
       throw new Error(`File not found: ${path}`);
     },
 
-    async chmod(_path, _mode) {
+    async chmod(_path: string, _mode: number): Promise<void> {
       // No-op for mock
     },
 
-    async copyFile(src, dest) {
+    async copyFile(src: string, dest: string): Promise<void> {
       const content = files.get(src);
       if (!content) throw new Error(`File not found: ${src}`);
       files.set(dest, new Uint8Array(content));

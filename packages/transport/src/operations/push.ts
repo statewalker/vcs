@@ -96,9 +96,7 @@ export interface PushResult {
  */
 export async function push(options: PushOptions): Promise<PushResult> {
   // Normalize URL
-  const baseUrl = options.url.endsWith("/")
-    ? options.url.slice(0, -1)
-    : options.url;
+  const baseUrl = options.url.endsWith("/") ? options.url.slice(0, -1) : options.url;
 
   // Build request headers
   const headers: Record<string, string> = {
@@ -172,9 +170,7 @@ export async function push(options: PushOptions): Promise<PushResult> {
       const destRef = dest || source;
 
       // Get local ref value
-      const localOid = options.getLocalRef
-        ? await options.getLocalRef(source)
-        : undefined;
+      const localOid = options.getLocalRef ? await options.getLocalRef(source) : undefined;
 
       if (!localOid) {
         throw new Error(`Local ref not found: ${source}`);
@@ -246,10 +242,7 @@ export async function push(options: PushOptions): Promise<PushResult> {
     }
 
     // Concatenate request body
-    const requestBodyLength = requestChunks.reduce(
-      (sum, chunk) => sum + chunk.length,
-      0,
-    );
+    const requestBodyLength = requestChunks.reduce((sum, chunk) => sum + chunk.length, 0);
     const requestBody = new Uint8Array(requestBodyLength);
     let offset = 0;
     for (const chunk of requestChunks) {
@@ -281,9 +274,7 @@ export async function push(options: PushOptions): Promise<PushResult> {
     }
 
     // Parse response
-    const responseData = new Uint8Array(
-      await receivePackResponse.arrayBuffer(),
-    );
+    const responseData = new Uint8Array(await receivePackResponse.arrayBuffer());
     const { updates, unpackStatus } = parseReportStatus(
       responseData,
       refUpdates,
@@ -341,11 +332,7 @@ function parseReceivePackAdvertisement(data: Uint8Array): Map<string, string> {
       const oid = refPart.slice(0, spaceIndex);
       const refName = refPart.slice(spaceIndex + 1).trim();
 
-      if (
-        !refName.endsWith("^{}") &&
-        !refName.startsWith("capabilities") &&
-        refName.length > 0
-      ) {
+      if (!refName.endsWith("^{}") && !refName.startsWith("capabilities") && refName.length > 0) {
         refs.set(refName, oid);
       }
     }

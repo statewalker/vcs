@@ -1,9 +1,10 @@
 import { expect } from "vitest";
-import type { Blob } from "../../history/blobs/types.js";
+import type { BlobContent } from "../../history/blobs/blobs.js";
+import type { Commit } from "../../history/commits/commit-store.js";
 import type { Commits } from "../../history/commits/commits.js";
-import type { Commit } from "../../history/commits/types.js";
 import type { Refs } from "../../history/refs/refs.js";
-import type { Tree } from "../../history/trees/types.js";
+import type { TreeEntry } from "../../history/trees/tree-entry.js";
+import type { Tree } from "../../history/trees/trees.js";
 
 /**
  * Assert that a value is a valid SHA-1 hash.
@@ -14,31 +15,65 @@ export function expectValidObjectId(id: unknown): asserts id is string {
 }
 
 /**
+ * Collect all chunks from an async iterable.
+ */
+async function collectContent(content: BlobContent): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of content) {
+    chunks.push(chunk);
+  }
+  // Concatenate chunks
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
+
+/**
  * Assert that two blobs have identical content.
  */
 export async function expectBlobsEqual(
-  blob1: Blob | undefined,
-  blob2: Blob | undefined,
+  blob1: BlobContent | undefined,
+  blob2: BlobContent | undefined,
 ): Promise<void> {
   expect(blob1).toBeDefined();
   expect(blob2).toBeDefined();
-  expect(blob1?.content).toEqual(blob2?.content);
+  if (blob1 && blob2) {
+    const content1 = await collectContent(blob1);
+    const content2 = await collectContent(blob2);
+    expect(content1).toEqual(content2);
+  }
 }
 
 /**
  * Assert that a tree contains expected entries.
  */
-export function expectTreeContains(
+export async function expectTreeContains(
   tree: Tree | undefined,
-  expected: Array<{ name: string; mode?: string }>,
-): void {
+  expected: Array<{ name: string; mode?: number }>,
+): Promise<void> {
   expect(tree).toBeDefined();
+  if (!tree) return;
+
+  // Collect tree entries
+  const entries: TreeEntry[] = [];
+  if (Array.isArray(tree)) {
+    entries.push(...tree);
+  } else {
+    for await (const entry of tree) {
+      entries.push(entry);
+    }
+  }
 
   for (const exp of expected) {
-    const entry = tree?.entries.find((e) => e.name === exp.name);
+    const entry = entries.find((e) => e.name === exp.name);
     expect(entry).toBeDefined();
-    if (exp.mode) {
-      expect(entry?.mode).toBe(exp.mode);
+    if (exp.mode !== undefined && entry) {
+      expect(entry.mode).toBe(exp.mode);
     }
   }
 }
@@ -59,8 +94,9 @@ export async function expectRefEquals(
   refName: string,
   expectedCommit: string,
 ): Promise<void> {
-  const value = await refs.getRef(refName);
-  expect(value).toBe(expectedCommit);
+  const resolved = await refs.resolve(refName);
+  expect(resolved).toBeDefined();
+  expect(resolved?.id).toBe(expectedCommit);
 }
 
 /**
@@ -71,7 +107,7 @@ export async function expectLinearHistory(
   tip: string,
   length: number,
 ): Promise<void> {
-  let current = tip;
+  let current: string | undefined = tip;
   let count = 0;
 
   while (current) {
@@ -80,7 +116,7 @@ export async function expectLinearHistory(
     expect(commit?.parents.length).toBeLessThanOrEqual(1);
 
     count++;
-    current = commit?.parents[0] ?? "";
+    current = commit?.parents[0];
   }
 
   expect(count).toBe(length);
