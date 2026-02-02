@@ -25,7 +25,7 @@ describe("InitCommand", () => {
 
       expect(result.git).toBeInstanceOf(Git);
       expect(result.store).toBeDefined();
-      expect(result.repository).toBeDefined();
+      expect(result.history).toBeDefined();
       expect(result.initialBranch).toBe("main");
       expect(result.bare).toBe(false);
       expect(result.gitDir).toBe(".git");
@@ -57,7 +57,7 @@ describe("InitCommand", () => {
     it("should set HEAD pointing to initial branch", async () => {
       const result = await Git.init().call();
 
-      const head = await result.repository.refs.get("HEAD");
+      const head = await result.history.refs.get("HEAD");
       expect(head).toBeDefined();
       expect(head && "target" in head && head.target).toBe("refs/heads/main");
     });
@@ -69,7 +69,7 @@ describe("InitCommand", () => {
 
       expect(result.initialBranch).toBe("master");
 
-      const head = await result.repository.refs.get("HEAD");
+      const head = await result.history.refs.get("HEAD");
       expect(head && "target" in head && head.target).toBe("refs/heads/master");
     });
 
@@ -85,7 +85,7 @@ describe("InitCommand", () => {
         .call();
 
       // Verify branch ref exists
-      const branchRef = await result.repository.refs.get("refs/heads/develop");
+      const branchRef = await result.history.refs.get("refs/heads/develop");
       expect(branchRef).toBeDefined();
       expect(branchRef && "objectId" in branchRef).toBe(true);
     });
@@ -144,7 +144,7 @@ describe("InitCommand", () => {
       const files = createInMemoryFilesApi();
       const result = await Git.init().setFilesApi(files).call();
 
-      expect(result.repository).toBeDefined();
+      expect(result.history).toBeDefined();
 
       // Should be able to create commits
       const commit = await result.git

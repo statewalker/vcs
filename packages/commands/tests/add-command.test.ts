@@ -292,7 +292,7 @@ async function createInitializedGitWithWorkTreeFromFactory(factory: WorkingCopyF
   // Create a WorkingCopy with the mock worktree
   const workingCopy = createWorkingCopyWithMockWorktree(
     repository,
-    ctx.workingCopy.staging,
+    ctx.workingCopy.checkout.staging,
     worktree,
   );
 
@@ -327,14 +327,14 @@ async function createInitializedGitWithWorkTreeFromFactory(factory: WorkingCopyF
   await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
   // Initialize staging with empty tree
-  await ctx.workingCopy.staging.readTree(repository.trees, emptyTreeId);
+  await ctx.workingCopy.checkout.staging.readTree(repository.trees, emptyTreeId);
 
   return {
     git,
     worktree,
     workingCopy,
     repository,
-    staging: ctx.workingCopy.staging,
+    staging: ctx.workingCopy.checkout.staging,
     initialCommitId,
     cleanup: ctx.cleanup,
   };
@@ -364,7 +364,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
     const ctx = await factory();
     cleanup = ctx.cleanup;
     const repository = ctx.repository;
-    const staging = ctx.workingCopy.staging;
+    const staging = ctx.workingCopy.checkout.staging;
 
     return {
       repository,

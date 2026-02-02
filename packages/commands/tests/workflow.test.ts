@@ -251,14 +251,14 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
 
     // === STEP 2: Add commits on main ===
     await addFile(workingCopy, "main.txt", "main content");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     await git.commit().setMessage("Add main.txt").call();
 
     // === STEP 3: Switch to feature and add commits ===
     await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
 
     await addFile(workingCopy, "feature.txt", "feature content");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     await git.commit().setMessage("Add feature.txt").call();
 
     // === STEP 4: Switch back to main ===
@@ -316,18 +316,18 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
 
     // Add file on main
     await addFile(workingCopy, "main-only.txt", "main content");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     await git.commit().setMessage("Add main file").call();
 
     // Switch to feature - reset staging to match feature branch (initial empty tree)
     await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
     const featureRef = await repository.refs.resolve("refs/heads/feature");
     const featureCommit = await repository.commits.loadCommit(featureRef?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, featureCommit.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, featureCommit.tree);
 
     // Add different file on feature
     await addFile(workingCopy, "feature-only.txt", "feature content");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     await git.commit().setMessage("Add feature file").call();
 
     // === Diff feature vs main ===
@@ -352,18 +352,18 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
 
     // Create file and commit
     await addFile(workingCopy, "changing.txt", "version 1");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     const commit1 = await git.commit().setMessage("v1").call();
     const commit1Id = await repository.commits.storeCommit(commit1);
 
     // Modify file
     await addFile(workingCopy, "changing.txt", "version 2");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     await git.commit().setMessage("v2").call();
 
     // Add new file
     await addFile(workingCopy, "new.txt", "new content");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     const commit3 = await git.commit().setMessage("v3").call();
     const commit3Id = await repository.commits.storeCommit(commit3);
 
@@ -386,7 +386,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
 
     // Add base file
     await addFile(workingCopy, "shared.txt", "base content");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     await git.commit().setMessage("Add shared file").call();
 
     // Create feature branch
@@ -394,18 +394,18 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
 
     // Add file on main
     await addFile(workingCopy, "main-feature.txt", "main feature");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     await git.commit().setMessage("Main feature").call();
 
     // Switch to feature branch - reset staging to match feature's tree
     await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
     const featureRef = await repository.refs.resolve("refs/heads/feature");
     const featureCommit = await repository.commits.loadCommit(featureRef?.objectId ?? "");
-    await workingCopy.staging.readTree(repository.trees, featureCommit.tree);
+    await workingCopy.checkout.staging.readTree(repository.trees, featureCommit.tree);
 
     // Add different file on feature
     await addFile(workingCopy, "feature-feature.txt", "feature work");
-    await workingCopy.staging.write();
+    await workingCopy.checkout.staging.write();
     await git.commit().setMessage("Feature work").call();
 
     // === Diff: See what's different ===

@@ -69,7 +69,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
       expect(headRef?.objectId).toBe(initialCommitId);
 
       // Staging should match initial commit's tree
-      const treeId = await workingCopy.staging.writeTree(repository.trees);
+      const treeId = await workingCopy.checkout.staging.writeTree(repository.trees);
       const initialCommit = await repository.commits.loadCommit(initialCommitId);
       expect(treeId).toBe(initialCommit.tree);
     });

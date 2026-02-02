@@ -49,8 +49,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       );
 
       // Set up HEAD on client
-      await workingCopy.repository.refs.set("HEAD", "refs/heads/main");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("HEAD", "refs/heads/main");
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -101,7 +101,7 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
 
       // Create commit
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -128,8 +128,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
 
       // Create commits for multiple branches
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
-      await workingCopy.repository.refs.set("refs/heads/feature", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/feature", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -155,8 +155,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
-      await workingCopy.repository.refs.set("refs/heads/feature", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/feature", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -185,7 +185,7 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -212,7 +212,7 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -242,9 +242,9 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
 
       // Create multiple branches
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
-      await workingCopy.repository.refs.set("refs/heads/feature", commitId);
-      await workingCopy.repository.refs.set("refs/heads/develop", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/feature", commitId);
+      await workingCopy.history.refs.set("refs/heads/develop", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -269,8 +269,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
 
       // Create commit and tag
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
-      await workingCopy.repository.refs.set("refs/tags/v1.0", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/tags/v1.0", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -294,7 +294,7 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -323,7 +323,7 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
 
       // Note: Dry run behavior depends on transport implementation
       // This test verifies the option is accepted
@@ -340,7 +340,7 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -371,7 +371,7 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = server.mockFetch;
@@ -395,7 +395,7 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       const commitId = await addFileAndCommitWc(workingCopy, "file.txt", "content", "Commit");
-      await workingCopy.repository.refs.set("refs/heads/main", commitId);
+      await workingCopy.history.refs.set("refs/heads/main", commitId);
 
       const originalFetch = globalThis.fetch;
       globalThis.fetch = async () => {

@@ -101,7 +101,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
       expect(result.status).toBe(CheckoutStatus.OK);
 
       // Verify staging has main's version
-      const entry = await workingCopy.staging.getEntry("Test.txt");
+      const entry = await workingCopy.checkout.staging.getEntry("Test.txt");
       const content = await collectBytes(repository.blobs.load(entry?.objectId ?? ""));
       const text = new TextDecoder().decode(content);
       expect(text).toBe("Hello world");
@@ -148,7 +148,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
       expect(head?.objectId).toBe(commit1.id);
 
       // Staging should have first commit's content
-      const entry = await workingCopy.staging.getEntry("Test.txt");
+      const entry = await workingCopy.checkout.staging.getEntry("Test.txt");
       const content = await collectBytes(repository.blobs.load(entry?.objectId ?? ""));
       const text = new TextDecoder().decode(content);
       expect(text).toBe("Hello world");
@@ -250,7 +250,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
       expect(result.updated).toContain("Test.txt");
 
       // Verify staging has version 1
-      const entry = await workingCopy.staging.getEntry("Test.txt");
+      const entry = await workingCopy.checkout.staging.getEntry("Test.txt");
       const content = await collectBytes(repository.blobs.load(entry?.objectId ?? ""));
       const text = new TextDecoder().decode(content);
       expect(text).toBe("version 1");
@@ -479,7 +479,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
       await addFile(workingCopy, "a.txt", "test-a");
       await addFile(workingCopy, "c.txt", "test-c");
       // Remove b.txt from test branch
-      const editor = workingCopy.staging.createEditor();
+      const editor = workingCopy.checkout.staging.createEditor();
       editor.add(new DeleteStagingEntry("b.txt"));
       await editor.finish();
       await git.commit().setMessage("Test commit").call();
@@ -490,9 +490,9 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
       expect(result.status).toBe(CheckoutStatus.OK);
 
       // Verify staging has main's files
-      const entryA = await workingCopy.staging.getEntry("a.txt");
-      const entryB = await workingCopy.staging.getEntry("b.txt");
-      const entryC = await workingCopy.staging.getEntry("c.txt");
+      const entryA = await workingCopy.checkout.staging.getEntry("a.txt");
+      const entryB = await workingCopy.checkout.staging.getEntry("b.txt");
+      const entryC = await workingCopy.checkout.staging.getEntry("c.txt");
 
       expect(entryA).toBeDefined();
       expect(entryB).toBeDefined();
