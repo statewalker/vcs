@@ -1,14 +1,20 @@
 /**
  * Controllers index - exports all controllers and app context utilities.
+ *
+ * Uses the new Three-Part Architecture (History/Checkout/Worktree):
+ * - History: Immutable repository objects (blobs, trees, commits, tags, refs)
+ * - Checkout: Mutable local state (HEAD, staging, operation states)
+ * - Worktree: File system access (in-memory for this demo)
  */
 
-import { createGitStore, Git, type GitStoreWithWorkTree } from "@statewalker/vcs-commands";
-import type { FilesApi, HistoryStore, StorageBackend } from "@statewalker/vcs-core";
+import { Git } from "@statewalker/vcs-commands";
+import type { History, WorkingCopy } from "@statewalker/vcs-core";
 import {
-  createFileTreeIterator,
-  createGitRepository,
-  createInMemoryFilesApi,
-  FileStagingStore,
+  createMemoryHistory,
+  createSimpleStaging,
+  MemoryCheckout,
+  MemoryWorkingCopy,
+  MemoryWorktree,
 } from "@statewalker/vcs-core";
 import type { RepositoryAccess } from "@statewalker/vcs-transport";
 import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
@@ -44,23 +50,24 @@ export const [getPeerConnections, setPeerConnections] = newAdapter<Map<string, P
 );
 
 /**
- * Context adapter for FilesApi (virtual filesystem).
+ * Context adapter for History (immutable repository objects).
  */
-export const [getFilesApi, setFilesApi] = newAdapter<FilesApi | null>("files-api", () => null);
+export const [getHistory, setHistory] = newAdapter<History | null>("history", () => null);
 
 /**
- * Context adapter for GitRepository (history store).
+ * Context adapter for WorkingCopy (unified repository + checkout + worktree).
  */
-export const [getRepository, setRepository] = newAdapter<HistoryStore | null>(
-  "repository",
+export const [getWorkingCopy, setWorkingCopy] = newAdapter<WorkingCopy | null>(
+  "working-copy",
   () => null,
 );
 
 /**
- * Context adapter for GitStore with worktree.
+ * Context adapter for MemoryWorktree (in-memory file storage).
+ * Provides access to the worktree for file operations in the demo.
  */
-export const [getGitStore, setGitStore] = newAdapter<GitStoreWithWorkTree | null>(
-  "git-store",
+export const [getWorktree, setWorktree] = newAdapter<MemoryWorktree | null>(
+  "worktree",
   () => null,
 );
 
@@ -68,15 +75,6 @@ export const [getGitStore, setGitStore] = newAdapter<GitStoreWithWorkTree | null
  * Context adapter for Git porcelain API.
  */
 export const [getGit, setGit] = newAdapter<Git | null>("git", () => null);
-
-/**
- * Context adapter for StorageBackend.
- * Provides unified storage access for transport operations.
- */
-export const [getStorageBackend, setStorageBackend] = newAdapter<StorageBackend | null>(
-  "storage-backend",
-  () => null,
-);
 
 /**
  * Context adapter for RepositoryAccess.
@@ -88,49 +86,47 @@ export const [getRepositoryAccess, setRepositoryAccess] = newAdapter<RepositoryA
 );
 
 /**
- * Initialize the Git infrastructure (FilesApi, Repository, Staging, Worktree, Git).
+ * Initialize the Git infrastructure using the new Three-Part Architecture.
  *
  * @param ctx The application context to initialize
  */
 async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
-  // 1. Create in-memory FilesApi (virtual filesystem)
-  const files = createInMemoryFilesApi();
-  setFilesApi(ctx, files);
+  // 1. Create in-memory History (blobs, trees, commits, tags, refs)
+  const history = createMemoryHistory();
+  await history.initialize();
+  setHistory(ctx, history);
 
-  // 2. Create GitRepository (auto-initializes .git structure)
-  const repository = await createGitRepository(files, ".git", {
-    create: true,
-    defaultBranch: "main",
-  });
-  setRepository(ctx, repository);
+  // 2. Create in-memory Staging
+  const staging = createSimpleStaging();
 
-  // 3. Set up StorageBackend and RepositoryAccess for transport
-  const backend = repository.backend;
-  if (backend) {
-    setStorageBackend(ctx, backend);
-    // Create RepositoryAccess from the structured stores
-    const repositoryAccess = createVcsRepositoryAccess(backend.structured);
-    setRepositoryAccess(ctx, repositoryAccess);
-  }
-
-  // 4. Create staging store (Git index)
-  const staging = new FileStagingStore(files, ".git/index");
-  await staging.read(); // Load existing or start empty
-
-  // 5. Create worktree iterator
-  const worktree = createFileTreeIterator({
-    files,
-    rootPath: "",
-    gitDir: ".git",
+  // 3. Create in-memory Checkout (HEAD, operation states)
+  const checkout = new MemoryCheckout({
+    staging,
+    initialHead: { type: "symbolic", target: "refs/heads/main" },
   });
 
-  // 6. Create GitStore combining repository + staging + worktree
-  const store = createGitStore({ repository, staging, worktree, files, workTreeRoot: "" });
-  setGitStore(ctx, store);
+  // 4. Create in-memory Worktree (file storage)
+  const worktreeInterface = new MemoryWorktree({
+    blobs: history.blobs,
+    trees: history.trees,
+  });
+  setWorktree(ctx, worktreeInterface);
 
-  // 7. Create Git porcelain API
-  const git = Git.wrap(store);
+  // 5. Create WorkingCopy (combines history, checkout, worktree)
+  const workingCopy = new MemoryWorkingCopy({
+    history,
+    checkout,
+    worktreeInterface,
+  });
+  setWorkingCopy(ctx, workingCopy);
+
+  // 6. Create Git porcelain API
+  const git = Git.fromWorkingCopy(workingCopy);
   setGit(ctx, git);
+
+  // 7. Create RepositoryAccess for transport operations
+  const repositoryAccess = createVcsRepositoryAccess({ history });
+  setRepositoryAccess(ctx, repositoryAccess);
 }
 
 /**
@@ -178,8 +174,13 @@ export function createTestContext(): AppContext {
   return ctx;
 }
 
+// Legacy compatibility - re-export getRepository as alias for getHistory
+// This helps other files that may still reference getRepository
+export const getRepository = getHistory;
+export const setRepository = setHistory;
+
 // Re-export types for convenience
-export type { GitStoreWithWorkTree } from "@statewalker/vcs-commands";
+export type { WorkingCopy } from "@statewalker/vcs-core";
 // Re-export controller factories
 export { createControllers } from "./main-controller.js";
 export { createRepositoryController } from "./repository-controller.js";
