@@ -222,10 +222,10 @@ function createWorkingCopyWithMockWorktree(
     stash: {} as never,
     config: {} as never,
     get history() {
-      return undefined;
+      return repository as never;
     },
     get checkout() {
-      return undefined;
+      return { staging } as never;
     },
     get worktreeInterface() {
       return worktree as unknown as Worktree;
@@ -376,10 +376,10 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       stash: {} as never,
       config: {} as never,
       get history() {
-        return undefined;
+        return repository as never;
       },
       get checkout() {
-        return undefined;
+        return { staging } as never;
       },
       get worktreeInterface() {
         return undefined;
