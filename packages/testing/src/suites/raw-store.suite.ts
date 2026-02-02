@@ -21,16 +21,6 @@ export interface RawStorageTestContext {
  */
 export type RawStorageFactory = () => Promise<RawStorageTestContext>;
 
-/**
- * @deprecated Use RawStorageTestContext instead
- */
-export type RawStoreTestContext = RawStorageTestContext;
-
-/**
- * @deprecated Use RawStorageFactory instead
- */
-export type RawStoreFactory = RawStorageFactory;
-
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -352,18 +342,5 @@ export function createRawStorageTests(name: string, factory: RawStorageFactory):
         expect(removed2).toBe(false);
       });
     });
-  });
-}
-
-/**
- * @deprecated Use createRawStorageTests instead
- */
-export function createRawStoreTests(
-  name: string,
-  factory: () => Promise<{ rawStore: RawStorage; cleanup?: () => Promise<void> }>,
-): void {
-  createRawStorageTests(name, async () => {
-    const ctx = await factory();
-    return { rawStorage: ctx.rawStore, cleanup: ctx.cleanup };
   });
 }

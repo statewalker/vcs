@@ -72,7 +72,7 @@
  * - `createWorktreeStoreTests` - WorktreeStore interface
  *
  * ### Storage Backend Suites
- * - `createRawStoreTests` - RawStore interface
+ * - `createRawStorageTests` - RawStorage interface
  * - `createVolatileStoreTests` - VolatileStore interface
  * - `createDeltaApiTests` - DeltaApi interface
  *
