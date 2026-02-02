@@ -4,10 +4,12 @@ import type {
   IndexEditor,
   MergeStageValue,
   ObjectId,
+  ReadTreeOptions,
   Staging,
   StagingEntry,
   StagingEntryOptions,
   TreeEntry,
+  Trees,
   TreeStore,
 } from "@statewalker/vcs-core";
 import { FileMode, MergeStage } from "@statewalker/vcs-core";
@@ -256,24 +258,38 @@ export class MemoryStagingStore implements Staging {
     return treeStore.storeTree(treeEntries);
   }
 
-  async readTree(treeStore: TreeStore, treeId: ObjectId): Promise<void> {
-    this._entries = [];
-    await this.addTreeRecursive(treeStore, treeId, "", MergeStage.MERGED);
+  async readTree(
+    trees: Trees | TreeStore,
+    treeId: ObjectId,
+    options?: ReadTreeOptions,
+  ): Promise<void> {
+    if (!options?.keepExisting) {
+      this._entries = [];
+    }
+
+    const prefix = options?.prefix ?? "";
+    const stage = options?.stage ?? MergeStage.MERGED;
+
+    await this.addTreeRecursive(trees, treeId, prefix, stage);
     this.sortEntries();
     this.updateTime = Date.now();
   }
 
   private async addTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees | TreeStore,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    for await (const entry of treeStore.loadTree(treeId)) {
+    // Handle both Trees and TreeStore interfaces
+    const treeEntries = "load" in trees ? await trees.load(treeId) : trees.loadTree(treeId);
+    if (!treeEntries) return;
+
+    for await (const entry of treeEntries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
-        await this.addTreeRecursive(treeStore, entry.id, path, stage);
+        await this.addTreeRecursive(trees, entry.id, path, stage);
       } else {
         this._entries.push({
           path,
