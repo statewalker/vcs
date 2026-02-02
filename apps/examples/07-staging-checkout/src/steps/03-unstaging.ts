@@ -4,26 +4,27 @@
  * Demonstrates removing files from the staging area.
  */
 
+import type { MergeStageValue } from "@statewalker/vcs-core";
 import { addFileToStaging, getGit, printSection, printStep, resetState } from "../shared.js";
 
 export async function step03Unstaging(): Promise<void> {
   printStep(3, "Unstaging");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Create initial state with multiple staged files
   console.log("\n--- Setting up staged files ---");
 
-  await addFileToStaging(store, "README.md", "# Unstaging Demo");
+  await addFileToStaging(workingCopy, "README.md", "# Unstaging Demo");
   await git.commit().setMessage("Initial commit").call();
 
-  await addFileToStaging(store, "src/keep.ts", "// This will stay staged");
-  await addFileToStaging(store, "src/remove.ts", "// This will be unstaged");
-  await addFileToStaging(store, "src/also-remove.ts", "// This will also be unstaged");
+  await addFileToStaging(workingCopy, "src/keep.ts", "// This will stay staged");
+  await addFileToStaging(workingCopy, "src/remove.ts", "// This will be unstaged");
+  await addFileToStaging(workingCopy, "src/also-remove.ts", "// This will also be unstaged");
 
   console.log("  Staged files:");
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     console.log(`    ${entry.path}`);
   }
 
@@ -47,13 +48,13 @@ export async function step03Unstaging(): Promise<void> {
   // Method 2: Using staging editor to remove
   console.log("\n--- Method 2: Using staging editor ---");
 
-  const editor = store.staging.editor();
+  const editor = workingCopy.checkout.staging.createEditor();
   editor.remove("src/remove.ts");
   await editor.finish();
   console.log("  Removed: src/remove.ts");
 
   console.log("\n  Remaining staged files:");
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     console.log(`    ${entry.path}`);
   }
 
@@ -66,10 +67,10 @@ export async function step03Unstaging(): Promise<void> {
     path: string;
     mode: number;
     objectId: string;
-    stage: number;
+    stage: MergeStageValue;
   }> = [];
 
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     if (entry.path !== "src/also-remove.ts") {
       entriesToKeep.push({
         path: entry.path,
@@ -81,29 +82,31 @@ export async function step03Unstaging(): Promise<void> {
   }
 
   // Rebuild with filtered entries
-  const builder = store.staging.builder();
+  const builder = workingCopy.checkout.staging.createBuilder();
   for (const entry of entriesToKeep) {
     builder.add(entry);
   }
   await builder.finish();
 
   console.log("\n  Final staged files:");
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     console.log(`    ${entry.path}`);
   }
 
   // Reset to HEAD tree
   console.log("\n--- Resetting staging to match HEAD ---");
 
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (head?.objectId) {
-    const commit = await store.commits.loadCommit(head.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
-    console.log("  Reset staging to HEAD tree");
+    const commit = await history.commits.load(head.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+      console.log("  Reset staging to HEAD tree");
 
-    console.log("\n  Staging now matches HEAD:");
-    for await (const entry of store.staging.listEntries()) {
-      console.log(`    ${entry.path}`);
+      console.log("\n  Staging now matches HEAD:");
+      for await (const entry of workingCopy.checkout.staging.entries()) {
+        console.log(`    ${entry.path}`);
+      }
     }
   }
 

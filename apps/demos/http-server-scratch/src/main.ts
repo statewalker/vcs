@@ -18,13 +18,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import {
-  createGitRepository,
-  FileMode,
-  type GitRepository,
-  indexPack,
-  writePackIndex,
-} from "@statewalker/vcs-core";
+import { FileMode, indexPack, writePackIndex } from "@statewalker/vcs-core";
 import { clone, type PushObject, push } from "@statewalker/vcs-transport";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
@@ -36,10 +30,13 @@ import {
   BASE_DIR,
   concatBytes,
   createAuthor,
+  createFileHistory,
   createVcsHttpServer,
   DEFAULT_BRANCH,
   ensureDirectory,
   ensureDirFiles,
+  type FileHistory,
+  getHead,
   HTTP_PORT,
   LOCAL_REPO_DIR,
   printError,
@@ -89,17 +86,17 @@ async function main(): Promise<void> {
   console.log("Native git is only used for verification.\n");
 
   let server: VcsHttpServer | null = null;
-  let remoteStorage: GitRepository | null = null;
-  let localStorage: GitRepository | null = null;
+  let remoteHistory: FileHistory | null = null;
+  let localHistory: FileHistory | null = null;
 
   try {
     // Step 1: Setup - Create remote repository with VCS
     printStep(1, "Creating remote repository with VCS");
-    remoteStorage = await setupRemoteRepository();
+    remoteHistory = await setupRemoteRepository();
 
     // Step 2: Start VCS HTTP server
     printStep(2, "Starting VCS HTTP server");
-    server = await startHttpServer(remoteStorage);
+    server = await startHttpServer(remoteHistory);
 
     // Step 3: Clone repository using VCS transport
     printStep(3, "Cloning repository using VCS transport");
@@ -111,16 +108,16 @@ async function main(): Promise<void> {
 
     // Step 5: Open local repository with VCS and modify content
     printStep(5, "Modifying content with VCS");
-    localStorage = await openLocalRepository();
-    const { newTreeId } = await modifyContent(localStorage);
+    localHistory = await openLocalRepository();
+    const { newTreeId } = await modifyContent(localHistory);
 
     // Step 6: Create branch and commit
     printStep(6, `Creating branch '${TEST_BRANCH}' and committing changes`);
-    const commitId = await createBranchAndCommit(localStorage, newTreeId);
+    const commitId = await createBranchAndCommit(localHistory, newTreeId);
 
     // Step 7: Push using VCS transport
     printStep(7, "Pushing changes using VCS transport");
-    await pushChanges(localStorage, commitId);
+    await pushChanges(localHistory, commitId);
 
     // Step 8: Verify push with native git
     printStep(8, "Verifying push with native git");
@@ -142,11 +139,11 @@ async function main(): Promise<void> {
     }
     process.exit(1);
   } finally {
-    if (localStorage) {
-      await localStorage.close();
+    if (localHistory) {
+      await localHistory.close();
     }
-    if (remoteStorage) {
-      await remoteStorage.close();
+    if (remoteHistory) {
+      await remoteHistory.close();
     }
     if (server) {
       printInfo("\nStopping HTTP server...");
@@ -158,7 +155,7 @@ async function main(): Promise<void> {
 /**
  * Step 1: Create remote repository entirely with VCS.
  */
-async function setupRemoteRepository(): Promise<GitRepository> {
+async function setupRemoteRepository(): Promise<FileHistory> {
   await removeDirectory(BASE_DIR);
   await ensureDirectory(BASE_DIR);
   await ensureDirectory(REMOTE_REPO_DIR);
@@ -167,9 +164,10 @@ async function setupRemoteRepository(): Promise<GitRepository> {
 
   const files = createNodeFilesApi({ rootDir: REMOTE_REPO_DIR });
 
-  const storage = await createGitRepository(files, ".", {
+  const history = await createFileHistory({
+    files,
+    gitDir: ".",
     create: true,
-    bare: true,
     defaultBranch: DEFAULT_BRANCH,
   });
 
@@ -180,16 +178,16 @@ This repository was created entirely using VCS - no native git commands.
 Created at: ${new Date().toISOString()}
 `;
 
-  const blobId = await storage.blobs.store([textEncoder.encode(readmeContent)]);
+  const blobId = await history.blobs.store([textEncoder.encode(readmeContent)]);
   printInfo(`Created blob: ${shortId(blobId)}`);
 
-  const treeId = await storage.trees.storeTree([
+  const treeId = await history.trees.store([
     { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId },
   ]);
   printInfo(`Created tree: ${shortId(treeId)}`);
 
   const author = createAuthor();
-  const commitId = await storage.commits.storeCommit({
+  const commitId = await history.commits.store({
     tree: treeId,
     parents: [],
     author,
@@ -198,25 +196,25 @@ Created at: ${new Date().toISOString()}
   });
   printInfo(`Created commit: ${shortId(commitId)}`);
 
-  await storage.refs.set(`refs/heads/${DEFAULT_BRANCH}`, commitId);
-  await storage.refs.setSymbolic("HEAD", `refs/heads/${DEFAULT_BRANCH}`);
+  await history.refs.set(`refs/heads/${DEFAULT_BRANCH}`, commitId);
+  await history.refs.setSymbolic("HEAD", `refs/heads/${DEFAULT_BRANCH}`);
 
   printSuccess(`Remote repository created with initial commit: ${shortId(commitId)}`);
 
-  return storage;
+  return history;
 }
 
 /**
  * Step 2: Start VCS HTTP server.
  */
-async function startHttpServer(remoteStorage: GitRepository): Promise<VcsHttpServer> {
+async function startHttpServer(remoteHistory: FileHistory): Promise<VcsHttpServer> {
   printInfo(`Starting VCS HTTP server on port ${httpPort}`);
 
   const server = await createVcsHttpServer({
     port: httpPort,
     getStorage: async (repoPath: string) => {
       if (repoPath === "remote.git") {
-        return remoteStorage;
+        return remoteHistory;
       }
       return null;
     },
@@ -253,10 +251,12 @@ async function cloneWithVcs(): Promise<void> {
 
   const files = createNodeFilesApi({ rootDir: LOCAL_REPO_DIR });
 
-  const repository = (await createGitRepository(files, ".git", {
+  const history = await createFileHistory({
+    files,
+    gitDir: ".git",
     create: true,
     defaultBranch: cloneResult.defaultBranch,
-  })) as GitRepository;
+  });
 
   if (cloneResult.packData.length > 0) {
     printInfo("Processing received pack data...");
@@ -283,19 +283,19 @@ async function cloneWithVcs(): Promise<void> {
   const remoteName = "origin";
   for (const [refName, objectId] of cloneResult.refs) {
     const localRefName = refName;
-    await repository.refs.set(localRefName, bytesToHex(objectId));
+    await history.refs.set(localRefName, bytesToHex(objectId));
     printInfo(`Set ref: ${localRefName} -> ${shortId(bytesToHex(objectId))}`);
   }
 
   const mainRef = cloneResult.refs.get(`refs/remotes/${remoteName}/${cloneResult.defaultBranch}`);
   if (mainRef) {
-    await repository.refs.set(`refs/heads/${cloneResult.defaultBranch}`, bytesToHex(mainRef));
+    await history.refs.set(`refs/heads/${cloneResult.defaultBranch}`, bytesToHex(mainRef));
   }
 
-  await repository.refs.setSymbolic("HEAD", `refs/heads/${cloneResult.defaultBranch}`);
+  await history.refs.setSymbolic("HEAD", `refs/heads/${cloneResult.defaultBranch}`);
 
-  await checkoutHead(repository);
-  await repository.close();
+  await checkoutHead(history);
+  await history.close();
 
   printSuccess(`Repository cloned to ${LOCAL_REPO_DIR}`);
 }
@@ -303,38 +303,47 @@ async function cloneWithVcs(): Promise<void> {
 /**
  * Checkout HEAD to working tree.
  */
-async function checkoutHead(repository: GitRepository): Promise<void> {
-  const headCommit = await repository.getHead();
+async function checkoutHead(history: FileHistory): Promise<void> {
+  const headCommit = await getHead(history);
   if (!headCommit) {
     throw new Error("No HEAD commit found");
   }
 
-  const commit = await repository.commits.loadCommit(headCommit);
-  await extractTree(repository, commit.tree, LOCAL_REPO_DIR);
+  const commit = await history.commits.load(headCommit);
+  if (!commit) {
+    throw new Error(`Commit ${headCommit} not found`);
+  }
+  await extractTree(history, commit.tree, LOCAL_REPO_DIR);
 }
 
 /**
  * Extract a tree to a directory.
  */
-async function extractTree(
-  repository: GitRepository,
-  treeId: string,
-  dirPath: string,
-): Promise<void> {
-  for await (const entry of repository.trees.loadTree(treeId)) {
+async function extractTree(history: FileHistory, treeId: string, dirPath: string): Promise<void> {
+  const entries = await history.trees.load(treeId);
+  if (!entries) {
+    throw new Error(`Tree ${treeId} not found`);
+  }
+
+  for await (const entry of entries) {
     const entryPath = path.join(dirPath, entry.name);
 
     if (entry.mode === FileMode.TREE) {
       await ensureDirectory(entryPath);
-      await extractTree(repository, entry.id, entryPath);
+      await extractTree(history, entry.id, entryPath);
     } else {
+      const content = await history.blobs.load(entry.id);
+      if (!content) {
+        throw new Error(`Blob ${entry.id} not found`);
+      }
+
       const chunks: Uint8Array[] = [];
-      for await (const chunk of repository.blobs.load(entry.id)) {
+      for await (const chunk of content) {
         chunks.push(chunk);
       }
-      const content = concatBytes(...chunks);
+      const data = concatBytes(...chunks);
 
-      await fs.writeFile(entryPath, content);
+      await fs.writeFile(entryPath, data);
     }
   }
 }
@@ -372,41 +381,49 @@ async function verifyCloneWithNativeGit(): Promise<void> {
 /**
  * Open local repository with VCS.
  */
-async function openLocalRepository(): Promise<GitRepository> {
+async function openLocalRepository(): Promise<FileHistory> {
   printInfo(`Opening repository at ${LOCAL_REPO_DIR}`);
 
   const files = createNodeFilesApi({ rootDir: LOCAL_REPO_DIR });
 
-  const repository = (await createGitRepository(files, ".git", {
+  const history = await createFileHistory({
+    files,
+    gitDir: ".git",
     create: false,
-  })) as GitRepository;
+  });
 
-  const headCommit = await repository.getHead();
+  const headCommit = await getHead(history);
   printSuccess(`Repository opened, HEAD at ${shortId(headCommit || "unknown")}`);
 
-  return repository;
+  return history;
 }
 
 /**
  * Step 5: Modify content with VCS.
  */
 async function modifyContent(
-  repository: GitRepository,
+  history: FileHistory,
 ): Promise<{ newBlobId: string; newTreeId: string }> {
-  const headCommit = await repository.getHead();
+  const headCommit = await getHead(history);
   if (!headCommit) {
     throw new Error("No HEAD commit found");
   }
 
-  const commit = await repository.commits.loadCommit(headCommit);
+  const commit = await history.commits.load(headCommit);
+  if (!commit) {
+    throw new Error(`Commit ${headCommit} not found`);
+  }
 
   const existingEntries: Array<{ mode: number; name: string; id: string }> = [];
-  for await (const entry of repository.trees.loadTree(commit.tree)) {
-    existingEntries.push({
-      mode: entry.mode,
-      name: entry.name,
-      id: entry.id,
-    });
+  const treeEntries = await history.trees.load(commit.tree);
+  if (treeEntries) {
+    for await (const entry of treeEntries) {
+      existingEntries.push({
+        mode: entry.mode,
+        name: entry.name,
+        id: entry.id,
+      });
+    }
   }
 
   const newFileContent = `# HTTP Server Demo
@@ -420,7 +437,7 @@ It demonstrates that VCS can:
 Timestamp: ${new Date().toISOString()}
 `;
 
-  const newBlobId = await repository.blobs.store([textEncoder.encode(newFileContent)]);
+  const newBlobId = await history.blobs.store([textEncoder.encode(newFileContent)]);
   printInfo(`Created blob: ${shortId(newBlobId)}`);
 
   const newEntries = [
@@ -428,7 +445,7 @@ Timestamp: ${new Date().toISOString()}
     { mode: FileMode.REGULAR_FILE, name: "DEMO.md", id: newBlobId },
   ];
 
-  const newTreeId = await repository.trees.storeTree(newEntries);
+  const newTreeId = await history.trees.store(newEntries);
   printInfo(`Created tree: ${shortId(newTreeId)}`);
 
   const filePath = path.join(LOCAL_REPO_DIR, "DEMO.md");
@@ -441,17 +458,17 @@ Timestamp: ${new Date().toISOString()}
 /**
  * Step 6: Create branch and commit.
  */
-async function createBranchAndCommit(repository: GitRepository, treeId: string): Promise<string> {
-  const headCommit = await repository.getHead();
+async function createBranchAndCommit(history: FileHistory, treeId: string): Promise<string> {
+  const headCommit = await getHead(history);
   if (!headCommit) {
     throw new Error("No HEAD commit found");
   }
 
-  await repository.refs.set(`refs/heads/${TEST_BRANCH}`, headCommit);
+  await history.refs.set(`refs/heads/${TEST_BRANCH}`, headCommit);
   printInfo(`Created branch '${TEST_BRANCH}'`);
 
   const author = createAuthor();
-  const commitId = await repository.commits.storeCommit({
+  const commitId = await history.commits.store({
     tree: treeId,
     parents: [headCommit],
     author,
@@ -466,8 +483,8 @@ HTTP Git server demo. It demonstrates the ability to:
   });
   printInfo(`Created commit: ${shortId(commitId)}`);
 
-  await repository.refs.set(`refs/heads/${TEST_BRANCH}`, commitId);
-  await repository.refs.setSymbolic("HEAD", `refs/heads/${TEST_BRANCH}`);
+  await history.refs.set(`refs/heads/${TEST_BRANCH}`, commitId);
+  await history.refs.setSymbolic("HEAD", `refs/heads/${TEST_BRANCH}`);
 
   printSuccess(`Commit ${shortId(commitId)} created on branch '${TEST_BRANCH}'`);
 
@@ -477,10 +494,10 @@ HTTP Git server demo. It demonstrates the ability to:
 /**
  * Step 7: Push changes using VCS transport.
  */
-async function pushChanges(repository: GitRepository, commitId: string): Promise<void> {
+async function pushChanges(history: FileHistory, commitId: string): Promise<void> {
   printInfo(`Pushing ${TEST_BRANCH} to remote...`);
 
-  const objectsToPush = await collectObjectsForPush(repository, commitId);
+  const objectsToPush = await collectObjectsForPush(history, commitId);
 
   printInfo(`Collected ${objectsToPush.length} objects to push`);
 
@@ -489,7 +506,7 @@ async function pushChanges(repository: GitRepository, commitId: string): Promise
     refspecs: [`refs/heads/${TEST_BRANCH}:refs/heads/${TEST_BRANCH}`],
     force: true,
     getLocalRef: async (refName: string) => {
-      const ref = await repository.refs.resolve(refName);
+      const ref = await history.refs.resolve(refName);
       return ref?.objectId;
     },
     getObjectsToPush: async function* () {
@@ -523,7 +540,7 @@ async function pushChanges(repository: GitRepository, commitId: string): Promise
  * Collect objects needed for push.
  */
 async function collectObjectsForPush(
-  repository: GitRepository,
+  history: FileHistory,
   commitId: string,
 ): Promise<PushObject[]> {
   const objects: PushObject[] = [];
@@ -540,11 +557,11 @@ async function collectObjectsForPush(
     if (seen.has(id)) return;
     seen.add(id);
 
-    const header = await repository.objects.getHeader(id);
+    const header = await history.objects.getHeader(id);
     const typeCode = typeStringToCode[header.type];
 
     const chunks: Uint8Array[] = [];
-    for await (const chunk of repository.objects.load(id)) {
+    for await (const chunk of history.objects.load(id)) {
       chunks.push(chunk);
     }
     const content = concatBytes(...chunks);
@@ -555,19 +572,24 @@ async function collectObjectsForPush(
   async function collectTree(treeId: string): Promise<void> {
     await collectObject(treeId);
 
-    for await (const entry of repository.trees.loadTree(treeId)) {
-      if (entry.mode === FileMode.TREE) {
-        await collectTree(entry.id);
-      } else {
-        await collectObject(entry.id);
+    const entries = await history.trees.load(treeId);
+    if (entries) {
+      for await (const entry of entries) {
+        if (entry.mode === FileMode.TREE) {
+          await collectTree(entry.id);
+        } else {
+          await collectObject(entry.id);
+        }
       }
     }
   }
 
   await collectObject(commitId);
 
-  const commit = await repository.commits.loadCommit(commitId);
-  await collectTree(commit.tree);
+  const commit = await history.commits.load(commitId);
+  if (commit) {
+    await collectTree(commit.tree);
+  }
 
   return objects;
 }

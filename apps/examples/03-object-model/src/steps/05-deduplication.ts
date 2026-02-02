@@ -6,7 +6,7 @@
  */
 
 import {
-  getRepository,
+  getHistory,
   printSection,
   printStep,
   printSubsection,
@@ -17,7 +17,7 @@ import {
 export async function step05Deduplication(): Promise<void> {
   printStep(5, "Deduplication");
 
-  const { repository } = await getRepository();
+  const { history } = await getHistory();
 
   printSubsection("Content-addressable storage");
 
@@ -32,13 +32,13 @@ export async function step05Deduplication(): Promise<void> {
   console.log(`\n  Storing content: "${content}"`);
 
   // Store the same content multiple times
-  const id1 = await storeBlob(repository, content);
+  const id1 = await storeBlob(history, content);
   console.log(`  First store:  ${id1}`);
 
-  const id2 = await storeBlob(repository, content);
+  const id2 = await storeBlob(history, content);
   console.log(`  Second store: ${id2}`);
 
-  const id3 = await storeBlob(repository, content);
+  const id3 = await storeBlob(history, content);
   console.log(`  Third store:  ${id3}`);
 
   console.log(`\n  All IDs identical: ${id1 === id2 && id2 === id3}`);
@@ -59,7 +59,7 @@ export async function step05Deduplication(): Promise<void> {
 
   const ids = new Set<string>();
   for (const { name, content: fileContent } of fileContents) {
-    const id = await storeBlob(repository, fileContent);
+    const id = await storeBlob(history, fileContent);
     const isDuplicate = ids.has(id);
     ids.add(id);
     console.log(

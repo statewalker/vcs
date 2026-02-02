@@ -6,7 +6,7 @@
  */
 
 import {
-  getRepository,
+  getHistory,
   printSection,
   printStep,
   printSubsection,
@@ -18,12 +18,12 @@ import {
 export async function step01BlobStorage(): Promise<void> {
   printStep(1, "Blob Storage");
 
-  const { repository } = await getRepository();
+  const { history } = await getHistory();
 
   printSubsection("Storing content as a blob");
 
   const content = "Hello, World! This is my first blob.";
-  const blobId = await storeBlob(repository, content);
+  const blobId = await storeBlob(history, content);
 
   console.log(`\n  Content: "${content}"`);
   console.log(`  Blob ID: ${blobId}`);
@@ -37,15 +37,15 @@ export async function step01BlobStorage(): Promise<void> {
 
   printSubsection("Reading blob content back");
 
-  const retrieved = await readBlob(repository, blobId);
+  const retrieved = await readBlob(history, blobId);
   console.log(`\n  Retrieved content: "${retrieved}"`);
   console.log(`  Content matches: ${content === retrieved}`);
 
   printSubsection("Getting object metadata");
 
-  const header = await repository.objects.getHeader(blobId);
-  console.log(`\n  Object type: ${header.type}`);
-  console.log(`  Object size: ${header.size} bytes`);
+  const size = await history.blobs.size(blobId);
+  console.log(`\n  Object type: blob`);
+  console.log(`  Object size: ${size} bytes`);
 
   printSubsection("Storage path");
 

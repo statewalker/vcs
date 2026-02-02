@@ -12,9 +12,9 @@
  * - Unreachable objects may be pruned
  */
 
-import { createGitRepository, type GitRepository } from "@statewalker/vcs-core";
 import {
   countLooseObjects,
+  createFileHistory,
   createFilesApi,
   fs,
   GIT_DIR,
@@ -58,9 +58,9 @@ async function deleteLooseObject(objectId: string): Promise<void> {
 export async function run(): Promise<void> {
   logSection("Step 03: Garbage Collection");
 
-  const repository = state.repository as GitRepository | undefined;
-  if (!repository) {
-    throw new Error("Repository not initialized. Run step 01 first.");
+  const history = state.history;
+  if (!history) {
+    throw new Error("History not initialized. Run step 01 first.");
   }
 
   // Check current state
@@ -102,8 +102,8 @@ export async function run(): Promise<void> {
 
   log("\n--- Performing Garbage Collection ---\n");
 
-  // Close repository before deleting files
-  await repository.close();
+  // Close history before deleting files
+  await history.close();
 
   // Delete loose objects that are now in the pack
   let deleted = 0;
@@ -115,11 +115,13 @@ export async function run(): Promise<void> {
 
   log(`\nDeleted ${deleted} loose objects`);
 
-  // Reopen repository
+  // Reopen history
   const files = createFilesApi();
-  state.repository = (await createGitRepository(files, GIT_DIR, {
+  state.history = await createFileHistory({
+    files,
+    gitDir: GIT_DIR,
     create: false,
-  })) as GitRepository;
+  });
 
   // Check final state
   const { count: looseAfter } = await countLooseObjects();

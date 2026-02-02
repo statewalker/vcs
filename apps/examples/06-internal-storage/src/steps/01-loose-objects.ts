@@ -10,12 +10,13 @@
  * - Each object has a type (blob, tree, commit, tag) and content
  */
 
-import { createGitRepository, FileMode, type GitRepository } from "@statewalker/vcs-core";
+import { FileMode } from "@statewalker/vcs-core";
 import { decompressBlock } from "@statewalker/vcs-utils";
 import {
   cleanupRepo,
   countLooseObjects,
   createAuthor,
+  createFileHistory,
   createFilesApi,
   fs,
   GIT_DIR,
@@ -33,15 +34,17 @@ import {
 export async function run(): Promise<void> {
   logSection("Step 01: Understanding Loose Objects");
 
-  // Clean up and create fresh repository
+  // Clean up and create fresh history
   await cleanupRepo();
   const files = createFilesApi();
-  const repository = (await createGitRepository(files, GIT_DIR, {
+  const history = await createFileHistory({
+    files,
+    gitDir: GIT_DIR,
     create: true,
     defaultBranch: "main",
-  })) as GitRepository;
+  });
 
-  state.repository = repository;
+  state.history = history;
 
   log("Creating content to demonstrate loose object storage...\n");
 
@@ -50,8 +53,8 @@ export async function run(): Promise<void> {
   const configContent = "version = 1\nformat = loose";
 
   // Store blobs (these become loose objects)
-  const readmeId = await storeBlob(repository, readmeContent);
-  const configId = await storeBlob(repository, configContent);
+  const readmeId = await storeBlob(history, readmeContent);
+  const configId = await storeBlob(history, configContent);
 
   state.objectIds.push(readmeId, configId);
 
@@ -60,7 +63,7 @@ export async function run(): Promise<void> {
   logInfo("  config.txt", shortId(configId));
 
   // Create tree (another loose object)
-  const treeId = await repository.trees.storeTree([
+  const treeId = await history.trees.store([
     { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
     { mode: FileMode.REGULAR_FILE, name: "config.txt", id: configId },
   ]);
@@ -71,7 +74,7 @@ export async function run(): Promise<void> {
 
   // Create commit (another loose object)
   const author = createAuthor();
-  const commitId = await repository.commits.storeCommit({
+  const commitId = await history.commits.store({
     tree: treeId,
     parents: [],
     author,
@@ -81,8 +84,8 @@ export async function run(): Promise<void> {
   state.objectIds.push(commitId);
   state.commits.push({ id: commitId, message: "Initial commit" });
 
-  await repository.refs.set("refs/heads/main", commitId);
-  await repository.refs.setSymbolic("HEAD", "refs/heads/main");
+  await history.refs.set("refs/heads/main", commitId);
+  await history.refs.setSymbolic("HEAD", "refs/heads/main");
 
   log("\nCreated commit:");
   logInfo("  Commit ID", shortId(commitId));

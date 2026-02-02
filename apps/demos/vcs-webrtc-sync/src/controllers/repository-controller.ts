@@ -5,8 +5,8 @@
  * Updates models based on repository state.
  */
 
-import { Git, type GitStore, type GitStoreWithWorkTree } from "@statewalker/vcs-commands";
-import { FileMode, FileStagingStore, type GitRepository } from "@statewalker/vcs-core";
+import { Git } from "@statewalker/vcs-commands";
+import { FileMode, FileStagingStore, type History, type WorkingCopy } from "@statewalker/vcs-core";
 import {
   type CommitEntry,
   type FileEntry,
@@ -22,13 +22,10 @@ import { newAdapter, newRegistry } from "../utils/index.js";
 import { getStorageBackend } from "./storage-controller.js";
 
 // Adapters for Git state
-export const [getGitRepository, setGitRepository] = newAdapter<GitRepository | null>(
-  "git-repository",
-  () => null,
-);
+export const [getHistory, setHistory] = newAdapter<History | null>("history", () => null);
 
-export const [getGitStore, setGitStore] = newAdapter<GitStore | GitStoreWithWorkTree | null>(
-  "git-store",
+export const [getWorkingCopy, setWorkingCopy] = newAdapter<WorkingCopy | null>(
+  "working-copy",
   () => null,
 );
 
@@ -45,11 +42,11 @@ export function createRepositoryController(ctx: Map<string, unknown>): () => voi
 
   register(() => {
     stopAutoRefresh();
-    const repo = getGitRepository(ctx);
-    if (repo) {
-      repo.close();
-      setGitRepository(ctx, null);
-      setGitStore(ctx, null);
+    const history = getHistory(ctx);
+    if (history) {
+      history.close();
+      setHistory(ctx, null);
+      setWorkingCopy(ctx, null);
       setGit(ctx, null);
     }
   });
@@ -96,15 +93,15 @@ export async function initOrOpenRepository(ctx: Map<string, unknown>): Promise<b
 
     const result = await initCommand.call();
 
-    setGitRepository(ctx, result.repository as GitRepository);
-    setGitStore(ctx, result.store);
+    setHistory(ctx, result.repository);
+    setWorkingCopy(ctx, result.workingCopy);
     setGit(ctx, result.git);
 
     // Get current branch
-    const headSymRef = await result.store.refs.get("HEAD");
+    const headSymRef = await result.repository.refs.get("HEAD");
     const branch =
       headSymRef && "target" in headSymRef ? headSymRef.target.replace("refs/heads/", "") : "main";
-    const headRef = await result.store.refs.resolve("HEAD");
+    const headRef = await result.repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId || "";
 
     repoModel.setReady(backend.folderName, branch, headCommit);
@@ -226,29 +223,32 @@ External World <---> Controllers <---> Models <---> Views <---> User
  */
 export async function refreshFiles(ctx: Map<string, unknown>): Promise<void> {
   const backend = getStorageBackend(ctx);
-  const store = getGitStore(ctx);
+  const history = getHistory(ctx);
+  const workingCopy = getWorkingCopy(ctx);
   const fileListModel = getFileListModel(ctx);
   const stagingModel = getStagingModel(ctx);
   const repoModel = getRepositoryModel(ctx);
 
-  if (!backend || !store) return;
+  if (!backend || !history || !workingCopy) return;
 
   fileListModel.setLoading(true);
 
   try {
     // Get tracked files from HEAD
     const trackedFiles = new Map<string, string>();
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await history.refs.resolve("HEAD");
     if (headRef?.objectId) {
-      const commit = await store.commits.loadCommit(headRef.objectId);
-      await collectTreeFiles(store, commit.tree, "", trackedFiles);
+      const commit = await history.commits.load(headRef.objectId);
+      if (commit) {
+        await collectTreeFiles(history, commit.tree, "", trackedFiles);
+      }
     }
 
     // Get files from staging store (index)
     // Note: In Git, the index contains ALL tracked files, not just staged changes
     const indexFiles = new Map<string, string>();
-    if ("staging" in store && store.staging) {
-      for await (const entry of store.staging.listEntries()) {
+    if (workingCopy.staging) {
+      for await (const entry of workingCopy.staging.entries()) {
         indexFiles.set(entry.path, entry.objectId);
       }
     }
@@ -343,16 +343,16 @@ export async function stageFile(ctx: Map<string, unknown>, path: string): Promis
  * Unstage a file.
  */
 export async function unstageFile(ctx: Map<string, unknown>, path: string): Promise<void> {
-  const store = getGitStore(ctx);
+  const workingCopy = getWorkingCopy(ctx);
   const logModel = getActivityLogModel(ctx);
 
-  if (!store || !("staging" in store) || !store.staging) {
+  if (!workingCopy || !workingCopy.staging) {
     logModel.error("No repository initialized");
     return;
   }
 
   try {
-    const editor = store.staging.editor();
+    const editor = workingCopy.staging.createEditor();
     editor.remove(path);
     await editor.finish();
     logModel.info(`Unstaged: ${path}`);
@@ -367,13 +367,14 @@ export async function unstageFile(ctx: Map<string, unknown>, path: string): Prom
  */
 export async function commit(ctx: Map<string, unknown>, message: string): Promise<string | null> {
   const git = getGit(ctx);
-  const store = getGitStore(ctx);
+  const history = getHistory(ctx);
+  const workingCopy = getWorkingCopy(ctx);
   const repoModel = getRepositoryModel(ctx);
   const commitFormModel = getCommitFormModel(ctx);
   const stagingModel = getStagingModel(ctx);
   const logModel = getActivityLogModel(ctx);
 
-  if (!git || !store) {
+  if (!git || !history || !workingCopy) {
     logModel.error("No repository initialized");
     return null;
   }
@@ -387,11 +388,11 @@ export async function commit(ctx: Map<string, unknown>, message: string): Promis
 
   try {
     const commitData = await git.commit().setMessage(message).call();
-    const commitId = await store.commits.storeCommit(commitData);
+    const commitId = await history.commits.store(commitData);
 
     // Clear the Git staging store after commit
-    if ("staging" in store && store.staging) {
-      await store.staging.clear();
+    if (workingCopy.staging) {
+      await workingCopy.staging.clear();
     }
 
     // Update HEAD
@@ -417,15 +418,15 @@ export async function commit(ctx: Map<string, unknown>, message: string): Promis
  * Load commit history.
  */
 export async function loadHistory(ctx: Map<string, unknown>): Promise<void> {
-  const store = getGitStore(ctx);
+  const history = getHistory(ctx);
   const historyModel = getCommitHistoryModel(ctx);
 
-  if (!store) return;
+  if (!history) return;
 
   historyModel.setLoading(true);
 
   try {
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await history.refs.resolve("HEAD");
     if (!headRef?.objectId) {
       historyModel.setCommits([]);
       return;
@@ -433,15 +434,17 @@ export async function loadHistory(ctx: Map<string, unknown>): Promise<void> {
 
     const commits: CommitEntry[] = [];
 
-    for await (const id of store.commits.walkAncestry(headRef.objectId, { limit: 50 })) {
-      const commit = await store.commits.loadCommit(id);
-      commits.push({
-        id,
-        shortId: id.slice(0, 7),
-        message: commit.message.trim().split("\n")[0],
-        author: commit.author.name,
-        timestamp: commit.author.timestamp,
-      });
+    for await (const id of history.commits.walkAncestry(headRef.objectId, { limit: 50 })) {
+      const commit = await history.commits.load(id);
+      if (commit) {
+        commits.push({
+          id,
+          shortId: id.slice(0, 7),
+          message: commit.message.trim().split("\n")[0],
+          author: commit.author.name,
+          timestamp: commit.author.timestamp,
+        });
+      }
     }
 
     historyModel.setCommits(commits);
@@ -456,12 +459,12 @@ export async function loadHistory(ctx: Map<string, unknown>): Promise<void> {
  * Restore working directory to a specific commit.
  */
 export async function restoreToCommit(ctx: Map<string, unknown>, commitId: string): Promise<void> {
-  const store = getGitStore(ctx);
+  const history = getHistory(ctx);
   const backend = getStorageBackend(ctx);
   const repoModel = getRepositoryModel(ctx);
   const logModel = getActivityLogModel(ctx);
 
-  if (!store || !backend) {
+  if (!history || !backend) {
     logModel.error("No repository initialized");
     return;
   }
@@ -472,13 +475,17 @@ export async function restoreToCommit(ctx: Map<string, unknown>, commitId: strin
   }
 
   try {
-    const commit = await store.commits.loadCommit(commitId);
+    const commit = await history.commits.load(commitId);
+    if (!commit) {
+      logModel.error(`Commit not found: ${commitId}`);
+      return;
+    }
 
     // Clear working directory and restore from tree
-    await restoreTree(store, backend, commit.tree, "");
+    await restoreTree(history, backend, commit.tree, "");
 
     // Update refs
-    await store.refs.set("refs/heads/main", commitId);
+    await history.refs.set("refs/heads/main", commitId);
     repoModel.updateHead(commitId);
 
     logModel.success(`Restored to commit: ${commitId.slice(0, 7)}`);
@@ -510,17 +517,19 @@ export function stopAutoRefresh(): void {
 // Helper functions
 
 async function collectTreeFiles(
-  store: GitStore | GitStoreWithWorkTree,
+  history: History,
   treeId: string,
   prefix: string,
   files: Map<string, string>,
 ): Promise<void> {
-  for await (const entry of store.trees.loadTree(treeId)) {
+  const tree = await history.trees.load(treeId);
+  if (!tree) return;
+  for await (const entry of tree) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.mode === FileMode.TREE) {
-      await collectTreeFiles(store, entry.id, path, files);
+      await collectTreeFiles(history, entry.objectId, path, files);
     } else {
-      files.set(path, entry.id);
+      files.set(path, entry.objectId);
     }
   }
 }
@@ -552,19 +561,24 @@ async function listFilesFromApi(
 }
 
 async function restoreTree(
-  store: GitStore | GitStoreWithWorkTree,
+  history: History,
   backend: { files: { write: (path: string, chunks: Uint8Array[]) => Promise<void> } },
   treeId: string,
   prefix: string,
 ): Promise<void> {
-  for await (const entry of store.trees.loadTree(treeId)) {
+  const tree = await history.trees.load(treeId);
+  if (!tree) return;
+  for await (const entry of tree) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.mode === FileMode.TREE) {
-      await restoreTree(store, backend, entry.id, path);
+      await restoreTree(history, backend, entry.objectId, path);
     } else {
       const chunks: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(entry.id)) {
-        chunks.push(chunk);
+      const blobData = await history.blobs.load(entry.objectId);
+      if (blobData) {
+        for await (const chunk of blobData) {
+          chunks.push(chunk);
+        }
       }
       await backend.files.write(path, chunks);
     }

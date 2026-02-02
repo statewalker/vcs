@@ -9,16 +9,16 @@ import { addFileToStaging, getGit, printSection, printStep, shortId } from "../s
 export async function step05LogDiff(): Promise<void> {
   printStep(5, "Log and Diff");
 
-  const { git, store } = await getGit();
+  const { git, workingCopy, history } = await getGit();
 
   // Ensure we have some commits
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (!head?.objectId) {
-    await addFileToStaging(store, "README.md", "# Project");
+    await addFileToStaging(workingCopy, "README.md", "# Project");
     await git.commit().setMessage("Initial commit").call();
-    await addFileToStaging(store, "src/index.ts", "console.log('hello');");
+    await addFileToStaging(workingCopy, "src/index.ts", "console.log('hello');");
     await git.commit().setMessage("Add index.ts").call();
-    await addFileToStaging(store, "src/utils.ts", "export const add = (a, b) => a + b;");
+    await addFileToStaging(workingCopy, "src/utils.ts", "export const add = (a, b) => a + b;");
     await git.commit().setMessage("Add utils.ts").call();
   }
 
@@ -48,10 +48,10 @@ export async function step05LogDiff(): Promise<void> {
   console.log("  The diff command compares trees between commits.");
 
   // Get two commits for diff - use low-level walkAncestry to get IDs
-  const headRef = await store.refs.resolve("HEAD");
+  const headRef = await history.refs.resolve("HEAD");
   if (headRef?.objectId) {
     const commitIds: string[] = [];
-    for await (const commitId of store.commits.walkAncestry(headRef.objectId, { limit: 2 })) {
+    for await (const commitId of history.commits.walkAncestry(headRef.objectId, { limit: 2 })) {
       commitIds.push(commitId);
     }
 

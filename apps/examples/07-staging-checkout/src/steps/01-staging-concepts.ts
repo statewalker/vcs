@@ -34,12 +34,12 @@ export async function step01StagingConcepts(): Promise<void> {
     - Enables efficient status checks
   `);
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy } = await getGit();
 
   // Create initial commit
   console.log("\n--- Setting up repository ---");
-  await addFileToStaging(store, "README.md", "# Staging Demo");
+  await addFileToStaging(workingCopy, "README.md", "# Staging Demo");
   await git.commit().setMessage("Initial commit").call();
   console.log("  Created initial commit");
 
@@ -59,7 +59,7 @@ export async function step01StagingConcepts(): Promise<void> {
   console.log("\n--- Current staging area ---");
 
   let entryCount = 0;
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     entryCount++;
     console.log(`\n  Entry ${entryCount}:`);
     console.log(`    Path:     ${entry.path}`);
@@ -94,14 +94,14 @@ export async function step01StagingConcepts(): Promise<void> {
   // Add more files to show staging growth
   console.log("\n--- Adding files to staging ---");
 
-  await addFileToStaging(store, "src/index.ts", "export const app = {};");
+  await addFileToStaging(workingCopy, "src/index.ts", "export const app = {};");
   console.log("  Added: src/index.ts");
 
-  await addFileToStaging(store, "src/utils.ts", "export const utils = {};");
+  await addFileToStaging(workingCopy, "src/utils.ts", "export const utils = {};");
   console.log("  Added: src/utils.ts");
 
   console.log("\n  Staging area now contains:");
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     console.log(`    ${entry.path} -> ${shortId(entry.objectId)}`);
   }
 

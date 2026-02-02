@@ -8,6 +8,7 @@ import {
   addFileToStaging,
   FileMode,
   getGit,
+  MergeStage,
   printSection,
   printStep,
   resetState,
@@ -17,11 +18,11 @@ import {
 export async function step02StagingChanges(): Promise<void> {
   printStep(2, "Staging Changes");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy } = await getGit();
 
   // Create initial commit
-  await addFileToStaging(store, "README.md", "# Staging Demo");
+  await addFileToStaging(workingCopy, "README.md", "# Staging Demo");
   await git.commit().setMessage("Initial commit").call();
 
   console.log("\n--- Methods to stage files ---");
@@ -47,18 +48,18 @@ export async function step02StagingChanges(): Promise<void> {
 
   // Store blob first
   const content1 = new TextEncoder().encode("export const v1 = 1;");
-  const blobId1 = await store.blobs.store([content1]);
+  const blobId1 = await workingCopy.history.blobs.store([content1]);
   console.log(`  Stored blob: ${shortId(blobId1)}`);
 
   // Add to staging via editor
-  const editor = store.staging.editor();
+  const editor = workingCopy.checkout.staging.createEditor();
   editor.add({
     path: "src/version.ts",
     apply: () => ({
       path: "src/version.ts",
       mode: FileMode.REGULAR_FILE,
       objectId: blobId1,
-      stage: 0,
+      stage: MergeStage.MERGED,
       size: content1.length,
       mtime: Date.now(),
     }),
@@ -70,21 +71,21 @@ export async function step02StagingChanges(): Promise<void> {
   console.log("\n3. Using staging builder:");
 
   const content2 = new TextEncoder().encode("export const config = {};");
-  const blobId2 = await store.blobs.store([content2]);
+  const blobId2 = await workingCopy.history.blobs.store([content2]);
 
-  const builder = store.staging.builder();
+  const builder = workingCopy.checkout.staging.createBuilder();
   builder.add({
     path: "src/config.ts",
     mode: FileMode.REGULAR_FILE,
     objectId: blobId2,
-    stage: 0,
+    stage: MergeStage.MERGED,
   });
   await builder.finish();
   console.log("  Added via builder: src/config.ts");
 
   // Show current staging state
   console.log("\n--- Current staging area ---");
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     console.log(`  ${entry.path} -> ${shortId(entry.objectId)}`);
   }
 
@@ -92,17 +93,17 @@ export async function step02StagingChanges(): Promise<void> {
   console.log("\n--- Updating a staged file ---");
 
   const content3 = new TextEncoder().encode("export const v2 = 2;");
-  const blobId3 = await store.blobs.store([content3]);
+  const blobId3 = await workingCopy.history.blobs.store([content3]);
   console.log(`  New blob: ${shortId(blobId3)}`);
 
-  const updateEditor = store.staging.editor();
+  const updateEditor = workingCopy.checkout.staging.createEditor();
   updateEditor.add({
     path: "src/version.ts",
     apply: () => ({
       path: "src/version.ts",
       mode: FileMode.REGULAR_FILE,
       objectId: blobId3,
-      stage: 0,
+      stage: MergeStage.MERGED,
       size: content3.length,
       mtime: Date.now(),
     }),
@@ -112,7 +113,7 @@ export async function step02StagingChanges(): Promise<void> {
 
   // Show staging with updated file
   console.log("\n  Staging area after update:");
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     const marker = entry.path === "src/version.ts" ? " (updated)" : "";
     console.log(`  ${entry.path} -> ${shortId(entry.objectId)}${marker}`);
   }
@@ -128,9 +129,9 @@ export async function step02StagingChanges(): Promise<void> {
     git.add().addFilepattern(pattern).call()
 
   Low-level:
-    store.staging.editor()     - Edit staging entries
-    store.staging.builder()    - Build staging from scratch
-    store.staging.listEntries()    - Iterate entries
+    workingCopy.checkout.staging.createEditor()   - Edit staging entries
+    workingCopy.checkout.staging.createBuilder()  - Build staging from scratch
+    workingCopy.checkout.staging.entries()    - Iterate entries
 
   Entry fields:
     path, mode, objectId, stage, size, mtime

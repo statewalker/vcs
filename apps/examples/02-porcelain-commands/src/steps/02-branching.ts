@@ -9,12 +9,12 @@ import { addFileToStaging, getGit, printSection, printStep } from "../shared.js"
 export async function step02Branching(): Promise<void> {
   printStep(2, "Branching");
 
-  const { git, store } = await getGit();
+  const { git, workingCopy, history } = await getGit();
 
   // Ensure we have a commit
-  const head = await store.refs.resolve("HEAD");
+  const head = await history.refs.resolve("HEAD");
   if (!head?.objectId) {
-    await addFileToStaging(store, "README.md", "# Project");
+    await addFileToStaging(workingCopy, "README.md", "# Project");
     await git.commit().setMessage("Initial commit").call();
   }
 

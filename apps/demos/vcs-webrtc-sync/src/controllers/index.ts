@@ -26,8 +26,9 @@ export {
   detectConflicts,
   fetchFromRemote,
   getGit,
-  getGitStore,
+  getHistory,
   getStorageBackend,
+  getWorkingCopy,
   // Repository operations
   initOrOpenRepository,
   isConnected,

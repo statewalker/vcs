@@ -16,13 +16,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import {
-  createGitRepository,
-  FileMode,
-  type GitRepository,
-  indexPack,
-  writePackIndex,
-} from "@statewalker/vcs-core";
+import { FileMode, indexPack, writePackIndex } from "@statewalker/vcs-core";
 import { clone, type PushObject, push } from "@statewalker/vcs-transport";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
@@ -33,8 +27,11 @@ import {
   atomicWriteFile,
   concatBytes,
   createAuthor,
+  createFileHistory,
   ensureDirectory,
   ensureDirFiles,
+  type FileHistory,
+  getHead,
   printError,
   printInfo,
   printSection,
@@ -89,21 +86,21 @@ async function main(): Promise<void> {
   printSection("HTTP Git Client Demo");
   console.log("Using VCS transport to interact with a Git HTTP server.\n");
 
-  let repository: GitRepository | null = null;
+  let history: FileHistory | null = null;
 
   try {
     // Step 1: Clone
     printStep(1, "Cloning repository");
-    repository = await cloneRepository(url, localDir);
+    history = await cloneRepository(url, localDir);
 
     if (shouldPush) {
       // Step 2: Make changes
       printStep(2, "Creating changes");
-      const { commitId } = await makeChanges(repository, localDir);
+      const { commitId } = await makeChanges(history, localDir);
 
       // Step 3: Push
       printStep(3, "Pushing changes");
-      await pushChanges(repository, url, commitId);
+      await pushChanges(history, url, commitId);
     }
 
     printSection("SUCCESS!");
@@ -118,8 +115,8 @@ async function main(): Promise<void> {
     }
     process.exit(1);
   } finally {
-    if (repository) {
-      await repository.close();
+    if (history) {
+      await history.close();
     }
   }
 }
@@ -127,7 +124,7 @@ async function main(): Promise<void> {
 /**
  * Clone a repository using VCS transport.
  */
-async function cloneRepository(url: string, localDir: string): Promise<GitRepository> {
+async function cloneRepository(url: string, localDir: string): Promise<FileHistory> {
   printInfo(`Cloning from: ${url}`);
   printInfo(`Destination: ${localDir}`);
 
@@ -153,10 +150,12 @@ async function cloneRepository(url: string, localDir: string): Promise<GitReposi
 
   // Create local repository
   const files = createNodeFilesApi({ rootDir: localDir });
-  const repository = (await createGitRepository(files, ".git", {
+  const history = await createFileHistory({
+    files,
+    gitDir: ".git",
     create: true,
     defaultBranch: cloneResult.defaultBranch,
-  })) as GitRepository;
+  });
 
   // Process pack data
   if (cloneResult.packData.length > 0) {
@@ -179,60 +178,69 @@ async function cloneRepository(url: string, localDir: string): Promise<GitReposi
 
   // Set up refs
   for (const [refName, objectId] of cloneResult.refs) {
-    await repository.refs.set(refName, bytesToHex(objectId));
+    await history.refs.set(refName, bytesToHex(objectId));
   }
 
   // Set up local main branch
   const mainRef = cloneResult.refs.get(`refs/remotes/origin/${cloneResult.defaultBranch}`);
   if (mainRef) {
-    await repository.refs.set(`refs/heads/${cloneResult.defaultBranch}`, bytesToHex(mainRef));
+    await history.refs.set(`refs/heads/${cloneResult.defaultBranch}`, bytesToHex(mainRef));
   }
 
-  await repository.refs.setSymbolic("HEAD", `refs/heads/${cloneResult.defaultBranch}`);
+  await history.refs.setSymbolic("HEAD", `refs/heads/${cloneResult.defaultBranch}`);
 
   // Checkout working tree
-  await checkoutHead(repository, localDir);
+  await checkoutHead(history, localDir);
 
   printSuccess(`Repository cloned successfully`);
 
-  return repository;
+  return history;
 }
 
 /**
  * Checkout HEAD to working tree.
  */
-async function checkoutHead(repository: GitRepository, localDir: string): Promise<void> {
-  const headCommit = await repository.getHead();
+async function checkoutHead(history: FileHistory, localDir: string): Promise<void> {
+  const headCommit = await getHead(history);
   if (!headCommit) {
     printInfo("Empty repository - no checkout needed");
     return;
   }
 
-  const commit = await repository.commits.loadCommit(headCommit);
-  await extractTree(repository, commit.tree, localDir);
+  const commit = await history.commits.load(headCommit);
+  if (!commit) {
+    throw new Error(`Commit ${headCommit} not found`);
+  }
+  await extractTree(history, commit.tree, localDir);
 }
 
 /**
  * Extract a tree to a directory.
  */
-async function extractTree(
-  repository: GitRepository,
-  treeId: string,
-  dirPath: string,
-): Promise<void> {
-  for await (const entry of repository.trees.loadTree(treeId)) {
+async function extractTree(history: FileHistory, treeId: string, dirPath: string): Promise<void> {
+  const entries = await history.trees.load(treeId);
+  if (!entries) {
+    throw new Error(`Tree ${treeId} not found`);
+  }
+
+  for await (const entry of entries) {
     const entryPath = path.join(dirPath, entry.name);
 
     if (entry.mode === FileMode.TREE) {
       await ensureDirectory(entryPath);
-      await extractTree(repository, entry.id, entryPath);
+      await extractTree(history, entry.id, entryPath);
     } else {
+      const content = await history.blobs.load(entry.id);
+      if (!content) {
+        throw new Error(`Blob ${entry.id} not found`);
+      }
+
       const chunks: Uint8Array[] = [];
-      for await (const chunk of repository.blobs.load(entry.id)) {
+      for await (const chunk of content) {
         chunks.push(chunk);
       }
-      const content = concatBytes(...chunks);
-      await fs.writeFile(entryPath, content);
+      const data = concatBytes(...chunks);
+      await fs.writeFile(entryPath, data);
     }
   }
 }
@@ -241,24 +249,30 @@ async function extractTree(
  * Make changes to the repository.
  */
 async function makeChanges(
-  repository: GitRepository,
+  history: FileHistory,
   localDir: string,
 ): Promise<{ newTreeId: string; commitId: string }> {
-  const headCommit = await repository.getHead();
+  const headCommit = await getHead(history);
   if (!headCommit) {
     throw new Error("Cannot push to empty repository");
   }
 
-  const commit = await repository.commits.loadCommit(headCommit);
+  const commit = await history.commits.load(headCommit);
+  if (!commit) {
+    throw new Error(`Commit ${headCommit} not found`);
+  }
 
   // Get existing tree entries
   const existingEntries: Array<{ mode: number; name: string; id: string }> = [];
-  for await (const entry of repository.trees.loadTree(commit.tree)) {
-    existingEntries.push({
-      mode: entry.mode,
-      name: entry.name,
-      id: entry.id,
-    });
+  const entries = await history.trees.load(commit.tree);
+  if (entries) {
+    for await (const entry of entries) {
+      existingEntries.push({
+        mode: entry.mode,
+        name: entry.name,
+        id: entry.id,
+      });
+    }
   }
 
   // Create a new file
@@ -269,7 +283,7 @@ This file was created by the VCS client demo.
 Timestamp: ${new Date().toISOString()}
 `;
 
-  const newBlobId = await repository.blobs.store([textEncoder.encode(newFileContent)]);
+  const newBlobId = await history.blobs.store([textEncoder.encode(newFileContent)]);
   printInfo(`Created blob: ${shortId(newBlobId)}`);
 
   // Create new tree
@@ -278,7 +292,7 @@ Timestamp: ${new Date().toISOString()}
     { mode: FileMode.REGULAR_FILE, name: "CLIENT-DEMO.md", id: newBlobId },
   ];
 
-  const newTreeId = await repository.trees.storeTree(newEntries);
+  const newTreeId = await history.trees.store(newEntries);
   printInfo(`Created tree: ${shortId(newTreeId)}`);
 
   // Write file to working directory
@@ -286,7 +300,7 @@ Timestamp: ${new Date().toISOString()}
 
   // Create commit
   const author = createAuthor();
-  const commitId = await repository.commits.storeCommit({
+  const commitId = await history.commits.store({
     tree: newTreeId,
     parents: [headCommit],
     author,
@@ -296,9 +310,9 @@ Timestamp: ${new Date().toISOString()}
   printInfo(`Created commit: ${shortId(commitId)}`);
 
   // Update HEAD
-  const headRef = await repository.refs.get("HEAD");
+  const headRef = await history.refs.get("HEAD");
   if (headRef && "target" in headRef && headRef.target) {
-    await repository.refs.set(headRef.target, commitId);
+    await history.refs.set(headRef.target, commitId);
   }
 
   printSuccess("Changes created successfully");
@@ -309,15 +323,11 @@ Timestamp: ${new Date().toISOString()}
 /**
  * Push changes to remote.
  */
-async function pushChanges(
-  repository: GitRepository,
-  url: string,
-  commitId: string,
-): Promise<void> {
+async function pushChanges(history: FileHistory, url: string, commitId: string): Promise<void> {
   printInfo(`Pushing to: ${url}`);
 
   // Get current branch
-  const headRef = await repository.refs.get("HEAD");
+  const headRef = await history.refs.get("HEAD");
   if (!headRef || !("target" in headRef) || !headRef.target) {
     throw new Error("HEAD is not on a branch");
   }
@@ -328,7 +338,7 @@ async function pushChanges(
   printInfo(`Pushing branch: ${branchName}`);
 
   // Collect objects to push
-  const objects = await collectObjectsForPush(repository, commitId);
+  const objects = await collectObjectsForPush(history, commitId);
   printInfo(`Objects to push: ${objects.length}`);
 
   // Push
@@ -337,7 +347,7 @@ async function pushChanges(
     refspecs: [refspec],
     force: true,
     getLocalRef: async (refName: string) => {
-      const ref = await repository.refs.resolve(refName);
+      const ref = await history.refs.resolve(refName);
       return ref?.objectId;
     },
     getObjectsToPush: async function* () {
@@ -364,7 +374,7 @@ async function pushChanges(
  * Collect objects needed for push.
  */
 async function collectObjectsForPush(
-  repository: GitRepository,
+  history: FileHistory,
   commitId: string,
 ): Promise<PushObject[]> {
   const objects: PushObject[] = [];
@@ -381,11 +391,11 @@ async function collectObjectsForPush(
     if (seen.has(id)) return;
     seen.add(id);
 
-    const header = await repository.objects.getHeader(id);
+    const header = await history.objects.getHeader(id);
     const typeCode = typeStringToCode[header.type];
 
     const chunks: Uint8Array[] = [];
-    for await (const chunk of repository.objects.load(id)) {
+    for await (const chunk of history.objects.load(id)) {
       chunks.push(chunk);
     }
     const content = concatBytes(...chunks);
@@ -396,19 +406,24 @@ async function collectObjectsForPush(
   async function collectTree(treeId: string): Promise<void> {
     await collectObject(treeId);
 
-    for await (const entry of repository.trees.loadTree(treeId)) {
-      if (entry.mode === FileMode.TREE) {
-        await collectTree(entry.id);
-      } else {
-        await collectObject(entry.id);
+    const entries = await history.trees.load(treeId);
+    if (entries) {
+      for await (const entry of entries) {
+        if (entry.mode === FileMode.TREE) {
+          await collectTree(entry.id);
+        } else {
+          await collectObject(entry.id);
+        }
       }
     }
   }
 
   await collectObject(commitId);
 
-  const commit = await repository.commits.loadCommit(commitId);
-  await collectTree(commit.tree);
+  const commit = await history.commits.load(commitId);
+  if (commit) {
+    await collectTree(commit.tree);
+  }
 
   return objects;
 }

@@ -5,9 +5,10 @@
  * Handles push/fetch operations and conflict detection.
  */
 
+import { FileMode, type History } from "@statewalker/vcs-core";
 import { getActivityLogModel, getRepositoryModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
-import { getGitStore } from "./repository-controller.js";
+import { getHistory } from "./repository-controller.js";
 import { getDataChannel, isConnected } from "./webrtc-controller.js";
 
 /**
@@ -39,12 +40,12 @@ export function createSyncController(_ctx: Map<string, unknown>): () => void {
  * Push local repository state to the remote peer.
  */
 export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> {
-  const store = getGitStore(ctx);
+  const history = getHistory(ctx);
   const channel = getDataChannel(ctx);
   const repoModel = getRepositoryModel(ctx);
   const logModel = getActivityLogModel(ctx);
 
-  if (!store) {
+  if (!history) {
     logModel.error("No repository initialized");
     return false;
   }
@@ -58,7 +59,7 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
     logModel.info("Starting push to peer...");
 
     // Get current HEAD
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await history.refs.resolve("HEAD");
     if (!headRef?.objectId) {
       logModel.warning("No commits to push");
       return false;
@@ -68,8 +69,9 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
     const objects: Array<{ type: string; id: string; data: Uint8Array }> = [];
 
     // Walk commits
-    for await (const commitId of store.commits.walkAncestry(headRef.objectId, { limit: 100 })) {
-      const commit = await store.commits.loadCommit(commitId);
+    for await (const commitId of history.commits.walkAncestry(headRef.objectId, { limit: 100 })) {
+      const commit = await history.commits.load(commitId);
+      if (!commit) continue;
 
       // Serialize commit (simplified - in real impl would use proper format)
       const commitData = new TextEncoder().encode(
@@ -84,7 +86,7 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
       objects.push({ type: "commit", id: commitId, data: commitData });
 
       // Collect tree objects
-      await collectTreeObjects(store, commit.tree, objects);
+      await collectTreeObjects(history, commit.tree, objects);
     }
 
     // Send repo info first
@@ -127,11 +129,11 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
  * Fetch repository state from the remote peer.
  */
 export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolean> {
-  const store = getGitStore(ctx);
+  const history = getHistory(ctx);
   const channel = getDataChannel(ctx);
   const logModel = getActivityLogModel(ctx);
 
-  if (!store) {
+  if (!history) {
     logModel.error("No repository initialized");
     return false;
   }
@@ -176,13 +178,13 @@ export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolea
               if (obj.type === "commit") {
                 // Parse and store commit
                 const commitData = JSON.parse(new TextDecoder().decode(data));
-                await store.commits.storeCommit(commitData);
+                await history.commits.store(commitData);
               } else if (obj.type === "tree") {
                 // Store tree
-                await store.trees.storeTree(JSON.parse(new TextDecoder().decode(data)));
+                await history.trees.store(JSON.parse(new TextDecoder().decode(data)));
               } else if (obj.type === "blob") {
                 // Store blob
-                await store.blobs.store([data]);
+                await history.blobs.store([data]);
               }
               receivedCount++;
               break;
@@ -194,7 +196,7 @@ export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolea
 
               // Update refs if we got a remote HEAD
               if (remoteHead) {
-                await store.refs.set("refs/remotes/peer/main", remoteHead);
+                await history.refs.set("refs/remotes/peer/main", remoteHead);
                 logModel.info(`Updated remote tracking ref`);
               }
               resolve(true);
@@ -238,20 +240,20 @@ export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolea
 export async function detectConflicts(
   ctx: Map<string, unknown>,
 ): Promise<Array<{ path: string; local: string; remote: string }>> {
-  const store = getGitStore(ctx);
+  const history = getHistory(ctx);
   const logModel = getActivityLogModel(ctx);
 
-  if (!store) {
+  if (!history) {
     return [];
   }
 
   try {
     // Get local HEAD
-    const localRef = await store.refs.resolve("HEAD");
+    const localRef = await history.refs.resolve("HEAD");
     const localHead = localRef?.objectId;
 
     // Get remote tracking ref
-    const remoteRef = await store.refs.get("refs/remotes/peer/main");
+    const remoteRef = await history.refs.get("refs/remotes/peer/main");
     const remoteHead = remoteRef && "objectId" in remoteRef ? remoteRef.objectId : null;
 
     if (!localHead || !remoteHead) {
@@ -259,14 +261,18 @@ export async function detectConflicts(
     }
 
     // Compare trees
-    const localCommit = await store.commits.loadCommit(localHead);
-    const remoteCommit = await store.commits.loadCommit(remoteHead);
+    const localCommit = await history.commits.load(localHead);
+    const remoteCommit = await history.commits.load(remoteHead);
+
+    if (!localCommit || !remoteCommit) {
+      return [];
+    }
 
     const localFiles = new Map<string, string>();
     const remoteFiles = new Map<string, string>();
 
-    await collectFileIds(store, localCommit.tree, "", localFiles);
-    await collectFileIds(store, remoteCommit.tree, "", remoteFiles);
+    await collectFileIds(history, localCommit.tree, "", localFiles);
+    await collectFileIds(history, remoteCommit.tree, "", remoteFiles);
 
     // Find conflicts (same file modified in both)
     const conflicts: Array<{ path: string; local: string; remote: string }> = [];
@@ -311,26 +317,29 @@ export async function resolveConflict(
 // Helper functions
 
 async function collectTreeObjects(
-  store: {
-    trees: { loadTree: (id: string) => AsyncIterable<{ name: string; mode: number; id: string }> };
-    blobs: { load: (id: string) => AsyncIterable<Uint8Array> };
-  },
+  history: History,
   treeId: string,
   objects: Array<{ type: string; id: string; data: Uint8Array }>,
 ): Promise<void> {
-  const entries: Array<{ name: string; mode: number; id: string }> = [];
+  const tree = await history.trees.load(treeId);
+  if (!tree) return;
 
-  for await (const entry of store.trees.loadTree(treeId)) {
-    entries.push(entry);
+  const entries: Array<{ name: string; mode: number; objectId: string }> = [];
 
-    if (entry.mode === 0o040000) {
+  for await (const entry of tree) {
+    entries.push({ name: entry.name, mode: entry.mode, objectId: entry.objectId });
+
+    if (entry.mode === FileMode.TREE) {
       // Directory - recurse
-      await collectTreeObjects(store, entry.id, objects);
+      await collectTreeObjects(history, entry.objectId, objects);
     } else {
       // File - collect blob
       const chunks: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(entry.id)) {
-        chunks.push(chunk);
+      const blobData = await history.blobs.load(entry.objectId);
+      if (blobData) {
+        for await (const chunk of blobData) {
+          chunks.push(chunk);
+        }
       }
       const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
       const data = new Uint8Array(totalLength);
@@ -339,7 +348,7 @@ async function collectTreeObjects(
         data.set(chunk, offset);
         offset += chunk.length;
       }
-      objects.push({ type: "blob", id: entry.id, data });
+      objects.push({ type: "blob", id: entry.objectId, data });
     }
   }
 
@@ -349,19 +358,20 @@ async function collectTreeObjects(
 }
 
 async function collectFileIds(
-  store: {
-    trees: { loadTree: (id: string) => AsyncIterable<{ name: string; mode: number; id: string }> };
-  },
+  history: History,
   treeId: string,
   prefix: string,
   files: Map<string, string>,
 ): Promise<void> {
-  for await (const entry of store.trees.loadTree(treeId)) {
+  const tree = await history.trees.load(treeId);
+  if (!tree) return;
+
+  for await (const entry of tree) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.mode === 0o040000) {
-      await collectFileIds(store, entry.id, path, files);
+    if (entry.mode === FileMode.TREE) {
+      await collectFileIds(history, entry.objectId, path, files);
     } else {
-      files.set(path, entry.id);
+      files.set(path, entry.objectId);
     }
   }
 }

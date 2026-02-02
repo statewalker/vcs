@@ -11,7 +11,6 @@
  * - Custom data deduplication
  */
 
-import type { GitRepository } from "@statewalker/vcs-core";
 import { log, logInfo, logSection, logSuccess, shortId, state } from "../shared/index.js";
 
 const textEncoder = new TextEncoder();
@@ -34,9 +33,9 @@ function concatBytes(...arrays: Uint8Array[]): Uint8Array {
 export async function run(): Promise<void> {
   logSection("Step 04: Direct Storage (Bypassing Git Index)");
 
-  const repository = state.repository as GitRepository | undefined;
-  if (!repository) {
-    throw new Error("Repository not initialized. Run steps 01-03 first.");
+  const history = state.history;
+  if (!history) {
+    throw new Error("History not initialized. Run steps 01-03 first.");
   }
 
   log("Using VCS storage directly without Git workflow...\n");
@@ -49,9 +48,9 @@ export async function run(): Promise<void> {
   const version2 = textEncoder.encode("Version 2 content with changes");
   const version3 = textEncoder.encode("Version 1 content"); // Same as version1
 
-  const id1 = await repository.blobs.store([version1]);
-  const id2 = await repository.blobs.store([version2]);
-  const id3 = await repository.blobs.store([version3]);
+  const id1 = await history.blobs.store([version1]);
+  const id2 = await history.blobs.store([version2]);
+  const id3 = await history.blobs.store([version3]);
 
   log("Stored three versions:");
   logInfo("  Version 1", shortId(id1));
@@ -67,8 +66,11 @@ export async function run(): Promise<void> {
   log("\n--- Loading Content ---\n");
 
   const chunks1: Uint8Array[] = [];
-  for await (const chunk of repository.blobs.load(id1)) {
-    chunks1.push(chunk);
+  const content1 = await history.blobs.load(id1);
+  if (content1) {
+    for await (const chunk of content1) {
+      chunks1.push(chunk);
+    }
   }
   const loaded1 = textDecoder.decode(concatBytes(...chunks1));
 
@@ -77,8 +79,8 @@ export async function run(): Promise<void> {
   // Get object metadata
   log("\n--- Object Metadata ---\n");
 
-  const header1 = await repository.objects.getHeader(id1);
-  const header2 = await repository.objects.getHeader(id2);
+  const header1 = await history.objects.getHeader(id1);
+  const header2 = await history.objects.getHeader(id2);
 
   log("Version 1 metadata:");
   logInfo("  Type", header1.type);
@@ -102,7 +104,7 @@ export async function run(): Promise<void> {
   };
 
   const configBytes = textEncoder.encode(JSON.stringify(configData, null, 2));
-  const configId = await repository.blobs.store([configBytes]);
+  const configId = await history.blobs.store([configBytes]);
 
   log("Stored JSON configuration:");
   logInfo("  Object ID", shortId(configId));
@@ -110,8 +112,11 @@ export async function run(): Promise<void> {
 
   // Load and parse JSON
   const configChunks: Uint8Array[] = [];
-  for await (const chunk of repository.blobs.load(configId)) {
-    configChunks.push(chunk);
+  const configContent = await history.blobs.load(configId);
+  if (configContent) {
+    for await (const chunk of configContent) {
+      configChunks.push(chunk);
+    }
   }
   const loadedConfig = JSON.parse(textDecoder.decode(concatBytes(...configChunks)));
 
@@ -142,7 +147,7 @@ export async function run(): Promise<void> {
     0x52, // IHDR
   ]);
 
-  const binaryId = await repository.blobs.store([binaryData]);
+  const binaryId = await history.blobs.store([binaryData]);
 
   log("Stored binary data:");
   logInfo("  Object ID", shortId(binaryId));

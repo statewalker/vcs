@@ -2,55 +2,50 @@
  * Shared utilities for the object model example
  */
 
-import {
-  createGitRepository,
-  createInMemoryFilesApi,
-  FileMode,
-  type FilesApi,
-  type GitRepository,
-  type ObjectId,
-} from "@statewalker/vcs-core";
+import { createMemoryHistory, FileMode, type History, type ObjectId } from "@statewalker/vcs-core";
 
 // Shared state
-let sharedFiles: FilesApi | null = null;
-let sharedRepository: GitRepository | null = null;
+let sharedHistory: History | null = null;
 
 /**
- * Get or create the shared repository
+ * Get or create the shared history
  */
-export async function getRepository(): Promise<{ repository: GitRepository; files: FilesApi }> {
-  if (!sharedFiles || !sharedRepository) {
-    sharedFiles = createInMemoryFilesApi();
-    sharedRepository = await createGitRepository(sharedFiles, ".git", {
-      create: true,
-      defaultBranch: "main",
-    });
+export async function getHistory(): Promise<{ history: History }> {
+  if (!sharedHistory) {
+    sharedHistory = createMemoryHistory();
+    await sharedHistory.initialize();
   }
-  return { repository: sharedRepository, files: sharedFiles };
+  return { history: sharedHistory };
 }
 
 /**
  * Reset the shared state
  */
-export function resetState(): void {
-  sharedFiles = null;
-  sharedRepository = null;
+export async function resetState(): Promise<void> {
+  if (sharedHistory) {
+    await sharedHistory.close();
+  }
+  sharedHistory = null;
 }
 
 /**
  * Store text content as a blob
  */
-export async function storeBlob(repository: GitRepository, content: string): Promise<ObjectId> {
+export async function storeBlob(history: History, content: string): Promise<ObjectId> {
   const bytes = new TextEncoder().encode(content);
-  return repository.blobs.store([bytes]);
+  return history.blobs.store([bytes]);
 }
 
 /**
  * Read blob content as text
  */
-export async function readBlob(repository: GitRepository, id: ObjectId): Promise<string> {
+export async function readBlob(history: History, id: ObjectId): Promise<string> {
   const chunks: Uint8Array[] = [];
-  for await (const chunk of repository.blobs.load(id)) {
+  const stream = await history.blobs.load(id);
+  if (!stream) {
+    throw new Error(`Blob not found: ${id}`);
+  }
+  for await (const chunk of stream) {
     chunks.push(chunk);
   }
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
@@ -132,6 +127,6 @@ export function printSubsection(title: string): void {
   console.log(`\n  >> ${title}`);
 }
 
-export type { GitRepository, ObjectId, TreeEntry } from "@statewalker/vcs-core";
+export type { History, ObjectId, TreeEntry } from "@statewalker/vcs-core";
 // Re-export types
 export { FileMode } from "@statewalker/vcs-core";

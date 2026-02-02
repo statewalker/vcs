@@ -4,18 +4,19 @@
  * Demonstrates checking repository status.
  */
 
+import type { MergeStageValue } from "@statewalker/vcs-core";
 import { addFileToStaging, getGit, printSection, printStep, resetState } from "../shared.js";
 
 export async function step04Status(): Promise<void> {
   printStep(4, "Status");
 
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy } = await getGit();
 
   // Create initial commit
   console.log("\n--- Setting up repository ---");
-  await addFileToStaging(store, "README.md", "# Status Demo");
-  await addFileToStaging(store, "src/index.ts", "export const v1 = 1;");
+  await addFileToStaging(workingCopy, "README.md", "# Status Demo");
+  await addFileToStaging(workingCopy, "src/index.ts", "export const v1 = 1;");
   await git.commit().setMessage("Initial commit").call();
   console.log("  Created initial commit");
 
@@ -30,7 +31,7 @@ export async function step04Status(): Promise<void> {
 
   // Add new file (staged)
   console.log("\n--- After staging a new file ---");
-  await addFileToStaging(store, "src/new-file.ts", "// New file");
+  await addFileToStaging(workingCopy, "src/new-file.ts", "// New file");
 
   status = await git.status().call();
   console.log(`  isClean(): ${status.isClean()}`);
@@ -38,7 +39,7 @@ export async function step04Status(): Promise<void> {
 
   // Modify existing file
   console.log("\n--- After modifying a file ---");
-  await addFileToStaging(store, "src/index.ts", "export const v2 = 2;");
+  await addFileToStaging(workingCopy, "src/index.ts", "export const v2 = 2;");
 
   status = await git.status().call();
   console.log(`  Changed:   ${[...status.changed].join(", ") || "(none)"}`);
@@ -47,8 +48,13 @@ export async function step04Status(): Promise<void> {
   console.log("\n--- After removing a file ---");
 
   // Rebuild staging without README.md
-  const entriesToKeep: Array<{ path: string; mode: number; objectId: string; stage: number }> = [];
-  for await (const entry of store.staging.listEntries()) {
+  const entriesToKeep: Array<{
+    path: string;
+    mode: number;
+    objectId: string;
+    stage: MergeStageValue;
+  }> = [];
+  for await (const entry of workingCopy.checkout.staging.entries()) {
     if (entry.path !== "README.md") {
       entriesToKeep.push({
         path: entry.path,
@@ -59,7 +65,7 @@ export async function step04Status(): Promise<void> {
     }
   }
 
-  const builder = store.staging.builder();
+  const builder = workingCopy.checkout.staging.createBuilder();
   for (const entry of entriesToKeep) {
     builder.add(entry);
   }

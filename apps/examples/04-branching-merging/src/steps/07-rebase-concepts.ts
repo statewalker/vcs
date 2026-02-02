@@ -63,40 +63,42 @@ export async function step07RebaseConcepts(): Promise<void> {
 
   // Demonstrate rebase setup
   console.log("\n--- Demo: Setting up for rebase ---");
-  resetState();
-  const { git, store } = await getGit();
+  await resetState();
+  const { git, workingCopy, history } = await getGit();
 
   // Create initial commit
-  await addFileToStaging(store, "README.md", "# Rebase Demo");
+  await addFileToStaging(workingCopy, "README.md", "# Rebase Demo");
   await git.commit().setMessage("Initial commit").call();
 
   // Create feature branch
   await git.branchCreate().setName("feature-rebase").call();
 
   // Add commits on main
-  await addFileToStaging(store, "main-1.ts", "// Main commit 1");
+  await addFileToStaging(workingCopy, "main-1.ts", "// Main commit 1");
   const mainCommit1 = await git.commit().setMessage("Main commit 1").call();
-  console.log(`  Main commit 1: ${shortId(await store.commits.storeCommit(mainCommit1))}`);
+  console.log(`  Main commit 1: ${shortId(await history.commits.store(mainCommit1))}`);
 
-  await addFileToStaging(store, "main-2.ts", "// Main commit 2");
+  await addFileToStaging(workingCopy, "main-2.ts", "// Main commit 2");
   const mainCommit2 = await git.commit().setMessage("Main commit 2").call();
-  console.log(`  Main commit 2: ${shortId(await store.commits.storeCommit(mainCommit2))}`);
+  console.log(`  Main commit 2: ${shortId(await history.commits.store(mainCommit2))}`);
 
   // Switch to feature and add commits
-  await store.refs.setSymbolic("HEAD", "refs/heads/feature-rebase");
-  const featureRef = await store.refs.resolve("refs/heads/feature-rebase");
+  await history.refs.setSymbolic("HEAD", "refs/heads/feature-rebase");
+  const featureRef = await history.refs.resolve("refs/heads/feature-rebase");
   if (featureRef?.objectId) {
-    const commit = await store.commits.loadCommit(featureRef.objectId);
-    await store.staging.readTree(store.trees, commit.tree);
+    const commit = await history.commits.load(featureRef.objectId);
+    if (commit) {
+      await workingCopy.checkout.staging.readTree(history.trees, commit.tree);
+    }
   }
 
-  await addFileToStaging(store, "feature-1.ts", "// Feature commit 1");
+  await addFileToStaging(workingCopy, "feature-1.ts", "// Feature commit 1");
   const featureCommit1 = await git.commit().setMessage("Feature commit 1").call();
-  console.log(`  Feature commit 1: ${shortId(await store.commits.storeCommit(featureCommit1))}`);
+  console.log(`  Feature commit 1: ${shortId(await history.commits.store(featureCommit1))}`);
 
-  await addFileToStaging(store, "feature-2.ts", "// Feature commit 2");
+  await addFileToStaging(workingCopy, "feature-2.ts", "// Feature commit 2");
   const featureCommit2 = await git.commit().setMessage("Feature commit 2").call();
-  console.log(`  Feature commit 2: ${shortId(await store.commits.storeCommit(featureCommit2))}`);
+  console.log(`  Feature commit 2: ${shortId(await history.commits.store(featureCommit2))}`);
 
   console.log("\n--- Current state ---");
   console.log(`
