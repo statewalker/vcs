@@ -180,7 +180,7 @@ describe("GitWorkingCopyFactory", () => {
       expect(wc).toBeDefined();
       expect(wc.history).toBeDefined();
       expect(wc.checkout).toBeDefined();
-      expect(wc.worktreeInterface).toBeDefined();
+      expect(wc.worktree).toBeDefined();
       expect(wc.stash).toBeDefined();
     });
 
@@ -322,7 +322,7 @@ describe("GitWorkingCopyFactory", () => {
       expect(wc).toBeDefined();
       expect(wc.history).toBeDefined();
       expect(wc.checkout).toBeDefined();
-      expect(wc.worktreeInterface).toBeDefined();
+      expect(wc.worktree).toBeDefined();
     });
   });
 });

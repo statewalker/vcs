@@ -183,31 +183,28 @@ export interface RevertState {
  * ```
  */
 export interface WorkingCopy {
-  // ============ New Architecture Components ============
+  // ============ Architecture Components ============
 
   /**
    * History interface (immutable repository objects)
    *
    * Provides access to blobs, trees, commits, tags, and refs.
-   * Optional during migration, will become required.
    */
-  readonly history?: History;
+  readonly history: History;
 
   /**
    * Checkout interface (mutable local state)
    *
    * Manages HEAD, staging area, stash, and in-progress operations.
-   * Optional during migration, will become required.
    */
-  readonly checkout?: Checkout;
+  readonly checkout: Checkout;
 
   /**
    * Worktree interface (filesystem access)
    *
    * Provides read/write access to the working directory.
-   * Optional during migration, will become required.
    */
-  readonly worktreeInterface?: Worktree;
+  readonly worktree: Worktree;
 
   /** Stash operations (storage is backend-dependent) */
   readonly stash: StashStore;

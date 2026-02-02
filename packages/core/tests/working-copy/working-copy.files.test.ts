@@ -299,7 +299,7 @@ describe("GitWorkingCopy", () => {
     workingCopy = new GitWorkingCopy({
       history: mockHistory,
       checkout: mockCheckout,
-      worktreeInterface: mockWorktree,
+      worktree: mockWorktree,
       stash: mockStash,
       config: {},
       files: mockFiles,
@@ -322,7 +322,7 @@ describe("GitWorkingCopy", () => {
       workingCopy = new GitWorkingCopy({
         history: mockHistory,
         checkout: mockCheckout,
-        worktreeInterface: mockWorktree,
+        worktree: mockWorktree,
         stash: mockStash,
         config: {},
         files: mockFiles,
@@ -389,7 +389,7 @@ describe("GitWorkingCopy", () => {
       workingCopy = new GitWorkingCopy({
         history: mockHistory,
         checkout: mockCheckout,
-        worktreeInterface: mockWorktree,
+        worktree: mockWorktree,
         stash: mockStash,
         config: {},
         files: mockFiles,
@@ -412,7 +412,7 @@ describe("GitWorkingCopy", () => {
       workingCopy = new GitWorkingCopy({
         history: mockHistory,
         checkout: mockCheckout,
-        worktreeInterface: mockWorktree,
+        worktree: mockWorktree,
         stash: mockStash,
         config: {},
         files: mockFiles,
@@ -439,7 +439,7 @@ describe("GitWorkingCopy", () => {
       workingCopy = new GitWorkingCopy({
         history: mockHistory,
         checkout: mockCheckout,
-        worktreeInterface: mockWorktree,
+        worktree: mockWorktree,
         stash: mockStash,
         config: {},
         files: mockFiles,
@@ -458,7 +458,7 @@ describe("GitWorkingCopy", () => {
       workingCopy = new GitWorkingCopy({
         history: mockHistory,
         checkout: mockCheckout,
-        worktreeInterface: mockWorktree,
+        worktree: mockWorktree,
         stash: mockStash,
         config: {},
         files: mockFiles,
