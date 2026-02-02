@@ -17,7 +17,7 @@ import {
 import { MemoryKVAdapter } from "../src/adapters/memory-adapter.js";
 import { KVCommitStore } from "../src/kv-commit-store.js";
 import { KVRefStore } from "../src/kv-ref-store.js";
-import { KVStagingStore } from "../src/kv-staging-store.js";
+import { KVStaging } from "../src/kv-staging-store.js";
 import { KVTagStore } from "../src/kv-tag-store.js";
 import { KVTreeStore } from "../src/kv-tree-store.js";
 import { createKvObjectStores } from "../src/object-storage/index.js";
@@ -70,7 +70,7 @@ createRefStoreTests("KV", async () => {
 createStagingStoreTests("KV", async () => {
   const kv = new MemoryKVAdapter();
   return {
-    stagingStore: new KVStagingStore(kv),
+    stagingStore: new KVStaging(kv),
     treeStore: new KVTreeStore(kv),
     cleanup: async () => {
       await kv.close();
