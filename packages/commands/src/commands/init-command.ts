@@ -249,7 +249,7 @@ export class InitCommand {
     const workingCopy = {
       history,
       staging: staging as unknown as Staging,
-      worktree: (worktree ?? {}) as unknown as Worktree,
+      worktree: worktree as unknown as Worktree,
       stash: {} as never, // Stash not available for newly init'd repos
       config: {} as never, // Config not set for newly init'd repos
       // Checkout not available for newly init'd repos

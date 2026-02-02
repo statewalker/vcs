@@ -12,7 +12,6 @@ import {
   DefaultSerializationApi,
   type GitObjectStore,
   type History,
-  type HistoryStore,
   type HistoryWithOperations,
   isSymbolicRef,
   type ObjectId,
@@ -78,21 +77,22 @@ export function createTransportTestStores(): TransportTestStores {
  * Create a minimal WorkingCopy from transport test stores.
  */
 export function createWorkingCopyFromStores(stores: TransportTestStores): WorkingCopy {
-  // Create a HistoryStore-like wrapper
+  // Create a History-like wrapper
   const repository = {
-    objects: stores.objects,
     blobs: stores.blobs,
     trees: stores.trees,
     commits: stores.commits,
     tags: stores.tags,
     refs: stores.refs,
-    config: {},
     async initialize() {},
     async close() {},
-    async isInitialized() {
+    isInitialized() {
       return true;
     },
-  } as unknown as HistoryStore;
+    collectReachableObjects() {
+      throw new Error("Not implemented in test helper");
+    },
+  } as unknown as History;
 
   return {
     history: repository as unknown as History,

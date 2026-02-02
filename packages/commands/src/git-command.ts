@@ -104,16 +104,17 @@ function wrapTags(tags: Tags): CommandTags {
     wrapper.store = wrapper.storeTag;
   }
   // Add loadTag/storeTag as aliases for new interface
+  // Bind methods to preserve 'this' context
   if (!wrapper.loadTag) {
     const loadFn = wrapper.load;
     if (loadFn) {
-      wrapper.loadTag = (id: ObjectId) => loadFn(id);
+      wrapper.loadTag = (id: ObjectId) => loadFn.call(wrapper, id);
     }
   }
   if (!wrapper.storeTag) {
     const storeFn = wrapper.store;
     if (storeFn) {
-      wrapper.storeTag = (tag: Tag) => storeFn(tag);
+      wrapper.storeTag = (tag: Tag) => storeFn.call(wrapper, tag);
     }
   }
   return wrapper as CommandTags;
@@ -215,10 +216,18 @@ export abstract class GitCommand<T> {
 
   /**
    * Access staging area.
+   * Supports both new architecture (checkout.staging) and legacy/init (staging directly).
    */
   protected get staging(): Staging {
+    // Try new architecture first (checkout.staging)
     if (this._workingCopy.checkout?.staging) {
       return this._workingCopy.checkout.staging as unknown as Staging;
+    }
+    // Fall back to legacy pattern (staging directly on workingCopy)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wcAny = this._workingCopy as any;
+    if (wcAny.staging) {
+      return wcAny.staging as unknown as Staging;
     }
     throw new Error("WorkingCopy.checkout.staging is required for commands");
   }

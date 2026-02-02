@@ -5,33 +5,26 @@
  * using the new MessagePort adapter APIs.
  */
 
-import type { GitStore } from "@statewalker/vcs-commands";
-import {
-  createMessagePortCloser,
-  createMessagePortPair,
-  createMessagePortReader,
-  createMessagePortWriter,
-} from "@statewalker/vcs-transport";
+import type { WorkingCopy } from "@statewalker/vcs-core";
+import { createMessagePortDuplex, type Duplex } from "@statewalker/vcs-transport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { memoryFactory } from "./backend-factories.js";
+import type { SimpleHistory } from "./helpers/simple-history.js";
 import { createCommit, createInitializedGitFromFactory, toArray } from "./test-helper.js";
+
+/**
+ * Duplex with close method for tests
+ */
+interface DuplexWithClose extends Duplex {
+  close(): Promise<void>;
+}
 
 /**
  * Create a connected pair of MessagePort transports for testing.
  */
 function createTestTransportPair(): {
-  local: {
-    reader: AsyncGenerator<Uint8Array>;
-    writer: (data: Uint8Array) => Promise<void>;
-    close: () => Promise<void>;
-    port: MessagePort;
-  };
-  remote: {
-    reader: AsyncGenerator<Uint8Array>;
-    writer: (data: Uint8Array) => Promise<void>;
-    close: () => Promise<void>;
-    port: MessagePort;
-  };
+  local: DuplexWithClose;
+  remote: DuplexWithClose;
   cleanup: () => void;
 } {
   const [port1, port2] = createMessagePortPair();
@@ -40,18 +33,8 @@ function createTestTransportPair(): {
   const remoteReader = createMessagePortReader(port2);
 
   return {
-    local: {
-      reader: localReader,
-      writer: createMessagePortWriter(port1),
-      close: createMessagePortCloser(port1, localReader),
-      port: port1,
-    },
-    remote: {
-      reader: remoteReader,
-      writer: createMessagePortWriter(port2),
-      close: createMessagePortCloser(port2, remoteReader),
-      port: port2,
-    },
+    local: createMessagePortDuplex(channel.port1) as DuplexWithClose,
+    remote: createMessagePortDuplex(channel.port2) as DuplexWithClose,
     cleanup: () => {
       port1.close();
       port2.close();
@@ -79,8 +62,9 @@ async function collectChunks(reader: AsyncGenerator<Uint8Array>): Promise<Uint8A
 }
 
 describe("Transport Replication", () => {
-  let _localStore: GitStore;
-  let remoteStore: GitStore;
+  let _localWorkingCopy: WorkingCopy;
+  let remoteWorkingCopy: WorkingCopy;
+  let remoteRepository: SimpleHistory;
   let localCleanup: (() => Promise<void>) | undefined;
   let remoteCleanup: (() => Promise<void>) | undefined;
   let transport: ReturnType<typeof createTestTransportPair>;
@@ -88,11 +72,12 @@ describe("Transport Replication", () => {
   beforeEach(async () => {
     // Create two in-memory repositories
     const localCtx = await createInitializedGitFromFactory(memoryFactory);
-    _localStore = localCtx.store;
+    _localWorkingCopy = localCtx.workingCopy;
     localCleanup = localCtx.cleanup;
 
     const remoteCtx = await createInitializedGitFromFactory(memoryFactory);
-    remoteStore = remoteCtx.store;
+    remoteWorkingCopy = remoteCtx.workingCopy;
+    remoteRepository = remoteCtx.repository;
     remoteCleanup = remoteCtx.cleanup;
 
     // Create connected transports
@@ -251,19 +236,19 @@ describe("Transport Replication", () => {
   // =============================================================================
 
   it("should transfer blob content between repositories", async () => {
-    // Add a file to remote store
-    await createCommit(remoteStore, "Add test file", {
+    // Add a file to remote repository
+    await createCommit(remoteWorkingCopy, "Add test file", {
       "test.txt": "Hello, world!",
     });
 
     // Get the HEAD commit
-    const headRef = await remoteStore.refs.resolve("HEAD");
+    const headRef = await remoteRepository.refs.resolve("HEAD");
     if (!headRef) {
       throw new Error("HEAD ref not found");
     }
 
-    const commit = await remoteStore.commits.loadCommit(headRef.objectId);
-    const tree = await toArray(remoteStore.trees.loadTree(commit.tree));
+    const commit = await remoteRepository.commits.loadCommit(headRef.objectId);
+    const tree = await toArray(remoteRepository.trees.loadTree(commit.tree));
 
     // Find the test.txt entry
     const testFileEntry = tree.find((e) => e.name === "test.txt");
@@ -274,7 +259,7 @@ describe("Transport Replication", () => {
 
     // Load blob content
     const blobChunks: Uint8Array[] = [];
-    for await (const chunk of remoteStore.blobs.load(testFileEntry.id)) {
+    for await (const chunk of remoteRepository.blobs.load(testFileEntry.id)) {
       blobChunks.push(chunk);
     }
     const blobContent = new Uint8Array(blobChunks.reduce((sum, c) => sum + c.length, 0));
@@ -297,12 +282,12 @@ describe("Transport Replication", () => {
 
   it("should transfer commit metadata", async () => {
     // Create commit in remote
-    const commitId = await createCommit(remoteStore, "Test commit message", {
+    const commitId = await createCommit(remoteWorkingCopy, "Test commit message", {
       "file.txt": "content",
     });
 
     // Load commit data
-    const commit = await remoteStore.commits.loadCommit(commitId);
+    const commit = await remoteRepository.commits.loadCommit(commitId);
     const commitData = text(
       JSON.stringify({
         tree: commit.tree,
