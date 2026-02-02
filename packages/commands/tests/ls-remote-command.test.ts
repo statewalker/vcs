@@ -211,10 +211,10 @@ describe.each(backends)("LsRemoteCommand ($name backend)", ({ factory }) => {
       try {
         const result = await git.lsRemote().setRemote(remoteUrl).call();
 
-        // The object ID should be a valid SHA-1 (40 hex chars)
+        // The object ID should be a valid SHA-1 (40 hex chars) or SHA-256 (64 hex chars)
         const mainRef = result.refs.find((r) => r.name === "refs/heads/main");
         expect(mainRef).toBeDefined();
-        expect(mainRef?.objectId).toMatch(/^[0-9a-f]{40}$/);
+        expect(mainRef?.objectId).toMatch(/^[0-9a-f]{40,64}$/);
       } finally {
         globalThis.fetch = originalFetch;
       }

@@ -562,7 +562,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
       .commit()
       .setMessage("commit all changes")
       .setAll(true)
-      .setWorktreeStore(worktree)
+      .setWorktree(worktree)
       .call();
 
     expect(commit.message).toBe("commit all changes");
@@ -597,7 +597,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
       .commit()
       .setMessage("delete file1")
       .setAll(true)
-      .setWorktreeStore(worktree)
+      .setWorktree(worktree)
       .call();
 
     expect(commit.message).toBe("delete file1");
@@ -654,7 +654,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
       .commit()
       .setMessage("update tracked only")
       .setAll(true)
-      .setWorktreeStore(worktree)
+      .setWorktree(worktree)
       .call();
 
     // Verify untracked file was NOT added
