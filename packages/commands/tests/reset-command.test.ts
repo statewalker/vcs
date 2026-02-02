@@ -28,7 +28,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
 
   describe("ResetCommand", () => {
     it("should reset to HEAD by default", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -39,7 +39,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should soft reset (move HEAD only)", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commit
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -56,7 +56,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should mixed reset (move HEAD and reset staging)", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commit
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -75,7 +75,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reset with HEAD~N notation", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -89,7 +89,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reset with HEAD^ notation", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create commit
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -105,20 +105,20 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should throw when ref cannot be resolved", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await expect(git.reset().setRef("nonexistent").call()).rejects.toThrow(RefNotFoundError);
     });
 
     it("should throw when relative ref goes beyond history", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Initial commit has no parent
       await expect(git.reset().setRef("HEAD~10").call()).rejects.toThrow(RefNotFoundError);
     });
 
     it("should update branch ref", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -132,7 +132,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should work with detached HEAD", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commit
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -150,7 +150,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
     });
 
     it("should not be callable twice", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       const cmd = git.reset();
       await cmd.call();
@@ -161,7 +161,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
 
   describe("ResetCommand with log verification", () => {
     it("should affect log after reset", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
