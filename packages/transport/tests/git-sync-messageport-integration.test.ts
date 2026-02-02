@@ -582,6 +582,249 @@ describe("Git Sync MessagePort Integration", () => {
   });
 });
 
+describe("Concurrent Bidirectional Synchronization", () => {
+  /**
+   * Test scenario: 'should handle concurrent synchronization attempts'
+   *
+   * Setup:
+   * - Create peerA repo with commits A1, A2
+   * - Create peerB repo with commits B1, B2
+   * - Create two MessageChannels (one for each direction)
+   *
+   * Test flow:
+   * 1. Peer A: server on port1a, client on port2b
+   * 2. Peer B: server on port1b, client on port2a
+   * 3. Both peers discover refs simultaneously (Promise.all)
+   * 4. Verify both discover operations succeed
+   * 5. Close all connections cleanly
+   */
+  it("should handle concurrent synchronization attempts", async () => {
+    // Create two repos with different commit histories
+    const peerA = createTestRepository();
+    const peerB = createTestRepository();
+
+    try {
+      // PeerA commits: A1 -> A2
+      const commitA1 = createTestCommit("PeerA commit 1");
+      peerA.addObject(commitA1.oid, commitA1.data);
+      const commitA2 = createTestCommit("PeerA commit 2", commitA1.oid);
+      peerA.addObject(commitA2.oid, commitA2.data);
+      peerA.refs.refs.set("refs/heads/main", commitA2.oid);
+
+      // PeerB commits: B1 -> B2
+      const commitB1 = createTestCommit("PeerB commit 1");
+      peerB.addObject(commitB1.oid, commitB1.data);
+      const commitB2 = createTestCommit("PeerB commit 2", commitB1.oid);
+      peerB.addObject(commitB2.oid, commitB2.data);
+      peerB.refs.refs.set("refs/heads/feature", commitB2.oid);
+
+      // Create two MessageChannels for bidirectional communication
+      // Channel 1: A serves, B fetches
+      // Channel 2: B serves, A fetches
+      const channelAtoB = new MessageChannel();
+      const channelBtoA = new MessageChannel();
+
+      try {
+        // Start both servers and clients simultaneously
+        const serverAPromise = messagePortServe(channelAtoB.port2, peerA.facade, peerA.refs);
+        const serverBPromise = messagePortServe(channelBtoA.port2, peerB.facade, peerB.refs);
+
+        const [resultBfromA, resultAfromB] = await Promise.all([
+          messagePortFetch(channelAtoB.port1, peerB.facade, peerB.refs),
+          messagePortFetch(channelBtoA.port1, peerA.facade, peerA.refs),
+        ]);
+
+        // Wait for servers to complete
+        await Promise.all([serverAPromise, serverBPromise]);
+
+        // Verify both operations succeeded
+        expect(resultBfromA.success).toBe(true);
+        expect(resultAfromB.success).toBe(true);
+
+        // PeerB should now have refs/heads/main from peerA
+        expect(resultBfromA.updatedRefs?.has("refs/heads/main")).toBe(true);
+
+        // PeerA should now have refs/heads/feature from peerB
+        expect(resultAfromB.updatedRefs?.has("refs/heads/feature")).toBe(true);
+      } finally {
+        // Clean up all ports
+        channelAtoB.port1.close();
+        channelAtoB.port2.close();
+        channelBtoA.port1.close();
+        channelBtoA.port2.close();
+      }
+    } finally {
+      peerA.cleanup();
+      peerB.cleanup();
+    }
+  });
+
+  it("should handle simultaneous fetch operations without deadlock", async () => {
+    // Create repos with shared base commit
+    const peerA = createTestRepository();
+    const peerB = createTestRepository();
+
+    try {
+      // Shared base commit
+      const baseCommit = createTestCommit("Shared base commit");
+      peerA.addObject(baseCommit.oid, baseCommit.data);
+      peerB.addObject(baseCommit.oid, baseCommit.data);
+
+      // PeerA has diverged with its own commit
+      const commitA = createTestCommit("PeerA diverged", baseCommit.oid);
+      peerA.addObject(commitA.oid, commitA.data);
+      peerA.refs.refs.set("refs/heads/main", commitA.oid);
+
+      // PeerB has diverged with its own commit
+      const commitB = createTestCommit("PeerB diverged", baseCommit.oid);
+      peerB.addObject(commitB.oid, commitB.data);
+      peerB.refs.refs.set("refs/heads/main", commitB.oid);
+
+      // Create channels for bidirectional sync
+      const channelAtoB = new MessageChannel();
+      const channelBtoA = new MessageChannel();
+
+      try {
+        // Perform simultaneous sync with timeout to detect deadlocks
+        const timeoutMs = 5000;
+        const syncPromise = Promise.all([
+          messagePortServe(channelAtoB.port2, peerA.facade, peerA.refs),
+          messagePortServe(channelBtoA.port2, peerB.facade, peerB.refs),
+          messagePortFetch(channelAtoB.port1, peerB.facade, peerB.refs),
+          messagePortFetch(channelBtoA.port1, peerA.facade, peerA.refs),
+        ]);
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Deadlock detected: operations took too long")),
+            timeoutMs,
+          ),
+        );
+
+        const results = await Promise.race([syncPromise, timeoutPromise]);
+
+        // Verify operations completed
+        expect(results).toHaveLength(4);
+
+        // Fetch results are at indices 2 and 3
+        const resultBfromA = results[2];
+        const resultAfromB = results[3];
+
+        expect(resultBfromA.success).toBe(true);
+        expect(resultAfromB.success).toBe(true);
+      } finally {
+        channelAtoB.port1.close();
+        channelAtoB.port2.close();
+        channelBtoA.port1.close();
+        channelBtoA.port2.close();
+      }
+    } finally {
+      peerA.cleanup();
+      peerB.cleanup();
+    }
+  });
+
+  it("should handle multiple sequential sync rounds", async () => {
+    const peerA = createTestRepository();
+    const peerB = createTestRepository();
+
+    try {
+      // Round 1: PeerA has initial commit
+      const commit1 = createTestCommit("Initial commit");
+      peerA.addObject(commit1.oid, commit1.data);
+      peerA.refs.refs.set("refs/heads/main", commit1.oid);
+
+      // First sync: A -> B
+      const channel1 = new MessageChannel();
+      try {
+        const serverPromise = messagePortServe(channel1.port2, peerA.facade, peerA.refs);
+        const result1 = await messagePortFetch(channel1.port1, peerB.facade, peerB.refs);
+        await serverPromise;
+
+        expect(result1.success).toBe(true);
+        expect(peerB.refs.refs.get("refs/heads/main")).toBe(commit1.oid);
+      } finally {
+        channel1.port1.close();
+        channel1.port2.close();
+      }
+
+      // Round 2: PeerB adds a commit
+      const commit2 = createTestCommit("PeerB addition", commit1.oid);
+      peerB.addObject(commit2.oid, commit2.data);
+      peerB.refs.refs.set("refs/heads/main", commit2.oid);
+
+      // Second sync: B -> A
+      const channel2 = new MessageChannel();
+      try {
+        const serverPromise = messagePortServe(channel2.port2, peerB.facade, peerB.refs);
+        const result2 = await messagePortFetch(channel2.port1, peerA.facade, peerA.refs);
+        await serverPromise;
+
+        expect(result2.success).toBe(true);
+        expect(peerA.refs.refs.get("refs/heads/main")).toBe(commit2.oid);
+      } finally {
+        channel2.port1.close();
+        channel2.port2.close();
+      }
+
+      // Round 3: Both in sync, should be a no-op
+      const channel3 = new MessageChannel();
+      try {
+        const serverPromise = messagePortServe(channel3.port2, peerA.facade, peerA.refs);
+        const result3 = await messagePortFetch(channel3.port1, peerB.facade, peerB.refs);
+        await serverPromise;
+
+        expect(result3.success).toBe(true);
+      } finally {
+        channel3.port1.close();
+        channel3.port2.close();
+      }
+    } finally {
+      peerA.cleanup();
+      peerB.cleanup();
+    }
+  });
+
+  it("should handle fetch with many concurrent refs", async () => {
+    const source = createTestRepository();
+    const target = createTestRepository();
+
+    try {
+      // Create many branches
+      const baseCommit = createTestCommit("Base commit");
+      source.addObject(baseCommit.oid, baseCommit.data);
+
+      const branchCount = 10;
+      for (let i = 0; i < branchCount; i++) {
+        const branchCommit = createTestCommit(`Branch ${i} commit`, baseCommit.oid);
+        source.addObject(branchCommit.oid, branchCommit.data);
+        source.refs.refs.set(`refs/heads/branch-${i}`, branchCommit.oid);
+      }
+
+      const channel = new MessageChannel();
+      try {
+        const serverPromise = messagePortServe(channel.port2, source.facade, source.refs);
+        const result = await messagePortFetch(channel.port1, target.facade, target.refs);
+        await serverPromise;
+
+        expect(result.success).toBe(true);
+        expect(result.updatedRefs?.size).toBe(branchCount);
+
+        // Verify all branches were synced
+        for (let i = 0; i < branchCount; i++) {
+          expect(result.updatedRefs?.has(`refs/heads/branch-${i}`)).toBe(true);
+        }
+      } finally {
+        channel.port1.close();
+        channel.port2.close();
+      }
+    } finally {
+      source.cleanup();
+      target.cleanup();
+    }
+  });
+});
+
 describe("Full Repository Sync Flow", () => {
   it("should complete full clone from source to target", async () => {
     const channel = new MessageChannel();
