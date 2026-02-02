@@ -86,7 +86,7 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
       const git = Git.fromWorkingCopy(workingCopy);
 
       // Set up detached HEAD by pointing directly to a commit
-      await workingCopy.repository.refs.set("HEAD", `${"abc".repeat(13)}a`);
+      await workingCopy.history.refs.set("HEAD", `${"abc".repeat(13)}a`);
 
       // Pull requires a branch, not a detached HEAD
       await expect(git.pull().call()).rejects.toThrow("Cannot pull with detached HEAD");

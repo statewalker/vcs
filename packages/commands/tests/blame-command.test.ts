@@ -360,7 +360,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       const entries: Array<{ path: string; objectId: string; mode: number }> = [];
 
       // Collect all entries except the old path
-      for await (const entry of wc.staging.entries()) {
+      for await (const entry of wc.checkout.staging.entries()) {
         if (entry.path !== oldPath) {
           entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
         } else {
@@ -370,7 +370,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       }
 
       // Rebuild staging with renamed file
-      const builder = wc.staging.createBuilder();
+      const builder = wc.checkout.staging.createBuilder();
       for (const entry of entries) {
         builder.add({
           path: entry.path,
@@ -672,7 +672,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       await repository.refs.setSymbolic("HEAD", "refs/heads/side");
       const sideRef = await repository.refs.resolve("refs/heads/side");
       const sideCommit = await repository.commits.loadCommit(sideRef?.objectId ?? "");
-      await workingCopy.staging.readTree(repository.trees, sideCommit.tree);
+      await workingCopy.checkout.staging.readTree(repository.trees, sideCommit.tree);
 
       // Modify on side branch
       await addFile(workingCopy, "file.txt", "0\n1 side\n2\n3 on side\n4\n");
@@ -685,7 +685,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       await repository.refs.setSymbolic("HEAD", "refs/heads/main");
       const mainRef = await repository.refs.resolve("refs/heads/main");
       const mainCommit = await repository.commits.loadCommit(mainRef?.objectId ?? "");
-      await workingCopy.staging.readTree(repository.trees, mainCommit.tree);
+      await workingCopy.checkout.staging.readTree(repository.trees, mainCommit.tree);
 
       // Remove line on main (will conflict with side's modification)
       await addFile(workingCopy, "file.txt", "0\n1\n2\n");
@@ -745,7 +745,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
       const featureRef = await repository.refs.resolve("refs/heads/feature");
       const featureCommit = await repository.commits.loadCommit(featureRef?.objectId ?? "");
-      await workingCopy.staging.readTree(repository.trees, featureCommit.tree);
+      await workingCopy.checkout.staging.readTree(repository.trees, featureCommit.tree);
 
       await addFile(workingCopy, "file.txt", "base line\nfeature line\n");
       await git.commit().setMessage("feature addition").call();
@@ -758,7 +758,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       const mainRef = await repository.refs.resolve("refs/heads/main");
       const mainCommitId = mainRef?.objectId ?? "";
       const mainCommit = await repository.commits.loadCommit(mainCommitId);
-      await workingCopy.staging.readTree(repository.trees, mainCommit.tree);
+      await workingCopy.checkout.staging.readTree(repository.trees, mainCommit.tree);
 
       // Merge feature (should be clean merge)
       // Create a merge commit with TWO parents (main + feature)
@@ -838,14 +838,14 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       // Step 2: Rename file1.txt to file2.txt
       // Need to implement renameFile helper
       const entries: Array<{ path: string; objectId: string; mode: number }> = [];
-      for await (const entry of workingCopy.staging.entries()) {
+      for await (const entry of workingCopy.checkout.staging.entries()) {
         if (entry.path !== FILENAME_1) {
           entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
         } else {
           entries.push({ path: FILENAME_2, objectId: entry.objectId, mode: entry.mode });
         }
       }
-      const builder = workingCopy.staging.createBuilder();
+      const builder = workingCopy.checkout.staging.createBuilder();
       for (const entry of entries) {
         builder.add({
           path: entry.path,
@@ -931,7 +931,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       content: Uint8Array,
     ): Promise<void> {
       const objectId = await repo.blobs.store([content]);
-      const editor = wc.staging.createEditor();
+      const editor = wc.checkout.staging.createEditor();
       editor.add({
         path: filePath,
         apply: () => ({
@@ -1174,14 +1174,14 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
       // Rename to file2.txt
       const entries: Array<{ path: string; objectId: string; mode: number }> = [];
-      for await (const entry of workingCopy.staging.entries()) {
+      for await (const entry of workingCopy.checkout.staging.entries()) {
         if (entry.path !== "file1.txt") {
           entries.push({ path: entry.path, objectId: entry.objectId, mode: entry.mode });
         } else {
           entries.push({ path: "file2.txt", objectId: entry.objectId, mode: entry.mode });
         }
       }
-      const builder = workingCopy.staging.createBuilder();
+      const builder = workingCopy.checkout.staging.createBuilder();
       for (const entry of entries) {
         builder.add({
           path: entry.path,

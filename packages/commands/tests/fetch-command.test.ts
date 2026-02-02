@@ -54,7 +54,7 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
         expect(result.uri).toBe(remoteUrl);
 
         // Check that tracking ref was created
-        const trackingRef = (await workingCopy.repository.refs.get("refs/remotes/origin/main")) as
+        const trackingRef = (await workingCopy.history.refs.get("refs/remotes/origin/main")) as
           | Ref
           | undefined;
         expect(trackingRef).toBeDefined();
@@ -84,7 +84,7 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
           .call();
 
         // Get initial ref value
-        const initialRef = (await workingCopy.repository.refs.get("refs/remotes/origin/main")) as
+        const initialRef = (await workingCopy.history.refs.get("refs/remotes/origin/main")) as
           | Ref
           | undefined;
         const initialObjectId = initialRef?.objectId;
@@ -134,7 +134,7 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
         expect(result.trackingRefUpdates.length).toBeGreaterThan(0);
 
         // But ref should not be created
-        const trackingRef = await workingCopy.repository.refs.get("refs/remotes/origin/main");
+        const trackingRef = await workingCopy.history.refs.get("refs/remotes/origin/main");
         expect(trackingRef).toBeUndefined();
       } finally {
         globalThis.fetch = originalFetch;
@@ -171,9 +171,9 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
         expect(result.trackingRefUpdates.length).toBe(3);
 
         // Verify all refs were created
-        const mainRef = await workingCopy.repository.refs.get("refs/remotes/origin/main");
-        const featureRef = await workingCopy.repository.refs.get("refs/remotes/origin/feature");
-        const developRef = await workingCopy.repository.refs.get("refs/remotes/origin/develop");
+        const mainRef = await workingCopy.history.refs.get("refs/remotes/origin/main");
+        const featureRef = await workingCopy.history.refs.get("refs/remotes/origin/feature");
+        const developRef = await workingCopy.history.refs.get("refs/remotes/origin/develop");
 
         expect(mainRef).toBeDefined();
         expect(featureRef).toBeDefined();
@@ -352,7 +352,7 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
           .call();
 
         // Verify feature branch was fetched
-        const featureRef = await workingCopy.repository.refs.get("refs/remotes/origin/feature");
+        const featureRef = await workingCopy.history.refs.get("refs/remotes/origin/feature");
         expect(featureRef).toBeDefined();
 
         // Delete feature branch on server

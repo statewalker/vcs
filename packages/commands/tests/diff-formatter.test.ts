@@ -66,7 +66,7 @@ describe.each(backends)("DiffFormatter ($name backend)", ({ factory }) => {
     const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
 
     // Remove file from staging and commit
-    const builder = workingCopy.staging.createBuilder();
+    const builder = workingCopy.checkout.staging.createBuilder();
     await builder.finish();
     await git.commit().setMessage("delete file").call();
 

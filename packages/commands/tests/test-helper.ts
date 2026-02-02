@@ -145,7 +145,7 @@ export async function createInitializedGitFromFactory(
   await repository.refs.setSymbolic("HEAD", "refs/heads/main");
 
   // Initialize staging with empty tree
-  await workingCopy.staging.readTree(repository.trees, emptyTreeId);
+  await workingCopy.checkout.staging.readTree(repository.trees, emptyTreeId);
 
   return { git, workingCopy, repository, initialCommitId, cleanup: ctx.cleanup };
 }
@@ -173,10 +173,10 @@ export async function addFile(wc: WorkingCopy, path: string, content: string): P
   // Store the content as a blob
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
-  const objectId = await wc.repository.blobs.store([data]);
+  const objectId = await wc.history.blobs.store([data]);
 
   // Add to staging
-  const editor = wc.staging.createEditor();
+  const editor = wc.checkout.staging.createEditor();
   editor.add({
     path,
     apply: () => ({
@@ -207,7 +207,8 @@ export async function createCommit(
   files: Record<string, string> = {},
   parentIds?: ObjectId[],
 ): Promise<ObjectId> {
-  const { repository, staging } = wc;
+  const { history, checkout } = wc;
+  const staging = checkout.staging;
 
   // Add files to staging
   for (const [path, content] of Object.entries(files)) {
@@ -215,7 +216,7 @@ export async function createCommit(
   }
 
   // Write tree from staging
-  const treeId = await staging.writeTree(repository.trees);
+  const treeId = await staging.writeTree(history.trees);
 
   // Get parent(s)
   let parents: ObjectId[];
@@ -223,7 +224,7 @@ export async function createCommit(
     parents = parentIds;
   } else {
     try {
-      const headRef = await repository.refs.resolve("HEAD");
+      const headRef = await history.refs.resolve("HEAD");
       parents = headRef?.objectId ? [headRef.objectId] : [];
     } catch {
       parents = [];
@@ -239,18 +240,18 @@ export async function createCommit(
     message,
   };
 
-  const commitId = await repository.commits.storeCommit(commit);
+  const commitId = await history.commits.storeCommit(commit);
 
   // Update HEAD
-  const head = await repository.refs.get("HEAD");
+  const head = await history.refs.get("HEAD");
   if (head && "target" in head) {
-    await repository.refs.set(head.target, commitId);
+    await history.refs.set(head.target, commitId);
   } else {
-    await repository.refs.set("HEAD", commitId);
+    await history.refs.set("HEAD", commitId);
   }
 
   // Update staging to match new tree
-  await staging.readTree(repository.trees, treeId);
+  await staging.readTree(history.trees, treeId);
 
   return commitId;
 }
@@ -262,9 +263,9 @@ export async function createCommit(
  * @param path File path to remove
  */
 export async function removeFile(wc: WorkingCopy, path: string): Promise<void> {
-  const builder = wc.staging.createBuilder();
+  const builder = wc.checkout.staging.createBuilder();
   // Add all entries except the one we want to remove
-  for await (const entry of wc.staging.entries()) {
+  for await (const entry of wc.checkout.staging.entries()) {
     if (entry.path !== path) {
       builder.add(entry);
     }
