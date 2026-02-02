@@ -1,47 +1,60 @@
-import type { Blob } from "../../history/blobs/types.js";
-import type { Commit, Person } from "../../history/commits/types.js";
+import type { PersonIdent } from "../../common/person/person-ident.js";
+import type { BlobContent } from "../../history/blobs/blobs.js";
+import type { Commit } from "../../history/commits/commit-store.js";
 import type { History } from "../../history/history.js";
-import type { Tag } from "../../history/tags/types.js";
-import type { Tree, TreeEntry } from "../../history/trees/types.js";
+import type { AnnotatedTag } from "../../history/tags/tag-store.js";
+import type { TreeEntry } from "../../history/trees/tree-entry.js";
 
 /**
- * Create a test blob with optional customization.
+ * Helper to create an async iterable from a Uint8Array.
  */
-export function createTestBlob(options?: { content?: string | Uint8Array; size?: number }): Blob {
-  if (options?.content) {
-    const content =
-      typeof options.content === "string"
-        ? new TextEncoder().encode(options.content)
-        : options.content;
-    return { content };
-  }
-  if (options?.size) {
-    return { content: new Uint8Array(options.size).fill(0x41) };
-  }
-  return { content: new TextEncoder().encode(`Test blob ${Date.now()}`) };
+async function* toAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
+  yield data;
 }
 
 /**
- * Create a test tree with optional entries.
+ * Create test blob content with optional customization.
  */
-export function createTestTree(options?: { entries?: TreeEntry[]; fileCount?: number }): Tree {
+export function createTestBlobContent(options?: {
+  content?: string | Uint8Array;
+  size?: number;
+}): BlobContent {
+  let data: Uint8Array;
+  if (options?.content) {
+    data =
+      typeof options.content === "string"
+        ? new TextEncoder().encode(options.content)
+        : options.content;
+  } else if (options?.size) {
+    data = new Uint8Array(options.size).fill(0x41);
+  } else {
+    data = new TextEncoder().encode(`Test blob ${Date.now()}`);
+  }
+  return toAsyncIterable(data);
+}
+
+/**
+ * Create test tree entries with optional customization.
+ */
+export function createTestTreeEntries(options?: {
+  entries?: TreeEntry[];
+  fileCount?: number;
+}): TreeEntry[] {
   if (options?.entries) {
-    return { entries: options.entries };
+    return options.entries;
   }
   if (options?.fileCount) {
     const entries: TreeEntry[] = [];
     for (let i = 0; i < options.fileCount; i++) {
       entries.push({
-        mode: "100644",
+        mode: 0o100644,
         name: `file-${i}.txt`,
-        hash: "0".repeat(40),
+        id: "0".repeat(40),
       });
     }
-    return { entries };
+    return entries;
   }
-  return {
-    entries: [{ mode: "100644", name: "test.txt", hash: "0".repeat(40) }],
-  };
+  return [{ mode: 0o100644, name: "test.txt", id: "0".repeat(40) }];
 }
 
 /**
@@ -51,13 +64,13 @@ export function createTestPerson(options?: {
   name?: string;
   email?: string;
   timestamp?: number;
-  timezone?: string;
-}): Person {
+  tzOffset?: string;
+}): PersonIdent {
   return {
     name: options?.name ?? "Test Author",
     email: options?.email ?? "test@example.com",
     timestamp: options?.timestamp ?? Math.floor(Date.now() / 1000),
-    timezone: options?.timezone ?? "+0000",
+    tzOffset: options?.tzOffset ?? "+0000",
   };
 }
 
@@ -67,8 +80,8 @@ export function createTestPerson(options?: {
 export function createTestCommit(options?: {
   tree?: string;
   parents?: string[];
-  author?: Person;
-  committer?: Person;
+  author?: PersonIdent;
+  committer?: PersonIdent;
   message?: string;
 }): Commit {
   return {
@@ -85,14 +98,14 @@ export function createTestCommit(options?: {
  */
 export function createTestTag(options?: {
   object?: string;
-  type?: string;
+  objectType?: "commit" | "tree" | "blob" | "tag";
   tag?: string;
-  tagger?: Person;
+  tagger?: PersonIdent;
   message?: string;
-}): Tag {
+}): AnnotatedTag {
   return {
     object: options?.object ?? "0".repeat(40),
-    type: options?.type ?? "commit",
+    objectType: options?.objectType ?? "commit",
     tag: options?.tag ?? "v1.0.0",
     tagger: options?.tagger ?? createTestPerson(),
     message: options?.message ?? "Release",
@@ -114,10 +127,8 @@ export async function createCommitChain(
   let parent = options?.startingParent;
 
   for (let i = 0; i < length; i++) {
-    const blobId = await history.blobs.store(createTestBlob({ content: `Content ${i}` }));
-    const treeId = await history.trees.store({
-      entries: [{ mode: "100644", name: "file.txt", hash: blobId }],
-    });
+    const blobId = await history.blobs.store(createTestBlobContent({ content: `Content ${i}` }));
+    const treeId = await history.trees.store([{ mode: 0o100644, name: "file.txt", id: blobId }]);
     const commitId = await history.commits.store({
       tree: treeId,
       parents: parent ? [parent] : [],

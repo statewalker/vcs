@@ -1,5 +1,5 @@
 import type { History } from "../../../history/history.js";
-import type { TreeEntry } from "../../../history/trees/types.js";
+import type { TreeEntry } from "../../../history/trees/tree-entry.js";
 
 /**
  * Repository fixtures - pre-built git repositories for testing.
@@ -154,6 +154,13 @@ export const REPO_FIXTURES = {
 } as const;
 
 /**
+ * Helper to create an async iterable from a Uint8Array.
+ */
+async function* toAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
+  yield data;
+}
+
+/**
  * Create repository fixture programmatically.
  */
 export async function createRepoFixture(history: History, spec: RepoSpec): Promise<void> {
@@ -166,21 +173,19 @@ export async function createRepoFixture(history: History, spec: RepoSpec): Promi
     // Create blobs for all files
     const entries: TreeEntry[] = [];
     for (const [name, content] of Object.entries(commitSpec.files)) {
-      const blobId = await history.blobs.store({
-        content: new TextEncoder().encode(content),
-      });
+      const blobId = await history.blobs.store(toAsyncIterable(new TextEncoder().encode(content)));
       entries.push({
-        mode: "100644",
+        mode: 0o100644,
         name,
-        hash: blobId,
+        id: blobId,
       });
     }
 
     // Sort entries by name (git requirement)
     entries.sort((a, b) => a.name.localeCompare(b.name));
 
-    // Create tree
-    const treeId = await history.trees.store({ entries });
+    // Create tree (pass array directly, not object with entries property)
+    const treeId = await history.trees.store(entries);
 
     // Determine parents
     const parents =
@@ -194,13 +199,13 @@ export async function createRepoFixture(history: History, spec: RepoSpec): Promi
         name: "Test Author",
         email: "test@test.com",
         timestamp: 1700000000 + i * 1000,
-        timezone: "+0000",
+        tzOffset: "+0000",
       },
       committer: {
         name: "Test Committer",
         email: "test@test.com",
         timestamp: 1700000000 + i * 1000,
-        timezone: "+0000",
+        tzOffset: "+0000",
       },
       message: commitSpec.message,
     });

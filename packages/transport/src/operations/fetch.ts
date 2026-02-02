@@ -68,9 +68,7 @@ export interface HttpFetchResult {
  */
 export async function fetch(options: FetchOptions): Promise<HttpFetchResult> {
   // Normalize URL
-  const baseUrl = options.url.endsWith("/")
-    ? options.url.slice(0, -1)
-    : options.url;
+  const baseUrl = options.url.endsWith("/") ? options.url.slice(0, -1) : options.url;
 
   // Build request headers
   const headers: Record<string, string> = {
@@ -114,8 +112,7 @@ export async function fetch(options: FetchOptions): Promise<HttpFetchResult> {
 
     // Parse ref advertisement
     const infoRefsData = new Uint8Array(await infoRefsResponse.arrayBuffer());
-    const { refs, defaultBranch, isEmpty } =
-      parseRefAdvertisementForFetch(infoRefsData);
+    const { refs, defaultBranch, isEmpty } = parseRefAdvertisementForFetch(infoRefsData);
 
     // If repository is empty, return early
     if (isEmpty || refs.size === 0) {
@@ -181,10 +178,7 @@ export async function fetch(options: FetchOptions): Promise<HttpFetchResult> {
     requestChunks.push(encodePacketLine("done"));
 
     // Concatenate request body
-    const requestBodyLength = requestChunks.reduce(
-      (sum, chunk) => sum + chunk.length,
-      0,
-    );
+    const requestBodyLength = requestChunks.reduce((sum, chunk) => sum + chunk.length, 0);
     const requestBody = new Uint8Array(requestBodyLength);
     let offset = 0;
     for (const chunk of requestChunks) {
@@ -304,11 +298,7 @@ function parseRefAdvertisementForFetch(data: Uint8Array): {
       const refName = refPart.slice(spaceIndex + 1).trim();
 
       // Skip peeled refs and capabilities
-      if (
-        !refName.endsWith("^{}") &&
-        !refName.startsWith("capabilities") &&
-        refName.length > 0
-      ) {
+      if (!refName.endsWith("^{}") && !refName.startsWith("capabilities") && refName.length > 0) {
         // Convert hex string to Uint8Array
         const oid = new Uint8Array(20);
         for (let i = 0; i < 20; i++) {

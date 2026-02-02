@@ -1,5 +1,14 @@
-import type { TreeEntry } from "../../../history/trees/types.js";
+import type { TreeEntry } from "../../../history/trees/tree-entry.js";
 import { BLOB_FIXTURES } from "./blobs.js";
+
+/**
+ * Simple tree entry for fixtures (uses id instead of hash).
+ */
+type TreeEntryFixture = {
+  mode: string;
+  name: string;
+  id: string;
+};
 
 /**
  * Test tree fixtures with known structures.
@@ -9,7 +18,7 @@ export const TREE_FIXTURES = {
    * Empty tree (special hash)
    */
   empty: {
-    entries: [] as TreeEntry[],
+    entries: [] as TreeEntryFixture[],
     hash: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
   },
 
@@ -17,7 +26,9 @@ export const TREE_FIXTURES = {
    * Simple tree with one file
    */
   singleFile: {
-    entries: [{ mode: "100644", name: "file.txt", hash: BLOB_FIXTURES.hello.hash }] as TreeEntry[],
+    entries: [
+      { mode: "100644", name: "file.txt", id: BLOB_FIXTURES.hello.hash },
+    ] as TreeEntryFixture[],
     hash: "computed",
   },
 
@@ -26,10 +37,10 @@ export const TREE_FIXTURES = {
    */
   multipleFiles: {
     entries: [
-      { mode: "100644", name: "README.md", hash: BLOB_FIXTURES.helloWorld.hash },
-      { mode: "100755", name: "script.sh", hash: BLOB_FIXTURES.hello.hash },
-      { mode: "100644", name: "data.txt", hash: BLOB_FIXTURES.hello.hash },
-    ] as TreeEntry[],
+      { mode: "100644", name: "README.md", id: BLOB_FIXTURES.helloWorld.hash },
+      { mode: "100755", name: "script.sh", id: BLOB_FIXTURES.hello.hash },
+      { mode: "100644", name: "data.txt", id: BLOB_FIXTURES.hello.hash },
+    ] as TreeEntryFixture[],
     hash: "computed",
   },
 
@@ -64,9 +75,9 @@ export async function buildTreeStructure(
     if (typeof value === "string") {
       // It's a blob hash
       entries.push({
-        mode: name.endsWith(".sh") ? "100755" : "100644",
+        mode: name.endsWith(".sh") ? 0o100755 : 0o100644,
         name,
-        hash: value,
+        id: value,
       });
     } else {
       // It's a subtree
@@ -75,9 +86,9 @@ export async function buildTreeStructure(
         storeTree,
       );
       entries.push({
-        mode: "040000",
+        mode: 0o040000,
         name: name.replace(/\/$/, ""), // Remove trailing slash
-        hash: subtreeHash,
+        id: subtreeHash,
       });
     }
   }
