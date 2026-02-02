@@ -216,17 +216,17 @@ async function createTestAppContext(): Promise<AppContext> {
   });
 
   // 4. Create in-memory Worktree (file storage)
-  const worktreeInterface = new MemoryWorktree({
+  const worktree = new MemoryWorktree({
     blobs: history.blobs,
     trees: history.trees,
   });
-  setWorktree(ctx, worktreeInterface);
+  setWorktree(ctx, worktree);
 
   // 5. Create WorkingCopy (combines history, checkout, worktree)
   const workingCopy = new MemoryWorkingCopy({
     history,
     checkout,
-    worktreeInterface,
+    worktree,
   });
   setWorkingCopy(ctx, workingCopy);
 

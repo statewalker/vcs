@@ -252,12 +252,9 @@ export class InitCommand {
       worktree: (worktree ?? {}) as unknown as Worktree,
       stash: {} as never, // Stash not available for newly init'd repos
       config: {} as never, // Config not set for newly init'd repos
-      // Legacy getters for compatibility
+      // Checkout not available for newly init'd repos
       get checkout() {
         return undefined;
-      },
-      get worktreeInterface() {
-        return worktree as unknown as Worktree | undefined;
       },
       async getHead() {
         const ref = await history.refs.resolve("HEAD");

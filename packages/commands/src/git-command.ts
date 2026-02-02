@@ -227,7 +227,7 @@ export abstract class GitCommand<T> {
    * Access worktree interface.
    */
   protected get worktreeAccess(): Worktree | undefined {
-    return this._workingCopy.worktreeInterface;
+    return this._workingCopy.worktree;
   }
 
   /**

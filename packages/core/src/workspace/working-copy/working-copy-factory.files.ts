@@ -74,13 +74,13 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
     const checkout = await context.createCheckout(repositoryPath);
 
     // 3. Create working tree interface
-    const worktreeInterface = context.createWorktree(worktreePath);
+    const worktree = context.createWorktree(worktreePath);
 
     // 4. Create stash store
     const stash = createGitStashStore({
       history: context.history,
       staging: checkout.staging,
-      worktree: worktreeInterface,
+      worktree: worktree,
       files: this.files,
       gitDir: repositoryPath,
       getHead: async () => checkout.getHeadCommit(),
@@ -93,7 +93,7 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
     return new GitWorkingCopy({
       history: context.history,
       checkout,
-      worktreeInterface,
+      worktree,
       stash,
       config,
       files: this.files,
@@ -182,13 +182,13 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
     const checkout = await context.createCheckout(worktreeGitDir);
 
     // Create working tree interface
-    const worktreeInterface = context.createWorktree(worktreePath);
+    const worktree = context.createWorktree(worktreePath);
 
     // Create stash store (uses main repo's stash)
     const stash = createGitStashStore({
       history: context.history,
       staging: checkout.staging,
-      worktree: worktreeInterface,
+      worktree: worktree,
       files: this.files,
       gitDir: worktreeGitDir,
       getHead: async () => checkout.getHeadCommit(),
@@ -201,7 +201,7 @@ export class GitWorkingCopyFactory implements WorkingCopyFactory {
     return new GitWorkingCopy({
       history: context.history,
       checkout,
-      worktreeInterface,
+      worktree,
       stash,
       config,
       files: this.files,

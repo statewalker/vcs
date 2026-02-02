@@ -42,7 +42,7 @@ export interface MemoryWorkingCopyOptions {
   /** Checkout interface */
   checkout: Checkout;
   /** Worktree interface */
-  worktreeInterface: Worktree;
+  worktree: Worktree;
   /** Optional stash store */
   stash?: StashStore;
   /** Optional configuration */
@@ -66,23 +66,16 @@ export class MemoryWorkingCopy implements WorkingCopy {
 
   readonly history: History;
   readonly checkout: Checkout;
-  readonly worktreeInterface: Worktree;
+  readonly worktree: Worktree;
   readonly stash: StashStore;
   readonly config: WorkingCopyConfig;
 
   constructor(options: MemoryWorkingCopyOptions) {
     this.history = options.history;
     this.checkout = options.checkout;
-    this.worktreeInterface = options.worktreeInterface;
+    this.worktree = options.worktree;
     this.stash = options.stash ?? new MemoryStashStore();
     this.config = options.config ?? {};
-  }
-
-  /**
-   * Worktree - delegates to worktreeInterface
-   */
-  get worktree(): Worktree {
-    return this.worktreeInterface;
   }
 
   /**
@@ -90,13 +83,6 @@ export class MemoryWorkingCopy implements WorkingCopy {
    */
   get staging() {
     return this.checkout.staging;
-  }
-
-  /**
-   * Repository - delegates to history (for backward compatibility)
-   */
-  get repository(): History {
-    return this.history;
   }
 
   /**
@@ -108,7 +94,7 @@ export class MemoryWorkingCopy implements WorkingCopy {
       return this.headCommit;
     }
     // Try to resolve from refs
-    const resolved = await this.repository.refs.resolve(this.headRef);
+    const resolved = await this.history.refs.resolve(this.headRef);
     return resolved?.objectId;
   }
 

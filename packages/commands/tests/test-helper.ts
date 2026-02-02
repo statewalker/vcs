@@ -53,7 +53,7 @@ export function createTestWorkingCopy(): { workingCopy: WorkingCopy; repository:
   });
 
   // Create mock Worktree
-  const worktreeInterface = createMockWorktree();
+  const worktree = createMockWorktree();
 
   // Create Checkout with staging
   const checkout = new MemoryCheckout({ staging });
@@ -62,7 +62,7 @@ export function createTestWorkingCopy(): { workingCopy: WorkingCopy; repository:
   const workingCopy = new MemoryWorkingCopy({
     history: repository,
     checkout,
-    worktreeInterface,
+    worktree,
   });
 
   return { workingCopy, repository };

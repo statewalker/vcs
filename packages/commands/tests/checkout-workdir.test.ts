@@ -54,11 +54,9 @@ function createWorkingCopyFromTestStores(stores: TestStores): WorkingCopy {
   });
 
   return new MemoryWorkingCopy({
-    repository,
+    history: repository,
+    checkout: { staging: stores.staging } as never,
     worktree: stores.worktree ?? ({} as never),
-    staging: stores.staging,
-    // Pass worktree as worktreeInterface for new architecture commands
-    worktreeInterface: stores.worktree,
   });
 }
 

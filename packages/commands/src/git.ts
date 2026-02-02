@@ -877,7 +877,7 @@ export class Git implements Disposable {
    * ```
    */
   get worktree(): Worktree | undefined {
-    return this._workingCopy.worktreeInterface;
+    return this._workingCopy.worktree;
   }
 
   // ============ Lifecycle ============
