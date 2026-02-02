@@ -526,7 +526,7 @@ export class MergeCommand extends GitCommand<MergeResult> {
       const strategy = this.convertContentStrategy(this.contentStrategy);
 
       // Perform content-level merge
-      const mergeResult = merge3Way(baseContent, oursContent, theirsContent, strategy);
+      const mergeResult = merge3Way(baseContent, oursContent, theirsContent, { strategy });
 
       // If using OURS/THEIRS/UNION, conflicts are auto-resolved
       // Store the merged content
