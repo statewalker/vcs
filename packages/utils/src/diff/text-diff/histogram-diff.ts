@@ -299,7 +299,15 @@ class DiffState<S extends Sequence> {
     const subB = new SubsequenceWrapper(this.baseB, r.beginB, r.endB);
     const subCmp = new SubsequenceComparator(this.baseCmp);
 
-    const subEdits = this.fallback?.(subCmp, subA as unknown as S, subB as unknown as S);
+    // Use type assertions to satisfy TypeScript - the wrapper pattern requires this
+    // since the comparator works with SubsequenceWrapper<S> internally but the
+    // fallback algorithm signature expects S
+    const subEdits =
+      this.fallback?.(
+        subCmp as unknown as SequenceComparator<S>,
+        subA as unknown as S,
+        subB as unknown as S,
+      ) ?? [];
 
     // Adjust edit positions to original coordinates
     return subEdits.map(
