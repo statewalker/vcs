@@ -355,11 +355,92 @@ function createMockHistoryWithOperations(
     },
     async initialize() {},
     async close() {},
-    collectReachableObjects: function* (wants: Set<string>, exclude: Set<string>) {
-      // Simple implementation for tests - just yield wants that aren't in exclude
+    collectReachableObjects: async function* (wants: Set<string>, exclude: Set<string>) {
+      // Proper implementation - traverse commit graph to find all reachable objects
+      const visited = new Set<string>();
+
+      async function* traverseTree(treeId: string): AsyncIterable<string> {
+        if (visited.has(treeId) || exclude.has(treeId)) return;
+        visited.add(treeId);
+        yield treeId;
+
+        // Traverse tree entries
+        for await (const entry of stores.trees.loadTree(treeId)) {
+          if (entry.mode === 0o040000) {
+            // Subtree
+            yield* traverseTree(entry.id);
+          } else {
+            // Blob
+            if (!visited.has(entry.id) && !exclude.has(entry.id)) {
+              visited.add(entry.id);
+              yield entry.id;
+            }
+          }
+        }
+      }
+
+      async function* traverseCommit(commitId: string): AsyncIterable<string> {
+        if (visited.has(commitId) || exclude.has(commitId)) return;
+        visited.add(commitId);
+        yield commitId;
+
+        try {
+          const commit = await stores.commits.loadCommit(commitId);
+          // Traverse tree
+          yield* traverseTree(commit.tree);
+
+          // Queue parents (don't recurse to avoid stack overflow)
+          for (const parent of commit.parents) {
+            if (!visited.has(parent) && !exclude.has(parent)) {
+              yield* traverseCommit(parent);
+            }
+          }
+        } catch {
+          // Not a commit, skip
+        }
+      }
+
       for (const want of wants) {
-        if (!exclude.has(want)) {
-          yield want;
+        if (exclude.has(want)) continue;
+
+        // Try as commit first
+        try {
+          await stores.commits.loadCommit(want);
+          yield* traverseCommit(want);
+          continue;
+        } catch {
+          // Not a commit
+        }
+
+        // Try as tree
+        try {
+          const tree = stores.trees.loadTree(want);
+          // Check if it's a valid tree by trying to iterate
+          for await (const _ of tree) break;
+          yield* traverseTree(want);
+          continue;
+        } catch {
+          // Not a tree
+        }
+
+        // Try as blob
+        if (await stores.blobs.has(want)) {
+          if (!visited.has(want)) {
+            visited.add(want);
+            yield want;
+          }
+          continue;
+        }
+
+        // Try as tag
+        try {
+          await stores.tags.loadTag(want);
+          if (!visited.has(want)) {
+            visited.add(want);
+            yield want;
+          }
+        } catch {
+          // Unknown object type
         }
       }
     },
