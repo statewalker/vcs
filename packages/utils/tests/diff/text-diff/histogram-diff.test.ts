@@ -318,4 +318,104 @@ describe("HistogramDiff", () => {
       expect(r[0].getType()).toBe("INSERT");
     });
   });
+
+  // T2.6b: HistogramDiff-specific tests from JGit HistogramDiffTest.java
+  describe("histogram-specific: non-unique elements", () => {
+    it("should handle flip blocks with no unique middle side", () => {
+      // testEdit_NoUniqueMiddleSide_FlipBlocks from JGit
+      const r = HistogramDiff.diff(RawTextComparator.DEFAULT, t("aRRSSz"), t("aSSRRz"), {
+        fallback: null,
+      });
+      expect(r.length).toBe(2);
+      expect(r[0].equals(new Edit(1, 3, 1, 1))).toBe(true); // DELETE "RR"
+      expect(r[1].equals(new Edit(5, 5, 3, 5))).toBe(true); // INSERT "RR"
+    });
+
+    it("should handle insert with no unique middle side", () => {
+      // testEdit_NoUniqueMiddleSide_Insert2 from JGit
+      const r = HistogramDiff.diff(RawTextComparator.DEFAULT, t("aRSz"), t("aRRSSz"), {
+        fallback: null,
+      });
+      expect(r.length).toBe(1);
+      expect(r[0].equals(new Edit(2, 2, 2, 4))).toBe(true);
+    });
+
+    it("should handle flip and expand with no unique middle side", () => {
+      // testEdit_NoUniqueMiddleSide_FlipAndExpand from JGit
+      const r = HistogramDiff.diff(RawTextComparator.DEFAULT, t("aRSz"), t("aSSRRz"), {
+        fallback: null,
+      });
+      expect(r.length).toBe(2);
+      expect(r[0].equals(new Edit(1, 2, 1, 1))).toBe(true); // DELETE "R"
+      expect(r[1].equals(new Edit(3, 3, 2, 5))).toBe(true); // INSERT "SRR"
+    });
+
+    it("should handle LCS containing unique elements", () => {
+      // testEdit_LcsContainsUnique from JGit
+      const r = HistogramDiff.diff(
+        RawTextComparator.DEFAULT,
+        t("nqnjrnjsnm"),
+        t("AnqnjrnjsnjTnmZ"),
+        { fallback: null },
+      );
+      expect(r.length).toBe(3);
+      expect(r[0].equals(new Edit(0, 0, 0, 1))).toBe(true); // INSERT "A"
+      expect(r[1].equals(new Edit(9, 9, 10, 13))).toBe(true); // INSERT "jTn"
+      expect(r[2].equals(new Edit(10, 10, 14, 15))).toBe(true); // INSERT "Z"
+    });
+  });
+
+  describe("histogram-specific: chain length limits", () => {
+    it("should handle exceeds chain length during scan of A", () => {
+      // testExceedsChainLength_DuringScanOfA from JGit
+      // Use a custom comparator that forces all elements to hash to the same value
+      const cmp: import("../../../src/diff/text-diff/sequence.js").SequenceComparator<RawText> = {
+        equals(a: RawText, ai: number, b: RawText, bi: number): boolean {
+          return RawTextComparator.DEFAULT.equals(a, ai, b, bi);
+        },
+        hash(_a: RawText, _ai: number): number {
+          return 1; // Force all elements to same hash bucket
+        },
+      };
+
+      const r = HistogramDiff.diff(cmp, t("RabS"), t("QabT"), {
+        maxChainLength: 3,
+        fallback: null,
+      });
+      expect(r.length).toBe(1);
+      expect(r[0].equals(new Edit(0, 4, 0, 4))).toBe(true);
+    });
+
+    it("should handle exceeds chain length during scan of B", () => {
+      // testExceedsChainLength_DuringScanOfB from JGit
+      const r = HistogramDiff.diff(RawTextComparator.DEFAULT, t("RaaS"), t("QaaT"), {
+        maxChainLength: 1,
+        fallback: null,
+      });
+      expect(r.length).toBe(1);
+      expect(r[0].equals(new Edit(0, 4, 0, 4))).toBe(true);
+    });
+  });
+
+  describe("histogram-specific: fallback behavior", () => {
+    it("should produce better results with Myers fallback", () => {
+      // testFallbackToMyersDiff from JGit
+      const a = t("bbbbb");
+      const b = t("AbCbDbEFbZ");
+
+      // Without fallback our results are limited due to collisions
+      const noFallback = HistogramDiff.diff(RawTextComparator.DEFAULT, a, b, {
+        maxChainLength: 4,
+        fallback: null,
+      });
+      expect(noFallback.length).toBe(1);
+
+      // Results go up when we add a fallback for the high collision regions
+      const withFallback = HistogramDiff.diff(RawTextComparator.DEFAULT, a, b, {
+        maxChainLength: 4,
+        fallback: MyersDiff.diff,
+      });
+      expect(withFallback.length).toBe(5);
+    });
+  });
 });
