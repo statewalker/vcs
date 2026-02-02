@@ -54,7 +54,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Simple checkout should work.
      */
     it("testSimpleCheckout - should checkout existing branch", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create initial commit on main
       await addFile(workingCopy, "Test.txt", "Hello world");
@@ -81,7 +81,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Checkout should switch branches and update staging.
      */
     it("testCheckout - should switch branch and update staging", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Initial commit on main
       await addFile(workingCopy, "Test.txt", "Hello world");
@@ -118,7 +118,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Checkout to non-existing branch should throw.
      */
     it("testCheckoutToNonExistingBranch - should throw for non-existing branch", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
@@ -130,7 +130,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Checkout to detached HEAD (commit ID).
      */
     it("should checkout to detached HEAD for commit ID", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "Hello world");
       const commit1 = await git.commit().setMessage("Initial").call();
@@ -161,7 +161,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Create branch with -b flag.
      */
     it("testCreateBranchOnCheckout - should create branch on checkout", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
@@ -185,7 +185,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Create branch at specific start point.
      */
     it("should create branch at specific start point", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "v1");
       const commit1 = await git.commit().setMessage("First").call();
@@ -213,7 +213,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Checkout specific path from index.
      */
     it("testCheckoutPath - should checkout path from index", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Create files
       await addFile(workingCopy, "a.txt", "original a");
@@ -235,7 +235,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Checkout path from specific commit.
      */
     it("should checkout path from specific commit", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "version 1");
       const commit1 = await git.commit().setMessage("First").call();
@@ -261,7 +261,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Checkout all paths.
      */
     it("testCheckoutAllPaths - should checkout all paths", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "a");
       await addFile(workingCopy, "b.txt", "b");
@@ -281,7 +281,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Path checkout from non-existing path should report conflict.
      */
     it("should report conflict for non-existing path", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "existing.txt", "content");
       await git.commit().setMessage("Initial").call();
@@ -299,7 +299,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Create orphan branch.
      */
     it("testOrphanBranch - should create orphan branch", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
@@ -322,7 +322,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Checkout without name should throw.
      */
     it("should throw when name not set for branch checkout", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
@@ -334,7 +334,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Command can only be called once.
      */
     it("should throw if called twice", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
@@ -352,7 +352,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Force checkout should bypass conflict detection.
      */
     it("should force checkout despite staged changes", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Create initial commit on main
       await addFile(workingCopy, "Test.txt", "original");
@@ -384,7 +384,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Checkout should detect staged changes that differ from HEAD.
      */
     it("should detect staged changes conflict", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Create initial commit on main
       await addFile(workingCopy, "file.txt", "v1");
@@ -411,7 +411,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Checkout should succeed when staging matches HEAD.
      */
     it("should allow checkout when staging matches HEAD", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Create initial commit on main
       await addFile(workingCopy, "file.txt", "original");
@@ -434,7 +434,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * and we've staged different content on current branch.
      */
     it("should detect staged file differs from HEAD when target differs too", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Create initial commit with a shared file
       await addFile(workingCopy, "shared.txt", "original");
@@ -465,7 +465,7 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
      * Branch checkout should update staging to match target tree.
      */
     it("should update staging on branch checkout", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create initial state on main
       await addFile(workingCopy, "a.txt", "main-a");
