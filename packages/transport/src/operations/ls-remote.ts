@@ -41,14 +41,122 @@ export async function lsRemote(
   url: string,
   options?: LsRemoteOptions,
 ): Promise<Map<string, string>> {
-  // TODO: Implement HTTP-based ls-remote using smart HTTP protocol
-  // This would connect to the remote and fetch ref advertisement
+  // Normalize URL
+  const baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
+  const infoRefsUrl = `${baseUrl}/info/refs?service=git-upload-pack`;
 
-  void url; // Suppress unused parameter warning
-  void options; // Suppress unused parameter warning
+  // Build request headers
+  const headers: Record<string, string> = {
+    Accept: "application/x-git-upload-pack-advertisement",
+    ...options?.headers,
+  };
 
-  throw new Error(
-    "HTTP-based ls-remote not yet implemented. " +
-      "Use a transport adapter to connect to the remote.",
-  );
+  // Add authentication if provided
+  if (options?.auth) {
+    const { username, password } = options.auth;
+    const credentials = btoa(`${username}:${password}`);
+    headers.Authorization = `Basic ${credentials}`;
+  }
+
+  // Perform the HTTP request
+  const controller = options?.timeout
+    ? new AbortController()
+    : undefined;
+  const timeoutId = options?.timeout
+    ? setTimeout(() => controller?.abort(), options.timeout)
+    : undefined;
+
+  try {
+    const response = await fetch(infoRefsUrl, {
+      method: "GET",
+      headers,
+      signal: controller?.signal,
+    });
+
+    if (timeoutId) clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP error ${response.status}: ${response.statusText}`,
+      );
+    }
+
+    if (!response.body) {
+      throw new Error("Empty response from /info/refs");
+    }
+
+    // Read response body
+    const data = new Uint8Array(await response.arrayBuffer());
+
+    // Parse ref advertisement
+    return parseRefAdvertisement(data);
+  } catch (error) {
+    if (timeoutId) clearTimeout(timeoutId);
+
+    if (error instanceof Error) {
+      if (error.name === "AbortError") {
+        throw new Error("Request timeout");
+      }
+      throw error;
+    }
+    throw new Error(String(error));
+  }
+}
+
+/**
+ * Parse ref advertisement from HTTP response.
+ *
+ * Handles Git smart HTTP protocol format:
+ * - Service announcement line
+ * - Pkt-line formatted refs (4-byte hex length prefix)
+ * - First ref includes capabilities after null byte
+ */
+function parseRefAdvertisement(data: Uint8Array): Map<string, string> {
+  const refs = new Map<string, string>();
+  const textDecoder = new TextDecoder();
+  const text = textDecoder.decode(data);
+  const lines = text.split("\n");
+
+  for (const line of lines) {
+    // Skip empty lines
+    if (!line.trim()) continue;
+
+    // Skip flush packets (0000) and delim packets (0001)
+    if (line.trim() === "0000" || line.trim() === "0001") {
+      continue;
+    }
+
+    // Skip service announcement
+    if (line.includes("# service=")) {
+      continue;
+    }
+
+    // Extract content (remove pkt-line length prefix if present)
+    let content = line;
+    if (/^[0-9a-f]{4}/.test(content)) {
+      content = content.slice(4);
+    }
+
+    // Parse ref line: "OID refname\0capabilities" or "OID refname"
+    const nullIndex = content.indexOf("\0");
+    const refPart = nullIndex >= 0 ? content.slice(0, nullIndex) : content;
+
+    // Parse ref: "OID refname"
+    const spaceIndex = refPart.indexOf(" ");
+    if (spaceIndex > 0) {
+      const oid = refPart.slice(0, spaceIndex);
+      const refName = refPart.slice(spaceIndex + 1).trim();
+
+      // Skip capabilities^{} pseudo-ref and peeled refs
+      if (
+        !refName.endsWith("^{}") &&
+        !refName.startsWith("capabilities") &&
+        refName.length > 0
+      ) {
+        refs.set(refName, oid);
+      }
+    }
+  }
+
+  return refs;
 }

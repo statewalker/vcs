@@ -5,6 +5,7 @@
  * over HTTP/HTTPS.
  */
 
+import { fetch as httpFetch } from "./fetch.js";
 import type { Credentials, ProgressInfo } from "../api/credentials.js";
 
 /**
@@ -68,14 +69,30 @@ export interface CloneResult {
  * ```
  */
 export async function clone(options: CloneOptions): Promise<CloneResult> {
-  // TODO: Implement HTTP-based clone using smart HTTP protocol
-  // This would connect to the remote, perform ref advertisement,
-  // and download all objects
+  // Clone is essentially a fetch with no local objects (no haves)
+  // We want all refs from the remote
+  const fetchResult = await httpFetch({
+    url: options.url,
+    auth: options.auth,
+    headers: options.headers,
+    timeout: options.timeout,
+    depth: options.depth,
+    onProgress: options.onProgress,
+    onProgressMessage: options.onProgressMessage,
+    // No local objects for clone
+    localHas: undefined,
+    localCommits: undefined,
+    // Fetch all refs by default (no refspecs filtering)
+    refspecs: options.branch
+      ? [`+refs/heads/${options.branch}:refs/heads/${options.branch}`]
+      : undefined,
+  });
 
-  void options; // Suppress unused parameter warning
-
-  throw new Error(
-    "HTTP-based clone not yet implemented. " +
-      "Use fetchOverDuplex with an appropriate transport adapter.",
-  );
+  return {
+    refs: fetchResult.refs,
+    packData: fetchResult.packData,
+    defaultBranch: fetchResult.defaultBranch,
+    bytesReceived: fetchResult.bytesReceived,
+    isEmpty: fetchResult.isEmpty,
+  };
 }
