@@ -3,11 +3,11 @@
  */
 
 import { createNodeCompression } from "../packages/utils/src/compression/compression-node/index.js";
-import { collect, setCompression } from "../packages/utils/src/index.js";
+import { collect, setCompressionUtils } from "../packages/utils/src/index.js";
 import { newByteSplitter, readHeader } from "../packages/utils/src/streams/index.js";
 
 // Initialize compression
-setCompression(createNodeCompression());
+setCompressionUtils(createNodeCompression());
 
 async function stripHeaderWithReadHeader(data: Uint8Array): Promise<Uint8Array> {
   // Wrap in async generator like load() does
