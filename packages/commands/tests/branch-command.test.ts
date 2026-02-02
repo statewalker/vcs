@@ -34,7 +34,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("CreateBranchCommand", () => {
     it("should create branch at HEAD", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       const ref = await git.branchCreate().setName("feature").call();
 
@@ -43,7 +43,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should create branch at specific commit", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create some commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -55,7 +55,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject invalid branch names", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await expect(git.branchCreate().setName("feature..branch").call()).rejects.toThrow(
         InvalidRefNameError,
@@ -71,7 +71,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject duplicate branch names without force", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature").call();
 
@@ -81,7 +81,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should overwrite branch with force", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Create branch
       await git.branchCreate().setName("feature").call();
@@ -99,7 +99,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should require branch name", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await expect(git.branchCreate().call()).rejects.toThrow(InvalidRefNameError);
     });
@@ -107,7 +107,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("DeleteBranchCommand", () => {
     it("should delete branch", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature").call();
       expect(await repository.refs.has("refs/heads/feature")).toBe(true);
@@ -119,7 +119,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should delete multiple branches", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature1").call();
       await git.branchCreate().setName("feature2").call();
@@ -132,7 +132,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should not delete current branch", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await expect(git.branchDelete().setBranchNames("main").call()).rejects.toThrow(
         CannotDeleteCurrentBranchError,
@@ -140,7 +140,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject deleting non-existent branch", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await expect(git.branchDelete().setBranchNames("nonexistent").call()).rejects.toThrow(
         RefNotFoundError,
@@ -148,7 +148,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject deleting unmerged branch without force", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create branch at initial commit
       await git.branchCreate().setName("feature").setStartPoint(initialCommitId).call();
@@ -181,7 +181,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should force delete unmerged branch", async () => {
-      const { git, initialCommitId } = await createInitializedGit();
+      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
 
       // Create branch with unique commit
       await git.branchCreate().setName("feature").setStartPoint(initialCommitId).call();
@@ -215,7 +215,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("ListBranchCommand", () => {
     it("should list local branches", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature1").call();
       await git.branchCreate().setName("feature2").call();
@@ -229,7 +229,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should return branches in sorted order", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("zebra").call();
       await git.branchCreate().setName("alpha").call();
@@ -243,7 +243,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should list remote branches when mode is REMOTE", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       // Simulate remote tracking branch
       const headRef = await repository.refs.resolve("HEAD");
@@ -257,7 +257,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should list all branches when mode is ALL", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature").call();
 
@@ -275,7 +275,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
   describe("RenameBranchCommand", () => {
     it("should rename branch", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("old-name").call();
 
@@ -287,7 +287,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should rename current branch when oldName not specified", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       const ref = await git.branchRename().setNewName("renamed-main").call();
 
@@ -300,7 +300,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject invalid new name", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature").call();
 
@@ -310,7 +310,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject if new name already exists", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await git.branchCreate().setName("feature1").call();
       await git.branchCreate().setName("feature2").call();
@@ -321,7 +321,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject if old branch doesn't exist", async () => {
-      const { git } = await createInitializedGit();
+      const { git, workingCopy, repository } = await createInitializedGit();
 
       await expect(
         git.branchRename().setOldName("nonexistent").setNewName("new-name").call(),
