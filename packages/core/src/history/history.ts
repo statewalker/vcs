@@ -18,10 +18,10 @@
  * - Working directory (belongs to Worktree)
  * - HEAD pointer (belongs to Checkout)
  *
- * @see HistoryWithBackend for advanced operations (GC, delta, serialization)
+ * @see HistoryWithOperations for advanced operations (GC, delta, serialization)
  */
 
-import type { BackendCapabilities, StorageBackend } from "../backend/storage-backend.js";
+import type { BackendCapabilities } from "../backend/storage-backend.js";
 import type { ObjectId } from "../common/id/index.js";
 import type { SerializationApi } from "../serialization/serialization-api.js";
 import type { DeltaApi } from "../storage/delta/delta-api.js";
@@ -38,7 +38,7 @@ import type { Trees } from "./trees/trees.js";
  * Use factory functions to create instances:
  * - createMemoryHistory() for testing
  * - createHistoryFromStores() with explicit stores
- * - createHistoryFromBackend() for production use
+ * - createHistoryWithOperations() for production use
  */
 export interface History {
   /**
@@ -178,29 +178,4 @@ export interface HistoryWithOperations extends History {
    * Used for optimization and feature detection.
    */
   readonly capabilities: BackendCapabilities;
-}
-
-/**
- * Extended History interface with backend access
- *
- * @deprecated Use HistoryWithOperations instead. This interface will be removed
- * in a future version as part of the StorageBackend removal.
- *
- * Used internally for operations that need direct backend access:
- * - Delta compression for storage optimization
- * - Serialization for pack files and transport
- * - Garbage collection for cleanup
- *
- * Most application code should use the plain History interface.
- */
-export interface HistoryWithBackend extends History {
-  /**
-   * Direct backend access for advanced operations
-   *
-   * Provides access to:
-   * - structured: TypedStores (same objects, different view)
-   * - delta: Delta compression API
-   * - serialization: Pack file generation
-   */
-  readonly backend: StorageBackend;
 }

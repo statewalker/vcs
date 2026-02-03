@@ -9,8 +9,8 @@
  *
  * For typed access to Git objects, use the History interface instead:
  * ```typescript
- * import { createHistoryFromBackend } from "@statewalker/vcs-core";
- * const history = createHistoryFromBackend({ backend });
+ * import { createHistoryWithOperations } from "@statewalker/vcs-core";
+ * const history = createHistoryWithOperations({ backend });
  * const commit = await history.commits.load(commitId);
  * ```
  *
@@ -27,7 +27,7 @@
  * await backend.initialize();
  *
  * // Use History for typed object access
- * const history = createHistoryFromBackend({ backend });
+ * const history = createHistoryWithOperations({ backend });
  * const commit = await history.commits.load(commitId);
  *
  * // Use delta API for storage optimization
@@ -136,7 +136,7 @@ export interface BackendConfig {
  * Migration path:
  * - For delta/serialization operations: Use StorageOperations via backend.getOperations()
  * - For typed object access: Use History interface (blobs, trees, commits, tags, refs)
- * - For combined access: Use HistoryWithOperations instead of HistoryWithBackend
+ * - For combined access: Use HistoryWithOperations instead of HistoryWithOperations
  *
  * All storage implementations must provide the core APIs.
  * This enables consistent behavior across different storage types.
@@ -147,7 +147,7 @@ export interface StorageBackend {
    *
    * Access via History interface is recommended:
    * ```typescript
-   * const history = createHistoryFromBackend({ backend });
+   * const history = createHistoryWithOperations({ backend });
    * const blob = await history.blobs.load(blobId);
    * ```
    */

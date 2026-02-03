@@ -4,7 +4,7 @@
  * This module provides various ways to create History instances:
  * - createHistoryFromStores(): Compose from explicit store instances
  * - createMemoryHistory(): In-memory implementation for testing
- * - createHistoryFromBackend(): From StorageBackend (production use)
+ * - createHistoryWithOperations(): From StorageBackend (production use)
  */
 
 import type { StorageBackend } from "../backend/storage-backend.js";
@@ -14,8 +14,8 @@ import { createBlobs } from "./blobs/blobs.impl.js";
 import type { Blobs } from "./blobs/blobs.js";
 import { createCommits } from "./commits/commits.impl.js";
 import type { Commits } from "./commits/commits.js";
-import { HistoryImpl, HistoryWithBackendImpl, HistoryWithOperationsImpl } from "./history.impl.js";
-import type { History, HistoryWithBackend, HistoryWithOperations } from "./history.js";
+import { HistoryImpl, HistoryWithOperationsImpl } from "./history.impl.js";
+import type { History, HistoryWithOperations } from "./history.js";
 import { createGitObjectStore } from "./objects/index.js";
 import type { GitObjectStore } from "./objects/object-store.js";
 import type { RefStore } from "./refs/ref-store.js";
@@ -185,46 +185,6 @@ export function createHistoryWithOperations(config: HistoryBackendConfig): Histo
     () => backend.initialize(),
     () => backend.close(),
   );
-}
-
-/**
- * Create History from a storage backend (legacy API)
- *
- * @deprecated Use createHistoryWithOperations instead for a cleaner API without
- * the redundant backend property. This function will be removed in a future version.
- *
- * This is the primary factory for production use.
- * The backend provides all necessary components through its store properties.
- *
- * Note: This creates adapters from old store interfaces (BlobStore, TreeStore, etc.)
- * to new interfaces (Blobs, Trees, etc.).
- *
- * @param config Backend configuration
- * @returns HistoryWithBackend instance with backend access
- *
- * @example
- * ```typescript
- * const backend = await createGitFilesBackend({ path: ".git" });
- * const history = createHistoryFromBackend({ backend });
- *
- * // Use history for normal operations
- * const commit = await history.commits.load(commitId);
- *
- * // Use backend for advanced operations
- * const pack = history.backend.serialization.createPack(objectIds);
- * ```
- */
-export function createHistoryFromBackend(config: HistoryBackendConfig): HistoryWithBackend {
-  const { backend } = config;
-
-  // Create adapters from old store interfaces to new interfaces
-  const blobs = new BlobsAdapter(backend.blobs);
-  const trees = new TreesAdapter(backend.trees);
-  const commits = new CommitsAdapter(backend.commits);
-  const tags = new TagsAdapter(backend.tags);
-  const refs = createRefsAdapter(backend.refs);
-
-  return new HistoryWithBackendImpl(blobs, trees, commits, tags, refs, backend);
 }
 
 /**

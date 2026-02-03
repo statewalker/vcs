@@ -12,12 +12,11 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/transport/IndexPack.java
  */
 
-import { decompressBlockPartial } from "@statewalker/vcs-utils";
+import { applyGitDelta, decompressBlockPartial } from "@statewalker/vcs-utils";
 import { CRC32 } from "@statewalker/vcs-utils/hash/crc32";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import type { PackIndexWriterEntry } from "./pack-index-writer.js";
-import { applyDelta } from "./pack-reader.js";
 import { PackObjectType } from "./types.js";
 
 /** Pack file signature "PACK" */
@@ -125,7 +124,7 @@ export async function indexPack(packData: Uint8Array): Promise<IndexPackResult> 
             `OFS_DELTA at offset ${entryStart}: base at ${baseOffset} not found in cache`,
           );
         }
-        const content = applyDelta(base.content, decompressed);
+        const content = applyGitDelta(base.content, decompressed);
         const id = await computeObjectId(base.type, content);
         resolved = { type: base.type, content, id };
         break;
@@ -143,7 +142,7 @@ export async function indexPack(packData: Uint8Array): Promise<IndexPackResult> 
               `This may be a thin pack requiring external base objects.`,
           );
         }
-        const content = applyDelta(base.content, decompressed);
+        const content = applyGitDelta(base.content, decompressed);
         const id = await computeObjectId(base.type, content);
         resolved = { type: base.type, content, id };
         break;

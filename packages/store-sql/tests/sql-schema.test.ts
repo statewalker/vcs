@@ -85,8 +85,8 @@ describe("T4.5: SQL Schema Validation", () => {
           "SELECT name, sql FROM sqlite_master WHERE type='view' AND name='artifact'",
         );
         expect(views).toHaveLength(1);
-        expect(views[0]!.sql).toContain("object");
-        expect(views[0]!.sql).toContain("delta");
+        expect(views[0]?.sql).toContain("object");
+        expect(views[0]?.sql).toContain("delta");
       });
     });
 
@@ -388,7 +388,7 @@ describe("T4.5: SQL Schema Validation", () => {
         const result = await db.query<{ record_id: number }>(
           "SELECT record_id FROM object WHERE object_id = 'fk_test_obj'",
         );
-        const recordId = result[0]!.record_id;
+        const recordId = result[0]?.record_id;
 
         // Can insert delta with valid reference
         await db.execute(
@@ -515,7 +515,7 @@ describe("T4.5: SQL Schema Validation", () => {
 
     it("final schema version matches latest migration", async () => {
       const version = await getSchemaVersion(db);
-      expect(version).toBe(migrations[migrations.length - 1]!.version);
+      expect(version).toBe(migrations[migrations.length - 1]?.version);
     });
   });
 
