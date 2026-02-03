@@ -3,11 +3,23 @@
  *
  * Simple in-memory implementation of StorageBackend for testing.
  * Wraps existing memory stores to provide the unified interface.
+ *
+ * ## New Pattern (Recommended)
+ *
+ * Use the factory pattern for new code:
+ * - `createMemoryHistoryWithOperations()` - Creates HistoryWithOperations directly
+ * - `MemoryHistoryFactory` - Implements HistoryBackendFactory interface
+ *
+ * ## Legacy Pattern (Deprecated)
+ *
+ * The `MemoryStorageBackend` class is deprecated.
+ * Use `createMemoryHistoryWithOperations()` or `MemoryHistoryFactory` instead.
  */
 
 import type { ObjectId } from "../common/id/object-id.js";
 import type { BlobStore } from "../history/blobs/blob-store.js";
 import type { CommitStore } from "../history/commits/commit-store.js";
+import type { HistoryWithOperations } from "../history/history.js";
 import type { RefStore } from "../history/refs/ref-store.js";
 import type { TagStore } from "../history/tags/tag-store.js";
 import type { TreeStore } from "../history/trees/tree-store.js";
@@ -19,6 +31,7 @@ import type {
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
+import type { HistoryBackendFactory, MemoryBackendConfig } from "./history-backend-factory.js";
 import type { BackendCapabilities, StorageBackend, StorageOperations } from "./storage-backend.js";
 
 /**
@@ -61,8 +74,10 @@ export interface DeltaTracker {
 
 /**
  * In-memory BlobDeltaApi implementation
+ *
+ * @internal Exported for use by MemoryHistoryFactory
  */
-class MemoryBlobDeltaApi implements BlobDeltaApi {
+export class MemoryBlobDeltaApi implements BlobDeltaApi {
   constructor(
     readonly _blobs: BlobStore,
     private readonly tracker: DeltaTracker | undefined,
@@ -121,8 +136,10 @@ class MemoryBlobDeltaApi implements BlobDeltaApi {
 
 /**
  * In-memory DeltaApi implementation
+ *
+ * @internal Exported for use by MemoryHistoryFactory
  */
-class MemoryDeltaApi implements DeltaApi {
+export class MemoryDeltaApi implements DeltaApi {
   readonly blobs: BlobDeltaApi;
   private batchDepth = 0;
 
@@ -178,6 +195,23 @@ class MemoryDeltaApi implements DeltaApi {
  *
  * Simple implementation for testing and simple use cases.
  * Does not provide efficient delta compression.
+ *
+ * @deprecated Use `createMemoryHistoryWithOperations()` or `MemoryHistoryFactory` instead.
+ * The new pattern returns HistoryWithOperations directly, providing unified
+ * access to typed stores and storage operations.
+ *
+ * Migration:
+ * ```typescript
+ * // Old pattern (deprecated)
+ * const backend = new MemoryStorageBackend(config);
+ * const history = createHistoryWithOperations({ backend });
+ *
+ * // New pattern (recommended)
+ * const history = createMemoryHistoryWithOperations();
+ * // OR use the factory:
+ * const factory = new MemoryHistoryFactory();
+ * const history = await factory.createHistory({});
+ * ```
  */
 export class MemoryStorageBackend implements StorageBackend {
   readonly blobs: BlobStore;
@@ -244,8 +278,10 @@ export class MemoryStorageBackend implements StorageBackend {
  * StorageOperations implementation for MemoryStorageBackend
  *
  * Wraps the backend's delta and serialization APIs without exposing stores.
+ *
+ * @internal Exported for use by MemoryHistoryFactory
  */
-class MemoryStorageOperations implements StorageOperations {
+export class MemoryStorageOperations implements StorageOperations {
   constructor(private readonly backend: MemoryStorageBackend) {}
 
   get delta(): DeltaApi {
@@ -281,4 +317,67 @@ function concatBytes(chunks: Uint8Array[]): Uint8Array {
     offset += chunk.length;
   }
   return result;
+}
+
+/**
+ * MemoryHistoryFactory - Factory for creating in-memory HistoryWithOperations
+ *
+ * Implements the HistoryBackendFactory interface to create HistoryWithOperations
+ * instances directly from in-memory storage configuration.
+ *
+ * @example
+ * ```typescript
+ * const factory = new MemoryHistoryFactory();
+ * const history = await factory.createHistory({});
+ * await history.initialize();
+ *
+ * // Use history for normal operations
+ * const id = await history.blobs.store([new TextEncoder().encode("test")]);
+ *
+ * // Use delta API for storage optimization
+ * history.delta.startBatch();
+ * await history.delta.blobs.deltifyBlob(targetId, baseId, delta);
+ * await history.delta.endBatch();
+ *
+ * await history.close();
+ * ```
+ */
+export class MemoryHistoryFactory implements HistoryBackendFactory<MemoryBackendConfig> {
+  /**
+   * Create a full HistoryWithOperations instance
+   *
+   * Returns an uninitialized instance. Call initialize() before use.
+   *
+   * @param config Memory backend configuration (optional delta tracking)
+   * @returns HistoryWithOperations instance (not yet initialized)
+   */
+  async createHistory(config: MemoryBackendConfig = {}): Promise<HistoryWithOperations> {
+    // Import dynamically to avoid circular dependency
+    const { createMemoryHistoryWithOperations } = await import("../history/create-history.js");
+    return createMemoryHistoryWithOperations(config);
+  }
+
+  /**
+   * Create only storage operations (delta and serialization APIs)
+   *
+   * Use this when you only need delta compression operations
+   * without the full History interface.
+   *
+   * @param config Memory backend configuration
+   * @returns StorageOperations instance (not yet initialized)
+   */
+  async createOperations(config: MemoryBackendConfig = {}): Promise<StorageOperations> {
+    // Create a minimal memory backend for operations
+    const { createMemoryHistoryWithOperations } = await import("../history/create-history.js");
+    const history = createMemoryHistoryWithOperations(config);
+
+    // Return a StorageOperations wrapper
+    return {
+      delta: history.delta,
+      serialization: history.serialization,
+      capabilities: history.capabilities,
+      initialize: () => history.initialize(),
+      close: () => history.close(),
+    };
+  }
 }
