@@ -62,6 +62,8 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   private remote = "origin";
   private refSpecs: string[] = [];
   private removeDeletedRefs = false;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: Set by setTagOpt(), to be used in call()
+  private tagOption: TagOption = TagOption.AUTO_FOLLOW;
   private thin = true;
   private depth?: number;
   private dryRun = false;
