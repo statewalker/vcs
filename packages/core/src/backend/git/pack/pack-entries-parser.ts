@@ -9,13 +9,13 @@
  */
 
 import {
+  applyGitDelta,
   type Delta,
   decompressBlockPartial,
   deserializeDeltaFromGit,
 } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
-import { applyDelta } from "./pack-reader.js";
 import { PackObjectType } from "./types.js";
 import { readOfsVarint, readPackHeader } from "./varint.js";
 
@@ -150,7 +150,7 @@ export async function parsePackEntries(packData: Uint8Array): Promise<ParsePackE
         }
 
         // Resolve content to compute ID
-        const content = applyDelta(base.content, decompressed);
+        const content = applyGitDelta(base.content, decompressed);
         const id = await computeObjectId(base.type, content);
         const objectType = packTypeToString(base.type);
 
@@ -186,7 +186,7 @@ export async function parsePackEntries(packData: Uint8Array): Promise<ParsePackE
         }
 
         // Resolve content to compute ID
-        const content = applyDelta(base.content, decompressed);
+        const content = applyGitDelta(base.content, decompressed);
         const id = await computeObjectId(base.type, content);
         const objectType = packTypeToString(base.type);
 

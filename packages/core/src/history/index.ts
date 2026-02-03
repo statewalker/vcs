@@ -6,7 +6,6 @@ export type {
   HistoryStoresConfig,
 } from "./create-history.js";
 export {
-  createHistoryFromBackend,
   createHistoryFromComponents,
   createHistoryFromStores,
   createHistoryWithOperations,
@@ -16,9 +15,9 @@ export {
 export * from "./format/index.js";
 // Object hash functions for deterministic ID computation (moved from common/hash)
 export * from "./hash/index.js";
-export { HistoryImpl, HistoryWithBackendImpl, HistoryWithOperationsImpl } from "./history.impl.js";
+export { HistoryImpl, HistoryWithOperationsImpl } from "./history.impl.js";
 // New History facade (Phase C3)
-export type { History, HistoryWithBackend, HistoryWithOperations } from "./history.js";
+export type { History, HistoryWithOperations } from "./history.js";
 
 // Base interface for content-addressed stores (Phase C)
 export * from "./object-storage.js";

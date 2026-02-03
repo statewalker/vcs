@@ -2,13 +2,13 @@
  * History implementation - concrete classes for the History interface
  */
 
-import type { BackendCapabilities, StorageBackend } from "../backend/storage-backend.js";
+import type { BackendCapabilities } from "../backend/storage-backend.js";
 import type { ObjectId } from "../common/id/index.js";
 import type { SerializationApi } from "../serialization/serialization-api.js";
 import type { DeltaApi } from "../storage/delta/delta-api.js";
 import type { Blobs } from "./blobs/blobs.js";
 import type { Commits } from "./commits/commits.js";
-import type { History, HistoryWithBackend, HistoryWithOperations } from "./history.js";
+import type { History, HistoryWithOperations } from "./history.js";
 import type { Refs } from "./refs/refs.js";
 import type { Tags } from "./tags/tags.js";
 import type { Trees } from "./trees/trees.js";
@@ -217,56 +217,5 @@ export class HistoryWithOperationsImpl extends HistoryImpl implements HistoryWit
 
     // Then close operations (flushes data)
     await this.closeOps();
-  }
-}
-
-/**
- * History implementation with backend access
- *
- * @deprecated Use HistoryWithOperationsImpl instead. This class will be removed
- * in a future version as part of the StorageBackend removal.
- *
- * Used when delta compression, serialization, or GC is needed.
- * The backend provides direct access to storage optimization APIs.
- *
- * @example
- * ```typescript
- * const history = new HistoryWithBackendImpl(
- *   blobs, trees, commits, tags, refs, backend
- * );
- * await history.initialize();
- *
- * // Use backend for advanced operations
- * const pack = history.backend.serialization.createPack(objectIds);
- *
- * await history.close();
- * ```
- */
-export class HistoryWithBackendImpl extends HistoryImpl implements HistoryWithBackend {
-  constructor(
-    blobs: Blobs,
-    trees: Trees,
-    commits: Commits,
-    tags: Tags,
-    refs: Refs,
-    readonly backend: StorageBackend,
-  ) {
-    super(blobs, trees, commits, tags, refs);
-  }
-
-  async initialize(): Promise<void> {
-    // Initialize backend first (creates storage structures)
-    await this.backend.initialize();
-
-    // Then initialize refs
-    await super.initialize();
-  }
-
-  async close(): Promise<void> {
-    // Close stores first
-    await super.close();
-
-    // Then close backend (flushes data)
-    await this.backend.close();
   }
 }

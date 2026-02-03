@@ -85,7 +85,7 @@ WorkingCopy (mutable local state)
 import {
   // New interfaces (recommended)
   type History,
-  type HistoryWithBackend,
+  type HistoryWithOperations,
   type Blobs,
   type Trees,
   type Commits,
@@ -98,7 +98,7 @@ import {
   type WorkingCopy,
 
   // Factory functions
-  createHistoryFromBackend,
+  createHistoryWithOperations,
   createHistoryFromStores,
   createMemoryHistory,
 
@@ -146,7 +146,7 @@ import {
 | Interface | Purpose |
 |-----------|---------|
 | `History` | Immutable object storage (blobs, trees, commits, tags, refs) |
-| `HistoryWithBackend` | History with backend access for serialization/delta |
+| `HistoryWithOperations` | History with delta/serialization APIs |
 | `ObjectStorage<V>` | Base interface for content-addressed stores |
 | `Blobs` | File content (streaming I/O) |
 | `Trees` | Directory snapshots with entry lookup |

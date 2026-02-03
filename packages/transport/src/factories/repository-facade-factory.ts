@@ -9,12 +9,7 @@
  * - Legacy HistoryStore/RepositoryStores (deprecated) - uses internal traversal
  */
 
-import type {
-  HistoryWithBackend,
-  HistoryWithOperations,
-  Ref,
-  SymbolicRef,
-} from "@statewalker/vcs-core";
+import type { HistoryWithOperations, Ref, SymbolicRef } from "@statewalker/vcs-core";
 import type {
   ExportPackOptions,
   PackImportResult,
@@ -26,7 +21,7 @@ import type {
  */
 export interface HistoryFacadeConfig {
   /** History facade for object access */
-  history: HistoryWithOperations | HistoryWithBackend;
+  history: HistoryWithOperations;
 }
 
 /**
@@ -56,13 +51,8 @@ export function createRepositoryFacade(config: HistoryFacadeConfig): RepositoryF
 /**
  * Create RepositoryFacade using new History interface (recommended)
  */
-function createRepositoryFacadeFromHistory(
-  history: HistoryWithOperations | HistoryWithBackend,
-): RepositoryFacade {
-  const { commits, tags, refs } = history;
-  // Access serialization API - either directly (HistoryWithOperations) or via backend (HistoryWithBackend)
-  const serialization =
-    "serialization" in history ? history.serialization : history.backend.serialization;
+function createRepositoryFacadeFromHistory(history: HistoryWithOperations): RepositoryFacade {
+  const { commits, tags, refs, serialization } = history;
 
   const facade: RepositoryFacade = {
     // ─────────────────────────────────────────────────────────────────

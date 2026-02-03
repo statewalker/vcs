@@ -8,26 +8,11 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
-import {
-  applyGitDelta,
-  decompressBlockPartial,
-  getGitDeltaBaseSize,
-  getGitDeltaResultSize,
-} from "@statewalker/vcs-utils";
+import { applyGitDelta, decompressBlockPartial } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { type FilesApi, readAt } from "../../../common/files/index.js";
 import type { ObjectId } from "../../../common/id/index.js";
 import type { RandomAccessReader } from "./random-access-delta.js";
-
-// Re-export delta functions for backwards compatibility
-export {
-  /** @deprecated Use applyGitDelta from @statewalker/vcs-utils instead */
-  applyGitDelta as applyDelta,
-  /** @deprecated Use getGitDeltaBaseSize from @statewalker/vcs-utils instead */
-  getGitDeltaBaseSize as getDeltaBaseSize,
-  /** @deprecated Use getGitDeltaResultSize from @statewalker/vcs-utils instead */
-  getGitDeltaResultSize as getDeltaResultSize,
-};
 
 /**
  * Pack-specific delta chain information

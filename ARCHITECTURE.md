@@ -403,9 +403,9 @@ class MyRawStorage implements RawStorage {
 Then create a History using factory functions:
 
 ```typescript
-import { createHistoryFromBackend } from "@statewalker/vcs-core";
+import { createHistoryWithOperations } from "@statewalker/vcs-core";
 
-const history = await createHistoryFromBackend({ backend: myBackend });
+const history = await createHistoryWithOperations({ backend: myBackend });
 await history.initialize();
 ```
 

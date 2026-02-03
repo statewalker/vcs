@@ -41,8 +41,8 @@ describe("T4.7: SQL Transactions", () => {
       );
 
       expect(objects).toHaveLength(2);
-      expect(objects[0]!.object_id).toBe("obj1");
-      expect(objects[1]!.object_id).toBe("obj2");
+      expect(objects[0]?.object_id).toBe("obj1");
+      expect(objects[1]?.object_id).toBe("obj2");
     });
 
     it("rolls back all changes on error", async () => {
@@ -114,7 +114,7 @@ describe("T4.7: SQL Transactions", () => {
       );
 
       expect(objects).toHaveLength(1);
-      expect(objects[0]!.size).toBe(100);
+      expect(objects[0]?.size).toBe(100);
 
       // New object should not exist
       const newObjects = await db.query<{ object_id: string }>(
@@ -175,7 +175,7 @@ describe("T4.7: SQL Transactions", () => {
         // Query updated count
         const count2 = await tx.query<{ cnt: number }>("SELECT COUNT(*) as cnt FROM object");
 
-        expect(count2[0]!.cnt).toBe(count1[0]!.cnt + 1);
+        expect(count2[0]?.cnt).toBe(count1[0]?.cnt + 1);
       });
     });
   });
@@ -196,7 +196,7 @@ describe("T4.7: SQL Transactions", () => {
         "SELECT COUNT(*) as cnt FROM object WHERE object_id LIKE 'batch_obj_%'",
       );
 
-      expect(count[0]!.cnt).toBe(10);
+      expect(count[0]?.cnt).toBe(10);
     });
 
     it("maintains integrity across batch inserts", async () => {
@@ -258,7 +258,7 @@ describe("T4.7: SQL Transactions", () => {
         "SELECT COUNT(*) as cnt FROM object WHERE object_id LIKE 'partial_batch_%'",
       );
 
-      expect(count[0]!.cnt).toBe(0);
+      expect(count[0]?.cnt).toBe(0);
     });
 
     it("handles mixed operations (insert, update, delete) in batch", async () => {
@@ -290,7 +290,7 @@ describe("T4.7: SQL Transactions", () => {
       const existing = await db.query<{ size: number }>(
         "SELECT size FROM object WHERE object_id = 'mixed_existing'",
       );
-      expect(existing[0]!.size).toBe(999);
+      expect(existing[0]?.size).toBe(999);
 
       const newObj = await db.query<{ object_id: string }>(
         "SELECT object_id FROM object WHERE object_id = 'mixed_new'",
@@ -316,7 +316,7 @@ describe("T4.7: SQL Transactions", () => {
           "SELECT object_id FROM object WHERE object_id = 'return_test'",
         );
 
-        return rows[0]!.object_id;
+        return rows[0]?.object_id;
       });
 
       expect(result).toBe("return_test");
@@ -373,7 +373,7 @@ describe("T4.7: SQL Transactions", () => {
       );
 
       expect(entries).toHaveLength(1);
-      expect(entries[0]!.name).toBe("valid.txt");
+      expect(entries[0]?.name).toBe("valid.txt");
     });
 
     it("cascades delete within transaction", async () => {

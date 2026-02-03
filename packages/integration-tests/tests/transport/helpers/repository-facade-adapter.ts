@@ -1,18 +1,18 @@
 /**
  * RepositoryFacade adapter for transport integration tests
  *
- * Creates a RepositoryFacade from a HistoryWithBackend for use in
+ * Creates a RepositoryFacade from a HistoryWithOperations for use in
  * transport operations (fetch, push).
  */
 
-import type { HistoryWithBackend, HistoryWithOperations } from "@statewalker/vcs-core";
+import type { HistoryWithOperations } from "@statewalker/vcs-core";
 import {
   createRepositoryFacade as createFacadeFromHistory,
   type RepositoryFacade,
 } from "@statewalker/vcs-transport";
 
 /**
- * Creates a RepositoryFacade from a HistoryWithBackend or HistoryWithOperations
+ * Creates a RepositoryFacade from a HistoryWithOperations
  *
  * The RepositoryFacade provides transport-layer operations:
  * - importPack: Import objects from a pack stream
@@ -20,7 +20,7 @@ import {
  * - has: Check if an object exists
  * - walkAncestors: Walk commit ancestry for negotiation
  *
- * @param history HistoryWithBackend or HistoryWithOperations instance
+ * @param history HistoryWithOperations instance
  * @returns RepositoryFacade for transport operations
  *
  * @example
@@ -35,8 +35,6 @@ import {
  * const pack = facade.exportPack(new Set([wantOid]), new Set([haveOid]));
  * ```
  */
-export function createRepositoryFacade(
-  history: HistoryWithBackend | HistoryWithOperations,
-): RepositoryFacade {
+export function createRepositoryFacade(history: HistoryWithOperations): RepositoryFacade {
   return createFacadeFromHistory({ history });
 }

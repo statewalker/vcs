@@ -7,7 +7,7 @@ import * as path from "node:path";
 import { Git } from "@statewalker/vcs-commands";
 import {
   createFileWorktree,
-  createHistoryFromBackend,
+  createHistoryWithOperations,
   createMemoryCheckout,
   createMemoryWorkingCopy,
   createMemoryWorktree,
@@ -72,7 +72,7 @@ export async function openRepository(repoDir: string): Promise<CliContext> {
     gitDir: ".git",
     create: false,
   });
-  const history = createHistoryFromBackend({ backend });
+  const history = createHistoryWithOperations({ backend });
   await history.initialize();
 
   // Create staging
@@ -127,7 +127,7 @@ export async function initRepository(
     gitDir,
     create: true,
   });
-  const history = createHistoryFromBackend({ backend });
+  const history = createHistoryWithOperations({ backend });
   await history.initialize();
 
   // Set initial branch
