@@ -7,6 +7,15 @@
  * - createHistoryWithOperations(): From StorageBackend (production use)
  */
 
+import {
+  GitFilesStorageBackend,
+  type GitFilesStorageBackendConfig,
+} from "../backend/git-files-storage-backend.js";
+import type {
+  GitFilesBackendConfig,
+  MemoryBackendConfig,
+} from "../backend/history-backend-factory.js";
+import { MemoryStorageBackend } from "../backend/memory-storage-backend.js";
 import type { StorageBackend } from "../backend/storage-backend.js";
 import { MemoryRawStorage } from "../storage/raw/memory-raw-storage.js";
 import type { RawStorage } from "../storage/raw/raw-storage.js";
@@ -217,6 +226,120 @@ export function createMemoryHistory(): History {
     objects,
     refs: { type: "memory" },
   });
+}
+
+/**
+ * Create in-memory History with full operations support
+ *
+ * Returns HistoryWithOperations backed by in-memory storage,
+ * suitable for testing and ephemeral operations that need
+ * delta compression or serialization APIs.
+ *
+ * @param config Optional configuration
+ * @returns HistoryWithOperations instance with in-memory storage
+ *
+ * @example
+ * ```typescript
+ * const history = createMemoryHistoryWithOperations();
+ * await history.initialize();
+ *
+ * // Use history for normal operations
+ * const id = await history.blobs.store([new TextEncoder().encode("test")]);
+ *
+ * // Use delta API for storage optimization
+ * history.delta.startBatch();
+ * await history.delta.blobs.deltifyBlob(targetId, baseId, delta);
+ * await history.delta.endBatch();
+ *
+ * // Use serialization for pack files
+ * const pack = history.serialization.createPack(objectIds);
+ *
+ * await history.close();
+ * ```
+ */
+export function createMemoryHistoryWithOperations(
+  _config: MemoryBackendConfig = {},
+): HistoryWithOperations {
+  // Create memory object storage for all Git objects (including blobs)
+  const objectStorage = new MemoryRawStorage();
+  const objects = createGitObjectStore(objectStorage);
+
+  // Create typed stores from the object store
+  // Using dynamic require to avoid circular dependency issues
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { GitBlobStore, GitTreeStore, GitCommitStore, GitTagStore } = require("./objects/index.js");
+  const blobs = new GitBlobStore(objects);
+  const trees = new GitTreeStore(objects);
+  const commits = new GitCommitStore(objects);
+  const tags = new GitTagStore(objects);
+
+  // Create memory ref store
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { MemoryRefStore } = require("./refs/ref-store.memory.js");
+  const refs = new MemoryRefStore();
+
+  // Create memory backend
+  const backend = new MemoryStorageBackend({
+    blobs,
+    trees,
+    commits,
+    tags,
+    refs,
+  });
+
+  // Wrap in HistoryWithOperations
+  return createHistoryWithOperations({ backend });
+}
+
+/**
+ * Create Git-files backed History with full operations support
+ *
+ * Factory function that creates HistoryWithOperations directly from
+ * GitFilesStorageBackend configuration. This is the recommended way
+ * to create production Git-compatible storage.
+ *
+ * Note: This requires the stores (blobs, trees, commits, tags, refs, packDeltaStore)
+ * to be provided. For file-system-based stores, use @statewalker/vcs-store-fs
+ * which provides createGitFilesBackend() that sets up all components.
+ *
+ * @param config GitFilesStorageBackend configuration with all stores
+ * @returns HistoryWithOperations instance
+ *
+ * @example
+ * ```typescript
+ * // With pre-created stores (typical for Node.js environments)
+ * const history = createGitFilesHistory({
+ *   blobs: myBlobStore,
+ *   trees: myTreeStore,
+ *   commits: myCommitStore,
+ *   tags: myTagStore,
+ *   refs: myRefStore,
+ *   packDeltaStore: myPackDeltaStore,
+ * });
+ * await history.initialize();
+ *
+ * // Use history for normal operations
+ * const commit = await history.commits.load(commitId);
+ *
+ * // Use delta API for GC
+ * history.delta.startBatch();
+ * await history.delta.blobs.deltifyBlob(blobId, baseId, delta);
+ * await history.delta.endBatch();
+ * ```
+ */
+export function createGitFilesHistory(config: GitFilesStorageBackendConfig): HistoryWithOperations {
+  const backend = new GitFilesStorageBackend(config);
+  return createHistoryWithOperations({ backend });
+}
+
+/**
+ * Configuration for simplified Git-files history creation
+ *
+ * Used with registerGitFilesHistoryFactory() to enable
+ * createHistory("git-files", config) pattern.
+ */
+export interface GitFilesHistoryConfig extends GitFilesBackendConfig {
+  // Inherits path, create, readOnly from GitFilesBackendConfig
 }
 
 // --- Internal adapter functions for migration period ---
