@@ -7,11 +7,23 @@
  * - Delta compression using Git's OFS_DELTA/REF_DELTA formats
  *
  * This is the primary backend for file-based repositories.
+ *
+ * ## New Pattern (Recommended)
+ *
+ * Use the factory pattern for new code:
+ * - `createGitFilesHistory()` - Creates HistoryWithOperations directly
+ * - `GitFilesHistoryFactory` - Implements HistoryBackendFactory interface
+ *
+ * ## Legacy Pattern (Deprecated)
+ *
+ * The `GitFilesStorageBackend` class is deprecated.
+ * Use `createGitFilesHistory()` or `GitFilesHistoryFactory` instead.
  */
 
 import type { ObjectId } from "../common/id/object-id.js";
 import type { BlobStore } from "../history/blobs/blob-store.js";
 import type { CommitStore } from "../history/commits/commit-store.js";
+import type { HistoryWithOperations } from "../history/history.js";
 import type { RefStore } from "../history/refs/ref-store.js";
 import type { TagStore } from "../history/tags/tag-store.js";
 import type { TreeStore } from "../history/trees/tree-store.js";
@@ -24,12 +36,13 @@ import type {
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
 import type { PackDeltaStore } from "./git/pack/index.js";
+import type { BaseBackendConfig, HistoryBackendFactory } from "./history-backend-factory.js";
 import type { BackendCapabilities, StorageBackend, StorageOperations } from "./storage-backend.js";
 
 /**
  * Configuration for GitFilesStorageBackend
  */
-export interface GitFilesStorageBackendConfig {
+export interface GitFilesStorageBackendConfig extends BaseBackendConfig {
   /** Blob store implementation */
   blobs: BlobStore;
   /** Tree store implementation */
@@ -48,8 +61,10 @@ export interface GitFilesStorageBackendConfig {
  * BlobDeltaApi implementation using PackDeltaStore
  *
  * Wraps PackDeltaStore's delta operations with the typed BlobDeltaApi interface.
+ *
+ * @internal Exported for use by GitFilesHistoryFactory
  */
-class GitFilesBlobDeltaApi implements BlobDeltaApi {
+export class GitFilesBlobDeltaApi implements BlobDeltaApi {
   constructor(
     private readonly packDeltaStore: PackDeltaStore,
     private readonly blobs: BlobStore,
@@ -140,8 +155,10 @@ class GitFilesBlobDeltaApi implements BlobDeltaApi {
  * DeltaApi implementation using PackDeltaStore
  *
  * Provides the unified delta interface backed by Git pack files.
+ *
+ * @internal Exported for use by GitFilesHistoryFactory
  */
-class GitFilesDeltaApi implements DeltaApi {
+export class GitFilesDeltaApi implements DeltaApi {
   readonly blobs: BlobDeltaApi;
   private batchDepth = 0;
 
@@ -208,18 +225,21 @@ class GitFilesDeltaApi implements DeltaApi {
  * - Reading/writing pack files with index
  * - Delta compression using OFS_DELTA/REF_DELTA
  *
- * @example
- * ```typescript
- * const backend = new GitFilesStorageBackend({
- *   blobs, trees, commits, tags, refs,
- *   packDeltaStore,
- * });
- * await backend.initialize();
+ * @deprecated Use `createGitFilesHistory()` or `GitFilesHistoryFactory` instead.
+ * The new pattern returns HistoryWithOperations directly, providing unified
+ * access to typed stores and storage operations.
  *
- * // Use delta API for storage optimization
- * backend.delta.startBatch();
- * await backend.delta.blobs.deltifyBlob(blobId, baseId, deltaStream);
- * await backend.delta.endBatch();
+ * Migration:
+ * ```typescript
+ * // Old pattern (deprecated)
+ * const backend = new GitFilesStorageBackend(config);
+ * const history = createHistoryWithOperations({ backend });
+ *
+ * // New pattern (recommended)
+ * const history = createGitFilesHistory(config);
+ * // OR use the factory:
+ * const factory = new GitFilesHistoryFactory();
+ * const history = await factory.createHistory(config);
  * ```
  */
 export class GitFilesStorageBackend implements StorageBackend {
@@ -307,8 +327,10 @@ export class GitFilesStorageBackend implements StorageBackend {
  * StorageOperations implementation for GitFilesStorageBackend
  *
  * Wraps the backend's delta and serialization APIs without exposing stores.
+ *
+ * @internal Exported for use by GitFilesHistoryFactory
  */
-class GitFilesStorageOperations implements StorageOperations {
+export class GitFilesStorageOperations implements StorageOperations {
   constructor(private readonly backend: GitFilesStorageBackend) {}
 
   get delta(): DeltaApi {
@@ -344,4 +366,61 @@ function concatBytes(chunks: Uint8Array[]): Uint8Array {
     offset += chunk.length;
   }
   return result;
+}
+
+/**
+ * GitFilesHistoryFactory - Factory for creating Git-files backed HistoryWithOperations
+ *
+ * Implements the HistoryBackendFactory interface to create HistoryWithOperations
+ * instances directly from Git-files storage configuration.
+ *
+ * @example
+ * ```typescript
+ * const factory = new GitFilesHistoryFactory();
+ * const history = await factory.createHistory({
+ *   blobs, trees, commits, tags, refs,
+ *   packDeltaStore,
+ * });
+ * await history.initialize();
+ *
+ * // Use history for normal operations
+ * const commit = await history.commits.load(commitId);
+ *
+ * // Use delta API for GC
+ * history.delta.startBatch();
+ * await history.delta.blobs.deltifyBlob(blobId, baseId, delta);
+ * await history.delta.endBatch();
+ *
+ * await history.close();
+ * ```
+ */
+export class GitFilesHistoryFactory implements HistoryBackendFactory<GitFilesStorageBackendConfig> {
+  /**
+   * Create a full HistoryWithOperations instance
+   *
+   * Returns an uninitialized instance. Call initialize() before use.
+   *
+   * @param config Git-files storage backend configuration with all stores
+   * @returns HistoryWithOperations instance (not yet initialized)
+   */
+  async createHistory(config: GitFilesStorageBackendConfig): Promise<HistoryWithOperations> {
+    // Import dynamically to avoid circular dependency
+    const { createHistoryWithOperations } = await import("../history/create-history.js");
+    const backend = new GitFilesStorageBackend(config);
+    return createHistoryWithOperations({ backend });
+  }
+
+  /**
+   * Create only storage operations (delta and serialization APIs)
+   *
+   * Use this when you only need delta compression or pack file operations
+   * without the full History interface.
+   *
+   * @param config Git-files storage backend configuration
+   * @returns StorageOperations instance (not yet initialized)
+   */
+  async createOperations(config: GitFilesStorageBackendConfig): Promise<StorageOperations> {
+    const backend = new GitFilesStorageBackend(config);
+    return backend.getOperations();
+  }
 }
