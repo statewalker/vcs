@@ -13,7 +13,11 @@ import { SqlJsAdapter } from "../src/adapters/sql-js-adapter.js";
 import type { DatabaseClient } from "../src/database-client.js";
 import { initializeSchema } from "../src/migrations/index.js";
 import { createSqlNativeStores } from "../src/native/index.js";
-import type { SqlNativeBlobStore, SqlNativeStores, SqlNativeTreeStore } from "../src/native/types.js";
+import type {
+  SqlNativeBlobStore,
+  SqlNativeStores,
+  SqlNativeTreeStore,
+} from "../src/native/types.js";
 
 describe("T5.2: Extended Trees Query Tests", () => {
   let db: DatabaseClient;
@@ -242,7 +246,10 @@ describe("T5.2: Extended Trees Query Tests", () => {
       }
 
       expect(results).toHaveLength(2);
-      expect(results.map((r) => r.entry.name).sort()).toEqual(["my-component.ts", "your-component.tsx"]);
+      expect(results.map((r) => r.entry.name).sort()).toEqual([
+        "my-component.ts",
+        "your-component.tsx",
+      ]);
     });
 
     it("handles underscore wildcard (single character)", async () => {
@@ -372,20 +379,11 @@ describe("T5.2: Extended Trees Query Tests", () => {
       const jsBlob = await storeBlob("console.log('hello');");
       const tsBlob = await storeBlob("export const x: number = 1;");
 
-      await trees.storeTree([
-        createEntry("index.js", jsBlob),
-        createEntry("utils.js", jsBlob),
-      ]);
+      await trees.storeTree([createEntry("index.js", jsBlob), createEntry("utils.js", jsBlob)]);
 
-      await trees.storeTree([
-        createEntry("index.ts", tsBlob),
-        createEntry("utils.ts", tsBlob),
-      ]);
+      await trees.storeTree([createEntry("index.ts", tsBlob), createEntry("utils.ts", tsBlob)]);
 
-      await trees.storeTree([
-        createEntry("mixed.js", jsBlob),
-        createEntry("mixed.ts", tsBlob),
-      ]);
+      await trees.storeTree([createEntry("mixed.js", jsBlob), createEntry("mixed.ts", tsBlob)]);
 
       // Find trees with JS files
       const jsEntries: Array<{ treeId: string; entry: TreeEntry }> = [];
@@ -400,7 +398,9 @@ describe("T5.2: Extended Trees Query Tests", () => {
       }
 
       // Intersection: trees that have *.js files AND contain the JS blob
-      const jsTrees = [...new Set(jsEntries.map((e) => e.treeId))].filter((id) => treesWithJsBlob.has(id));
+      const jsTrees = [...new Set(jsEntries.map((e) => e.treeId))].filter((id) =>
+        treesWithJsBlob.has(id),
+      );
 
       expect(jsTrees).toHaveLength(2); // Tree with index.js/utils.js and tree with mixed.js/mixed.ts
     });
