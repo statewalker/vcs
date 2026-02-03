@@ -19,7 +19,7 @@ import { SQLCommitStore } from "../src/commit-store.js";
 import { initializeSchema } from "../src/migrations/index.js";
 import { createSqlObjectStores } from "../src/object-storage/index.js";
 import { SQLRefStore } from "../src/ref-store.js";
-import { SQLStagingStore } from "../src/staging-store.js";
+import { SQLStaging } from "../src/staging-store.js";
 import { SQLTagStore } from "../src/tag-store.js";
 import { SQLTreeStore } from "../src/tree-store.js";
 
@@ -80,7 +80,7 @@ createRefStoreTests("SQL", async () => {
 createStagingStoreTests("SQL", async () => {
   const db = await createTestDb();
   return {
-    stagingStore: new SQLStagingStore(db),
+    stagingStore: new SQLStaging(db),
     treeStore: new SQLTreeStore(db),
     cleanup: async () => {
       await db.close();
