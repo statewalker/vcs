@@ -102,7 +102,7 @@ export class SimpleHistory implements History {
 
   collectReachableObjects(_wants: Set<string>, _exclude: Set<string>): AsyncIterable<ObjectId> {
     // Simple implementation that doesn't support object collection
-    // For full support, use createHistoryFromBackend()
+    // For full support, use createHistoryWithOperations()
     throw new Error("collectReachableObjects not supported in SimpleHistory");
   }
 }

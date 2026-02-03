@@ -63,11 +63,11 @@ The example application in [apps/example-git-cycle](apps/example-git-cycle) demo
 
 ```typescript
 import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createHistoryFromBackend, FileMode } from "@statewalker/vcs-core";
+import { createHistoryWithOperations, FileMode } from "@statewalker/vcs-core";
 
 // Initialize an in-memory repository using the History interface
 const files = new FilesApi(new MemFilesApi());
-const history = await createHistoryFromBackend({ backend: createGitFilesBackend(files, ".git") });
+const history = await createHistoryWithOperations({ backend: createGitFilesBackend(files, ".git") });
 await history.initialize();
 
 // Store a file as a blob

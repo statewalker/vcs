@@ -7,11 +7,10 @@
  * Beads issue: webrun-vcs-vlbj
  */
 
-import { setCompressionUtils } from "@statewalker/vcs-utils";
+import { applyGitDelta, setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
-  applyDelta,
   PackDirectory,
   PackObjectType,
   PackReader,
@@ -184,9 +183,9 @@ describe("delta chain resolution", () => {
       const delta3 = createFirstByteChangeDelta(data2.length, 0x03);
 
       // Verify deltas produce correct results when applied
-      expect(applyDelta(baseContent, delta1)).toEqual(data1);
-      expect(applyDelta(data1, delta2)).toEqual(data2);
-      expect(applyDelta(data2, delta3)).toEqual(data3);
+      expect(applyGitDelta(baseContent, delta1)).toEqual(data1);
+      expect(applyGitDelta(data1, delta2)).toEqual(data2);
+      expect(applyGitDelta(data2, delta3)).toEqual(data3);
 
       // Build pack with REF_DELTA chain
       const writer = new PackWriterStream();

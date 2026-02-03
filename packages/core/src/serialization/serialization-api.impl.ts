@@ -43,7 +43,7 @@ export interface SerializationApiConfig {
    * History facade for object access (recommended)
    *
    * Use this when you have a History instance from:
-   * - createHistoryFromBackend()
+   * - createHistoryWithOperations()
    * - createHistoryFromStores()
    * - createMemoryHistory()
    */
