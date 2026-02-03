@@ -14,7 +14,11 @@ import { SqlJsAdapter } from "../src/adapters/sql-js-adapter.js";
 import type { DatabaseClient } from "../src/database-client.js";
 import { initializeSchema } from "../src/migrations/index.js";
 import { createSqlNativeStores } from "../src/native/index.js";
-import type { SqlNativeCommitStore, SqlNativeStores, SqlNativeTagStore } from "../src/native/types.js";
+import type {
+  SqlNativeCommitStore,
+  SqlNativeStores,
+  SqlNativeTagStore,
+} from "../src/native/types.js";
 
 describe("T5.3: Extended Tags Query Tests", () => {
   let db: DatabaseClient;
