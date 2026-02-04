@@ -1,11 +1,10 @@
 /**
  * GC Controller
  *
- * Garbage collection controller that uses StorageBackend.
+ * Garbage collection controller that uses HistoryWithOperations.
  * Focuses on blob-only delta compression as per the unified architecture.
  */
 
-import type { StorageBackend } from "../../backend/storage-backend.js";
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/object-id.js";
 import type { HistoryWithOperations } from "../../history/history.js";
@@ -62,10 +61,9 @@ const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
 };
 
 /**
- * GC Controller V2 - Uses HistoryWithOperations or StorageBackend
+ * GC Controller V2 - Uses HistoryWithOperations
  *
  * Simplified GC controller that focuses on blob-only delta compression.
- * Accepts either HistoryWithOperations (recommended) or StorageBackend (legacy).
  *
  * Key features:
  * - Only processes blobs (trees and commits are not deltified)
@@ -74,14 +72,7 @@ const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
  *
  * @example
  * ```typescript
- * // With HistoryWithOperations (recommended)
  * const gc = new GCController(history, {
- *   deltaEngine: myDeltaEngine,
- *   looseBlobThreshold: 100,
- * });
- *
- * // With StorageBackend (legacy)
- * const gc = new GCController(backend, {
  *   deltaEngine: myDeltaEngine,
  *   looseBlobThreshold: 100,
  * });
@@ -91,13 +82,13 @@ const DEFAULT_GC_OPTIONS: ResolvedGCOptions = {
  * ```
  */
 export class GCController {
-  private readonly backend: HistoryWithOperations | StorageBackend;
+  private readonly history: HistoryWithOperations;
   private readonly options: ResolvedGCOptions;
   private lastGC = 0;
   private pendingBlobs: ObjectId[] = [];
 
-  constructor(backend: HistoryWithOperations | StorageBackend, options: GCScheduleOptions = {}) {
-    this.backend = backend;
+  constructor(history: HistoryWithOperations, options: GCScheduleOptions = {}) {
+    this.history = history;
     this.options = {
       ...DEFAULT_GC_OPTIONS,
       ...options,
@@ -135,14 +126,14 @@ export class GCController {
       return 0;
     }
 
-    const deltaApi = this.backend.delta;
+    const deltaApi = this.history.delta;
     deltaApi.startBatch();
 
     let total = 0;
 
     try {
       for (const blobId of this.pendingBlobs) {
-        const size = await this.backend.blobs.size(blobId);
+        const size = await this.history.blobs.size(blobId);
 
         const target: DeltaTarget = {
           id: blobId,
@@ -187,11 +178,11 @@ export class GCController {
     let looseCount = 0;
     let deepChains = 0;
 
-    for await (const id of this.backend.blobs.keys()) {
-      if (!(await this.backend.delta.isDelta(id))) {
+    for await (const id of this.history.blobs.keys()) {
+      if (!(await this.history.delta.isDelta(id))) {
         looseCount++;
       } else {
-        const chainInfo = await this.backend.delta.getDeltaChain(id);
+        const chainInfo = await this.history.delta.getDeltaChain(id);
         if (chainInfo && chainInfo.depth > this.options.maxChainDepth) {
           deepChains++;
         }
@@ -240,8 +231,8 @@ export class GCController {
   private async repack(options?: RepackOptions): Promise<RepackResult> {
     const maxChainDepth = options?.maxChainDepth ?? this.options.maxChainDepth;
     const deltaEngine = this.options.deltaEngine;
-    const deltaApi = this.backend.delta;
-    const blobs = this.backend.blobs;
+    const deltaApi = this.history.delta;
+    const blobs = this.history.blobs;
 
     let objectsProcessed = 0;
     let deltasCreated = 0;
@@ -367,7 +358,7 @@ export class GCController {
    */
   private async storeDeltaResult(targetId: ObjectId, result: BestDeltaResult): Promise<void> {
     const deltaStream = toAsyncIterable(result.delta);
-    await this.backend.delta.blobs.deltifyBlob(targetId, result.baseId, deltaStream);
+    await this.history.delta.blobs.deltifyBlob(targetId, result.baseId, deltaStream);
   }
 
   /**
@@ -379,7 +370,7 @@ export class GCController {
     const startTime = Date.now();
     const expireTime = expire?.getTime() ?? 0;
 
-    const { blobs } = this.backend;
+    const { blobs } = this.history;
 
     // Find all reachable blobs
     const reachable = new Set<string>();
@@ -400,14 +391,13 @@ export class GCController {
       // Check expiration if set
       if (expireTime > 0) {
         // Note: expiration check would require modification time tracking
-        // which is not yet part of the BlobStore interface
+        // which is not yet part of the Blobs interface
       }
 
       // Delete unreachable blob
       try {
         const size = await blobs.size(id);
-        // Handle both BlobStore (has delete) and Blobs (has remove)
-        const deleted = "delete" in blobs ? await blobs.delete(id) : await blobs.remove(id);
+        const deleted = await blobs.remove(id);
         if (deleted) {
           blobsRemoved++;
           bytesFreed += size;
@@ -432,10 +422,7 @@ export class GCController {
     reachable.add(commitId);
 
     try {
-      // Handle both CommitStore (has loadCommit) and Commits (has load)
-      const commits = this.backend.commits;
-      const commit =
-        "loadCommit" in commits ? await commits.loadCommit(commitId) : await commits.load(commitId);
+      const commit = await this.history.commits.load(commitId);
       if (!commit) return;
 
       await this.walkTree(commit.tree, reachable);
@@ -456,9 +443,7 @@ export class GCController {
     reachable.add(treeId);
 
     try {
-      // Handle both TreeStore (has loadTree) and Trees (has load)
-      const trees = this.backend.trees;
-      const treeEntries = "loadTree" in trees ? trees.loadTree(treeId) : await trees.load(treeId);
+      const treeEntries = await this.history.trees.load(treeId);
       if (!treeEntries) return;
 
       for await (const entry of treeEntries) {

@@ -14,7 +14,12 @@ import type { PersonIdent } from "../../src/common/person/person-ident.js";
 import { GitBlobStore } from "../../src/history/blobs/blob-store.impl.js";
 import { GitCommitStore } from "../../src/history/commits/commit-store.impl.js";
 import type { Commit } from "../../src/history/commits/commit-store.js";
-import { createMemoryHistory, type History } from "../../src/history/index.js";
+import {
+  createHistoryWithOperations,
+  createMemoryHistory,
+  type History,
+  type HistoryWithOperations,
+} from "../../src/history/index.js";
 import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.js";
 import { MemoryRefStore } from "../../src/history/refs/ref-store.memory.js";
 import { GitTagStore } from "../../src/history/tags/tag-store.impl.js";
@@ -29,7 +34,7 @@ describe("GC Integration", () => {
   interface GCTestContext {
     history: History;
     gc: GCController;
-    backend: MemoryStorageBackend;
+    historyWithOps: HistoryWithOperations;
     /** Helper to create test commits */
     createCommit: (
       message: string,
@@ -58,7 +63,7 @@ describe("GC Integration", () => {
     const tags = new GitTagStore(objectStore);
     const refs = new MemoryRefStore();
 
-    // Create backend for GC
+    // Create backend and wrap in HistoryWithOperations for GC
     const backend = new MemoryStorageBackend({
       blobs,
       trees,
@@ -66,9 +71,10 @@ describe("GC Integration", () => {
       tags,
       refs,
     });
+    const historyWithOps = createHistoryWithOperations({ backend });
 
     // Create GC controller
-    const gc = new GCController(backend, {
+    const gc = new GCController(historyWithOps, {
       minInterval: 0, // Allow immediate GC for testing
       looseBlobThreshold: 1, // Low threshold for testing
     });
@@ -133,7 +139,7 @@ describe("GC Integration", () => {
     return {
       history,
       gc,
-      backend,
+      historyWithOps,
       createCommit,
       getBlobIds,
       hasBlob,
@@ -159,7 +165,7 @@ describe("GC Integration", () => {
       });
 
       // Create an unreachable blob (not part of any commit)
-      const unreachableBlobId = await ctx.backend.blobs.store([
+      const unreachableBlobId = await ctx.historyWithOps.blobs.store([
         new TextEncoder().encode("orphan content"),
       ]);
 
@@ -219,18 +225,18 @@ describe("GC Integration", () => {
     it("removes blobs when branch is deleted", async () => {
       // Create main branch with a commit
       const mainCommit = await ctx.createCommit("Main", { "main.txt": "main content" });
-      await ctx.backend.refs.set("refs/heads/main", mainCommit);
+      await ctx.historyWithOps.refs.set("refs/heads/main", mainCommit);
 
       // Create feature branch with unique content
       const featureCommit = await ctx.createCommit("Feature", { "feature.txt": "feature content" });
-      await ctx.backend.refs.set("refs/heads/feature", featureCommit);
+      await ctx.historyWithOps.refs.set("refs/heads/feature", featureCommit);
 
       // Verify both blobs exist
       const blobsBefore = await ctx.getBlobIds();
       expect(blobsBefore.length).toBe(2);
 
       // Delete feature branch
-      await ctx.backend.refs.delete("refs/heads/feature");
+      await ctx.historyWithOps.refs.remove("refs/heads/feature");
 
       // Collect garbage with only main as root
       await ctx.gc.collectGarbage([mainCommit]);
@@ -292,7 +298,7 @@ describe("GC Integration", () => {
       );
 
       // Add orphan blob
-      await ctx.backend.blobs.store([new TextEncoder().encode("orphan")]);
+      await ctx.historyWithOps.blobs.store([new TextEncoder().encode("orphan")]);
 
       // Collect garbage
       await ctx.gc.collectGarbage([mergeCommit]);
@@ -315,7 +321,7 @@ describe("GC Integration", () => {
       });
 
       // Add orphan
-      const orphanId = await ctx.backend.blobs.store([new TextEncoder().encode("orphan")]);
+      const orphanId = await ctx.historyWithOps.blobs.store([new TextEncoder().encode("orphan")]);
 
       // Collect garbage
       await ctx.gc.collectGarbage([commitId]);
@@ -334,7 +340,7 @@ describe("GC Integration", () => {
 
       // Create multiple orphan blobs
       for (let i = 0; i < 5; i++) {
-        await ctx.backend.blobs.store([new TextEncoder().encode(`orphan ${i}`)]);
+        await ctx.historyWithOps.blobs.store([new TextEncoder().encode(`orphan ${i}`)]);
       }
 
       // Verify count
@@ -359,7 +365,7 @@ describe("GC Integration", () => {
       // Create large orphan blobs
       const largeContent = "A".repeat(10000);
       for (let i = 0; i < 3; i++) {
-        await ctx.backend.blobs.store([new TextEncoder().encode(largeContent + i)]);
+        await ctx.historyWithOps.blobs.store([new TextEncoder().encode(largeContent + i)]);
       }
 
       // Collect garbage
@@ -380,7 +386,7 @@ describe("GC Integration", () => {
       // Start collecting garbage and read at the same time
       const [gcResult, loadedCommit] = await Promise.all([
         ctx.gc.collectGarbage([commit2]),
-        ctx.backend.commits.loadCommit(commit1),
+        ctx.historyWithOps.commits.load(commit1),
       ]);
 
       // Both operations should complete
