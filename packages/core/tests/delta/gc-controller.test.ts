@@ -1,7 +1,7 @@
 /**
  * GC Controller Tests
  *
- * Tests for the new GCController using StorageBackend.
+ * Tests for the GCController using HistoryWithOperations.
  * Focuses on blob-only delta compression.
  */
 

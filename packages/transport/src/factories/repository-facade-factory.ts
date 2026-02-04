@@ -1,12 +1,13 @@
 /**
- * Factory for creating RepositoryFacade from repository stores.
+ * Factory for creating RepositoryFacade from HistoryWithOperations.
  *
  * The RepositoryFacade provides a transport-friendly interface for
  * repository operations needed during Git protocol negotiation.
  *
- * Supports both:
- * - New History facade (recommended) - uses collectReachableObjects()
- * - Legacy HistoryStore/RepositoryStores (deprecated) - uses internal traversal
+ * Uses HistoryWithOperations for all operations:
+ * - collectReachableObjects() for efficient object graph traversal
+ * - SerializationApi for pack import/export
+ * - Typed stores (Blobs, Trees, Commits, Tags, Refs) for object access
  */
 
 import type { HistoryWithOperations, Ref, SymbolicRef } from "@statewalker/vcs-core";
