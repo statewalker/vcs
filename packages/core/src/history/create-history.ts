@@ -1,10 +1,15 @@
 /**
  * Factory functions for creating History instances
  *
- * This module provides various ways to create History instances:
+ * Recommended patterns (from history-backend-factory.ts):
+ * - createHistory(type, config): Create from registered backend type
+ * - createGitFilesHistory(config): Git-files backed storage
+ * - createMemoryHistoryWithOperations(): In-memory with operations
+ *
+ * Additional patterns in this module:
  * - createHistoryFromStores(): Compose from explicit store instances
- * - createMemoryHistory(): In-memory implementation for testing
- * - createHistoryWithOperations(): From StorageBackend (production use)
+ * - createMemoryHistory(): Basic in-memory (without operations)
+ * - createHistoryWithOperations(): From StorageBackend (deprecated)
  */
 
 import {
@@ -82,6 +87,11 @@ export interface HistoryComponentsConfig {
 
 /**
  * Configuration for creating History from a storage backend
+ *
+ * @deprecated Use the new factory pattern instead:
+ * - `createHistory(type, config)` for registered backend types
+ * - `createGitFilesHistory(config)` for Git-files backend
+ * - `createMemoryHistoryWithOperations()` for in-memory backend
  */
 export interface HistoryBackendConfig {
   /** Storage backend providing all components */
@@ -147,30 +157,33 @@ export function createHistoryFromComponents(config: HistoryComponentsConfig): Hi
 }
 
 /**
- * Create History from a storage backend (new API)
+ * Create History from a storage backend
  *
- * This is the recommended factory for production use.
  * Returns HistoryWithOperations with flattened delta/serialization APIs.
+ *
+ * @deprecated Use the new factory pattern instead:
+ * - `createHistory(type, config)` for registered backend types
+ * - `createGitFilesHistory(config)` for Git-files backend
+ * - `createMemoryHistoryWithOperations()` for in-memory backend
+ *
+ * Migration example:
+ * ```typescript
+ * // Old pattern (deprecated)
+ * const backend = await createStorageBackend("git-files", { path: ".git" });
+ * const history = createHistoryWithOperations({ backend });
+ *
+ * // New pattern (recommended)
+ * const history = await createHistory("git-files", { path: ".git" });
+ * // OR for specific backends:
+ * const history = createGitFilesHistory(stores);
+ * const history = createMemoryHistoryWithOperations();
+ * ```
  *
  * @param config Backend configuration
  * @returns HistoryWithOperations instance
  *
- * @example
- * ```typescript
- * const backend = await createGitFilesBackend({ path: ".git" });
- * const history = createHistoryWithOperations({ backend });
- *
- * // Use history for normal operations
- * const commit = await history.commits.load(commitId);
- *
- * // Use delta API for GC
- * history.delta.startBatch();
- * await history.delta.blobs.deltifyBlob(blobId, baseId, delta);
- * await history.delta.endBatch();
- *
- * // Use serialization for transport
- * const pack = history.serialization.createPack(objectIds);
- * ```
+ * @internal This function is kept for internal use during the migration period.
+ * External consumers should use the new factory functions.
  */
 export function createHistoryWithOperations(config: HistoryBackendConfig): HistoryWithOperations {
   const { backend } = config;

@@ -6,13 +6,14 @@
  */
 
 import { MemoryStorageBackend } from "../../src/backend/memory-storage-backend.js";
-import type { StorageBackend } from "../../src/backend/storage-backend.js";
 import { FileMode } from "../../src/common/files/index.js";
 import type { ObjectId } from "../../src/common/id/index.js";
 import type { PersonIdent } from "../../src/common/person/person-ident.js";
 import { GitBlobStore } from "../../src/history/blobs/blob-store.impl.js";
 import { GitCommitStore } from "../../src/history/commits/commit-store.impl.js";
 import type { Commit } from "../../src/history/commits/commit-store.js";
+import { createHistoryWithOperations } from "../../src/history/create-history.js";
+import type { HistoryWithOperations } from "../../src/history/history.js";
 import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.js";
 import { MemoryRefStore } from "../../src/history/refs/ref-store.memory.js";
 import { GitTagStore } from "../../src/history/tags/tag-store.impl.js";
@@ -33,15 +34,15 @@ interface TestRepository {
 }
 
 /**
- * Test context with repository, GC controller, and storage backend
+ * Test context with repository, GC controller, and history
  */
 export interface GCTestContext {
   /** Repository stores */
   repo: TestRepository;
   /** GC controller */
   gc: GCController;
-  /** Storage backend for delta operations */
-  backend: StorageBackend;
+  /** History with operations for delta operations */
+  history: HistoryWithOperations;
   /** Create a test person identity */
   createPerson: (name?: string, email?: string) => PersonIdent;
   /** Store a blob and return its ID */
@@ -100,7 +101,7 @@ export async function createTestRepository(gcOptions?: GCScheduleOptions): Promi
     refs,
   };
 
-  // Create StorageBackend for GC
+  // Create StorageBackend and wrap in HistoryWithOperations for GC
   const backend = new MemoryStorageBackend({
     blobs,
     trees,
@@ -108,8 +109,9 @@ export async function createTestRepository(gcOptions?: GCScheduleOptions): Promi
     tags,
     refs,
   });
+  const history = createHistoryWithOperations({ backend });
 
-  const gc = new GCController(backend, gcOptions);
+  const gc = new GCController(history, gcOptions);
 
   let commitCounter = 0;
 
@@ -175,7 +177,7 @@ export async function createTestRepository(gcOptions?: GCScheduleOptions): Promi
   return {
     repo,
     gc,
-    backend,
+    history,
     createPerson,
     blob,
     tree,
@@ -296,8 +298,8 @@ export async function getStatistics(ctx: GCTestContext): Promise<RepoStatistics>
   let looseCount = 0;
   let deltaCount = 0;
 
-  for await (const id of ctx.backend.blobs.keys()) {
-    if (await ctx.backend.delta.isDelta(id)) {
+  for await (const id of ctx.history.blobs.keys()) {
+    if (await ctx.history.delta.isDelta(id)) {
       deltaCount++;
     } else {
       looseCount++;
@@ -315,7 +317,7 @@ export async function getStatistics(ctx: GCTestContext): Promise<RepoStatistics>
  */
 export async function countBlobs(ctx: GCTestContext): Promise<number> {
   let count = 0;
-  for await (const _ of ctx.backend.blobs.keys()) {
+  for await (const _ of ctx.history.blobs.keys()) {
     count++;
   }
   return count;
@@ -325,7 +327,7 @@ export async function countBlobs(ctx: GCTestContext): Promise<number> {
  * Check if repository has a blob
  */
 export async function hasBlob(ctx: GCTestContext, blobId: ObjectId): Promise<boolean> {
-  return ctx.backend.blobs.has(blobId);
+  return ctx.history.blobs.has(blobId);
 }
 
 /**
@@ -350,7 +352,7 @@ export async function hasObject(ctx: GCTestContext, objectId: ObjectId): Promise
   }
 
   // Check blobs
-  return ctx.backend.blobs.has(objectId);
+  return ctx.history.blobs.has(objectId);
 }
 
 /**
