@@ -17,7 +17,7 @@ import { formatPersonIdent, parsePersonIdent } from "../format/person-ident.js";
 import type { TagEntry } from "../format/types.js";
 import { typeCodeToString, typeStringToCode } from "../objects/object-header.js";
 import type { ObjectTypeCode } from "../objects/object-types.js";
-import type { AnnotatedTag } from "./tag-store.js";
+import type { AnnotatedTag } from "./tags.js";
 
 const LF = "\n";
 

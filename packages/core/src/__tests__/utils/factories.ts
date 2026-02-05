@@ -1,9 +1,9 @@
 import type { PersonIdent } from "../../common/person/person-ident.js";
 import type { BlobContent } from "../../history/blobs/blobs.js";
-import type { Commit } from "../../history/commits/commit-store.js";
+import type { Commit } from "../../history/commits/commits.js";
 import type { History } from "../../history/history.js";
 import { ObjectType } from "../../history/objects/object-types.js";
-import type { AnnotatedTag } from "../../history/tags/tag-store.js";
+import type { AnnotatedTag } from "../../history/tags/tags.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
 
 /**

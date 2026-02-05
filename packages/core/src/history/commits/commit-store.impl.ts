@@ -13,7 +13,8 @@ import {
   encodeCommitEntries,
   entriesToCommit,
 } from "./commit-format.js";
-import type { AncestryOptions, Commit, CommitStore } from "./commit-store.js";
+import type { CommitStore } from "./commit-store.js";
+import type { AncestryOptions, Commit } from "./commits.js";
 
 /**
  * Git commit store implementation
