@@ -47,6 +47,14 @@ export interface Blobs extends ObjectStorage<BlobContent> {
   load(id: ObjectId): Promise<BlobContent | undefined>;
 
   /**
+   * Check if a blob exists
+   *
+   * @param id Blob object ID
+   * @returns True if blob exists
+   */
+  has(id: ObjectId): Promise<boolean>;
+
+  /**
    * Get blob size without loading content
    *
    * Useful for progress reporting and pre-allocation.
