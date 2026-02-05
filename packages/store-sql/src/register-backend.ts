@@ -24,10 +24,7 @@
  * ```
  */
 
-import {
-  createHistoryWithOperations,
-  registerHistoryBackendFactory,
-} from "@statewalker/vcs-core";
+import { createHistoryWithOperations, registerHistoryBackendFactory } from "@statewalker/vcs-core";
 import { SQLStorageBackend, type SQLStorageBackendConfig } from "./sql-storage-backend.js";
 
 /**

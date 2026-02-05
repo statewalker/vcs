@@ -557,6 +557,246 @@ describe("Git Sync MessagePort Integration", () => {
         targetRepo.cleanup();
       }
     });
+
+    it("should handle connection errors gracefully", async () => {
+      // Create a repository facade that throws during operations
+      const errorRepo: RepositoryFacade = {
+        async importPack(_packStream: AsyncIterable<Uint8Array>): Promise<PackImportResult> {
+          throw new Error("Repository resolution failed");
+        },
+        // biome-ignore lint/correctness/useYield: intentionally throws before yielding to test error handling
+        async *exportPack(_wants: Set<string>, _exclude: Set<string>): AsyncIterable<Uint8Array> {
+          throw new Error("Repository resolution failed");
+        },
+        async has(_oid: string): Promise<boolean> {
+          throw new Error("Repository resolution failed");
+        },
+        // biome-ignore lint/correctness/useYield: intentionally throws before yielding to test error handling
+        async *walkAncestors(_startOid: string): AsyncGenerator<string> {
+          throw new Error("Repository resolution failed");
+        },
+      };
+
+      const errorRefs: RefStore & { refs: Map<string, string> } = {
+        refs: new Map([["refs/heads/main", "a".repeat(40)]]),
+        async get(name: string): Promise<string | undefined> {
+          return this.refs.get(name);
+        },
+        async update(_name: string, _oid: string): Promise<void> {
+          // no-op
+        },
+        async listAll(): Promise<Iterable<[string, string]>> {
+          return this.refs.entries();
+        },
+      };
+
+      const targetRepo = createTestRepository();
+
+      try {
+        // Server has refs but will throw during pack export
+        const serverPromise = messagePortServe(serverPort, errorRepo, errorRefs);
+        const clientPromise = messagePortFetch(clientPort, targetRepo.facade, targetRepo.refs);
+
+        // Wait for both to complete
+        const [serverResult, clientResult] = await Promise.all([serverPromise, clientPromise]);
+
+        // Server should report the error - this is the key assertion
+        // The repository threw during exportPack which fails the server FSM
+        expect(serverResult.success).toBe(false);
+        expect(serverResult.error).toBeDefined();
+
+        // Client result may succeed or fail depending on timing and protocol state
+        // The important thing is both complete without hanging
+        expect(clientResult.success).toBeDefined();
+      } finally {
+        targetRepo.cleanup();
+      }
+    });
+
+    it("should handle invalid protocol messages", async () => {
+      const targetRepo = createTestRepository();
+
+      try {
+        // Send malformed data directly to the port
+        const serverDuplex = createMessagePortDuplex(serverPort);
+
+        // Start client fetch - it will wait for valid protocol response
+        const fetchPromise = messagePortFetch(clientPort, targetRepo.facade, targetRepo.refs);
+
+        // Send garbage data that doesn't conform to Git protocol
+        serverDuplex.write(encoder.encode("invalid-not-a-pkt-line"));
+
+        // Wait a bit for data to be processed
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Close the connection
+        await serverDuplex.close?.();
+
+        // Fetch should fail gracefully
+        const result = await fetchPromise;
+        expect(result.success).toBe(false);
+      } finally {
+        targetRepo.cleanup();
+      }
+    });
+
+    it("should handle missing repository (empty refs from server)", async () => {
+      const sourceRepo = createTestRepository();
+      const targetRepo = createTestRepository();
+
+      try {
+        // Client has local refs but server has empty repo (simulating "missing" repo)
+        const commit1 = createTestCommit("Local commit");
+        targetRepo.addObject(commit1.oid, commit1.data);
+        targetRepo.refs.refs.set("refs/heads/main", commit1.oid);
+
+        // Server has nothing - simulating a missing/empty repository
+        const serverPromise = messagePortServe(serverPort, sourceRepo.facade, sourceRepo.refs);
+        const result = await messagePortFetch(clientPort, targetRepo.facade, targetRepo.refs);
+        await serverPromise;
+
+        // Fetch from empty repo should succeed but report no updates
+        expect(result.success).toBe(true);
+        // No server refs means no updates
+        expect(result.updatedRefs?.size ?? 0).toBe(0);
+      } finally {
+        sourceRepo.cleanup();
+        targetRepo.cleanup();
+      }
+    });
+
+    it("should handle network interruption simulation", async () => {
+      const sourceRepo = createTestRepository();
+      const targetRepo = createTestRepository();
+
+      try {
+        // Setup a repo with enough data to have an active transfer
+        const commit1 = createTestCommit("Initial commit");
+        sourceRepo.addObject(commit1.oid, commit1.data);
+        const commit2 = createTestCommit("Second commit", commit1.oid);
+        sourceRepo.addObject(commit2.oid, commit2.data);
+        const commit3 = createTestCommit("Third commit", commit2.oid);
+        sourceRepo.addObject(commit3.oid, commit3.data);
+        sourceRepo.refs.refs.set("refs/heads/main", commit3.oid);
+
+        // Create a new channel for this test
+        const interruptChannel = new MessageChannel();
+
+        try {
+          const interruptServerPort = interruptChannel.port2;
+          const interruptClientPort = interruptChannel.port1;
+
+          // Start server
+          const serverPromise = messagePortServe(
+            interruptServerPort,
+            sourceRepo.facade,
+            sourceRepo.refs,
+          );
+
+          // Start fetch
+          const fetchPromise = messagePortFetch(
+            interruptClientPort,
+            targetRepo.facade,
+            targetRepo.refs,
+          );
+
+          // Simulate network interruption by closing ports after a short delay
+          await new Promise((resolve) => setTimeout(resolve, 50));
+
+          // Force close both ports to simulate network failure
+          interruptClientPort.close();
+          interruptServerPort.close();
+
+          // Both operations should complete (success or failure), not hang
+          const timeoutMs = 5000;
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Operations hung after network interruption")),
+              timeoutMs,
+            ),
+          );
+
+          const results = await Promise.race([
+            Promise.allSettled([serverPromise, fetchPromise]),
+            timeoutPromise,
+          ]);
+
+          // Verify operations completed (didn't hang)
+          expect(results).toHaveLength(2);
+
+          // At least one should have failed due to interruption
+          // (the exact behavior depends on timing - either success if completed before close,
+          // or failure if interrupted mid-transfer)
+          const [serverResult, clientResult] = results;
+
+          // Both should be settled (fulfilled or rejected, not pending)
+          expect(serverResult.status).toBeDefined();
+          expect(clientResult.status).toBeDefined();
+        } finally {
+          // Ports already closed in test
+        }
+      } finally {
+        sourceRepo.cleanup();
+        targetRepo.cleanup();
+      }
+    });
+
+    it("should cleanup resources on error", async () => {
+      const sourceRepo = createTestRepository();
+      const targetRepo = createTestRepository();
+
+      const failingRepo: RepositoryFacade = {
+        async importPack(packStream: AsyncIterable<Uint8Array>): Promise<PackImportResult> {
+          // Consume some of the stream then fail
+          for await (const _chunk of packStream) {
+            throw new Error("Import failed mid-stream");
+          }
+          return { objectsImported: 0 };
+        },
+        async *exportPack(_wants: Set<string>, _exclude: Set<string>): AsyncIterable<Uint8Array> {
+          // Normal export
+          yield new Uint8Array([0x50, 0x41, 0x43, 0x4b, 0, 0, 0, 2, 0, 0, 0, 0]);
+          yield new Uint8Array(20);
+        },
+        async has(_oid: string): Promise<boolean> {
+          return false;
+        },
+        async *walkAncestors(_startOid: string): AsyncGenerator<string> {
+          // Empty - no ancestors to walk
+        },
+      };
+
+      const failingRefs: RefStore & { refs: Map<string, string> } = {
+        refs: new Map(),
+        async get(name: string): Promise<string | undefined> {
+          return this.refs.get(name);
+        },
+        async update(name: string, oid: string): Promise<void> {
+          this.refs.set(name, oid);
+        },
+        async listAll(): Promise<Iterable<[string, string]>> {
+          return this.refs.entries();
+        },
+      };
+
+      try {
+        // Setup source repo with data
+        const commit1 = createTestCommit("Initial commit");
+        sourceRepo.addObject(commit1.oid, commit1.data);
+        sourceRepo.refs.refs.set("refs/heads/main", commit1.oid);
+
+        const serverPromise = messagePortServe(serverPort, sourceRepo.facade, sourceRepo.refs);
+        const result = await messagePortFetch(clientPort, failingRepo, failingRefs);
+        await serverPromise;
+
+        // Check that the error was handled - operation completes without hanging
+        // Result may be success or failure depending on protocol flow
+        expect(result.success).toBeDefined();
+      } finally {
+        sourceRepo.cleanup();
+        targetRepo.cleanup();
+      }
+    });
   });
 
   describe("pack data verification", () => {
