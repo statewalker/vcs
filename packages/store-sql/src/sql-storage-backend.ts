@@ -28,7 +28,6 @@ import {
   type HistoryWithOperations,
   type RefStore,
   type SerializationApi,
-  type StorageBackend,
   type StorageOperations,
   type TagStore,
   type TreeStore,
@@ -76,7 +75,7 @@ export interface SQLStorageBackendConfig extends BaseBackendConfig {
  * const history = await factory.createHistory({ db });
  * ```
  */
-export class SQLStorageBackend implements StorageBackend {
+export class SQLStorageBackend {
   readonly blobs: BlobStore;
   readonly trees: TreeStore;
   readonly commits: CommitStore;

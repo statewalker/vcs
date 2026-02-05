@@ -1,54 +1,34 @@
 /**
- * StorageBackend - Unified interface for VCS storage
+ * Storage Operations - Low-level storage APIs for optimization and transport
  *
- * The unified storage contract that all backends must implement.
- * Provides two perspectives on the same underlying data:
+ * This module provides the StorageOperations interface for delta compression
+ * and Git-compatible serialization. These operations are NOT part of the main
+ * History interface - they're for:
  *
- * 1. **DeltaApi** - Blob delta operations for storage optimization
- * 2. **SerializationApi** - Git-compatible wire format I/O
+ * 1. **DeltaApi** - Blob delta operations for storage optimization (GC, repacking)
+ * 2. **SerializationApi** - Git-compatible wire format I/O (transport, interop)
  *
- * For typed access to Git objects, use the History interface instead:
+ * For typed access to Git objects, use the History interface:
  * ```typescript
- * import { createHistoryWithOperations } from "@statewalker/vcs-core";
- * const history = createHistoryWithOperations({ backend });
+ * import { createMemoryHistoryWithOperations } from "@statewalker/vcs-core";
+ * const history = createMemoryHistoryWithOperations();
  * const commit = await history.commits.load(commitId);
  * ```
  *
- * Each backend implements all APIs optimally for its storage type:
- * - Git Files: Direct file access, pack files for delta/serialization
- * - SQL: Tables with indexed fields, transactions for atomicity
- * - Memory: In-memory maps, fast for testing
- * - KV: Key-value storage with custom encoding
- *
- * @example
+ * For storage operations, use HistoryWithOperations:
  * ```typescript
- * // Create backend
- * const backend = createStorageBackend("git-files", { path: ".git" });
- * await backend.initialize();
+ * const history = createMemoryHistoryWithOperations();
+ * // Delta operations
+ * history.delta.startBatch();
+ * await history.delta.blobs.deltifyBlob(blobId, baseId, deltaStream);
+ * await history.delta.endBatch();
  *
- * // Use History for typed object access
- * const history = createHistoryWithOperations({ backend });
- * const commit = await history.commits.load(commitId);
- *
- * // Use delta API for storage optimization
- * backend.delta.startBatch();
- * await backend.delta.blobs.deltifyBlob(blobId, baseId, deltaStream);
- * await backend.delta.endBatch();
- *
- * // Use serialization API for Git interop
- * const pack = backend.serialization.createPack(objectIds);
- * await backend.serialization.importPack(receivedPackStream);
- *
- * // Cleanup
- * await backend.close();
+ * // Serialization operations
+ * const pack = history.serialization.createPack(objectIds);
+ * await history.serialization.importPack(receivedPackStream);
  * ```
  */
 
-import type { BlobStore } from "../history/blobs/blob-store.js";
-import type { CommitStore } from "../history/commits/commit-store.js";
-import type { RefStore } from "../history/refs/ref-store.js";
-import type { TagStore } from "../history/tags/tag-store.js";
-import type { TreeStore } from "../history/trees/tree-store.js";
 import type { SerializationApi } from "../serialization/serialization-api.js";
 import type { DeltaApi } from "../storage/delta/delta-api.js";
 
@@ -126,97 +106,6 @@ export interface BackendConfig {
 }
 
 /**
- * StorageBackend - The unified storage contract
- *
- * @deprecated Use StorageOperations instead. This interface bundles typed stores
- * with storage operations, creating redundancy with the History interface.
- * StorageOperations provides only delta and serialization APIs without the stores.
- * This interface will be removed in a future version.
- *
- * Migration path:
- * - For delta/serialization operations: Use StorageOperations via backend.getOperations()
- * - For typed object access: Use History interface (blobs, trees, commits, tags, refs)
- * - For combined access: Use HistoryWithOperations instead of HistoryWithOperations
- *
- * All storage implementations must provide the core APIs.
- * This enables consistent behavior across different storage types.
- */
-export interface StorageBackend {
-  /**
-   * Blob (file content) storage
-   *
-   * Access via History interface is recommended:
-   * ```typescript
-   * const history = createHistoryWithOperations({ backend });
-   * const blob = await history.blobs.load(blobId);
-   * ```
-   */
-  readonly blobs: BlobStore;
-
-  /**
-   * Tree (directory structure) storage
-   */
-  readonly trees: TreeStore;
-
-  /**
-   * Commit (version snapshot) storage
-   */
-  readonly commits: CommitStore;
-
-  /**
-   * Tag (annotated tag) storage
-   */
-  readonly tags: TagStore;
-
-  /**
-   * Reference (branch/tag pointer) storage
-   */
-  readonly refs: RefStore;
-
-  /**
-   * Delta/raw content manipulation
-   *
-   * Only blobs have delta support in internal storage.
-   * Used for GC, repacking, and storage optimization.
-   */
-  readonly delta: DeltaApi;
-
-  /**
-   * API 3: Git-compatible serialization
-   *
-   * For pack file creation/parsing and loose object I/O.
-   * Used for transport (fetch/push) and Git interoperability.
-   */
-  readonly serialization: SerializationApi;
-
-  /**
-   * Backend capabilities
-   *
-   * Describes what this backend supports natively.
-   * Used for optimization and feature detection.
-   */
-  readonly capabilities: BackendCapabilities;
-
-  /**
-   * Initialize the backend
-   *
-   * Must be called before using any API.
-   * Creates storage structures if needed and configured.
-   *
-   * @throws Error if initialization fails
-   */
-  initialize(): Promise<void>;
-
-  /**
-   * Close the backend
-   *
-   * Releases resources, flushes pending writes.
-   * Backend should not be used after close().
-   */
-  close(): Promise<void>;
-}
-
-/**
  * Storage operations for optimization and transport
  *
  * This interface provides low-level storage operations that are NOT part
@@ -287,11 +176,3 @@ export interface StorageOperations {
  * Supported backend types
  */
 export type BackendType = "git-files" | "sql" | "kv" | "memory";
-
-/**
- * Factory function signature for creating backends
- *
- * Each backend type has its own implementation.
- * The factory selects the appropriate one.
- */
-export type BackendFactory = (type: BackendType, config: BackendConfig) => StorageBackend;
