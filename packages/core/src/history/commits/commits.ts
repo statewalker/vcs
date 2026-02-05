@@ -57,6 +57,14 @@ export interface Commits extends ObjectStorage<Commit> {
   load(id: ObjectId): Promise<Commit | undefined>;
 
   /**
+   * Check if a commit exists
+   *
+   * @param id Commit object ID
+   * @returns True if commit exists
+   */
+  has(id: ObjectId): Promise<boolean>;
+
+  /**
    * Get parent commit IDs
    *
    * Convenience method for history traversal without loading

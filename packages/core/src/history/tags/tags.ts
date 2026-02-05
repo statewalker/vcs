@@ -42,6 +42,14 @@ export interface Tags extends ObjectStorage<Tag> {
   load(id: ObjectId): Promise<Tag | undefined>;
 
   /**
+   * Check if a tag exists
+   *
+   * @param id Tag object ID
+   * @returns True if tag exists
+   */
+  has(id: ObjectId): Promise<boolean>;
+
+  /**
    * Get the target object ID
    *
    * Convenience method to get what the tag points to without
