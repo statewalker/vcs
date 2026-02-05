@@ -45,6 +45,14 @@ export interface Trees extends ObjectStorage<Tree> {
   load(id: ObjectId): Promise<AsyncIterable<TreeEntry> | undefined>;
 
   /**
+   * Check if a tree exists
+   *
+   * @param id Tree object ID
+   * @returns True if tree exists
+   */
+  has(id: ObjectId): Promise<boolean>;
+
+  /**
    * Get a single entry from a tree by name
    *
    * Convenience method to avoid loading the entire tree when
