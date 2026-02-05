@@ -2,7 +2,7 @@
  * Git Socket Client Tests using MessageChannel.
  *
  * These tests validate client functionality using real MessageChannel
- * communication instead of mock BidirectionalSocket.
+ * communication via the Duplex interface.
  *
  * Test coverage:
  * - Send initial git protocol request
