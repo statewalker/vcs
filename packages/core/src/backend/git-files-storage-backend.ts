@@ -37,7 +37,7 @@ import type {
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
 import type { PackDeltaStore } from "./git/pack/index.js";
 import type { BaseBackendConfig, HistoryBackendFactory } from "./history-backend-factory.js";
-import type { BackendCapabilities, StorageBackend, StorageOperations } from "./storage-backend.js";
+import type { BackendCapabilities, StorageOperations } from "./storage-backend.js";
 
 /**
  * Configuration for GitFilesStorageBackend
@@ -242,7 +242,7 @@ export class GitFilesDeltaApi implements DeltaApi {
  * const history = await factory.createHistory(config);
  * ```
  */
-export class GitFilesStorageBackend implements StorageBackend {
+export class GitFilesStorageBackend {
   readonly blobs: BlobStore;
   readonly trees: TreeStore;
   readonly commits: CommitStore;

@@ -1,19 +1,20 @@
 /**
- * Backend module - Unified storage interfaces
+ * Backend module - Storage interfaces and factories
  *
- * Exports the StorageBackend contract and related types.
+ * Exports storage-related types and factory functions.
  *
- * ## New Pattern (Recommended)
+ * ## Factory Functions
  *
- * Use HistoryWithOperations factories for new code:
+ * Use HistoryBackendFactory pattern for creating storage:
  * - `createHistory()` - Create HistoryWithOperations from registered backend type
  * - `createMemoryHistoryWithOperations()` - In-memory with full operations
  * - `createGitFilesHistory()` - Git-files backed with full operations
  *
- * ## Legacy Pattern (Deprecated)
+ * ## Key Types
  *
- * The StorageBackend interface is deprecated in favor of HistoryWithOperations.
- * Use `createHistoryWithOperations({ backend })` to wrap existing backends.
+ * - `StorageOperations` - Low-level delta and serialization APIs
+ * - `BackendCapabilities` - Feature flags for backend optimization
+ * - `HistoryBackendFactory` - Factory interface for backend registration
  */
 
 // Export serialization API for backend implementations

@@ -1,33 +1,34 @@
 /**
  * SQLStorageBackend tests
  *
- * Tests the unified StorageBackend interface for SQL storage.
+ * Tests the SQL storage backend and factory registration.
  */
 
 import type { ObjectId } from "@statewalker/vcs-core";
-import { createStorageBackend, hasBackendFactory } from "@statewalker/vcs-core";
+import { createHistory, hasHistoryBackendFactory } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqlJsAdapter } from "../src/adapters/sql-js-adapter.js";
-import { registerSqlBackend } from "../src/register-backend.js";
+import { registerSqlHistoryFactory } from "../src/register-backend.js";
 import { SQLStorageBackend } from "../src/sql-storage-backend.js";
 
-describe("registerSqlBackend", () => {
+describe("registerSqlHistoryFactory", () => {
   it("registers the SQL backend with the factory", async () => {
-    registerSqlBackend();
-    expect(hasBackendFactory("sql")).toBe(true);
+    registerSqlHistoryFactory();
+    expect(hasHistoryBackendFactory("sql")).toBe(true);
 
     const db = await SqlJsAdapter.create();
-    const backend = await createStorageBackend("sql", { db });
-    expect(backend).toBeInstanceOf(SQLStorageBackend);
+    const history = await createHistory("sql", { db });
 
-    await backend.initialize();
-    expect(backend.isInitialized()).toBe(true);
-    await backend.close();
+    await history.initialize();
+    // Verify we can use the history
+    expect(history.commits).toBeDefined();
+    expect(history.blobs).toBeDefined();
+    await history.close();
   });
 
   it("throws without db client", async () => {
-    registerSqlBackend();
-    await expect(createStorageBackend("sql", {})).rejects.toThrow("requires a database client");
+    registerSqlHistoryFactory();
+    await expect(createHistory("sql", {})).rejects.toThrow("requires a database client");
   });
 });
 
