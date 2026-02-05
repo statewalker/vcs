@@ -9,7 +9,7 @@
 import { insertByTimestamp, type TimestampEntry } from "@statewalker/vcs-utils";
 
 import type { ObjectId } from "../../common/id/index.js";
-import type { AncestryOptions, Commit } from "./commit-store.js";
+import type { AncestryOptions, Commit } from "./commits.js";
 
 /**
  * Operations needed for ancestry traversal

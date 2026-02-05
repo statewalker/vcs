@@ -1,7 +1,6 @@
 import { expect } from "vitest";
 import type { BlobContent } from "../../history/blobs/blobs.js";
-import type { Commit } from "../../history/commits/commit-store.js";
-import type { Commits } from "../../history/commits/commits.js";
+import type { Commit, Commits } from "../../history/commits/commits.js";
 import type { Refs } from "../../history/refs/refs.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
 import type { Tree } from "../../history/trees/trees.js";

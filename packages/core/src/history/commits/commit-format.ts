@@ -15,7 +15,7 @@
 import { asAsyncIterable, collect, encodeString, toArray } from "@statewalker/vcs-utils/streams";
 import { formatPersonIdent, parsePersonIdent } from "../format/person-ident.js";
 import type { CommitEntry } from "../format/types.js";
-import type { Commit } from "./commit-store.js";
+import type { Commit } from "./commits.js";
 
 const LF = "\n";
 
