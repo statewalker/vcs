@@ -1,18 +1,14 @@
 /**
  * Integration tests for VcsRepositoryAccess
  *
- * Tests end-to-end workflows using real in-memory stores.
+ * Tests end-to-end workflows using the History-based API with real in-memory storage.
  */
 
-import type { ObjectId } from "@statewalker/vcs-core";
-import { MemoryRefStore, ObjectType } from "@statewalker/vcs-core";
-import { createMemoryObjectStores } from "@statewalker/vcs-store-mem";
+import type { History, ObjectId } from "@statewalker/vcs-core";
+import { createMemoryHistory, ObjectType } from "@statewalker/vcs-core";
 import { collect } from "@statewalker/vcs-utils/streams";
 import { describe, expect, it } from "vitest";
-import {
-  createVcsRepositoryAccess,
-  type VcsRepositoryAccessParams,
-} from "../src/vcs-repository-access.js";
+import { createVcsRepositoryAccess } from "../src/vcs-repository-access.js";
 import { parseGitWireFormat } from "../src/wire-format-utils.js";
 
 const SAMPLE_IDENT = {
@@ -23,36 +19,27 @@ const SAMPLE_IDENT = {
 };
 
 /**
- * Create a full set of VCS stores backed by memory
+ * Create an in-memory History instance for integration testing
  */
-function createMemoryStores(): VcsRepositoryAccessParams {
-  const objectStores = createMemoryObjectStores();
-  const refs = new MemoryRefStore();
-
-  return {
-    blobs: objectStores.blobs,
-    trees: objectStores.trees,
-    commits: objectStores.commits,
-    tags: objectStores.tags,
-    refs,
-  };
+function createTestHistory(): History {
+  return createMemoryHistory();
 }
 
 describe("VcsRepositoryAccess Integration Tests", () => {
   describe("Push and clone workflow", () => {
     it("can clone content from source to target", async () => {
       // Set up source repository
-      const sourceStores = createMemoryStores();
+      const sourceHistory = createTestHistory();
 
       // Create content in source
       const blobContent = new TextEncoder().encode("Hello from source!");
-      const blobId = await sourceStores.blobs.store([blobContent]);
+      const blobId = await sourceHistory.blobs.store([blobContent]);
 
-      const treeId = await sourceStores.trees.storeTree([
+      const treeId = await sourceHistory.trees.store([
         { mode: 0o100644, name: "readme.txt", id: blobId },
       ]);
 
-      const commitId = await sourceStores.commits.storeCommit({
+      const commitId = await sourceHistory.commits.store({
         tree: treeId,
         parents: [],
         author: SAMPLE_IDENT,
@@ -61,15 +48,15 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       });
 
       // Set up refs in source
-      await sourceStores.refs.set("refs/heads/main", commitId);
-      await sourceStores.refs.setSymbolic("HEAD", "refs/heads/main");
+      await sourceHistory.refs.set("refs/heads/main", commitId);
+      await sourceHistory.refs.setSymbolic("HEAD", "refs/heads/main");
 
       // Create VcsRepositoryAccess for source
-      const sourceAccess = createVcsRepositoryAccess(sourceStores);
+      const sourceAccess = createVcsRepositoryAccess({ history: sourceHistory });
 
       // Set up target repository
-      const targetStores = createMemoryStores();
-      const targetAccess = createVcsRepositoryAccess(targetStores);
+      const targetHistory = createTestHistory();
+      const targetAccess = createVcsRepositoryAccess({ history: targetHistory });
 
       // Simulate fetch: listRefs(), walkObjects(), storeObject()
       // 1. List refs
@@ -96,22 +83,24 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       expect(await targetAccess.hasObject(blobId)).toBe(true);
 
       // Verify blob content matches
-      const targetBlobContent = await collect(targetStores.blobs.load(blobId));
-      expect(targetBlobContent).toEqual(blobContent);
+      const targetBlobContent = await targetHistory.blobs.load(blobId);
+      expect(targetBlobContent).toBeDefined();
+      const storedContent = await collect(targetBlobContent as AsyncIterable<Uint8Array>);
+      expect(storedContent).toEqual(blobContent);
     });
   });
 
   describe("Incremental fetch (only new objects)", () => {
     it("fetches only new objects when client has base commit", async () => {
-      const sourceStores = createMemoryStores();
+      const sourceHistory = createTestHistory();
 
       // Create initial commit
       const blob1Content = new TextEncoder().encode("version 1");
-      const blob1Id = await sourceStores.blobs.store([blob1Content]);
-      const tree1Id = await sourceStores.trees.storeTree([
+      const blob1Id = await sourceHistory.blobs.store([blob1Content]);
+      const tree1Id = await sourceHistory.trees.store([
         { mode: 0o100644, name: "file.txt", id: blob1Id },
       ]);
-      const commit1Id = await sourceStores.commits.storeCommit({
+      const commit1Id = await sourceHistory.commits.store({
         tree: tree1Id,
         parents: [],
         author: SAMPLE_IDENT,
@@ -121,11 +110,11 @@ describe("VcsRepositoryAccess Integration Tests", () => {
 
       // Create second commit
       const blob2Content = new TextEncoder().encode("version 2");
-      const blob2Id = await sourceStores.blobs.store([blob2Content]);
-      const tree2Id = await sourceStores.trees.storeTree([
+      const blob2Id = await sourceHistory.blobs.store([blob2Content]);
+      const tree2Id = await sourceHistory.trees.store([
         { mode: 0o100644, name: "file.txt", id: blob2Id },
       ]);
-      const commit2Id = await sourceStores.commits.storeCommit({
+      const commit2Id = await sourceHistory.commits.store({
         tree: tree2Id,
         parents: [commit1Id],
         author: SAMPLE_IDENT,
@@ -133,9 +122,9 @@ describe("VcsRepositoryAccess Integration Tests", () => {
         message: "Second commit",
       });
 
-      await sourceStores.refs.set("refs/heads/main", commit2Id);
+      await sourceHistory.refs.set("refs/heads/main", commit2Id);
 
-      const sourceAccess = createVcsRepositoryAccess(sourceStores);
+      const sourceAccess = createVcsRepositoryAccess({ history: sourceHistory });
 
       // Simulate client having the first commit
       const haves = [commit1Id];
@@ -160,11 +149,11 @@ describe("VcsRepositoryAccess Integration Tests", () => {
 
   describe("History preservation through clone", () => {
     it("preserves linear history with parent relationships", async () => {
-      const sourceStores = createMemoryStores();
+      const sourceHistory = createTestHistory();
 
       // Create commit1
-      const tree1Id = await sourceStores.trees.storeTree([]);
-      const commit1Id = await sourceStores.commits.storeCommit({
+      const tree1Id = await sourceHistory.trees.store([]);
+      const commit1Id = await sourceHistory.commits.store({
         tree: tree1Id,
         parents: [],
         author: SAMPLE_IDENT,
@@ -173,7 +162,7 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       });
 
       // Create commit2
-      const commit2Id = await sourceStores.commits.storeCommit({
+      const commit2Id = await sourceHistory.commits.store({
         tree: tree1Id,
         parents: [commit1Id],
         author: SAMPLE_IDENT,
@@ -182,7 +171,7 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       });
 
       // Create commit3
-      const commit3Id = await sourceStores.commits.storeCommit({
+      const commit3Id = await sourceHistory.commits.store({
         tree: tree1Id,
         parents: [commit2Id],
         author: SAMPLE_IDENT,
@@ -191,9 +180,9 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       });
 
       // Clone via walkObjects
-      const sourceAccess = createVcsRepositoryAccess(sourceStores);
-      const targetStores = createMemoryStores();
-      const targetAccess = createVcsRepositoryAccess(targetStores);
+      const sourceAccess = createVcsRepositoryAccess({ history: sourceHistory });
+      const targetHistory = createTestHistory();
+      const targetAccess = createVcsRepositoryAccess({ history: targetHistory });
 
       for await (const obj of sourceAccess.walkObjects([commit3Id], [])) {
         await targetAccess.storeObject(obj.type, obj.content);
@@ -205,24 +194,24 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       expect(await targetAccess.hasObject(commit3Id)).toBe(true);
 
       // Verify parent relationships are preserved
-      const commit3 = await targetStores.commits.loadCommit(commit3Id);
-      expect(commit3.parents).toEqual([commit2Id]);
+      const commit3 = await targetHistory.commits.load(commit3Id);
+      expect(commit3?.parents).toEqual([commit2Id]);
 
-      const commit2 = await targetStores.commits.loadCommit(commit2Id);
-      expect(commit2.parents).toEqual([commit1Id]);
+      const commit2 = await targetHistory.commits.load(commit2Id);
+      expect(commit2?.parents).toEqual([commit1Id]);
 
-      const commit1 = await targetStores.commits.loadCommit(commit1Id);
-      expect(commit1.parents).toEqual([]);
+      const commit1 = await targetHistory.commits.load(commit1Id);
+      expect(commit1?.parents).toEqual([]);
     });
   });
 
   describe("Annotated tags handling", () => {
     it("clones tag objects and their referenced commits", async () => {
-      const sourceStores = createMemoryStores();
+      const sourceHistory = createTestHistory();
 
       // Create commit
-      const treeId = await sourceStores.trees.storeTree([]);
-      const commitId = await sourceStores.commits.storeCommit({
+      const treeId = await sourceHistory.trees.store([]);
+      const commitId = await sourceHistory.commits.store({
         tree: treeId,
         parents: [],
         author: SAMPLE_IDENT,
@@ -231,7 +220,7 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       });
 
       // Create annotated tag
-      const tagId = await sourceStores.tags.storeTag({
+      const tagId = await sourceHistory.tags.store({
         object: commitId,
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
@@ -240,12 +229,12 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       });
 
       // Set tag ref
-      await sourceStores.refs.set("refs/tags/v1.0.0", tagId);
+      await sourceHistory.refs.set("refs/tags/v1.0.0", tagId);
 
       // Clone via walkObjects from tag
-      const sourceAccess = createVcsRepositoryAccess(sourceStores);
-      const targetStores = createMemoryStores();
-      const targetAccess = createVcsRepositoryAccess(targetStores);
+      const sourceAccess = createVcsRepositoryAccess({ history: sourceHistory });
+      const targetHistory = createTestHistory();
+      const targetAccess = createVcsRepositoryAccess({ history: targetHistory });
 
       for await (const obj of sourceAccess.walkObjects([tagId], [])) {
         await targetAccess.storeObject(obj.type, obj.content);
@@ -258,18 +247,18 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       expect(await targetAccess.hasObject(commitId)).toBe(true);
 
       // Verify tag content
-      const tag = await targetStores.tags.loadTag(tagId);
-      expect(tag.tag).toBe("v1.0.0");
-      expect(tag.message).toBe("Version 1.0.0 release");
-      expect(tag.object).toBe(commitId);
+      const tag = await targetHistory.tags.load(tagId);
+      expect(tag?.tag).toBe("v1.0.0");
+      expect(tag?.message).toBe("Version 1.0.0 release");
+      expect(tag?.object).toBe(commitId);
     });
 
     it("includes peeledId for annotated tag refs", async () => {
-      const sourceStores = createMemoryStores();
+      const sourceHistory = createTestHistory();
 
       // Create commit
-      const treeId = await sourceStores.trees.storeTree([]);
-      const commitId = await sourceStores.commits.storeCommit({
+      const treeId = await sourceHistory.trees.store([]);
+      const commitId = await sourceHistory.commits.store({
         tree: treeId,
         parents: [],
         author: SAMPLE_IDENT,
@@ -278,7 +267,7 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       });
 
       // Create annotated tag
-      const tagId = await sourceStores.tags.storeTag({
+      const tagId = await sourceHistory.tags.store({
         object: commitId,
         objectType: ObjectType.COMMIT,
         tag: "v2.0.0",
@@ -287,9 +276,9 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       });
 
       // Set tag ref
-      await sourceStores.refs.set("refs/tags/v2.0.0", tagId);
+      await sourceHistory.refs.set("refs/tags/v2.0.0", tagId);
 
-      const sourceAccess = createVcsRepositoryAccess(sourceStores);
+      const sourceAccess = createVcsRepositoryAccess({ history: sourceHistory });
 
       // List refs should include peeledId
       const refs: Array<{ name: string; objectId: string; peeledId?: string }> = [];
@@ -306,13 +295,13 @@ describe("VcsRepositoryAccess Integration Tests", () => {
 
   describe("Wire format round-trip", () => {
     it("loadObject produces parseable wire format", async () => {
-      const stores = createMemoryStores();
+      const history = createTestHistory();
 
       // Store blob
       const blobContent = new TextEncoder().encode("Test content");
-      const blobId = await stores.blobs.store([blobContent]);
+      const blobId = await history.blobs.store([blobContent]);
 
-      const access = createVcsRepositoryAccess(stores);
+      const access = createVcsRepositoryAccess({ history });
 
       // Load in wire format
       const wireData = await collect(access.loadObject(blobId));
@@ -325,15 +314,15 @@ describe("VcsRepositoryAccess Integration Tests", () => {
     });
 
     it("storeObject correctly stores parsed content", async () => {
-      const sourceStores = createMemoryStores();
-      const targetStores = createMemoryStores();
+      const sourceHistory = createTestHistory();
+      const targetHistory = createTestHistory();
 
       // Create content in source
       const originalContent = new TextEncoder().encode("Original data");
-      const blobId = await sourceStores.blobs.store([originalContent]);
+      const blobId = await sourceHistory.blobs.store([originalContent]);
 
-      const sourceAccess = createVcsRepositoryAccess(sourceStores);
-      const targetAccess = createVcsRepositoryAccess(targetStores);
+      const sourceAccess = createVcsRepositoryAccess({ history: sourceHistory });
+      const targetAccess = createVcsRepositoryAccess({ history: targetHistory });
 
       // Load from source
       const wireData = await collect(sourceAccess.loadObject(blobId));
@@ -346,19 +335,21 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       expect(storedId).toBe(blobId);
 
       // Content should match
-      const storedContent = await collect(targetStores.blobs.load(storedId));
+      const storedBlob = await targetHistory.blobs.load(storedId);
+      expect(storedBlob).toBeDefined();
+      const storedContent = await collect(storedBlob as AsyncIterable<Uint8Array>);
       expect(storedContent).toEqual(originalContent);
     });
   });
 
   describe("Ref operations", () => {
     it("supports full ref lifecycle", async () => {
-      const stores = createMemoryStores();
-      const access = createVcsRepositoryAccess(stores);
+      const history = createTestHistory();
+      const access = createVcsRepositoryAccess({ history });
 
       // Create commit
-      const treeId = await stores.trees.storeTree([]);
-      const commit1Id = await stores.commits.storeCommit({
+      const treeId = await history.trees.store([]);
+      const commit1Id = await history.commits.store({
         tree: treeId,
         parents: [],
         author: SAMPLE_IDENT,
@@ -378,7 +369,7 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       expect(refs1.find((r) => r.name === "refs/heads/test")?.objectId).toBe(commit1Id);
 
       // Update ref with compare-and-swap
-      const commit2Id = await stores.commits.storeCommit({
+      const commit2Id = await history.commits.store({
         tree: treeId,
         parents: [commit1Id],
         author: SAMPLE_IDENT,
@@ -401,25 +392,7 @@ describe("VcsRepositoryAccess Integration Tests", () => {
       expect(deleted).toBe(true);
 
       // Verify deletion
-      expect(await stores.refs.has("refs/heads/test")).toBe(false);
+      expect(await history.refs.has("refs/heads/test")).toBe(false);
     });
   });
 });
-
-/**
- * Helper to get the store name for an object type
- */
-function _getStoreForType(type: number): "commits" | "trees" | "blobs" | "tags" {
-  switch (type) {
-    case ObjectType.COMMIT:
-      return "commits";
-    case ObjectType.TREE:
-      return "trees";
-    case ObjectType.BLOB:
-      return "blobs";
-    case ObjectType.TAG:
-      return "tags";
-    default:
-      throw new Error(`Unknown type: ${type}`);
-  }
-}
