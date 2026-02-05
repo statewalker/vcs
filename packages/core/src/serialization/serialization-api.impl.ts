@@ -13,12 +13,12 @@ import { PackObjectType, PackWriterStream, parsePackEntries } from "../backend/g
 import type { ObjectId } from "../common/id/index.js";
 import type { BlobStore } from "../history/blobs/blob-store.js";
 import type { BlobContent, Blobs } from "../history/blobs/blobs.js";
-import type { Commit, CommitStore } from "../history/commits/commit-store.js";
-import type { Commits } from "../history/commits/commits.js";
+import type { CommitStore } from "../history/commits/commit-store.js";
+import type { AncestryOptions, Commit, Commits } from "../history/commits/commits.js";
 import type { History } from "../history/history.js";
 import type { ObjectTypeString } from "../history/objects/object-types.js";
-import type { AnnotatedTag, TagStore } from "../history/tags/tag-store.js";
-import type { Tag, Tags } from "../history/tags/tags.js";
+import type { TagStore } from "../history/tags/tag-store.js";
+import type { AnnotatedTag, Tag, Tags } from "../history/tags/tags.js";
 import type { TreeEntry } from "../history/trees/tree-entry.js";
 import type { TreeStore } from "../history/trees/tree-store.js";
 import type { Trees } from "../history/trees/trees.js";
@@ -719,10 +719,7 @@ class CommitsLegacyAdapter implements Commits {
     return this.commitStore.getTree(commitId);
   }
 
-  walkAncestry(
-    startId: ObjectId | ObjectId[],
-    options?: import("../history/commits/commit-store.js").AncestryOptions,
-  ): AsyncIterable<ObjectId> {
+  walkAncestry(startId: ObjectId | ObjectId[], options?: AncestryOptions): AsyncIterable<ObjectId> {
     return this.commitStore.walkAncestry(startId, options);
   }
 
