@@ -15,6 +15,7 @@
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-commands": "workspace:*",
     "@statewalker/vcs-transport": "workspace:*",
+    "@statewalker/vcs-transport-adapters": "workspace:*",
     "@statewalker/vcs-port-webrtc": "workspace:*",
     "@statewalker/webrun-files": "catalog:",
     "@statewalker/webrun-files-browser": "catalog:",

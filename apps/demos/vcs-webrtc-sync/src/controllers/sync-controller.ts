@@ -3,23 +3,17 @@
  *
  * Manages Git synchronization over WebRTC connections.
  * Handles push/fetch operations and conflict detection.
+ *
+ * This module provides two sync implementations:
+ * - New transport-based sync using fetchOverDuplex/pushOverDuplex (Git wire protocol)
+ * - Legacy custom JSON protocol (for backwards compatibility)
  */
 
 import { FileMode, type History } from "@statewalker/vcs-core";
-import { getActivityLogModel, getRepositoryModel } from "../models/index.js";
-import { newRegistry } from "../utils/index.js";
+import { getActivityLogModel } from "../models/index.js";
+import { fetchFromPeer, newRegistry, pushToPeer } from "../utils/index.js";
 import { getHistory } from "./repository-controller.js";
 import { getDataChannel, isConnected } from "./webrtc-controller.js";
-
-/**
- * Message types for sync protocol.
- */
-type SyncMessageType = "repo-info" | "request-objects" | "send-objects" | "sync-complete" | "error";
-
-interface SyncMessage {
-  type: SyncMessageType;
-  data?: unknown;
-}
 
 /**
  * Create the sync controller.
@@ -37,12 +31,13 @@ export function createSyncController(_ctx: Map<string, unknown>): () => void {
 }
 
 /**
- * Push local repository state to the remote peer.
+ * Push local repository state to the remote peer using Git wire protocol.
+ *
+ * Uses the new transport API (pushOverDuplex) for proper Git protocol support.
  */
 export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> {
   const history = getHistory(ctx);
   const channel = getDataChannel(ctx);
-  const repoModel = getRepositoryModel(ctx);
   const logModel = getActivityLogModel(ctx);
 
   if (!history) {
@@ -56,69 +51,17 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
   }
 
   try {
-    logModel.info("Starting push to peer...");
+    logModel.info("Starting push to peer (Git protocol)...");
 
-    // Get current HEAD
-    const headRef = await history.refs.resolve("HEAD");
-    if (!headRef?.objectId) {
-      logModel.warning("No commits to push");
+    const result = await pushToPeer(channel, history, ["refs/heads/main:refs/heads/main"]);
+
+    if (result.success) {
+      logModel.success("Push completed successfully");
+      return true;
+    } else {
+      logModel.error(`Push failed: ${result.error || "Unknown error"}`);
       return false;
     }
-
-    // Collect objects to send
-    const objects: Array<{ type: string; id: string; data: Uint8Array }> = [];
-
-    // Walk commits
-    for await (const commitId of history.commits.walkAncestry(headRef.objectId, { limit: 100 })) {
-      const commit = await history.commits.load(commitId);
-      if (!commit) continue;
-
-      // Serialize commit (simplified - in real impl would use proper format)
-      const commitData = new TextEncoder().encode(
-        JSON.stringify({
-          tree: commit.tree,
-          parents: commit.parents,
-          message: commit.message,
-          author: commit.author,
-          committer: commit.committer,
-        }),
-      );
-      objects.push({ type: "commit", id: commitId, data: commitData });
-
-      // Collect tree objects
-      await collectTreeObjects(history, commit.tree, objects);
-    }
-
-    // Send repo info first
-    const repoInfo: SyncMessage = {
-      type: "repo-info",
-      data: {
-        head: headRef.objectId,
-        branch: repoModel.branchName,
-        objectCount: objects.length,
-      },
-    };
-
-    sendMessage(channel, repoInfo);
-
-    // Send objects
-    for (const obj of objects) {
-      const objMessage: SyncMessage = {
-        type: "send-objects",
-        data: {
-          type: obj.type,
-          id: obj.id,
-          data: Array.from(obj.data),
-        },
-      };
-      sendMessage(channel, objMessage);
-    }
-
-    // Send completion
-    sendMessage(channel, { type: "sync-complete" });
-
-    logModel.success(`Pushed ${objects.length} objects to peer`);
-    return true;
   } catch (error) {
     logModel.error(`Push failed: ${(error as Error).message}`);
     return false;
@@ -126,7 +69,9 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
 }
 
 /**
- * Fetch repository state from the remote peer.
+ * Fetch repository state from the remote peer using Git wire protocol.
+ *
+ * Uses the new transport API (fetchOverDuplex) for proper Git protocol support.
  */
 export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolean> {
   const history = getHistory(ctx);
@@ -144,90 +89,18 @@ export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolea
   }
 
   try {
-    logModel.info("Fetching from peer...");
+    logModel.info("Fetching from peer (Git protocol)...");
 
-    // Request repo info
-    sendMessage(channel, { type: "repo-info", data: { request: true } });
+    const result = await fetchFromPeer(channel, history, ["+refs/heads/*:refs/remotes/peer/*"]);
 
-    // Listen for incoming objects
-    let receivedCount = 0;
-    let remoteHead: string | null = null;
-
-    return new Promise((resolve) => {
-      const handler = async (event: MessageEvent) => {
-        try {
-          const message: SyncMessage = JSON.parse(
-            typeof event.data === "string" ? event.data : new TextDecoder().decode(event.data),
-          );
-
-          switch (message.type) {
-            case "repo-info": {
-              const info = message.data as { head?: string; objectCount?: number };
-              remoteHead = info.head || null;
-              logModel.info(
-                `Remote has ${info.objectCount || 0} objects, HEAD: ${remoteHead?.slice(0, 7)}`,
-              );
-              break;
-            }
-
-            case "send-objects": {
-              const obj = message.data as { type: string; id: string; data: number[] };
-              const data = new Uint8Array(obj.data);
-
-              // Store the object based on type
-              if (obj.type === "commit") {
-                // Parse and store commit
-                const commitData = JSON.parse(new TextDecoder().decode(data));
-                await history.commits.store(commitData);
-              } else if (obj.type === "tree") {
-                // Store tree
-                await history.trees.store(JSON.parse(new TextDecoder().decode(data)));
-              } else if (obj.type === "blob") {
-                // Store blob
-                await history.blobs.store([data]);
-              }
-              receivedCount++;
-              break;
-            }
-
-            case "sync-complete": {
-              channel.removeEventListener("message", handler);
-              logModel.success(`Received ${receivedCount} objects from peer`);
-
-              // Update refs if we got a remote HEAD
-              if (remoteHead) {
-                await history.refs.set("refs/remotes/peer/main", remoteHead);
-                logModel.info(`Updated remote tracking ref`);
-              }
-              resolve(true);
-              break;
-            }
-
-            case "error": {
-              channel.removeEventListener("message", handler);
-              logModel.error(`Remote error: ${message.data}`);
-              resolve(false);
-              break;
-            }
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      };
-
-      channel.addEventListener("message", handler);
-
-      // Timeout after 30 seconds
-      setTimeout(() => {
-        channel.removeEventListener("message", handler);
-        if (receivedCount === 0) {
-          logModel.warning("Fetch timed out");
-          resolve(false);
-        } else {
-          resolve(true);
-        }
-      }, 30000);
-    });
+    if (result.success) {
+      const refCount = result.updatedRefs?.size ?? 0;
+      logModel.success(`Fetch completed: ${refCount} refs updated`);
+      return true;
+    } else {
+      logModel.error(`Fetch failed: ${result.error || "Unknown error"}`);
+      return false;
+    }
   } catch (error) {
     logModel.error(`Fetch failed: ${(error as Error).message}`);
     return false;
@@ -316,47 +189,6 @@ export async function resolveConflict(
 
 // Helper functions
 
-async function collectTreeObjects(
-  history: History,
-  treeId: string,
-  objects: Array<{ type: string; id: string; data: Uint8Array }>,
-): Promise<void> {
-  const tree = await history.trees.load(treeId);
-  if (!tree) return;
-
-  const entries: Array<{ name: string; mode: number; objectId: string }> = [];
-
-  for await (const entry of tree) {
-    entries.push({ name: entry.name, mode: entry.mode, objectId: entry.objectId });
-
-    if (entry.mode === FileMode.TREE) {
-      // Directory - recurse
-      await collectTreeObjects(history, entry.objectId, objects);
-    } else {
-      // File - collect blob
-      const chunks: Uint8Array[] = [];
-      const blobData = await history.blobs.load(entry.objectId);
-      if (blobData) {
-        for await (const chunk of blobData) {
-          chunks.push(chunk);
-        }
-      }
-      const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
-      const data = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        data.set(chunk, offset);
-        offset += chunk.length;
-      }
-      objects.push({ type: "blob", id: entry.objectId, data });
-    }
-  }
-
-  // Serialize tree
-  const treeData = new TextEncoder().encode(JSON.stringify(entries));
-  objects.push({ type: "tree", id: treeId, data: treeData });
-}
-
 async function collectFileIds(
   history: History,
   treeId: string,
@@ -369,14 +201,9 @@ async function collectFileIds(
   for await (const entry of tree) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.mode === FileMode.TREE) {
-      await collectFileIds(history, entry.objectId, path, files);
+      await collectFileIds(history, entry.id, path, files);
     } else {
-      files.set(path, entry.objectId);
+      files.set(path, entry.id);
     }
   }
-}
-
-function sendMessage(channel: RTCDataChannel, message: SyncMessage): void {
-  const data = JSON.stringify(message);
-  channel.send(data);
 }
