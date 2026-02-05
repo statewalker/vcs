@@ -5,4 +5,5 @@
 export * from "./config.js";
 export * from "./file-history.js";
 export * from "./helpers.js";
-export * from "./vcs-http-server.js";
+// Use new Hono-based server with transport API
+export * from "./hono-http-server.js";

@@ -246,18 +246,27 @@ importers:
 
   apps/demos/http-server-scratch:
     dependencies:
+      '@hono/node-server':
+        specifier: ^1.14.0
+        version: 1.19.9(hono@4.11.7)
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../../../packages/core
       '@statewalker/vcs-transport':
         specifier: workspace:*
         version: link:../../../packages/transport
+      '@statewalker/vcs-transport-adapters':
+        specifier: workspace:*
+        version: link:../../../packages/transport-adapters
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../../packages/utils
       '@statewalker/vcs-utils-node':
         specifier: workspace:*
         version: link:../../../packages/utils-node
+      hono:
+        specifier: ^4.7.9
+        version: 4.11.7
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -317,6 +326,9 @@ importers:
       '@statewalker/vcs-transport':
         specifier: workspace:*
         version: link:../../../packages/transport
+      '@statewalker/vcs-transport-adapters':
+        specifier: workspace:*
+        version: link:../../../packages/transport-adapters
       '@statewalker/webrun-files':
         specifier: 'catalog:'
         version: 0.7.0
@@ -2068,6 +2080,12 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@hono/node-server@1.19.9':
+    resolution: {integrity: sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
+
   '@inquirer/external-editor@1.0.3':
     resolution: {integrity: sha512-RWbSrDiYmO4LbejWY7ttpxczuwQyZLBUyygsA9Nsv95hpzUWwnNTVQmAq3xuh7vNwCp07UTmE5i11XAEExx4RA==}
     engines: {node: '>=18'}
@@ -3161,6 +3179,7 @@ packages:
   glob@11.1.0:
     resolution: {integrity: sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==}
     engines: {node: 20 || >=22}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   glob@13.0.0:
@@ -3225,6 +3244,10 @@ packages:
   highlight.js@11.11.1:
     resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
     engines: {node: '>=12.0.0'}
+
+  hono@4.11.7:
+    resolution: {integrity: sha512-l7qMiNee7t82bH3SeyUCt9UF15EVmaBvsppY2zQtrbIhl/yzBTny+YUxsVjSjQ6gaqaeVtZmGocom8TzBlA4Yw==}
+    engines: {node: '>=16.9.0'}
 
   htl@0.3.1:
     resolution: {integrity: sha512-1LBtd+XhSc+++jpOOt0lCcEycXs/zTQSupOISnVAUmvGBpV7DH+C2M6hwV7zWYfpTMMg9ch4NO0lHiOTAMHdVA==}
@@ -5845,6 +5868,10 @@ snapshots:
   '@esbuild/win32-x64@0.27.2':
     optional: true
 
+  '@hono/node-server@1.19.9(hono@4.11.7)':
+    dependencies:
+      hono: 4.11.7
+
   '@inquirer/external-editor@1.0.3(@types/node@24.10.4)':
     dependencies:
       chardet: 2.1.1
@@ -7161,6 +7188,8 @@ snapshots:
   he@1.2.0: {}
 
   highlight.js@11.11.1: {}
+
+  hono@4.11.7: {}
 
   htl@0.3.1: {}
 
