@@ -1,6 +1,28 @@
 /**
  * Mock VCS stores for testing VcsRepositoryAccess
+ *
+ * @deprecated This module provides legacy store-based helpers. Use mock-history.ts instead.
+ * The new History-based API is the primary interface for VcsRepositoryAccess and VcsRepositoryFacade.
+ *
+ * Migration guide:
+ * - `createMockStores()` → `createMockHistory()` from ./mock-history.ts
+ * - `createMockFacadeStores()` → `createMockHistory()` + `createMockSerializationApi()` from ./mock-history.ts
+ * - `createMockStoresWithHistory()` → `createMockHistoryWithData()` from ./mock-history.ts
+ * - `createMockFacadeStoresWithHistory()` → `createMockHistoryWithSerializationData()` from ./mock-history.ts
  */
+
+// Re-export new History-based helpers as primary API
+export {
+  createAnnotatedTag,
+  createCommitChain,
+  createCompleteCommit,
+  createMockHistory,
+  createMockHistoryWithData,
+  createMockHistoryWithSerializationData,
+  createMockSerializationApi as createMockSerializationApiNew,
+  createTreeWithFiles,
+  EMPTY_TREE_ID,
+} from "./mock-history.js";
 
 import type {
   AncestryOptions,
@@ -23,11 +45,26 @@ import { serializeCommit, serializeTag, serializeTree } from "@statewalker/vcs-c
 import { sha1 } from "@statewalker/vcs-utils/hash";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { collect, concat } from "@statewalker/vcs-utils/streams";
-import type { VcsRepositoryAccessParams } from "../../src/vcs-repository-access.js";
-import type { VcsRepositoryFacadeParams } from "../../src/vcs-repository-facade.js";
 
-// Re-export VcsRepositoryAccessParams type
-export type { VcsRepositoryAccessParams };
+/**
+ * Legacy parameters for VcsRepositoryAccess using individual stores
+ * @deprecated Use VcsRepositoryAccessConfig with History instead
+ */
+export interface VcsRepositoryAccessParams {
+  blobs: BlobStore;
+  trees: TreeStore;
+  commits: CommitStore;
+  tags: TagStore;
+  refs: RefStore;
+}
+
+/**
+ * Legacy parameters for VcsRepositoryFacade using individual stores
+ * @deprecated Use VcsRepositoryFacadeConfig with History instead
+ */
+export interface VcsRepositoryFacadeParams extends VcsRepositoryAccessParams {
+  serialization: SerializationApi;
+}
 
 /**
  * Compute Git object ID (SHA-1 of "type size\0content")
@@ -358,6 +395,21 @@ export interface MockStoresOptions {
 
 /**
  * Create all mock VCS stores
+ *
+ * @deprecated Use `createMockHistory()` from ./mock-history.ts instead.
+ * The new History-based API provides proper VCS operations through the History interface.
+ *
+ * @example
+ * ```typescript
+ * // Old way (deprecated)
+ * const stores = createMockStores();
+ * const access = new VcsRepositoryAccess(stores);
+ *
+ * // New way
+ * import { createMockHistory } from "./mock-history.js";
+ * const history = createMockHistory();
+ * const access = new VcsRepositoryAccess({ history });
+ * ```
  */
 export function createMockStores(options?: MockStoresOptions): VcsRepositoryAccessParams {
   return {
@@ -408,6 +460,20 @@ export const SAMPLE_TAG: AnnotatedTag = {
 
 /**
  * Create mock stores with sample history data for walk tests
+ *
+ * @deprecated Use `createMockHistoryWithData()` from ./mock-history.ts instead.
+ *
+ * @example
+ * ```typescript
+ * // Old way (deprecated)
+ * const { stores, commitId } = await createMockStoresWithHistory();
+ * const access = new VcsRepositoryAccess(stores);
+ *
+ * // New way
+ * import { createMockHistoryWithData } from "./mock-history.js";
+ * const { history, commitId } = await createMockHistoryWithData();
+ * const access = new VcsRepositoryAccess({ history });
+ * ```
  */
 export async function createMockStoresWithHistory(): Promise<{
   stores: VcsRepositoryAccessParams;
@@ -442,6 +508,8 @@ export async function createMockStoresWithHistory(): Promise<{
 
 /**
  * Create mock SerializationApi for testing VcsRepositoryFacade
+ *
+ * @deprecated Use `createMockSerializationApi()` from ./mock-history.ts instead.
  */
 export function createMockSerializationApi(): SerializationApi {
   // Track pack imports for verification
@@ -559,6 +627,21 @@ export function createMockSerializationApi(): SerializationApi {
 
 /**
  * Create mock stores for VcsRepositoryFacade (includes SerializationApi)
+ *
+ * @deprecated Use `createMockHistory()` + `createMockSerializationApi()` from ./mock-history.ts instead.
+ *
+ * @example
+ * ```typescript
+ * // Old way (deprecated)
+ * const stores = createMockFacadeStores();
+ * const facade = new VcsRepositoryFacade(stores);
+ *
+ * // New way
+ * import { createMockHistory, createMockSerializationApi } from "./mock-history.js";
+ * const history = createMockHistory();
+ * const serialization = createMockSerializationApi();
+ * const facade = new VcsRepositoryFacade({ history, serialization });
+ * ```
  */
 export function createMockFacadeStores(options?: MockStoresOptions): VcsRepositoryFacadeParams {
   const baseStores = createMockStores(options);
@@ -570,6 +653,20 @@ export function createMockFacadeStores(options?: MockStoresOptions): VcsReposito
 
 /**
  * Create mock stores for VcsRepositoryFacade with sample history
+ *
+ * @deprecated Use `createMockHistoryWithSerializationData()` from ./mock-history.ts instead.
+ *
+ * @example
+ * ```typescript
+ * // Old way (deprecated)
+ * const { stores, commitId } = await createMockFacadeStoresWithHistory();
+ * const facade = new VcsRepositoryFacade(stores);
+ *
+ * // New way
+ * import { createMockHistoryWithSerializationData } from "./mock-history.js";
+ * const { history, serialization, commitId } = await createMockHistoryWithSerializationData();
+ * const facade = new VcsRepositoryFacade({ history, serialization });
+ * ```
  */
 export async function createMockFacadeStoresWithHistory(): Promise<{
   stores: VcsRepositoryFacadeParams;

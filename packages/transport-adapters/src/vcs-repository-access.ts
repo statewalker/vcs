@@ -3,26 +3,9 @@
  *
  * Implements RepositoryAccess using the History facade for object access.
  * Provides low-level byte-level operations for protocol handlers.
- *
- * Supports both:
- * - New History-based API (recommended)
- * - Legacy store-based API (deprecated, for backward compatibility)
  */
 
-import type {
-  BlobStore,
-  Blobs,
-  CommitStore,
-  Commits,
-  History,
-  ObjectId,
-  RefStore,
-  Refs,
-  TagStore,
-  Tags,
-  TreeStore,
-  Trees,
-} from "@statewalker/vcs-core";
+import type { History, ObjectId } from "@statewalker/vcs-core";
 import {
   isSymbolicRef,
   ObjectType,
@@ -44,7 +27,7 @@ import { collect, toArray } from "@statewalker/vcs-utils/streams";
 import { createGitWireFormat } from "./wire-format-utils.js";
 
 /**
- * Configuration for VcsRepositoryAccess using History facade (recommended)
+ * Configuration for VcsRepositoryAccess using History facade
  */
 export interface VcsRepositoryAccessConfig {
   /** History facade for object access */
@@ -52,54 +35,16 @@ export interface VcsRepositoryAccessConfig {
 }
 
 /**
- * Legacy parameters for VcsRepositoryAccess using individual stores
- * @deprecated Use VcsRepositoryAccessConfig with History instead
- */
-export interface VcsRepositoryAccessParams {
-  blobs: BlobStore;
-  trees: TreeStore;
-  commits: CommitStore;
-  tags: TagStore;
-  refs: RefStore;
-}
-
-/**
- * Repository access implementation supporting both History and legacy stores.
+ * Repository access implementation using History facade.
  *
- * When using History:
- * - Uses new interface methods (load/store vs loadCommit/storeCommit)
- *
- * When using legacy stores:
- * - Uses old interface methods for backward compatibility
+ * Provides RepositoryAccess interface for protocol handlers using
+ * the unified History API for object storage and retrieval.
  */
 export class VcsRepositoryAccess implements RepositoryAccess {
-  // New interface accessors (work with both modes)
-  private readonly _blobs: Blobs;
-  private readonly _trees: Trees;
-  private readonly _commits: Commits;
-  private readonly _tags: Tags;
-  private readonly _refs: Refs;
+  private readonly history: History;
 
-  constructor(config: VcsRepositoryAccessConfig);
-  /** @deprecated Use VcsRepositoryAccessConfig with History instead */
-  constructor(stores: VcsRepositoryAccessParams);
-  constructor(configOrStores: VcsRepositoryAccessConfig | VcsRepositoryAccessParams) {
-    if ("history" in configOrStores) {
-      // New History-based configuration
-      const { history } = configOrStores;
-      this._blobs = history.blobs;
-      this._trees = history.trees;
-      this._commits = history.commits;
-      this._tags = history.tags;
-      this._refs = history.refs;
-    } else {
-      // Legacy stores-based configuration - wrap with adapters
-      this._blobs = new BlobsAdapter(configOrStores.blobs);
-      this._trees = new TreesAdapter(configOrStores.trees);
-      this._commits = new CommitsAdapter(configOrStores.commits);
-      this._tags = new TagsAdapter(configOrStores.tags);
-      this._refs = new RefsAdapter(configOrStores.refs);
-    }
+  constructor(config: VcsRepositoryAccessConfig) {
+    this.history = config.history;
   }
 
   /**
@@ -107,10 +52,10 @@ export class VcsRepositoryAccess implements RepositoryAccess {
    * Checks in order: commits → trees → blobs → tags
    */
   async hasObject(id: ObjectId): Promise<boolean> {
-    if (await this._commits.has(id)) return true;
-    if (await this._trees.has(id)) return true;
-    if (await this._blobs.has(id)) return true;
-    if (await this._tags.has(id)) return true;
+    if (await this.history.commits.has(id)) return true;
+    if (await this.history.trees.has(id)) return true;
+    if (await this.history.blobs.has(id)) return true;
+    if (await this.history.tags.has(id)) return true;
 
     return false;
   }
@@ -123,14 +68,14 @@ export class VcsRepositoryAccess implements RepositoryAccess {
    */
   async getObjectInfo(id: ObjectId): Promise<ObjectInfo | null> {
     // Try commits first
-    const commit = await this._commits.load(id);
+    const commit = await this.history.commits.load(id);
     if (commit) {
       const serialized = serializeCommit(commit);
       return { type: ObjectType.COMMIT, size: serialized.length };
     }
 
     // Try trees
-    const tree = await this._trees.load(id);
+    const tree = await this.history.trees.load(id);
     if (tree) {
       const entries = await toArray(tree);
       const serialized = serializeTree(entries);
@@ -138,14 +83,14 @@ export class VcsRepositoryAccess implements RepositoryAccess {
     }
 
     // Try tags before blobs (tags have more structure)
-    const tag = await this._tags.load(id);
+    const tag = await this.history.tags.load(id);
     if (tag) {
       const serialized = serializeTag(tag);
       return { type: ObjectType.TAG, size: serialized.length };
     }
 
     // Try blobs - use efficient size() method
-    const blobSize = await this._blobs.size(id);
+    const blobSize = await this.history.blobs.size(id);
     if (blobSize >= 0) {
       return { type: ObjectType.BLOB, size: blobSize };
     }
@@ -160,7 +105,7 @@ export class VcsRepositoryAccess implements RepositoryAccess {
    */
   async *loadObject(id: ObjectId): AsyncIterable<Uint8Array> {
     // Try commits first
-    const commit = await this._commits.load(id);
+    const commit = await this.history.commits.load(id);
     if (commit) {
       const content = serializeCommit(commit);
       yield createGitWireFormat("commit", content);
@@ -168,7 +113,7 @@ export class VcsRepositoryAccess implements RepositoryAccess {
     }
 
     // Try trees
-    const tree = await this._trees.load(id);
+    const tree = await this.history.trees.load(id);
     if (tree) {
       const entries = await toArray(tree);
       const content = serializeTree(entries);
@@ -177,7 +122,7 @@ export class VcsRepositoryAccess implements RepositoryAccess {
     }
 
     // Try tags before blobs (tags have more structure)
-    const tag = await this._tags.load(id);
+    const tag = await this.history.tags.load(id);
     if (tag) {
       const content = serializeTag(tag);
       yield createGitWireFormat("tag", content);
@@ -186,7 +131,7 @@ export class VcsRepositoryAccess implements RepositoryAccess {
 
     // Try blobs
     try {
-      const blob = await this._blobs.load(id);
+      const blob = await this.history.blobs.load(id);
       if (blob) {
         const content = await collect(blob);
         yield createGitWireFormat("blob", content);
@@ -208,21 +153,21 @@ export class VcsRepositoryAccess implements RepositoryAccess {
     switch (type) {
       case ObjectType.COMMIT: {
         const commit = parseCommit(content);
-        return this._commits.store(commit);
+        return this.history.commits.store(commit);
       }
 
       case ObjectType.TREE: {
         const entries = parseTreeToArray(content);
-        return this._trees.store(entries);
+        return this.history.trees.store(entries);
       }
 
       case ObjectType.BLOB: {
-        return this._blobs.store([content]);
+        return this.history.blobs.store([content]);
       }
 
       case ObjectType.TAG: {
         const tag = parseTag(content);
-        return this._tags.store(tag);
+        return this.history.tags.store(tag);
       }
 
       default:
@@ -236,10 +181,10 @@ export class VcsRepositoryAccess implements RepositoryAccess {
    * Resolves symbolic refs to get objectIds.
    */
   async *listRefs(): AsyncIterable<RefInfo> {
-    for await (const ref of this._refs.list()) {
+    for await (const ref of this.history.refs.list()) {
       if (isSymbolicRef(ref)) {
         // Resolve symbolic ref to get objectId
-        const resolved = await this._refs.resolve(ref.name);
+        const resolved = await this.history.refs.resolve(ref.name);
         if (resolved?.objectId) {
           yield {
             name: ref.name,
@@ -255,9 +200,12 @@ export class VcsRepositoryAccess implements RepositoryAccess {
         // Include peeledId for annotated tags
         if (ref.peeledObjectId) {
           refInfo.peeledId = ref.peeledObjectId;
-        } else if (ref.name.startsWith("refs/tags/") && (await this._tags.has(ref.objectId))) {
+        } else if (
+          ref.name.startsWith("refs/tags/") &&
+          (await this.history.tags.has(ref.objectId))
+        ) {
           // If it's a tag ref pointing to a tag object, try to get peeled target
-          const peeled = await this._tags.getTarget(ref.objectId, true);
+          const peeled = await this.history.tags.getTarget(ref.objectId, true);
           if (peeled && peeled !== ref.objectId) {
             refInfo.peeledId = peeled;
           }
@@ -272,7 +220,7 @@ export class VcsRepositoryAccess implements RepositoryAccess {
    * Get HEAD reference (may be symbolic).
    */
   async getHead(): Promise<HeadInfo | null> {
-    const head = await this._refs.get("HEAD");
+    const head = await this.history.refs.get("HEAD");
     if (!head) return null;
 
     if (isSymbolicRef(head)) {
@@ -290,17 +238,17 @@ export class VcsRepositoryAccess implements RepositoryAccess {
   async updateRef(name: string, oldId: ObjectId | null, newId: ObjectId | null): Promise<boolean> {
     if (newId === null) {
       // Delete ref
-      return this._refs.remove(name);
+      return this.history.refs.remove(name);
     }
 
     if (oldId !== null) {
       // Compare-and-swap update
-      const result = await this._refs.compareAndSwap(name, oldId, newId);
+      const result = await this.history.refs.compareAndSwap(name, oldId, newId);
       return result.success;
     }
 
     // Simple set (create or overwrite)
-    await this._refs.set(name, newId);
+    await this.history.refs.set(name, newId);
     return true;
   }
 
@@ -333,7 +281,7 @@ export class VcsRepositoryAccess implements RepositoryAccess {
     seen.add(id);
 
     // Try commits first
-    const commit = await this._commits.load(id);
+    const commit = await this.history.commits.load(id);
     if (commit) {
       const content = serializeCommit(commit);
       yield { id, type: ObjectType.COMMIT, content };
@@ -349,7 +297,7 @@ export class VcsRepositoryAccess implements RepositoryAccess {
     }
 
     // Try trees
-    const tree = await this._trees.load(id);
+    const tree = await this.history.trees.load(id);
     if (tree) {
       const entries = await toArray(tree);
       const content = serializeTree(entries);
@@ -363,7 +311,7 @@ export class VcsRepositoryAccess implements RepositoryAccess {
     }
 
     // Try tags before blobs (tags have more structure)
-    const tag = await this._tags.load(id);
+    const tag = await this.history.tags.load(id);
     if (tag) {
       const content = serializeTag(tag);
       yield { id, type: ObjectType.TAG, content };
@@ -375,7 +323,7 @@ export class VcsRepositoryAccess implements RepositoryAccess {
 
     // Try blobs (catch-all for non-structured objects)
     try {
-      const blob = await this._blobs.load(id);
+      const blob = await this.history.blobs.load(id);
       if (blob) {
         const content = await collect(blob);
         yield { id, type: ObjectType.BLOB, content };
@@ -390,269 +338,11 @@ export class VcsRepositoryAccess implements RepositoryAccess {
 }
 
 /**
- * Create RepositoryAccess from History facade (recommended).
+ * Create RepositoryAccess from History facade.
  *
  * @param config - History facade configuration
  * @returns RepositoryAccess interface for protocol handlers
  */
-export function createVcsRepositoryAccess(config: VcsRepositoryAccessConfig): RepositoryAccess;
-
-/**
- * Create RepositoryAccess from VCS stores (deprecated).
- *
- * @deprecated Use VcsRepositoryAccessConfig with History instead
- * @param stores - All required VCS stores
- * @returns RepositoryAccess interface for protocol handlers
- */
-export function createVcsRepositoryAccess(stores: VcsRepositoryAccessParams): RepositoryAccess;
-
-export function createVcsRepositoryAccess(
-  configOrStores: VcsRepositoryAccessConfig | VcsRepositoryAccessParams,
-): RepositoryAccess {
-  return new VcsRepositoryAccess(configOrStores as VcsRepositoryAccessConfig);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Legacy Adapters - Wrap old store interfaces to new interfaces
-// ─────────────────────────────────────────────────────────────────────────────
-
-import type { BlobContent, Commit, Tag, TreeEntry } from "@statewalker/vcs-core";
-
-/** @internal Adapter from BlobStore to Blobs */
-class BlobsAdapter implements Blobs {
-  constructor(private readonly blobStore: BlobStore) {}
-
-  async store(content: BlobContent | Iterable<Uint8Array>): Promise<ObjectId> {
-    if (Symbol.asyncIterator in content) {
-      return this.blobStore.store(content as AsyncIterable<Uint8Array>);
-    }
-    return this.blobStore.store(iterableToAsync(content as Iterable<Uint8Array>));
-  }
-
-  async load(id: ObjectId): Promise<BlobContent | undefined> {
-    // Need try-catch because blobStore.has() may return true for non-blob objects
-    // when stores share a common backend (GitObjectStore)
-    try {
-      if (!(await this.blobStore.has(id))) return undefined;
-      return this.blobStore.load(id);
-    } catch {
-      return undefined;
-    }
-  }
-
-  has(id: ObjectId): Promise<boolean> {
-    return this.blobStore.has(id);
-  }
-
-  remove(id: ObjectId): Promise<boolean> {
-    return this.blobStore.delete(id);
-  }
-
-  async *keys(): AsyncIterable<ObjectId> {
-    yield* this.blobStore.keys();
-  }
-
-  async size(id: ObjectId): Promise<number> {
-    try {
-      return await this.blobStore.size(id);
-    } catch {
-      return -1;
-    }
-  }
-}
-
-/** @internal Adapter from TreeStore to Trees */
-class TreesAdapter implements Trees {
-  constructor(private readonly treeStore: TreeStore) {}
-
-  store(tree: TreeEntry[] | AsyncIterable<TreeEntry> | Iterable<TreeEntry>): Promise<ObjectId> {
-    return this.treeStore.storeTree(tree);
-  }
-
-  async load(id: ObjectId): Promise<AsyncIterable<TreeEntry> | undefined> {
-    // Must check has() first since loadTree returns a generator that defers errors
-    if (!(await this.has(id))) return undefined;
-    return this.treeStore.loadTree(id);
-  }
-
-  async has(id: ObjectId): Promise<boolean> {
-    try {
-      const tree = this.treeStore.loadTree(id);
-      for await (const _ of tree) {
-        break;
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async remove(_id: ObjectId): Promise<boolean> {
-    return false;
-  }
-
-  async *keys(): AsyncIterable<ObjectId> {
-    // TreeStore doesn't have keys method
-  }
-
-  async getEntry(treeId: ObjectId, name: string): Promise<TreeEntry | undefined> {
-    const entries = await this.load(treeId);
-    if (!entries) return undefined;
-    for await (const entry of entries) {
-      if (entry.name === name) return entry;
-    }
-    return undefined;
-  }
-
-  getEmptyTreeId(): ObjectId {
-    return "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
-  }
-}
-
-/** @internal Adapter from CommitStore to Commits */
-class CommitsAdapter implements Commits {
-  constructor(private readonly commitStore: CommitStore) {}
-
-  store(commit: Commit): Promise<ObjectId> {
-    return this.commitStore.storeCommit(commit);
-  }
-
-  async load(id: ObjectId): Promise<Commit | undefined> {
-    try {
-      return await this.commitStore.loadCommit(id);
-    } catch {
-      return undefined;
-    }
-  }
-
-  async has(id: ObjectId): Promise<boolean> {
-    try {
-      await this.commitStore.loadCommit(id);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async remove(_id: ObjectId): Promise<boolean> {
-    return false;
-  }
-
-  async *keys(): AsyncIterable<ObjectId> {
-    // CommitStore doesn't have keys method
-  }
-
-  getParents(commitId: ObjectId): Promise<ObjectId[]> {
-    return this.commitStore.getParents(commitId);
-  }
-
-  getTree(commitId: ObjectId): Promise<ObjectId | undefined> {
-    return this.commitStore.getTree(commitId);
-  }
-
-  walkAncestry(
-    startId: ObjectId | ObjectId[],
-    options?: import("@statewalker/vcs-core").AncestryOptions,
-  ): AsyncIterable<ObjectId> {
-    return this.commitStore.walkAncestry(startId, options);
-  }
-
-  findMergeBase(commit1: ObjectId, commit2: ObjectId): Promise<ObjectId[]> {
-    return this.commitStore.findMergeBase(commit1, commit2);
-  }
-
-  isAncestor(ancestor: ObjectId, descendant: ObjectId): Promise<boolean> {
-    return this.commitStore.isAncestor(ancestor, descendant);
-  }
-}
-
-/** @internal Adapter from TagStore to Tags */
-class TagsAdapter implements Tags {
-  constructor(private readonly tagStore: TagStore) {}
-
-  store(tag: Tag): Promise<ObjectId> {
-    return this.tagStore.storeTag(tag);
-  }
-
-  async load(id: ObjectId): Promise<Tag | undefined> {
-    try {
-      return await this.tagStore.loadTag(id);
-    } catch {
-      return undefined;
-    }
-  }
-
-  async has(id: ObjectId): Promise<boolean> {
-    try {
-      await this.tagStore.loadTag(id);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async remove(_id: ObjectId): Promise<boolean> {
-    return false;
-  }
-
-  async *keys(): AsyncIterable<ObjectId> {
-    // TagStore doesn't have keys method
-  }
-
-  async getTarget(tagId: ObjectId, _peel?: boolean): Promise<ObjectId | undefined> {
-    try {
-      const tag = await this.tagStore.loadTag(tagId);
-      return tag.object;
-    } catch {
-      return undefined;
-    }
-  }
-}
-
-/** @internal Adapter from RefStore to Refs */
-class RefsAdapter implements Refs {
-  constructor(private readonly refStore: RefStore) {}
-
-  get(name: string): Promise<import("@statewalker/vcs-core").RefValue | undefined> {
-    return this.refStore.get(name);
-  }
-
-  resolve(name: string): Promise<import("@statewalker/vcs-core").Ref | undefined> {
-    return this.refStore.resolve(name);
-  }
-
-  has(name: string): Promise<boolean> {
-    return this.refStore.has(name);
-  }
-
-  list(prefix?: string): AsyncIterable<import("@statewalker/vcs-core").RefEntry> {
-    return this.refStore.list(prefix);
-  }
-
-  set(name: string, objectId: ObjectId): Promise<void> {
-    return this.refStore.set(name, objectId);
-  }
-
-  setSymbolic(name: string, target: string): Promise<void> {
-    return this.refStore.setSymbolic(name, target);
-  }
-
-  remove(name: string): Promise<boolean> {
-    return this.refStore.delete(name);
-  }
-
-  compareAndSwap(
-    name: string,
-    expected: ObjectId | undefined,
-    newValue: ObjectId,
-  ): Promise<import("@statewalker/vcs-core").RefUpdateResult> {
-    return this.refStore.compareAndSwap(name, expected, newValue);
-  }
-}
-
-/** Helper to convert sync iterable to async */
-async function* iterableToAsync(iter: Iterable<Uint8Array>): AsyncIterable<Uint8Array> {
-  for (const item of iter) {
-    yield item;
-  }
+export function createVcsRepositoryAccess(config: VcsRepositoryAccessConfig): RepositoryAccess {
+  return new VcsRepositoryAccess(config);
 }

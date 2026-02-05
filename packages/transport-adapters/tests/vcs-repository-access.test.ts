@@ -1,91 +1,89 @@
 /**
  * Unit tests for VcsRepositoryAccess
  *
- * Tests the implementation that uses high-level VCS stores
- * (BlobStore, TreeStore, CommitStore, TagStore, RefStore).
+ * Tests the implementation that uses the History facade for object access.
  */
 
-import type { AnnotatedTag, Commit, Ref, SymbolicRef, TreeEntry } from "@statewalker/vcs-core";
+import type { Commit, Tag, TreeEntry } from "@statewalker/vcs-core";
 import { ObjectType, serializeCommit, serializeTag, serializeTree } from "@statewalker/vcs-core";
 import { collect } from "@statewalker/vcs-utils/streams";
 import { describe, expect, it } from "vitest";
 import { createVcsRepositoryAccess, VcsRepositoryAccess } from "../src/vcs-repository-access.js";
 import { parseGitWireFormat } from "../src/wire-format-utils.js";
 import {
-  createMockStores,
-  createMockStoresWithHistory,
+  createMockHistory,
+  createMockHistoryWithData,
+  EMPTY_TREE_ID,
   SAMPLE_IDENT,
-} from "./helpers/mock-stores.js";
+} from "./helpers/mock-history.js";
 
 describe("VcsRepositoryAccess", () => {
   describe("hasObject", () => {
     it("returns true for existing commit", async () => {
-      const stores = createMockStores();
-      const commitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const history = createMockHistory();
+      const commitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Test",
       });
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       expect(await access.hasObject(commitId)).toBe(true);
     });
 
     it("returns true for existing tree", async () => {
-      const stores = createMockStores();
-      const blobId = await stores.blobs.store([new TextEncoder().encode("content")]);
-      const treeId = await stores.trees.storeTree([
-        { mode: 0o100644, name: "file.txt", id: blobId },
-      ]);
+      const history = createMockHistory();
+      const blobId = await history.blobs.store([new TextEncoder().encode("content")]);
+      const treeId = await history.trees.store([{ mode: 0o100644, name: "file.txt", id: blobId }]);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       expect(await access.hasObject(treeId)).toBe(true);
     });
 
     it("returns true for existing blob", async () => {
-      const stores = createMockStores();
-      const blobId = await stores.blobs.store([new TextEncoder().encode("Hello")]);
+      const history = createMockHistory();
+      const blobId = await history.blobs.store([new TextEncoder().encode("Hello")]);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       expect(await access.hasObject(blobId)).toBe(true);
     });
 
     it("returns true for existing tag", async () => {
-      const stores = createMockStores();
-      const tagId = await stores.tags.storeTag({
+      const history = createMockHistory();
+      const tagId = await history.tags.store({
         object: "a".repeat(40),
         objectType: ObjectType.COMMIT,
         tag: "v1.0",
         message: "Release",
       });
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       expect(await access.hasObject(tagId)).toBe(true);
     });
 
     it("returns false for non-existent object", async () => {
-      const stores = createMockStores();
-      const access = new VcsRepositoryAccess(stores);
+      const history = createMockHistory();
+      const access = new VcsRepositoryAccess({ history });
       expect(await access.hasObject("0".repeat(40))).toBe(false);
     });
   });
 
   describe("getObjectInfo", () => {
     it("returns commit type and size", async () => {
-      const stores = createMockStores();
+      const history = createMockHistory();
       const commit: Commit = {
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Test commit",
       };
-      const commitId = await stores.commits.storeCommit(commit);
+      const commitId = await history.commits.store(commit);
       const expectedSize = serializeCommit(commit).length;
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const info = await access.getObjectInfo(commitId);
 
       expect(info).not.toBeNull();
@@ -94,13 +92,13 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("returns tree type and size", async () => {
-      const stores = createMockStores();
-      const blobId = await stores.blobs.store([new TextEncoder().encode("content")]);
+      const history = createMockHistory();
+      const blobId = await history.blobs.store([new TextEncoder().encode("content")]);
       const entries: TreeEntry[] = [{ mode: 0o100644, name: "file.txt", id: blobId }];
-      const treeId = await stores.trees.storeTree(entries);
+      const treeId = await history.trees.store(entries);
       const expectedSize = serializeTree(entries).length;
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const info = await access.getObjectInfo(treeId);
 
       expect(info).not.toBeNull();
@@ -109,11 +107,11 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("returns blob type and size using efficient size() method", async () => {
-      const stores = createMockStores();
+      const history = createMockHistory();
       const content = new TextEncoder().encode("Hello, World!");
-      const blobId = await stores.blobs.store([content]);
+      const blobId = await history.blobs.store([content]);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const info = await access.getObjectInfo(blobId);
 
       expect(info).not.toBeNull();
@@ -122,18 +120,18 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("returns tag type and size", async () => {
-      const stores = createMockStores();
-      const tag: AnnotatedTag = {
+      const history = createMockHistory();
+      const tag: Tag = {
         object: "a".repeat(40),
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
         tagger: SAMPLE_IDENT,
         message: "Release v1.0.0",
       };
-      const tagId = await stores.tags.storeTag(tag);
+      const tagId = await history.tags.store(tag);
       const expectedSize = serializeTag(tag).length;
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const info = await access.getObjectInfo(tagId);
 
       expect(info).not.toBeNull();
@@ -142,8 +140,8 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("returns null for non-existent object", async () => {
-      const stores = createMockStores();
-      const access = new VcsRepositoryAccess(stores);
+      const history = createMockHistory();
+      const access = new VcsRepositoryAccess({ history });
       const info = await access.getObjectInfo("0".repeat(40));
       expect(info).toBeNull();
     });
@@ -151,17 +149,17 @@ describe("VcsRepositoryAccess", () => {
 
   describe("loadObject", () => {
     it("returns commit in Git wire format", async () => {
-      const stores = createMockStores();
+      const history = createMockHistory();
       const commit: Commit = {
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Test commit",
       };
-      const commitId = await stores.commits.storeCommit(commit);
+      const commitId = await history.commits.store(commit);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const data = await collect(access.loadObject(commitId));
 
       const { type, body } = parseGitWireFormat(data);
@@ -170,12 +168,12 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("returns tree in Git wire format", async () => {
-      const stores = createMockStores();
-      const blobId = await stores.blobs.store([new TextEncoder().encode("content")]);
+      const history = createMockHistory();
+      const blobId = await history.blobs.store([new TextEncoder().encode("content")]);
       const entries: TreeEntry[] = [{ mode: 0o100644, name: "file.txt", id: blobId }];
-      const treeId = await stores.trees.storeTree(entries);
+      const treeId = await history.trees.store(entries);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const data = await collect(access.loadObject(treeId));
 
       const { type, body } = parseGitWireFormat(data);
@@ -184,11 +182,11 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("returns blob in Git wire format with correct content", async () => {
-      const stores = createMockStores();
+      const history = createMockHistory();
       const content = new TextEncoder().encode("Hello, World!");
-      const blobId = await stores.blobs.store([content]);
+      const blobId = await history.blobs.store([content]);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const data = await collect(access.loadObject(blobId));
 
       const { type, body } = parseGitWireFormat(data);
@@ -197,17 +195,17 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("returns tag in Git wire format", async () => {
-      const stores = createMockStores();
-      const tag: AnnotatedTag = {
+      const history = createMockHistory();
+      const tag: Tag = {
         object: "a".repeat(40),
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
         tagger: SAMPLE_IDENT,
         message: "Release v1.0.0",
       };
-      const tagId = await stores.tags.storeTag(tag);
+      const tagId = await history.tags.store(tag);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const data = await collect(access.loadObject(tagId));
 
       const { type, body } = parseGitWireFormat(data);
@@ -216,8 +214,8 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("throws for non-existent object", async () => {
-      const stores = createMockStores();
-      const access = new VcsRepositoryAccess(stores);
+      const history = createMockHistory();
+      const access = new VcsRepositoryAccess({ history });
 
       await expect(collect(access.loadObject("0".repeat(40)))).rejects.toThrow("Object not found");
     });
@@ -225,38 +223,40 @@ describe("VcsRepositoryAccess", () => {
 
   describe("storeObject", () => {
     it("stores blob content and returns valid ObjectId", async () => {
-      const stores = createMockStores();
-      const access = new VcsRepositoryAccess(stores);
+      const history = createMockHistory();
+      const access = new VcsRepositoryAccess({ history });
       const content = new TextEncoder().encode("New blob content");
 
       const id = await access.storeObject(ObjectType.BLOB, content);
 
       expect(id).toMatch(/^[0-9a-f]{40}$/);
-      expect(await stores.blobs.has(id)).toBe(true);
-      const stored = await collect(stores.blobs.load(id));
+      expect(await history.blobs.has(id)).toBe(true);
+      const blobContent = await history.blobs.load(id);
+      expect(blobContent).toBeDefined();
+      const stored = await collect(blobContent as AsyncIterable<Uint8Array>);
       expect(stored).toEqual(content);
     });
 
     it("parses and stores tree from serialized content", async () => {
-      const stores = createMockStores();
-      const access = new VcsRepositoryAccess(stores);
+      const history = createMockHistory();
+      const access = new VcsRepositoryAccess({ history });
 
-      const blobId = await stores.blobs.store([new TextEncoder().encode("content")]);
+      const blobId = await history.blobs.store([new TextEncoder().encode("content")]);
       const entries: TreeEntry[] = [{ mode: 0o100644, name: "test.txt", id: blobId }];
       const serialized = serializeTree(entries);
 
       const id = await access.storeObject(ObjectType.TREE, serialized);
 
       expect(id).toMatch(/^[0-9a-f]{40}$/);
-      expect(await stores.trees.has(id)).toBe(true);
+      expect(await history.trees.has(id)).toBe(true);
     });
 
     it("parses and stores commit from serialized content", async () => {
-      const stores = createMockStores();
-      const access = new VcsRepositoryAccess(stores);
+      const history = createMockHistory();
+      const access = new VcsRepositoryAccess({ history });
 
       const commit: Commit = {
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
@@ -267,14 +267,14 @@ describe("VcsRepositoryAccess", () => {
       const id = await access.storeObject(ObjectType.COMMIT, serialized);
 
       expect(id).toMatch(/^[0-9a-f]{40}$/);
-      expect(await stores.commits.has(id)).toBe(true);
+      expect(await history.commits.has(id)).toBe(true);
     });
 
     it("parses and stores tag from serialized content", async () => {
-      const stores = createMockStores();
-      const access = new VcsRepositoryAccess(stores);
+      const history = createMockHistory();
+      const access = new VcsRepositoryAccess({ history });
 
-      const tag: AnnotatedTag = {
+      const tag: Tag = {
         object: "a".repeat(40),
         objectType: ObjectType.COMMIT,
         tag: "v1.0",
@@ -285,24 +285,24 @@ describe("VcsRepositoryAccess", () => {
       const id = await access.storeObject(ObjectType.TAG, serialized);
 
       expect(id).toMatch(/^[0-9a-f]{40}$/);
-      expect(await stores.tags.has(id)).toBe(true);
+      expect(await history.tags.has(id)).toBe(true);
     });
   });
 
   describe("listRefs", () => {
     it("lists all refs with objectIds", async () => {
-      const stores = createMockStores();
-      const commitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const history = createMockHistory();
+      const commitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Test",
       });
-      await stores.refs.set("refs/heads/main", commitId);
-      await stores.refs.set("refs/heads/feature", commitId);
+      await history.refs.set("refs/heads/main", commitId);
+      await history.refs.set("refs/heads/feature", commitId);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const refs: Array<{ name: string; objectId: string }> = [];
       for await (const ref of access.listRefs()) {
         refs.push(ref);
@@ -316,18 +316,18 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("resolves symbolic refs to objectIds", async () => {
-      const stores = createMockStores();
-      const commitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const history = createMockHistory();
+      const commitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Test",
       });
-      await stores.refs.set("refs/heads/main", commitId);
-      await stores.refs.setSymbolic("HEAD", "refs/heads/main");
+      await history.refs.set("refs/heads/main", commitId);
+      await history.refs.setSymbolic("HEAD", "refs/heads/main");
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const refs: Array<{ name: string; objectId: string }> = [];
       for await (const ref of access.listRefs()) {
         refs.push(ref);
@@ -338,23 +338,23 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("includes peeledId for annotated tags", async () => {
-      const stores = createMockStores();
-      const commitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const history = createMockHistory();
+      const commitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Test",
       });
-      const tagId = await stores.tags.storeTag({
+      const tagId = await history.tags.store({
         object: commitId,
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
         message: "Release",
       });
-      await stores.refs.set("refs/tags/v1.0.0", tagId);
+      await history.refs.set("refs/tags/v1.0.0", tagId);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const refs: Array<{ name: string; objectId: string; peeledId?: string }> = [];
       for await (const ref of access.listRefs()) {
         refs.push(ref);
@@ -368,37 +368,37 @@ describe("VcsRepositoryAccess", () => {
 
   describe("getHead", () => {
     it("returns symbolic head target", async () => {
-      const stores = createMockStores();
-      await stores.refs.setSymbolic("HEAD", "refs/heads/main");
+      const history = createMockHistory();
+      await history.refs.setSymbolic("HEAD", "refs/heads/main");
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const head = await access.getHead();
 
       expect(head).toEqual({ target: "refs/heads/main" });
     });
 
     it("returns detached head objectId", async () => {
-      const stores = createMockStores();
-      const commitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const history = createMockHistory();
+      const commitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Test",
       });
-      await stores.refs.set("HEAD", commitId);
+      await history.refs.set("HEAD", commitId);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const head = await access.getHead();
 
       expect(head).toEqual({ objectId: commitId });
     });
 
     it("returns null if HEAD does not exist", async () => {
-      const refsMap = new Map<string, Ref | SymbolicRef>();
-      const stores = createMockStores({ refs: refsMap });
+      // Create a fresh history without setting HEAD
+      const history = createMockHistory();
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const head = await access.getHead();
 
       expect(head).toBeNull();
@@ -407,54 +407,54 @@ describe("VcsRepositoryAccess", () => {
 
   describe("updateRef", () => {
     it("creates new ref when oldId is null", async () => {
-      const stores = createMockStores();
-      const commitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const history = createMockHistory();
+      const commitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Test",
       });
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const result = await access.updateRef("refs/heads/new-branch", null, commitId);
 
       expect(result).toBe(true);
-      const ref = await stores.refs.get("refs/heads/new-branch");
+      const ref = await history.refs.get("refs/heads/new-branch");
       expect(ref).toBeDefined();
-      expect((ref as Ref).objectId).toBe(commitId);
+      expect(ref && "objectId" in ref && ref.objectId).toBe(commitId);
     });
 
     it("updates ref with compare-and-swap when oldId provided", async () => {
-      const stores = createMockStores();
-      const oldCommitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const history = createMockHistory();
+      const oldCommitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Old",
       });
-      const newCommitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const newCommitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [oldCommitId],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "New",
       });
-      await stores.refs.set("refs/heads/main", oldCommitId);
+      await history.refs.set("refs/heads/main", oldCommitId);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const result = await access.updateRef("refs/heads/main", oldCommitId, newCommitId);
 
       expect(result).toBe(true);
-      const ref = await stores.refs.get("refs/heads/main");
-      expect((ref as Ref).objectId).toBe(newCommitId);
+      const ref = await history.refs.get("refs/heads/main");
+      expect(ref && "objectId" in ref && ref.objectId).toBe(newCommitId);
     });
 
     it("fails compare-and-swap if oldId does not match", async () => {
-      const stores = createMockStores();
-      const actualCommitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const history = createMockHistory();
+      const actualCommitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
@@ -462,41 +462,41 @@ describe("VcsRepositoryAccess", () => {
       });
       const wrongOldId = "1".repeat(40);
       const newCommitId = "2".repeat(40);
-      await stores.refs.set("refs/heads/main", actualCommitId);
+      await history.refs.set("refs/heads/main", actualCommitId);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const result = await access.updateRef("refs/heads/main", wrongOldId, newCommitId);
 
       expect(result).toBe(false);
       // Ref should not have changed
-      const ref = await stores.refs.get("refs/heads/main");
-      expect((ref as Ref).objectId).toBe(actualCommitId);
+      const ref = await history.refs.get("refs/heads/main");
+      expect(ref && "objectId" in ref && ref.objectId).toBe(actualCommitId);
     });
 
     it("deletes ref when newId is null", async () => {
-      const stores = createMockStores();
-      const commitId = await stores.commits.storeCommit({
-        tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      const history = createMockHistory();
+      const commitId = await history.commits.store({
+        tree: EMPTY_TREE_ID,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "Test",
       });
-      await stores.refs.set("refs/heads/to-delete", commitId);
+      await history.refs.set("refs/heads/to-delete", commitId);
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const result = await access.updateRef("refs/heads/to-delete", null, null);
 
       expect(result).toBe(true);
-      expect(await stores.refs.has("refs/heads/to-delete")).toBe(false);
+      expect(await history.refs.has("refs/heads/to-delete")).toBe(false);
     });
   });
 
   describe("walkObjects", () => {
     it("walks commit and all reachable objects", async () => {
-      const { stores, commitId, treeId, blobId } = await createMockStoresWithHistory();
+      const { history, commitId, treeId, blobId } = await createMockHistoryWithData();
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const objects: Array<{ id: string; type: number }> = [];
       for await (const obj of access.walkObjects([commitId], [])) {
         objects.push({ id: obj.id, type: obj.type });
@@ -510,9 +510,9 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("excludes objects in haves set", async () => {
-      const { stores, commitId, blobId } = await createMockStoresWithHistory();
+      const { history, commitId, blobId } = await createMockHistoryWithData();
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const objects: Array<{ id: string; type: number }> = [];
       // Client already has the blob
       for await (const obj of access.walkObjects([commitId], [blobId])) {
@@ -525,14 +525,12 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("walks parent commits", async () => {
-      const stores = createMockStores();
+      const history = createMockHistory();
 
       // Create first commit
-      const blobId = await stores.blobs.store([new TextEncoder().encode("content1")]);
-      const treeId = await stores.trees.storeTree([
-        { mode: 0o100644, name: "file.txt", id: blobId },
-      ]);
-      const commit1Id = await stores.commits.storeCommit({
+      const blobId = await history.blobs.store([new TextEncoder().encode("content1")]);
+      const treeId = await history.trees.store([{ mode: 0o100644, name: "file.txt", id: blobId }]);
+      const commit1Id = await history.commits.store({
         tree: treeId,
         parents: [],
         author: SAMPLE_IDENT,
@@ -541,11 +539,11 @@ describe("VcsRepositoryAccess", () => {
       });
 
       // Create second commit with parent
-      const blob2Id = await stores.blobs.store([new TextEncoder().encode("content2")]);
-      const tree2Id = await stores.trees.storeTree([
+      const blob2Id = await history.blobs.store([new TextEncoder().encode("content2")]);
+      const tree2Id = await history.trees.store([
         { mode: 0o100644, name: "file.txt", id: blob2Id },
       ]);
-      const commit2Id = await stores.commits.storeCommit({
+      const commit2Id = await history.commits.store({
         tree: tree2Id,
         parents: [commit1Id],
         author: SAMPLE_IDENT,
@@ -553,7 +551,7 @@ describe("VcsRepositoryAccess", () => {
         message: "Second",
       });
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const objects: Array<{ id: string; type: number }> = [];
       for await (const obj of access.walkObjects([commit2Id], [])) {
         objects.push({ id: obj.id, type: obj.type });
@@ -567,17 +565,17 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("walks tag to tagged object", async () => {
-      const { stores, commitId } = await createMockStoresWithHistory();
+      const { history, commitId } = await createMockHistoryWithData();
 
       // Create tag pointing to commit
-      const tagId = await stores.tags.storeTag({
+      const tagId = await history.tags.store({
         object: commitId,
         objectType: ObjectType.COMMIT,
         tag: "v1.0",
         message: "Release",
       });
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const objects: Array<{ id: string; type: number }> = [];
       for await (const obj of access.walkObjects([tagId], [])) {
         objects.push({ id: obj.id, type: obj.type });
@@ -590,23 +588,23 @@ describe("VcsRepositoryAccess", () => {
     });
 
     it("does not visit same object twice (deduplication)", async () => {
-      const stores = createMockStores();
+      const history = createMockHistory();
 
       // Create shared blob and tree
-      const sharedBlobId = await stores.blobs.store([new TextEncoder().encode("shared")]);
-      const sharedTreeId = await stores.trees.storeTree([
+      const sharedBlobId = await history.blobs.store([new TextEncoder().encode("shared")]);
+      const sharedTreeId = await history.trees.store([
         { mode: 0o100644, name: "shared.txt", id: sharedBlobId },
       ]);
 
       // Create two commits pointing to the same tree
-      const commit1Id = await stores.commits.storeCommit({
+      const commit1Id = await history.commits.store({
         tree: sharedTreeId,
         parents: [],
         author: SAMPLE_IDENT,
         committer: SAMPLE_IDENT,
         message: "First",
       });
-      const commit2Id = await stores.commits.storeCommit({
+      const commit2Id = await history.commits.store({
         tree: sharedTreeId,
         parents: [commit1Id],
         author: SAMPLE_IDENT,
@@ -614,7 +612,7 @@ describe("VcsRepositoryAccess", () => {
         message: "Second",
       });
 
-      const access = new VcsRepositoryAccess(stores);
+      const access = new VcsRepositoryAccess({ history });
       const objectIds: string[] = [];
       for await (const obj of access.walkObjects([commit2Id], [])) {
         objectIds.push(obj.id);
@@ -630,9 +628,9 @@ describe("VcsRepositoryAccess", () => {
   });
 
   describe("createVcsRepositoryAccess factory", () => {
-    it("creates RepositoryAccess instance", async () => {
-      const stores = createMockStores();
-      const access = createVcsRepositoryAccess(stores);
+    it("creates RepositoryAccess instance with History config", async () => {
+      const history = createMockHistory();
+      const access = createVcsRepositoryAccess({ history });
 
       expect(access).toBeDefined();
       expect(typeof access.hasObject).toBe("function");
