@@ -32,7 +32,7 @@ import type {
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
 import type { HistoryBackendFactory, MemoryBackendConfig } from "./history-backend-factory.js";
-import type { BackendCapabilities, StorageBackend, StorageOperations } from "./storage-backend.js";
+import type { BackendCapabilities, StorageOperations } from "./storage-backend.js";
 
 /**
  * Configuration for creating MemoryStorageBackend
@@ -213,7 +213,7 @@ export class MemoryDeltaApi implements DeltaApi {
  * const history = await factory.createHistory({});
  * ```
  */
-export class MemoryStorageBackend implements StorageBackend {
+export class MemoryStorageBackend {
   readonly blobs: BlobStore;
   readonly trees: TreeStore;
   readonly commits: CommitStore;

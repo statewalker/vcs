@@ -117,9 +117,10 @@ import {
 
   // Storage abstractions
   type RawStorage,
-  type StorageBackend,
+  type StorageOperations,
+  type BackendCapabilities,
 
-  // Deprecated (for migration)
+  // Deprecated stores (for migration)
   type HistoryStore,  // Use History instead
   type BlobStore,     // Use Blobs instead
   type TreeStore,     // Use Trees instead

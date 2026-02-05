@@ -9,7 +9,6 @@
  * Additional patterns in this module:
  * - createHistoryFromStores(): Compose from explicit store instances
  * - createMemoryHistory(): Basic in-memory (without operations)
- * - createHistoryWithOperations(): From StorageBackend (deprecated)
  */
 
 import {
@@ -21,7 +20,7 @@ import type {
   MemoryBackendConfig,
 } from "../backend/history-backend-factory.js";
 import { MemoryStorageBackend } from "../backend/memory-storage-backend.js";
-import type { StorageBackend } from "../backend/storage-backend.js";
+import type { StorageOperations } from "../backend/storage-backend.js";
 import { MemoryRawStorage } from "../storage/raw/memory-raw-storage.js";
 import type { RawStorage } from "../storage/raw/raw-storage.js";
 import { createBlobs } from "./blobs/blobs.impl.js";
@@ -86,16 +85,32 @@ export interface HistoryComponentsConfig {
 }
 
 /**
+ * Internal interface for legacy backend objects
+ *
+ * @internal Used by createHistoryWithOperations during migration period.
+ * External consumers should use the new factory functions.
+ */
+interface LegacyBackend extends StorageOperations {
+  readonly blobs: BlobStore;
+  readonly trees: TreeStore;
+  readonly commits: CommitStore;
+  readonly tags: TagStore;
+  readonly refs: RefStore;
+}
+
+/**
  * Configuration for creating History from a storage backend
  *
  * @deprecated Use the new factory pattern instead:
  * - `createHistory(type, config)` for registered backend types
  * - `createGitFilesHistory(config)` for Git-files backend
  * - `createMemoryHistoryWithOperations()` for in-memory backend
+ *
+ * @internal This interface is kept for internal use during the migration period.
  */
 export interface HistoryBackendConfig {
   /** Storage backend providing all components */
-  backend: StorageBackend;
+  backend: LegacyBackend;
 }
 
 /**

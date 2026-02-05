@@ -269,22 +269,35 @@ interface ResolutionStore {
 }
 ```
 
-## Storage Backend Architecture
+## Storage Architecture
 
-The StorageBackend provides three perspectives on the same underlying data:
+The `HistoryWithOperations` interface provides unified access to Git objects and storage operations:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     StorageBackend                           │
+│                   HistoryWithOperations                      │
 │  Unified entry point for all storage operations              │
 ├─────────────────────────────────────────────────────────────┤
-│  StructuredStores   │   DeltaApi      │   SerializationApi   │
-│  (deprecated)       │   (compression) │   (pack handling)    │
+│  History            │   DeltaApi      │   SerializationApi   │
+│  (object access)    │   (compression) │   (pack handling)    │
 ├─────────────────────┼─────────────────┼─────────────────────┤
-│  Use History        │   BlobDeltaApi  │   Pack encoding      │
-│  interface instead  │   Batch ops     │   Object serializing │
-│                     │   Chain queries │   Import/export      │
+│  blobs, trees       │   BlobDeltaApi  │   Pack encoding      │
+│  commits, tags      │   Batch ops     │   Object serializing │
+│  refs               │   Chain queries │   Import/export      │
 └─────────────────────────────────────────────────────────────┘
+```
+
+### Creating Storage
+
+Use factory functions to create storage:
+
+```typescript
+// From registered backend type
+const history = await createHistory("git-files", { path: ".git" });
+
+// Specific factories
+const history = createMemoryHistoryWithOperations();
+const history = createGitFilesHistory(config);
 ```
 
 ### RawStorage - The Backend Boundary
