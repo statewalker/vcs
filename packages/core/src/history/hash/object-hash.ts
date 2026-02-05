@@ -10,8 +10,8 @@
 
 import { fnv1aHash } from "@statewalker/vcs-utils";
 import type { ObjectId } from "../../common/id/index.js";
-import type { Commit } from "../commits/commit-store.js";
-import type { AnnotatedTag } from "../tags/tag-store.js";
+import type { Commit } from "../commits/commits.js";
+import type { AnnotatedTag } from "../tags/tags.js";
 import type { TreeEntry } from "../trees/tree-entry.js";
 
 /**

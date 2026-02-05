@@ -81,30 +81,6 @@ export type WalkOptions = AncestryOptions;
  */
 export interface Commits extends ObjectStorage<Commit> {
   /**
-   * Store a commit
-   *
-   * @param commit Commit data
-   * @returns ObjectId of the stored commit
-   */
-  store(commit: Commit): Promise<ObjectId>;
-
-  /**
-   * Load a commit by ID
-   *
-   * @param id Commit object ID
-   * @returns Commit data if found, undefined otherwise
-   */
-  load(id: ObjectId): Promise<Commit | undefined>;
-
-  /**
-   * Check if a commit exists
-   *
-   * @param id Commit object ID
-   * @returns True if commit exists
-   */
-  has(id: ObjectId): Promise<boolean>;
-
-  /**
    * Get parent commit IDs
    *
    * Convenience method for history traversal without loading

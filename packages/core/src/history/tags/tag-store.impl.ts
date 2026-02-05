@@ -8,7 +8,8 @@ import type { ObjectId } from "../../common/id/index.js";
 import type { GitObjectStore } from "../objects/object-store.js";
 import { ObjectType } from "../objects/object-types.js";
 import { decodeTagEntries, encodeTagEntries, entriesToTag, tagToEntries } from "./tag-format.js";
-import type { AnnotatedTag, TagStore } from "./tag-store.js";
+import type { TagStore } from "./tag-store.js";
+import type { AnnotatedTag } from "./tags.js";
 
 /**
  * Git tag store implementation
