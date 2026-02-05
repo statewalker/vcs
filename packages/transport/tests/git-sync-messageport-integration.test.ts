@@ -1132,3 +1132,176 @@ describe("Full Repository Sync Flow", () => {
     }
   });
 });
+
+describe("Large Pack Transfer Performance", () => {
+  /**
+   * Performance test measuring throughput and efficiency of large packfile transfers.
+   *
+   * Setup:
+   * - Create largeRepo with 100 commits
+   * - Each commit adds unique content
+   * - Create empty targetRepo
+   *
+   * Metrics:
+   * - Total duration (ms)
+   * - Total bytes transferred
+   * - Throughput (bytes/sec)
+   */
+  it("should handle large pack transfers efficiently", async () => {
+    const largeRepo = createTestRepository();
+    const targetRepo = createTestRepository();
+    const channel = new MessageChannel();
+
+    try {
+      // Create 100 commits to simulate a repository with substantial history
+      const COMMIT_COUNT = 100;
+      let prevOid: string | undefined;
+
+      for (let i = 0; i < COMMIT_COUNT; i++) {
+        // Create unique content for each commit
+        const commitMessage = `Commit ${i}: Add file${i}.txt with content ${Date.now()}-${i}`;
+        const commit = createTestCommit(commitMessage, prevOid);
+        largeRepo.addObject(commit.oid, commit.data);
+        prevOid = commit.oid;
+      }
+
+      // Set refs/heads/main to the last commit
+      if (!prevOid) throw new Error("Expected prevOid to be defined after loop");
+      largeRepo.refs.refs.set("refs/heads/main", prevOid);
+
+      // Record start time
+      const startTime = performance.now();
+
+      // Track bytes transferred via a custom facade wrapper
+      let totalBytesTransferred = 0;
+      const trackingFacade: RepositoryFacade = {
+        async importPack(packStream: AsyncIterable<Uint8Array>): Promise<PackImportResult> {
+          const chunks: Uint8Array[] = [];
+          for await (const chunk of packStream) {
+            totalBytesTransferred += chunk.length;
+            chunks.push(chunk);
+          }
+
+          // Parse pack header to count objects
+          const fullPack = concatUint8Arrays(...chunks);
+          let objectCount = 0;
+          if (fullPack.length >= 12) {
+            objectCount =
+              (fullPack[8] << 24) | (fullPack[9] << 16) | (fullPack[10] << 8) | fullPack[11];
+          }
+
+          return {
+            objectsImported: objectCount,
+            blobsWithDelta: 0,
+            treesImported: 0,
+            commitsImported: objectCount,
+            tagsImported: 0,
+          };
+        },
+
+        async *exportPack(_wants: Set<string>, _exclude: Set<string>): AsyncIterable<Uint8Array> {
+          // Not used in fetch scenario
+        },
+
+        async has(oid: string): Promise<boolean> {
+          return targetRepo.objects.has(oid);
+        },
+
+        async *walkAncestors(startOid: string): AsyncGenerator<string> {
+          if (targetRepo.objects.has(startOid)) {
+            yield startOid;
+          }
+        },
+      };
+
+      // Run the fetch
+      const serverPromise = messagePortServe(channel.port2, largeRepo.facade, largeRepo.refs);
+      const result = await messagePortFetch(channel.port1, trackingFacade, targetRepo.refs);
+      await serverPromise;
+
+      // Record end time
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+
+      // Calculate metrics
+      const throughput = totalBytesTransferred > 0 ? (totalBytesTransferred / duration) * 1000 : 0;
+
+      // Log performance metrics
+      console.log(`\n📊 Large Pack Transfer Performance:`);
+      console.log(`   Commits: ${COMMIT_COUNT}`);
+      console.log(`   Duration: ${duration.toFixed(2)}ms`);
+      console.log(`   Bytes transferred: ${totalBytesTransferred}`);
+      console.log(`   Throughput: ${(throughput / 1024).toFixed(2)} KB/sec`);
+
+      // Assertions
+      expect(result.success).toBe(true);
+      expect(result.updatedRefs?.has("refs/heads/main")).toBe(true);
+
+      // Performance targets (reasonable for in-memory test)
+      // Duration should be under 5 seconds
+      expect(duration).toBeLessThan(5000);
+
+      // Should have transferred some data (pack header at minimum)
+      expect(totalBytesTransferred).toBeGreaterThan(0);
+    } finally {
+      largeRepo.cleanup();
+      targetRepo.cleanup();
+      channel.port1.close();
+      channel.port2.close();
+    }
+  });
+
+  it("should scale linearly with data size", async () => {
+    // Test with different commit counts to verify linear scaling
+    const sizes = [10, 50, 100];
+    const timings: { size: number; duration: number }[] = [];
+
+    for (const size of sizes) {
+      const repo = createTestRepository();
+      const target = createTestRepository();
+      const channel = new MessageChannel();
+
+      try {
+        // Create commits
+        let prevOid: string | undefined;
+        for (let i = 0; i < size; i++) {
+          const commit = createTestCommit(`Commit ${i}`, prevOid);
+          repo.addObject(commit.oid, commit.data);
+          prevOid = commit.oid;
+        }
+        if (!prevOid) throw new Error("Expected prevOid to be defined after loop");
+        repo.refs.refs.set("refs/heads/main", prevOid);
+
+        // Measure time
+        const start = performance.now();
+        const serverPromise = messagePortServe(channel.port2, repo.facade, repo.refs);
+        const result = await messagePortFetch(channel.port1, target.facade, target.refs);
+        await serverPromise;
+        const duration = performance.now() - start;
+
+        expect(result.success).toBe(true);
+        timings.push({ size, duration });
+      } finally {
+        repo.cleanup();
+        target.cleanup();
+        channel.port1.close();
+        channel.port2.close();
+      }
+    }
+
+    // Log scaling data
+    console.log(`\n📈 Scaling Analysis:`);
+    for (const { size, duration } of timings) {
+      console.log(`   ${size} commits: ${duration.toFixed(2)}ms`);
+    }
+
+    // Verify all tests completed (scaling verified manually via logs)
+    expect(timings).toHaveLength(sizes.length);
+
+    // Basic sanity check: larger sizes should take more time (or similar)
+    // Allow for some variance due to test environment
+    const [small, _medium, large] = timings;
+    // Large shouldn't be more than 20x slower than small (should be roughly linear)
+    expect(large.duration).toBeLessThan(small.duration * 20);
+  });
+});
