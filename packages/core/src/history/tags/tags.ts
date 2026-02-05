@@ -5,11 +5,39 @@
  * and consistent method names (remove instead of delete).
  */
 
+import type { PersonIdent } from "../../common/person/person-ident.js";
 import type { ObjectId, ObjectStorage } from "../object-storage.js";
-import type { AnnotatedTag } from "./tag-store.js";
+import type { ObjectTypeCode } from "../objects/object-types.js";
 
-// Re-export types from existing module
-export type { AnnotatedTag };
+/**
+ * Annotated tag object
+ *
+ * Following Git's tag format (JGit RevTag):
+ * - object: SHA-1 of the tagged object
+ * - type: Type of the tagged object (usually "commit")
+ * - tag: Tag name
+ * - tagger: Person who created the tag (optional for lightweight tags)
+ * - message: Tag message
+ *
+ * Note: Lightweight tags are just refs pointing to commits,
+ * not stored as tag objects. This interface handles annotated tags only.
+ */
+export interface AnnotatedTag {
+  /** ObjectId of the tagged object */
+  object: ObjectId;
+  /** Type of the tagged object */
+  objectType: ObjectTypeCode;
+  /** Tag name */
+  tag: string;
+  /** Tagger identity (optional) */
+  tagger?: PersonIdent;
+  /** Tag message */
+  message: string;
+  /** Character encoding (optional, defaults to UTF-8) */
+  encoding?: string;
+  /** GPG signature (optional) */
+  gpgSignature?: string;
+}
 
 /**
  * Alias for AnnotatedTag - shorter name for common usage

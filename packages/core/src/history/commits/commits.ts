@@ -5,11 +5,51 @@
  * and consistent method names (remove instead of delete).
  */
 
+import type { PersonIdent } from "../../common/person/person-ident.js";
 import type { ObjectId, ObjectStorage } from "../object-storage.js";
-import type { AncestryOptions, Commit } from "./commit-store.js";
 
-// Re-export types from existing module
-export type { Commit, AncestryOptions };
+/**
+ * Commit object
+ *
+ * Following Git's commit format (JGit RevCommit):
+ * - tree: SHA-1 of the root tree
+ * - parents: Array of parent commit SHA-1s (empty for initial commit)
+ * - author: Person who authored the changes
+ * - committer: Person who committed (may differ from author)
+ * - message: Commit message (UTF-8)
+ *
+ * Optional fields:
+ * - encoding: Character encoding if not UTF-8
+ * - gpgSignature: GPG signature if signed
+ */
+export interface Commit {
+  /** ObjectId of the root tree */
+  tree: ObjectId;
+  /** Parent commit ObjectIds (empty array for initial commit) */
+  parents: ObjectId[];
+  /** Author identity */
+  author: PersonIdent;
+  /** Committer identity */
+  committer: PersonIdent;
+  /** Commit message (UTF-8) */
+  message: string;
+  /** Character encoding (optional, defaults to UTF-8) */
+  encoding?: string;
+  /** GPG signature (optional) */
+  gpgSignature?: string;
+}
+
+/**
+ * Commit ancestry traversal options
+ */
+export interface AncestryOptions {
+  /** Maximum number of commits to traverse */
+  limit?: number;
+  /** Stop at these commit IDs (exclusive) */
+  stopAt?: ObjectId[];
+  /** Only follow first parent (for linear history) */
+  firstParentOnly?: boolean;
+}
 
 /**
  * Commit walk entry with metadata

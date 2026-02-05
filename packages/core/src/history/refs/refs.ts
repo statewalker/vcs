@@ -13,12 +13,20 @@
  */
 
 import type { ObjectId } from "../object-storage.js";
-import type { RefUpdateResult } from "./ref-store.js";
 import type { Ref, SymbolicRef } from "./ref-types.js";
 import type { ReflogEntry, ReflogReader } from "./reflog-types.js";
 
+/**
+ * Result of a compare-and-swap update operation
+ */
+export interface RefUpdateResult {
+  success: boolean;
+  previousValue?: ObjectId;
+  errorMessage?: string;
+}
+
 // Re-export types from existing modules for convenience
-export type { Ref, SymbolicRef, ReflogEntry, ReflogReader, RefUpdateResult };
+export type { Ref, SymbolicRef, ReflogEntry, ReflogReader };
 
 /**
  * Reference value - either a direct reference or symbolic reference
