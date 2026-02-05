@@ -13,8 +13,7 @@ import {
   encodeCommitEntries,
   entriesToCommit,
 } from "./commit-format.js";
-import type { Commit } from "./commit-store.js";
-import type { Commits, WalkOptions } from "./commits.js";
+import type { Commit, Commits, WalkOptions } from "./commits.js";
 
 /**
  * Storage-agnostic Commits implementation using GitObjectStore

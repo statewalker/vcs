@@ -9,11 +9,11 @@
  */
 
 import type { ObjectId } from "../../common/id/index.js";
-import type { RefStore, RefUpdateResult } from "./ref-store.js";
+import type { RefStore } from "./ref-store.js";
 import type { Ref, SymbolicRef } from "./ref-types.js";
 import { RefStorage } from "./ref-types.js";
 import type { ReflogReader } from "./reflog-types.js";
-import type { RefEntry, Refs, RefValue } from "./refs.js";
+import type { RefEntry, Refs, RefUpdateResult, RefValue } from "./refs.js";
 
 /**
  * Maximum depth for following symbolic refs to prevent infinite loops.

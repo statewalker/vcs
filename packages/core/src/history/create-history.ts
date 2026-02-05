@@ -375,9 +375,10 @@ export interface GitFilesHistoryConfig extends GitFilesBackendConfig {
 import type { ObjectId } from "../common/id/index.js";
 import type { BlobStore } from "./blobs/blob-store.js";
 import type { BlobContent } from "./blobs/blobs.js";
-import type { AncestryOptions, Commit, CommitStore } from "./commits/commit-store.js";
-import type { AnnotatedTag, TagStore } from "./tags/tag-store.js";
-import type { Tag } from "./tags/tags.js";
+import type { CommitStore } from "./commits/commit-store.js";
+import type { AncestryOptions, Commit } from "./commits/commits.js";
+import type { TagStore } from "./tags/tag-store.js";
+import type { AnnotatedTag, Tag } from "./tags/tags.js";
 import type { TreeEntry } from "./trees/tree-entry.js";
 import { EMPTY_TREE_ID } from "./trees/tree-format.js";
 import type { TreeStore } from "./trees/tree-store.js";
