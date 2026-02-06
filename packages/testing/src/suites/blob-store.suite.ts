@@ -1,18 +1,18 @@
 /**
- * Parametrized test suite for BlobStore implementations
+ * Parametrized test suite for Blobs implementations
  *
- * This suite tests the core BlobStore interface contract.
+ * This suite tests the core Blobs interface contract.
  * All storage implementations must pass these tests.
  */
 
-import type { BlobStore } from "@statewalker/vcs-core";
+import type { Blobs } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**
  * Context provided by the storage factory
  */
 export interface BlobStoreTestContext {
-  blobStore: BlobStore;
+  blobStore: Blobs;
   cleanup?: () => Promise<void>;
 }
 
@@ -130,20 +130,20 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         expect(await ctx.blobStore.has("0000000000000000000000000000000000000000")).toBe(false);
       });
 
-      it("deletes blob", async () => {
-        const content = encoder.encode("to be deleted");
+      it("removes blob", async () => {
+        const content = encoder.encode("to be removed");
         const id = await ctx.blobStore.store(toStream(content));
 
         expect(await ctx.blobStore.has(id)).toBe(true);
 
-        const deleted = await ctx.blobStore.delete(id);
-        expect(deleted).toBe(true);
+        const removed = await ctx.blobStore.remove(id);
+        expect(removed).toBe(true);
         expect(await ctx.blobStore.has(id)).toBe(false);
       });
 
-      it("returns false when deleting non-existent blob", async () => {
-        const deleted = await ctx.blobStore.delete("0000000000000000000000000000000000000000");
-        expect(deleted).toBe(false);
+      it("returns false when removing non-existent blob", async () => {
+        const removed = await ctx.blobStore.remove("0000000000000000000000000000000000000000");
+        expect(removed).toBe(false);
       });
 
       it("lists all blob keys", async () => {
@@ -367,13 +367,13 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         expect(keys.length).toBe(0);
       });
 
-      it("handles store/delete/store cycle", async () => {
+      it("handles store/remove/store cycle", async () => {
         const content = encoder.encode("cycle test");
 
         const id1 = await ctx.blobStore.store(toStream(content));
         expect(await ctx.blobStore.has(id1)).toBe(true);
 
-        await ctx.blobStore.delete(id1);
+        await ctx.blobStore.remove(id1);
         expect(await ctx.blobStore.has(id1)).toBe(false);
 
         const id2 = await ctx.blobStore.store(toStream(content));
@@ -381,15 +381,15 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         expect(await ctx.blobStore.has(id2)).toBe(true);
       });
 
-      it("handles multiple deletes of same blob", async () => {
-        const content = encoder.encode("delete twice");
+      it("handles multiple removes of same blob", async () => {
+        const content = encoder.encode("remove twice");
         const id = await ctx.blobStore.store(toStream(content));
 
-        const deleted1 = await ctx.blobStore.delete(id);
-        expect(deleted1).toBe(true);
+        const removed1 = await ctx.blobStore.remove(id);
+        expect(removed1).toBe(true);
 
-        const deleted2 = await ctx.blobStore.delete(id);
-        expect(deleted2).toBe(false);
+        const removed2 = await ctx.blobStore.remove(id);
+        expect(removed2).toBe(false);
       });
 
       it("handles blobs with newlines", async () => {
