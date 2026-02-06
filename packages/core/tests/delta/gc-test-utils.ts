@@ -9,15 +9,20 @@ import { MemoryStorageBackend } from "../../src/backend/memory-storage-backend.j
 import { FileMode } from "../../src/common/files/index.js";
 import type { ObjectId } from "../../src/common/id/index.js";
 import type { PersonIdent } from "../../src/common/person/person-ident.js";
-import { GitBlobStore } from "../../src/history/blobs/blob-store.impl.js";
-import { GitCommitStore } from "../../src/history/commits/commit-store.impl.js";
-import type { Commit } from "../../src/history/commits/commit-store.js";
+import { createBlobs } from "../../src/history/blobs/blobs.impl.js";
+import type { Blobs } from "../../src/history/blobs/blobs.js";
+import { createCommits } from "../../src/history/commits/commits.impl.js";
+import type { Commit, Commits } from "../../src/history/commits/commits.js";
 import { createHistoryWithOperations } from "../../src/history/create-history.js";
 import type { HistoryWithOperations } from "../../src/history/history.js";
-import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.js";
-import { MemoryRefStore } from "../../src/history/refs/ref-store.memory.js";
-import { GitTagStore } from "../../src/history/tags/tag-store.impl.js";
-import { GitTreeStore } from "../../src/history/trees/tree-store.impl.js";
+import { createGitObjectStore } from "../../src/history/objects/index.js";
+import type { GitObjectStore } from "../../src/history/objects/object-store.js";
+import { createMemoryRefs } from "../../src/history/refs/refs.impl.js";
+import type { Refs } from "../../src/history/refs/refs.js";
+import { createTags } from "../../src/history/tags/tags.impl.js";
+import type { Tags } from "../../src/history/tags/tags.js";
+import { createTrees } from "../../src/history/trees/trees.impl.js";
+import type { Trees } from "../../src/history/trees/trees.js";
 import { GCController, type GCScheduleOptions } from "../../src/storage/delta/gc-controller.js";
 import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 
@@ -25,12 +30,12 @@ import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
  * Simple in-memory repository for GC tests
  */
 interface TestRepository {
-  objects: GitObjectStoreImpl;
-  commits: GitCommitStore;
-  trees: GitTreeStore;
-  blobs: GitBlobStore;
-  tags: GitTagStore;
-  refs: MemoryRefStore;
+  objects: GitObjectStore;
+  commits: Commits;
+  trees: Trees;
+  blobs: Blobs;
+  tags: Tags;
+  refs: Refs;
 }
 
 /**
@@ -79,18 +84,19 @@ export interface CommitOptions {
  * Uses in-memory stores with MemoryStorageBackend for reliable testing.
  */
 export async function createTestRepository(gcOptions?: GCScheduleOptions): Promise<GCTestContext> {
-  // Create raw storage
-  const storage = new MemoryRawStorage();
+  // Create raw storage for blobs and objects
+  const blobStorage = new MemoryRawStorage();
+  const objectStorage = new MemoryRawStorage();
 
-  // Create object store
-  const objectStore = new GitObjectStoreImpl({ storage });
+  // Create object store for trees, commits, tags
+  const objectStore = createGitObjectStore(objectStorage);
 
-  // Create typed stores
-  const commits = new GitCommitStore(objectStore);
-  const trees = new GitTreeStore(objectStore);
-  const blobs = new GitBlobStore(objectStore);
-  const tags = new GitTagStore(objectStore);
-  const refs = new MemoryRefStore();
+  // Create typed stores using new interfaces
+  const blobs = createBlobs(blobStorage);
+  const trees = createTrees(objectStore);
+  const commits = createCommits(objectStore);
+  const tags = createTags(objectStore);
+  const refs = createMemoryRefs();
 
   const repo: TestRepository = {
     objects: objectStore,
@@ -128,7 +134,7 @@ export async function createTestRepository(gcOptions?: GCScheduleOptions): Promi
   };
 
   const tree = async (filename: string, blobId: ObjectId): Promise<ObjectId> => {
-    return trees.storeTree([{ mode: FileMode.REGULAR_FILE, name: filename, id: blobId }]);
+    return trees.store([{ mode: FileMode.REGULAR_FILE, name: filename, id: blobId }]);
   };
 
   const commit = async (options: CommitOptions = {}): Promise<ObjectId> => {
@@ -143,7 +149,7 @@ export async function createTestRepository(gcOptions?: GCScheduleOptions): Promi
         const blobId = await blob(content);
         entries.push({ mode: FileMode.REGULAR_FILE, name: filename, id: blobId });
       }
-      treeId = await trees.storeTree(entries);
+      treeId = await trees.store(entries);
     }
 
     // If no tree, create empty tree
@@ -159,7 +165,7 @@ export async function createTestRepository(gcOptions?: GCScheduleOptions): Promi
       message: options.message ?? `Test commit ${commitCounter}`,
     };
 
-    return commits.storeCommit(commitObj);
+    return commits.store(commitObj);
   };
 
   const branch = async (name: string, commitId: ObjectId): Promise<void> => {
@@ -334,21 +340,16 @@ export async function hasBlob(ctx: GCTestContext, blobId: ObjectId): Promise<boo
  * Check if repository has any object (commit, tree, or blob)
  */
 export async function hasObject(ctx: GCTestContext, objectId: ObjectId): Promise<boolean> {
-  // Check commits
-  try {
-    await ctx.repo.commits.loadCommit(objectId);
+  // Check commits (new interface returns undefined instead of throwing)
+  const commit = await ctx.repo.commits.load(objectId);
+  if (commit) {
     return true;
-  } catch {
-    // Not a commit
   }
 
-  // Check trees
-  try {
-    const iter = ctx.repo.trees.loadTree(objectId);
-    await iter[Symbol.asyncIterator]().next();
+  // Check trees (new interface returns undefined instead of throwing)
+  const tree = await ctx.repo.trees.load(objectId);
+  if (tree) {
     return true;
-  } catch {
-    // Not a tree
   }
 
   // Check blobs

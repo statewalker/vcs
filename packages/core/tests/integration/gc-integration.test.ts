@@ -11,19 +11,19 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { MemoryStorageBackend } from "../../src/backend/memory-storage-backend.js";
 import type { PersonIdent } from "../../src/common/person/person-ident.js";
-import { GitBlobStore } from "../../src/history/blobs/blob-store.impl.js";
-import { GitCommitStore } from "../../src/history/commits/commit-store.impl.js";
-import type { Commit } from "../../src/history/commits/commit-store.js";
+import { createBlobs } from "../../src/history/blobs/blobs.impl.js";
+import { createCommits } from "../../src/history/commits/commits.impl.js";
+import type { Commit } from "../../src/history/commits/commits.js";
 import {
   createHistoryWithOperations,
   createMemoryHistory,
   type History,
   type HistoryWithOperations,
 } from "../../src/history/index.js";
-import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.js";
-import { MemoryRefStore } from "../../src/history/refs/ref-store.memory.js";
-import { GitTagStore } from "../../src/history/tags/tag-store.impl.js";
-import { GitTreeStore } from "../../src/history/trees/tree-store.impl.js";
+import { createGitObjectStore } from "../../src/history/objects/index.js";
+import { createMemoryRefs } from "../../src/history/refs/refs.impl.js";
+import { createTags } from "../../src/history/tags/tags.impl.js";
+import { createTrees } from "../../src/history/trees/trees.impl.js";
 import { GCController } from "../../src/storage/delta/gc-controller.js";
 import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 
@@ -50,18 +50,19 @@ describe("GC Integration", () => {
   }
 
   async function createGCTestContext(): Promise<GCTestContext> {
-    // Create raw storage
-    const storage = new MemoryRawStorage();
+    // Create raw storage for blobs and objects
+    const blobStorage = new MemoryRawStorage();
+    const objectStorage = new MemoryRawStorage();
 
-    // Create object store
-    const objectStore = new GitObjectStoreImpl({ storage });
+    // Create object store for trees, commits, tags
+    const objectStore = createGitObjectStore(objectStorage);
 
-    // Create typed stores
-    const commits = new GitCommitStore(objectStore);
-    const trees = new GitTreeStore(objectStore);
-    const blobs = new GitBlobStore(objectStore);
-    const tags = new GitTagStore(objectStore);
-    const refs = new MemoryRefStore();
+    // Create typed stores using new interfaces
+    const blobs = createBlobs(blobStorage);
+    const trees = createTrees(objectStore);
+    const commits = createCommits(objectStore);
+    const tags = createTags(objectStore);
+    const refs = createMemoryRefs();
 
     // Create backend and wrap in HistoryWithOperations for GC
     const backend = new MemoryStorageBackend({
@@ -109,10 +110,10 @@ describe("GC Integration", () => {
       // Sort entries by name (Git requirement)
       entries.sort((a, b) => a.name.localeCompare(b.name));
 
-      // Create tree
-      const treeId = await trees.storeTree(entries);
+      // Create tree (use new interface method name)
+      const treeId = await trees.store(entries);
 
-      // Create commit
+      // Create commit (use new interface method name)
       const commit: Commit = {
         tree: treeId,
         parents,
@@ -121,7 +122,7 @@ describe("GC Integration", () => {
         message,
       };
 
-      return commits.storeCommit(commit);
+      return commits.store(commit);
     };
 
     const getBlobIds = async (): Promise<string[]> => {

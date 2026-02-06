@@ -21,12 +21,12 @@
  */
 
 import type { ObjectId } from "../common/id/object-id.js";
-import type { BlobStore } from "../history/blobs/blob-store.js";
-import type { CommitStore } from "../history/commits/commit-store.js";
+import type { Blobs } from "../history/blobs/blobs.js";
+import type { Commits } from "../history/commits/commits.js";
 import type { HistoryWithOperations } from "../history/history.js";
-import type { RefStore } from "../history/refs/ref-store.js";
-import type { TagStore } from "../history/tags/tag-store.js";
-import type { TreeStore } from "../history/trees/tree-store.js";
+import type { Refs } from "../history/refs/refs.js";
+import type { Tags } from "../history/tags/tags.js";
+import type { Trees } from "../history/trees/trees.js";
 import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
 import type { SerializationApi } from "../serialization/serialization-api.js";
 import type {
@@ -41,18 +41,21 @@ import type { BackendCapabilities, StorageOperations } from "./storage-backend.j
 
 /**
  * Configuration for GitFilesStorageBackend
+ *
+ * Uses the new unified interfaces (Blobs, Trees, Commits, Tags, Refs)
+ * instead of the legacy store types.
  */
 export interface GitFilesStorageBackendConfig extends BaseBackendConfig {
-  /** Blob store implementation */
-  blobs: BlobStore;
-  /** Tree store implementation */
-  trees: TreeStore;
-  /** Commit store implementation */
-  commits: CommitStore;
-  /** Tag store implementation */
-  tags: TagStore;
-  /** Ref store implementation */
-  refs: RefStore;
+  /** Blob storage implementation */
+  blobs: Blobs;
+  /** Tree storage implementation */
+  trees: Trees;
+  /** Commit storage implementation */
+  commits: Commits;
+  /** Tag storage implementation */
+  tags: Tags;
+  /** Reference storage implementation */
+  refs: Refs;
   /** Pack-based delta store for native Git delta operations */
   packDeltaStore: PackDeltaStore;
 }
@@ -67,7 +70,7 @@ export interface GitFilesStorageBackendConfig extends BaseBackendConfig {
 export class GitFilesBlobDeltaApi implements BlobDeltaApi {
   constructor(
     private readonly packDeltaStore: PackDeltaStore,
-    private readonly blobs: BlobStore,
+    private readonly blobs: Blobs,
   ) {}
 
   async findBlobDelta(
@@ -138,16 +141,15 @@ export class GitFilesBlobDeltaApi implements BlobDeltaApi {
   }
 
   private async loadBlobContent(id: ObjectId): Promise<Uint8Array | null> {
-    try {
-      const stream = this.blobs.load(id);
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of stream) {
-        chunks.push(chunk);
-      }
-      return concatBytes(chunks);
-    } catch {
+    const stream = await this.blobs.load(id);
+    if (!stream) {
       return null;
     }
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return concatBytes(chunks);
   }
 }
 
@@ -164,9 +166,9 @@ export class GitFilesDeltaApi implements DeltaApi {
 
   constructor(
     private readonly packDeltaStore: PackDeltaStore,
-    blobStore: BlobStore,
+    blobs: Blobs,
   ) {
-    this.blobs = new GitFilesBlobDeltaApi(packDeltaStore, blobStore);
+    this.blobs = new GitFilesBlobDeltaApi(packDeltaStore, blobs);
   }
 
   async isDelta(id: ObjectId): Promise<boolean> {
@@ -243,11 +245,11 @@ export class GitFilesDeltaApi implements DeltaApi {
  * ```
  */
 export class GitFilesStorageBackend {
-  readonly blobs: BlobStore;
-  readonly trees: TreeStore;
-  readonly commits: CommitStore;
-  readonly tags: TagStore;
-  readonly refs: RefStore;
+  readonly blobs: Blobs;
+  readonly trees: Trees;
+  readonly commits: Commits;
+  readonly tags: Tags;
+  readonly refs: Refs;
   readonly delta: DeltaApi;
   readonly serialization: SerializationApi;
   readonly capabilities: BackendCapabilities = {
@@ -269,12 +271,15 @@ export class GitFilesStorageBackend {
 
     this.packDeltaStore = config.packDeltaStore;
     this.delta = new GitFilesDeltaApi(config.packDeltaStore, config.blobs);
+    // Use History interface for DefaultSerializationApi - create a minimal History-like object
     this.serialization = new DefaultSerializationApi({
-      blobs: this.blobs,
-      trees: this.trees,
-      commits: this.commits,
-      tags: this.tags,
-      refs: this.refs,
+      history: {
+        blobs: this.blobs,
+        trees: this.trees,
+        commits: this.commits,
+        tags: this.tags,
+        refs: this.refs,
+      } as import("../history/history.js").History,
       blobDeltaApi: this.delta.blobs,
     });
   }
