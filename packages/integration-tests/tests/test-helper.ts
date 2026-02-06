@@ -9,15 +9,15 @@
 
 import { Git } from "@statewalker/vcs-commands";
 import type {
-  BlobStore,
-  CommitStore,
+  Blobs,
+  Commits,
   GitObjectStore,
   ObjectId,
   PersonIdent,
-  RefStore,
+  Refs,
   Staging,
-  TagStore,
-  TreeStore,
+  Tags,
+  Trees,
   WorkingCopy,
 } from "@statewalker/vcs-core";
 import { FileMode } from "@statewalker/vcs-core";
@@ -46,15 +46,15 @@ export interface TestStore {
   /** Object store for raw Git objects */
   objects: GitObjectStore;
   /** Blob storage */
-  blobs: BlobStore;
+  blobs: Blobs;
   /** Tree storage */
-  trees: TreeStore;
+  trees: Trees;
   /** Commit storage */
-  commits: CommitStore;
+  commits: Commits;
   /** Tag storage */
-  tags: TagStore;
+  tags: Tags;
   /** Reference storage */
-  refs: RefStore;
+  refs: Refs;
   /** Staging area from checkout */
   staging: Staging;
 }
@@ -96,7 +96,7 @@ export async function createInitializedGitFromFactory(
   const git = Git.fromWorkingCopy(workingCopy);
 
   // Create and store empty tree
-  const emptyTreeId = await repository.trees.storeTree([]);
+  const emptyTreeId = await repository.trees.store([]);
 
   // Create initial commit
   const initialCommit = {
@@ -107,7 +107,7 @@ export async function createInitializedGitFromFactory(
     message: "Initial commit",
   };
 
-  const initialCommitId = await repository.commits.storeCommit(initialCommit);
+  const initialCommitId = await repository.commits.store(initialCommit);
 
   // Set up refs
   await repository.refs.set("refs/heads/main", initialCommitId);
@@ -280,12 +280,8 @@ export async function createCommit(
     message,
   };
 
-  // Store commit - handle both new Commits (.store) and legacy CommitStore (.storeCommit)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const commitsAny = history.commits as any;
-  const commitId: ObjectId = commitsAny.storeCommit
-    ? await commitsAny.storeCommit(commit)
-    : await commitsAny.store(commit);
+  // Store commit using new Commits interface
+  const commitId = await history.commits.store(commit);
 
   // Update HEAD
   const head = await history.refs.get("HEAD");

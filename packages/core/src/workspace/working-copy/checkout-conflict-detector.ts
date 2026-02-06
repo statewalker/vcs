@@ -11,7 +11,7 @@
 
 import type { ObjectId } from "../../common/id/object-id.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
-import type { TreeStore } from "../../history/trees/tree-store.js";
+import type { Trees } from "../../history/trees/trees.js";
 import type { Staging } from "../staging/staging.js";
 import type { Worktree } from "../worktree/worktree.js";
 
@@ -26,7 +26,7 @@ import {
  */
 export interface CheckoutConflictDetectorDeps {
   /** Tree storage for loading tree entries */
-  trees: TreeStore;
+  trees: Trees;
   /** Staging area (index) */
   staging: Staging;
   /** Working tree iterator for checking file status */
@@ -263,7 +263,7 @@ async function isWorktreeModified(
  * Get a tree entry by path, handling nested directories.
  */
 async function getTreeEntry(
-  trees: TreeStore,
+  trees: Trees,
   treeId: ObjectId,
   path: string,
 ): Promise<TreeEntry | undefined> {

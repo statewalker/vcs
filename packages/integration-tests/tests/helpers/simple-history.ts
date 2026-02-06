@@ -4,19 +4,19 @@
  * Wraps individual stores into a History-compatible interface.
  * Used for creating WorkingCopy instances in tests without a full storage backend.
  *
- * Note: This uses the legacy store interfaces (BlobStore, TreeStore, etc.)
+ * Note: This uses the new store interfaces (Blobs, Trees, etc.)
  * and is cast to History for use with MemoryWorkingCopy.
  */
 
 import type {
-  BlobStore,
-  CommitStore,
+  Blobs,
+  Commits,
   GitObjectStore,
   ObjectId,
-  RefStore,
+  Refs,
   SerializationApi,
-  TagStore,
-  TreeStore,
+  Tags,
+  Trees,
 } from "@statewalker/vcs-core";
 import { DefaultSerializationApi } from "@statewalker/vcs-core";
 
@@ -27,30 +27,30 @@ export interface SimpleHistoryOptions {
   /** Object store for raw Git objects */
   objects: GitObjectStore;
   /** Blob storage */
-  blobs: BlobStore;
+  blobs: Blobs;
   /** Tree storage */
-  trees: TreeStore;
+  trees: Trees;
   /** Commit storage */
-  commits: CommitStore;
+  commits: Commits;
   /** Tag storage */
-  tags: TagStore;
+  tags: Tags;
   /** Reference storage */
-  refs: RefStore;
+  refs: Refs;
 }
 
 /**
  * Simple in-memory History-like implementation for testing.
  *
- * This class provides a History-compatible interface using legacy store types.
+ * This class provides a History-compatible interface using new store types.
  * It should be cast to History when used with MemoryWorkingCopy.
  */
 export class SimpleHistory {
   readonly objects: GitObjectStore;
-  readonly blobs: BlobStore;
-  readonly trees: TreeStore;
-  readonly commits: CommitStore;
-  readonly tags: TagStore;
-  readonly refs: RefStore;
+  readonly blobs: Blobs;
+  readonly trees: Trees;
+  readonly commits: Commits;
+  readonly tags: Tags;
+  readonly refs: Refs;
   readonly serialization: SerializationApi;
 
   private _initialized = false;
@@ -101,30 +101,35 @@ export class SimpleHistory {
 
       // If it's a commit, add its tree and parents
       if (await this.commits.has(oid)) {
-        const commit = await this.commits.loadCommit(oid);
-        if (!seen.has(commit.tree)) {
+        const commit = await this.commits.load(oid);
+        if (commit && !seen.has(commit.tree)) {
           queue.push(commit.tree);
         }
-        for (const parent of commit.parents) {
-          if (!seen.has(parent)) {
-            queue.push(parent);
+        if (commit) {
+          for (const parent of commit.parents) {
+            if (!seen.has(parent)) {
+              queue.push(parent);
+            }
           }
         }
       }
 
       // If it's a tree, add its entries
       if (await this.trees.has(oid)) {
-        for await (const entry of this.trees.loadTree(oid)) {
-          if (!seen.has(entry.id)) {
-            queue.push(entry.id);
+        const treeEntries = await this.trees.load(oid);
+        if (treeEntries) {
+          for await (const entry of treeEntries) {
+            if (!seen.has(entry.id)) {
+              queue.push(entry.id);
+            }
           }
         }
       }
 
       // If it's a tag, add its target
       if (await this.tags.has(oid)) {
-        const tag = await this.tags.loadTag(oid);
-        if (!seen.has(tag.object)) {
+        const tag = await this.tags.load(oid);
+        if (tag && !seen.has(tag.object)) {
           queue.push(tag.object);
         }
       }

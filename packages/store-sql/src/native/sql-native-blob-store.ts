@@ -262,8 +262,9 @@ export class SqlNativeBlobStoreImpl implements SqlNativeBlobStore {
    *
    * For inline blobs, yields content in single chunk.
    * For chunked blobs, streams decompressed chunks.
+   * Returns undefined if blob doesn't exist.
    */
-  async *load(id: ObjectId): AsyncIterable<Uint8Array> {
+  async load(id: ObjectId): Promise<AsyncIterable<Uint8Array> | undefined> {
     await this.ensureTable();
 
     // Get blob metadata
@@ -274,29 +275,32 @@ export class SqlNativeBlobStoreImpl implements SqlNativeBlobStore {
     }>(`SELECT id, content, storage_type FROM ${BLOB_TABLE} WHERE blob_id = ?`, [id]);
 
     if (rows.length === 0) {
-      throw new Error(`Blob ${id} not found`);
+      return undefined;
     }
 
     const { id: blobFk, content, storage_type } = rows[0];
+    const db = this.db;
 
-    // Handle inline storage (default for existing blobs without storage_type)
-    if (storage_type !== "chunked") {
-      if (content) {
-        yield content;
+    return (async function* () {
+      // Handle inline storage (default for existing blobs without storage_type)
+      if (storage_type !== "chunked") {
+        if (content) {
+          yield content;
+        }
+        return;
       }
-      return;
-    }
 
-    // Stream chunks for chunked storage
-    const chunks = await this.db.query<{ content: Uint8Array }>(
-      `SELECT content FROM ${CHUNK_TABLE} WHERE blob_fk = ? ORDER BY position`,
-      [blobFk],
-    );
+      // Stream chunks for chunked storage
+      const chunks = await db.query<{ content: Uint8Array }>(
+        `SELECT content FROM ${CHUNK_TABLE} WHERE blob_fk = ? ORDER BY position`,
+        [blobFk],
+      );
 
-    for (const chunk of chunks) {
-      const decompressed = await decompressBlock(chunk.content);
-      yield decompressed;
-    }
+      for (const chunk of chunks) {
+        const decompressed = await decompressBlock(chunk.content);
+        yield decompressed;
+      }
+    })();
   }
 
   /**

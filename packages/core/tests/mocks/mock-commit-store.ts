@@ -1,20 +1,19 @@
 /**
- * Mock CommitStore implementation for testing
+ * Mock Commits implementation for testing
+ *
+ * Implements both old CommitStore and new Commits interfaces for backward compatibility.
  */
 
 import type { ObjectId, PersonIdent } from "../../src/common/id/index.js";
-import type {
-  AncestryOptions,
-  Commit,
-  CommitStore,
-} from "../../src/history/commits/commit-store.js";
+import type { AncestryOptions, Commit, Commits } from "../../src/history/commits/commits.js";
 
 /**
- * In-memory CommitStore implementation for testing
+ * In-memory Commits implementation for testing
  *
  * Provides methods for building commit graphs programmatically.
+ * Implements both old CommitStore and new Commits interfaces.
  */
-export class MockCommitStore implements CommitStore {
+export class MockCommitStore implements Commits {
   private readonly commits = new Map<ObjectId, Commit>();
   private idCounter = 0;
 
@@ -47,9 +46,13 @@ export class MockCommitStore implements CommitStore {
     return [...commit.parents];
   }
 
-  async getTree(id: ObjectId): Promise<ObjectId> {
-    const commit = await this.loadCommit(id);
-    return commit.tree;
+  async getTree(id: ObjectId): Promise<ObjectId | undefined> {
+    const commit = this.commits.get(id);
+    return commit?.tree;
+  }
+
+  async remove(id: ObjectId): Promise<boolean> {
+    return this.commits.delete(id);
   }
 
   async *walkAncestry(

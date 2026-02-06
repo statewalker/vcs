@@ -143,7 +143,9 @@ describe("GitBlobStore", () => {
 
     const id = await blobStore.store([content]);
 
-    const loaded = await collectBytes(blobStore.load(id));
+    const result = await blobStore.load(id);
+    if (!result) throw new Error("Blob not found");
+    const loaded = await collectBytes(result);
     expect(new TextDecoder().decode(loaded)).toBe("file content");
   });
 
@@ -166,7 +168,9 @@ describe("GitBlobStore", () => {
 
     const id = await blobStore.store(asyncContent());
 
-    const loaded = await collectBytes(blobStore.load(id));
+    const result = await blobStore.load(id);
+    if (!result) throw new Error("Blob not found");
+    const loaded = await collectBytes(result);
     expect(new TextDecoder().decode(loaded)).toBe("async content");
   });
 
@@ -182,7 +186,9 @@ describe("GitBlobStore", () => {
 
     const id = await blobStore.store(chunks());
 
-    const loaded = await collectBytes(blobStore.load(id));
+    const result = await blobStore.load(id);
+    if (!result) throw new Error("Blob not found");
+    const loaded = await collectBytes(result);
     expect(loaded.length).toBe(10240);
   });
 
@@ -203,7 +209,9 @@ describe("GitBlobStore", () => {
     const commitId = await commitStore.storeCommit(commit);
 
     await expect(async () => {
-      await collectBytes(blobStore.load(commitId));
+      const result = await blobStore.load(commitId);
+      if (!result) throw new Error("Blob not found");
+      await collectBytes(result);
     }).rejects.toThrow(/not a blob/);
   });
 });

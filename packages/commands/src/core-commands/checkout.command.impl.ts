@@ -310,8 +310,12 @@ export class CheckoutCommand implements Checkout {
    * Load blob content as Uint8Array.
    */
   private async loadBlobContent(objectId: ObjectId): Promise<Uint8Array> {
+    const result = await this.blobs.load(objectId);
+    if (!result) {
+      throw new Error(`Blob ${objectId} not found`);
+    }
     const chunks: Uint8Array[] = [];
-    for await (const chunk of this.blobs.load(objectId)) {
+    for await (const chunk of result) {
       chunks.push(chunk);
     }
     return concatBytes(chunks);

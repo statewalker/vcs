@@ -42,8 +42,14 @@ describe("T4.6: SQL Chunking Integration", () => {
   }
 
   /** Helper to collect async iterable into single Uint8Array */
-  async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
-    return collect(iterable);
+  async function collectBytes(
+    iterable: AsyncIterable<Uint8Array> | Promise<AsyncIterable<Uint8Array> | undefined>,
+  ): Promise<Uint8Array> {
+    const resolved = await iterable;
+    if (!resolved) {
+      throw new Error("Blob not found");
+    }
+    return collect(resolved);
   }
 
   describe("cross-backend consistency", () => {

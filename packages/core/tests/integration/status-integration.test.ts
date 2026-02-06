@@ -14,7 +14,8 @@ import { describe, expect, it, vi } from "vitest";
 import { FileMode } from "../../src/common/files/index.js";
 import type { CommitStore } from "../../src/history/commits/commit-store.js";
 import type { RefStore } from "../../src/history/refs/ref-store.js";
-import type { TreeEntry, TreeStore } from "../../src/history/trees/index.js";
+import type { TreeEntry } from "../../src/history/trees/tree-entry.js";
+import type { Trees } from "../../src/history/trees/trees.js";
 import type { MergeStageValue, StagingEntry } from "../../src/workspace/staging/index.js";
 import type { Staging } from "../../src/workspace/staging/staging.js";
 import {
@@ -716,22 +717,31 @@ describe("Status Calculation Integration", () => {
 
 // --- Mock helpers ---
 
-function createMockTreeStore(entries: Map<string, TreeEntry[]>): TreeStore {
+function createMockTreeStore(entries: Map<string, TreeEntry[]>): Trees {
   return {
-    loadTree: vi.fn().mockImplementation(async function* (treeId: string) {
-      const treeEntries = entries.get(treeId) ?? [];
-      for (const entry of treeEntries) {
-        yield entry;
-      }
+    load: vi.fn().mockImplementation(async (treeId: string) => {
+      const treeEntries = entries.get(treeId);
+      if (!treeEntries) return undefined;
+      return (async function* () {
+        for (const entry of treeEntries) {
+          yield entry;
+        }
+      })();
     }),
-    storeTree: vi.fn(),
+    store: vi.fn(),
     getEntry: vi.fn().mockImplementation(async (treeId: string, name: string) => {
       const treeEntries = entries.get(treeId) ?? [];
       return treeEntries.find((e) => e.name === name);
     }),
-    hasTree: vi.fn(),
+    has: vi.fn().mockImplementation(async (treeId: string) => entries.has(treeId)),
+    keys: vi.fn().mockImplementation(async function* () {
+      for (const key of entries.keys()) {
+        yield key;
+      }
+    }),
+    remove: vi.fn(),
     getEmptyTreeId: vi.fn().mockReturnValue("4b825dc642cb6eb9a060e54bf8d69288fbee4904"),
-  } as unknown as TreeStore;
+  } as unknown as Trees;
 }
 
 function createMockStaging(stagingEntries: StagingEntry[], conflictPaths: string[] = []): Staging {
