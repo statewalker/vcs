@@ -4,7 +4,7 @@
  * Stores annotated tag objects in a SQL database.
  */
 
-import type { AnnotatedTag, ObjectId, ObjectTypeCode, TagStore } from "@statewalker/vcs-core";
+import type { AnnotatedTag, ObjectId, ObjectTypeCode, Tags } from "@statewalker/vcs-core";
 import { computeTagHash, ObjectType } from "@statewalker/vcs-core";
 
 import type { DatabaseClient } from "./database-client.js";
@@ -35,13 +35,13 @@ interface TagRow {
 /**
  * SQL-based TagStore implementation.
  */
-export class SQLTagStore implements TagStore {
+export class SQLTagStore implements Tags {
   constructor(private db: DatabaseClient) {}
 
   /**
    * Store an annotated tag object.
    */
-  async storeTag(tag: AnnotatedTag): Promise<ObjectId> {
+  async store(tag: AnnotatedTag): Promise<ObjectId> {
     const tagId = computeTagHash(tag);
 
     // Check if tag already exists (deduplication)
@@ -83,12 +83,13 @@ export class SQLTagStore implements TagStore {
 
   /**
    * Load a tag object by ID.
+   * Returns undefined if not found (new API behavior).
    */
-  async loadTag(id: ObjectId): Promise<AnnotatedTag> {
+  async load(id: ObjectId): Promise<AnnotatedTag | undefined> {
     const tags = await this.db.query<TagRow>("SELECT * FROM vcs_tag WHERE tag_id = ?", [id]);
 
     if (tags.length === 0) {
-      throw new Error(`Tag ${id} not found`);
+      return undefined;
     }
 
     const row = tags[0];
@@ -114,11 +115,16 @@ export class SQLTagStore implements TagStore {
 
   /**
    * Get the tagged object ID.
+   * Returns undefined if tag not found.
    *
    * Follows tag chains if the tag points to another tag and peel is true.
    */
-  async getTarget(id: ObjectId, peel = false): Promise<ObjectId> {
-    const tag = await this.loadTag(id);
+  async getTarget(id: ObjectId, peel = false): Promise<ObjectId | undefined> {
+    const tag = await this.load(id);
+
+    if (!tag) {
+      return undefined;
+    }
 
     if (!peel || tag.objectType !== ObjectType.TAG) {
       return tag.object;
@@ -161,6 +167,15 @@ export class SQLTagStore implements TagStore {
       [id],
     );
     return result[0].cnt > 0;
+  }
+
+  /**
+   * Remove a tag by ID.
+   * @returns True if removed, false if not found
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    const result = await this.db.execute("DELETE FROM vcs_tag WHERE tag_id = ?", [id]);
+    return result.changes > 0;
   }
 
   /**

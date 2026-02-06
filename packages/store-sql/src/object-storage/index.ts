@@ -6,34 +6,38 @@
  */
 
 import {
-  type BlobStore,
-  type CommitStore,
+  type Blobs,
+  type Commits,
   GitBlobStore,
   GitCommitStore,
   type GitObjectStore,
   GitObjectStoreImpl,
   GitTagStore,
   GitTreeStore,
-  type TagStore,
-  type TreeStore,
+  type Tags,
+  type Trees,
 } from "@statewalker/vcs-core";
 import { SqlRawStore } from "../binary-storage/sql-raw-store.js";
 import type { DatabaseClient } from "../database-client.js";
 
 /**
  * Collection of SQL-backed object stores
+ *
+ * Uses new interface types (Blobs, Trees, Commits, Tags) for compatibility
+ * with the History interface. The underlying implementations (GitBlobStore, etc.)
+ * implement both new and legacy interfaces.
  */
 export interface SqlObjectStores {
   /** Low-level Git object store */
   objects: GitObjectStore;
   /** Blob (file content) store */
-  blobs: BlobStore;
+  blobs: Blobs;
   /** Tree (directory) store */
-  trees: TreeStore;
+  trees: Trees;
   /** Commit store */
-  commits: CommitStore;
+  commits: Commits;
   /** Tag store */
-  tags: TagStore;
+  tags: Tags;
 }
 
 /**

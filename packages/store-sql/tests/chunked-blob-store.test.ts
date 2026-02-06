@@ -319,7 +319,7 @@ describe("SqlNativeBlobStore chunked storage", () => {
       const id = await store.store(toStream(content));
 
       expect(await store.has(id)).toBe(true);
-      const deleted = await store.delete(id);
+      const deleted = await store.remove(id);
       expect(deleted).toBe(true);
       expect(await store.has(id)).toBe(false);
     });
@@ -342,7 +342,7 @@ describe("SqlNativeBlobStore chunked storage", () => {
       expect(beforeChunks[0].cnt).toBe(2);
 
       // Delete
-      const deleted = await store.delete(id);
+      const deleted = await store.remove(id);
       expect(deleted).toBe(true);
       expect(await store.has(id)).toBe(false);
 

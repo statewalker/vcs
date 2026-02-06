@@ -155,7 +155,7 @@ describe("T4.6: SQL Chunking Integration", () => {
       expect(beforeChunks[0].cnt).toBeGreaterThan(0);
 
       // Delete the blob
-      await store.delete(id);
+      await store.remove(id);
 
       // Verify all chunks are removed
       const afterChunks = await db.query<{ cnt: number }>(
@@ -177,7 +177,7 @@ describe("T4.6: SQL Chunking Integration", () => {
         }
 
         const id = await store.store(toStream(content));
-        await store.delete(id);
+        await store.remove(id);
       }
 
       // Check for any orphaned chunks (chunks without valid blob_fk)
@@ -212,7 +212,7 @@ describe("T4.6: SQL Chunking Integration", () => {
       const chunkCount = beforeChunks[0].cnt;
 
       // Delete inline blob
-      await store.delete(smallId);
+      await store.remove(smallId);
 
       // Chunks for large blob should be unaffected
       const afterChunks = await db.query<{ cnt: number }>(
@@ -343,7 +343,7 @@ describe("T4.6: SQL Chunking Integration", () => {
         expect(chunks[0].cnt).toBe(expectedChunks);
 
         // Cleanup for next test
-        await store.delete(id);
+        await store.remove(id);
       }
     });
 

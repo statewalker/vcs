@@ -5,7 +5,7 @@
  * while still computing Git-compatible SHA-1 object IDs for interoperability.
  */
 
-import type { BlobStore, CommitStore, ObjectId, TagStore, TreeStore } from "@statewalker/vcs-core";
+import type { Blobs, Commits, ObjectId, Tags, Trees } from "@statewalker/vcs-core";
 
 /**
  * Extended CommitStore with SQL query capabilities
@@ -13,7 +13,7 @@ import type { BlobStore, CommitStore, ObjectId, TagStore, TreeStore } from "@sta
  * Provides methods for querying commits by author, date range,
  * and commit ancestry using SQL's power for efficient lookups.
  */
-export interface SqlNativeCommitStore extends CommitStore {
+export interface SqlNativeCommitStore extends Commits {
   /**
    * Find commits by author email
    *
@@ -64,7 +64,7 @@ export interface SqlNativeCommitStore extends CommitStore {
  * Provides methods for finding trees containing specific blobs
  * and building file paths across the tree structure.
  */
-export interface SqlNativeTreeStore extends TreeStore {
+export interface SqlNativeTreeStore extends Trees {
   /**
    * Find trees containing a specific blob
    *
@@ -94,7 +94,7 @@ export interface SqlNativeTreeStore extends TreeStore {
 /**
  * Extended BlobStore with SQL query capabilities
  */
-export interface SqlNativeBlobStore extends BlobStore {
+export interface SqlNativeBlobStore extends Blobs {
   /**
    * Get blob count in the store
    */
@@ -109,7 +109,7 @@ export interface SqlNativeBlobStore extends BlobStore {
 /**
  * Extended TagStore with SQL query capabilities
  */
-export interface SqlNativeTagStore extends TagStore {
+export interface SqlNativeTagStore extends Tags {
   /**
    * Find tags by name pattern
    *

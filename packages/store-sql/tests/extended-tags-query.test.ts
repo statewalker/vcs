@@ -51,7 +51,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
   // Helper to create a test commit and return its ID
   const createCommit = async (message: string, timestamp = 1700000000): Promise<string> => {
     const person = createPerson("Test User", "test@example.com", timestamp);
-    return await commits.storeCommit({
+    return await commits.store({
       tree: emptyTreeId,
       parents: [],
       author: person,
@@ -75,7 +75,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
   describe("findByNamePattern", () => {
     it("returns empty iterator for no matching tags", async () => {
       const commitId = await createCommit("Test commit");
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -92,7 +92,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
 
     it("finds tags matching exact name", async () => {
       const commitId = await createCommit("Test commit");
-      const tagId = await tags.storeTag({
+      const tagId = await tags.store({
         tag: "v1.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -112,7 +112,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
     it("finds tags matching version pattern", async () => {
       const commitId = await createCommit("Test commit");
 
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -120,7 +120,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Release v1.0.0",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.1.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -128,7 +128,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Release v1.1.0",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "v2.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -147,7 +147,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
     it("finds tags matching prefix pattern", async () => {
       const commitId = await createCommit("Test commit");
 
-      await tags.storeTag({
+      await tags.store({
         tag: "release-candidate-1",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -155,7 +155,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "RC 1",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "release-candidate-2",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -163,7 +163,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "RC 2",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "beta-1",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -182,7 +182,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
     it("handles underscore wildcard (single character)", async () => {
       const commitId = await createCommit("Test commit");
 
-      await tags.storeTag({
+      await tags.store({
         tag: "v1",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -190,7 +190,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "v1",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "v2",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -198,7 +198,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "v2",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "v10",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -218,7 +218,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
     it("is case-insensitive for pattern matching (SQLite LIKE)", async () => {
       const commitId = await createCommit("Test commit");
 
-      await tags.storeTag({
+      await tags.store({
         tag: "Release-v1",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -226,7 +226,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Release",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "RELEASE-v2",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -234,7 +234,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Release",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "release-v3",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -255,7 +255,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
   describe("findByTagger", () => {
     it("returns empty iterator for non-existent tagger", async () => {
       const commitId = await createCommit("Test commit");
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -275,7 +275,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
       const bob = createPerson("Bob", "bob@example.com", 1700000100);
 
-      const tag1 = await tags.storeTag({
+      const tag1 = await tags.store({
         tag: "alice-tag-1",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -283,7 +283,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Alice tag 1",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "bob-tag",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -291,7 +291,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Bob tag",
       });
 
-      const tag2 = await tags.storeTag({
+      const tag2 = await tags.store({
         tag: "alice-tag-2",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -313,7 +313,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const commitId = await createCommit("Test commit");
 
       // Store a lightweight tag (no tagger)
-      await tags.storeTag({
+      await tags.store({
         tag: "lightweight-tag",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -321,7 +321,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       });
 
       // Store annotated tag with tagger
-      const tagId = await tags.storeTag({
+      const tagId = await tags.store({
         tag: "annotated-tag",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -343,7 +343,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const commitId = await createCommit("Test commit");
       const specialEmail = createPerson("Special", "user+tag@example.com", 1700000000);
 
-      const tagId = await tags.storeTag({
+      const tagId = await tags.store({
         tag: "special-tag",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -363,7 +363,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
     it("is case-sensitive for email matching", async () => {
       const commitId = await createCommit("Test commit");
 
-      await tags.storeTag({
+      await tags.store({
         tag: "tag1",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -389,7 +389,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
   describe("findByTargetType", () => {
     it("returns empty iterator when no tags match target type", async () => {
       const commitId = await createCommit("Test commit");
-      await tags.storeTag({
+      await tags.store({
         tag: "commit-tag",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -408,7 +408,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const commitId = await createCommit("Test commit");
       const tagger = createPerson("Tagger", "tagger@example.com", 1700000000);
 
-      const commitTag = await tags.storeTag({
+      const commitTag = await tags.store({
         tag: "commit-tag",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -428,7 +428,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
     it("finds tags pointing to trees", async () => {
       const tagger = createPerson("Tagger", "tagger@example.com", 1700000000);
 
-      const treeTag = await tags.storeTag({
+      const treeTag = await tags.store({
         tag: "tree-tag",
         object: emptyTreeId,
         objectType: TYPE_TREE,
@@ -450,7 +450,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       // Use a fake blob ID (in real usage would be actual blob)
       const blobId = "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3";
 
-      const blobTag = await tags.storeTag({
+      const blobTag = await tags.store({
         tag: "blob-tag",
         object: blobId,
         objectType: TYPE_BLOB,
@@ -472,7 +472,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const tagger = createPerson("Tagger", "tagger@example.com", 1700000000);
 
       // First create a commit tag
-      const innerTagId = await tags.storeTag({
+      const innerTagId = await tags.store({
         tag: "inner-tag",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -481,7 +481,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       });
 
       // Then create a tag pointing to the inner tag
-      const outerTagId = await tags.storeTag({
+      const outerTagId = await tags.store({
         tag: "outer-tag",
         object: innerTagId,
         objectType: TYPE_TAG,
@@ -503,7 +503,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const commit2 = await createCommit("Commit 2");
       const tagger = createPerson("Tagger", "tagger@example.com", 1700000000);
 
-      await tags.storeTag({
+      await tags.store({
         tag: "tag1",
         object: commit1,
         objectType: TYPE_COMMIT,
@@ -511,7 +511,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Tag 1",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "tag2",
         object: commit2,
         objectType: TYPE_COMMIT,
@@ -520,7 +520,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       });
 
       // Also create a tree tag for contrast
-      await tags.storeTag({
+      await tags.store({
         tag: "tree-tag",
         object: emptyTreeId,
         objectType: TYPE_TREE,
@@ -546,7 +546,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const commitId = await createCommit("Test commit");
       const tagger = createPerson("Tagger", "tagger@example.com", 1700000000);
 
-      await tags.storeTag({
+      await tags.store({
         tag: "tag1",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -556,7 +556,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
 
       expect(await tags.count()).toBe(1);
 
-      await tags.storeTag({
+      await tags.store({
         tag: "tag2",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -566,7 +566,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
 
       expect(await tags.count()).toBe(2);
 
-      await tags.storeTag({
+      await tags.store({
         tag: "tag3",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -582,7 +582,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const tagger = createPerson("Tagger", "tagger@example.com", 1700000000);
 
       // Store same tag twice (same content = same SHA)
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -590,7 +590,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Release v1.0.0",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -606,7 +606,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const tagger = createPerson("Tagger", "tagger@example.com", 1700000000);
 
       // Different messages = different tags
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -614,7 +614,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Release v1.0.0",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -633,7 +633,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       const bob = createPerson("Bob", "bob@example.com", 1700000100);
 
       // Alice creates v1.x tags
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -641,7 +641,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
         message: "Alice v1.0.0",
       });
 
-      await tags.storeTag({
+      await tags.store({
         tag: "v1.1.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -650,7 +650,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       });
 
       // Bob creates v2.x tags
-      await tags.storeTag({
+      await tags.store({
         tag: "v2.0.0",
         object: commitId,
         objectType: TYPE_COMMIT,
@@ -659,7 +659,7 @@ describe("T5.3: Extended Tags Query Tests", () => {
       });
 
       // Alice creates v2.x tag
-      await tags.storeTag({
+      await tags.store({
         tag: "v2.1.0",
         object: commitId,
         objectType: TYPE_COMMIT,

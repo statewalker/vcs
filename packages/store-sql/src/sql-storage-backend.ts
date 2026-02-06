@@ -20,21 +20,17 @@
 import {
   type BackendCapabilities,
   type BaseBackendConfig,
-  type BlobStore,
   type Blobs,
-  type CommitStore,
   type Commits,
   DefaultSerializationApi,
+  type History,
   type HistoryBackendFactory,
   type HistoryWithOperations,
   HistoryWithOperationsImpl,
-  type RefStore,
   type Refs,
   type SerializationApi,
   type StorageOperations,
-  type TagStore,
   type Tags,
-  type TreeStore,
   type Trees,
 } from "@statewalker/vcs-core";
 import { SQLCommitStore } from "./commit-store.js";
@@ -47,273 +43,14 @@ import { SQLTagStore } from "./tag-store.js";
 import { SQLTreeStore } from "./tree-store.js";
 
 // ============================================================================
-// Legacy Store Adapters
-// These wrap SQL stores (using legacy interfaces) to provide new interfaces.
-// This is temporary until SQL stores are migrated to implement new interfaces directly.
+// Note: Legacy adapters have been removed.
+// All SQL stores now implement the new interfaces directly:
+// - SQLCommitStore implements Commits
+// - SQLRefStore implements Refs
+// - SQLTreeStore implements Trees
+// - SQLTagStore implements Tags
+// - SqlNativeBlobStoreImpl implements Blobs
 // ============================================================================
-
-/**
- * Adapter that wraps BlobStore to provide Blobs interface
- * @internal
- */
-class BlobsAdapter implements Blobs {
-  constructor(private readonly legacyStore: BlobStore) {}
-
-  store(
-    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
-  ): Promise<import("@statewalker/vcs-core").ObjectId> {
-    return this.legacyStore.store(content);
-  }
-
-  load(
-    id: import("@statewalker/vcs-core").ObjectId,
-  ): Promise<AsyncIterable<Uint8Array> | undefined> {
-    return this.legacyStore.load(id);
-  }
-
-  has(id: import("@statewalker/vcs-core").ObjectId): Promise<boolean> {
-    return this.legacyStore.has(id);
-  }
-
-  size(id: import("@statewalker/vcs-core").ObjectId): Promise<number> {
-    return this.legacyStore.size(id);
-  }
-
-  remove(id: import("@statewalker/vcs-core").ObjectId): Promise<boolean> {
-    return this.legacyStore.delete(id);
-  }
-
-  keys(): AsyncIterable<import("@statewalker/vcs-core").ObjectId> {
-    return this.legacyStore.keys();
-  }
-}
-
-/**
- * Adapter that wraps TreeStore to provide Trees interface
- * @internal
- */
-class TreesAdapter implements Trees {
-  constructor(private readonly legacyStore: TreeStore) {}
-
-  store(
-    tree: import("@statewalker/vcs-core").Tree,
-  ): Promise<import("@statewalker/vcs-core").ObjectId> {
-    return this.legacyStore.storeTree(tree as Iterable<import("@statewalker/vcs-core").TreeEntry>);
-  }
-
-  async load(
-    id: import("@statewalker/vcs-core").ObjectId,
-  ): Promise<AsyncIterable<import("@statewalker/vcs-core").TreeEntry> | undefined> {
-    try {
-      const exists = await this.legacyStore.has(id);
-      if (!exists) {
-        return undefined;
-      }
-      return this.legacyStore.loadTree(id);
-    } catch {
-      return undefined;
-    }
-  }
-
-  has(id: import("@statewalker/vcs-core").ObjectId): Promise<boolean> {
-    return this.legacyStore.has(id);
-  }
-
-  getEntry(
-    treeId: import("@statewalker/vcs-core").ObjectId,
-    name: string,
-  ): Promise<import("@statewalker/vcs-core").TreeEntry | undefined> {
-    return this.legacyStore.getEntry(treeId, name);
-  }
-
-  getEmptyTreeId(): import("@statewalker/vcs-core").ObjectId {
-    return this.legacyStore.getEmptyTreeId();
-  }
-
-  remove(_id: import("@statewalker/vcs-core").ObjectId): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
-  keys(): AsyncIterable<import("@statewalker/vcs-core").ObjectId> {
-    return this.legacyStore.keys();
-  }
-}
-
-/**
- * Adapter that wraps CommitStore to provide Commits interface
- * @internal
- */
-class CommitsAdapter implements Commits {
-  constructor(private readonly legacyStore: CommitStore) {}
-
-  store(
-    commit: import("@statewalker/vcs-core").Commit,
-  ): Promise<import("@statewalker/vcs-core").ObjectId> {
-    return this.legacyStore.storeCommit(commit);
-  }
-
-  async load(
-    id: import("@statewalker/vcs-core").ObjectId,
-  ): Promise<import("@statewalker/vcs-core").Commit | undefined> {
-    try {
-      return await this.legacyStore.loadCommit(id);
-    } catch {
-      return undefined;
-    }
-  }
-
-  has(id: import("@statewalker/vcs-core").ObjectId): Promise<boolean> {
-    return this.legacyStore.has(id);
-  }
-
-  getParents(
-    commitId: import("@statewalker/vcs-core").ObjectId,
-  ): Promise<import("@statewalker/vcs-core").ObjectId[]> {
-    return this.legacyStore.getParents(commitId);
-  }
-
-  async getTree(
-    commitId: import("@statewalker/vcs-core").ObjectId,
-  ): Promise<import("@statewalker/vcs-core").ObjectId | undefined> {
-    try {
-      return await this.legacyStore.getTree(commitId);
-    } catch {
-      return undefined;
-    }
-  }
-
-  walkAncestry(
-    startId: import("@statewalker/vcs-core").ObjectId | import("@statewalker/vcs-core").ObjectId[],
-    options?: import("@statewalker/vcs-core").WalkOptions,
-  ): AsyncIterable<import("@statewalker/vcs-core").ObjectId> {
-    return this.legacyStore.walkAncestry(startId, options);
-  }
-
-  findMergeBase(
-    commit1: import("@statewalker/vcs-core").ObjectId,
-    commit2: import("@statewalker/vcs-core").ObjectId,
-  ): Promise<import("@statewalker/vcs-core").ObjectId[]> {
-    return this.legacyStore.findMergeBase(commit1, commit2);
-  }
-
-  isAncestor(
-    ancestor: import("@statewalker/vcs-core").ObjectId,
-    descendant: import("@statewalker/vcs-core").ObjectId,
-  ): Promise<boolean> {
-    return this.legacyStore.isAncestor(ancestor, descendant);
-  }
-
-  remove(_id: import("@statewalker/vcs-core").ObjectId): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
-  keys(): AsyncIterable<import("@statewalker/vcs-core").ObjectId> {
-    return this.legacyStore.keys();
-  }
-}
-
-/**
- * Adapter that wraps TagStore to provide Tags interface
- * @internal
- */
-class TagsAdapter implements Tags {
-  constructor(private readonly legacyStore: TagStore) {}
-
-  store(
-    tag: import("@statewalker/vcs-core").Tag,
-  ): Promise<import("@statewalker/vcs-core").ObjectId> {
-    return this.legacyStore.storeTag(tag);
-  }
-
-  async load(
-    id: import("@statewalker/vcs-core").ObjectId,
-  ): Promise<import("@statewalker/vcs-core").Tag | undefined> {
-    try {
-      return await this.legacyStore.loadTag(id);
-    } catch {
-      return undefined;
-    }
-  }
-
-  has(id: import("@statewalker/vcs-core").ObjectId): Promise<boolean> {
-    return this.legacyStore.has(id);
-  }
-
-  getTarget(
-    tagId: import("@statewalker/vcs-core").ObjectId,
-    peel?: boolean,
-  ): Promise<import("@statewalker/vcs-core").ObjectId | undefined> {
-    return this.legacyStore.getTarget(tagId, peel);
-  }
-
-  remove(_id: import("@statewalker/vcs-core").ObjectId): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
-  keys(): AsyncIterable<import("@statewalker/vcs-core").ObjectId> {
-    return this.legacyStore.keys();
-  }
-}
-
-/**
- * Adapter that wraps RefStore to provide Refs interface
- * @internal
- */
-class RefsAdapter implements Refs {
-  constructor(private readonly legacyStore: RefStore) {}
-
-  get(name: string): Promise<import("@statewalker/vcs-core").RefValue | undefined> {
-    return this.legacyStore.get(name);
-  }
-
-  resolve(name: string): Promise<import("@statewalker/vcs-core").Ref | undefined> {
-    return this.legacyStore.resolve(name);
-  }
-
-  has(name: string): Promise<boolean> {
-    return this.legacyStore.has(name);
-  }
-
-  list(prefix?: string): AsyncIterable<import("@statewalker/vcs-core").RefEntry> {
-    return this.legacyStore.list(prefix);
-  }
-
-  set(name: string, objectId: import("@statewalker/vcs-core").ObjectId): Promise<void> {
-    return this.legacyStore.set(name, objectId);
-  }
-
-  setSymbolic(name: string, target: string): Promise<void> {
-    return this.legacyStore.setSymbolic(name, target);
-  }
-
-  remove(name: string): Promise<boolean> {
-    return this.legacyStore.delete(name);
-  }
-
-  compareAndSwap(
-    name: string,
-    expected: import("@statewalker/vcs-core").ObjectId | undefined,
-    newValue: import("@statewalker/vcs-core").ObjectId,
-  ): Promise<import("@statewalker/vcs-core").RefUpdateResult> {
-    return this.legacyStore.compareAndSwap(name, expected, newValue);
-  }
-
-  initialize(): Promise<void> {
-    return this.legacyStore.initialize?.() ?? Promise.resolve();
-  }
-
-  optimize(): Promise<void> {
-    return this.legacyStore.optimize?.() ?? Promise.resolve();
-  }
-
-  getReflog(name: string): Promise<import("@statewalker/vcs-core").ReflogReader | undefined> {
-    return this.legacyStore.getReflog?.(name) ?? Promise.resolve(undefined);
-  }
-
-  packRefs(refNames: string[], options?: { all?: boolean; deleteLoose?: boolean }): Promise<void> {
-    return this.legacyStore.packRefs?.(refNames, options) ?? Promise.resolve();
-  }
-}
 
 /**
  * Configuration for SQLStorageBackend
@@ -350,11 +87,11 @@ export interface SQLStorageBackendConfig extends BaseBackendConfig {
  * ```
  */
 export class SQLStorageBackend {
-  readonly blobs: BlobStore;
-  readonly trees: TreeStore;
-  readonly commits: CommitStore;
-  readonly tags: TagStore;
-  readonly refs: RefStore;
+  readonly blobs: Blobs;
+  readonly trees: Trees;
+  readonly commits: Commits;
+  readonly tags: Tags;
+  readonly refs: Refs;
   readonly delta: SqlDeltaApi;
   readonly serialization: SerializationApi;
   readonly capabilities: BackendCapabilities = {
@@ -382,13 +119,16 @@ export class SQLStorageBackend {
     // Create delta API
     this.delta = new SqlDeltaApi(this.db);
 
-    // Create serialization API
+    // Create serialization API - pass history object with new interfaces
+    // Cast to History since DefaultSerializationApi only uses the store properties
     this.serialization = new DefaultSerializationApi({
-      blobs: this.blobs,
-      trees: this.trees,
-      commits: this.commits,
-      tags: this.tags,
-      refs: this.refs,
+      history: {
+        blobs: this.blobs,
+        trees: this.trees,
+        commits: this.commits,
+        tags: this.tags,
+        refs: this.refs,
+      } as History,
       blobDeltaApi: this.delta.blobs,
     });
   }
@@ -495,19 +235,13 @@ export class SQLHistoryFactory implements HistoryBackendFactory<SQLStorageBacken
   async createHistory(config: SQLStorageBackendConfig): Promise<HistoryWithOperations> {
     const backend = new SQLStorageBackend(config);
 
-    // Wrap legacy stores with adapters to provide new interfaces
-    const blobs = new BlobsAdapter(backend.blobs);
-    const trees = new TreesAdapter(backend.trees);
-    const commits = new CommitsAdapter(backend.commits);
-    const tags = new TagsAdapter(backend.tags);
-    const refs = new RefsAdapter(backend.refs);
-
+    // SQL stores now implement new interfaces directly - no adapters needed
     return new HistoryWithOperationsImpl(
-      blobs,
-      trees,
-      commits,
-      tags,
-      refs,
+      backend.blobs,
+      backend.trees,
+      backend.commits,
+      backend.tags,
+      backend.refs,
       backend.delta,
       backend.serialization,
       backend.capabilities,
