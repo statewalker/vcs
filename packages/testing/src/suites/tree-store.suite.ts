@@ -1,11 +1,11 @@
 /**
- * Parametrized test suite for TreeStore implementations
+ * Parametrized test suite for Trees implementations
  *
- * This suite tests the core TreeStore interface contract.
+ * This suite tests the core Trees interface contract.
  * All storage implementations must pass these tests.
  */
 
-import type { TreeEntry, TreeStore } from "@statewalker/vcs-core";
+import type { TreeEntry, Trees } from "@statewalker/vcs-core";
 import { FileMode } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -18,7 +18,7 @@ const EMPTY_TREE_ID = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
  * Context provided by the storage factory
  */
 export interface TreeStoreTestContext {
-  treeStore: TreeStore;
+  treeStore: Trees;
   cleanup?: () => Promise<void>;
 }
 
@@ -38,7 +38,12 @@ function fakeObjectId(seed: string): string {
 /**
  * Helper function to collect tree entries into an array
  */
-async function collectEntries(iterable: AsyncIterable<TreeEntry>): Promise<TreeEntry[]> {
+async function collectEntries(
+  iterable: AsyncIterable<TreeEntry> | undefined,
+): Promise<TreeEntry[]> {
+  if (!iterable) {
+    throw new Error("Tree not found");
+  }
   const entries: TreeEntry[] = [];
   for await (const entry of iterable) {
     entries.push(entry);
@@ -47,7 +52,7 @@ async function collectEntries(iterable: AsyncIterable<TreeEntry>): Promise<TreeE
 }
 
 /**
- * Create the TreeStore test suite with a specific factory
+ * Create the Trees test suite with a specific factory
  *
  * @param name Name of the storage implementation (e.g., "Memory", "SQL", "KV")
  * @param factory Factory function to create storage instances
@@ -71,11 +76,11 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           { mode: FileMode.TREE, name: "subdir", id: fakeObjectId("def456") },
         ];
 
-        const id = await ctx.treeStore.storeTree(entries);
+        const id = await ctx.treeStore.store(entries);
         expect(id).toBeDefined();
         expect(typeof id).toBe("string");
 
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
         expect(loaded).toHaveLength(2);
       });
 
@@ -84,16 +89,16 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           { mode: FileMode.REGULAR_FILE, name: "a.txt", id: fakeObjectId("aaa") },
         ];
 
-        const id1 = await ctx.treeStore.storeTree(entries);
-        const id2 = await ctx.treeStore.storeTree(entries);
+        const id1 = await ctx.treeStore.store(entries);
+        const id2 = await ctx.treeStore.store(entries);
         expect(id1).toBe(id2);
       });
 
       it("returns different IDs for different entries", async () => {
-        const id1 = await ctx.treeStore.storeTree([
+        const id1 = await ctx.treeStore.store([
           { mode: FileMode.REGULAR_FILE, name: "a.txt", id: fakeObjectId("aaa") },
         ]);
-        const id2 = await ctx.treeStore.storeTree([
+        const id2 = await ctx.treeStore.store([
           { mode: FileMode.REGULAR_FILE, name: "b.txt", id: fakeObjectId("bbb") },
         ]);
         expect(id1).not.toBe(id2);
@@ -103,7 +108,7 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
         const entries: TreeEntry[] = [
           { mode: FileMode.REGULAR_FILE, name: "test.txt", id: fakeObjectId("test") },
         ];
-        const id = await ctx.treeStore.storeTree(entries);
+        const id = await ctx.treeStore.store(entries);
 
         expect(await ctx.treeStore.has(id)).toBe(true);
         expect(await ctx.treeStore.has("nonexistent-tree-id-000000000000")).toBe(false);
@@ -118,8 +123,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           { mode: FileMode.REGULAR_FILE, name: "m.txt", id: fakeObjectId("m") },
         ];
 
-        const id = await ctx.treeStore.storeTree(entries);
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(entries);
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded[0].name).toBe("a.txt");
         expect(loaded[1].name).toBe("m.txt");
@@ -136,8 +141,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           { mode: FileMode.REGULAR_FILE, name: "foo.txt", id: fakeObjectId("footxt") },
         ];
 
-        const id = await ctx.treeStore.storeTree(entries);
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(entries);
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         // foo-bar < foo.txt < foo (dir treated as "foo/")
         expect(loaded.map((e) => e.name)).toEqual(["foo-bar", "foo.txt", "foo"]);
@@ -153,8 +158,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           { mode: FileMode.REGULAR_FILE, name: "z.txt", id: fakeObjectId("z") },
         ];
 
-        const id1 = await ctx.treeStore.storeTree(entriesA);
-        const id2 = await ctx.treeStore.storeTree(entriesB);
+        const id1 = await ctx.treeStore.store(entriesA);
+        const id2 = await ctx.treeStore.store(entriesB);
         expect(id1).toBe(id2);
       });
     });
@@ -166,7 +171,7 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
       });
 
       it("stores empty tree with well-known ID", async () => {
-        const id = await ctx.treeStore.storeTree([]);
+        const id = await ctx.treeStore.store([]);
         expect(id).toBe(EMPTY_TREE_ID);
       });
 
@@ -175,7 +180,7 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
       });
 
       it("loads empty tree as empty iterable", async () => {
-        const entries = await collectEntries(ctx.treeStore.loadTree(EMPTY_TREE_ID));
+        const entries = await collectEntries(await ctx.treeStore.load(EMPTY_TREE_ID));
         expect(entries).toHaveLength(0);
       });
     });
@@ -186,7 +191,7 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           { mode: FileMode.REGULAR_FILE, name: "target.txt", id: fakeObjectId("target") },
           { mode: FileMode.REGULAR_FILE, name: "other.txt", id: fakeObjectId("other") },
         ];
-        const id = await ctx.treeStore.storeTree(entries);
+        const id = await ctx.treeStore.store(entries);
 
         const found = await ctx.treeStore.getEntry(id, "target.txt");
         expect(found).toBeDefined();
@@ -198,7 +203,7 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
         const entries: TreeEntry[] = [
           { mode: FileMode.REGULAR_FILE, name: "exists.txt", id: fakeObjectId("exists") },
         ];
-        const id = await ctx.treeStore.storeTree(entries);
+        const id = await ctx.treeStore.store(entries);
 
         const found = await ctx.treeStore.getEntry(id, "missing.txt");
         expect(found).toBeUndefined();
@@ -215,8 +220,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
         const entries: TreeEntry[] = [
           { mode: FileMode.REGULAR_FILE, name: "regular.txt", id: fakeObjectId("reg") },
         ];
-        const id = await ctx.treeStore.storeTree(entries);
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(entries);
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded[0].mode).toBe(FileMode.REGULAR_FILE);
       });
@@ -225,8 +230,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
         const entries: TreeEntry[] = [
           { mode: FileMode.EXECUTABLE_FILE, name: "script.sh", id: fakeObjectId("exec") },
         ];
-        const id = await ctx.treeStore.storeTree(entries);
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(entries);
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded[0].mode).toBe(FileMode.EXECUTABLE_FILE);
       });
@@ -235,8 +240,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
         const entries: TreeEntry[] = [
           { mode: FileMode.SYMLINK, name: "link", id: fakeObjectId("sym") },
         ];
-        const id = await ctx.treeStore.storeTree(entries);
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(entries);
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded[0].mode).toBe(FileMode.SYMLINK);
       });
@@ -245,8 +250,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
         const entries: TreeEntry[] = [
           { mode: FileMode.TREE, name: "dir", id: fakeObjectId("dir") },
         ];
-        const id = await ctx.treeStore.storeTree(entries);
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(entries);
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded[0].mode).toBe(FileMode.TREE);
       });
@@ -255,8 +260,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
         const entries: TreeEntry[] = [
           { mode: FileMode.GITLINK, name: "submodule", id: fakeObjectId("git") },
         ];
-        const id = await ctx.treeStore.storeTree(entries);
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(entries);
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded[0].mode).toBe(FileMode.GITLINK);
       });
@@ -269,8 +274,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           yield { mode: FileMode.REGULAR_FILE, name: "async2.txt", id: fakeObjectId("async2") };
         }
 
-        const id = await ctx.treeStore.storeTree(generateEntries());
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(generateEntries());
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded).toHaveLength(2);
       });
@@ -281,8 +286,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           yield { mode: FileMode.REGULAR_FILE, name: "sync2.txt", id: fakeObjectId("sync2") };
         }
 
-        const id = await ctx.treeStore.storeTree(generateEntries());
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(generateEntries());
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded).toHaveLength(2);
       });
@@ -299,8 +304,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           });
         }
 
-        const id = await ctx.treeStore.storeTree(entries);
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(entries);
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded).toHaveLength(1000);
         // Verify sorting
@@ -309,13 +314,10 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
       });
     });
 
-    describe("Error Handling", () => {
-      it("throws on loading non-existent tree", async () => {
-        await expect(async () => {
-          for await (const _ of ctx.treeStore.loadTree("nonexistent-tree-id-000000000000")) {
-            // Should not reach here
-          }
-        }).rejects.toThrow();
+    describe("Not Found Handling", () => {
+      it("returns undefined for non-existent tree", async () => {
+        const result = await ctx.treeStore.load("nonexistent-tree-id-000000000000");
+        expect(result).toBeUndefined();
       });
     });
 
@@ -327,8 +329,8 @@ export function createTreeStoreTests(name: string, factory: TreeStoreFactory): v
           { mode: FileMode.REGULAR_FILE, name: "αβγ.txt", id: fakeObjectId("greek") },
         ];
 
-        const id = await ctx.treeStore.storeTree(entries);
-        const loaded = await collectEntries(ctx.treeStore.loadTree(id));
+        const id = await ctx.treeStore.store(entries);
+        const loaded = await collectEntries(await ctx.treeStore.load(id));
 
         expect(loaded).toHaveLength(3);
         expect(loaded.map((e) => e.name)).toContain("файл.txt");

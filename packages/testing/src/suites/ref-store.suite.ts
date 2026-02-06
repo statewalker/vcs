@@ -1,19 +1,19 @@
 /**
- * Parametrized test suite for RefStore implementations
+ * Parametrized test suite for Refs implementations
  *
- * This suite tests the core RefStore interface contract.
+ * This suite tests the core Refs interface contract.
  * All storage implementations must pass these tests.
  */
 
-import type { Ref, RefStore, SymbolicRef } from "@statewalker/vcs-core";
-import { isSymbolicRef, RefStoreLocation } from "@statewalker/vcs-core";
+import type { Ref, Refs, SymbolicRef } from "@statewalker/vcs-core";
+import { isSymbolicRef, RefStorage } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**
  * Context provided by the storage factory
  */
 export interface RefStoreTestContext {
-  refStore: RefStore;
+  refStore: Refs;
   cleanup?: () => Promise<void>;
 }
 
@@ -97,18 +97,18 @@ export function createRefStoreTests(name: string, factory: RefStoreFactory): voi
         expect((ref as Ref).objectId).toBe(objectId2);
       });
 
-      it("deletes ref", async () => {
+      it("removes ref", async () => {
         const objectId = fakeObjectId("commit1");
         await ctx.refStore.set("refs/heads/main", objectId);
 
-        const deleted = await ctx.refStore.delete("refs/heads/main");
-        expect(deleted).toBe(true);
+        const removed = await ctx.refStore.remove("refs/heads/main");
+        expect(removed).toBe(true);
         expect(await ctx.refStore.has("refs/heads/main")).toBe(false);
       });
 
-      it("returns false when deleting non-existent ref", async () => {
-        const deleted = await ctx.refStore.delete("refs/heads/nonexistent");
-        expect(deleted).toBe(false);
+      it("returns false when removing non-existent ref", async () => {
+        const removed = await ctx.refStore.remove("refs/heads/nonexistent");
+        expect(removed).toBe(false);
       });
     });
 
@@ -296,9 +296,7 @@ export function createRefStoreTests(name: string, factory: RefStoreFactory): voi
         expect(ref).toBeDefined();
         expect((ref as Ref).storage).toBeDefined();
         expect(
-          [RefStoreLocation.LOOSE, RefStoreLocation.PACKED, RefStoreLocation.NEW].includes(
-            (ref as Ref).storage,
-          ),
+          [RefStorage.LOOSE, RefStorage.PACKED, RefStorage.NEW].includes((ref as Ref).storage),
         ).toBe(true);
       });
     });

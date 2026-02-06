@@ -1,5 +1,5 @@
 /**
- * In-memory TagStore implementation
+ * In-memory Tags implementation
  *
  * Provides a pure in-memory tag storage for testing and ephemeral operations.
  * No persistence - data is lost when the instance is garbage collected.
@@ -8,7 +8,7 @@
  * Tags are stored directly as JavaScript objects for simplicity and performance.
  */
 
-import type { AnnotatedTag, ObjectId, TagStore } from "@statewalker/vcs-core";
+import type { AnnotatedTag, ObjectId, Tags } from "@statewalker/vcs-core";
 import { computeTagHash, ObjectType } from "@statewalker/vcs-core";
 
 /**
@@ -17,15 +17,15 @@ import { computeTagHash, ObjectType } from "@statewalker/vcs-core";
 const MAX_TAG_CHAIN_DEPTH = 100;
 
 /**
- * In-memory TagStore implementation.
+ * In-memory Tags implementation.
  */
-export class MemoryTagStore implements TagStore {
+export class MemoryTagStore implements Tags {
   private tags = new Map<ObjectId, AnnotatedTag>();
 
   /**
    * Store an annotated tag object.
    */
-  async storeTag(tag: AnnotatedTag): Promise<ObjectId> {
+  async store(tag: AnnotatedTag): Promise<ObjectId> {
     const id = computeTagHash(tag);
 
     // Store a deep copy to prevent external mutation
@@ -46,11 +46,13 @@ export class MemoryTagStore implements TagStore {
 
   /**
    * Load a tag object by ID.
+   *
+   * @returns Tag if found, undefined otherwise
    */
-  async loadTag(id: ObjectId): Promise<AnnotatedTag> {
+  async load(id: ObjectId): Promise<AnnotatedTag | undefined> {
     const tag = this.tags.get(id);
     if (!tag) {
-      throw new Error(`Tag ${id} not found`);
+      return undefined;
     }
 
     // Return a copy to prevent external mutation
@@ -66,12 +68,26 @@ export class MemoryTagStore implements TagStore {
   }
 
   /**
+   * Remove a tag by ID.
+   *
+   * @returns True if removed, false if not found
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    return this.tags.delete(id);
+  }
+
+  /**
    * Get the tagged object ID.
    *
    * Follows tag chains if the tag points to another tag and peel is true.
+   *
+   * @returns Target ID if tag exists, undefined otherwise
    */
-  async getTarget(id: ObjectId, peel = false): Promise<ObjectId> {
-    const tag = await this.loadTag(id);
+  async getTarget(id: ObjectId, peel = false): Promise<ObjectId | undefined> {
+    const tag = await this.load(id);
+    if (!tag) {
+      return undefined;
+    }
 
     if (!peel || tag.objectType !== ObjectType.TAG) {
       return tag.object;

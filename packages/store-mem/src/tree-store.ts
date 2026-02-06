@@ -1,5 +1,5 @@
 /**
- * In-memory TreeStore implementation
+ * In-memory Trees implementation
  *
  * Provides a pure in-memory tree storage for testing and ephemeral operations.
  * No persistence - data is lost when the instance is garbage collected.
@@ -8,7 +8,7 @@
  * Trees are stored directly as JavaScript arrays for simplicity and performance.
  */
 
-import type { ObjectId, TreeEntry, TreeStore } from "@statewalker/vcs-core";
+import type { ObjectId, Tree, TreeEntry, Trees } from "@statewalker/vcs-core";
 import { computeTreeHash, FileMode } from "@statewalker/vcs-core";
 
 /**
@@ -29,9 +29,9 @@ function compareTreeEntries(a: TreeEntry, b: TreeEntry): number {
 }
 
 /**
- * In-memory TreeStore implementation.
+ * In-memory Trees implementation.
  */
-export class MemoryTreeStore implements TreeStore {
+export class MemoryTreeStore implements Trees {
   private trees = new Map<ObjectId, TreeEntry[]>();
 
   /**
@@ -39,16 +39,20 @@ export class MemoryTreeStore implements TreeStore {
    *
    * Entries are consumed, sorted canonically, and stored.
    */
-  async storeTree(entries: AsyncIterable<TreeEntry> | Iterable<TreeEntry>): Promise<ObjectId> {
+  async store(tree: Tree): Promise<ObjectId> {
     // Collect entries
     const entryArray: TreeEntry[] = [];
 
-    if (Symbol.asyncIterator in entries) {
-      for await (const entry of entries as AsyncIterable<TreeEntry>) {
+    if (Array.isArray(tree)) {
+      for (const entry of tree) {
+        entryArray.push({ ...entry });
+      }
+    } else if (Symbol.asyncIterator in tree) {
+      for await (const entry of tree as AsyncIterable<TreeEntry>) {
         entryArray.push({ ...entry });
       }
     } else {
-      for (const entry of entries as Iterable<TreeEntry>) {
+      for (const entry of tree as Iterable<TreeEntry>) {
         entryArray.push({ ...entry });
       }
     }
@@ -76,25 +80,41 @@ export class MemoryTreeStore implements TreeStore {
    * Load tree entries as a stream.
    *
    * Entries are yielded in canonical sorted order.
+   *
+   * @returns AsyncIterable of entries, or undefined if not found
    */
-  async *loadTree(id: ObjectId): AsyncIterable<TreeEntry> {
+  async load(id: ObjectId): Promise<AsyncIterable<TreeEntry> | undefined> {
     // Empty tree
     if (id === EMPTY_TREE_ID) {
-      return;
+      return (async function* () {})();
     }
 
     const entries = this.trees.get(id);
     if (!entries) {
-      throw new Error(`Tree ${id} not found`);
+      return undefined;
     }
 
-    for (const entry of entries) {
-      yield { ...entry };
-    }
+    const entriesCopy = entries.map((e) => ({ ...e }));
+    return (async function* () {
+      for (const entry of entriesCopy) {
+        yield entry;
+      }
+    })();
+  }
+
+  /**
+   * Remove a tree by ID.
+   *
+   * @returns True if removed, false if not found
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    return this.trees.delete(id);
   }
 
   /**
    * Get a specific entry from a tree.
+   *
+   * @returns Entry if found, undefined if tree or entry not found
    */
   async getEntry(treeId: ObjectId, name: string): Promise<TreeEntry | undefined> {
     // Empty tree
@@ -104,7 +124,7 @@ export class MemoryTreeStore implements TreeStore {
 
     const entries = this.trees.get(treeId);
     if (!entries) {
-      throw new Error(`Tree ${treeId} not found`);
+      return undefined;
     }
 
     // Binary search would be more efficient for large trees,
