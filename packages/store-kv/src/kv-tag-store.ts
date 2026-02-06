@@ -1,10 +1,10 @@
 /**
- * KV-based TagStore implementation
+ * KV-based Tags implementation
  *
  * Stores annotated tag objects using a key-value backend with JSON serialization.
  */
 
-import type { AnnotatedTag, ObjectId, ObjectTypeCode, TagStore } from "@statewalker/vcs-core";
+import type { AnnotatedTag, ObjectId, ObjectTypeCode, Tags } from "@statewalker/vcs-core";
 import { computeTagHash, ObjectType } from "@statewalker/vcs-core";
 
 import type { KVStore } from "./kv-store.js";
@@ -42,15 +42,15 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 /**
- * KV-based TagStore implementation.
+ * KV-based Tags implementation.
  */
-export class KVTagStore implements TagStore {
+export class KVTagStore implements Tags {
   constructor(private kv: KVStore) {}
 
   /**
    * Store an annotated tag object.
    */
-  async storeTag(tag: AnnotatedTag): Promise<ObjectId> {
+  async store(tag: AnnotatedTag): Promise<ObjectId> {
     const tagId = computeTagHash(tag);
 
     // Check if tag already exists (deduplication)
@@ -79,11 +79,12 @@ export class KVTagStore implements TagStore {
 
   /**
    * Load a tag object by ID.
+   * Returns undefined if not found (new API behavior).
    */
-  async loadTag(id: ObjectId): Promise<AnnotatedTag> {
+  async load(id: ObjectId): Promise<AnnotatedTag | undefined> {
     const data = await this.kv.get(`${TAG_PREFIX}${id}`);
     if (!data) {
-      throw new Error(`Tag ${id} not found`);
+      return undefined;
     }
 
     const s: SerializedTag = JSON.parse(decoder.decode(data));
@@ -108,10 +109,21 @@ export class KVTagStore implements TagStore {
   }
 
   /**
-   * Get the tagged object ID.
+   * Remove a tag object by ID.
    */
-  async getTarget(id: ObjectId, peel = false): Promise<ObjectId> {
-    const tag = await this.loadTag(id);
+  async remove(id: ObjectId): Promise<boolean> {
+    return this.kv.delete(`${TAG_PREFIX}${id}`);
+  }
+
+  /**
+   * Get the tagged object ID.
+   * Returns undefined if tag doesn't exist.
+   */
+  async getTarget(id: ObjectId, peel = false): Promise<ObjectId | undefined> {
+    const tag = await this.load(id);
+    if (!tag) {
+      return undefined;
+    }
 
     if (!peel || tag.objectType !== ObjectType.TAG) {
       return tag.object;
@@ -177,13 +189,9 @@ export class KVTagStore implements TagStore {
     const regex = new RegExp(`^${regexPattern}$`, "i");
 
     for await (const id of this.keys()) {
-      try {
-        const tag = await this.loadTag(id);
-        if (regex.test(tag.tag)) {
-          yield id;
-        }
-      } catch {
-        // Skip invalid tags
+      const tag = await this.load(id);
+      if (tag && regex.test(tag.tag)) {
+        yield id;
       }
     }
   }
@@ -199,13 +207,9 @@ export class KVTagStore implements TagStore {
    */
   async *findByTagger(email: string): AsyncIterable<ObjectId> {
     for await (const id of this.keys()) {
-      try {
-        const tag = await this.loadTag(id);
-        if (tag.tagger?.email === email) {
-          yield id;
-        }
-      } catch {
-        // Skip invalid tags
+      const tag = await this.load(id);
+      if (tag?.tagger?.email === email) {
+        yield id;
       }
     }
   }
@@ -221,13 +225,9 @@ export class KVTagStore implements TagStore {
    */
   async *findByTargetType(targetType: number): AsyncIterable<ObjectId> {
     for await (const id of this.keys()) {
-      try {
-        const tag = await this.loadTag(id);
-        if (tag.objectType === targetType) {
-          yield id;
-        }
-      } catch {
-        // Skip invalid tags
+      const tag = await this.load(id);
+      if (tag?.objectType === targetType) {
+        yield id;
       }
     }
   }

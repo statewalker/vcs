@@ -1,10 +1,10 @@
 /**
- * KV-based RefStore implementation
+ * KV-based Refs implementation
  *
  * Stores Git references using a key-value backend with JSON serialization.
  */
 
-import type { ObjectId, Ref, RefStore, RefUpdateResult, SymbolicRef } from "@statewalker/vcs-core";
+import type { ObjectId, Ref, Refs, RefUpdateResult, SymbolicRef } from "@statewalker/vcs-core";
 import { RefStorage } from "@statewalker/vcs-core";
 import type { KVStore } from "./kv-store.js";
 
@@ -36,9 +36,9 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 /**
- * KV-based RefStore implementation.
+ * KV-based Refs implementation.
  */
-export class KVRefStore implements RefStore {
+export class KVRefStore implements Refs {
   constructor(private kv: KVStore) {}
 
   /**
@@ -146,9 +146,9 @@ export class KVRefStore implements RefStore {
   }
 
   /**
-   * Delete a ref.
+   * Remove a ref.
    */
-  async delete(refName: string): Promise<boolean> {
+  async remove(refName: string): Promise<boolean> {
     return this.kv.delete(`${REF_PREFIX}${refName}`);
   }
 
