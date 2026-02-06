@@ -21,30 +21,24 @@ import type {
 } from "../backend/history-backend-factory.js";
 import { MemoryDeltaApi } from "../backend/memory-storage-backend.js";
 import type { BackendCapabilities, StorageOperations } from "../backend/storage-backend.js";
-import type { ObjectId } from "../common/id/index.js";
 import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
 import { MemoryRawStorage } from "../storage/raw/memory-raw-storage.js";
 import type { RawStorage } from "../storage/raw/raw-storage.js";
-import type { BlobStore } from "./blobs/blob-store.js";
 import { createBlobs } from "./blobs/blobs.impl.js";
-import type { BlobContent, Blobs } from "./blobs/blobs.js";
-import type { CommitStore, Commit as LegacyCommit } from "./commits/commit-store.js";
+import type { Blobs } from "./blobs/blobs.js";
 import { createCommits } from "./commits/commits.impl.js";
-import type { Commit, Commits, WalkOptions } from "./commits/commits.js";
+import type { Commits } from "./commits/commits.js";
 import { HistoryImpl, HistoryWithOperationsImpl } from "./history.impl.js";
 import type { History, HistoryWithOperations } from "./history.js";
 import { createGitObjectStore } from "./objects/index.js";
 import type { GitObjectStore } from "./objects/object-store.js";
 import type { RefStore } from "./refs/ref-store.js";
 import { createMemoryRefs, createRefsAdapter } from "./refs/refs.impl.js";
-import type { RefEntry, Refs, RefValue } from "./refs/refs.js";
-import type { AnnotatedTag as LegacyTag, TagStore } from "./tags/tag-store.js";
+import type { Refs } from "./refs/refs.js";
 import { createTags } from "./tags/tags.impl.js";
-import type { Tag, Tags } from "./tags/tags.js";
-import type { TreeEntry } from "./trees/tree-entry.js";
-import type { TreeStore } from "./trees/tree-store.js";
+import type { Tags } from "./tags/tags.js";
 import { createTrees } from "./trees/trees.impl.js";
-import type { Tree, Trees } from "./trees/trees.js";
+import type { Trees } from "./trees/trees.js";
 
 /**
  * Configuration for creating History with explicit stores
@@ -110,296 +104,6 @@ interface BackendWithStores extends StorageOperations {
 }
 
 /**
- * Interface for backends using legacy store interfaces
- *
- * @deprecated This is for backward compatibility with SQLStorageBackend.
- * New backends should implement BackendWithStores instead.
- *
- * @internal
- */
-interface LegacyBackendWithStores extends StorageOperations {
-  readonly blobs: BlobStore;
-  readonly trees: TreeStore;
-  readonly commits: CommitStore;
-  readonly tags: TagStore;
-  readonly refs: RefStore;
-}
-
-/**
- * Union type for backend configurations
- *
- * Allows both new and legacy interfaces during migration.
- *
- * @internal
- */
-type AnyBackendWithStores = BackendWithStores | LegacyBackendWithStores;
-
-/**
- * Type guard to check if backend uses new interfaces
- */
-function isNewBackend(backend: AnyBackendWithStores): backend is BackendWithStores {
-  // New Blobs has load() returning Promise, old BlobStore.load() returns AsyncIterable directly
-  // Check for the remove method which only exists on new interfaces
-  return "remove" in backend.blobs;
-}
-
-// ============================================================================
-// Legacy Store Adapters
-// These wrap old store interfaces to provide new interface methods
-// ============================================================================
-
-/**
- * Adapter that wraps BlobStore to provide Blobs interface
- */
-class BlobsAdapter implements Blobs {
-  constructor(private readonly legacyStore: BlobStore) {}
-
-  store(content: BlobContent | Iterable<Uint8Array>): Promise<ObjectId> {
-    return this.legacyStore.store(content);
-  }
-
-  async load(id: ObjectId): Promise<BlobContent | undefined> {
-    try {
-      // Old interface returns AsyncIterable directly, new interface wraps in Promise
-      const stream = this.legacyStore.load(id);
-      // Verify the blob exists by trying to read the first chunk
-      const reader = stream[Symbol.asyncIterator]();
-      const first = await reader.next();
-      if (first.done) {
-        // Empty blob - return empty async iterable
-        return (async function* () {})();
-      }
-      // Return an async iterable that yields the first chunk and then the rest
-      const firstChunk = first.value;
-      const restReader = reader;
-      return (async function* () {
-        yield firstChunk;
-        let result = await restReader.next();
-        while (!result.done) {
-          yield result.value;
-          result = await restReader.next();
-        }
-      })();
-    } catch {
-      return undefined;
-    }
-  }
-
-  has(id: ObjectId): Promise<boolean> {
-    return this.legacyStore.has(id);
-  }
-
-  size(id: ObjectId): Promise<number> {
-    return this.legacyStore.size(id);
-  }
-
-  remove(id: ObjectId): Promise<boolean> {
-    return this.legacyStore.delete(id);
-  }
-
-  keys(): AsyncIterable<ObjectId> {
-    return this.legacyStore.keys();
-  }
-}
-
-/**
- * Adapter that wraps TreeStore to provide Trees interface
- */
-class TreesAdapter implements Trees {
-  constructor(private readonly legacyStore: TreeStore) {}
-
-  store(tree: Tree): Promise<ObjectId> {
-    return this.legacyStore.storeTree(tree as Iterable<TreeEntry>);
-  }
-
-  async load(id: ObjectId): Promise<AsyncIterable<TreeEntry> | undefined> {
-    try {
-      // Verify tree exists by checking has()
-      const exists = await this.legacyStore.has(id);
-      if (!exists) {
-        return undefined;
-      }
-      // Return the async iterable from the legacy store
-      return this.legacyStore.loadTree(id);
-    } catch {
-      return undefined;
-    }
-  }
-
-  has(id: ObjectId): Promise<boolean> {
-    return this.legacyStore.has(id);
-  }
-
-  getEntry(treeId: ObjectId, name: string): Promise<TreeEntry | undefined> {
-    return this.legacyStore.getEntry(treeId, name);
-  }
-
-  getEmptyTreeId(): ObjectId {
-    return this.legacyStore.getEmptyTreeId();
-  }
-
-  remove(_id: ObjectId): Promise<boolean> {
-    // TreeStore doesn't have delete, but it's rarely used
-    return Promise.resolve(false);
-  }
-
-  keys(): AsyncIterable<ObjectId> {
-    return this.legacyStore.keys();
-  }
-}
-
-/**
- * Adapter that wraps CommitStore to provide Commits interface
- */
-class CommitsAdapter implements Commits {
-  constructor(private readonly legacyStore: CommitStore) {}
-
-  store(commit: Commit): Promise<ObjectId> {
-    return this.legacyStore.storeCommit(commit as LegacyCommit);
-  }
-
-  async load(id: ObjectId): Promise<Commit | undefined> {
-    try {
-      return await this.legacyStore.loadCommit(id);
-    } catch {
-      return undefined;
-    }
-  }
-
-  has(id: ObjectId): Promise<boolean> {
-    return this.legacyStore.has(id);
-  }
-
-  getParents(commitId: ObjectId): Promise<ObjectId[]> {
-    return this.legacyStore.getParents(commitId);
-  }
-
-  async getTree(commitId: ObjectId): Promise<ObjectId | undefined> {
-    try {
-      return await this.legacyStore.getTree(commitId);
-    } catch {
-      return undefined;
-    }
-  }
-
-  walkAncestry(startId: ObjectId | ObjectId[], options?: WalkOptions): AsyncIterable<ObjectId> {
-    return this.legacyStore.walkAncestry(startId, options);
-  }
-
-  findMergeBase(commit1: ObjectId, commit2: ObjectId): Promise<ObjectId[]> {
-    return this.legacyStore.findMergeBase(commit1, commit2);
-  }
-
-  isAncestor(ancestor: ObjectId, descendant: ObjectId): Promise<boolean> {
-    return this.legacyStore.isAncestor(ancestor, descendant);
-  }
-
-  remove(_id: ObjectId): Promise<boolean> {
-    // CommitStore doesn't have delete
-    return Promise.resolve(false);
-  }
-
-  keys(): AsyncIterable<ObjectId> {
-    return this.legacyStore.keys();
-  }
-}
-
-/**
- * Adapter that wraps TagStore to provide Tags interface
- */
-class TagsAdapter implements Tags {
-  constructor(private readonly legacyStore: TagStore) {}
-
-  store(tag: Tag): Promise<ObjectId> {
-    return this.legacyStore.storeTag(tag as LegacyTag);
-  }
-
-  async load(id: ObjectId): Promise<Tag | undefined> {
-    try {
-      return await this.legacyStore.loadTag(id);
-    } catch {
-      return undefined;
-    }
-  }
-
-  has(id: ObjectId): Promise<boolean> {
-    return this.legacyStore.has(id);
-  }
-
-  getTarget(tagId: ObjectId, peel?: boolean): Promise<ObjectId | undefined> {
-    return this.legacyStore.getTarget(tagId, peel);
-  }
-
-  remove(_id: ObjectId): Promise<boolean> {
-    // TagStore doesn't have delete
-    return Promise.resolve(false);
-  }
-
-  keys(): AsyncIterable<ObjectId> {
-    return this.legacyStore.keys();
-  }
-}
-
-/**
- * Adapter that wraps RefStore to provide Refs interface
- */
-class LegacyRefsAdapter implements Refs {
-  constructor(private readonly legacyStore: RefStore) {}
-
-  get(name: string): Promise<RefValue | undefined> {
-    return this.legacyStore.get(name);
-  }
-
-  resolve(name: string): Promise<import("./refs/ref-types.js").Ref | undefined> {
-    return this.legacyStore.resolve(name);
-  }
-
-  has(name: string): Promise<boolean> {
-    return this.legacyStore.has(name);
-  }
-
-  list(prefix?: string): AsyncIterable<RefEntry> {
-    return this.legacyStore.list(prefix);
-  }
-
-  set(name: string, objectId: ObjectId): Promise<void> {
-    return this.legacyStore.set(name, objectId);
-  }
-
-  setSymbolic(name: string, target: string): Promise<void> {
-    return this.legacyStore.setSymbolic(name, target);
-  }
-
-  remove(name: string): Promise<boolean> {
-    return this.legacyStore.delete(name);
-  }
-
-  compareAndSwap(
-    name: string,
-    expected: ObjectId | undefined,
-    newValue: ObjectId,
-  ): Promise<import("./refs/refs.js").RefUpdateResult> {
-    return this.legacyStore.compareAndSwap(name, expected, newValue);
-  }
-
-  initialize(): Promise<void> {
-    return this.legacyStore.initialize?.() ?? Promise.resolve();
-  }
-
-  optimize(): Promise<void> {
-    return this.legacyStore.optimize?.() ?? Promise.resolve();
-  }
-
-  getReflog(name: string): Promise<import("./refs/reflog-types.js").ReflogReader | undefined> {
-    return this.legacyStore.getReflog?.(name) ?? Promise.resolve(undefined);
-  }
-
-  packRefs(refNames: string[], options?: { all?: boolean; deleteLoose?: boolean }): Promise<void> {
-    return this.legacyStore.packRefs?.(refNames, options) ?? Promise.resolve();
-  }
-}
-
-/**
  * Configuration for creating History from a storage backend
  *
  * @deprecated Use the new factory pattern instead:
@@ -411,7 +115,7 @@ class LegacyRefsAdapter implements Refs {
  */
 export interface HistoryBackendConfig {
   /** Storage backend providing all components */
-  backend: AnyBackendWithStores;
+  backend: BackendWithStores;
 }
 
 /**
@@ -504,29 +208,8 @@ export function createHistoryFromComponents(config: HistoryComponentsConfig): Hi
 export function createHistoryWithOperations(config: HistoryBackendConfig): HistoryWithOperations {
   const { backend } = config;
 
-  // Detect if backend uses new or legacy interfaces
-  // New interfaces have 'remove' method, legacy have 'delete'
-  let blobs: Blobs;
-  let trees: Trees;
-  let commits: Commits;
-  let tags: Tags;
-  let refs: Refs;
-
-  if (isNewBackend(backend)) {
-    // New interfaces - use directly
-    blobs = backend.blobs;
-    trees = backend.trees;
-    commits = backend.commits;
-    tags = backend.tags;
-    refs = backend.refs;
-  } else {
-    // Legacy interfaces - wrap with adapters
-    blobs = new BlobsAdapter(backend.blobs);
-    trees = new TreesAdapter(backend.trees);
-    commits = new CommitsAdapter(backend.commits);
-    tags = new TagsAdapter(backend.tags);
-    refs = new LegacyRefsAdapter(backend.refs);
-  }
+  // Use new interfaces directly (no adapters needed)
+  const { blobs, trees, commits, tags, refs } = backend;
 
   return new HistoryWithOperationsImpl(
     blobs,
