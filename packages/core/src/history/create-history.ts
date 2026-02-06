@@ -19,8 +19,9 @@ import type {
   GitFilesBackendConfig,
   MemoryBackendConfig,
 } from "../backend/history-backend-factory.js";
-import { MemoryStorageBackend } from "../backend/memory-storage-backend.js";
-import type { StorageOperations } from "../backend/storage-backend.js";
+import { MemoryDeltaApi } from "../backend/memory-storage-backend.js";
+import type { BackendCapabilities, StorageOperations } from "../backend/storage-backend.js";
+import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
 import { MemoryRawStorage } from "../storage/raw/memory-raw-storage.js";
 import type { RawStorage } from "../storage/raw/raw-storage.js";
 import { createBlobs } from "./blobs/blobs.impl.js";
@@ -288,35 +289,53 @@ export function createMemoryHistory(): History {
 export function createMemoryHistoryWithOperations(
   _config: MemoryBackendConfig = {},
 ): HistoryWithOperations {
-  // Create memory object storage for all Git objects (including blobs)
+  // Create memory storage for blobs (separate from object storage)
+  const blobStorage = new MemoryRawStorage();
+  // Create memory object storage for trees, commits, tags
   const objectStorage = new MemoryRawStorage();
   const objects = createGitObjectStore(objectStorage);
 
-  // Create typed stores from the object store
-  // Using dynamic require to avoid circular dependency issues
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { GitBlobStore, GitTreeStore, GitCommitStore, GitTagStore } = require("./objects/index.js");
-  const blobs = new GitBlobStore(objects);
-  const trees = new GitTreeStore(objects);
-  const commits = new GitCommitStore(objects);
-  const tags = new GitTagStore(objects);
+  // Create typed stores using new interfaces
+  const blobs = createBlobs(blobStorage);
+  const trees = createTrees(objects);
+  const commits = createCommits(objects);
+  const tags = createTags(objects);
+  const refs = createMemoryRefs();
 
-  // Create memory ref store
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { MemoryRefStore } = require("./refs/ref-store.memory.js");
-  const refs = new MemoryRefStore();
+  // Create base History for serialization API
+  const history = new HistoryImpl(blobs, trees, commits, tags, refs);
 
-  // Create memory backend
-  const backend = new MemoryStorageBackend({
+  // Create delta API (memory backend doesn't track deltas by default)
+  const delta = new MemoryDeltaApi(blobs, undefined);
+
+  // Create serialization API using the History interface
+  const serialization = new DefaultSerializationApi({ history });
+
+  // Memory backend capabilities
+  const capabilities: BackendCapabilities = {
+    nativeBlobDeltas: false,
+    randomAccess: true,
+    atomicBatch: false,
+    nativeGitFormat: false,
+  };
+
+  // Create HistoryWithOperations directly (no adapters needed)
+  return new HistoryWithOperationsImpl(
     blobs,
     trees,
     commits,
     tags,
     refs,
-  });
-
-  // Wrap in HistoryWithOperations
-  return createHistoryWithOperations({ backend });
+    delta,
+    serialization,
+    capabilities,
+    async () => {
+      // No initialization needed for memory storage
+    },
+    async () => {
+      // No cleanup needed for memory storage
+    },
+  );
 }
 
 /**
@@ -357,7 +376,31 @@ export function createMemoryHistoryWithOperations(
  */
 export function createGitFilesHistory(config: GitFilesStorageBackendConfig): HistoryWithOperations {
   const backend = new GitFilesStorageBackend(config);
-  return createHistoryWithOperations({ backend });
+
+  // Create adapters from old store interfaces to new interfaces
+  // (will be removed when GitFilesStorageBackend is migrated to new interfaces)
+  const blobs = new BlobsAdapter(backend.blobs);
+  const trees = new TreesAdapter(backend.trees);
+  const commits = new CommitsAdapter(backend.commits);
+  const tags = new TagsAdapter(backend.tags);
+  const refs = createRefsAdapter(backend.refs);
+
+  // Create base History for serialization API (uses new interfaces, no legacy adapters)
+  const history = new HistoryImpl(blobs, trees, commits, tags, refs);
+  const serialization = new DefaultSerializationApi({ history, blobDeltaApi: backend.delta.blobs });
+
+  return new HistoryWithOperationsImpl(
+    blobs,
+    trees,
+    commits,
+    tags,
+    refs,
+    backend.delta,
+    serialization,
+    backend.capabilities,
+    () => backend.initialize(),
+    () => backend.close(),
+  );
 }
 
 /**
