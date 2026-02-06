@@ -2,23 +2,20 @@
  * Git tag store implementation
  *
  * Wraps GitObjectStore with tag serialization/deserialization.
- * Implements both TagStore (legacy) and Tags (new) interfaces.
  */
 
 import type { ObjectId } from "../../common/id/index.js";
 import type { GitObjectStore } from "../objects/object-store.js";
 import { ObjectType } from "../objects/object-types.js";
 import { decodeTagEntries, encodeTagEntries, entriesToTag, tagToEntries } from "./tag-format.js";
-import type { TagStore } from "./tag-store.js";
 import type { AnnotatedTag, Tags } from "./tags.js";
 
 /**
  * Git tag store implementation
  *
  * Handles tag serialization and delegates storage to GitObjectStore.
- * Implements both TagStore (legacy) and Tags (new) interfaces.
  */
-export class GitTagStore implements TagStore, Tags {
+export class GitTagStore implements Tags {
   constructor(private readonly objects: GitObjectStore) {}
 
   // ============ New Tags Interface ============
@@ -39,7 +36,7 @@ export class GitTagStore implements TagStore, Tags {
     if (!(await this.has(id))) {
       return undefined;
     }
-    return this.loadTag(id);
+    return this.loadTagInternal(id);
   }
 
   /**
@@ -49,19 +46,10 @@ export class GitTagStore implements TagStore, Tags {
     return this.objects.remove(id);
   }
 
-  // ============ Legacy TagStore Interface ============
-
   /**
-   * Store an annotated tag (legacy)
+   * Load an annotated tag by ID (internal implementation)
    */
-  async storeTag(tag: AnnotatedTag): Promise<ObjectId> {
-    return this.store(tag);
-  }
-
-  /**
-   * Load an annotated tag by ID (legacy)
-   */
-  async loadTag(id: ObjectId): Promise<AnnotatedTag> {
+  private async loadTagInternal(id: ObjectId): Promise<AnnotatedTag> {
     const [header, content] = await this.objects.loadWithHeader(id);
     try {
       if (header.type !== "tag") {
@@ -88,7 +76,7 @@ export class GitTagStore implements TagStore, Tags {
       return undefined;
     }
 
-    const tag = await this.loadTag(id);
+    const tag = await this.loadTagInternal(id);
 
     if (!peel || tag.objectType !== ObjectType.TAG) {
       return tag.object;
@@ -101,7 +89,7 @@ export class GitTagStore implements TagStore, Tags {
       if (header.type !== "tag") {
         return currentId;
       }
-      const nextTag = await this.loadTag(currentId);
+      const nextTag = await this.loadTagInternal(currentId);
       currentId = nextTag.object;
     }
   }

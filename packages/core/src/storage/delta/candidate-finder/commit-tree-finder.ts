@@ -5,9 +5,9 @@
  * Uses commit relationships (parents) and tree structure to find candidates.
  */
 
-import type { CommitStore } from "../../../history/commits/commit-store.js";
+import type { Commits } from "../../../history/commits/commits.js";
 import { ObjectType, type ObjectTypeCode } from "../../../history/objects/object-types.js";
-import type { TreeStore } from "../../../history/trees/tree-store.js";
+import type { Trees } from "../../../history/trees/trees.js";
 import type {
   CandidateFinder,
   CandidateFinderOptions,
@@ -24,8 +24,8 @@ import type {
  */
 export class CommitTreeCandidateFinder implements CandidateFinder {
   constructor(
-    private readonly commits: CommitStore,
-    private readonly trees: TreeStore,
+    private readonly commits: Commits,
+    private readonly trees: Trees,
     private readonly options: CandidateFinderOptions = {},
   ) {}
 
@@ -44,13 +44,13 @@ export class CommitTreeCandidateFinder implements CandidateFinder {
 
     try {
       // Parent commits are the best candidates for commit deltification
-      const commit = await this.commits.loadCommit(target.id);
+      const commit = await this.commits.load(target.id);
       if (!commit) return;
 
       for (const parentId of commit.parents) {
         if (count >= maxCandidates) return;
 
-        const parent = await this.commits.loadCommit(parentId);
+        const parent = await this.commits.load(parentId);
         if (!parent) continue;
 
         // Estimate size (commits are usually small)
@@ -95,7 +95,9 @@ export class CommitTreeCandidateFinder implements CandidateFinder {
     try {
       // Trees from the same commit structure tend to be similar
       // We could also look at sibling trees (trees in the same parent tree)
-      for await (const entry of this.trees.loadTree(target.id)) {
+      const treeEntries = await this.trees.load(target.id);
+      if (!treeEntries) return;
+      for await (const entry of treeEntries) {
         if (count >= maxCandidates) return;
 
         if (entry.mode === 0o040000) {

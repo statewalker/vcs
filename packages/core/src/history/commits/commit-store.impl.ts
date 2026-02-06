@@ -3,7 +3,6 @@
  *
  * Wraps GitObjectStore with commit serialization/deserialization.
  * Provides graph traversal operations for commit history.
- * Implements both CommitStore (legacy) and Commits (new) interfaces.
  */
 
 import type { ObjectId } from "../../common/id/index.js";
@@ -14,16 +13,14 @@ import {
   encodeCommitEntries,
   entriesToCommit,
 } from "./commit-format.js";
-import type { CommitStore } from "./commit-store.js";
 import type { AncestryOptions, Commit, Commits } from "./commits.js";
 
 /**
  * Git commit store implementation
  *
  * Handles commit serialization and provides graph traversal.
- * Implements both CommitStore (legacy) and Commits (new) interfaces.
  */
-export class GitCommitStore implements CommitStore, Commits {
+export class GitCommitStore implements Commits {
   constructor(private readonly objects: GitObjectStore) {}
 
   // ============ New Commits Interface ============
@@ -45,7 +42,7 @@ export class GitCommitStore implements CommitStore, Commits {
       return undefined;
     }
     try {
-      return await this.loadCommit(id);
+      return await this.loadCommitInternal(id);
     } catch {
       return undefined;
     }
@@ -58,19 +55,10 @@ export class GitCommitStore implements CommitStore, Commits {
     return this.objects.remove(id);
   }
 
-  // ============ Legacy CommitStore Interface ============
-
   /**
-   * Store a commit object (legacy)
+   * Load a commit object by ID (internal implementation)
    */
-  async storeCommit(commit: Commit): Promise<ObjectId> {
-    return this.store(commit);
-  }
-
-  /**
-   * Load a commit object by ID (legacy)
-   */
-  async loadCommit(id: ObjectId): Promise<Commit> {
+  private async loadCommitInternal(id: ObjectId): Promise<Commit> {
     const [header, content] = await this.objects.loadWithHeader(id);
     try {
       if (header.type !== "commit") {
@@ -88,16 +76,16 @@ export class GitCommitStore implements CommitStore, Commits {
    * Get parent commit IDs
    */
   async getParents(id: ObjectId): Promise<ObjectId[]> {
-    const commit = await this.loadCommit(id);
+    const commit = await this.loadCommitInternal(id);
     return commit.parents;
   }
 
   /**
    * Get tree ID for a commit
    */
-  async getTree(id: ObjectId): Promise<ObjectId> {
-    const commit = await this.loadCommit(id);
-    return commit.tree;
+  async getTree(id: ObjectId): Promise<ObjectId | undefined> {
+    const commit = await this.load(id);
+    return commit?.tree;
   }
 
   /**
