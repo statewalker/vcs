@@ -1,11 +1,11 @@
 /**
- * Parametrized test suite for TagStore implementations
+ * Parametrized test suite for Tags implementations
  *
- * This suite tests the core TagStore interface contract.
+ * This suite tests the core Tags interface contract.
  * All storage implementations must pass these tests.
  */
 
-import type { AnnotatedTag, ObjectTypeCode, PersonIdent, TagStore } from "@statewalker/vcs-core";
+import type { AnnotatedTag, ObjectTypeCode, PersonIdent, Tags } from "@statewalker/vcs-core";
 import { ObjectType } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
  * Context provided by the storage factory
  */
 export interface TagStoreTestContext {
-  tagStore: TagStore;
+  tagStore: Tags;
   cleanup?: () => Promise<void>;
 }
 
@@ -61,7 +61,7 @@ function createTag(options: {
 }
 
 /**
- * Create the TagStore test suite with a specific factory
+ * Create the Tags test suite with a specific factory
  *
  * @param name Name of the storage implementation (e.g., "Memory", "SQL", "KV")
  * @param factory Factory function to create storage instances
@@ -81,14 +81,15 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
     describe("Basic Operations", () => {
       it("stores and retrieves tags", async () => {
         const tag = createTag({ tag: "v1.0.0", message: "Version 1.0.0" });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
         expect(id).toBeDefined();
         expect(typeof id).toBe("string");
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.tag).toBe("v1.0.0");
-        expect(loaded.message).toBe("Version 1.0.0");
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded).toBeDefined();
+        expect(loaded?.tag).toBe("v1.0.0");
+        expect(loaded?.message).toBe("Version 1.0.0");
       });
 
       it("returns consistent IDs for same tag", async () => {
@@ -98,8 +99,8 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tagger: createPerson("Tagger", 1000000),
         });
 
-        const id1 = await ctx.tagStore.storeTag(tag);
-        const id2 = await ctx.tagStore.storeTag(tag);
+        const id1 = await ctx.tagStore.store(tag);
+        const id2 = await ctx.tagStore.store(tag);
         expect(id1).toBe(id2);
       });
 
@@ -115,14 +116,14 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tagger: createPerson("Tagger", 1000001),
         });
 
-        const id1 = await ctx.tagStore.storeTag(tag1);
-        const id2 = await ctx.tagStore.storeTag(tag2);
+        const id1 = await ctx.tagStore.store(tag1);
+        const id2 = await ctx.tagStore.store(tag2);
         expect(id1).not.toBe(id2);
       });
 
       it("checks existence via has", async () => {
         const tag = createTag({ tag: "v1.0.0", message: "Test" });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
         expect(await ctx.tagStore.has(id)).toBe(true);
         expect(await ctx.tagStore.has("nonexistent-tag-id-0000000000")).toBe(false);
@@ -138,10 +139,10 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tag: "v1.0.0",
           message: "Test",
         });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.object).toBe(objectId);
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.object).toBe(objectId);
       });
 
       it("preserves object type", async () => {
@@ -150,18 +151,18 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tag: "tree-tag",
           message: "Tag pointing to tree",
         });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.objectType).toBe(ObjectType.TREE);
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.objectType).toBe(ObjectType.TREE);
       });
 
       it("preserves tag name", async () => {
         const tag = createTag({ tag: "release-candidate-1", message: "Test" });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.tag).toBe("release-candidate-1");
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.tag).toBe("release-candidate-1");
       });
 
       it("preserves tagger information", async () => {
@@ -172,23 +173,23 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tzOffset: "-0800",
         };
         const tag = createTag({ tag: "v1.0.0", message: "Test", tagger });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.tagger).toBeDefined();
-        expect(loaded.tagger?.name).toBe("Jane Tagger");
-        expect(loaded.tagger?.email).toBe("jane@example.com");
-        expect(loaded.tagger?.timestamp).toBe(1234567890);
-        expect(loaded.tagger?.tzOffset).toBe("-0800");
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.tagger).toBeDefined();
+        expect(loaded?.tagger?.name).toBe("Jane Tagger");
+        expect(loaded?.tagger?.email).toBe("jane@example.com");
+        expect(loaded?.tagger?.timestamp).toBe(1234567890);
+        expect(loaded?.tagger?.tzOffset).toBe("-0800");
       });
 
       it("preserves multi-line tag message", async () => {
         const message = "Release v1.0.0\n\nThis release includes:\n- Feature A\n- Feature B";
         const tag = createTag({ tag: "v1.0.0", message });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.message).toBe(message);
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.message).toBe(message);
       });
     });
 
@@ -201,7 +202,7 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tag: "v1.0.0",
           message: "Test",
         });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
         const target = await ctx.tagStore.getTarget(id);
         expect(target).toBe(targetId);
@@ -215,7 +216,7 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tag: "v1.0.0",
           message: "Test",
         });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
         // Peeling a tag pointing to a commit returns the commit
         const target = await ctx.tagStore.getTarget(id, true);
@@ -233,7 +234,7 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tag: "inner",
           message: "Inner tag",
         });
-        const innerTagId = await ctx.tagStore.storeTag(innerTag);
+        const innerTagId = await ctx.tagStore.store(innerTag);
 
         // Outer tag pointing to inner tag
         const outerTag = createTag({
@@ -242,7 +243,7 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tag: "outer",
           message: "Outer tag",
         });
-        const outerTagId = await ctx.tagStore.storeTag(outerTag);
+        const outerTagId = await ctx.tagStore.store(outerTag);
 
         // Without peel - returns the inner tag
         const withoutPeel = await ctx.tagStore.getTarget(outerTagId, false);
@@ -263,31 +264,33 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           message: "Unsigned tag",
           // No tagger field
         };
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.tagger).toBeUndefined();
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.tagger).toBeUndefined();
       });
 
       it("preserves encoding field", async () => {
         const tag = createTag({ tag: "v1.0.0", message: "Test" });
         (tag as AnnotatedTag & { encoding?: string }).encoding = "ISO-8859-1";
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect((loaded as AnnotatedTag & { encoding?: string }).encoding).toBe("ISO-8859-1");
+        const loaded = await ctx.tagStore.load(id);
+        expect((loaded as (AnnotatedTag & { encoding?: string }) | undefined)?.encoding).toBe(
+          "ISO-8859-1",
+        );
       });
 
       it("preserves GPG signature", async () => {
         const tag = createTag({ tag: "v1.0.0", message: "Test" });
         (tag as AnnotatedTag & { gpgSignature?: string }).gpgSignature =
           "-----BEGIN PGP SIGNATURE-----\ntest\n-----END PGP SIGNATURE-----";
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect((loaded as AnnotatedTag & { gpgSignature?: string }).gpgSignature).toBe(
-          (tag as AnnotatedTag & { gpgSignature?: string }).gpgSignature,
-        );
+        const loaded = await ctx.tagStore.load(id);
+        expect(
+          (loaded as (AnnotatedTag & { gpgSignature?: string }) | undefined)?.gpgSignature,
+        ).toBe((tag as AnnotatedTag & { gpgSignature?: string }).gpgSignature);
       });
     });
 
@@ -299,10 +302,10 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tag: "blob-tag",
           message: "Tag pointing to blob",
         });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.objectType).toBe(ObjectType.BLOB);
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.objectType).toBe(ObjectType.BLOB);
       });
 
       it("handles tag pointing to tree", async () => {
@@ -312,35 +315,36 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tag: "tree-tag",
           message: "Tag pointing to tree",
         });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.objectType).toBe(ObjectType.TREE);
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.objectType).toBe(ObjectType.TREE);
       });
     });
 
-    describe("Error Handling", () => {
-      it("throws on loading non-existent tag", async () => {
-        await expect(ctx.tagStore.loadTag("nonexistent-tag-id-0000000000")).rejects.toThrow();
+    describe("Not Found Handling", () => {
+      it("returns undefined for non-existent tag", async () => {
+        const result = await ctx.tagStore.load("nonexistent-tag-id-0000000000");
+        expect(result).toBeUndefined();
       });
     });
 
     describe("Unicode Content", () => {
       it("handles unicode tag name", async () => {
         const tag = createTag({ tag: "версия-1.0", message: "Russian version tag" });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.tag).toBe("версия-1.0");
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.tag).toBe("версия-1.0");
       });
 
       it("handles unicode message", async () => {
         const message = "发布版本 1.0\n\n这是一个重要的版本";
         const tag = createTag({ tag: "v1.0.0", message });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.message).toBe(message);
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.message).toBe(message);
       });
 
       it("handles unicode tagger name", async () => {
@@ -351,10 +355,10 @@ export function createTagStoreTests(name: string, factory: TagStoreFactory): voi
           tzOffset: "+0900",
         };
         const tag = createTag({ tag: "v1.0.0", message: "Test", tagger });
-        const id = await ctx.tagStore.storeTag(tag);
+        const id = await ctx.tagStore.store(tag);
 
-        const loaded = await ctx.tagStore.loadTag(id);
-        expect(loaded.tagger?.name).toBe("田中太郎");
+        const loaded = await ctx.tagStore.load(id);
+        expect(loaded?.tagger?.name).toBe("田中太郎");
       });
     });
   });
