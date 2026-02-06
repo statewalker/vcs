@@ -25,7 +25,7 @@ import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 
 import { createMockWorktree } from "./mock-worktree-store.js";
-import { createSimpleHistoryFromLegacyStores } from "./simple-history-store.js";
+import { createSimpleHistory } from "./simple-history-store.js";
 
 // Enable Node.js compression for SQL backend
 setCompressionUtils(createNodeCompression());
@@ -59,8 +59,8 @@ export const memoryFactory: WorkingCopyFactory = async () => {
   const refs = new MemoryRefStore();
   const staging = new MemoryStagingStore();
 
-  // Create History wrapper using adapters for legacy store interfaces
-  const repository = createSimpleHistoryFromLegacyStores({
+  // Create History wrapper using new store interfaces
+  const repository = createSimpleHistory({
     blobs: stores.blobs,
     trees: stores.trees,
     commits: stores.commits,
@@ -96,8 +96,8 @@ export const sqlFactory: WorkingCopyFactory = async () => {
   const refs = new SQLRefStore(db);
   const staging = new SQLStaging(db);
 
-  // Create History wrapper using adapters for legacy store interfaces
-  const repository = createSimpleHistoryFromLegacyStores({
+  // Create History wrapper using new store interfaces
+  const repository = createSimpleHistory({
     blobs: stores.blobs,
     trees: stores.trees,
     commits: stores.commits,
