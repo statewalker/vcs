@@ -53,7 +53,7 @@ describe("KV Stores Extended Queries", () => {
     });
 
     it("findByAuthor returns commits by author email", async () => {
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -61,7 +61,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Commit by Alice",
       });
 
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author2,
@@ -69,7 +69,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Commit by Bob",
       });
 
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -93,7 +93,7 @@ describe("KV Stores Extended Queries", () => {
     });
 
     it("findByDateRange returns commits in date range", async () => {
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -101,7 +101,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Early commit",
       });
 
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author2,
@@ -109,7 +109,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Middle commit",
       });
 
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author3,
@@ -129,7 +129,7 @@ describe("KV Stores Extended Queries", () => {
     });
 
     it("searchMessage finds commits by message content", async () => {
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -137,7 +137,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Fix critical bug in login",
       });
 
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author2,
@@ -145,7 +145,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Add new feature",
       });
 
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author3,
@@ -171,7 +171,7 @@ describe("KV Stores Extended Queries", () => {
     it("count returns correct number of commits", async () => {
       expect(await commitStore.count()).toBe(0);
 
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -181,7 +181,7 @@ describe("KV Stores Extended Queries", () => {
 
       expect(await commitStore.count()).toBe(1);
 
-      await commitStore.storeCommit({
+      await commitStore.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author2,
@@ -203,12 +203,12 @@ describe("KV Stores Extended Queries", () => {
     it("findTreesWithBlob finds trees containing specific blob", async () => {
       const blobId = "0000000000000000000000000000000000000001";
 
-      await treeStore.storeTree([
+      await treeStore.store([
         { mode: 0o100644, name: "file.txt", id: blobId },
         { mode: 0o100644, name: "other.txt", id: "0000000000000000000000000000000000000002" },
       ]);
 
-      await treeStore.storeTree([
+      await treeStore.store([
         { mode: 0o100644, name: "another.txt", id: "0000000000000000000000000000000000000003" },
       ]);
 
@@ -221,7 +221,7 @@ describe("KV Stores Extended Queries", () => {
     });
 
     it("findByNamePattern finds entries matching pattern", async () => {
-      await treeStore.storeTree([
+      await treeStore.store([
         { mode: 0o100644, name: "file.ts", id: "0000000000000000000000000000000000000001" },
         { mode: 0o100644, name: "file.js", id: "0000000000000000000000000000000000000002" },
         { mode: 0o100644, name: "README.md", id: "0000000000000000000000000000000000000003" },
@@ -240,7 +240,7 @@ describe("KV Stores Extended Queries", () => {
     it("count returns correct number of trees", async () => {
       expect(await treeStore.count()).toBe(0);
 
-      await treeStore.storeTree([
+      await treeStore.store([
         { mode: 0o100644, name: "file.txt", id: "0000000000000000000000000000000000000001" },
       ]);
 
@@ -263,7 +263,7 @@ describe("KV Stores Extended Queries", () => {
     });
 
     it("findByNamePattern finds tags matching pattern", async () => {
-      await tagStore.storeTag({
+      await tagStore.store({
         object: "0000000000000000000000000000000000000001",
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
@@ -271,7 +271,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Release 1.0.0",
       });
 
-      await tagStore.storeTag({
+      await tagStore.store({
         object: "0000000000000000000000000000000000000002",
         objectType: ObjectType.COMMIT,
         tag: "v1.1.0",
@@ -279,7 +279,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Release 1.1.0",
       });
 
-      await tagStore.storeTag({
+      await tagStore.store({
         object: "0000000000000000000000000000000000000003",
         objectType: ObjectType.COMMIT,
         tag: "v2.0.0",
@@ -304,7 +304,7 @@ describe("KV Stores Extended Queries", () => {
         tzOffset: "+0000",
       };
 
-      await tagStore.storeTag({
+      await tagStore.store({
         object: "0000000000000000000000000000000000000001",
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
@@ -312,7 +312,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Release by Alice",
       });
 
-      await tagStore.storeTag({
+      await tagStore.store({
         object: "0000000000000000000000000000000000000002",
         objectType: ObjectType.COMMIT,
         tag: "v2.0.0",
@@ -329,7 +329,7 @@ describe("KV Stores Extended Queries", () => {
     });
 
     it("findByTargetType finds tags by object type", async () => {
-      await tagStore.storeTag({
+      await tagStore.store({
         object: "0000000000000000000000000000000000000001",
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
@@ -337,7 +337,7 @@ describe("KV Stores Extended Queries", () => {
         message: "Commit tag",
       });
 
-      await tagStore.storeTag({
+      await tagStore.store({
         object: "0000000000000000000000000000000000000002",
         objectType: ObjectType.TREE,
         tag: "tree-tag",
@@ -363,7 +363,7 @@ describe("KV Stores Extended Queries", () => {
     it("count returns correct number of tags", async () => {
       expect(await tagStore.count()).toBe(0);
 
-      await tagStore.storeTag({
+      await tagStore.store({
         object: "0000000000000000000000000000000000000001",
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",

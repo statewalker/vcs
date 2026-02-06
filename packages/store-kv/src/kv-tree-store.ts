@@ -1,10 +1,10 @@
 /**
- * KV-based TreeStore implementation
+ * KV-based Trees implementation
  *
  * Stores tree objects using a key-value backend with JSON serialization.
  */
 
-import type { ObjectId, TreeEntry, TreeStore } from "@statewalker/vcs-core";
+import type { ObjectId, Tree, TreeEntry, Trees } from "@statewalker/vcs-core";
 import { computeTreeHash, FileMode } from "@statewalker/vcs-core";
 
 import type { KVStore } from "./kv-store.js";
@@ -44,19 +44,24 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 /**
- * KV-based TreeStore implementation.
+ * KV-based Trees implementation.
  */
-export class KVTreeStore implements TreeStore {
+export class KVTreeStore implements Trees {
   constructor(private kv: KVStore) {}
 
   /**
    * Store a tree from a stream of entries.
    */
-  async storeTree(entries: AsyncIterable<TreeEntry> | Iterable<TreeEntry>): Promise<ObjectId> {
+  async store(entries: Tree): Promise<ObjectId> {
     // Collect entries
     const entryArray: TreeEntry[] = [];
 
-    if (Symbol.asyncIterator in entries) {
+    // Handle array input
+    if (Array.isArray(entries)) {
+      for (const entry of entries) {
+        entryArray.push({ mode: entry.mode, name: entry.name, id: entry.id });
+      }
+    } else if (Symbol.asyncIterator in entries) {
       for await (const entry of entries as AsyncIterable<TreeEntry>) {
         entryArray.push({ mode: entry.mode, name: entry.name, id: entry.id });
       }
@@ -96,31 +101,46 @@ export class KVTreeStore implements TreeStore {
 
   /**
    * Load tree entries as a stream.
+   * Returns undefined if not found (new API behavior).
    */
-  async *loadTree(id: ObjectId): AsyncIterable<TreeEntry> {
+  async load(id: ObjectId): Promise<AsyncIterable<TreeEntry> | undefined> {
     // Empty tree
     if (id === EMPTY_TREE_ID) {
-      return;
+      return (async function* () {})();
     }
 
     const data = await this.kv.get(`${TREE_PREFIX}${id}`);
     if (!data) {
-      throw new Error(`Tree ${id} not found`);
+      return undefined;
     }
 
     const serialized: SerializedEntry[] = JSON.parse(decoder.decode(data));
 
-    for (const entry of serialized) {
-      yield {
-        mode: entry.m,
-        name: entry.n,
-        id: entry.i,
-      };
+    return (async function* () {
+      for (const entry of serialized) {
+        yield {
+          mode: entry.m,
+          name: entry.n,
+          id: entry.i,
+        };
+      }
+    })();
+  }
+
+  /**
+   * Remove a tree object by ID.
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    // Don't allow removing empty tree (it's virtual)
+    if (id === EMPTY_TREE_ID) {
+      return false;
     }
+    return this.kv.delete(`${TREE_PREFIX}${id}`);
   }
 
   /**
    * Get a specific entry from a tree.
+   * Returns undefined if tree doesn't exist or entry not found.
    */
   async getEntry(treeId: ObjectId, name: string): Promise<TreeEntry | undefined> {
     // Empty tree
@@ -130,7 +150,7 @@ export class KVTreeStore implements TreeStore {
 
     const data = await this.kv.get(`${TREE_PREFIX}${treeId}`);
     if (!data) {
-      throw new Error(`Tree ${treeId} not found`);
+      return undefined;
     }
 
     const serialized: SerializedEntry[] = JSON.parse(decoder.decode(data));
@@ -186,15 +206,14 @@ export class KVTreeStore implements TreeStore {
    */
   async *findTreesWithBlob(blobId: ObjectId): AsyncIterable<ObjectId> {
     for await (const treeId of this.keys()) {
-      try {
-        for await (const entry of this.loadTree(treeId)) {
-          if (entry.id === blobId && entry.mode !== FileMode.TREE) {
-            yield treeId;
-            break; // Found in this tree, move to next
-          }
+      const entries = await this.load(treeId);
+      if (!entries) continue;
+
+      for await (const entry of entries) {
+        if (entry.id === blobId && entry.mode !== FileMode.TREE) {
+          yield treeId;
+          break; // Found in this tree, move to next
         }
-      } catch {
-        // Skip invalid trees
       }
     }
   }
@@ -219,21 +238,20 @@ export class KVTreeStore implements TreeStore {
     const regex = new RegExp(`^${regexPattern}$`, "i");
 
     for await (const treeId of this.keys()) {
-      try {
-        for await (const entry of this.loadTree(treeId)) {
-          if (regex.test(entry.name)) {
-            yield {
-              treeId,
-              entry: {
-                mode: entry.mode,
-                name: entry.name,
-                id: entry.id,
-              },
-            };
-          }
+      const entries = await this.load(treeId);
+      if (!entries) continue;
+
+      for await (const entry of entries) {
+        if (regex.test(entry.name)) {
+          yield {
+            treeId,
+            entry: {
+              mode: entry.mode,
+              name: entry.name,
+              id: entry.id,
+            },
+          };
         }
-      } catch {
-        // Skip invalid trees
       }
     }
   }
