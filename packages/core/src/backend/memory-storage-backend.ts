@@ -18,6 +18,7 @@
 
 import type { ObjectId } from "../common/id/object-id.js";
 import type { BlobStore } from "../history/blobs/blob-store.js";
+import type { Blobs } from "../history/blobs/blobs.js";
 import type { CommitStore } from "../history/commits/commit-store.js";
 import type { HistoryWithOperations } from "../history/history.js";
 import type { RefStore } from "../history/refs/ref-store.js";
@@ -75,11 +76,13 @@ export interface DeltaTracker {
 /**
  * In-memory BlobDeltaApi implementation
  *
+ * Accepts both old BlobStore (deprecated) and new Blobs interface for migration compatibility.
+ *
  * @internal Exported for use by MemoryHistoryFactory
  */
 export class MemoryBlobDeltaApi implements BlobDeltaApi {
   constructor(
-    readonly _blobs: BlobStore,
+    readonly _blobs: Blobs | BlobStore,
     private readonly tracker: DeltaTracker | undefined,
   ) {}
 
@@ -137,6 +140,8 @@ export class MemoryBlobDeltaApi implements BlobDeltaApi {
 /**
  * In-memory DeltaApi implementation
  *
+ * Accepts both old BlobStore (deprecated) and new Blobs interface for migration compatibility.
+ *
  * @internal Exported for use by MemoryHistoryFactory
  */
 export class MemoryDeltaApi implements DeltaApi {
@@ -144,10 +149,10 @@ export class MemoryDeltaApi implements DeltaApi {
   private batchDepth = 0;
 
   constructor(
-    blobStore: BlobStore,
+    blobs: Blobs | BlobStore,
     private readonly tracker: DeltaTracker | undefined,
   ) {
-    this.blobs = new MemoryBlobDeltaApi(blobStore, tracker);
+    this.blobs = new MemoryBlobDeltaApi(blobs, tracker);
   }
 
   async isDelta(id: ObjectId): Promise<boolean> {

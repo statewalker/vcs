@@ -405,9 +405,8 @@ export class GitFilesHistoryFactory implements HistoryBackendFactory<GitFilesSto
    */
   async createHistory(config: GitFilesStorageBackendConfig): Promise<HistoryWithOperations> {
     // Import dynamically to avoid circular dependency
-    const { createHistoryWithOperations } = await import("../history/create-history.js");
-    const backend = new GitFilesStorageBackend(config);
-    return createHistoryWithOperations({ backend });
+    const { createGitFilesHistory } = await import("../history/create-history.js");
+    return createGitFilesHistory(config);
   }
 
   /**
