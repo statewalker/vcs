@@ -17,13 +17,12 @@
  */
 
 import type { ObjectId } from "../common/id/object-id.js";
-import type { BlobStore } from "../history/blobs/blob-store.js";
 import type { Blobs } from "../history/blobs/blobs.js";
-import type { CommitStore } from "../history/commits/commit-store.js";
+import type { Commits } from "../history/commits/commits.js";
 import type { HistoryWithOperations } from "../history/history.js";
-import type { RefStore } from "../history/refs/ref-store.js";
-import type { TagStore } from "../history/tags/tag-store.js";
-import type { TreeStore } from "../history/trees/tree-store.js";
+import type { Refs } from "../history/refs/refs.js";
+import type { Tags } from "../history/tags/tags.js";
+import type { Trees } from "../history/trees/trees.js";
 import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
 import type { SerializationApi } from "../serialization/serialization-api.js";
 import type {
@@ -37,18 +36,21 @@ import type { BackendCapabilities, StorageOperations } from "./storage-backend.j
 
 /**
  * Configuration for creating MemoryStorageBackend
+ *
+ * Uses the new unified interfaces (Blobs, Trees, Commits, Tags, Refs)
+ * instead of the legacy store types.
  */
 export interface MemoryStorageBackendConfig {
-  /** Blob store implementation */
-  blobs: BlobStore;
-  /** Tree store implementation */
-  trees: TreeStore;
-  /** Commit store implementation */
-  commits: CommitStore;
-  /** Tag store implementation */
-  tags: TagStore;
-  /** Ref store implementation */
-  refs: RefStore;
+  /** Blob storage implementation */
+  blobs: Blobs;
+  /** Tree storage implementation */
+  trees: Trees;
+  /** Commit storage implementation */
+  commits: Commits;
+  /** Tag storage implementation */
+  tags: Tags;
+  /** Reference storage implementation */
+  refs: Refs;
   /** Optional delta tracking for blobs */
   deltaTracker?: DeltaTracker;
 }
@@ -76,13 +78,13 @@ export interface DeltaTracker {
 /**
  * In-memory BlobDeltaApi implementation
  *
- * Accepts both old BlobStore (deprecated) and new Blobs interface for migration compatibility.
+ * Uses the new Blobs interface.
  *
  * @internal Exported for use by MemoryHistoryFactory
  */
 export class MemoryBlobDeltaApi implements BlobDeltaApi {
   constructor(
-    readonly _blobs: Blobs | BlobStore,
+    readonly _blobs: Blobs,
     private readonly tracker: DeltaTracker | undefined,
   ) {}
 
@@ -140,7 +142,7 @@ export class MemoryBlobDeltaApi implements BlobDeltaApi {
 /**
  * In-memory DeltaApi implementation
  *
- * Accepts both old BlobStore (deprecated) and new Blobs interface for migration compatibility.
+ * Uses the new Blobs interface.
  *
  * @internal Exported for use by MemoryHistoryFactory
  */
@@ -149,7 +151,7 @@ export class MemoryDeltaApi implements DeltaApi {
   private batchDepth = 0;
 
   constructor(
-    blobs: Blobs | BlobStore,
+    blobs: Blobs,
     private readonly tracker: DeltaTracker | undefined,
   ) {
     this.blobs = new MemoryBlobDeltaApi(blobs, tracker);
@@ -219,11 +221,11 @@ export class MemoryDeltaApi implements DeltaApi {
  * ```
  */
 export class MemoryStorageBackend {
-  readonly blobs: BlobStore;
-  readonly trees: TreeStore;
-  readonly commits: CommitStore;
-  readonly tags: TagStore;
-  readonly refs: RefStore;
+  readonly blobs: Blobs;
+  readonly trees: Trees;
+  readonly commits: Commits;
+  readonly tags: Tags;
+  readonly refs: Refs;
   readonly delta: DeltaApi;
   readonly serialization: SerializationApi;
   readonly capabilities: BackendCapabilities = {
@@ -243,12 +245,15 @@ export class MemoryStorageBackend {
     this.refs = config.refs;
 
     this.delta = new MemoryDeltaApi(config.blobs, config.deltaTracker);
+    // Use History interface for DefaultSerializationApi
     this.serialization = new DefaultSerializationApi({
-      blobs: this.blobs,
-      trees: this.trees,
-      commits: this.commits,
-      tags: this.tags,
-      refs: this.refs,
+      history: {
+        blobs: this.blobs,
+        trees: this.trees,
+        commits: this.commits,
+        tags: this.tags,
+        refs: this.refs,
+      } as import("../history/history.js").History,
       blobDeltaApi: this.delta.blobs,
     });
   }
