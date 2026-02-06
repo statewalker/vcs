@@ -1,8 +1,22 @@
-import {
-  type PushObject,
-  type PushOptions,
-  push as transportPush,
-} from "@statewalker/vcs-transport";
+import type { Tags } from "@statewalker/vcs-core";
+import { DefaultSerializationApi, isSymbolicRef } from "@statewalker/vcs-core";
+import { httpPush, type RefStore as TransportRefStore } from "@statewalker/vcs-transport";
+import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
+
+/**
+ * No-op Tags for repositories without tag support.
+ * Only used as a fallback when tags store is not provided.
+ */
+const noOpTags: Tags = {
+  store: () => Promise.reject(new Error("Tag storage not available")),
+  load: () => Promise.resolve(undefined),
+  getTarget: () => Promise.resolve(undefined),
+  has: () => Promise.resolve(false),
+  remove: () => Promise.resolve(false),
+  async *keys() {
+    // Empty iterator - no tags available
+  },
+};
 
 import { InvalidRemoteError, NonFastForwardError, PushRejectedException } from "../errors/index.js";
 import { type PushResult, PushStatus, type RemoteRefUpdate } from "../results/push-result.js";
@@ -293,7 +307,7 @@ export class PushCommand extends TransportCommand<PushResult> {
     }
 
     // Get tags store (use no-op fallback if not available)
-    const tagsStore = this.tagsStore ?? noOpTagStore;
+    const tagsStore = this.tagsStore ?? noOpTags;
 
     // Create serialization API from typed stores
     // Note: SerializationApiConfig accepts stores at top level

@@ -49,7 +49,9 @@ async function readStagedFile(
   if (!entry) {
     throw new Error(`File not found in staging: ${path}`);
   }
-  const content = await collectBytes(repository.blobs.loadBlob(entry.objectId));
+  const blobContent = await repository.blobs.load(entry.objectId);
+  if (!blobContent) throw new Error(`Blob not found: ${entry.objectId}`);
+  const content = await collectBytes(blobContent);
   return new TextDecoder().decode(content);
 }
 

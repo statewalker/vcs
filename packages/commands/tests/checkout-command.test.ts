@@ -102,7 +102,9 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
 
       // Verify staging has main's version
       const entry = await workingCopy.checkout.staging.getEntry("Test.txt");
-      const content = await collectBytes(repository.blobs.loadBlob(entry?.objectId ?? ""));
+      const blobContent = await repository.blobs.load(entry?.objectId ?? "");
+      if (!blobContent) throw new Error("Blob not found");
+      const content = await collectBytes(blobContent);
       const text = new TextDecoder().decode(content);
       expect(text).toBe("Hello world");
 
@@ -149,7 +151,9 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
 
       // Staging should have first commit's content
       const entry = await workingCopy.checkout.staging.getEntry("Test.txt");
-      const content = await collectBytes(repository.blobs.loadBlob(entry?.objectId ?? ""));
+      const blobContent = await repository.blobs.load(entry?.objectId ?? "");
+      if (!blobContent) throw new Error("Blob not found");
+      const content = await collectBytes(blobContent);
       const text = new TextDecoder().decode(content);
       expect(text).toBe("Hello world");
     });
@@ -251,7 +255,9 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
 
       // Verify staging has version 1
       const entry = await workingCopy.checkout.staging.getEntry("Test.txt");
-      const content = await collectBytes(repository.blobs.loadBlob(entry?.objectId ?? ""));
+      const blobContent = await repository.blobs.load(entry?.objectId ?? "");
+      if (!blobContent) throw new Error("Blob not found");
+      const content = await collectBytes(blobContent);
       const text = new TextDecoder().decode(content);
       expect(text).toBe("version 1");
     });
@@ -499,7 +505,9 @@ describe.each(backends)("CheckoutCommand ($name backend)", ({ factory }) => {
       expect(entryC).toBeUndefined(); // c.txt only in test branch
 
       // Verify content
-      const contentA = await collectBytes(repository.blobs.loadBlob(entryA?.objectId ?? ""));
+      const blobContentA = await repository.blobs.load(entryA?.objectId ?? "");
+      if (!blobContentA) throw new Error("Blob not found");
+      const contentA = await collectBytes(blobContentA);
       expect(new TextDecoder().decode(contentA)).toBe("main-a");
     });
   });
