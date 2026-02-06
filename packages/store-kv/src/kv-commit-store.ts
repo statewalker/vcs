@@ -1,11 +1,11 @@
 /**
- * KV-based CommitStore implementation
+ * KV-based Commits implementation
  *
  * Stores commit objects using a key-value backend with JSON serialization.
  * Includes extended query methods (O(n) scans - less efficient than SQL).
  */
 
-import type { AncestryOptions, Commit, CommitStore, ObjectId } from "@statewalker/vcs-core";
+import type { Commit, Commits, ObjectId, WalkOptions } from "@statewalker/vcs-core";
 import {
   computeCommitHash,
   findMergeBase as findMergeBaseShared,
@@ -46,15 +46,15 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 /**
- * KV-based CommitStore implementation.
+ * KV-based Commits implementation.
  */
-export class KVCommitStore implements CommitStore {
+export class KVCommitStore implements Commits {
   constructor(private kv: KVStore) {}
 
   /**
    * Store a commit object.
    */
-  async storeCommit(commit: Commit): Promise<ObjectId> {
+  async store(commit: Commit): Promise<ObjectId> {
     const commitId = computeCommitHash(commit);
 
     // Check if commit already exists (deduplication)
@@ -86,11 +86,12 @@ export class KVCommitStore implements CommitStore {
 
   /**
    * Load a commit object by ID.
+   * Returns undefined if not found (new API behavior).
    */
-  async loadCommit(id: ObjectId): Promise<Commit> {
+  async load(id: ObjectId): Promise<Commit | undefined> {
     const data = await this.kv.get(`${COMMIT_PREFIX}${id}`);
     if (!data) {
-      throw new Error(`Commit ${id} not found`);
+      return undefined;
     }
 
     const s: SerializedCommit = JSON.parse(decoder.decode(data));
@@ -117,19 +118,42 @@ export class KVCommitStore implements CommitStore {
   }
 
   /**
+   * Remove a commit object by ID.
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    return this.kv.delete(`${COMMIT_PREFIX}${id}`);
+  }
+
+  /**
+   * Load a commit object by ID (throws if not found).
+   * Required for AncestryStorageOps interface compatibility.
+   */
+  async loadCommit(id: ObjectId): Promise<Commit> {
+    const commit = await this.load(id);
+    if (!commit) {
+      throw new Error(`Commit ${id} not found`);
+    }
+    return commit;
+  }
+
+  /**
    * Get parent commit IDs.
    */
   async getParents(id: ObjectId): Promise<ObjectId[]> {
-    const commit = await this.loadCommit(id);
+    const commit = await this.load(id);
+    if (!commit) {
+      return [];
+    }
     return commit.parents;
   }
 
   /**
    * Get the tree ObjectId for a commit.
+   * Returns undefined if commit doesn't exist.
    */
-  async getTree(id: ObjectId): Promise<ObjectId> {
-    const commit = await this.loadCommit(id);
-    return commit.tree;
+  async getTree(id: ObjectId): Promise<ObjectId | undefined> {
+    const commit = await this.load(id);
+    return commit?.tree;
   }
 
   /**
@@ -137,7 +161,7 @@ export class KVCommitStore implements CommitStore {
    */
   walkAncestry(
     startIds: ObjectId | ObjectId[],
-    options: AncestryOptions = {},
+    options: WalkOptions = {},
   ): AsyncIterable<ObjectId> {
     return walkAncestryShared(this, startIds, options);
   }
@@ -185,13 +209,9 @@ export class KVCommitStore implements CommitStore {
    */
   async *findByAuthor(email: string): AsyncIterable<ObjectId> {
     for await (const id of this.keys()) {
-      try {
-        const commit = await this.loadCommit(id);
-        if (commit.author.email === email) {
-          yield id;
-        }
-      } catch {
-        // Skip invalid commits
+      const commit = await this.load(id);
+      if (commit?.author.email === email) {
+        yield id;
       }
     }
   }
@@ -211,13 +231,9 @@ export class KVCommitStore implements CommitStore {
     const untilTs = Math.floor(until.getTime() / 1000);
 
     for await (const id of this.keys()) {
-      try {
-        const commit = await this.loadCommit(id);
-        if (commit.author.timestamp >= sinceTs && commit.author.timestamp <= untilTs) {
-          yield id;
-        }
-      } catch {
-        // Skip invalid commits
+      const commit = await this.load(id);
+      if (commit && commit.author.timestamp >= sinceTs && commit.author.timestamp <= untilTs) {
+        yield id;
       }
     }
   }
@@ -235,13 +251,9 @@ export class KVCommitStore implements CommitStore {
     const lowerPattern = pattern.toLowerCase();
 
     for await (const id of this.keys()) {
-      try {
-        const commit = await this.loadCommit(id);
-        if (commit.message.toLowerCase().includes(lowerPattern)) {
-          yield id;
-        }
-      } catch {
-        // Skip invalid commits
+      const commit = await this.load(id);
+      if (commit?.message.toLowerCase().includes(lowerPattern)) {
+        yield id;
       }
     }
   }
