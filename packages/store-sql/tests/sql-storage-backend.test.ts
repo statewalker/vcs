@@ -143,7 +143,7 @@ describe("SQLStorageBackend", () => {
         const id = await backend.blobs.store(chunks());
         expect(await backend.blobs.has(id)).toBe(true);
 
-        const deleted = await backend.blobs.delete(id);
+        const deleted = await backend.blobs.remove(id);
         expect(deleted).toBe(true);
         expect(await backend.blobs.has(id)).toBe(false);
       });
@@ -161,11 +161,13 @@ describe("SQLStorageBackend", () => {
 
         const entries = [{ mode: 0o100644, name: "file.txt", id: blobId }];
 
-        const treeId = await backend.trees.storeTree(entries);
+        const treeId = await backend.trees.store(entries);
         expect(treeId).toBeTruthy();
 
         const loaded = [];
-        for await (const entry of backend.trees.loadTree(treeId)) {
+        const treeEntries = await backend.trees.load(treeId);
+        if (!treeEntries) throw new Error("Tree not found");
+        for await (const entry of treeEntries) {
           loaded.push(entry);
         }
 
@@ -202,10 +204,10 @@ describe("SQLStorageBackend", () => {
           message: "Initial commit",
         };
 
-        const commitId = await backend.commits.storeCommit(commit);
+        const commitId = await backend.commits.store(commit);
         expect(commitId).toBeTruthy();
 
-        const loaded = await backend.commits.loadCommit(commitId);
+        const loaded = await backend.commits.load(commitId);
         expect(loaded.tree).toBe(emptyTreeId);
         expect(loaded.message).toBe("Initial commit");
         expect(loaded.author.name).toBe("Test Author");
@@ -232,7 +234,7 @@ describe("SQLStorageBackend", () => {
           message: "First commit",
         };
 
-        const commitId1 = await backend.commits.storeCommit(commit1);
+        const commitId1 = await backend.commits.store(commit1);
 
         const commit2 = {
           tree: emptyTreeId,
@@ -252,7 +254,7 @@ describe("SQLStorageBackend", () => {
           message: "Second commit",
         };
 
-        const commitId2 = await backend.commits.storeCommit(commit2);
+        const commitId2 = await backend.commits.store(commit2);
 
         const parents = await backend.commits.getParents(commitId2);
         expect(parents).toEqual([commitId1]);
@@ -281,7 +283,7 @@ describe("SQLStorageBackend", () => {
           message: "Test commit",
         };
 
-        const commitId = await backend.commits.storeCommit(commit);
+        const commitId = await backend.commits.store(commit);
 
         await backend.refs.set("refs/heads/main", commitId);
 
@@ -311,7 +313,7 @@ describe("SQLStorageBackend", () => {
           message: "Test commit",
         };
 
-        const commitId = await backend.commits.storeCommit(commit);
+        const commitId = await backend.commits.store(commit);
 
         await backend.refs.set("refs/heads/main", commitId);
         await backend.refs.setSymbolic("HEAD", "refs/heads/main");

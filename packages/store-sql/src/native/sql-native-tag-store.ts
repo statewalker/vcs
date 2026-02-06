@@ -72,7 +72,7 @@ export class SqlNativeTagStoreImpl implements SqlNativeTagStore {
   /**
    * Store an annotated tag object with Git-compatible ID
    */
-  async storeTag(tag: AnnotatedTag): Promise<ObjectId> {
+  async store(tag: AnnotatedTag): Promise<ObjectId> {
     const tagId = await computeGitTagId(tag);
 
     // Check if tag already exists (deduplication)
@@ -113,13 +113,14 @@ export class SqlNativeTagStoreImpl implements SqlNativeTagStore {
   }
 
   /**
-   * Load a tag object by ID
+   * Load a tag object by ID.
+   * Returns undefined if not found (new API behavior).
    */
-  async loadTag(id: ObjectId): Promise<AnnotatedTag> {
+  async load(id: ObjectId): Promise<AnnotatedTag | undefined> {
     const tags = await this.db.query<TagRow>("SELECT * FROM vcs_tag WHERE tag_id = ?", [id]);
 
     if (tags.length === 0) {
-      throw new Error(`Tag ${id} not found`);
+      return undefined;
     }
 
     const row = tags[0];
@@ -152,10 +153,15 @@ export class SqlNativeTagStoreImpl implements SqlNativeTagStore {
   }
 
   /**
-   * Get the tagged object ID
+   * Get the tagged object ID.
+   * Returns undefined if tag not found.
    */
-  async getTarget(id: ObjectId, peel = false): Promise<ObjectId> {
-    const tag = await this.loadTag(id);
+  async getTarget(id: ObjectId, peel = false): Promise<ObjectId | undefined> {
+    const tag = await this.load(id);
+
+    if (!tag) {
+      return undefined;
+    }
 
     if (!peel || tag.objectType !== ObjectType.TAG) {
       return tag.object;
@@ -198,6 +204,15 @@ export class SqlNativeTagStoreImpl implements SqlNativeTagStore {
       [id],
     );
     return result[0].cnt > 0;
+  }
+
+  /**
+   * Remove a tag by ID.
+   * @returns True if removed, false if not found
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    const result = await this.db.execute("DELETE FROM vcs_tag WHERE tag_id = ?", [id]);
+    return result.changes > 0;
   }
 
   /**

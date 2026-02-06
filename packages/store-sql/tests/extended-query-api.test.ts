@@ -56,8 +56,8 @@ describe("T5.5: Extended Query API Documentation Tests", () => {
         const commits = stores.commits;
 
         // Verify base interface methods exist
-        expect(typeof commits.storeCommit).toBe("function");
-        expect(typeof commits.loadCommit).toBe("function");
+        expect(typeof commits.store).toBe("function");
+        expect(typeof commits.load).toBe("function");
         expect(typeof commits.has).toBe("function");
         expect(typeof commits.keys).toBe("function");
         expect(typeof commits.getParents).toBe("function");
@@ -92,7 +92,7 @@ describe("T5.5: Extended Query API Documentation Tests", () => {
 
         // SqlNativeCommitStore should work here
         const commits = stores.commits;
-        await commits.storeCommit({
+        await commits.store({
           tree: emptyTreeId,
           parents: [],
           author: createPerson("Test", "test@example.com", 1700000000),
@@ -110,8 +110,8 @@ describe("T5.5: Extended Query API Documentation Tests", () => {
         const trees = stores.trees;
 
         // Verify base interface methods exist
-        expect(typeof trees.storeTree).toBe("function");
-        expect(typeof trees.loadTree).toBe("function");
+        expect(typeof trees.store).toBe("function");
+        expect(typeof trees.load).toBe("function");
         expect(typeof trees.has).toBe("function");
         expect(typeof trees.keys).toBe("function");
       });
@@ -131,8 +131,8 @@ describe("T5.5: Extended Query API Documentation Tests", () => {
         const tags = stores.tags;
 
         // Verify base interface methods exist
-        expect(typeof tags.storeTag).toBe("function");
-        expect(typeof tags.loadTag).toBe("function");
+        expect(typeof tags.store).toBe("function");
+        expect(typeof tags.load).toBe("function");
         expect(typeof tags.has).toBe("function");
         expect(typeof tags.keys).toBe("function");
       });

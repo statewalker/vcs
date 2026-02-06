@@ -182,7 +182,7 @@ describe("T5.4: Index Effectiveness Tests", () => {
 
         for (let i = 0; i < COMMIT_COUNT; i++) {
           const email = emails[i % emails.length];
-          await commits.storeCommit({
+          await commits.store({
             tree: emptyTreeId,
             parents: [],
             author: createPerson("Author", email, baseTimestamp + i * 100),
@@ -240,7 +240,7 @@ describe("T5.4: Index Effectiveness Tests", () => {
       beforeEach(async () => {
         // Create 100 commits with varied data
         for (let i = 0; i < 100; i++) {
-          await commits.storeCommit({
+          await commits.store({
             tree: emptyTreeId,
             parents: [],
             author: createPerson("Alice", `user${i}@example.com`, 1700000000 + i),
@@ -292,7 +292,7 @@ describe("T5.4: Index Effectiveness Tests", () => {
       commits = stores.commits;
 
       // Store some data
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: createPerson("Test", "test@example.com", 1700000000),
@@ -351,7 +351,7 @@ describe("T5.4: Index Effectiveness Tests", () => {
     });
 
     it("verifies primary key index for commit_id lookups", async () => {
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: createPerson("Test", "test@example.com", 1700000000),

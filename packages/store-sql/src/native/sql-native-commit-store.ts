@@ -79,7 +79,7 @@ export class SqlNativeCommitStoreImpl implements SqlNativeCommitStore {
   /**
    * Store a commit object with Git-compatible ID
    */
-  async storeCommit(commit: Commit): Promise<ObjectId> {
+  async store(commit: Commit): Promise<ObjectId> {
     const commitId = await computeGitCommitId(commit);
 
     // Check if commit already exists (deduplication)
@@ -135,15 +135,16 @@ export class SqlNativeCommitStoreImpl implements SqlNativeCommitStore {
   }
 
   /**
-   * Load a commit object by ID
+   * Load a commit object by ID.
+   * Returns undefined if not found (new API behavior).
    */
-  async loadCommit(id: ObjectId): Promise<Commit> {
+  async load(id: ObjectId): Promise<Commit | undefined> {
     const commits = await this.db.query<CommitRow>("SELECT * FROM vcs_commit WHERE commit_id = ?", [
       id,
     ]);
 
     if (commits.length === 0) {
-      throw new Error(`Commit ${id} not found`);
+      return undefined;
     }
 
     const row = commits[0];
@@ -188,6 +189,18 @@ export class SqlNativeCommitStoreImpl implements SqlNativeCommitStore {
   }
 
   /**
+   * Load a commit object by ID (throws if not found).
+   * Required for AncestryStorageOps compatibility.
+   */
+  async loadCommit(id: ObjectId): Promise<Commit> {
+    const commit = await this.load(id);
+    if (!commit) {
+      throw new Error(`Commit ${id} not found`);
+    }
+    return commit;
+  }
+
+  /**
    * Get parent commit IDs
    */
   async getParents(id: ObjectId): Promise<ObjectId[]> {
@@ -196,11 +209,12 @@ export class SqlNativeCommitStoreImpl implements SqlNativeCommitStore {
   }
 
   /**
-   * Get the tree ObjectId for a commit
+   * Get the tree ObjectId for a commit.
+   * Returns undefined if commit not found.
    */
-  async getTree(id: ObjectId): Promise<ObjectId> {
-    const commit = await this.loadCommit(id);
-    return commit.tree;
+  async getTree(id: ObjectId): Promise<ObjectId | undefined> {
+    const commit = await this.load(id);
+    return commit?.tree;
   }
 
   /**
@@ -229,6 +243,33 @@ export class SqlNativeCommitStoreImpl implements SqlNativeCommitStore {
       [id],
     );
     return result[0].cnt > 0;
+  }
+
+  /**
+   * Remove a commit by ID.
+   * @returns True if removed, false if not found
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    // First get the internal ID to delete parent references
+    const commits = await this.db.query<{ id: number }>(
+      "SELECT id FROM vcs_commit WHERE commit_id = ?",
+      [id],
+    );
+
+    if (commits.length === 0) {
+      return false;
+    }
+
+    const internalId = commits[0].id;
+
+    await this.db.transaction(async (tx) => {
+      // Delete parent references first (foreign key)
+      await tx.execute("DELETE FROM commit_parent WHERE commit_fk = ?", [internalId]);
+      // Delete the commit
+      await tx.execute("DELETE FROM vcs_commit WHERE id = ?", [internalId]);
+    });
+
+    return true;
   }
 
   /**

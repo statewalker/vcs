@@ -51,7 +51,7 @@ describe("SQL Native Stores Extended Queries", () => {
 
     it("findByAuthor returns commits by author email", async () => {
       // Store commits from different authors
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -59,7 +59,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Commit by Alice",
       });
 
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author2,
@@ -67,7 +67,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Commit by Bob",
       });
 
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -94,7 +94,7 @@ describe("SQL Native Stores Extended Queries", () => {
 
     it("findByDateRange returns commits in date range", async () => {
       // Store commits at different times
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -102,7 +102,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Early commit",
       });
 
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author2,
@@ -110,7 +110,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Middle commit",
       });
 
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author3,
@@ -131,7 +131,7 @@ describe("SQL Native Stores Extended Queries", () => {
     });
 
     it("searchMessage finds commits by message content", async () => {
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -139,7 +139,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Fix critical bug in login",
       });
 
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author2,
@@ -147,7 +147,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Add new feature",
       });
 
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author3,
@@ -175,7 +175,7 @@ describe("SQL Native Stores Extended Queries", () => {
     it("count returns correct number of commits", async () => {
       expect(await stores.commits.count()).toBe(0);
 
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author1,
@@ -185,7 +185,7 @@ describe("SQL Native Stores Extended Queries", () => {
 
       expect(await stores.commits.count()).toBe(1);
 
-      await stores.commits.storeCommit({
+      await stores.commits.store({
         tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
         parents: [],
         author: author2,
@@ -202,13 +202,13 @@ describe("SQL Native Stores Extended Queries", () => {
       const blobId = "0000000000000000000000000000000000000001";
 
       // Store tree with the blob
-      await stores.trees.storeTree([
+      await stores.trees.store([
         { mode: 0o100644, name: "file.txt", id: blobId },
         { mode: 0o100644, name: "other.txt", id: "0000000000000000000000000000000000000002" },
       ]);
 
       // Store tree without the blob
-      await stores.trees.storeTree([
+      await stores.trees.store([
         { mode: 0o100644, name: "another.txt", id: "0000000000000000000000000000000000000003" },
       ]);
 
@@ -221,7 +221,7 @@ describe("SQL Native Stores Extended Queries", () => {
     });
 
     it("findByNamePattern finds entries matching pattern", async () => {
-      await stores.trees.storeTree([
+      await stores.trees.store([
         { mode: 0o100644, name: "file.ts", id: "0000000000000000000000000000000000000001" },
         { mode: 0o100644, name: "file.js", id: "0000000000000000000000000000000000000002" },
         { mode: 0o100644, name: "README.md", id: "0000000000000000000000000000000000000003" },
@@ -240,7 +240,7 @@ describe("SQL Native Stores Extended Queries", () => {
     it("count returns correct number of trees", async () => {
       expect(await stores.trees.count()).toBe(0);
 
-      await stores.trees.storeTree([
+      await stores.trees.store([
         { mode: 0o100644, name: "file.txt", id: "0000000000000000000000000000000000000001" },
       ]);
 
@@ -257,7 +257,7 @@ describe("SQL Native Stores Extended Queries", () => {
     };
 
     it("findByNamePattern finds tags matching pattern", async () => {
-      await stores.tags.storeTag({
+      await stores.tags.store({
         object: "0000000000000000000000000000000000000001",
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
@@ -265,7 +265,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Release 1.0.0",
       });
 
-      await stores.tags.storeTag({
+      await stores.tags.store({
         object: "0000000000000000000000000000000000000002",
         objectType: ObjectType.COMMIT,
         tag: "v1.1.0",
@@ -273,7 +273,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Release 1.1.0",
       });
 
-      await stores.tags.storeTag({
+      await stores.tags.store({
         object: "0000000000000000000000000000000000000003",
         objectType: ObjectType.COMMIT,
         tag: "v2.0.0",
@@ -298,7 +298,7 @@ describe("SQL Native Stores Extended Queries", () => {
         tzOffset: "+0000",
       };
 
-      await stores.tags.storeTag({
+      await stores.tags.store({
         object: "0000000000000000000000000000000000000001",
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
@@ -306,7 +306,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Release by Alice",
       });
 
-      await stores.tags.storeTag({
+      await stores.tags.store({
         object: "0000000000000000000000000000000000000002",
         objectType: ObjectType.COMMIT,
         tag: "v2.0.0",
@@ -323,7 +323,7 @@ describe("SQL Native Stores Extended Queries", () => {
     });
 
     it("findByTargetType finds tags by object type", async () => {
-      await stores.tags.storeTag({
+      await stores.tags.store({
         object: "0000000000000000000000000000000000000001",
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
@@ -331,7 +331,7 @@ describe("SQL Native Stores Extended Queries", () => {
         message: "Commit tag",
       });
 
-      await stores.tags.storeTag({
+      await stores.tags.store({
         object: "0000000000000000000000000000000000000002",
         objectType: ObjectType.TREE,
         tag: "tree-tag",
@@ -357,7 +357,7 @@ describe("SQL Native Stores Extended Queries", () => {
     it("count returns correct number of tags", async () => {
       expect(await stores.tags.count()).toBe(0);
 
-      await stores.tags.storeTag({
+      await stores.tags.store({
         object: "0000000000000000000000000000000000000001",
         objectType: ObjectType.COMMIT,
         tag: "v1.0.0",
