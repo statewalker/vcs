@@ -24,8 +24,8 @@
  * ```
  */
 
-import { createHistoryWithOperations, registerHistoryBackendFactory } from "@statewalker/vcs-core";
-import { SQLStorageBackend, type SQLStorageBackendConfig } from "./sql-storage-backend.js";
+import { registerHistoryBackendFactory } from "@statewalker/vcs-core";
+import { SQLHistoryFactory, type SQLStorageBackendConfig } from "./sql-storage-backend.js";
 
 /**
  * Register the SQL backend with the HistoryBackendFactory pattern
@@ -54,6 +54,8 @@ import { SQLStorageBackend, type SQLStorageBackendConfig } from "./sql-storage-b
  * ```
  */
 export function registerSqlHistoryFactory(): void {
+  const factory = new SQLHistoryFactory();
+
   registerHistoryBackendFactory("sql", async (config) => {
     const sqlConfig = config as SQLStorageBackendConfig;
 
@@ -64,10 +66,9 @@ export function registerSqlHistoryFactory(): void {
       );
     }
 
-    const backend = new SQLStorageBackend({
+    return factory.createHistory({
       db: sqlConfig.db,
       autoMigrate: true,
     });
-    return createHistoryWithOperations({ backend });
   });
 }

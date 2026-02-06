@@ -134,6 +134,14 @@ export interface Commits extends ObjectStorage<Commit> {
    * @returns True if ancestor is reachable from descendant
    */
   isAncestor(ancestor: ObjectId, descendant: ObjectId): Promise<boolean>;
+
+  /**
+   * Check if a commit exists
+   *
+   * @param id Commit object ID
+   * @returns True if commit exists
+   */
+  has(id: ObjectId): Promise<boolean>;
 }
 
 /**
