@@ -89,7 +89,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
 
         expect(id).toMatch(/^[0-9a-f]{40}$/);
 
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
         expect(decoder.decode(loaded)).toBe("Hello, World!");
       });
 
@@ -190,7 +192,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
           expect(size).toBe(expectedSize);
 
           // Also verify loaded content has correct size
-          const loaded = await collectBytes(ctx.blobStore.load(id));
+          const result = await ctx.blobStore.load(id);
+          if (!result) throw new Error("Blob not found");
+          const loaded = await collectBytes(result);
           expect(loaded.length).toBe(expectedSize);
         }
       });
@@ -205,7 +209,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         }
 
         const id = await ctx.blobStore.store(generateChunks());
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
 
         expect(decoder.decode(loaded)).toBe("chunk1chunk2chunk3");
       });
@@ -217,7 +223,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         }
 
         const id = await ctx.blobStore.store(generateChunks());
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
 
         expect(decoder.decode(loaded)).toBe("sync1sync2");
       });
@@ -226,8 +234,10 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         const content = encoder.encode("streamable content");
         const id = await ctx.blobStore.store(toStream(content));
 
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
         const chunks: Uint8Array[] = [];
-        for await (const chunk of ctx.blobStore.load(id)) {
+        for await (const chunk of result) {
           chunks.push(chunk);
         }
 
@@ -253,7 +263,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         const size = await ctx.blobStore.size(id);
         expect(size).toBe(largeContent.length);
 
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
         expect(loaded.length).toBe(largeContent.length);
 
         // Verify content integrity
@@ -299,7 +311,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         }
 
         const id = await ctx.blobStore.store(toStream(binaryContent));
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
 
         expect(loaded.length).toBe(256);
         for (let i = 0; i < 256; i++) {
@@ -311,21 +325,19 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         const contentWithNulls = new Uint8Array([0, 1, 0, 2, 0, 3]);
         const id = await ctx.blobStore.store(toStream(contentWithNulls));
 
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
         expect(loaded).toEqual(contentWithNulls);
       });
     });
 
     describe("Error Handling", () => {
-      it("throws when loading non-existent blob", async () => {
+      it("returns undefined when loading non-existent blob", async () => {
         const nonExistentId = "0000000000000000000000000000000000000000";
 
-        // Attempting to iterate should throw
-        await expect(async () => {
-          for await (const _chunk of ctx.blobStore.load(nonExistentId)) {
-            // Should not reach here
-          }
-        }).rejects.toThrow();
+        const result = await ctx.blobStore.load(nonExistentId);
+        expect(result).toBeUndefined();
       });
 
       it("throws when getting size of non-existent blob", async () => {
@@ -341,7 +353,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         expect(await ctx.blobStore.has(id)).toBe(true);
         expect(await ctx.blobStore.size(id)).toBe(0);
 
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
         expect(loaded.length).toBe(0);
       });
     });
@@ -382,7 +396,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         const content = encoder.encode("line1\nline2\nline3\n");
         const id = await ctx.blobStore.store(toStream(content));
 
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
         expect(decoder.decode(loaded)).toBe("line1\nline2\nline3\n");
       });
 
@@ -390,7 +406,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         const content = encoder.encode("line1\r\nline2\r\nline3\r\n");
         const id = await ctx.blobStore.store(toStream(content));
 
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
         expect(decoder.decode(loaded)).toBe("line1\r\nline2\r\nline3\r\n");
       });
 
@@ -398,7 +416,9 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         const content = encoder.encode("Hello 世界 🌍 مرحبا");
         const id = await ctx.blobStore.store(toStream(content));
 
-        const loaded = await collectBytes(ctx.blobStore.load(id));
+        const result = await ctx.blobStore.load(id);
+        if (!result) throw new Error("Blob not found");
+        const loaded = await collectBytes(result);
         expect(decoder.decode(loaded)).toBe("Hello 世界 🌍 مرحبا");
       });
     });

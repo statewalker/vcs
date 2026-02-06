@@ -2,6 +2,7 @@
  * Git tag store implementation
  *
  * Wraps GitObjectStore with tag serialization/deserialization.
+ * Implements both TagStore (legacy) and Tags (new) interfaces.
  */
 
 import type { ObjectId } from "../../common/id/index.js";
@@ -9,26 +10,56 @@ import type { GitObjectStore } from "../objects/object-store.js";
 import { ObjectType } from "../objects/object-types.js";
 import { decodeTagEntries, encodeTagEntries, entriesToTag, tagToEntries } from "./tag-format.js";
 import type { TagStore } from "./tag-store.js";
-import type { AnnotatedTag } from "./tags.js";
+import type { AnnotatedTag, Tags } from "./tags.js";
 
 /**
  * Git tag store implementation
  *
  * Handles tag serialization and delegates storage to GitObjectStore.
+ * Implements both TagStore (legacy) and Tags (new) interfaces.
  */
-export class GitTagStore implements TagStore {
+export class GitTagStore implements TagStore, Tags {
   constructor(private readonly objects: GitObjectStore) {}
 
+  // ============ New Tags Interface ============
+
   /**
-   * Store an annotated tag
+   * Store an annotated tag (new interface)
    */
-  async storeTag(tag: AnnotatedTag): Promise<ObjectId> {
+  async store(tag: AnnotatedTag): Promise<ObjectId> {
     const entries = tagToEntries(tag);
     return this.objects.store("tag", encodeTagEntries(entries));
   }
 
   /**
-   * Load an annotated tag by ID
+   * Load a tag by ID (new interface)
+   * Returns undefined if tag doesn't exist.
+   */
+  async load(id: ObjectId): Promise<AnnotatedTag | undefined> {
+    if (!(await this.has(id))) {
+      return undefined;
+    }
+    return this.loadTag(id);
+  }
+
+  /**
+   * Remove tag (new interface)
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    return this.objects.remove(id);
+  }
+
+  // ============ Legacy TagStore Interface ============
+
+  /**
+   * Store an annotated tag (legacy)
+   */
+  async storeTag(tag: AnnotatedTag): Promise<ObjectId> {
+    return this.store(tag);
+  }
+
+  /**
+   * Load an annotated tag by ID (legacy)
    */
   async loadTag(id: ObjectId): Promise<AnnotatedTag> {
     const [header, content] = await this.objects.loadWithHeader(id);
@@ -44,12 +75,19 @@ export class GitTagStore implements TagStore {
     }
   }
 
+  // ============ Common Methods ============
+
   /**
    * Get the tagged object ID
    *
    * Follows tag chains if peel is true.
+   * Returns undefined if tag doesn't exist (new interface behavior).
    */
-  async getTarget(id: ObjectId, peel = false): Promise<ObjectId> {
+  async getTarget(id: ObjectId, peel = false): Promise<ObjectId | undefined> {
+    if (!(await this.has(id))) {
+      return undefined;
+    }
+
     const tag = await this.loadTag(id);
 
     if (!peel || tag.objectType !== ObjectType.TAG) {

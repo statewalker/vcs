@@ -3,18 +3,21 @@
  *
  * Thin wrapper over GitObjectStore for blob operations.
  * Blobs are the simplest object type - just raw binary content.
+ * Implements both BlobStore (legacy) and Blobs (new) interfaces.
  */
 
 import type { ObjectId } from "../../common/id/index.js";
 import type { GitObjectStore } from "../objects/object-store.js";
 import type { BlobStore } from "./blob-store.js";
+import type { Blobs } from "./blobs.js";
 
 /**
  * Git blob store implementation
  *
  * Delegates all operations to GitObjectStore with "blob" type.
+ * Implements both BlobStore (legacy) and Blobs (new) interfaces.
  */
-export class GitBlobStore implements BlobStore {
+export class GitBlobStore implements BlobStore, Blobs {
   constructor(private readonly objects: GitObjectStore) {}
 
   /**
@@ -25,9 +28,23 @@ export class GitBlobStore implements BlobStore {
   }
 
   /**
-   * Load blob content
+   * Load blob content (Blobs interface)
+   * Returns undefined if blob doesn't exist.
    */
-  async *load(id: ObjectId): AsyncGenerator<Uint8Array> {
+  async load(id: ObjectId): Promise<AsyncIterable<Uint8Array> | undefined> {
+    if (!(await this.objects.has(id))) {
+      return undefined;
+    }
+    const self = this;
+    return (async function* () {
+      yield* self.loadContent(id);
+    })();
+  }
+
+  /**
+   * Load blob content (internal implementation)
+   */
+  private async *loadContent(id: ObjectId): AsyncGenerator<Uint8Array> {
     const [header, content] = await this.objects.loadWithHeader(id);
     try {
       if (header.type !== "blob") {
@@ -38,6 +55,13 @@ export class GitBlobStore implements BlobStore {
       content?.return?.(void 0);
       throw err;
     }
+  }
+
+  /**
+   * Remove blob (new interface)
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    return this.objects.remove(id);
   }
 
   /**
@@ -78,7 +102,7 @@ export class GitBlobStore implements BlobStore {
   }
 
   /**
-   * Delete a blob from storage
+   * Delete a blob from storage (legacy interface)
    */
   delete(id: ObjectId): Promise<boolean> {
     return this.objects.remove(id);

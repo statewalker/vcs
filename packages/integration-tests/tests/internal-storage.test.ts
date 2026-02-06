@@ -42,7 +42,9 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
 
       // Retrieve and verify
       const chunks: Uint8Array[] = [];
-      for await (const chunk of repository.blobs.load(blobId)) {
+      const stream = await repository.blobs.load(blobId);
+      if (!stream) throw new Error("Blob not found");
+      for await (const chunk of stream) {
         chunks.push(chunk);
       }
 
@@ -145,7 +147,9 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
       // All should be retrievable
       for (const id of blobIds) {
         const chunks: Uint8Array[] = [];
-        for await (const chunk of repository.blobs.load(id)) {
+        const stream = await repository.blobs.load(id);
+        if (!stream) throw new Error("Blob not found");
+        for await (const chunk of stream) {
           chunks.push(chunk);
         }
         expect(chunks.length).toBeGreaterThan(0);
@@ -284,13 +288,17 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
 
       // Both should be retrievable
       const chunks1: Uint8Array[] = [];
-      for await (const chunk of repository.blobs.load(baseId)) {
+      const stream1 = await repository.blobs.load(baseId);
+      if (!stream1) throw new Error("Blob not found");
+      for await (const chunk of stream1) {
         chunks1.push(chunk);
       }
       expect(chunks1.length).toBeGreaterThan(0);
 
       const chunks2: Uint8Array[] = [];
-      for await (const chunk of repository.blobs.load(modifiedId)) {
+      const stream2 = await repository.blobs.load(modifiedId);
+      if (!stream2) throw new Error("Blob not found");
+      for await (const chunk of stream2) {
         chunks2.push(chunk);
       }
       expect(chunks2.length).toBeGreaterThan(0);
@@ -312,7 +320,9 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
 
       // Retrieve and verify size
       const chunks: Uint8Array[] = [];
-      for await (const chunk of repository.blobs.load(blobId)) {
+      const stream = await repository.blobs.load(blobId);
+      if (!stream) throw new Error("Blob not found");
+      for await (const chunk of stream) {
         chunks.push(chunk);
       }
 
@@ -335,7 +345,9 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
 
       // Retrieve and verify
       const chunks: Uint8Array[] = [];
-      for await (const chunk of repository.blobs.load(blobId)) {
+      const stream = await repository.blobs.load(blobId);
+      if (!stream) throw new Error("Blob not found");
+      for await (const chunk of stream) {
         chunks.push(chunk);
       }
 

@@ -65,29 +65,10 @@ class BlobsAdapter implements Blobs {
     return this.legacyStore.store(content);
   }
 
-  async load(
+  load(
     id: import("@statewalker/vcs-core").ObjectId,
   ): Promise<AsyncIterable<Uint8Array> | undefined> {
-    try {
-      const stream = this.legacyStore.load(id);
-      const reader = stream[Symbol.asyncIterator]();
-      const first = await reader.next();
-      if (first.done) {
-        return (async function* () {})();
-      }
-      const firstChunk = first.value;
-      const restReader = reader;
-      return (async function* () {
-        yield firstChunk;
-        let result = await restReader.next();
-        while (!result.done) {
-          yield result.value;
-          result = await restReader.next();
-        }
-      })();
-    } catch {
-      return undefined;
-    }
+    return this.legacyStore.load(id);
   }
 
   has(id: import("@statewalker/vcs-core").ObjectId): Promise<boolean> {

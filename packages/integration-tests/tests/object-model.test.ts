@@ -63,7 +63,9 @@ describe.each(backends)("Object Model ($name backend)", ({ factory }) => {
       const blobId = await repository.blobs.store([encoder.encode(originalContent)]);
 
       const chunks: Uint8Array[] = [];
-      for await (const chunk of repository.blobs.load(blobId)) {
+      const stream = await repository.blobs.load(blobId);
+      if (!stream) throw new Error("Blob not found");
+      for await (const chunk of stream) {
         chunks.push(chunk);
       }
 

@@ -1,22 +1,26 @@
 /**
- * Mock TreeStore for testing
+ * Mock Trees for testing
+ *
+ * Implements both old TreeStore and new Trees interfaces for backward compatibility.
  */
 
 import { vi } from "vitest";
 
 import type { TreeEntry } from "../../src/history/trees/tree-entry.js";
-import type { TreeStore } from "../../src/history/trees/tree-store.js";
+import type { Trees } from "../../src/history/trees/trees.js";
 
 /**
- * Create a mock TreeStore for testing.
+ * Create a mock Trees for testing.
  *
  * Accepts either:
  * - A Map<string, TreeEntry[]> mapping tree IDs to their entries
  * - A Record<string, TreeEntry[]> object for convenience
+ *
+ * Implements both old TreeStore and new Trees interfaces.
  */
 export function createMockTreeStore(
   entries: Map<string, TreeEntry[]> | Record<string, TreeEntry[]> = {},
-): TreeStore {
+): Trees {
   const entriesMap = entries instanceof Map ? entries : new Map(Object.entries(entries));
 
   const loadTreeImpl = async function* (treeId: string) {
@@ -86,5 +90,9 @@ export function createMockTreeStore(
         yield key;
       }
     }),
-  } as unknown as TreeStore;
+
+    remove: vi.fn().mockImplementation(async (treeId: string) => {
+      return entriesMap.delete(treeId);
+    }),
+  } as unknown as Trees;
 }

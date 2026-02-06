@@ -9,12 +9,13 @@ import type {
   IndexEditor,
   MergeStageValue,
   ObjectId,
+  ReadTreeOptions,
   Staging,
   StagingEdit,
   StagingEntry,
   StagingEntryOptions,
   TreeEntry,
-  TreeStore,
+  Trees,
 } from "@statewalker/vcs-core";
 import { FileMode, MergeStage } from "@statewalker/vcs-core";
 import type { KVStore } from "./kv-store.js";
@@ -321,7 +322,7 @@ export class KVStaging implements Staging {
 
   // ============ Tree Operations ============
 
-  async writeTree(treeStore: TreeStore): Promise<ObjectId> {
+  async writeTree(trees: Trees): Promise<ObjectId> {
     if (await this.hasConflicts()) {
       throw new Error("Cannot write tree with unresolved conflicts");
     }
@@ -333,11 +334,11 @@ export class KVStaging implements Staging {
       }
     }
 
-    return this.buildTreeRecursive(treeStore, entries, "");
+    return this.buildTreeRecursive(trees, entries, "");
   }
 
   private async buildTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees,
     entries: StagingEntry[],
     prefix: string,
   ): Promise<ObjectId> {
@@ -365,7 +366,7 @@ export class KVStaging implements Staging {
 
     for (const [dirName, dirEntries] of subdirs) {
       const subPrefix = prefix ? `${prefix}/${dirName}` : dirName;
-      const subtreeId = await this.buildTreeRecursive(treeStore, dirEntries, subPrefix);
+      const subtreeId = await this.buildTreeRecursive(trees, dirEntries, subPrefix);
       treeEntries.push({
         name: dirName,
         mode: FileMode.TREE,
@@ -373,26 +374,32 @@ export class KVStaging implements Staging {
       });
     }
 
-    return treeStore.storeTree(treeEntries);
+    return trees.store(treeEntries);
   }
 
-  async readTree(treeStore: TreeStore, treeId: ObjectId): Promise<void> {
-    await this.clear();
-    await this.addTreeRecursive(treeStore, treeId, "", MergeStage.MERGED);
+  async readTree(trees: Trees, treeId: ObjectId, options?: ReadTreeOptions): Promise<void> {
+    if (!options?.keepExisting) {
+      await this.clear();
+    }
+    const prefix = options?.prefix ?? "";
+    const stage = options?.stage ?? MergeStage.MERGED;
+    await this.addTreeRecursive(trees, treeId, prefix, stage);
     this.updateTime = Date.now();
   }
 
   private async addTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    for await (const entry of treeStore.loadTree(treeId)) {
+    const treeEntries = await trees.load(treeId);
+    if (!treeEntries) return;
+    for await (const entry of treeEntries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
-        await this.addTreeRecursive(treeStore, entry.id, path, stage);
+        await this.addTreeRecursive(trees, entry.id, path, stage);
       } else {
         const serialized: SerializedEntry = {
           p: path,
@@ -513,27 +520,27 @@ class KVIndexBuilder implements IndexBuilder {
   }
 
   async addTree(
-    trees: import("@statewalker/vcs-core").Trees,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue = MergeStage.MERGED,
   ): Promise<void> {
-    // Handle both Trees and TreeStore interfaces
-    const treeStore = trees as any as TreeStore;
-    await this.addTreeRecursive(treeStore, treeId, prefix, stage);
+    await this.addTreeRecursive(trees, treeId, prefix, stage);
   }
 
   private async addTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    for await (const entry of treeStore.loadTree(treeId)) {
+    const treeEntries = await trees.load(treeId);
+    if (!treeEntries) return;
+    for await (const entry of treeEntries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
-        await this.addTreeRecursive(treeStore, entry.id, path, stage);
+        await this.addTreeRecursive(trees, entry.id, path, stage);
       } else {
         this.add({
           path,

@@ -1,6 +1,7 @@
 import { FileMode, type FilesApi, readFile } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
-import type { TreeEntry, TreeStore } from "../../history/trees/index.js";
+import type { TreeEntry } from "../../history/trees/tree-entry.js";
+import type { Trees } from "../../history/trees/trees.js";
 import {
   INDEX_VERSION_2,
   type IndexVersion,
@@ -216,7 +217,7 @@ export class FileStagingStore implements Staging {
 
   // ============ Tree Operations ============
 
-  async writeTree(treeStore: TreeStore): Promise<ObjectId> {
+  async writeTree(trees: Trees): Promise<ObjectId> {
     // Check for conflicts
     if (await this.hasConflicts()) {
       throw new Error("Cannot write tree with unresolved conflicts");
@@ -224,11 +225,11 @@ export class FileStagingStore implements Staging {
 
     // Build tree from stage 0 entries only
     const stage0 = this._entries.filter((e) => e.stage === MergeStage.MERGED);
-    return this.buildTreeRecursive(treeStore, stage0, "");
+    return this.buildTreeRecursive(trees, stage0, "");
   }
 
   private async buildTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees,
     entries: StagingEntry[],
     prefix: string,
   ): Promise<ObjectId> {
@@ -260,7 +261,7 @@ export class FileStagingStore implements Staging {
     // Recursively build subdirectories
     for (const [dirName, dirEntries] of subdirs) {
       const subPrefix = prefix ? `${prefix}/${dirName}` : dirName;
-      const subtreeId = await this.buildTreeRecursive(treeStore, dirEntries, subPrefix);
+      const subtreeId = await this.buildTreeRecursive(trees, dirEntries, subPrefix);
       treeEntries.push({
         name: dirName,
         mode: FileMode.TREE,
@@ -268,26 +269,30 @@ export class FileStagingStore implements Staging {
       });
     }
 
-    return treeStore.storeTree(treeEntries);
+    return trees.store(treeEntries);
   }
 
-  async readTree(treeStore: TreeStore, treeId: ObjectId): Promise<void> {
+  async readTree(trees: Trees, treeId: ObjectId): Promise<void> {
     this._entries = [];
-    await this.addTreeRecursive(treeStore, treeId, "", MergeStage.MERGED);
+    await this.addTreeRecursive(trees, treeId, "", MergeStage.MERGED);
     this.sortEntries();
   }
 
   private async addTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    for await (const entry of treeStore.loadTree(treeId)) {
+    const treeEntries = await trees.load(treeId);
+    if (!treeEntries) {
+      return;
+    }
+    for await (const entry of treeEntries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
-        await this.addTreeRecursive(treeStore, entry.id, path, stage);
+        await this.addTreeRecursive(trees, entry.id, path, stage);
       } else {
         this._entries.push({
           path,
@@ -431,27 +436,29 @@ class FileStagingBuilder implements IndexBuilder {
   }
 
   async addTree(
-    trees: import("../../history/trees/trees.js").Trees | TreeStore,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue = MergeStage.MERGED,
   ): Promise<void> {
-    // Handle both Trees and TreeStore interfaces
-    const treeStore = trees as TreeStore;
-    await this.addTreeRecursive(treeStore, treeId, prefix, stage);
+    await this.addTreeRecursive(trees, treeId, prefix, stage);
   }
 
   private async addTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    for await (const entry of treeStore.loadTree(treeId)) {
+    const treeEntries = await trees.load(treeId);
+    if (!treeEntries) {
+      return;
+    }
+    for await (const entry of treeEntries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
-        await this.addTreeRecursive(treeStore, entry.id, path, stage);
+        await this.addTreeRecursive(trees, entry.id, path, stage);
       } else {
         this.add({
           path,

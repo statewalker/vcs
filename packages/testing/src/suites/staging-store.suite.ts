@@ -5,7 +5,7 @@
  * All storage implementations must pass these tests.
  */
 
-import type { Staging, StagingEntry, StagingEntryOptions, TreeStore } from "@statewalker/vcs-core";
+import type { Staging, StagingEntry, StagingEntryOptions, Trees } from "@statewalker/vcs-core";
 import { FileMode, MergeStage } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
  */
 export interface StagingStoreTestContext {
   stagingStore: Staging;
-  treeStore?: TreeStore;
+  trees?: Trees;
   cleanup?: () => Promise<void>;
 }
 
@@ -489,7 +489,7 @@ export function createStagingStoreTests(name: string, factory: StagingStoreFacto
 
     describe("Tree Operations", () => {
       it("writes tree from staging area", async () => {
-        if (!ctx.treeStore) {
+        if (!ctx.trees) {
           // Skip test if treeStore not provided
           return;
         }
@@ -499,13 +499,13 @@ export function createStagingStoreTests(name: string, factory: StagingStoreFacto
         builder.add(createEntry("dir/nested.txt"));
         await builder.finish();
 
-        const treeId = await ctx.stagingStore.writeTree(ctx.treeStore);
+        const treeId = await ctx.stagingStore.writeTree(ctx.trees);
         expect(treeId).toBeDefined();
         expect(typeof treeId).toBe("string");
       });
 
       it("throws writeTree with conflicts", async () => {
-        if (!ctx.treeStore) {
+        if (!ctx.trees) {
           // Skip test if treeStore not provided
           return;
         }
@@ -515,11 +515,11 @@ export function createStagingStoreTests(name: string, factory: StagingStoreFacto
         builder.add(createEntry("conflict.txt", { stage: MergeStage.THEIRS }));
         await builder.finish();
 
-        await expect(ctx.stagingStore.writeTree(ctx.treeStore)).rejects.toThrow();
+        await expect(ctx.stagingStore.writeTree(ctx.trees)).rejects.toThrow();
       });
 
       it("reads tree into staging area", async () => {
-        if (!ctx.treeStore) {
+        if (!ctx.trees) {
           // Skip test if treeStore not provided
           return;
         }
@@ -529,11 +529,11 @@ export function createStagingStoreTests(name: string, factory: StagingStoreFacto
         builder.add(createEntry("file.txt", { objectId: fakeObjectId("content") }));
         await builder.finish();
 
-        const treeId = await ctx.stagingStore.writeTree(ctx.treeStore);
+        const treeId = await ctx.stagingStore.writeTree(ctx.trees);
 
         // Clear and read back
         await ctx.stagingStore.clear();
-        await ctx.stagingStore.readTree(ctx.treeStore, treeId);
+        await ctx.stagingStore.readTree(ctx.trees, treeId);
 
         expect(await ctx.stagingStore.hasEntry("file.txt")).toBe(true);
       });

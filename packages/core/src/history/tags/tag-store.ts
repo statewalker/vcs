@@ -72,9 +72,9 @@ export interface TagStore {
    *
    * @param id ObjectId of the tag
    * @param peel If true, follow tag chains to the final non-tag object
-   * @returns ObjectId of the (peeled) target object
+   * @returns ObjectId of the (peeled) target object, or undefined if not found
    */
-  getTarget(id: ObjectId, peel?: boolean): Promise<ObjectId>;
+  getTarget(id: ObjectId, peel?: boolean): Promise<ObjectId | undefined>;
 
   /**
    * Check if tag exists

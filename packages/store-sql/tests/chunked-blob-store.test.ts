@@ -36,8 +36,14 @@ describe("SqlNativeBlobStore chunked storage", () => {
   }
 
   /** Helper to collect async iterable into single Uint8Array */
-  async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
-    return collect(iterable);
+  async function collectBytes(
+    iterable: AsyncIterable<Uint8Array> | Promise<AsyncIterable<Uint8Array> | undefined>,
+  ): Promise<Uint8Array> {
+    const resolved = await iterable;
+    if (!resolved) {
+      throw new Error("Blob not found");
+    }
+    return collect(resolved);
   }
 
   /** Compute expected Git blob hash */
@@ -253,7 +259,9 @@ describe("SqlNativeBlobStore chunked storage", () => {
       const id = await store.store(toStream(content));
 
       let chunkCount = 0;
-      for await (const chunk of store.load(id)) {
+      const stream = await store.load(id);
+      if (!stream) throw new Error("Blob not found");
+      for await (const chunk of stream) {
         chunkCount++;
         expect(chunk.length).toBe(content.length);
       }
@@ -266,7 +274,9 @@ describe("SqlNativeBlobStore chunked storage", () => {
 
       let chunkCount = 0;
       let totalBytes = 0;
-      for await (const chunk of store.load(id)) {
+      const stream = await store.load(id);
+      if (!stream) throw new Error("Blob not found");
+      for await (const chunk of stream) {
         chunkCount++;
         totalBytes += chunk.length;
         expect(chunk.length).toBeLessThanOrEqual(CHUNK_SIZE);

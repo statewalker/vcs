@@ -16,7 +16,7 @@
 
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
-import type { TreeStore } from "../../history/trees/index.js";
+import type { Trees } from "../../history/trees/trees.js";
 import type { MergeStageValue, StagingEntry } from "../staging/index.js";
 import type { Staging } from "../staging/staging.js";
 import type { WorktreeEntry } from "../worktree/index.js";
@@ -30,7 +30,7 @@ import { getStageState, type StageStateValue } from "./status-calculator.js";
  */
 export interface IndexDiffDependencies {
   /** Tree storage for accessing HEAD tree */
-  readonly trees: TreeStore;
+  readonly trees: Trees;
   /** Staging area (index) */
   readonly staging: Staging;
   /** Worktree interface */
@@ -135,7 +135,11 @@ class IndexDiffCalculatorImpl implements IndexDiffCalculator {
     map: Map<string, ObjectId>,
     pathPrefix?: string,
   ): Promise<void> {
-    for await (const entry of this.deps.trees.loadTree(treeId)) {
+    const treeEntries = await this.deps.trees.load(treeId);
+    if (!treeEntries) {
+      return;
+    }
+    for await (const entry of treeEntries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       // Check path prefix filter
