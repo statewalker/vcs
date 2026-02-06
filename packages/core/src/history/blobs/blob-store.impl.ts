@@ -3,21 +3,18 @@
  *
  * Thin wrapper over GitObjectStore for blob operations.
  * Blobs are the simplest object type - just raw binary content.
- * Implements both BlobStore (legacy) and Blobs (new) interfaces.
  */
 
 import type { ObjectId } from "../../common/id/index.js";
 import type { GitObjectStore } from "../objects/object-store.js";
-import type { BlobStore } from "./blob-store.js";
 import type { Blobs } from "./blobs.js";
 
 /**
  * Git blob store implementation
  *
  * Delegates all operations to GitObjectStore with "blob" type.
- * Implements both BlobStore (legacy) and Blobs (new) interfaces.
  */
-export class GitBlobStore implements BlobStore, Blobs {
+export class GitBlobStore implements Blobs {
   constructor(private readonly objects: GitObjectStore) {}
 
   /**
@@ -101,10 +98,4 @@ export class GitBlobStore implements BlobStore, Blobs {
     return header.size;
   }
 
-  /**
-   * Delete a blob from storage (legacy interface)
-   */
-  delete(id: ObjectId): Promise<boolean> {
-    return this.objects.remove(id);
-  }
 }

@@ -9,7 +9,7 @@
  * Trees and commits are stored as-is without delta compression.
  */
 
-import type { BlobStore } from "../../../history/blobs/blob-store.js";
+import type { Blobs } from "../../../history/blobs/blobs.js";
 import { ObjectType } from "../../../history/objects/object-types.js";
 import type {
   CandidateFinder,
@@ -50,7 +50,7 @@ export class SizeSimilarityCandidateFinder implements CandidateFinder {
   private readonly minSimilarity: number;
 
   constructor(
-    private readonly blobs: BlobStore,
+    private readonly blobs: Blobs,
     options: SizeSimilarityFinderOptions = {},
   ) {
     this.tolerance = options.tolerance ?? 0.5;
