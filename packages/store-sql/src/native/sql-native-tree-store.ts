@@ -12,6 +12,7 @@ import {
   encodeTreeEntries,
   FileMode,
   type ObjectId,
+  type Tree,
   type TreeEntry,
 } from "@statewalker/vcs-core";
 import { bytesToHex, Sha1 } from "@statewalker/vcs-utils";
@@ -70,11 +71,16 @@ export class SqlNativeTreeStoreImpl implements SqlNativeTreeStore {
   /**
    * Store a tree from a stream of entries
    */
-  async storeTree(entries: AsyncIterable<TreeEntry> | Iterable<TreeEntry>): Promise<ObjectId> {
+  async store(tree: Tree): Promise<ObjectId> {
     // Collect entries
     const entryArray: TreeEntry[] = [];
+    const entries = tree;
 
-    if (Symbol.asyncIterator in entries) {
+    if (Array.isArray(entries)) {
+      for (const entry of entries) {
+        entryArray.push({ mode: entry.mode, name: entry.name, id: entry.id });
+      }
+    } else if (Symbol.asyncIterator in entries) {
       for await (const entry of entries as AsyncIterable<TreeEntry>) {
         entryArray.push({ mode: entry.mode, name: entry.name, id: entry.id });
       }
@@ -128,12 +134,13 @@ export class SqlNativeTreeStoreImpl implements SqlNativeTreeStore {
   }
 
   /**
-   * Load tree entries as a stream
+   * Load tree entries as a stream.
+   * Returns undefined if not found (new API behavior).
    */
-  async *loadTree(id: ObjectId): AsyncIterable<TreeEntry> {
+  async load(id: ObjectId): Promise<AsyncIterable<TreeEntry> | undefined> {
     // Empty tree
     if (id === EMPTY_TREE_ID) {
-      return;
+      return (async function* () {})();
     }
 
     // Get tree internal ID
@@ -142,31 +149,36 @@ export class SqlNativeTreeStoreImpl implements SqlNativeTreeStore {
     ]);
 
     if (trees.length === 0) {
-      throw new Error(`Tree ${id} not found`);
+      return undefined;
     }
 
     const treeFk = trees[0].id;
+    const db = this.db;
 
-    // Load entries in order
-    const entries = await this.db.query<{
-      mode: number;
-      name: string;
-      object_id: string;
-    }>("SELECT mode, name, object_id FROM tree_entry WHERE tree_fk = ? ORDER BY position", [
-      treeFk,
-    ]);
+    // Return async generator
+    return (async function* () {
+      // Load entries in order
+      const entries = await db.query<{
+        mode: number;
+        name: string;
+        object_id: string;
+      }>("SELECT mode, name, object_id FROM tree_entry WHERE tree_fk = ? ORDER BY position", [
+        treeFk,
+      ]);
 
-    for (const entry of entries) {
-      yield {
-        mode: entry.mode,
-        name: entry.name,
-        id: entry.object_id,
-      };
-    }
+      for (const entry of entries) {
+        yield {
+          mode: entry.mode,
+          name: entry.name,
+          id: entry.object_id,
+        };
+      }
+    })();
   }
 
   /**
-   * Get a specific entry from a tree
+   * Get a specific entry from a tree.
+   * Returns undefined if tree not found or entry not found.
    */
   async getEntry(treeId: ObjectId, name: string): Promise<TreeEntry | undefined> {
     // Empty tree
@@ -180,7 +192,7 @@ export class SqlNativeTreeStoreImpl implements SqlNativeTreeStore {
     ]);
 
     if (trees.length === 0) {
-      throw new Error(`Tree ${treeId} not found`);
+      return undefined;
     }
 
     const treeFk = trees[0].id;
@@ -221,6 +233,37 @@ export class SqlNativeTreeStoreImpl implements SqlNativeTreeStore {
     );
 
     return result[0].cnt > 0;
+  }
+
+  /**
+   * Remove a tree by ID.
+   * @returns True if removed, false if not found
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    // Don't allow removing empty tree (it's virtual)
+    if (id === EMPTY_TREE_ID) {
+      return false;
+    }
+
+    // Get tree internal ID
+    const trees = await this.db.query<{ id: number }>("SELECT id FROM tree WHERE tree_id = ?", [
+      id,
+    ]);
+
+    if (trees.length === 0) {
+      return false;
+    }
+
+    const treeFk = trees[0].id;
+
+    await this.db.transaction(async (tx) => {
+      // Delete entries first (foreign key)
+      await tx.execute("DELETE FROM tree_entry WHERE tree_fk = ?", [treeFk]);
+      // Delete the tree
+      await tx.execute("DELETE FROM tree WHERE id = ?", [treeFk]);
+    });
+
+    return true;
   }
 
   /**

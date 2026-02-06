@@ -40,7 +40,7 @@ export * from "./types.js";
  * const stores = createSqlNativeStores(db);
  *
  * // Store commits with Git-compatible IDs
- * const commitId = await stores.commits.storeCommit(commit);
+ * const commitId = await stores.commits.store(commit);
  *
  * // Use extended query methods
  * for await (const id of stores.commits.findByAuthor("user@example.com")) {

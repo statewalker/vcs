@@ -74,7 +74,7 @@ describe("T5.2: Extended Trees Query Tests", () => {
     it("finds tree containing a specific blob", async () => {
       const blobId = await storeBlob("Hello, World!");
 
-      const treeId = await trees.storeTree([createEntry("hello.txt", blobId)]);
+      const treeId = await trees.store([createEntry("hello.txt", blobId)]);
 
       const results: string[] = [];
       for await (const id of trees.findTreesWithBlob(blobId)) {
@@ -88,9 +88,9 @@ describe("T5.2: Extended Trees Query Tests", () => {
     it("finds multiple trees containing the same blob", async () => {
       const blobId = await storeBlob("Shared content");
 
-      const tree1 = await trees.storeTree([createEntry("file1.txt", blobId)]);
-      const tree2 = await trees.storeTree([createEntry("file2.txt", blobId)]);
-      const tree3 = await trees.storeTree([createEntry("another.txt", blobId)]);
+      const tree1 = await trees.store([createEntry("file1.txt", blobId)]);
+      const tree2 = await trees.store([createEntry("file2.txt", blobId)]);
+      const tree3 = await trees.store([createEntry("another.txt", blobId)]);
 
       const results: string[] = [];
       for await (const id of trees.findTreesWithBlob(blobId)) {
@@ -107,8 +107,8 @@ describe("T5.2: Extended Trees Query Tests", () => {
       const blob1 = await storeBlob("Content 1");
       const blob2 = await storeBlob("Content 2");
 
-      const _tree1 = await trees.storeTree([createEntry("file1.txt", blob1)]);
-      const tree2 = await trees.storeTree([createEntry("file2.txt", blob2)]);
+      const _tree1 = await trees.store([createEntry("file1.txt", blob1)]);
+      const tree2 = await trees.store([createEntry("file2.txt", blob2)]);
 
       const results: string[] = [];
       for await (const id of trees.findTreesWithBlob(blob2)) {
@@ -124,7 +124,7 @@ describe("T5.2: Extended Trees Query Tests", () => {
       const blob2 = await storeBlob("Content 2");
       const blob3 = await storeBlob("Content 3");
 
-      const treeId = await trees.storeTree([
+      const treeId = await trees.store([
         createEntry("a.txt", blob1),
         createEntry("b.txt", blob2),
         createEntry("c.txt", blob3),
@@ -146,13 +146,13 @@ describe("T5.2: Extended Trees Query Tests", () => {
 
       // Create 50 trees without target blob
       for (let i = 0; i < 50; i++) {
-        await trees.storeTree([createEntry(`file${i}.txt`, otherBlob)]);
+        await trees.store([createEntry(`file${i}.txt`, otherBlob)]);
       }
 
       // Create 5 trees with target blob
       const targetTrees: string[] = [];
       for (let i = 0; i < 5; i++) {
-        const treeId = await trees.storeTree([createEntry(`target${i}.txt`, blobId)]);
+        const treeId = await trees.store([createEntry(`target${i}.txt`, blobId)]);
         targetTrees.push(treeId);
       }
 
@@ -174,7 +174,7 @@ describe("T5.2: Extended Trees Query Tests", () => {
   describe("findByNamePattern", () => {
     it("returns empty iterator for no matching entries", async () => {
       const blobId = await storeBlob("Content");
-      await trees.storeTree([createEntry("readme.md", blobId)]);
+      await trees.store([createEntry("readme.md", blobId)]);
 
       const results: Array<{ treeId: string; entry: TreeEntry }> = [];
       for await (const result of trees.findByNamePattern("%.ts")) {
@@ -185,7 +185,7 @@ describe("T5.2: Extended Trees Query Tests", () => {
 
     it("finds entries matching exact name", async () => {
       const blobId = await storeBlob("Content");
-      const treeId = await trees.storeTree([createEntry("package.json", blobId)]);
+      const treeId = await trees.store([createEntry("package.json", blobId)]);
 
       const results: Array<{ treeId: string; entry: TreeEntry }> = [];
       for await (const result of trees.findByNamePattern("package.json")) {
@@ -199,7 +199,7 @@ describe("T5.2: Extended Trees Query Tests", () => {
 
     it("finds entries matching file extension pattern", async () => {
       const blob = await storeBlob("Content");
-      const tree1 = await trees.storeTree([
+      const tree1 = await trees.store([
         createEntry("index.ts", blob),
         createEntry("utils.ts", blob),
         createEntry("config.json", blob),
@@ -217,7 +217,7 @@ describe("T5.2: Extended Trees Query Tests", () => {
 
     it("finds entries matching prefix pattern", async () => {
       const blob = await storeBlob("Content");
-      await trees.storeTree([
+      await trees.store([
         createEntry("src-main.ts", blob),
         createEntry("src-utils.ts", blob),
         createEntry("lib-helper.ts", blob),
@@ -234,7 +234,7 @@ describe("T5.2: Extended Trees Query Tests", () => {
 
     it("finds entries matching middle pattern", async () => {
       const blob = await storeBlob("Content");
-      await trees.storeTree([
+      await trees.store([
         createEntry("my-component.ts", blob),
         createEntry("your-component.tsx", blob),
         createEntry("another-module.ts", blob),
@@ -254,7 +254,7 @@ describe("T5.2: Extended Trees Query Tests", () => {
 
     it("handles underscore wildcard (single character)", async () => {
       const blob = await storeBlob("Content");
-      await trees.storeTree([
+      await trees.store([
         createEntry("v1.txt", blob),
         createEntry("v2.txt", blob),
         createEntry("v10.txt", blob),
@@ -272,9 +272,9 @@ describe("T5.2: Extended Trees Query Tests", () => {
 
     it("finds entries across multiple trees", async () => {
       const blob = await storeBlob("Content");
-      const tree1 = await trees.storeTree([createEntry("index.ts", blob)]);
-      const tree2 = await trees.storeTree([createEntry("main.ts", blob)]);
-      const _tree3 = await trees.storeTree([createEntry("readme.md", blob)]);
+      const tree1 = await trees.store([createEntry("index.ts", blob)]);
+      const tree2 = await trees.store([createEntry("main.ts", blob)]);
+      const _tree3 = await trees.store([createEntry("readme.md", blob)]);
 
       const results: Array<{ treeId: string; entry: TreeEntry }> = [];
       for await (const result of trees.findByNamePattern("%.ts")) {
@@ -287,8 +287,8 @@ describe("T5.2: Extended Trees Query Tests", () => {
 
     it("returns correct entry metadata", async () => {
       const blob = await storeBlob("Content");
-      const subTreeId = await trees.storeTree([createEntry("nested.txt", blob)]);
-      const treeId = await trees.storeTree([
+      const subTreeId = await trees.store([createEntry("nested.txt", blob)]);
+      const treeId = await trees.store([
         createEntry("file.txt", blob, REGULAR_FILE),
         createEntry("subdir", subTreeId, DIRECTORY),
       ]);
@@ -316,7 +316,7 @@ describe("T5.2: Extended Trees Query Tests", () => {
 
     it("is case-insensitive for pattern matching (SQLite LIKE)", async () => {
       const blob = await storeBlob("Content");
-      await trees.storeTree([
+      await trees.store([
         createEntry("README.md", blob),
         createEntry("readme.md", blob),
         createEntry("Readme.md", blob),
@@ -342,13 +342,13 @@ describe("T5.2: Extended Trees Query Tests", () => {
     it("returns correct count after adding trees", async () => {
       const blob = await storeBlob("Content");
 
-      await trees.storeTree([createEntry("file1.txt", blob)]);
+      await trees.store([createEntry("file1.txt", blob)]);
       expect(await trees.count()).toBe(1);
 
-      await trees.storeTree([createEntry("file2.txt", blob)]);
+      await trees.store([createEntry("file2.txt", blob)]);
       expect(await trees.count()).toBe(2);
 
-      await trees.storeTree([createEntry("file3.txt", blob)]);
+      await trees.store([createEntry("file3.txt", blob)]);
       expect(await trees.count()).toBe(3);
     });
 
@@ -356,8 +356,8 @@ describe("T5.2: Extended Trees Query Tests", () => {
       const blob = await storeBlob("Same content");
 
       // Storing identical tree entries results in same tree ID (content-addressed)
-      await trees.storeTree([createEntry("file.txt", blob)]);
-      await trees.storeTree([createEntry("file.txt", blob)]);
+      await trees.store([createEntry("file.txt", blob)]);
+      await trees.store([createEntry("file.txt", blob)]);
 
       expect(await trees.count()).toBe(1);
     });
@@ -367,8 +367,8 @@ describe("T5.2: Extended Trees Query Tests", () => {
       const blob2 = await storeBlob("Content 2");
 
       // Different content = different trees
-      await trees.storeTree([createEntry("file.txt", blob1)]);
-      await trees.storeTree([createEntry("file.txt", blob2)]);
+      await trees.store([createEntry("file.txt", blob1)]);
+      await trees.store([createEntry("file.txt", blob2)]);
 
       expect(await trees.count()).toBe(2);
     });
@@ -379,11 +379,11 @@ describe("T5.2: Extended Trees Query Tests", () => {
       const jsBlob = await storeBlob("console.log('hello');");
       const tsBlob = await storeBlob("export const x: number = 1;");
 
-      await trees.storeTree([createEntry("index.js", jsBlob), createEntry("utils.js", jsBlob)]);
+      await trees.store([createEntry("index.js", jsBlob), createEntry("utils.js", jsBlob)]);
 
-      await trees.storeTree([createEntry("index.ts", tsBlob), createEntry("utils.ts", tsBlob)]);
+      await trees.store([createEntry("index.ts", tsBlob), createEntry("utils.ts", tsBlob)]);
 
-      await trees.storeTree([createEntry("mixed.js", jsBlob), createEntry("mixed.ts", tsBlob)]);
+      await trees.store([createEntry("mixed.js", jsBlob), createEntry("mixed.ts", tsBlob)]);
 
       // Find trees with JS files
       const jsEntries: Array<{ treeId: string; entry: TreeEntry }> = [];

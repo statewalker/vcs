@@ -8,7 +8,7 @@ import {
   type ObjectId,
   type Ref,
   RefStorage,
-  type RefStore,
+  type Refs,
   type RefUpdateResult,
   type SymbolicRef,
 } from "@statewalker/vcs-core";
@@ -33,7 +33,7 @@ interface RefRow {
 /**
  * SQL-based RefStore implementation.
  */
-export class SQLRefStore implements RefStore {
+export class SQLRefStore implements Refs {
   constructor(private db: DatabaseClient) {}
 
   /**
@@ -180,9 +180,9 @@ export class SQLRefStore implements RefStore {
   }
 
   /**
-   * Delete a ref.
+   * Remove a ref.
    */
-  async delete(refName: string): Promise<boolean> {
+  async remove(refName: string): Promise<boolean> {
     const result = await this.db.execute("DELETE FROM vcs_ref WHERE name = ?", [refName]);
     return result.changes > 0;
   }

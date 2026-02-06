@@ -81,7 +81,7 @@ export async function importToNative(
         // Load entries from Git store
         const entries = await gitStores.trees.load(id);
         if (!entries) throw new Error(`Tree not found: ${id}`);
-        await (nativeStores.trees as any).storeTree(entries);
+        await nativeStores.trees.store(entries);
         count++;
         break;
       }
@@ -105,7 +105,7 @@ export async function importToNative(
         // Load from Git store and convert to AnnotatedTag object
         const tag = await gitStores.tags.load(id);
         if (!tag) throw new Error(`Tag not found: ${id}`);
-        await (nativeStores.tags as any).storeTag(tag);
+        await nativeStores.tags.store(tag);
         count++;
         break;
       }

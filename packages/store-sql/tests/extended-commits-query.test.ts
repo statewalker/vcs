@@ -62,7 +62,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
       const bob = createPerson("Bob", "bob@example.com", 1700000100);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -70,7 +70,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Alice commit 1",
       });
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: bob,
@@ -78,7 +78,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Bob commit",
       });
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -97,7 +97,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("is case-sensitive for email matching", async () => {
       const alice = createPerson("Alice", "Alice@Example.COM", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -124,7 +124,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("handles emails with special characters", async () => {
       const specialEmail = createPerson("Special", "user+test@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: specialEmail,
@@ -143,7 +143,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       const author = createPerson("Alice", "alice@example.com", 1700000000);
       const committer = createPerson("Bob", "bob@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author,
@@ -171,7 +171,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
 
       // Create 100 commits
       for (let i = 0; i < 100; i++) {
-        await commits.storeCommit({
+        await commits.store({
           tree: emptyTreeId,
           parents: [],
           author: { ...alice, timestamp: alice.timestamp + i },
@@ -196,7 +196,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("returns empty iterator for range with no commits", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -221,7 +221,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       const t2 = 1700100000; // Middle
       const t3 = 1700200000; // Late
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: createPerson("Alice", "alice@example.com", t1),
@@ -229,7 +229,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Early commit",
       });
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: createPerson("Bob", "bob@example.com", t2),
@@ -237,7 +237,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Middle commit",
       });
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: createPerson("Charlie", "charlie@example.com", t3),
@@ -261,7 +261,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       const timestamp = 1700000000;
       const alice = createPerson("Alice", "alice@example.com", timestamp);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -284,7 +284,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       const timestamp = 1700000000;
       const alice = createPerson("Alice", "alice@example.com", timestamp);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -308,7 +308,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       const t3 = 1700200000;
 
       // Store in non-chronological order
-      const _commit2 = await commits.storeCommit({
+      const _commit2 = await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: createPerson("Bob", "bob@example.com", t2),
@@ -316,7 +316,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Middle commit",
       });
 
-      const commit1 = await commits.storeCommit({
+      const commit1 = await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: createPerson("Alice", "alice@example.com", t1),
@@ -324,7 +324,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Early commit",
       });
 
-      const commit3 = await commits.storeCommit({
+      const commit3 = await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: createPerson("Charlie", "charlie@example.com", t3),
@@ -350,7 +350,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("returns empty iterator for no matching message", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -368,7 +368,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("finds commits by substring match", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -376,7 +376,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Fix critical bug in authentication",
       });
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -394,7 +394,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("matches partial words", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -412,7 +412,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("is case-insensitive", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -430,7 +430,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("handles special characters in search pattern", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -448,7 +448,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("handles multi-line commit messages", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -475,7 +475,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
       const bob = createPerson("Bob", "bob@example.com", 1700000100);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -483,7 +483,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Fix bug in login",
       });
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: bob,
@@ -491,7 +491,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Fix bug in checkout",
       });
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -515,7 +515,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("returns correct count after adding commits", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -525,7 +525,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
 
       expect(await commits.count()).toBe(1);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -535,7 +535,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
 
       expect(await commits.count()).toBe(2);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -551,7 +551,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("returns empty for commit with no parents", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      const commitId = await commits.storeCommit({
+      const commitId = await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -569,7 +569,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
     it("returns parent for single-parent commit", async () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
-      const parent = await commits.storeCommit({
+      const parent = await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -577,7 +577,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Parent commit",
       });
 
-      const child = await commits.storeCommit({
+      const child = await commits.store({
         tree: emptyTreeId,
         parents: [parent],
         author: alice,
@@ -596,7 +596,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       const alice = createPerson("Alice", "alice@example.com", 1700000000);
 
       // Create linear chain: root -> c1 -> c2
-      const root = await commits.storeCommit({
+      const root = await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -604,7 +604,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Root",
       });
 
-      const c1 = await commits.storeCommit({
+      const c1 = await commits.store({
         tree: emptyTreeId,
         parents: [root],
         author: alice,
@@ -612,7 +612,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Commit 1",
       });
 
-      const c2 = await commits.storeCommit({
+      const c2 = await commits.store({
         tree: emptyTreeId,
         parents: [c1],
         author: alice,
@@ -636,7 +636,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       // Create merge: root -> branch1 \
       //                               -> merge
       //               root -> branch2 /
-      const root = await commits.storeCommit({
+      const root = await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -644,7 +644,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Root",
       });
 
-      const branch1 = await commits.storeCommit({
+      const branch1 = await commits.store({
         tree: emptyTreeId,
         parents: [root],
         author: alice,
@@ -652,7 +652,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Branch 1",
       });
 
-      const branch2 = await commits.storeCommit({
+      const branch2 = await commits.store({
         tree: emptyTreeId,
         parents: [root],
         author: alice,
@@ -660,7 +660,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Branch 2",
       });
 
-      const merge = await commits.storeCommit({
+      const merge = await commits.store({
         tree: emptyTreeId,
         parents: [branch1, branch2],
         author: alice,
@@ -696,7 +696,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
       const bob = createPerson("Bob", "bob@example.com", 1700100000);
       const aliceLater = createPerson("Alice", "alice@example.com", 1700200000);
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: alice,
@@ -704,7 +704,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Alice early",
       });
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: bob,
@@ -712,7 +712,7 @@ describe("T5.1: Extended Commits Query Tests", () => {
         message: "Bob middle",
       });
 
-      await commits.storeCommit({
+      await commits.store({
         tree: emptyTreeId,
         parents: [],
         author: aliceLater,

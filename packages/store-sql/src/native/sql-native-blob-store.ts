@@ -356,7 +356,8 @@ export class SqlNativeBlobStoreImpl implements SqlNativeBlobStore {
   }
 
   /**
-   * Get blob size in bytes
+   * Get blob size in bytes.
+   * Returns -1 if blob not found.
    */
   async size(id: ObjectId): Promise<number> {
     await this.ensureTable();
@@ -367,19 +368,19 @@ export class SqlNativeBlobStoreImpl implements SqlNativeBlobStore {
     );
 
     if (rows.length === 0) {
-      throw new Error(`Blob ${id} not found`);
+      return -1;
     }
 
     return rows[0].size;
   }
 
   /**
-   * Delete a blob from storage
+   * Remove a blob from storage.
    *
    * Explicitly deletes chunks for chunked blobs since SQLite
    * foreign keys are disabled by default.
    */
-  async delete(id: ObjectId): Promise<boolean> {
+  async remove(id: ObjectId): Promise<boolean> {
     await this.ensureTable();
 
     // Get blob info to check if it's chunked
