@@ -12,7 +12,6 @@
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
-import type { TreeStore } from "../../history/trees/tree-store.js";
 import type { Trees } from "../../history/trees/trees.js";
 import type {
   ConflictResolution,
@@ -159,7 +158,7 @@ export class SimpleStaging implements Staging {
 
   // ============ Tree Operations ============
 
-  async writeTree(trees: Trees | TreeStore): Promise<ObjectId> {
+  async writeTree(trees: Trees): Promise<ObjectId> {
     // Check for conflicts
     if (await this.hasConflicts()) {
       throw new Error("Cannot write tree with unresolved conflicts");
@@ -171,7 +170,7 @@ export class SimpleStaging implements Staging {
   }
 
   private async buildTreeRecursive(
-    trees: Trees | TreeStore,
+    trees: Trees,
     entries: IndexEntry[],
     prefix: string,
   ): Promise<ObjectId> {
@@ -214,11 +213,7 @@ export class SimpleStaging implements Staging {
     return storeTreeEntries(trees, treeEntries);
   }
 
-  async readTree(
-    trees: Trees | TreeStore,
-    treeId: ObjectId,
-    options?: ReadTreeOptions,
-  ): Promise<void> {
+  async readTree(trees: Trees, treeId: ObjectId, options?: ReadTreeOptions): Promise<void> {
     if (!options?.keepExisting) {
       this._entries = [];
     }
@@ -232,12 +227,12 @@ export class SimpleStaging implements Staging {
   }
 
   private async addTreeRecursive(
-    trees: Trees | TreeStore,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    const treeEntries = await loadTreeEntries(trees, treeId);
+    const treeEntries = await trees.load(treeId);
     if (!treeEntries) return;
 
     for await (const entry of treeEntries) {
@@ -393,12 +388,12 @@ class SimpleStagingBuilder implements IndexBuilder {
   }
 
   private async addTreeRecursive(
-    trees: Trees | TreeStore,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    const treeEntries = await loadTreeEntries(trees, treeId);
+    const treeEntries = await trees.load(treeId);
     if (!treeEntries) return;
 
     for await (const entry of treeEntries) {
@@ -582,33 +577,13 @@ function comparePaths(a: string, b: string): number {
   return aLen - bLen;
 }
 
-// ========== Helper Functions for Trees/TreeStore Compatibility ==========
+// ========== Helper Functions ==========
 
 /**
- * Store tree entries using either Trees or TreeStore interface.
+ * Store tree entries using Trees interface.
  */
-function storeTreeEntries(
-  trees: Trees | TreeStore,
-  entries: Iterable<TreeEntry>,
-): Promise<ObjectId> {
-  if ("store" in trees) {
-    return trees.store(entries);
-  }
-  return trees.storeTree(entries);
-}
-
-/**
- * Load tree entries using either Trees or TreeStore interface.
- */
-async function loadTreeEntries(
-  trees: Trees | TreeStore,
-  treeId: ObjectId,
-): Promise<AsyncIterable<TreeEntry> | undefined> {
-  if ("load" in trees) {
-    return trees.load(treeId);
-  }
-  // TreeStore.loadTree always returns AsyncIterable (throws on missing)
-  return trees.loadTree(treeId);
+function storeTreeEntries(trees: Trees, entries: Iterable<TreeEntry>): Promise<ObjectId> {
+  return trees.store(entries);
 }
 
 /**

@@ -19,11 +19,11 @@
 
 import { FileMode } from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/object-id.js";
-import type { BlobStore } from "../../history/blobs/blob-store.js";
-import type { CommitStore } from "../../history/commits/commit-store.js";
-import type { RefStore } from "../../history/refs/ref-store.js";
+import type { Blobs } from "../../history/blobs/blobs.js";
+import type { Commits } from "../../history/commits/commits.js";
 import { isSymbolicRef } from "../../history/refs/ref-types.js";
-import type { TreeStore } from "../../history/trees/tree-store.js";
+import type { Refs } from "../../history/refs/refs.js";
+import type { Trees } from "../../history/trees/trees.js";
 import type { Staging } from "../staging/staging.js";
 import type { Worktree } from "../worktree/worktree.js";
 import type { IndexDiff } from "./index-diff.js";
@@ -76,16 +76,16 @@ export interface StatusCalculatorOptions {
   staging: Staging;
 
   /** Tree storage */
-  trees: TreeStore;
+  trees: Trees;
 
   /** Commit storage */
-  commits: CommitStore;
+  commits: Commits;
 
   /** Reference storage */
-  refs: RefStore;
+  refs: Refs;
 
   /** Blob storage (optional, needed for content-based comparison) */
-  blobs?: BlobStore;
+  blobs?: Blobs;
 }
 
 /**
@@ -94,10 +94,10 @@ export interface StatusCalculatorOptions {
 export class StatusCalculatorImpl implements StatusCalculator {
   private readonly worktree: Worktree;
   private readonly staging: Staging;
-  private readonly trees: TreeStore;
-  private readonly commits: CommitStore;
-  private readonly refs: RefStore;
-  private readonly blobs?: BlobStore;
+  private readonly trees: Trees;
+  private readonly commits: Commits;
+  private readonly refs: Refs;
+  private readonly blobs?: Blobs;
 
   constructor(options: StatusCalculatorOptions) {
     this.worktree = options.worktree;
@@ -415,7 +415,10 @@ export class StatusCalculatorImpl implements StatusCalculator {
   ): Promise<Map<string, TreeEntryInfo>> {
     const map = new Map<string, TreeEntryInfo>();
 
-    for await (const entry of this.trees.loadTree(treeId)) {
+    const treeEntries = await this.trees.load(treeId);
+    if (!treeEntries) return map;
+
+    for await (const entry of treeEntries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {

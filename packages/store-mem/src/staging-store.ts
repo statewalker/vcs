@@ -9,7 +9,6 @@ import type {
   StagingEntry,
   StagingEntryOptions,
   TreeEntry,
-  TreeStore,
   Trees,
 } from "@statewalker/vcs-core";
 import { FileMode, MergeStage } from "@statewalker/vcs-core";
@@ -209,17 +208,17 @@ export class MemoryStagingStore implements Staging {
 
   // ============ Tree Operations ============
 
-  async writeTree(treeStore: TreeStore): Promise<ObjectId> {
+  async writeTree(trees: Trees): Promise<ObjectId> {
     if (await this.hasConflicts()) {
       throw new Error("Cannot write tree with unresolved conflicts");
     }
 
     const stage0 = this._entries.filter((e) => e.stage === MergeStage.MERGED);
-    return this.buildTreeRecursive(treeStore, stage0, "");
+    return this.buildTreeRecursive(trees, stage0, "");
   }
 
   private async buildTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees,
     entries: StagingEntry[],
     prefix: string,
   ): Promise<ObjectId> {
@@ -247,7 +246,7 @@ export class MemoryStagingStore implements Staging {
 
     for (const [dirName, dirEntries] of subdirs) {
       const subPrefix = prefix ? `${prefix}/${dirName}` : dirName;
-      const subtreeId = await this.buildTreeRecursive(treeStore, dirEntries, subPrefix);
+      const subtreeId = await this.buildTreeRecursive(trees, dirEntries, subPrefix);
       treeEntries.push({
         name: dirName,
         mode: FileMode.TREE,
@@ -255,14 +254,10 @@ export class MemoryStagingStore implements Staging {
       });
     }
 
-    return treeStore.storeTree(treeEntries);
+    return trees.store(treeEntries);
   }
 
-  async readTree(
-    trees: Trees | TreeStore,
-    treeId: ObjectId,
-    options?: ReadTreeOptions,
-  ): Promise<void> {
+  async readTree(trees: Trees, treeId: ObjectId, options?: ReadTreeOptions): Promise<void> {
     if (!options?.keepExisting) {
       this._entries = [];
     }
@@ -276,13 +271,12 @@ export class MemoryStagingStore implements Staging {
   }
 
   private async addTreeRecursive(
-    trees: Trees | TreeStore,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    // Handle both Trees and TreeStore interfaces
-    const treeEntries = "load" in trees ? await trees.load(treeId) : trees.loadTree(treeId);
+    const treeEntries = await trees.load(treeId);
     if (!treeEntries) return;
 
     for await (const entry of treeEntries) {
@@ -413,27 +407,27 @@ class MemoryStagingBuilder implements IndexBuilder {
   }
 
   async addTree(
-    trees: import("@statewalker/vcs-core").Trees,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue = MergeStage.MERGED,
   ): Promise<void> {
-    // Handle both Trees and TreeStore interfaces
-    const treeStore = trees as any as TreeStore;
-    await this.addTreeRecursive(treeStore, treeId, prefix, stage);
+    await this.addTreeRecursive(trees, treeId, prefix, stage);
   }
 
   private async addTreeRecursive(
-    treeStore: TreeStore,
+    trees: Trees,
     treeId: ObjectId,
     prefix: string,
     stage: MergeStageValue,
   ): Promise<void> {
-    for await (const entry of treeStore.loadTree(treeId)) {
+    const treeEntries = await trees.load(treeId);
+    if (!treeEntries) return;
+    for await (const entry of treeEntries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
-        await this.addTreeRecursive(treeStore, entry.id, path, stage);
+        await this.addTreeRecursive(trees, entry.id, path, stage);
       } else {
         this.add({
           path,

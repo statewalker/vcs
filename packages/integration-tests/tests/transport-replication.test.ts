@@ -259,7 +259,9 @@ describe("Transport Replication", () => {
 
     // Load blob content
     const blobChunks: Uint8Array[] = [];
-    for await (const chunk of remoteRepository.blobs.load(testFileEntry.id)) {
+    const blobStream = await remoteRepository.blobs.load(testFileEntry.id);
+    if (!blobStream) throw new Error("Blob not found");
+    for await (const chunk of blobStream) {
       blobChunks.push(chunk);
     }
     const blobContent = new Uint8Array(blobChunks.reduce((sum, c) => sum + c.length, 0));

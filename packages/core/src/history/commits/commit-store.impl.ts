@@ -3,6 +3,7 @@
  *
  * Wraps GitObjectStore with commit serialization/deserialization.
  * Provides graph traversal operations for commit history.
+ * Implements both CommitStore (legacy) and Commits (new) interfaces.
  */
 
 import type { ObjectId } from "../../common/id/index.js";
@@ -14,26 +15,60 @@ import {
   entriesToCommit,
 } from "./commit-format.js";
 import type { CommitStore } from "./commit-store.js";
-import type { AncestryOptions, Commit } from "./commits.js";
+import type { AncestryOptions, Commit, Commits } from "./commits.js";
 
 /**
  * Git commit store implementation
  *
  * Handles commit serialization and provides graph traversal.
+ * Implements both CommitStore (legacy) and Commits (new) interfaces.
  */
-export class GitCommitStore implements CommitStore {
+export class GitCommitStore implements CommitStore, Commits {
   constructor(private readonly objects: GitObjectStore) {}
 
+  // ============ New Commits Interface ============
+
   /**
-   * Store a commit object
+   * Store a commit object (new interface)
    */
-  async storeCommit(commit: Commit): Promise<ObjectId> {
+  async store(commit: Commit): Promise<ObjectId> {
     const entries = commitToEntries(commit);
     return this.objects.store("commit", encodeCommitEntries(entries));
   }
 
   /**
-   * Load a commit object by ID
+   * Load a commit object by ID (new interface)
+   * Returns undefined if commit doesn't exist.
+   */
+  async load(id: ObjectId): Promise<Commit | undefined> {
+    if (!(await this.objects.has(id))) {
+      return undefined;
+    }
+    try {
+      return await this.loadCommit(id);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Remove commit (new interface)
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    return this.objects.remove(id);
+  }
+
+  // ============ Legacy CommitStore Interface ============
+
+  /**
+   * Store a commit object (legacy)
+   */
+  async storeCommit(commit: Commit): Promise<ObjectId> {
+    return this.store(commit);
+  }
+
+  /**
+   * Load a commit object by ID (legacy)
    */
   async loadCommit(id: ObjectId): Promise<Commit> {
     const [header, content] = await this.objects.loadWithHeader(id);

@@ -12,7 +12,7 @@
 
 import type { ObjectId } from "../../common/id/object-id.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
-import type { TreeStore } from "../../history/trees/tree-store.js";
+import type { Trees } from "../../history/trees/trees.js";
 
 /**
  * Represents a single entry in a three-way comparison.
@@ -217,7 +217,7 @@ export function classifyThreeWayEntry(entry: ThreeWayEntry): ThreeWayClassificat
  * Recursively traverses subdirectories.
  */
 export async function flattenTree(
-  trees: TreeStore,
+  trees: Trees,
   treeId: ObjectId | undefined,
   prefix = "",
 ): Promise<Map<string, TreeEntry>> {
@@ -227,7 +227,12 @@ export async function flattenTree(
     return result;
   }
 
-  for await (const entry of trees.loadTree(treeId)) {
+  const treeEntries = await trees.load(treeId);
+  if (!treeEntries) {
+    return result;
+  }
+
+  for await (const entry of treeEntries) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
     // Check if this is a tree/directory (mode 0o040000)
@@ -252,7 +257,7 @@ export async function flattenTree(
  * across all three trees.
  */
 export async function* collectThreeWayEntries(
-  trees: TreeStore,
+  trees: Trees,
   baseTreeId: ObjectId | undefined,
   oursTreeId: ObjectId | undefined,
   theirsTreeId: ObjectId | undefined,
@@ -291,7 +296,7 @@ export async function* collectThreeWayEntries(
  * and conflicts.
  */
 export async function compareThreeWayTrees(
-  trees: TreeStore,
+  trees: Trees,
   baseTreeId: ObjectId | undefined,
   oursTreeId: ObjectId | undefined,
   theirsTreeId: ObjectId | undefined,
@@ -379,7 +384,7 @@ export interface MergeTreeResult {
  * For conflicts, includes information about all three versions.
  */
 export async function mergeTreesThreeWay(
-  trees: TreeStore,
+  trees: Trees,
   baseTreeId: ObjectId | undefined,
   oursTreeId: ObjectId | undefined,
   theirsTreeId: ObjectId | undefined,

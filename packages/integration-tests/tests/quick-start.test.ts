@@ -68,7 +68,9 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
 
     // Load and verify content
     const chunks: Uint8Array[] = [];
-    for await (const chunk of repository.blobs.load(blobId1)) {
+    const stream = await repository.blobs.load(blobId1);
+    if (!stream) throw new Error("Blob not found");
+    for await (const chunk of stream) {
       chunks.push(chunk);
     }
     const loaded = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));

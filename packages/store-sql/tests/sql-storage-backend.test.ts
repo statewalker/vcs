@@ -69,7 +69,9 @@ describe("SQLStorageBackend", () => {
         expect(id).toBeTruthy();
 
         const loaded: Uint8Array[] = [];
-        for await (const chunk of backend.blobs.load(id)) {
+        const stream = await backend.blobs.load(id);
+        if (!stream) throw new Error("Blob not found");
+        for await (const chunk of stream) {
           loaded.push(chunk);
         }
 

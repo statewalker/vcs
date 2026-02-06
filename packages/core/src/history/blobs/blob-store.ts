@@ -26,10 +26,9 @@ export interface BlobStore {
    * Load blob content
    *
    * @param id ObjectId of the blob
-   * @returns Async iterable of blob content chunks
-   * @throws Error if blob not found
+   * @returns Async iterable of blob content chunks, or undefined if not found
    */
-  load(id: ObjectId): AsyncIterable<Uint8Array>;
+  load(id: ObjectId): Promise<AsyncIterable<Uint8Array> | undefined>;
 
   /**
    * Check if blob exists
