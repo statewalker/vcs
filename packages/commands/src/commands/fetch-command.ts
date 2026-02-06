@@ -1,7 +1,22 @@
-import type { ObjectId } from "@statewalker/vcs-core";
-import { isSymbolicRef } from "@statewalker/vcs-core";
-import { type FetchOptions, fetch as transportFetch } from "@statewalker/vcs-transport";
-import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
+import type { ObjectId, Tags } from "@statewalker/vcs-core";
+import { DefaultSerializationApi, isSymbolicRef } from "@statewalker/vcs-core";
+import { httpFetch, type RefStore as TransportRefStore } from "@statewalker/vcs-transport";
+import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
+
+/**
+ * No-op Tags for repositories without tag support.
+ * Only used as a fallback when tags store is not provided.
+ */
+const noOpTags: Tags = {
+  store: () => Promise.reject(new Error("Tag storage not available")),
+  load: () => Promise.resolve(undefined),
+  getTarget: () => Promise.resolve(undefined),
+  has: () => Promise.resolve(false),
+  remove: () => Promise.resolve(false),
+  async *keys() {
+    // Empty iterator - no tags available
+  },
+};
 
 import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
 import {
@@ -339,7 +354,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     }
 
     // Get tags store (use no-op fallback if not available)
-    const tagsStore = this.tagsStore ?? noOpTagStore;
+    const tagsStore = this.tagsStore ?? noOpTags;
 
     // Create serialization API from typed stores
     // Note: SerializationApiConfig accepts stores at top level

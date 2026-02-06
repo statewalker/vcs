@@ -25,7 +25,7 @@ import {
   type WorkingCopyTestContext,
 } from "./backend-factories.js";
 import { createMockWorktree } from "./mock-worktree-store.js";
-import { createSimpleHistoryFromLegacyStores } from "./simple-history-store.js";
+import { createSimpleHistory } from "./simple-history-store.js";
 
 // Re-export factory types and functions for convenience
 export type { WorkingCopyFactory, WorkingCopyTestContext };
@@ -42,8 +42,8 @@ export function createTestWorkingCopy(): { workingCopy: WorkingCopy; repository:
   const refs = new MemoryRefStore();
   const staging = new MemoryStagingStore();
 
-  // Create History wrapper using adapters for legacy store interfaces
-  const repository = createSimpleHistoryFromLegacyStores({
+  // Create History wrapper using new store interfaces
+  const repository = createSimpleHistory({
     blobs: stores.blobs,
     trees: stores.trees,
     commits: stores.commits,

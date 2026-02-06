@@ -6,19 +6,19 @@
  */
 
 import {
-  type BlobStore,
-  type CommitStore,
-  type RefStore as CoreRefStore,
+  type Blobs,
+  type Commits,
   DefaultSerializationApi,
   type GitObjectStore,
   type History,
   type HistoryWithOperations,
   isSymbolicRef,
   type ObjectId,
+  type Refs,
   type SerializationApi,
   type Staging,
-  type TagStore,
-  type TreeStore,
+  type Tags,
+  type Trees,
   type WorkingCopy,
   type Worktree,
 } from "@statewalker/vcs-core";
@@ -42,15 +42,15 @@ export interface TransportTestStores {
   /** Low-level Git object store for pack operations */
   objects: GitObjectStore;
   /** Blob storage */
-  blobs: BlobStore;
+  blobs: Blobs;
   /** Tree storage */
-  trees: TreeStore;
+  trees: Trees;
   /** Commit storage */
-  commits: CommitStore;
+  commits: Commits;
   /** Reference storage */
-  refs: CoreRefStore;
+  refs: Refs;
   /** Tag storage */
-  tags: TagStore;
+  tags: Tags;
   /** Staging area */
   staging: Staging;
 }
@@ -191,9 +191,9 @@ function createMockFetch(
 }
 
 /**
- * Create a transport RefStore adapter from a vcs-core RefStore.
+ * Create a transport RefStore adapter from a vcs-core Refs.
  */
-function createTransportRefStoreAdapter(refs: CoreRefStore): TransportRefStore {
+function createTransportRefStoreAdapter(refs: Refs): TransportRefStore {
   return {
     async get(name: string): Promise<string | undefined> {
       const ref = await refs.resolve(name);
@@ -242,108 +242,22 @@ function createMockHistoryWithOperations(
   stores: TransportTestStores,
   serialization: SerializationApi,
 ): HistoryWithOperations {
-  // Create adapters for stores to match the new interfaces
-  const blobsAdapter = {
-    store: (content: Iterable<Uint8Array> | AsyncIterable<Uint8Array>) =>
-      stores.blobs.store(content as AsyncIterable<Uint8Array>),
-    load: (id: string) => stores.blobs.load(id),
-    has: (id: string) => stores.blobs.has(id),
-    remove: (id: string) => stores.blobs.delete(id),
-    keys: () => stores.blobs.keys(),
-    size: (id: string) => stores.blobs.size(id),
-  };
-
-  const treesAdapter = {
-    store: (entries: unknown) => stores.trees.storeTree(entries as never),
-    load: (id: string) => stores.trees.loadTree(id),
-    has: async (id: string) => {
-      try {
-        const tree = stores.trees.loadTree(id);
-        for await (const _ of tree) {
-          break;
-        }
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    remove: async () => false,
-    keys: async function* () {},
-    getEntry: async () => undefined,
-    getEmptyTreeId: () => "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
-  };
-
-  const commitsAdapter = {
-    store: (commit: unknown) => stores.commits.storeCommit(commit as never),
-    load: async (id: string) => {
-      try {
-        return await stores.commits.loadCommit(id);
-      } catch {
-        return undefined;
-      }
-    },
-    has: async (id: string) => {
-      try {
-        await stores.commits.loadCommit(id);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    remove: async () => false,
-    keys: async function* () {},
-    getParents: (id: string) => stores.commits.getParents(id),
-    getTree: (id: string) => stores.commits.getTree(id),
-    walkAncestry: (startId: string | string[], options?: unknown) =>
-      stores.commits.walkAncestry(startId, options as never),
-    findMergeBase: (c1: string, c2: string) => stores.commits.findMergeBase(c1, c2),
-    isAncestor: (ancestor: string, descendant: string) =>
-      stores.commits.isAncestor(ancestor, descendant),
-  };
-
-  const tagsAdapter = {
-    store: (tag: unknown) => stores.tags.storeTag(tag as never),
-    load: async (id: string) => {
-      try {
-        return await stores.tags.loadTag(id);
-      } catch {
-        return undefined;
-      }
-    },
-    has: async (id: string) => {
-      try {
-        await stores.tags.loadTag(id);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    remove: async () => false,
-    keys: async function* () {},
-    getTarget: async (tagId: string) => {
-      try {
-        const tag = await stores.tags.loadTag(tagId);
-        return tag.object;
-      } catch {
-        return undefined;
-      }
-    },
-  };
-
+  // Stores already implement the new interfaces - just pass them through
+  // with any necessary method adaptations
   const refsAdapter = {
     get: (name: string) => stores.refs.get(name),
     set: (name: string, oid: string) => stores.refs.set(name, oid),
     setSymbolic: (name: string, target: string) => stores.refs.setSymbolic(name, target),
-    delete: (name: string) => stores.refs.delete(name),
+    delete: (name: string) => stores.refs.remove(name),
     list: () => stores.refs.list(),
     resolve: (name: string) => stores.refs.resolve(name),
   };
 
   return {
-    blobs: blobsAdapter,
-    trees: treesAdapter,
-    commits: commitsAdapter,
-    tags: tagsAdapter,
+    blobs: stores.blobs,
+    trees: stores.trees,
+    commits: stores.commits,
+    tags: stores.tags,
     refs: refsAdapter,
     serialization,
     delta: {} as never,
@@ -365,15 +279,18 @@ function createMockHistoryWithOperations(
         yield treeId;
 
         // Traverse tree entries
-        for await (const entry of stores.trees.loadTree(treeId)) {
-          if (entry.mode === 0o040000) {
-            // Subtree
-            yield* traverseTree(entry.id);
-          } else {
-            // Blob
-            if (!visited.has(entry.id) && !exclude.has(entry.id)) {
-              visited.add(entry.id);
-              yield entry.id;
+        const treeEntries = await stores.trees.load(treeId);
+        if (treeEntries) {
+          for await (const entry of treeEntries) {
+            if (entry.mode === 0o040000) {
+              // Subtree
+              yield* traverseTree(entry.id);
+            } else {
+              // Blob
+              if (!visited.has(entry.id) && !exclude.has(entry.id)) {
+                visited.add(entry.id);
+                yield entry.id;
+              }
             }
           }
         }
@@ -384,8 +301,8 @@ function createMockHistoryWithOperations(
         visited.add(commitId);
         yield commitId;
 
-        try {
-          const commit = await stores.commits.loadCommit(commitId);
+        const commit = await stores.commits.load(commitId);
+        if (commit) {
           // Traverse tree
           yield* traverseTree(commit.tree);
 
@@ -395,8 +312,6 @@ function createMockHistoryWithOperations(
               yield* traverseCommit(parent);
             }
           }
-        } catch {
-          // Not a commit, skip
         }
       }
 
@@ -404,23 +319,17 @@ function createMockHistoryWithOperations(
         if (exclude.has(want)) continue;
 
         // Try as commit first
-        try {
-          await stores.commits.loadCommit(want);
+        const commit = await stores.commits.load(want);
+        if (commit) {
           yield* traverseCommit(want);
           continue;
-        } catch {
-          // Not a commit
         }
 
         // Try as tree
-        try {
-          const tree = stores.trees.loadTree(want);
-          // Check if it's a valid tree by trying to iterate
-          for await (const _ of tree) break;
+        const tree = await stores.trees.load(want);
+        if (tree) {
           yield* traverseTree(want);
           continue;
-        } catch {
-          // Not a tree
         }
 
         // Try as blob
@@ -433,14 +342,12 @@ function createMockHistoryWithOperations(
         }
 
         // Try as tag
-        try {
-          await stores.tags.loadTag(want);
+        const tag = await stores.tags.load(want);
+        if (tag) {
           if (!visited.has(want)) {
             visited.add(want);
             yield want;
           }
-        } catch {
-          // Unknown object type
         }
       }
     },
@@ -509,7 +416,7 @@ export async function createInitializedTestServer(): Promise<
   const git = Git.fromWorkingCopy(workingCopy);
 
   // Create and store empty tree
-  const emptyTreeId = await stores.trees.storeTree([]);
+  const emptyTreeId = await stores.trees.store([]);
 
   // Create initial commit
   const initialCommit = {
@@ -520,7 +427,7 @@ export async function createInitializedTestServer(): Promise<
     message: "Initial commit",
   };
 
-  const initialCommitId = await stores.commits.storeCommit(initialCommit);
+  const initialCommitId = await stores.commits.store(initialCommit);
 
   // Set up refs
   await stores.refs.set("refs/heads/main", initialCommitId);
@@ -654,7 +561,7 @@ export async function addFileAndCommitWc(
     message,
   };
 
-  const commitId = await wc.history.commits.storeCommit(commit);
+  const commitId = await wc.history.commits.store(commit);
 
   // Update HEAD
   const head = await wc.history.refs.get("HEAD");
@@ -733,7 +640,7 @@ export async function addFileAndCommit(
     message,
   };
 
-  const commitId = await stores.commits.storeCommit(commit);
+  const commitId = await stores.commits.store(commit);
 
   // Update HEAD
   const head = await stores.refs.get("HEAD");
