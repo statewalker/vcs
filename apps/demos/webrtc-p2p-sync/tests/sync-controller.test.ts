@@ -6,12 +6,14 @@
  * commit history is synchronized correctly.
  */
 
-import { createGitStore, Git } from "@statewalker/vcs-commands";
+import { Git } from "@statewalker/vcs-commands";
 import {
-  createFileTreeIterator,
-  createGitRepository,
-  createInMemoryFilesApi,
-  FileStagingStore,
+  createMemoryHistory,
+  createSimpleStaging,
+  DefaultSerializationApi,
+  MemoryCheckout,
+  MemoryWorkingCopy,
+  MemoryWorktree,
 } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -27,10 +29,11 @@ import {
   createRepositoryController,
   createSyncController,
   getPeerConnections,
-  setFilesApi,
   setGit,
-  setGitStore,
-  setRepository,
+  setHistory,
+  setSerializationApi,
+  setWorkingCopy,
+  setWorktree,
 } from "../src/controllers/index.js";
 import {
   getActivityLogModel,
@@ -202,30 +205,35 @@ async function createTestAppContext(_name: string): Promise<AppContext> {
   getActivityLogModel(ctx);
   getUserActionsModel(ctx);
 
-  // Initialize Git infrastructure
-  const files = createInMemoryFilesApi();
-  setFilesApi(ctx, files);
+  // Initialize Git infrastructure using Three-Part Architecture
+  const history = createMemoryHistory();
+  await history.initialize();
+  setHistory(ctx, history);
 
-  const repository = await createGitRepository(files, ".git", {
-    create: true,
-    defaultBranch: "main",
-  });
-  setRepository(ctx, repository);
-
-  const staging = new FileStagingStore(files, ".git/index");
-  await staging.read();
-
-  const worktree = createFileTreeIterator({
-    files,
-    rootPath: "",
-    gitDir: ".git",
+  const staging = createSimpleStaging();
+  const checkout = new MemoryCheckout({
+    staging,
+    initialHead: { type: "symbolic", target: "refs/heads/main" },
   });
 
-  const store = createGitStore({ repository, staging, worktree });
-  setGitStore(ctx, store);
+  const worktree = new MemoryWorktree({
+    blobs: history.blobs,
+    trees: history.trees,
+  });
+  setWorktree(ctx, worktree);
 
-  const git = Git.wrap(store);
+  const workingCopy = new MemoryWorkingCopy({
+    history,
+    checkout,
+    worktree,
+  });
+  setWorkingCopy(ctx, workingCopy);
+
+  const git = Git.fromWorkingCopy(workingCopy);
   setGit(ctx, git);
+
+  const serialization = new DefaultSerializationApi({ history });
+  setSerializationApi(ctx, serialization);
 
   // Inject mock APIs
   setPeerJsApi(ctx, new MockPeerJsApi());

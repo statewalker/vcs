@@ -26,8 +26,14 @@ function createSerializationApi(history: History): SerializationApi {
   return new DefaultSerializationApi({ history });
 }
 
-import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
+import { fetchOverDuplex, serveOverDuplex } from "@statewalker/vcs-transport";
+import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  createClientDuplex,
+  createRefStoreAdapter,
+  waitForClientService,
+} from "../src/adapters/index.js";
 
 // Mock window.location for Node.js environment
 beforeAll(() => {
@@ -57,7 +63,6 @@ import {
   createSyncController,
   setGit,
   setHistory,
-  setRepositoryAccess,
   setSerializationApi,
   setWorkingCopy,
   setWorktree,
@@ -159,7 +164,11 @@ class MockPeerConnection implements PeerConnection {
   }
 
   emit(event: string, ...args: unknown[]): void {
-    for (const h of this.handlers.get(event) ?? []) {
+    // Snapshot handlers before iterating (matches real EventEmitter behavior).
+    // Without snapshot, handlers added during iteration (e.g., by waitForClientService
+    // creating a new duplex) would see the current event data, corrupting the protocol.
+    const handlers = [...(this.handlers.get(event) ?? [])];
+    for (const h of handlers) {
       h(...args);
     }
   }
@@ -221,7 +230,9 @@ class MockPeerInstance implements PeerInstance {
   }
 
   emit(event: string, ...args: unknown[]): void {
-    for (const h of this.handlers.get(event) ?? []) {
+    // Snapshot handlers before iterating (matches real EventEmitter behavior)
+    const handlers = [...(this.handlers.get(event) ?? [])];
+    for (const h of handlers) {
       h(...args);
     }
   }
@@ -350,6 +361,8 @@ async function createTestAppContext(registry: MockPeerRegistry): Promise<AppCont
   // 1. Create in-memory History (blobs, trees, commits, tags, refs)
   const history = createMemoryHistory();
   await history.initialize();
+  // Set HEAD as symbolic ref so CommitCommand creates refs/heads/main
+  await history.refs.setSymbolic("HEAD", "refs/heads/main");
   setHistory(ctx, history);
 
   // 2. Create in-memory Staging
@@ -380,11 +393,7 @@ async function createTestAppContext(registry: MockPeerRegistry): Promise<AppCont
   const git = Git.fromWorkingCopy(workingCopy);
   setGit(ctx, git);
 
-  // 7. Create RepositoryAccess for transport operations
-  const repositoryAccess = createVcsRepositoryAccess({ history });
-  setRepositoryAccess(ctx, repositoryAccess);
-
-  // 8. Create SerializationApi for pack import/export
+  // 7. Create SerializationApi for pack import/export
   const serialization = createSerializationApi(history);
   setSerializationApi(ctx, serialization);
 
@@ -468,6 +477,83 @@ async function flushPromises(iterations = 10): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
 }
+
+/**
+ * Minimal isolation test - bypasses all controllers, tests duplex adapter + transport directly.
+ */
+describe("Duplex Adapter Isolation", () => {
+  it("should complete a fetch over PeerJS duplex", { timeout: 10000 }, async () => {
+    // Create linked mock connections via MessageChannel
+    const channel = new MessageChannel();
+    const clientConn = new MockPeerConnection("server-peer");
+    const serverConn = new MockPeerConnection("client-peer");
+    clientConn.setPort(channel.port1);
+    serverConn.setPort(channel.port2);
+    clientConn.open = true;
+    serverConn.open = true;
+
+    // Create server-side history with a commit
+    const serverHistory = createMemoryHistory();
+    await serverHistory.initialize();
+    const serverSerialization = createSerializationApi(serverHistory);
+
+    // Create a blob, tree, and commit manually
+    const blobId = await serverHistory.blobs.store([new TextEncoder().encode("hello world")]);
+    const treeId = await serverHistory.trees.store([
+      { name: "test.txt", mode: 0o100644, id: blobId },
+    ]);
+    const now = Math.floor(Date.now() / 1000);
+    const commitId = await serverHistory.commits.store({
+      tree: treeId,
+      parents: [],
+      author: { name: "Test", email: "test@test.com", timestamp: now, tzOffset: "+0000" },
+      committer: { name: "Test", email: "test@test.com", timestamp: now, tzOffset: "+0000" },
+      message: "initial commit",
+    });
+    await serverHistory.refs.set("refs/heads/main", commitId);
+
+    // Create client-side empty history
+    const clientHistory = createMemoryHistory();
+    await clientHistory.initialize();
+    const clientSerialization = createSerializationApi(clientHistory);
+
+    // Set up server: wait for service byte, then serve
+    const serverRepo = createVcsRepositoryFacade({
+      history: serverHistory,
+      serialization: serverSerialization,
+    });
+    const serverRefStore = createRefStoreAdapter(serverHistory.refs);
+
+    const serverPromise = (async () => {
+      const { duplex, service } = await waitForClientService(serverConn);
+      return await serveOverDuplex({
+        duplex,
+        repository: serverRepo,
+        refStore: serverRefStore,
+        service,
+      });
+    })();
+
+    // Set up client: create duplex + fetch
+    const clientRepo = createVcsRepositoryFacade({
+      history: clientHistory,
+      serialization: clientSerialization,
+    });
+    const clientRefStore = createRefStoreAdapter(clientHistory.refs);
+
+    const clientDuplex = createClientDuplex(clientConn, "git-upload-pack");
+    const clientResult = await fetchOverDuplex({
+      duplex: clientDuplex,
+      repository: clientRepo,
+      refStore: clientRefStore,
+    });
+
+    const serverResult = await serverPromise;
+
+    expect(serverResult.success).toBe(true);
+    expect(clientResult.success).toBe(true);
+  });
+});
 
 describe("P2P Sync Integration", () => {
   let registry: MockPeerRegistry;
@@ -585,6 +671,7 @@ describe("P2P Sync Integration", () => {
       // Client 2: Start sync with the host
       // ========================================
       const hostPeerId = peersModel2.getAll()[0].id;
+
       enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
 
       // Wait for sync to complete
@@ -682,12 +769,6 @@ describe("P2P Sync Integration", () => {
       const logModel2 = getActivityLogModel(ctx2);
       const logs2 = logModel2.getEntries();
 
-      // Debug: Print all logs to understand what happened during sync
-      console.log(
-        "Client 2 sync logs:",
-        logs2.map((e) => e.message),
-      );
-
       // Verify remote tracking ref was updated
       const remoteRefLog = logs2.find((e) =>
         e.message.includes("Updated ref refs/remotes/peer/main"),
@@ -724,7 +805,6 @@ describe("P2P Sync Integration", () => {
       const peersModel1 = getPeersModel(ctx1);
       const peersModel2 = getPeersModel(ctx2);
       const syncModel2 = getSyncModel(ctx2);
-      const logModel1 = getActivityLogModel(ctx1);
       const logModel2 = getActivityLogModel(ctx2);
 
       // ========================================
@@ -819,15 +899,6 @@ describe("P2P Sync Integration", () => {
       // ========================================
       // Verify: Both clients have same content
       // ========================================
-      console.log(
-        "Client 1 logs:",
-        logModel1.getEntries().map((e) => e.message),
-      );
-      console.log(
-        "Client 2 logs:",
-        logModel2.getEntries().map((e) => e.message),
-      );
-
       // Client 1 should have received Client 2's commits via push
       // The push updates refs/heads/main on the server side
       const client2Head = repoModel2.getState().headCommitId;
