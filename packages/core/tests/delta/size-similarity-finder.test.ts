@@ -3,15 +3,15 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { BlobStore } from "../../src/history/blobs/blob-store.js";
+import type { Blobs } from "../../src/history/blobs/blobs.js";
 import { ObjectType } from "../../src/history/objects/object-types.js";
 import { SizeSimilarityCandidateFinder } from "../../src/storage/delta/candidate-finder/size-similarity-finder.js";
 import type { DeltaTarget } from "../../src/storage/delta/candidate-finder.js";
 
 /**
- * Create a mock BlobStore for testing
+ * Create a mock Blobs for testing
  */
-function createMockBlobStore(blobs: { id: string; size: number }[]): BlobStore {
+function createMockBlobStore(blobs: { id: string; size: number }[]): Blobs {
   const blobMap = new Map(blobs.map((b) => [b.id, b.size]));
 
   return {
@@ -30,7 +30,7 @@ function createMockBlobStore(blobs: { id: string; size: number }[]): BlobStore {
       throw new Error("Not implemented");
     },
     store: async () => "",
-    delete: async () => false,
+    remove: async () => false,
   };
 }
 
