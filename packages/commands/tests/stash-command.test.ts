@@ -29,7 +29,7 @@ describe.each(backends)("StashListCommand ($name backend)", ({ factory }) => {
    * Test listing stashes when none exist.
    */
   it("should return empty list when no stashes", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Create a commit so we have a valid HEAD
     await addFile(workingCopy, "file.txt", "content");
@@ -104,7 +104,7 @@ describe.each(backends)("StashCreateCommand ($name backend)", ({ factory }) => {
    * Test creating stash without working tree provider returns undefined.
    */
   it("should require working tree provider for actual stashing", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
@@ -140,7 +140,7 @@ describe.each(backends)("StashCreateCommand ($name backend)", ({ factory }) => {
    * Test setIncludeUntracked option.
    */
   it("should support include untracked option", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
@@ -340,7 +340,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Test setStrategy option.
    */
   it("should support merge strategy option", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.stashApply();
     expect(command.getStrategy()).toBe(MergeStrategy.RECURSIVE); // default
@@ -353,7 +353,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Test setContentMergeStrategy option.
    */
   it("should support content merge strategy option", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.stashApply();
     expect(command.getContentMergeStrategy()).toBeUndefined(); // no default
@@ -368,7 +368,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Based on JGit's noStashedCommits test.
    */
   it("should throw when no stashes exist", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
@@ -383,7 +383,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Based on JGit's unstashNoHead test.
    */
   it("should throw when HEAD does not exist", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, repository } = await createInitializedGit();
 
     // Create a stash ref without HEAD
     const encoder = new TextEncoder();
@@ -449,7 +449,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
    * Based on JGit's unstashNonStashCommit test.
    */
   it("should throw for invalid stash ref", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
@@ -495,7 +495,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
    * Test dropping when no stash exists.
    */
   it("should return undefined when no stash to drop", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
@@ -594,7 +594,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
    * Test setStashRef option.
    */
   it("should support setting stash index", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.stashDrop();
     expect(command.getStashRef()).toBe(0); // default
@@ -607,7 +607,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
    * Test invalid stash index throws.
    */
   it("should throw for negative stash index", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     expect(() => git.stashDrop().setStashRef(-1)).toThrow();
   });
@@ -655,7 +655,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
    * Test command cannot be reused.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
@@ -732,7 +732,7 @@ describe.each(backends)("StashCreateCommand - JGit compatibility tests ($name ba
    * Test custom index message.
    */
   it("should support custom index message", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.stashCreate();
     command.setIndexMessage("Custom index message");
@@ -745,7 +745,7 @@ describe.each(backends)("StashCreateCommand - JGit compatibility tests ($name ba
    * Test command cannot be reused.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
@@ -806,7 +806,7 @@ describe.each(backends)("StashListCommand - additional tests ($name backend)", (
    * Test command cannot be reused.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();

@@ -43,13 +43,13 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   }
 
   it("should require a message", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     await expect(git.commit().call()).rejects.toThrow(NoMessageError);
   });
 
   it("should create a commit with message", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const commit = await git.commit().setMessage("Test commit").setAllowEmpty(true).call();
 
@@ -69,7 +69,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should set author and committer", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const author = testAuthor("John Doe", "john@example.com");
     const committer = testAuthor("Jane Doe", "jane@example.com");
@@ -89,7 +89,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should use author as committer when only author is set", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const commit = await git
       .commit()
@@ -103,7 +103,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should reject empty commit without allowEmpty", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // First commit is allowed
     await git.commit().setMessage("First commit").setAllowEmpty(true).call();
@@ -113,7 +113,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should allow empty commit with allowEmpty", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // First commit
     await git.commit().setMessage("First commit").setAllowEmpty(true).call();
@@ -136,7 +136,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should amend previous commit", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create first commit
     const first = await git
@@ -162,7 +162,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should amend and keep original message if not provided", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create first commit
     await git.commit().setMessage("Keep this message").setAllowEmpty(true).call();
@@ -174,7 +174,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should not be callable twice", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const cmd = git.commit().setMessage("Test").setAllowEmpty(true);
     await cmd.call();
@@ -183,7 +183,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should not allow setting after call", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const cmd = git.commit().setMessage("Test");
     await cmd.setAllowEmpty(true).call();
@@ -192,7 +192,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
   });
 
   it("should update branch ref after commit", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, repository } = await createInitializedGit();
 
     const commit = await git.commit().setMessage("New commit").setAllowEmpty(true).call();
 
@@ -223,7 +223,7 @@ describe.each(backends)("CommitCommand with Log ($name backend)", ({ factory }) 
   }
 
   it("should create commits visible in log", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Create multiple commits
     await git.commit().setMessage("First").setAllowEmpty(true).call();
@@ -615,7 +615,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   });
 
   it("should require working tree iterator for --all", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     // Try to commit with --all but without working tree iterator
     await expect(git.commit().setMessage("test").setAll(true).call()).rejects.toThrow(
@@ -624,7 +624,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   });
 
   it("should throw when combining --all with --only (JGit behavior)", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Create initial commit with file
     await addFile(workingCopy, "file.txt", "content\n");

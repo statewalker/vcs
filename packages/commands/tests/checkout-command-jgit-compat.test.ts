@@ -220,7 +220,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
     });
 
     it("should detect conflict when staged content differs from both", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Create initial commit
       await addFile(workingCopy, "Test.txt", "main content");
@@ -439,7 +439,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
     });
 
     it("should report conflict for non-existing path", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "exists.txt", "content");
       await git.commit().setMessage("Initial").call();
@@ -493,7 +493,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * JGit: testCheckoutToNonExistingBranch
      */
     it("should throw RefNotFoundError for non-existing branch", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();
@@ -589,7 +589,7 @@ describe.each(backends)("CheckoutCommand JGit Compatibility ($name backend)", ({
      * Test command can only be called once
      */
     it("should throw if called twice", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "Test.txt", "content");
       await git.commit().setMessage("Initial").call();

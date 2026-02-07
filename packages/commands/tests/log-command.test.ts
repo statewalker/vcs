@@ -28,7 +28,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand", () => {
     it("should return commits from HEAD", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create some commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -43,7 +43,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should limit commits with setMaxCount", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
       await git.commit().setMessage("Third").setAllowEmpty(true).call();
@@ -57,7 +57,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should skip commits with setSkip", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
       await git.commit().setMessage("Third").setAllowEmpty(true).call();
@@ -72,7 +72,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should combine skip and maxCount", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
       await git.commit().setMessage("Third").setAllowEmpty(true).call();
@@ -87,7 +87,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should start from specific commit", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
       const secondId = await repository.commits.store(second);
@@ -104,7 +104,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should not be callable twice", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const cmd = git.log();
       await cmd.call();
@@ -113,7 +113,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should follow first parent only when set", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create two branches
       const main1 = await git.commit().setMessage("Main 1").setAllowEmpty(true).call();
@@ -137,7 +137,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand with all refs", () => {
     it("should include commits from all refs when all() is called", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create commit on main
       const main1 = await git.commit().setMessage("Main commit").setAllowEmpty(true).call();
@@ -156,7 +156,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand date filtering", () => {
     it("should filter commits by setSince", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Create commits with different timestamps
       const now = Math.floor(Date.now() / 1000);
@@ -198,7 +198,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should filter commits by setUntil", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const now = Math.floor(Date.now() / 1000);
 
@@ -240,7 +240,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should combine setSince and setUntil", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const now = Math.floor(Date.now() / 1000);
 
@@ -298,7 +298,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand author filtering", () => {
     it("should filter by author name", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git
         .commit()
@@ -321,7 +321,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should filter by author email", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git
         .commit()
@@ -344,7 +344,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should filter by committer", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git
         .commit()
@@ -369,7 +369,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand RevFilter", () => {
     it("should only return merge commits with ONLY_MERGES filter", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create base commit
       await git.commit().setMessage("m0").setAllowEmpty(true).call();
@@ -416,7 +416,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should exclude merge commits with NO_MERGES filter", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create base commit
       await git.commit().setMessage("m0").setAllowEmpty(true).call();
@@ -463,7 +463,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand addRange", () => {
     it("should return commits in range (since..until)", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create: A - B - C - M
       //              \     /
@@ -514,7 +514,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
   describe("LogCommand not() exclusion", () => {
     it("should exclude commits reachable from not() target", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create base commit
       await git.commit().setMessage("Base").setAllowEmpty(true).call();
@@ -537,7 +537,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
     });
 
     it("should support multiple not() calls", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create commit chain
       await git.commit().setMessage("C1").setAllowEmpty(true).call();
@@ -563,7 +563,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
    */
   describe("LogCommand excludePath (JGit parity)", () => {
     it("should support excludePath method", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       // Just test that the method exists and is chainable
       const command = git.log().excludePath("some/path").excludePath("another/path");
