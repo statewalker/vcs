@@ -1,0 +1,9 @@
+{
+  "name": "@statewalker/vcs-transport",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./protocol": "./src/protocol/index.ts",
+    "./operations": "./src/operations/index.ts"
+  }
+}

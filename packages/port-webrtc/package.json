@@ -1,12 +1,18 @@
 {
   "name": "@statewalker/vcs-port-webrtc",
   "version": "0.1.0",
+  "description": "WebRTC MessagePort adapter for VCS transport",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git",
+    "directory": "packages/port-webrtc"
+  },
   "private": false,
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
-  "description": "WebRTC MessagePort adapter for VCS transport",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

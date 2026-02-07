@@ -1,6 +1,13 @@
 {
   "name": "@statewalker/vcs-transport-adapters",
   "version": "0.1.0",
+  "description": "Transport adapters bridging VCS core interfaces to transport layer",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git",
+    "directory": "packages/transport-adapters"
+  },
   "private": false,
   "publishConfig": {
     "access": "public"
