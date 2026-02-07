@@ -2,7 +2,6 @@ export * from "./blobs/index.js";
 export * from "./commits/index.js";
 export type {
   GitFilesHistoryConfig,
-  HistoryBackendConfig,
   HistoryComponentsConfig,
   HistoryStoresConfig,
 } from "./create-history.js";
@@ -10,7 +9,6 @@ export {
   createGitFilesHistory,
   createHistoryFromComponents,
   createHistoryFromStores,
-  createHistoryWithOperations,
   createMemoryHistory,
   createMemoryHistoryWithOperations,
 } from "./create-history.js";
