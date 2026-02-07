@@ -40,7 +40,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "new-file.txt", "content");
     await workingCopy.checkout.staging.write();
     const commit = await git.commit().setMessage("Add file").call();
-    const commitId = await repository.commits.storeCommit(commit);
+    const commitId = await repository.commits.store(commit);
 
     // Diff initial vs new commit
     const entries = await git.diff().setOldTree(initialCommitId).setNewTree(commitId).call();
@@ -57,7 +57,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "file.txt", "content");
     await workingCopy.checkout.staging.write();
     const commit1 = await git.commit().setMessage("Add file").call();
-    const commit1Id = await repository.commits.storeCommit(commit1);
+    const commit1Id = await repository.commits.store(commit1);
 
     // Remove the file and commit
     const editor = workingCopy.checkout.staging.createEditor();
@@ -65,7 +65,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await editor.finish();
     await workingCopy.checkout.staging.write();
     const commit2 = await git.commit().setMessage("Remove file").call();
-    const commit2Id = await repository.commits.storeCommit(commit2);
+    const commit2Id = await repository.commits.store(commit2);
 
     // Diff commit1 vs commit2
     const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
@@ -82,13 +82,13 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "file.txt", "original content");
     await workingCopy.checkout.staging.write();
     const commit1 = await git.commit().setMessage("Add file").call();
-    const commit1Id = await repository.commits.storeCommit(commit1);
+    const commit1Id = await repository.commits.store(commit1);
 
     // Modify the file and commit
     await addFile(workingCopy, "file.txt", "modified content");
     await workingCopy.checkout.staging.write();
     const commit2 = await git.commit().setMessage("Modify file").call();
-    const commit2Id = await repository.commits.storeCommit(commit2);
+    const commit2Id = await repository.commits.store(commit2);
 
     // Diff commit1 vs commit2
     const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
@@ -109,7 +109,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "file3.txt", "content3");
     await workingCopy.checkout.staging.write();
     const commit1 = await git.commit().setMessage("Add files").call();
-    const commit1Id = await repository.commits.storeCommit(commit1);
+    const commit1Id = await repository.commits.store(commit1);
 
     // Modify file1, delete file2, add file4
     await addFile(workingCopy, "file1.txt", "modified");
@@ -119,7 +119,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "file4.txt", "new content");
     await workingCopy.checkout.staging.write();
     const commit2 = await git.commit().setMessage("Various changes").call();
-    const commit2Id = await repository.commits.storeCommit(commit2);
+    const commit2Id = await repository.commits.store(commit2);
 
     // Diff
     const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
@@ -142,7 +142,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "docs/readme.md", "readme");
     await workingCopy.checkout.staging.write();
     const commit = await git.commit().setMessage("Add files").call();
-    const commitId = await repository.commits.storeCommit(commit);
+    const commitId = await repository.commits.store(commit);
 
     // Diff with path filter
     const entries = await git
@@ -163,7 +163,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "file.txt", "content");
     await workingCopy.checkout.staging.write();
     const commit = await git.commit().setMessage("Add file").call();
-    const _commitId = await repository.commits.storeCommit(commit);
+    const _commitId = await repository.commits.store(commit);
 
     // Stage another file
     await addFile(workingCopy, "staged.txt", "staged");
@@ -184,7 +184,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "file.txt", "original");
     await workingCopy.checkout.staging.write();
     const commit = await git.commit().setMessage("Add file").call();
-    const _commitId = await repository.commits.storeCommit(commit);
+    const _commitId = await repository.commits.store(commit);
 
     // Modify file in staging
     await addFile(workingCopy, "file.txt", "modified");
@@ -235,7 +235,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "m-file.txt", "m");
     await workingCopy.checkout.staging.write();
     const commit = await git.commit().setMessage("Add files").call();
-    const commitId = await repository.commits.storeCommit(commit);
+    const commitId = await repository.commits.store(commit);
 
     // Diff
     const entries = await git.diff().setOldTree(initialCommitId).setNewTree(commitId).call();
@@ -264,7 +264,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     await addFile(workingCopy, "a/top.txt", "top content");
     await workingCopy.checkout.staging.write();
     const commit = await git.commit().setMessage("Add nested files").call();
-    const commitId = await repository.commits.storeCommit(commit);
+    const commitId = await repository.commits.store(commit);
 
     // Diff
     const entries = await git.diff().setOldTree(initialCommitId).setNewTree(commitId).call();
@@ -300,13 +300,13 @@ describe.each(backends)("DiffEntry helpers ($name backend)", ({ factory }) => {
     const blob1 = await addFile(workingCopy, "file.txt", "original");
     await workingCopy.checkout.staging.write();
     const commit1 = await git.commit().setMessage("Add").call();
-    const commit1Id = await repository.commits.storeCommit(commit1);
+    const commit1Id = await repository.commits.store(commit1);
 
     // Modify file
     const blob2 = await addFile(workingCopy, "file.txt", "modified");
     await workingCopy.checkout.staging.write();
     const commit2 = await git.commit().setMessage("Modify").call();
-    const commit2Id = await repository.commits.storeCommit(commit2);
+    const commit2Id = await repository.commits.store(commit2);
 
     const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
 

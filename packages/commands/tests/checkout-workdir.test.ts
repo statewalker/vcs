@@ -172,7 +172,7 @@ function createBareStores(): { stores: TestStores; workingCopy: WorkingCopy } {
  */
 async function initializeStores(stores: TestStores): Promise<string> {
   // Create and store empty tree
-  const emptyTreeId = await stores.trees.storeTree([]);
+  const emptyTreeId = await stores.trees.store([]);
 
   // Create initial commit
   const initialCommit = {
@@ -183,7 +183,7 @@ async function initializeStores(stores: TestStores): Promise<string> {
     message: "Initial commit",
   };
 
-  const initialCommitId = await stores.commits.storeCommit(initialCommit);
+  const initialCommitId = await stores.commits.store(initialCommit);
 
   // Set up refs
   await stores.refs.set("refs/heads/main", initialCommitId);
