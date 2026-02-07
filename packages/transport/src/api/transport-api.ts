@@ -84,6 +84,14 @@ export interface TransportApi {
   readPack(): AsyncGenerator<Uint8Array>;
 
   /**
+   * Reads raw pack data (bypasses sideband, always reads raw bytes).
+   * Used by server-side receive-pack where client sends raw pack data
+   * after pkt-line commands, regardless of sideband capability.
+   * @yields Pack data chunks
+   */
+  readRawPack(): AsyncGenerator<Uint8Array>;
+
+  /**
    * Writes pack data stream.
    * Handles sideband wrapping if negotiated.
    * @param data - Pack data chunks

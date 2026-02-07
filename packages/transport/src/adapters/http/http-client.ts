@@ -135,9 +135,11 @@ export async function httpFetch(
         requestChunks.push(encodePacketLine(`have ${localOid}`));
       }
     }
-    requestChunks.push(encodeFlush());
 
-    // Send done
+    // Send done (flush before done only needed for multi_ack negotiation rounds)
+    if (state.haves.size > 0) {
+      requestChunks.push(encodeFlush());
+    }
     requestChunks.push(encodePacketLine("done"));
 
     // Concatenate request body
@@ -297,5 +299,325 @@ function findPackDataStart(data: Uint8Array): number {
     }
   }
 
-  return -1;
+  const combinedHeaders = { ...headers, ...authHeaders };
+
+  try {
+    // Phase 1: GET /info/refs?service=git-receive-pack
+    options.onProgress?.("Fetching remote refs...");
+
+    const infoRefsUrl = `${baseUrl}/info/refs?service=git-receive-pack`;
+    const infoRefsResponse = await fetchFn(infoRefsUrl, {
+      method: "GET",
+      headers: {
+        ...combinedHeaders,
+        Accept: "application/x-git-receive-pack-advertisement",
+      },
+    });
+
+    if (!infoRefsResponse.ok) {
+      return {
+        success: false,
+        error: `Failed to get refs: ${infoRefsResponse.status} ${infoRefsResponse.statusText}`,
+      };
+    }
+
+    if (!infoRefsResponse.body) {
+      return {
+        success: false,
+        error: "Empty response from /info/refs",
+      };
+    }
+
+    // Parse ref advertisement
+    const state = new ProtocolState();
+    const infoRefsData = await collectChunks(readableStreamToAsyncIterable(infoRefsResponse.body));
+    parseReceivePackAdvertisement(infoRefsData, state);
+
+    // Phase 2: Parse refspecs and determine what to push
+    const refUpdates = await resolveRefspecs(refspecs, refStore, state.refs);
+
+    if (refUpdates.length === 0) {
+      return {
+        success: true,
+        refStatus: new Map(),
+      };
+    }
+
+    // Phase 3: Build and send receive-pack request
+    options.onProgress?.("Sending pack data...");
+
+    const receivePackUrl = `${baseUrl}/git-receive-pack`;
+
+    // Build request body
+    const requestChunks: Uint8Array[] = [];
+
+    // Send ref update commands
+    let firstUpdate = true;
+    const wantedOids = new Set<string>();
+
+    for (const update of refUpdates) {
+      // Collect OIDs we need to send
+      if (update.newOid !== "0".repeat(40)) {
+        wantedOids.add(update.newOid);
+      }
+
+      // Build capability string for first line (null byte separates refname from capabilities)
+      const caps = firstUpdate
+        ? `\0report-status side-band-64k${atomic ? " atomic" : ""}${pushOptions.length > 0 ? " push-options" : ""}`
+        : "";
+
+      const line = `${update.oldOid} ${update.newOid} ${update.refName}${caps}`;
+      requestChunks.push(encodePacketLine(line));
+      firstUpdate = false;
+    }
+
+    requestChunks.push(encodeFlush());
+
+    // Send push options if supported
+    if (pushOptions.length > 0 && state.capabilities.has("push-options")) {
+      for (const option of pushOptions) {
+        requestChunks.push(encodePacketLine(option));
+      }
+      requestChunks.push(encodeFlush());
+    }
+
+    // Generate and append pack data if we have objects to send
+    if (wantedOids.size > 0) {
+      // Determine what objects the server already has
+      const excludeOids = new Set<string>();
+      for (const oid of state.refs.values()) {
+        excludeOids.add(oid);
+      }
+
+      // Export pack with objects the server doesn't have
+      for await (const chunk of repository.exportPack(wantedOids, excludeOids)) {
+        requestChunks.push(chunk);
+      }
+    } else {
+      // Send empty pack for delete-only operations
+      requestChunks.push(createEmptyPack());
+    }
+
+    // Concatenate request body
+    const requestBodyLength = requestChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const requestBody = new Uint8Array(requestBodyLength);
+    let offset = 0;
+    for (const chunk of requestChunks) {
+      requestBody.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Send POST request
+    const receivePackResponse = await fetchFn(receivePackUrl, {
+      method: "POST",
+      headers: {
+        ...combinedHeaders,
+        "Content-Type": "application/x-git-receive-pack-request",
+        Accept: "application/x-git-receive-pack-result",
+      },
+      body: requestBody,
+    });
+
+    if (!receivePackResponse.ok) {
+      return {
+        success: false,
+        error: `Failed to receive-pack: ${receivePackResponse.status} ${receivePackResponse.statusText}`,
+      };
+    }
+
+    if (!receivePackResponse.body) {
+      return {
+        success: false,
+        error: "Empty response from /git-receive-pack",
+      };
+    }
+
+    // Parse response to get ref statuses
+    const responseData = await collectChunks(
+      readableStreamToAsyncIterable(receivePackResponse.body),
+    );
+
+    // Decode sideband if the server uses side-band-64k
+    const sidebandResult = decodeSidebandResponse(responseData);
+    // For push responses, the report-status is sent on sideband channel 1
+    // (decodeSidebandResponse puts channel 1 data in packData)
+    const statusData = sidebandResult.packData.length > 0 ? sidebandResult.packData : responseData;
+
+    const refStatus = parseReportStatus(statusData, refUpdates);
+
+    // Check if all refs succeeded
+    const allSuccess = Array.from(refStatus.values()).every((status) => status.success);
+
+    options.onProgress?.(allSuccess ? "Push complete" : "Push completed with errors");
+
+    return {
+      success: allSuccess,
+      refStatus,
+      error: allSuccess ? undefined : "Some refs failed to update",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Parses receive-pack ref advertisement.
+ */
+function parseReceivePackAdvertisement(data: Uint8Array, state: ProtocolState): void {
+  // Similar to parseRefAdvertisement but for receive-pack
+  const text = textDecoder.decode(data);
+  const lines = text.split("\n");
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    if (line.startsWith("0000") || line.startsWith("0001")) continue;
+    if (line.includes("# service=")) continue;
+
+    let content = line;
+    if (/^[0-9a-f]{4}/.test(content)) {
+      content = content.slice(4);
+    }
+
+    const nullIndex = content.indexOf("\0");
+    const refPart = nullIndex >= 0 ? content.slice(0, nullIndex) : content;
+    const capsPart = nullIndex >= 0 ? content.slice(nullIndex + 1) : "";
+
+    if (capsPart) {
+      const caps = capsPart.trim().split(" ");
+      for (const cap of caps) {
+        if (cap) state.capabilities.add(cap);
+      }
+    }
+
+    const spaceIndex = refPart.indexOf(" ");
+    if (spaceIndex > 0) {
+      const oid = refPart.slice(0, spaceIndex);
+      const refName = refPart.slice(spaceIndex + 1).trim();
+      if (!refName.endsWith("^{}") && !refName.startsWith("capabilities")) {
+        state.refs.set(refName, oid);
+      }
+    }
+  }
+}
+
+/**
+ * Ref update command.
+ */
+interface RefUpdate {
+  refName: string;
+  oldOid: string;
+  newOid: string;
+}
+
+/**
+ * Resolves refspecs to ref update commands.
+ */
+async function resolveRefspecs(
+  refspecs: string[],
+  refStore: RefStore,
+  remoteRefs: Map<string, string>,
+): Promise<RefUpdate[]> {
+  const updates: RefUpdate[] = [];
+  const zeroOid = "0".repeat(40);
+
+  for (const refspec of refspecs) {
+    let localRef: string;
+    let remoteRef: string;
+
+    // Parse refspec (local:remote or just ref for same name)
+    if (refspec.includes(":")) {
+      const parts = refspec.split(":");
+      localRef = parts[0];
+      remoteRef = parts[1];
+    } else {
+      localRef = refspec;
+      remoteRef = refspec;
+    }
+
+    // Handle deletion (empty local ref)
+    if (localRef === "") {
+      updates.push({
+        refName: remoteRef,
+        oldOid: remoteRefs.get(remoteRef) ?? zeroOid,
+        newOid: zeroOid,
+      });
+      continue;
+    }
+
+    // Get local ref value
+    const localOid = await refStore.get(localRef);
+    if (!localOid) {
+      // Skip refs we don't have locally
+      continue;
+    }
+
+    updates.push({
+      refName: remoteRef,
+      oldOid: remoteRefs.get(remoteRef) ?? zeroOid,
+      newOid: localOid,
+    });
+  }
+
+  return updates;
+}
+
+/**
+ * Parses report-status from receive-pack response.
+ */
+function parseReportStatus(data: Uint8Array, refUpdates: RefUpdate[]): Map<string, RefPushStatus> {
+  const status = new Map<string, RefPushStatus>();
+  const text = textDecoder.decode(data);
+
+  // Initialize all refs as successful (optimistic)
+  for (const update of refUpdates) {
+    status.set(update.refName, { success: true });
+  }
+
+  // Look for "unpack" status and "ng" (not good) lines
+  const lines = text.split("\n");
+
+  for (const line of lines) {
+    let content = line;
+
+    // Remove sideband prefix if present
+    if (content.length > 0 && (content[0] === "\x01" || content[0] === "\x02")) {
+      content = content.slice(1);
+    }
+
+    // Remove pkt-line length prefix if present
+    if (/^[0-9a-f]{4}/.test(content)) {
+      content = content.slice(4);
+    }
+
+    content = content.trim();
+
+    // Check for unpack failure
+    if (content.startsWith("unpack ") && !content.includes("unpack ok")) {
+      // Unpack failed - mark all refs as failed
+      for (const update of refUpdates) {
+        status.set(update.refName, {
+          success: false,
+          error: content,
+        });
+      }
+      continue;
+    }
+
+    // Check for individual ref failures: "ng <ref> <reason>"
+    if (content.startsWith("ng ")) {
+      const parts = content.slice(3).split(" ");
+      const refName = parts[0];
+      const reason = parts.slice(1).join(" ");
+
+      status.set(refName, {
+        success: false,
+        error: reason || "Unknown error",
+      });
+    }
+  }
+
+  return status;
 }

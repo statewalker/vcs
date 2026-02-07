@@ -98,6 +98,16 @@ class PktLineReader {
   }
 
   /**
+   * Drains any remaining buffered data and returns it.
+   * Used when switching from pkt-line mode to raw binary mode.
+   */
+  drainBuffer(): Uint8Array {
+    const buf = this.buffer;
+    this.buffer = new Uint8Array(0);
+    return buf;
+  }
+
+  /**
    * Reads a sideband-encoded packet.
    * Extracts the channel byte and payload from pkt-line data.
    */
@@ -241,13 +251,31 @@ export function createTransportApi(duplex: Duplex, state: ProtocolState): Transp
           }
         }
       } else {
-        // Raw pack data - read directly from stream
+        // Raw pack data - yield remaining buffered data first, then stream
+        const remaining = reader.drainBuffer();
+        if (remaining.length > 0) {
+          yield remaining;
+        }
         const iter = duplex[Symbol.asyncIterator]();
         while (true) {
           const { value, done } = await iter.next();
           if (done) break;
           yield value;
         }
+      }
+    },
+
+    // Raw pack streaming (bypasses sideband, always reads raw bytes)
+    async *readRawPack(): AsyncGenerator<Uint8Array> {
+      const remaining = reader.drainBuffer();
+      if (remaining.length > 0) {
+        yield remaining;
+      }
+      const iter = duplex[Symbol.asyncIterator]();
+      while (true) {
+        const { value, done } = await iter.next();
+        if (done) break;
+        yield value;
       }
     },
 
