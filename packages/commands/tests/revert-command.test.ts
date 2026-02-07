@@ -68,7 +68,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(result.revertedRefs).toContain(fixingAId);
 
     // Check the revert commit message
-    const revertCommit = await repository.commits.loadCommit(result.newHead ?? "");
+    const revertCommit = await repository.commits.load(result.newHead ?? "");
     expect(revertCommit.message).toContain('Revert "fixed a"');
     expect(revertCommit.message).toContain("This reverts commit");
     expect(revertCommit.message).toContain(fixingAId);
@@ -200,7 +200,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     expect(entry).toBeDefined();
 
     // The tree in staging should match the base commit's tree content
-    const baseCommitData = await repository.commits.loadCommit(baseCommit);
+    const baseCommitData = await repository.commits.load(baseCommit);
     const stagingTreeId = await workingCopy.checkout.staging.writeTree(repository.trees);
     // The trees should be identical since we reverted to base
     expect(stagingTreeId).toBe(baseCommitData.tree);
@@ -231,7 +231,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
 
     // Checkout side and modify
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
-    const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
+    const baseCommitData = await repository.commits.load(baseCommit?.objectId ?? "");
     await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "side.txt", "side");
     await git.commit().setMessage("side change").call();
@@ -277,7 +277,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
 
     // Checkout side and add different file
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
-    const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
+    const baseCommitData = await repository.commits.load(baseCommit?.objectId ?? "");
     await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "side-file.txt", "from side");
     await git.commit().setMessage("side add").call();
@@ -330,7 +330,7 @@ describe.each(backends)("RevertCommand ($name backend)", ({ factory }) => {
     const mainHead = await repository.refs.resolve("HEAD");
 
     await repository.refs.setSymbolic("HEAD", "refs/heads/side");
-    const baseCommitData = await repository.commits.loadCommit(baseCommit?.objectId ?? "");
+    const baseCommitData = await repository.commits.load(baseCommit?.objectId ?? "");
     await workingCopy.checkout.staging.readTree(repository.trees, baseCommitData.tree);
     await addFile(workingCopy, "side.txt", "side");
     await git.commit().setMessage("side").call();
@@ -606,7 +606,7 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
     expect(result.status).toBe(RevertStatus.OK);
 
     // The new commit's parent should be headBeforeRevert
-    const revertCommit = await repository.commits.loadCommit(result.newHead ?? "");
+    const revertCommit = await repository.commits.load(result.newHead ?? "");
     expect(revertCommit.parents).toHaveLength(1);
     expect(revertCommit.parents[0]).toBe(headBeforeRevert);
   });
@@ -638,7 +638,7 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
     expect(result.status).toBe(RevertStatus.OK);
 
     // Check message uses only first line in title
-    const revertCommit = await repository.commits.loadCommit(result.newHead ?? "");
+    const revertCommit = await repository.commits.load(result.newHead ?? "");
     expect(revertCommit.message).toContain('Revert "Fix the bug"');
     expect(revertCommit.message).not.toContain("This is a detailed description");
   });
@@ -668,22 +668,28 @@ describe.each(backends)("RevertCommand - JGit additional tests ($name backend)",
     expect(result.status).toBe(RevertStatus.OK);
 
     // Read the tree to verify content matches base
-    const revertCommit = await repository.commits.loadCommit(result.newHead ?? "");
-    const baseCommitData = await repository.commits.loadCommit(baseCommit2);
+    const revertCommit = await repository.commits.load(result.newHead ?? "");
+    const baseCommitData = await repository.commits.load(baseCommit2);
 
     // Get file entry from both trees
     let revertFileId: string | undefined;
     let baseFileId: string | undefined;
 
-    for await (const entry of repository.trees.loadTree(revertCommit.tree)) {
-      if (entry.name === "file.txt") {
-        revertFileId = entry.id;
+    if (revertCommit) {
+      const revertEntries = await repository.trees.load(revertCommit.tree);
+      for await (const entry of revertEntries ?? []) {
+        if (entry.name === "file.txt") {
+          revertFileId = entry.id;
+        }
       }
     }
 
-    for await (const entry of repository.trees.loadTree(baseCommitData.tree)) {
-      if (entry.name === "file.txt") {
-        baseFileId = entry.id;
+    if (baseCommitData) {
+      const baseEntries = await repository.trees.load(baseCommitData.tree);
+      for await (const entry of baseEntries ?? []) {
+        if (entry.name === "file.txt") {
+          baseFileId = entry.id;
+        }
       }
     }
 

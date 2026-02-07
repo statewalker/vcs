@@ -198,7 +198,7 @@ describe.each(backends)("CommitCommand ($name backend)", ({ factory }) => {
 
     // Get the branch ref
     const ref = await repository.refs.resolve("refs/heads/main");
-    const _commitId = await repository.commits.storeCommit(commit);
+    const _commitId = await repository.commits.store(commit);
 
     // Note: The commit's stored ID will be the same if the content is the same
     // We just verify that the ref was updated
@@ -275,7 +275,7 @@ describe.each(backends)("CommitCommand with --only flag ($name backend)", ({ fac
 
     // Get the committed tree
     const headRef = await repository.refs.resolve("HEAD");
-    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
+    const headCommit = await repository.commits.load(headRef?.objectId ?? "");
 
     // Check that file1 was updated
     const file1Entry = await repository.trees.getEntry(headCommit.tree, "file1.txt");
@@ -311,7 +311,7 @@ describe.each(backends)("CommitCommand with --only flag ($name backend)", ({ fac
 
     // Get committed tree
     const headRef = await repository.refs.resolve("HEAD");
-    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
+    const headCommit = await repository.commits.load(headRef?.objectId ?? "");
 
     // Verify a.txt was updated
     const aEntry = await repository.trees.getEntry(headCommit.tree, "a.txt");
@@ -348,7 +348,7 @@ describe.each(backends)("CommitCommand with --only flag ($name backend)", ({ fac
 
     // Verify results
     const headRef = await repository.refs.resolve("HEAD");
-    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
+    const headCommit = await repository.commits.load(headRef?.objectId ?? "");
 
     // Need to walk tree to get src subtree
     const srcEntry = await repository.trees.getEntry(headCommit.tree, "src");
@@ -569,7 +569,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
 
     // Verify both files were updated in the commit
     const headRef = await repository.refs.resolve("HEAD");
-    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
+    const headCommit = await repository.commits.load(headRef?.objectId ?? "");
 
     const file1Entry = await repository.trees.getEntry(headCommit.tree, "file1.txt");
     const file1Content = await repository.blobs.load(file1Entry?.id);
@@ -604,7 +604,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
 
     // Verify file1 was removed from the tree
     const headRef = await repository.refs.resolve("HEAD");
-    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
+    const headCommit = await repository.commits.load(headRef?.objectId ?? "");
 
     const file1Entry = await repository.trees.getEntry(headCommit.tree, "file1.txt");
     expect(file1Entry).toBeUndefined();
@@ -654,7 +654,7 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
 
     // Verify untracked file was NOT added
     const headRef = await repository.refs.resolve("HEAD");
-    const headCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
+    const headCommit = await repository.commits.load(headRef?.objectId ?? "");
 
     const untrackedEntry = await repository.trees.getEntry(headCommit.tree, "untracked.txt");
     expect(untrackedEntry).toBeUndefined();

@@ -90,7 +90,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
       const { git, workingCopy, repository } = await createInitializedGit();
 
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
-      const secondId = await repository.commits.storeCommit(second);
+      const secondId = await repository.commits.store(second);
 
       await git.commit().setMessage("Third").setAllowEmpty(true).call();
       await git.commit().setMessage("Fourth").setAllowEmpty(true).call();
@@ -117,14 +117,14 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
       // Create two branches
       const main1 = await git.commit().setMessage("Main 1").setAllowEmpty(true).call();
-      const _main1Id = await repository.commits.storeCommit(main1);
+      const _main1Id = await repository.commits.store(main1);
 
       // Create feature branch commit
       await git.branchCreate().setName("feature").call();
 
       // Make commits on main
       const main2 = await git.commit().setMessage("Main 2").setAllowEmpty(true).call();
-      const _main2Id = await repository.commits.storeCommit(main2);
+      const _main2Id = await repository.commits.store(main2);
 
       // Checkout feature and make commit (simulated - we'd need checkout command)
       // For now just test that firstParent option works with linear history
@@ -141,7 +141,7 @@ describe.each(backends)("LogCommand ($name backend)", ({ factory }) => {
 
       // Create commit on main
       const main1 = await git.commit().setMessage("Main commit").setAllowEmpty(true).call();
-      const main1Id = await repository.commits.storeCommit(main1);
+      const main1Id = await repository.commits.store(main1);
 
       // Create branch with different commit history
       await git.branchCreate().setName("feature").setStartPoint(main1Id).call();

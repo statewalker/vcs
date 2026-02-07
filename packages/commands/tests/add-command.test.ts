@@ -298,7 +298,7 @@ async function createInitializedGitWithWorkTreeFromFactory(factory: WorkingCopyF
   const git = Git.fromWorkingCopy(workingCopy);
 
   // Create and store empty tree
-  const emptyTreeId = await repository.trees.storeTree([]);
+  const emptyTreeId = await repository.trees.store([]);
 
   // Create initial commit
   const initialCommit = {
@@ -319,7 +319,7 @@ async function createInitializedGitWithWorkTreeFromFactory(factory: WorkingCopyF
     message: "Initial commit",
   };
 
-  const initialCommitId = await repository.commits.storeCommit(initialCommit);
+  const initialCommitId = await repository.commits.store(initialCommit);
 
   // Set up refs
   await repository.refs.set("refs/heads/main", initialCommitId);
@@ -833,7 +833,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
       const { repository, staging } = workingCopy;
 
       // Initialize store - store the empty tree first
-      const emptyTreeId = await repository.trees.storeTree([]);
+      const emptyTreeId = await repository.trees.store([]);
       const commit = {
         tree: emptyTreeId,
         parents: [],
@@ -851,7 +851,7 @@ describe.each(backends)("AddCommand ($name backend)", ({ factory }) => {
         },
         message: "Initial",
       };
-      const commitId = await repository.commits.storeCommit(commit);
+      const commitId = await repository.commits.store(commit);
       await repository.refs.set("refs/heads/main", commitId);
       await repository.refs.setSymbolic("HEAD", "refs/heads/main");
       await staging.readTree(repository.trees, emptyTreeId);
