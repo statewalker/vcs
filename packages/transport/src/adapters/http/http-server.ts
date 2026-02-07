@@ -634,10 +634,17 @@ export function createHttpHandler(
  * Options for creating a Git HTTP server.
  */
 export interface GitHttpServerOptions {
-  /** Resolve repository for a given request */
-  resolveRepository: (request: HttpRequest, repoPath?: string) => Promise<RepositoryFacade | null>;
+  /** Resolve repository by path, returning facade and ref store */
+  resolveRepository: (
+    repoPath: string,
+  ) => Promise<{ repository: RepositoryFacade; refStore: RefStore } | null>;
   /** Optional request policy */
   requestPolicy?: "ADVERTISED" | "REACHABLE_COMMIT" | "TIP" | "REACHABLE_COMMIT_TIP" | "ANY";
+  /** Optional logger */
+  logger?: {
+    info: (msg: string) => void;
+    error: (msg: string, err?: unknown) => void;
+  };
 }
 
 /**
@@ -653,31 +660,38 @@ export interface GitHttpServer {
 /**
  * Create a Git HTTP server that handles Git protocol requests.
  *
+ * Wraps createHttpHandler into a server object with a handleRequest
+ * method and a close lifecycle hook.
+ *
  * @param options - Server options
  * @returns A Git HTTP server
  *
  * @example
  * ```ts
  * const server = createGitHttpServer({
- *   async resolveRepository(request, repoPath) {
- *     return openRepository(repoPath);
+ *   async resolveRepository(repoPath) {
+ *     const repo = await openRepository(repoPath);
+ *     if (!repo) return null;
+ *     return { repository: repo.facade, refStore: repo.refs };
  *   },
  * });
  *
- * // Handle incoming requests
  * const response = await server.handleRequest(request);
  * ```
  */
 export function createGitHttpServer(options: GitHttpServerOptions): GitHttpServer {
-  // TODO: Implement full Git HTTP server
-  // This would route requests to handleInfoRefs and handleUploadPack
+  const handler = createHttpHandler({
+    resolveRepository: options.resolveRepository,
+    requestPolicy: options.requestPolicy,
+    logger: options.logger,
+  });
 
-  void options; // Suppress unused parameter warning
-
-  throw new Error(
-    "createGitHttpServer not yet implemented. " +
-      "Use handleInfoRefs and handleUploadPack directly.",
-  );
+  return {
+    handleRequest: handler,
+    async close(): Promise<void> {
+      // No persistent resources to clean up for the HTTP handler
+    },
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
