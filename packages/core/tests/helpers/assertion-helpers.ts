@@ -6,7 +6,7 @@ import type { Delta } from "@statewalker/vcs-utils";
 import { applyDelta } from "@statewalker/vcs-utils";
 import { expect } from "vitest";
 import type { ObjectId } from "../../src/common/id/index.js";
-import type { RefStore } from "../../src/history/refs/ref-store.js";
+import type { Refs } from "../../src/history/refs/refs.js";
 import type { RawStorage } from "../../src/storage/raw/raw-storage.js";
 
 /**
@@ -56,7 +56,7 @@ export async function assertRoundTrip(
  * Assert reference resolves to expected ObjectId
  */
 export async function assertRefResolution(
-  store: RefStore,
+  store: Refs,
   name: string,
   expected: ObjectId,
 ): Promise<void> {

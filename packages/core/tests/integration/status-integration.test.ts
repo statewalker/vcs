@@ -12,8 +12,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { FileMode } from "../../src/common/files/index.js";
-import type { CommitStore } from "../../src/history/commits/commit-store.js";
-import type { RefStore } from "../../src/history/refs/ref-store.js";
+import type { Commits } from "../../src/history/commits/commits.js";
+import type { Refs } from "../../src/history/refs/refs.js";
 import type { TreeEntry } from "../../src/history/trees/tree-entry.js";
 import type { Trees } from "../../src/history/trees/trees.js";
 import type { MergeStageValue, StagingEntry } from "../../src/workspace/staging/index.js";
@@ -821,19 +821,22 @@ function createMockWorktree(entries: WorktreeEntry[], hashes: Map<string, string
   } as unknown as Worktree;
 }
 
-function createMockCommitStore(treeId?: string): CommitStore {
+function createMockCommitStore(treeId?: string): Commits {
   return {
-    loadCommit: vi.fn(),
-    storeCommit: vi.fn(),
+    load: vi.fn(),
+    store: vi.fn(),
+    has: vi.fn(),
+    remove: vi.fn(),
+    keys: vi.fn(),
     getTree: vi.fn().mockResolvedValue(treeId),
     getParents: vi.fn().mockResolvedValue([]),
     walkAncestry: vi.fn(),
     findMergeBase: vi.fn(),
     isAncestor: vi.fn(),
-  } as unknown as CommitStore;
+  } as unknown as Commits;
 }
 
-function createMockRefStore(headCommitId?: string): RefStore {
+function createMockRefStore(headCommitId?: string): Refs {
   return {
     get: vi
       .fn()
@@ -847,11 +850,11 @@ function createMockRefStore(headCommitId?: string): RefStore {
     has: vi.fn().mockResolvedValue(!!headCommitId),
     set: vi.fn(),
     setSymbolic: vi.fn(),
-    delete: vi.fn(),
+    remove: vi.fn(),
     compareAndSwap: vi.fn().mockResolvedValue({ success: true }),
     initialize: vi.fn(),
     optimize: vi.fn(),
     getReflog: vi.fn(),
     packRefs: vi.fn(),
-  } as unknown as RefStore;
+  } as unknown as Refs;
 }
