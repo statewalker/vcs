@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FileMode } from "../../src/common/files/index.js";
-import type { BlobStore } from "../../src/history/blobs/blob-store.js";
-import type { CommitStore } from "../../src/history/commits/commit-store.js";
+import type { Blobs } from "../../src/history/blobs/blobs.js";
+import type { Commits } from "../../src/history/commits/commits.js";
 import type { History } from "../../src/history/history.js";
-import type { RefStore } from "../../src/history/refs/ref-store.js";
+import type { Refs } from "../../src/history/refs/refs.js";
 import type { TreeEntry } from "../../src/history/trees/tree-entry.js";
 import type { Trees } from "../../src/history/trees/trees.js";
 import type { Checkout } from "../../src/workspace/checkout/checkout.js";
@@ -136,25 +136,27 @@ function createMockWorktree(
 /**
  * Create mock commit store
  */
-function createMockCommitStore(trees: Map<string, string> = new Map()): CommitStore {
+function createMockCommitStore(trees: Map<string, string> = new Map()): Commits {
   return {
-    storeCommit: vi.fn(),
-    loadCommit: vi.fn(),
+    store: vi.fn(),
+    load: vi.fn(),
+    has: vi.fn(),
+    remove: vi.fn(),
+    keys: vi.fn(),
     getParents: vi.fn(),
     getTree: vi.fn().mockImplementation(async (commitId: string) => {
       return trees.get(commitId);
     }),
     walkAncestry: vi.fn(),
     findMergeBase: vi.fn(),
-    hasCommit: vi.fn(),
     isAncestor: vi.fn(),
-  } as unknown as CommitStore;
+  } as unknown as Commits;
 }
 
 /**
  * Create mock ref store
  */
-function createMockRefStore(headCommit?: string, branch?: string): RefStore {
+function createMockRefStore(headCommit?: string, branch?: string): Refs {
   return {
     get: vi.fn().mockImplementation(async (name: string) => {
       if (name === "HEAD" && branch) {
@@ -170,21 +172,24 @@ function createMockRefStore(headCommit?: string, branch?: string): RefStore {
     }),
     set: vi.fn(),
     setSymbolic: vi.fn(),
-    delete: vi.fn(),
+    remove: vi.fn(),
     list: vi.fn(),
-    exists: vi.fn(),
-  } as unknown as RefStore;
+    has: vi.fn(),
+  } as unknown as Refs;
 }
 
 /**
  * Create mock blob store
  */
-function createMockBlobStore(): BlobStore {
+function createMockBlobStore(): Blobs {
   return {
-    storeBlob: vi.fn(),
-    loadBlob: vi.fn(),
-    hasBlob: vi.fn(),
-  } as unknown as BlobStore;
+    store: vi.fn(),
+    load: vi.fn(),
+    has: vi.fn(),
+    remove: vi.fn(),
+    keys: vi.fn(),
+    size: vi.fn(),
+  } as unknown as Blobs;
 }
 
 /**
