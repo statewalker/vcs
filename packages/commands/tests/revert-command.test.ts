@@ -473,7 +473,7 @@ describe.each(backends)("RevertCommand - Strategy and options ($name backend)", 
    * Based on JGit's setStrategy pattern.
    */
   it("should support setting merge strategy", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.revert();
     expect(command.getStrategy()).toBe(MergeStrategy.RECURSIVE); // default
@@ -491,7 +491,7 @@ describe.each(backends)("RevertCommand - Strategy and options ($name backend)", 
    * Based on JGit's content merge strategy options.
    */
   it("should support setting content merge strategy", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.revert();
     expect(command.getContentMergeStrategy()).toBeUndefined(); // no default
@@ -509,7 +509,7 @@ describe.each(backends)("RevertCommand - Strategy and options ($name backend)", 
    * Based on JGit's setOurCommitName for conflict markers.
    */
   it("should support setting our commit name for conflict markers", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.revert();
     expect(command.getOurCommitName()).toBeUndefined(); // default
@@ -524,7 +524,7 @@ describe.each(backends)("RevertCommand - Strategy and options ($name backend)", 
    * Based on JGit's reflog handling.
    */
   it("should support setting reflog prefix", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.revert();
     expect(command.getReflogPrefix()).toBe("revert:"); // default

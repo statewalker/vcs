@@ -26,7 +26,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
     return result;
   }
   it("should return empty diff for same tree", async () => {
-    const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+    const { git, initialCommitId } = await createInitializedGit();
 
     const entries = await git.diff().setOldTree(initialCommitId).setNewTree(initialCommitId).call();
 
@@ -199,7 +199,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should compare using branch names", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Create a file and commit on main
     await addFile(workingCopy, "file.txt", "content");
@@ -247,7 +247,7 @@ describe.each(backends)("DiffCommand ($name backend)", ({ factory }) => {
   });
 
   it("should not be callable twice", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const cmd = git.diff();
     await cmd.call();

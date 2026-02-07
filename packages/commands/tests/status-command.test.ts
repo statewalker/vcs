@@ -33,7 +33,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Based on JGit's testEmptyStatus.
      */
     it("should return clean status for empty repository", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const status = await git.status().call();
 
@@ -49,7 +49,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status after adding files but before first commit.
      */
     it("should show staged files as added before first commit", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Add files to staging
       await addFile(workingCopy, "a.txt", "content of a");
@@ -72,7 +72,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status is clean after commit.
      */
     it("should be clean after commit", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "content");
       await git.commit().setMessage("initial").call();
@@ -87,7 +87,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status shows added files.
      */
     it("should detect added files", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "content of a");
       await git.commit().setMessage("initial").call();
@@ -108,7 +108,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status shows changed files.
      */
     it("should detect changed files", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "original content");
       await git.commit().setMessage("initial").call();
@@ -129,7 +129,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test status shows removed files.
      */
     it("should detect removed files", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "content of a");
       await addFile(workingCopy, "b.txt", "content of b");
@@ -153,7 +153,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Based on JGit's testDifferentStates.
      */
     it("should show multiple change types", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Initial commit
       await addFile(workingCopy, "existing.txt", "existing content");
@@ -185,7 +185,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Based on JGit's testDifferentStatesWithPaths.
      */
     it("should filter by exact file path", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "a");
       await addFile(workingCopy, "b.txt", "b");
@@ -207,7 +207,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test filtering by directory prefix.
      */
     it("should filter by directory prefix", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "root.txt", "root");
       await addFile(workingCopy, "src/a.txt", "a");
@@ -235,7 +235,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test filtering with multiple paths.
      */
     it("should filter by multiple paths", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "a");
       await addFile(workingCopy, "src/b.txt", "b");
@@ -260,7 +260,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test filter on non-existing path returns empty result.
      */
     it("should return empty status for non-existing path", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "a");
       await git.commit().setMessage("initial").call();
@@ -391,7 +391,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Tests filtering on nested paths like D/D/d
      */
     it("should filter on deeply nested paths", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "a");
       await addFile(workingCopy, "D/b.txt", "b");
@@ -417,7 +417,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * JGit: testDifferentStatesWithPaths - combined nested + root filtering
      */
     it("should combine nested and root path filters", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "a.txt", "a");
       await addFile(workingCopy, "D/b.txt", "b");
@@ -444,7 +444,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test isClean() method.
      */
     it("isClean should return true only when no changes", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Initially clean
       let status = await git.status().call();
@@ -465,7 +465,7 @@ describe.each(backends)("StatusCommand ($name backend)", ({ factory }) => {
      * Test hasUncommittedChanges() method.
      */
     it("hasUncommittedChanges should mirror isClean negation", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       let status = await git.status().call();
       expect(status.hasUncommittedChanges()).toBe(false);

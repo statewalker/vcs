@@ -26,7 +26,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
   describe("basic blame", () => {
     it("should blame all lines to initial commit", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Add a file with 3 lines
       await addFile(workingCopy, "file.txt", "line 1\nline 2\nline 3\n");
@@ -132,7 +132,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should handle multiple commits with different authors", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Create first commit with author A
       await addFile(workingCopy, "file.txt", "author A line\n");
@@ -156,7 +156,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
   describe("edge cases", () => {
     it("should handle empty file", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "empty.txt", "");
       await git.commit().setMessage("Add empty file").call();
@@ -168,7 +168,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should throw for non-existent file", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "file.txt", "content");
       await git.commit().setMessage("Initial commit").call();
@@ -179,7 +179,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should throw when file path not set", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "file.txt", "content");
       await git.commit().setMessage("Initial commit").call();
@@ -210,7 +210,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("should handle file with no trailing newline", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "file.txt", "line 1\nline 2"); // No trailing newline
       await git.commit().setMessage("Add file").call();
@@ -1051,7 +1051,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
 
   describe("BlameResult methods", () => {
     it("getEntry should return correct entry for line", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "file.txt", "line 1\nline 2\nline 3\n");
       await git.commit().setMessage("Initial").call();
@@ -1066,7 +1066,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getSourceCommit should return commit for line", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "file.txt", "line 1\n");
       await git.commit().setMessage("Initial").call();
@@ -1079,7 +1079,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getSourceAuthor should return author for line", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "file.txt", "line 1\n");
       await git.commit().setMessage("Initial").setAuthor("Test Author", "test@example.com").call();
@@ -1092,7 +1092,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getSourceLine should return original line number in source", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       // Create file with 3 lines
       await addFile(workingCopy, "file.txt", "a\nc\ne\n");
@@ -1115,7 +1115,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
     });
 
     it("getSourcePath should return source path", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, workingCopy } = await createInitializedGit();
 
       await addFile(workingCopy, "file.txt", "line 1\n");
       await git.commit().setMessage("Initial").call();

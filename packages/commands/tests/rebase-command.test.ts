@@ -124,7 +124,7 @@ describe.each(backends)("RebaseCommand ($name backend)", ({ factory }) => {
    * Test abort operation.
    */
   it("should abort rebase", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Create initial commit
     await addFile(workingCopy, "file.txt", "v1");
@@ -157,7 +157,7 @@ describe.each(backends)("RebaseCommand - API options ($name backend)", ({ factor
    * Test setStrategy/getStrategy.
    */
   it("should support setting merge strategy", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.rebase();
     expect(command.getStrategy()).toBe(MergeStrategy.RECURSIVE); // default
@@ -173,7 +173,7 @@ describe.each(backends)("RebaseCommand - API options ($name backend)", ({ factor
    * Test setContentMergeStrategy/getContentMergeStrategy.
    */
   it("should support setting content merge strategy", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.rebase();
     expect(command.getContentMergeStrategy()).toBeUndefined(); // no default
@@ -189,7 +189,7 @@ describe.each(backends)("RebaseCommand - API options ($name backend)", ({ factor
    * Test setPreserveMerges/getPreserveMerges.
    */
   it("should support preserve merges option", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.rebase();
     expect(command.getPreserveMerges()).toBe(false); // default
@@ -202,7 +202,7 @@ describe.each(backends)("RebaseCommand - API options ($name backend)", ({ factor
    * Test setOperation/getOperation.
    */
   it("should support setting operation", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git } = await createInitializedGit();
 
     const command = git.rebase();
     expect(command.getOperation()).toBe(RebaseOperation.BEGIN); // default
