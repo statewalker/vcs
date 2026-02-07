@@ -1,8 +1,8 @@
 export * from "./tree-entry.js";
 export * from "./tree-format.js";
+// Git tree store implementation
 export * from "./tree-store.impl.js";
-export * from "./tree-store.js";
-// New implementations (Phase C2)
+// Factory function for creating Trees
 export * from "./trees.impl.js";
-// New interfaces (Phase C)
+// Trees interface and types
 export * from "./trees.js";
