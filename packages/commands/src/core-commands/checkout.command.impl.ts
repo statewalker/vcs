@@ -11,8 +11,8 @@
  */
 
 import {
-  type BlobStore,
-  type CommitStore,
+  type Blobs,
+  type Commits,
   FileMode,
   type FilesApi,
   joinPath,
@@ -20,7 +20,7 @@ import {
   type RefStore,
   type Staging,
   type TreeEntry,
-  type TreeStore,
+  type Trees,
 } from "@statewalker/vcs-core";
 import type { Checkout, CheckoutOptions, CheckoutResult } from "./checkout.command.js";
 
@@ -43,13 +43,13 @@ export interface CheckoutCommandOptions {
   workTreeRoot: string;
 
   /** Blob storage for loading file content */
-  blobs: BlobStore;
+  blobs: Blobs;
 
   /** Tree storage for loading tree entries */
-  trees: TreeStore;
+  trees: Trees;
 
   /** Commit storage for resolving commits */
-  commits: CommitStore;
+  commits: Commits;
 
   /** Reference storage for resolving refs and updating HEAD */
   refs: RefStore;
@@ -64,9 +64,9 @@ export interface CheckoutCommandOptions {
 export class CheckoutCommand implements Checkout {
   private readonly files: FilesApi;
   private readonly workTreeRoot: string;
-  private readonly blobs: BlobStore;
-  private readonly trees: TreeStore;
-  private readonly commits: CommitStore;
+  private readonly blobs: Blobs;
+  private readonly trees: Trees;
+  private readonly commits: Commits;
   private readonly refs: RefStore;
   private readonly staging: Staging;
 
@@ -92,6 +92,9 @@ export class CheckoutCommand implements Checkout {
 
     // Get target tree
     const treeId = await this.commits.getTree(commitId);
+    if (!treeId) {
+      throw new Error(`Cannot get tree for commit ${commitId}`);
+    }
 
     // Check for conflicts unless force
     if (!options.force) {
@@ -366,8 +369,12 @@ export class CheckoutCommand implements Checkout {
    */
   private async flattenTree(treeId: ObjectId, prefix: string): Promise<Map<string, FlatTreeEntry>> {
     const map = new Map<string, FlatTreeEntry>();
+    const entries = await this.trees.load(treeId);
+    if (!entries) {
+      return map;
+    }
 
-    for await (const entry of this.trees.loadTree(treeId)) {
+    for await (const entry of entries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.mode === FileMode.TREE) {
