@@ -5,45 +5,18 @@
  * commit chains, and verifying GC behavior.
  */
 
-import { MemoryStorageBackend } from "../../src/backend/memory-storage-backend.js";
 import { FileMode } from "../../src/common/files/index.js";
 import type { ObjectId } from "../../src/common/id/index.js";
 import type { PersonIdent } from "../../src/common/person/person-ident.js";
-import { createBlobs } from "../../src/history/blobs/blobs.impl.js";
-import type { Blobs } from "../../src/history/blobs/blobs.js";
-import { createCommits } from "../../src/history/commits/commits.impl.js";
-import type { Commit, Commits } from "../../src/history/commits/commits.js";
-import { createHistoryWithOperations } from "../../src/history/create-history.js";
+import type { Commit } from "../../src/history/commits/commits.js";
+import { createMemoryHistoryWithOperations } from "../../src/history/create-history.js";
 import type { HistoryWithOperations } from "../../src/history/history.js";
-import { createGitObjectStore } from "../../src/history/objects/index.js";
-import type { GitObjectStore } from "../../src/history/objects/object-store.js";
-import { createMemoryRefs } from "../../src/history/refs/refs.impl.js";
-import type { Refs } from "../../src/history/refs/refs.js";
-import { createTags } from "../../src/history/tags/tags.impl.js";
-import type { Tags } from "../../src/history/tags/tags.js";
-import { createTrees } from "../../src/history/trees/trees.impl.js";
-import type { Trees } from "../../src/history/trees/trees.js";
 import { GCController, type GCScheduleOptions } from "../../src/storage/delta/gc-controller.js";
-import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
-
-/**
- * Simple in-memory repository for GC tests
- */
-interface TestRepository {
-  objects: GitObjectStore;
-  commits: Commits;
-  trees: Trees;
-  blobs: Blobs;
-  tags: Tags;
-  refs: Refs;
-}
 
 /**
  * Test context with repository, GC controller, and history
  */
 export interface GCTestContext {
-  /** Repository stores */
-  repo: TestRepository;
   /** GC controller */
   gc: GCController;
   /** History with operations for delta operations */
@@ -81,41 +54,12 @@ export interface CommitOptions {
 /**
  * Create a test repository with GC controller
  *
- * Uses in-memory stores with MemoryStorageBackend for reliable testing.
+ * Uses in-memory HistoryWithOperations for reliable testing.
  */
 export async function createTestRepository(gcOptions?: GCScheduleOptions): Promise<GCTestContext> {
-  // Create raw storage for blobs and objects
-  const blobStorage = new MemoryRawStorage();
-  const objectStorage = new MemoryRawStorage();
+  const history = createMemoryHistoryWithOperations();
 
-  // Create object store for trees, commits, tags
-  const objectStore = createGitObjectStore(objectStorage);
-
-  // Create typed stores using new interfaces
-  const blobs = createBlobs(blobStorage);
-  const trees = createTrees(objectStore);
-  const commits = createCommits(objectStore);
-  const tags = createTags(objectStore);
-  const refs = createMemoryRefs();
-
-  const repo: TestRepository = {
-    objects: objectStore,
-    commits,
-    trees,
-    blobs,
-    tags,
-    refs,
-  };
-
-  // Create StorageBackend and wrap in HistoryWithOperations for GC
-  const backend = new MemoryStorageBackend({
-    blobs,
-    trees,
-    commits,
-    tags,
-    refs,
-  });
-  const history = createHistoryWithOperations({ backend });
+  const { blobs, trees, commits, refs } = history;
 
   const gc = new GCController(history, gcOptions);
 
@@ -181,7 +125,6 @@ export async function createTestRepository(gcOptions?: GCScheduleOptions): Promi
   };
 
   return {
-    repo,
     gc,
     history,
     createPerson,
@@ -340,14 +283,14 @@ export async function hasBlob(ctx: GCTestContext, blobId: ObjectId): Promise<boo
  * Check if repository has any object (commit, tree, or blob)
  */
 export async function hasObject(ctx: GCTestContext, objectId: ObjectId): Promise<boolean> {
-  // Check commits (new interface returns undefined instead of throwing)
-  const commit = await ctx.repo.commits.load(objectId);
+  // Check commits
+  const commit = await ctx.history.commits.load(objectId);
   if (commit) {
     return true;
   }
 
-  // Check trees (new interface returns undefined instead of throwing)
-  const tree = await ctx.repo.trees.load(objectId);
+  // Check trees
+  const tree = await ctx.history.trees.load(objectId);
   if (tree) {
     return true;
   }

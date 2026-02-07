@@ -37,8 +37,9 @@ import type { Trees } from "./trees/trees.js";
  * This is the primary interface for working with Git objects.
  * Use factory functions to create instances:
  * - createMemoryHistory() for testing
+ * - createMemoryHistoryWithOperations() for testing with delta/serialization
+ * - createGitFilesHistory() for production Git-files backend
  * - createHistoryFromStores() with explicit stores
- * - createHistoryWithOperations() for production use
  */
 export interface History {
   /**

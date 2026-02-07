@@ -210,7 +210,7 @@ describe("GCController", () => {
       const _unreachableBlob = await ctx.blob("unreachable content");
 
       // Collect garbage from refs
-      const refs = await ctx.repo.refs.list();
+      const refs = await ctx.history.refs.list();
       const roots: string[] = [];
       for await (const ref of refs) {
         if (ref.objectId) {

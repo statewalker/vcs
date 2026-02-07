@@ -9,30 +9,19 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { MemoryStorageBackend } from "../../src/backend/memory-storage-backend.js";
 import type { PersonIdent } from "../../src/common/person/person-ident.js";
-import { createBlobs } from "../../src/history/blobs/blobs.impl.js";
-import { createCommits } from "../../src/history/commits/commits.impl.js";
 import type { Commit } from "../../src/history/commits/commits.js";
 import {
-  createHistoryWithOperations,
-  createMemoryHistory,
-  type History,
+  createMemoryHistoryWithOperations,
   type HistoryWithOperations,
 } from "../../src/history/index.js";
-import { createGitObjectStore } from "../../src/history/objects/index.js";
-import { createMemoryRefs } from "../../src/history/refs/refs.impl.js";
-import { createTags } from "../../src/history/tags/tags.impl.js";
-import { createTrees } from "../../src/history/trees/trees.impl.js";
 import { GCController } from "../../src/storage/delta/gc-controller.js";
-import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 
 describe("GC Integration", () => {
   /**
    * Test context for GC integration tests
    */
   interface GCTestContext {
-    history: History;
     gc: GCController;
     historyWithOps: HistoryWithOperations;
     /** Helper to create test commits */
@@ -50,39 +39,15 @@ describe("GC Integration", () => {
   }
 
   async function createGCTestContext(): Promise<GCTestContext> {
-    // Create raw storage for blobs and objects
-    const blobStorage = new MemoryRawStorage();
-    const objectStorage = new MemoryRawStorage();
+    const historyWithOps = createMemoryHistoryWithOperations();
 
-    // Create object store for trees, commits, tags
-    const objectStore = createGitObjectStore(objectStorage);
-
-    // Create typed stores using new interfaces
-    const blobs = createBlobs(blobStorage);
-    const trees = createTrees(objectStore);
-    const commits = createCommits(objectStore);
-    const tags = createTags(objectStore);
-    const refs = createMemoryRefs();
-
-    // Create backend and wrap in HistoryWithOperations for GC
-    const backend = new MemoryStorageBackend({
-      blobs,
-      trees,
-      commits,
-      tags,
-      refs,
-    });
-    const historyWithOps = createHistoryWithOperations({ backend });
+    const { blobs, trees, commits } = historyWithOps;
 
     // Create GC controller
     const gc = new GCController(historyWithOps, {
       minInterval: 0, // Allow immediate GC for testing
       looseBlobThreshold: 1, // Low threshold for testing
     });
-
-    // Create history for commit operations
-    const history = createMemoryHistory();
-    await history.initialize();
 
     let commitCount = 0;
 
@@ -138,7 +103,6 @@ describe("GC Integration", () => {
     };
 
     return {
-      history,
       gc,
       historyWithOps,
       createCommit,
@@ -155,7 +119,7 @@ describe("GC Integration", () => {
   });
 
   afterEach(async () => {
-    await ctx.history.close();
+    await ctx.historyWithOps.close();
   });
 
   describe("unreachable object collection", () => {
