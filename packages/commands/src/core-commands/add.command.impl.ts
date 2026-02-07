@@ -10,7 +10,7 @@
  */
 
 import {
-  type BlobStore,
+  type Blobs,
   DeleteStagingEntry,
   FileMode,
   type Staging,
@@ -27,7 +27,7 @@ export interface AddCommandOptions {
   worktree: Worktree;
 
   /** Blob storage for file content */
-  blobs: BlobStore;
+  blobs: Blobs;
 
   /** Staging area (index) */
   staging: Staging;
@@ -100,7 +100,7 @@ function matchGlob(path: string, pattern: string): boolean {
  */
 export class AddCommand implements Add {
   private readonly worktree: Worktree;
-  private readonly blobs: BlobStore;
+  private readonly blobs: Blobs;
   private readonly staging: Staging;
 
   constructor(options: AddCommandOptions) {
