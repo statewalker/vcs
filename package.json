@@ -1,6 +1,11 @@
 {
   "name": "@statewalker/vcs-monorepo",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git"
+  },
   "type": "module",
   "packageManager": "pnpm@9.15.0",
   "scripts": {

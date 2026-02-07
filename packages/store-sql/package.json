@@ -2,6 +2,12 @@
   "name": "@statewalker/vcs-store-sql",
   "version": "0.1.0",
   "description": "SQL-based storage backend for StateWalker VCS",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git",
+    "directory": "packages/store-sql"
+  },
   "private": false,
   "publishConfig": {
     "access": "public"
@@ -19,6 +25,9 @@
       "import": "./dist/adapters/sql-js-adapter.js"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run",

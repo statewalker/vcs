@@ -1,6 +1,13 @@
 {
   "name": "@statewalker/vcs-commands",
   "version": "0.1.0",
+  "description": "Git-like VCS commands (commit, checkout, merge, diff, log)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git",
+    "directory": "packages/commands"
+  },
   "private": false,
   "publishConfig": {
     "access": "public"
