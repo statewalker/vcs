@@ -13,7 +13,6 @@ import {
   MemoryWorkingCopy,
   MemoryWorktree,
 } from "@statewalker/vcs-core";
-import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   enqueueAddFileAction,
@@ -29,7 +28,6 @@ import {
   getWorktree,
   setGit,
   setHistory,
-  setRepositoryAccess,
   setWorkingCopy,
   setWorktree,
 } from "../src/controllers/index.js";
@@ -233,10 +231,6 @@ async function createTestAppContext(): Promise<AppContext> {
   // 6. Create Git porcelain API
   const git = Git.fromWorkingCopy(workingCopy);
   setGit(ctx, git);
-
-  // 7. Create RepositoryAccess for transport operations
-  const repositoryAccess = createVcsRepositoryAccess({ history });
-  setRepositoryAccess(ctx, repositoryAccess);
 
   // Inject mock APIs
   setPeerJsApi(ctx, new MockPeerJsApi());

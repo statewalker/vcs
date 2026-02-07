@@ -105,7 +105,10 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
 
           // Type narrowing: pkt.type === "data" guaranteed here
           const line = pkt.text;
-          const [oid, refAndCaps] = line.split(" ", 2);
+          // Split on FIRST space only — split(" ", 2) truncates results
+          const spaceIdx = line.indexOf(" ");
+          const oid = spaceIdx >= 0 ? line.slice(0, spaceIdx) : line;
+          const refAndCaps = spaceIdx >= 0 ? line.slice(spaceIdx + 1) : undefined;
 
           // Check for empty repository (special capabilities^{} line)
           if (refAndCaps?.startsWith("capabilities^{}")) {
@@ -532,26 +535,30 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
         if (ctx.state.capabilities.has("side-band-64k")) {
           const packChunks: Uint8Array[] = [];
 
-          // Read sideband data until EOF or error
+          // Read pkt-lines and demux sideband channels until flush/eof.
+          // Uses readPktLine() directly because readSideband() throws on
+          // flush packets which are the normal termination signal.
           while (true) {
-            const result = await ctx.transport.readSideband();
+            const pkt = await transport.readPktLine();
+            if (pkt.type === "flush" || pkt.type === "eof") break;
+            if (pkt.type !== "data" || pkt.payload.length < 1) continue;
 
-            if (result.channel === 1) {
+            const channel = pkt.payload[0];
+            const data = pkt.payload.slice(1);
+
+            if (channel === 1) {
               // Pack data channel
-              packChunks.push(result.data);
-            } else if (result.channel === 2) {
+              packChunks.push(data);
+            } else if (channel === 2) {
               // Progress message channel
-              if (!ctx.config.noProgress) {
-                ctx.output.progress = new TextDecoder().decode(result.data);
+              if (!config.noProgress) {
+                output.progress = new TextDecoder().decode(data);
               }
-            } else if (result.channel === 3) {
+            } else if (channel === 3) {
               // Error message from server
-              ctx.output.error = new TextDecoder().decode(result.data);
+              output.error = new TextDecoder().decode(data);
               return "SIDEBAND_ERROR";
             }
-
-            // Check for end of stream (empty data on channel 1 after pack)
-            if (result.data.length === 0) break;
           }
 
           // Import collected pack data

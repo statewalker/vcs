@@ -1,19 +1,19 @@
 /**
  * Sync controller - orchestrates Git synchronization over WebRTC.
  *
- * Uses native Git protocol (upload-pack/receive-pack) for efficient sync:
+ * Uses the new transport Duplex API (fetchOverDuplex/pushOverDuplex/serveOverDuplex)
+ * for efficient sync:
  * - Only transfers missing objects (proper negotiation)
  * - Uses packfile format (delta compression)
  * - Standard Git protocol (interoperable)
  *
  * Flow:
  * 1. Host sets up Git server on each incoming connection
- * 2. When user clicks sync, client performs fetch from peer
- * 3. Pack data is imported into local repository
- * 4. Local refs are updated
+ * 2. When user clicks sync, client performs fetch then push
+ * 3. Pack data is imported automatically by the transport layer
+ * 4. Local refs are updated automatically by the transport layer
  */
 
-import type { RepositoryAccess } from "@statewalker/vcs-transport";
 import {
   enqueueCheckoutAction,
   enqueueRefreshRepoAction,
@@ -35,12 +35,7 @@ import {
 } from "../services/index.js";
 import { newRegistry } from "../utils/index.js";
 import type { AppContext } from "./index.js";
-import {
-  getPeerConnections,
-  getRepository,
-  getRepositoryAccess,
-  getSerializationApi,
-} from "./index.js";
+import { getHistory, getSerializationApi } from "./index.js";
 
 // How long to show "complete" state before resetting
 const COMPLETE_DISPLAY_MS = 2000;
@@ -73,21 +68,17 @@ export function createSyncController(ctx: AppContext): () => void {
   const activeSessions = new Map<string, GitPeerSession>();
 
   // Set up Git servers when peers connect (only if we're the HOST)
-  // The Git server allows the OTHER peer to fetch from us.
-  // We only need this if we're hosting - if we're a joiner, we're the client.
   register(
     peersModel.onUpdate(() => {
-      const repositoryAccess = getRepositoryAccess(ctx);
-      if (!repositoryAccess) return;
+      const history = getHistory(ctx);
+      const serialization = getSerializationApi(ctx);
+      if (!history || !serialization) return;
 
       // Check all peers and set up servers for incoming connections (where we're the host)
       for (const [peerId, conn] of connections) {
         const peer = peersModel.get(peerId);
-        // Set up Git server only if the peer is NOT the host (i.e., we are the host)
-        // When peer.isHost is true, that peer is the host and we're the joiner
-        // When peer.isHost is false, we are the host and should serve them
         if (peer && !peer.isHost) {
-          setupGitServerForPeer(peerId, conn, repositoryAccess);
+          setupGitServerForPeer(peerId, conn);
         }
       }
 
@@ -103,12 +94,12 @@ export function createSyncController(ctx: AppContext): () => void {
   /**
    * Set up Git server for a peer connection.
    */
-  function setupGitServerForPeer(
-    peerId: string,
-    conn: PeerConnection,
-    repositoryAccess: RepositoryAccess,
-  ): void {
+  function setupGitServerForPeer(peerId: string, conn: PeerConnection): void {
     if (gitServers.has(peerId)) return;
+
+    const history = getHistory(ctx);
+    const serialization = getSerializationApi(ctx);
+    if (!history || !serialization) return;
 
     const displayName = peersModel.get(peerId)?.displayName ?? peerId;
     logModel.info(`Setting up Git server for ${displayName}`);
@@ -116,7 +107,8 @@ export function createSyncController(ctx: AppContext): () => void {
     try {
       const cleanup = setupGitPeerServer({
         connection: conn,
-        repository: repositoryAccess,
+        history,
+        serialization,
         logger: {
           debug: (...args) => logModel.info(`[Git Server] ${args.join(" ")}`),
           error: (...args) => logModel.error(`[Git Server] ${args.join(" ")}`),
@@ -156,7 +148,7 @@ export function createSyncController(ctx: AppContext): () => void {
   );
 
   /**
-   * Start sync with a peer (fetch their data).
+   * Start sync with a peer (fetch their data, then push ours).
    */
   async function handleSyncStart(peerId: string): Promise<void> {
     // Don't start if already syncing
@@ -172,9 +164,10 @@ export function createSyncController(ctx: AppContext): () => void {
       return;
     }
 
-    // Get repository access
-    const repositoryAccess = getRepositoryAccess(ctx);
-    if (!repositoryAccess) {
+    // Get repository history and serialization
+    const history = getHistory(ctx);
+    const serialization = getSerializationApi(ctx);
+    if (!history || !serialization) {
       logModel.error("Repository not initialized");
       return;
     }
@@ -187,15 +180,13 @@ export function createSyncController(ctx: AppContext): () => void {
 
     try {
       // Create Git peer session
-      const session = await createGitPeerSession({
+      const session = createGitPeerSession({
         connection: conn,
-        repository: repositoryAccess,
+        history,
+        serialization,
         onProgress: (phase, message) => {
           logModel.info(`[Sync] ${phase}: ${message}`);
-          // Update sync model based on phase
-          if (phase === "discovering") {
-            // Already in discovering phase from startSync
-          } else if (phase === "transferring") {
+          if (phase === "transferring") {
             syncModel.update({ phase: "transferring" });
           }
         },
@@ -203,8 +194,12 @@ export function createSyncController(ctx: AppContext): () => void {
 
       activeSessions.set(peerId, session);
 
+      // Save local main ref before fetch (fetchOverDuplex may overwrite it)
+      const localMainBefore = (await history.refs.resolve("refs/heads/main"))?.objectId ?? null;
+
       // Perform fetch
-      syncModel.setDiscoveryComplete(0); // We don't know ref count until fetch completes
+      // The transport layer handles pack import and ref updates automatically
+      syncModel.setDiscoveryComplete(0);
 
       const fetchResult = await session.fetch({
         refspecs: ["+refs/heads/*:refs/remotes/peer/*"],
@@ -214,58 +209,33 @@ export function createSyncController(ctx: AppContext): () => void {
         throw new Error(fetchResult.error ?? "Fetch failed");
       }
 
-      // Get repository and serialization API for pack import and ref updates
-      const repository = getRepository(ctx);
-      const serialization = getSerializationApi(ctx);
+      logModel.info(
+        `Fetched ${fetchResult.objectsReceived} objects, ${fetchResult.refs.size} refs updated`,
+      );
 
-      // Import the pack data into our repository (if we received objects)
-      if (fetchResult.packData.length > 0 && fetchResult.objectsReceived > 0) {
-        logModel.info(
-          `Received ${fetchResult.objectsReceived} objects (${fetchResult.bytesReceived} bytes)`,
-        );
-
-        // Import pack using serialization API
-        if (serialization) {
-          // Wrap pack data as async iterable
-          async function* packStream() {
-            yield fetchResult.packData;
-          }
-          await serialization.importPack(packStream());
-          logModel.info("Pack imported successfully");
-        }
-      } else {
-        logModel.info("No new objects to fetch (already up to date)");
-      }
-
-      // Update refs from fetched data (always, even if no pack data)
-      // Note: fetchResult.refs contains MAPPED ref names (refs/remotes/peer/*)
-      // because the transport applies the refspec mapping
+      // Remap server refs to remote tracking refs (refspec: +refs/heads/*:refs/remotes/peer/*)
       for (const [refName, objectId] of fetchResult.refs) {
-        // Store the remote tracking ref as-is
-        await repository?.refs.set(refName, objectId);
-        logModel.info(`Updated ref ${refName} -> ${objectId.slice(0, 7)}`);
+        if (refName.startsWith("refs/heads/")) {
+          const remoteName = refName.replace("refs/heads/", "refs/remotes/peer/");
+          await history.refs.set(remoteName, objectId);
+          logModel.info(`Updated ref ${remoteName} -> ${objectId.slice(0, 7)}`);
 
-        // If this is the peer's main branch, also update our local main
-        // The refspec +refs/heads/*:refs/remotes/peer/* maps main to refs/remotes/peer/main
-        if (refName === "refs/remotes/peer/main") {
-          // Check if we should update local main
-          const localRef = await repository?.refs.get("refs/heads/main");
-          const localHead = localRef && "objectId" in localRef ? localRef.objectId : null;
-
-          if (!localHead) {
-            // No local main - set it to remote
-            await repository?.refs.set("refs/heads/main", objectId);
-            logModel.info(`Set local main -> ${objectId.slice(0, 7)}`);
-          } else if (localHead !== objectId) {
-            // For demo simplicity, always accept remote (could add merge logic later)
-            await repository?.refs.set("refs/heads/main", objectId);
-            logModel.info(`Updated local main -> ${objectId.slice(0, 7)}`);
+          // Update local main from remote peer's main (for demo simplicity)
+          // Compare against pre-fetch value since fetchOverDuplex may have already overwritten refs/heads/main
+          if (remoteName === "refs/remotes/peer/main") {
+            if (!localMainBefore) {
+              await history.refs.set("refs/heads/main", objectId);
+              logModel.info(`Set local main -> ${objectId.slice(0, 7)}`);
+            } else if (localMainBefore !== objectId) {
+              await history.refs.set("refs/heads/main", objectId);
+              logModel.info(`Updated local main -> ${objectId.slice(0, 7)}`);
+            }
           }
         }
       }
 
       // Update sync progress
-      syncModel.updateProgress(fetchResult.objectsReceived, fetchResult.bytesReceived);
+      syncModel.updateProgress(fetchResult.objectsReceived, 0);
 
       // Now push our changes to the peer
       logModel.info("Pushing local changes to peer...");
@@ -276,19 +246,16 @@ export function createSyncController(ctx: AppContext): () => void {
       });
 
       if (!pushResult.ok && pushResult.error) {
-        // Push failed, but fetch succeeded - log warning but don't fail
         logModel.warn(`Push failed: ${pushResult.error}`);
-      } else if (pushResult.objectsSent > 0) {
-        logModel.info(`Pushed ${pushResult.objectsSent} objects`);
       } else {
-        logModel.info("No local changes to push");
+        logModel.info("Push complete");
       }
 
       // Mark complete
       syncModel.complete({
         objectsReceived: fetchResult.objectsReceived,
-        objectsSent: pushResult.objectsSent,
-        refsUpdated: [...fetchResult.refs.keys(), ...pushResult.refsUpdated],
+        objectsSent: 0,
+        refsUpdated: [...fetchResult.refs.keys()],
       });
 
       peersModel.updatePeer(peerId, { lastSyncAt: new Date() });
@@ -365,3 +332,6 @@ export function createSyncController(ctx: AppContext): () => void {
     originalCleanup();
   };
 }
+
+// Re-import for internal use (avoid circular dependency)
+import { getPeerConnections } from "./index.js";

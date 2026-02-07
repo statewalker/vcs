@@ -1,27 +1,15 @@
 /**
  * Git Peer Session - manages Git protocol operations over a PeerJS connection.
  *
- * This service provides high-level fetch/push operations using the native Git protocol
- * over a PeerJS DataConnection. It acts as a client that connects to a remote peer
- * that is running a Git server (via setupGitPeerServer).
+ * Uses the new transport Duplex API (fetchOverDuplex/pushOverDuplex) for
+ * transport-agnostic Git protocol operations over PeerJS DataConnections.
  */
 
-import type { ObjectId } from "@statewalker/vcs-core";
-import { createPeerJsPortAsync } from "@statewalker/vcs-port-peerjs";
-import type { RepositoryAccess } from "@statewalker/vcs-transport";
-import {
-  createGitSocketClient,
-  createMessagePortCloser,
-  createMessagePortReader,
-  createMessagePortWriter,
-  type ExternalIOHandles,
-  type FetchResult,
-  fetch,
-  type ProgressInfo,
-  type PushResult,
-  push,
-} from "@statewalker/vcs-transport";
-import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
+import type { History, SerializationApi } from "@statewalker/vcs-core";
+import type { RefStore, RepositoryFacade } from "@statewalker/vcs-transport";
+import { fetchOverDuplex, pushOverDuplex } from "@statewalker/vcs-transport";
+import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
+import { createClientDuplex, createRefStoreAdapter } from "../adapters/index.js";
 import type { PeerConnection } from "../apis/index.js";
 
 /**
@@ -44,8 +32,6 @@ export interface GitPeerSession {
 export interface GitFetchOptions {
   /** Refspecs to fetch (default: +refs/heads/*:refs/remotes/peer/*). */
   refspecs?: string[];
-  /** Progress callback. */
-  onProgress?: (phase: string, info: ProgressInfo) => void;
 }
 
 /**
@@ -56,8 +42,6 @@ export interface GitPushOptions {
   refspecs?: string[];
   /** Force push (ignore fast-forward check). */
   force?: boolean;
-  /** Progress callback. */
-  onProgress?: (phase: string, info: ProgressInfo) => void;
 }
 
 /**
@@ -66,14 +50,10 @@ export interface GitPushOptions {
 export interface GitFetchResult {
   /** Was the fetch successful? */
   ok: boolean;
-  /** Refs that were fetched (name -> object ID hex string). */
+  /** Refs that were updated (name -> object ID hex string). */
   refs: Map<string, string>;
   /** Number of objects received. */
   objectsReceived: number;
-  /** Bytes transferred. */
-  bytesReceived: number;
-  /** Pack data (for importing). */
-  packData: Uint8Array;
   /** Error message if failed. */
   error?: string;
 }
@@ -84,12 +64,6 @@ export interface GitFetchResult {
 export interface GitPushResult {
   /** Was the push successful? */
   ok: boolean;
-  /** Refs that were updated. */
-  refsUpdated: string[];
-  /** Number of objects sent. */
-  objectsSent: number;
-  /** Bytes transferred. */
-  bytesSent: number;
   /** Error message if failed. */
   error?: string;
 }
@@ -100,8 +74,10 @@ export interface GitPushResult {
 export interface GitPeerSessionOptions {
   /** The PeerJS DataConnection to use. */
   connection: PeerConnection;
-  /** Local repository access (for push operations). */
-  repository: RepositoryAccess;
+  /** Local repository history. */
+  history: History;
+  /** Serialization API for pack operations. */
+  serialization: SerializationApi;
   /** Progress callback for sync phases. */
   onProgress?: (phase: string, message: string) => void;
 }
@@ -115,50 +91,12 @@ export interface GitPeerSessionOptions {
  *
  * @param options - Session options
  * @returns A GitPeerSession instance
- *
- * @example
- * ```typescript
- * const session = await createGitPeerSession({
- *   connection: conn,
- *   repository: repositoryAccess,
- *   onProgress: (phase, msg) => console.log(`[${phase}] ${msg}`),
- * });
- *
- * try {
- *   // Fetch from peer
- *   const result = await session.fetch();
- *   console.log(`Received ${result.objectsReceived} objects`);
- *
- *   // Push to peer
- *   const pushResult = await session.push();
- *   console.log(`Pushed ${pushResult.objectsSent} objects`);
- * } finally {
- *   await session.close();
- * }
- * ```
  */
-export async function createGitPeerSession(
-  options: GitPeerSessionOptions,
-): Promise<GitPeerSession> {
-  const { connection, repository, onProgress } = options;
+export function createGitPeerSession(options: GitPeerSessionOptions): GitPeerSession {
+  const { connection, history, serialization, onProgress } = options;
 
-  // Wait for connection to open and create MessagePort
-  const port = await createPeerJsPortAsync(
-    connection as unknown as import("peerjs").DataConnection,
-  );
-
-  // Create SHARED IO handles once for the entire session.
-  // This is CRITICAL for P2P sync where fetch is followed by push on the same port.
-  // Without shared handles, each operation creates a new reader, and data can be
-  // lost between operations due to event listener removal/addition timing gaps.
-  const sharedInput = createMessagePortReader(port);
-  const sharedWrite = createMessagePortWriter(port);
-  const sharedClose = createMessagePortCloser(port, sharedInput);
-  const externalIO: ExternalIOHandles = {
-    input: sharedInput,
-    write: sharedWrite,
-    close: sharedClose,
-  };
+  const repository: RepositoryFacade = createVcsRepositoryFacade({ history, serialization });
+  const refStore: RefStore = createRefStoreAdapter(history.refs);
 
   let closed = false;
 
@@ -173,59 +111,28 @@ export async function createGitPeerSession(
       try {
         onProgress?.("discovering", "Connecting to peer...");
 
-        // Create a socket client for this fetch operation
-        // Use shared externalIO to prevent data loss between operations
-        const client = createGitSocketClient(port, {
-          path: "/repo.git",
-          service: "git-upload-pack",
-          externalIO,
+        // Create client duplex with service handshake (triggers server)
+        const duplex = createClientDuplex(connection, "git-upload-pack");
+
+        onProgress?.("transferring", "Fetching from peer...");
+
+        const result = await fetchOverDuplex({
+          duplex,
+          repository,
+          refStore,
+          refspecs,
         });
 
-        onProgress?.("discovering", "Discovering refs...");
-
-        // Perform the fetch
-        let result: FetchResult;
-        try {
-          result = await fetch({
-            connection: client,
-            refspecs,
-            onProgress: (info) => {
-              if (info.total) {
-                onProgress?.("transferring", `Received ${info.current}/${info.total} objects`);
-              }
-            },
-            localHas: async (objectId: Uint8Array) => {
-              const hexId = bytesToHex(objectId);
-              return repository.hasObject(hexId);
-            },
-            localCommits: async function* () {
-              for await (const ref of repository.listRefs()) {
-                if (ref.name.startsWith("refs/heads/")) {
-                  yield hexToBytes(ref.objectId);
-                }
-              }
-            },
-          });
-        } finally {
-          // Clean up the socket client's reader (removes event listeners)
-          // This is important when reusing the port for subsequent operations
-          await client.close();
+        if (!result.success) {
+          throw new Error(result.error ?? "Fetch failed");
         }
 
         onProgress?.("complete", "Fetch complete");
 
-        // Convert refs from Uint8Array to hex strings
-        const refs = new Map<string, string>();
-        for (const [name, objectId] of result.refs) {
-          refs.set(name, bytesToHex(objectId));
-        }
-
         return {
           ok: true,
-          refs,
-          objectsReceived: result.isEmpty ? 0 : estimateObjectCount(result.packData),
-          bytesReceived: result.bytesReceived,
-          packData: result.packData,
+          refs: result.updatedRefs ?? new Map(),
+          objectsReceived: result.objectsImported ?? 0,
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -234,8 +141,6 @@ export async function createGitPeerSession(
           ok: false,
           refs: new Map(),
           objectsReceived: 0,
-          bytesReceived: 0,
-          packData: new Uint8Array(0),
           error: message,
         };
       }
@@ -252,74 +157,33 @@ export async function createGitPeerSession(
       try {
         onProgress?.("discovering", "Connecting to peer...");
 
-        // Create a socket client for this push operation
-        // Use shared externalIO to prevent data loss between operations
-        const client = createGitSocketClient(port, {
-          path: "/repo.git",
-          service: "git-receive-pack",
-          externalIO,
+        // Create client duplex with service handshake (triggers server)
+        const duplex = createClientDuplex(connection, "git-receive-pack");
+
+        onProgress?.("transferring", "Pushing to peer...");
+
+        const result = await pushOverDuplex({
+          duplex,
+          repository,
+          refStore,
+          refspecs,
+          force,
         });
 
-        onProgress?.("discovering", "Discovering refs...");
-
-        // Perform the push
-        let result: PushResult;
-        try {
-          result = await push({
-            connection: client,
-            refspecs,
-            force,
-            onProgress: (info) => {
-              if (info.total) {
-                onProgress?.("transferring", `Sent ${info.current}/${info.total} objects`);
-              }
-            },
-            getLocalRef: async (refName: string) => {
-              for await (const ref of repository.listRefs()) {
-                if (ref.name === refName) {
-                  return ref.objectId;
-                }
-              }
-              return undefined;
-            },
-            getObjectsToPush: async function* (newIds: string[], oldIds: string[]) {
-              const wants = newIds.map((id) => id as ObjectId);
-              const haves = oldIds.map((id) => id as ObjectId);
-
-              for await (const obj of repository.walkObjects(wants, haves)) {
-                yield {
-                  id: obj.id,
-                  type: obj.type,
-                  content: obj.content,
-                };
-              }
-            },
-          });
-        } finally {
-          // Clean up the socket client's reader (removes event listeners)
-          // This is important when reusing the port for subsequent operations
-          await client.close();
+        if (!result.success) {
+          throw new Error(result.error ?? "Push failed");
         }
 
         onProgress?.("complete", "Push complete");
 
         return {
-          ok: result.ok,
-          refsUpdated: Array.from(result.updates.keys()).filter(
-            (ref) => result.updates.get(ref)?.ok,
-          ),
-          objectsSent: result.objectCount,
-          bytesSent: result.bytesSent,
-          error: result.ok ? undefined : result.unpackStatus,
+          ok: true,
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         onProgress?.("error", message);
         return {
           ok: false,
-          refsUpdated: [],
-          objectsSent: 0,
-          bytesSent: 0,
           error: message,
         };
       }
@@ -328,23 +192,6 @@ export async function createGitPeerSession(
     async close(): Promise<void> {
       if (closed) return;
       closed = true;
-      // NOTE: Don't close the port here! The port wraps the PeerJS connection,
-      // and closing it would disconnect the peer. The connection lifecycle is
-      // managed at a higher level (webrtc-controller). This just marks the
-      // session as closed so no more fetch/push operations can be performed.
     },
   };
-}
-
-/**
- * Estimate object count from pack data.
- */
-function estimateObjectCount(packData: Uint8Array): number {
-  if (packData.length < 12) {
-    return 0;
-  }
-
-  // Pack header: "PACK" (4 bytes) + version (4 bytes) + object count (4 bytes)
-  const view = new DataView(packData.buffer, packData.byteOffset, packData.byteLength);
-  return view.getUint32(8, false); // Big-endian
 }
