@@ -3,30 +3,42 @@
  *
  * Thin wrapper over GitObjectStore for blob operations.
  * Blobs are the simplest object type - just raw binary content.
+ *
+ * @module
  */
 
 import type { ObjectId } from "../../common/id/index.js";
-import type { GitObjectStore } from "../objects/object-store.js";
-import type { Blobs } from "./blobs.js";
+import type { Blobs } from "../../history/blobs/blobs.js";
+import type { GitObjectStore } from "../../history/objects/object-store.js";
 
 /**
  * Git blob store implementation
  *
- * Delegates all operations to GitObjectStore with "blob" type.
+ * Wraps GitObjectStore to provide blob-specific operations.
+ * Implements the Blobs interface for use with History.
  */
-export class GitBlobStore implements Blobs {
+export class GitBlobs implements Blobs {
   constructor(private readonly objects: GitObjectStore) {}
 
   /**
-   * Store blob with unknown size
+   * Store blob content
+   *
+   * Content is serialized with Git object header and stored.
+   *
+   * @param content Blob content as byte stream
+   * @returns ObjectId (SHA-1 hash)
    */
   store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<ObjectId> {
     return this.objects.store("blob", content);
   }
 
   /**
-   * Load blob content (Blobs interface)
+   * Load blob content
+   *
    * Returns undefined if blob doesn't exist.
+   *
+   * @param id Blob object ID
+   * @returns Streaming content if found, undefined otherwise
    */
   async load(id: ObjectId): Promise<AsyncIterable<Uint8Array> | undefined> {
     if (!(await this.objects.has(id))) {
@@ -55,26 +67,33 @@ export class GitBlobStore implements Blobs {
   }
 
   /**
-   * Remove blob (new interface)
+   * Remove blob from storage
+   *
+   * @param id Blob object ID
+   * @returns True if removed, false if didn't exist
    */
-  async remove(id: ObjectId): Promise<boolean> {
+  remove(id: ObjectId): Promise<boolean> {
     return this.objects.remove(id);
   }
 
   /**
    * Check if blob exists
+   *
+   * @param id Blob object ID
+   * @returns True if blob exists
    */
   has(id: ObjectId): Promise<boolean> {
     return this.objects.has(id);
   }
 
   /**
-   * List all blob object IDs
+   * Iterate over all blob object IDs
    *
-   * Iterates over all objects in storage and yields only those
-   * that are blobs. Used for GC and storage analysis.
+   * Filters objects by type, yielding only blobs.
+   *
+   * @returns AsyncIterable of blob ObjectIds
    */
-  async *keys(): AsyncGenerator<ObjectId> {
+  async *keys(): AsyncIterable<ObjectId> {
     for await (const id of this.objects.list()) {
       try {
         const header = await this.objects.getHeader(id);
@@ -89,6 +108,10 @@ export class GitBlobStore implements Blobs {
 
   /**
    * Get blob size in bytes
+   *
+   * @param id Blob object ID
+   * @returns Size in bytes
+   * @throws Error if blob not found or not a blob type
    */
   async size(id: ObjectId): Promise<number> {
     const header = await this.objects.getHeader(id);
@@ -97,4 +120,14 @@ export class GitBlobStore implements Blobs {
     }
     return header.size;
   }
+}
+
+/**
+ * Create a GitBlobs instance
+ *
+ * @param objects GitObjectStore to wrap
+ * @returns GitBlobs instance
+ */
+export function createGitBlobs(objects: GitObjectStore): Blobs {
+  return new GitBlobs(objects);
 }

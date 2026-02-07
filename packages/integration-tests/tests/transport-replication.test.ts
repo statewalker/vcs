@@ -247,8 +247,9 @@ describe("Transport Replication", () => {
       throw new Error("HEAD ref not found");
     }
 
-    const commit = await remoteRepository.commits.loadCommit(headRef.objectId);
-    const tree = await toArray(remoteRepository.trees.loadTree(commit.tree));
+    const commit = await remoteRepository.commits.load(headRef.objectId);
+    if (!commit) throw new Error("Commit not found");
+    const tree = await toArray(remoteRepository.trees.load(commit.tree));
 
     // Find the test.txt entry
     const testFileEntry = tree.find((e) => e.name === "test.txt");
@@ -289,7 +290,8 @@ describe("Transport Replication", () => {
     });
 
     // Load commit data
-    const commit = await remoteRepository.commits.loadCommit(commitId);
+    const commit = await remoteRepository.commits.load(commitId);
+    if (!commit) throw new Error("Commit not found");
     const commitData = text(
       JSON.stringify({
         tree: commit.tree,

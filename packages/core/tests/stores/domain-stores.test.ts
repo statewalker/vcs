@@ -1,15 +1,12 @@
 /**
- * Tests for domain stores (GitObjectStore, GitBlobStore, GitCommitStore, GitTreeStore, GitTagStore)
+ * Tests for domain stores (GitObjectStore, GitBlobs, GitCommits, GitTrees, GitTags)
  */
 
 import { describe, expect, it } from "vitest";
+import { GitBlobs, GitCommits, GitTags, GitTrees } from "../../src/backend/git/index.js";
 import { FileMode } from "../../src/common/files/index.js";
-import { GitBlobStore } from "../../src/history/blobs/blob-store.impl.js";
-import { GitCommitStore } from "../../src/history/commits/commit-store.impl.js";
 import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.js";
 import { ObjectType } from "../../src/history/objects/object-types.js";
-import { GitTagStore } from "../../src/history/tags/tag-store.impl.js";
-import { GitTreeStore } from "../../src/history/trees/tree-store.impl.js";
 import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 import { collectBytes } from "../helpers/assertion-helpers.js";
 import {
@@ -24,10 +21,10 @@ function createTestStores() {
   return {
     storage,
     objectStore,
-    blobStore: new GitBlobStore(objectStore),
-    commitStore: new GitCommitStore(objectStore),
-    treeStore: new GitTreeStore(objectStore),
-    tagStore: new GitTagStore(objectStore),
+    blobStore: new GitBlobs(objectStore),
+    commitStore: new GitCommits(objectStore),
+    treeStore: new GitTrees(objectStore),
+    tagStore: new GitTags(objectStore),
   };
 }
 
@@ -136,7 +133,7 @@ describe("GitObjectStoreImpl", () => {
   });
 });
 
-describe("GitBlobStore", () => {
+describe("GitBlobs", () => {
   it("stores and loads blob content", async () => {
     const { blobStore } = createTestStores();
     const content = new TextEncoder().encode("file content");
@@ -204,9 +201,9 @@ describe("GitBlobStore", () => {
     const { objectStore, blobStore } = createTestStores();
 
     // Store a commit and try to load as blob
-    const commitStore = new GitCommitStore(objectStore);
+    const commitStore = new GitCommits(objectStore);
     const commit = createTestCommit();
-    const commitId = await commitStore.storeCommit(commit);
+    const commitId = await commitStore.store(commit);
 
     await expect(async () => {
       const result = await blobStore.load(commitId);
@@ -216,15 +213,15 @@ describe("GitBlobStore", () => {
   });
 });
 
-describe("GitCommitStore", () => {
+describe("GitCommits", () => {
   it("stores and loads commit", async () => {
     const { commitStore } = createTestStores();
     const commit = createTestCommit({
       message: "Initial commit",
     });
 
-    const id = await commitStore.storeCommit(commit);
-    const loaded = await commitStore.loadCommit(id);
+    const id = await commitStore.store(commit);
+    const loaded = await commitStore.load(id);
 
     expect(loaded.message).toBe("Initial commit");
     expect(loaded.tree).toBe(commit.tree);
@@ -241,8 +238,8 @@ describe("GitCommitStore", () => {
       message: "Merge commit",
     });
 
-    const id = await commitStore.storeCommit(commit);
-    const loaded = await commitStore.loadCommit(id);
+    const id = await commitStore.store(commit);
+    const loaded = await commitStore.load(id);
 
     expect(loaded.parents).toEqual([parent1, parent2]);
   });
@@ -252,7 +249,7 @@ describe("GitCommitStore", () => {
     const parentId = randomObjectId(100);
     const commit = createTestCommit({ parents: [parentId] });
 
-    const id = await commitStore.storeCommit(commit);
+    const id = await commitStore.store(commit);
     const parents = await commitStore.getParents(id);
 
     expect(parents).toEqual([parentId]);
@@ -263,7 +260,7 @@ describe("GitCommitStore", () => {
     const treeId = randomObjectId(200);
     const commit = createTestCommit({ tree: treeId });
 
-    const id = await commitStore.storeCommit(commit);
+    const id = await commitStore.store(commit);
     const tree = await commitStore.getTree(id);
 
     expect(tree).toBe(treeId);
@@ -273,9 +270,9 @@ describe("GitCommitStore", () => {
     const { commitStore } = createTestStores();
 
     // Create a linear history: c3 -> c2 -> c1
-    const c1 = await commitStore.storeCommit(createTestCommit({ parents: [] }));
-    const c2 = await commitStore.storeCommit(createTestCommit({ parents: [c1] }));
-    const c3 = await commitStore.storeCommit(createTestCommit({ parents: [c2] }));
+    const c1 = await commitStore.store(createTestCommit({ parents: [] }));
+    const c2 = await commitStore.store(createTestCommit({ parents: [c1] }));
+    const c3 = await commitStore.store(createTestCommit({ parents: [c2] }));
 
     const ancestry: string[] = [];
     for await (const id of commitStore.walkAncestry(c3)) {
@@ -288,9 +285,9 @@ describe("GitCommitStore", () => {
   it("walks ancestry with limit", async () => {
     const { commitStore } = createTestStores();
 
-    const c1 = await commitStore.storeCommit(createTestCommit({ parents: [] }));
-    const c2 = await commitStore.storeCommit(createTestCommit({ parents: [c1] }));
-    const c3 = await commitStore.storeCommit(createTestCommit({ parents: [c2] }));
+    const c1 = await commitStore.store(createTestCommit({ parents: [] }));
+    const c2 = await commitStore.store(createTestCommit({ parents: [c1] }));
+    const c3 = await commitStore.store(createTestCommit({ parents: [c2] }));
 
     const ancestry: string[] = [];
     for await (const id of commitStore.walkAncestry(c3, { limit: 2 })) {
@@ -303,9 +300,9 @@ describe("GitCommitStore", () => {
   it("walks ancestry with stopAt", async () => {
     const { commitStore } = createTestStores();
 
-    const c1 = await commitStore.storeCommit(createTestCommit({ parents: [] }));
-    const c2 = await commitStore.storeCommit(createTestCommit({ parents: [c1] }));
-    const c3 = await commitStore.storeCommit(createTestCommit({ parents: [c2] }));
+    const c1 = await commitStore.store(createTestCommit({ parents: [] }));
+    const c2 = await commitStore.store(createTestCommit({ parents: [c1] }));
+    const c3 = await commitStore.store(createTestCommit({ parents: [c2] }));
 
     const ancestry: string[] = [];
     for await (const id of commitStore.walkAncestry(c3, { stopAt: [c2] })) {
@@ -319,9 +316,9 @@ describe("GitCommitStore", () => {
     const { commitStore } = createTestStores();
 
     // Create branching history
-    const c1 = await commitStore.storeCommit(createTestCommit({ parents: [] }));
-    const c2 = await commitStore.storeCommit(createTestCommit({ parents: [] }));
-    const c3 = await commitStore.storeCommit(createTestCommit({ parents: [c1, c2] }));
+    const c1 = await commitStore.store(createTestCommit({ parents: [] }));
+    const c2 = await commitStore.store(createTestCommit({ parents: [] }));
+    const c3 = await commitStore.store(createTestCommit({ parents: [c1, c2] }));
 
     const ancestry: string[] = [];
     for await (const id of commitStore.walkAncestry(c3, { firstParentOnly: true })) {
@@ -337,10 +334,10 @@ describe("GitCommitStore", () => {
     // Create history:
     //   c1 -> c2 -> c3
     //    \-> c4
-    const c1 = await commitStore.storeCommit(createTestCommit({ parents: [] }));
-    const c2 = await commitStore.storeCommit(createTestCommit({ parents: [c1] }));
-    const c3 = await commitStore.storeCommit(createTestCommit({ parents: [c2] }));
-    const c4 = await commitStore.storeCommit(createTestCommit({ parents: [c1] }));
+    const c1 = await commitStore.store(createTestCommit({ parents: [] }));
+    const c2 = await commitStore.store(createTestCommit({ parents: [c1] }));
+    const c3 = await commitStore.store(createTestCommit({ parents: [c2] }));
+    const c4 = await commitStore.store(createTestCommit({ parents: [c1] }));
 
     const bases = await commitStore.findMergeBase(c3, c4);
 
@@ -351,7 +348,7 @@ describe("GitCommitStore", () => {
 
   it("checks if commit exists", async () => {
     const { commitStore } = createTestStores();
-    const id = await commitStore.storeCommit(createTestCommit());
+    const id = await commitStore.store(createTestCommit());
 
     expect(await commitStore.has(id)).toBe(true);
     expect(await commitStore.has("nonexistent")).toBe(false);
@@ -360,26 +357,27 @@ describe("GitCommitStore", () => {
   it("checks ancestry", async () => {
     const { commitStore } = createTestStores();
 
-    const c1 = await commitStore.storeCommit(createTestCommit({ parents: [] }));
-    const c2 = await commitStore.storeCommit(createTestCommit({ parents: [c1] }));
-    const c3 = await commitStore.storeCommit(createTestCommit({ parents: [c2] }));
+    const c1 = await commitStore.store(createTestCommit({ parents: [] }));
+    const c2 = await commitStore.store(createTestCommit({ parents: [c1] }));
+    const c3 = await commitStore.store(createTestCommit({ parents: [c2] }));
 
     expect(await commitStore.isAncestor(c1, c3)).toBe(true);
     expect(await commitStore.isAncestor(c3, c1)).toBe(false);
     expect(await commitStore.isAncestor(c2, c2)).toBe(true); // same commit
   });
 
-  it("throws when loading wrong object type", async () => {
+  it("returns undefined when loading wrong object type", async () => {
     const { objectStore, commitStore } = createTestStores();
 
-    const blobStore = new GitBlobStore(objectStore);
+    const blobStore = new GitBlobs(objectStore);
     const blobId = await blobStore.store([new TextEncoder().encode("not a commit")]);
 
-    await expect(commitStore.loadCommit(blobId)).rejects.toThrow(/not a commit/);
+    const result = await commitStore.load(blobId);
+    expect(result).toBeUndefined();
   });
 });
 
-describe("GitTreeStore", () => {
+describe("GitTrees", () => {
   it("stores tree entries", async () => {
     const { treeStore } = createTestStores();
     const entries = [
@@ -387,7 +385,7 @@ describe("GitTreeStore", () => {
       { mode: FileMode.TREE, name: "subdir", id: randomObjectId(2) },
     ];
 
-    const id = await treeStore.storeTree(entries);
+    const id = await treeStore.store(entries);
 
     // Verify tree was stored
     expect(id).toMatch(/^[0-9a-f]{40}$/);
@@ -403,7 +401,7 @@ describe("GitTreeStore", () => {
       { mode: FileMode.REGULAR_FILE, name: "m.txt", id: randomObjectId(3) },
     ];
 
-    const id = await treeStore.storeTree(entries);
+    const id = await treeStore.store(entries);
 
     // Verify tree was stored (canonical sorting happens at store time)
     expect(id).toMatch(/^[0-9a-f]{40}$/);
@@ -416,7 +414,7 @@ describe("GitTreeStore", () => {
       yield { mode: FileMode.REGULAR_FILE as number, name: "async.txt", id: randomObjectId(1) };
     }
 
-    const id = await treeStore.storeTree(entries());
+    const id = await treeStore.store(entries());
 
     expect(id).toMatch(/^[0-9a-f]{40}$/);
   });
@@ -429,7 +427,7 @@ describe("GitTreeStore", () => {
       { mode: FileMode.REGULAR_FILE, name: "other.txt", id: randomObjectId(1) },
     ];
 
-    const treeId = await treeStore.storeTree(entries);
+    const treeId = await treeStore.store(entries);
 
     // Verify tree was stored
     expect(treeId).toMatch(/^[0-9a-f]{40}$/);
@@ -438,7 +436,7 @@ describe("GitTreeStore", () => {
 
   it("checks if tree exists", async () => {
     const { treeStore } = createTestStores();
-    const id = await treeStore.storeTree([
+    const id = await treeStore.store([
       { mode: FileMode.REGULAR_FILE, name: "file.txt", id: randomObjectId(1) },
     ]);
 
@@ -454,22 +452,18 @@ describe("GitTreeStore", () => {
     expect(emptyTreeId).toBe("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
   });
 
-  it("throws when loading wrong object type", async () => {
+  it("returns undefined when loading wrong object type", async () => {
     const { objectStore, treeStore } = createTestStores();
 
-    const blobStore = new GitBlobStore(objectStore);
+    const blobStore = new GitBlobs(objectStore);
     const blobId = await blobStore.store([new TextEncoder().encode("not a tree")]);
 
-    await expect(async () => {
-      const entries = [];
-      for await (const e of treeStore.loadTree(blobId)) {
-        entries.push(e);
-      }
-    }).rejects.toThrow(/not a tree/);
+    const result = await treeStore.load(blobId);
+    expect(result).toBeUndefined();
   });
 });
 
-describe("GitTagStore", () => {
+describe("GitTags", () => {
   it("stores and loads annotated tag", async () => {
     const { tagStore } = createTestStores();
     const tag = {
@@ -480,8 +474,8 @@ describe("GitTagStore", () => {
       message: "Release version 1.0.0",
     };
 
-    const id = await tagStore.storeTag(tag);
-    const loaded = await tagStore.loadTag(id);
+    const id = await tagStore.store(tag);
+    const loaded = await tagStore.load(id);
 
     expect(loaded.tag).toBe("v1.0.0");
     expect(loaded.message).toBe("Release version 1.0.0");
@@ -499,8 +493,8 @@ describe("GitTagStore", () => {
       message: "Tag message",
     };
 
-    const id = await tagStore.storeTag(tag);
-    const loaded = await tagStore.loadTag(id);
+    const id = await tagStore.store(tag);
+    const loaded = await tagStore.load(id);
 
     expect(loaded.tag).toBe("lightweight-like");
     expect(loaded.tagger).toBeUndefined();
@@ -516,7 +510,7 @@ describe("GitTagStore", () => {
       message: "Tag message",
     };
 
-    const id = await tagStore.storeTag(tag);
+    const id = await tagStore.store(tag);
     const target = await tagStore.getTarget(id);
 
     expect(target).toBe(targetId);
@@ -526,10 +520,10 @@ describe("GitTagStore", () => {
     const { tagStore, commitStore } = createTestStores();
 
     // Create a commit
-    const commitId = await commitStore.storeCommit(createTestCommit());
+    const commitId = await commitStore.store(createTestCommit());
 
     // Create tag pointing to commit
-    const tag1Id = await tagStore.storeTag({
+    const tag1Id = await tagStore.store({
       object: commitId,
       objectType: ObjectType.COMMIT,
       tag: "v1.0.0",
@@ -537,7 +531,7 @@ describe("GitTagStore", () => {
     });
 
     // Create tag pointing to first tag
-    const tag2Id = await tagStore.storeTag({
+    const tag2Id = await tagStore.store({
       object: tag1Id,
       objectType: ObjectType.TAG,
       tag: "v1.0.0-alias",
@@ -555,7 +549,7 @@ describe("GitTagStore", () => {
 
   it("checks if tag exists", async () => {
     const { tagStore } = createTestStores();
-    const id = await tagStore.storeTag({
+    const id = await tagStore.store({
       object: randomObjectId(1),
       objectType: ObjectType.COMMIT,
       tag: "exists",
@@ -566,12 +560,13 @@ describe("GitTagStore", () => {
     expect(await tagStore.has("nonexistent")).toBe(false);
   });
 
-  it("throws when loading wrong object type", async () => {
+  it("returns undefined when loading wrong object type", async () => {
     const { objectStore, tagStore } = createTestStores();
 
-    const blobStore = new GitBlobStore(objectStore);
+    const blobStore = new GitBlobs(objectStore);
     const blobId = await blobStore.store([new TextEncoder().encode("not a tag")]);
 
-    await expect(tagStore.loadTag(blobId)).rejects.toThrow(/not a tag/);
+    const result = await tagStore.load(blobId);
+    expect(result).toBeUndefined();
   });
 });

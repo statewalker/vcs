@@ -97,9 +97,9 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       cleanup = result.cleanup;
       const { store } = result;
 
-      const emptyTreeId = await store.trees.storeTree([]);
+      const emptyTreeId = await store.trees.store([]);
 
-      const commit1 = await store.commits.storeCommit({
+      const commit1 = await store.commits.store({
         tree: emptyTreeId,
         parents: [],
         author: { name: "A", email: "a@b.c", timestamp: 1, tzOffset: "+0000" },
@@ -107,7 +107,7 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
         message: "First",
       });
 
-      const commit2 = await store.commits.storeCommit({
+      const commit2 = await store.commits.store({
         tree: emptyTreeId,
         parents: [commit1],
         author: { name: "A", email: "a@b.c", timestamp: 2, tzOffset: "+0000" },
@@ -115,7 +115,7 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
         message: "Second",
       });
 
-      const commit3 = await store.commits.storeCommit({
+      const commit3 = await store.commits.store({
         tree: emptyTreeId,
         parents: [commit2],
         author: { name: "A", email: "a@b.c", timestamp: 3, tzOffset: "+0000" },
@@ -133,10 +133,10 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       cleanup = result.cleanup;
       const { store } = result;
 
-      const emptyTreeId = await store.trees.storeTree([]);
+      const emptyTreeId = await store.trees.store([]);
 
       // Create base commit
-      const baseCommit = await store.commits.storeCommit({
+      const baseCommit = await store.commits.store({
         tree: emptyTreeId,
         parents: [],
         author: { name: "A", email: "a@b.c", timestamp: 1, tzOffset: "+0000" },
@@ -145,7 +145,7 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       });
 
       // Branch 1
-      const branch1Commit = await store.commits.storeCommit({
+      const branch1Commit = await store.commits.store({
         tree: emptyTreeId,
         parents: [baseCommit],
         author: { name: "A", email: "a@b.c", timestamp: 2, tzOffset: "+0000" },
@@ -154,7 +154,7 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       });
 
       // Branch 2
-      const branch2Commit = await store.commits.storeCommit({
+      const branch2Commit = await store.commits.store({
         tree: emptyTreeId,
         parents: [baseCommit],
         author: { name: "A", email: "a@b.c", timestamp: 3, tzOffset: "+0000" },
@@ -184,7 +184,7 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       await addFile(store, "new-file.txt", "new content");
       await store.staging.write();
       const commit2 = await git.commit().setMessage("Add file").call();
-      const commit2Id = await store.commits.storeCommit(commit2);
+      const commit2Id = await store.commits.store(commit2);
 
       const diff = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
 
@@ -201,12 +201,12 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       await addFile(store, "file.txt", "original content");
       await store.staging.write();
       const commit1 = await git.commit().setMessage("Add file").call();
-      const commit1Id = await store.commits.storeCommit(commit1);
+      const commit1Id = await store.commits.store(commit1);
 
       await addFile(store, "file.txt", "modified content");
       await store.staging.write();
       const commit2 = await git.commit().setMessage("Modify file").call();
-      const commit2Id = await store.commits.storeCommit(commit2);
+      const commit2Id = await store.commits.store(commit2);
 
       const diff = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
 
@@ -224,7 +224,7 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       await addFile(store, "file2.txt", "content2");
       await store.staging.write();
       const commit1 = await git.commit().setMessage("Add files").call();
-      const commit1Id = await store.commits.storeCommit(commit1);
+      const commit1Id = await store.commits.store(commit1);
 
       // Remove file2 by rebuilding staging without it
       const builder = store.staging.createBuilder();
@@ -236,7 +236,7 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       await builder.finish();
       await store.staging.write();
       const commit2 = await git.commit().setMessage("Delete file").call();
-      const commit2Id = await store.commits.storeCommit(commit2);
+      const commit2Id = await store.commits.store(commit2);
 
       const diff = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
 
@@ -260,7 +260,7 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       await addFile(store, "file2.txt", "content2");
       await store.staging.write();
       const commit2 = await git.commit().setMessage("Add file2").call();
-      const commit2Id = await store.commits.storeCommit(commit2);
+      const commit2Id = await store.commits.store(commit2);
 
       // Compare initial (empty) to final (2 files)
       const diff = await git.diff().setOldTree(commit0Id).setNewTree(commit2Id).call();
@@ -337,8 +337,8 @@ describe.each(backends)("History Operations ($name backend)", ({ factory }) => {
       // Filter commits that touched tracked.txt by comparing trees
       const touchedTrackedFile: string[] = [];
       for (let i = 0; i < commits.length - 1; i++) {
-        const commitId = await store.commits.storeCommit(commits[i]);
-        const parentId = await store.commits.storeCommit(commits[i + 1]);
+        const commitId = await store.commits.store(commits[i]);
+        const parentId = await store.commits.store(commits[i + 1]);
 
         const diff = await git.diff().setOldTree(parentId).setNewTree(commitId).call();
 

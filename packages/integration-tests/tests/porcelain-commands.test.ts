@@ -55,7 +55,7 @@ describe.each(backends)("Porcelain Commands ($name backend)", ({ factory }) => {
       await addFile(store, "file1.txt", "content1");
       await store.staging.write();
       const commit1 = await git.commit().setMessage("First").call();
-      const commit1Id = await store.commits.storeCommit(commit1);
+      const commit1Id = await store.commits.store(commit1);
 
       // Second commit
       await addFile(store, "file2.txt", "content2");
@@ -172,7 +172,7 @@ describe.each(backends)("Porcelain Commands ($name backend)", ({ factory }) => {
       // Switch to feature and add commit
       await store.refs.setSymbolic("HEAD", "refs/heads/feature");
       const featureRef = await store.refs.resolve("refs/heads/feature");
-      const featureCommit = await store.commits.loadCommit(featureRef?.objectId ?? "");
+      const featureCommit = await store.commits.load(featureRef?.objectId ?? "");
       await store.staging.readTree(store.trees, featureCommit.tree);
 
       await addFile(store, "feature.txt", "feature content");
@@ -258,12 +258,12 @@ describe.each(backends)("Porcelain Commands ($name backend)", ({ factory }) => {
       await addFile(store, "file.txt", "original");
       await store.staging.write();
       const commit1 = await git.commit().setMessage("First").call();
-      const commit1Id = await store.commits.storeCommit(commit1);
+      const commit1Id = await store.commits.store(commit1);
 
       await addFile(store, "new-file.txt", "new content");
       await store.staging.write();
       const commit2 = await git.commit().setMessage("Second").call();
-      const commit2Id = await store.commits.storeCommit(commit2);
+      const commit2Id = await store.commits.store(commit2);
 
       const diff = await git.diff().setOldTree(commit1Id).setNewTree(commit2Id).call();
 

@@ -80,7 +80,7 @@ export async function createInitializedTestRepository(
   const { repository } = ctx;
 
   // Create empty tree for initial commit
-  const emptyTreeId = await repository.trees.storeTree([]);
+  const emptyTreeId = await repository.trees.store([]);
 
   // Create initial commit
   const initialCommit = {
@@ -91,7 +91,7 @@ export async function createInitializedTestRepository(
     message: "Initial commit",
   };
 
-  const initialCommitId = await repository.commits.storeCommit(initialCommit);
+  const initialCommitId = await repository.commits.store(initialCommit);
 
   // Set up refs
   await repository.refs.set("refs/heads/main", initialCommitId);
@@ -138,7 +138,7 @@ export async function createTestCommit(
   entries.sort((a, b) => a.name.localeCompare(b.name));
 
   // Create tree
-  const treeId = await repository.trees.storeTree(entries);
+  const treeId = await repository.trees.store(entries);
 
   // Get parent commit
   const headRef = await repository.refs.resolve("HEAD");
@@ -153,7 +153,7 @@ export async function createTestCommit(
     message,
   };
 
-  const commitId = await repository.commits.storeCommit(commit);
+  const commitId = await repository.commits.store(commit);
 
   // Update HEAD
   const head = await repository.refs.get("HEAD");
