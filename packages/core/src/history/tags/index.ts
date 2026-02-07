@@ -1,8 +1,7 @@
 export * from "./tag-format.js";
+// Git tag store implementation
 export * from "./tag-store.impl.js";
-// Legacy interface - export only TagStore (AnnotatedTag from new interface)
-export type { TagStore } from "./tag-store.js";
-// New implementations (Phase C2)
+// Factory function for creating Tags
 export * from "./tags.impl.js";
-// New interfaces (Phase C) - primary source for AnnotatedTag, Tag, Tags
+// Tags interface and types (AnnotatedTag, Tag, Tags)
 export * from "./tags.js";

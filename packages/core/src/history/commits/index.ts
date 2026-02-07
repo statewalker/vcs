@@ -1,9 +1,8 @@
 export * from "./ancestry-walker.js";
 export * from "./commit-format.js";
+// Git commit store implementation
 export * from "./commit-store.impl.js";
-// Legacy interface - export only CommitStore (Commit and AncestryOptions from new interface)
-export type { CommitStore } from "./commit-store.js";
-// New implementations (Phase C2)
+// Factory function for creating Commits
 export * from "./commits.impl.js";
-// New interfaces (Phase C) - primary source for Commit, AncestryOptions, Commits
+// Commits interface and types (Commit, AncestryOptions, Commits)
 export * from "./commits.js";

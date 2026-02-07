@@ -1,6 +1,6 @@
+// Git blob store implementation
 export * from "./blob-store.impl.js";
-export * from "./blob-store.js";
-// New implementations (Phase C2)
+// Factory function for creating Blobs
 export * from "./blobs.impl.js";
-// New interfaces (Phase C)
+// Blobs interface and types
 export * from "./blobs.js";
