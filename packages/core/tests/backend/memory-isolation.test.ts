@@ -19,7 +19,7 @@ async function* toAsyncIterable(data: string): AsyncIterable<Uint8Array> {
 }
 
 // Helper to collect async iterable to string
-async function toString(iterable: AsyncIterable<Uint8Array>): Promise<string> {
+async function collectToString(iterable: AsyncIterable<Uint8Array>): Promise<string> {
   const chunks: Uint8Array[] = [];
   for await (const chunk of iterable) {
     chunks.push(chunk);
@@ -53,8 +53,8 @@ describe("Memory Backend Isolation", () => {
       await storage1.store("shared-key", toAsyncIterable("data in storage1"));
       await storage2.store("shared-key", toAsyncIterable("data in storage2"));
 
-      const data1 = await toString(storage1.load("shared-key"));
-      const data2 = await toString(storage2.load("shared-key"));
+      const data1 = await collectToString(storage1.load("shared-key"));
+      const data2 = await collectToString(storage2.load("shared-key"));
 
       expect(data1).toBe("data in storage1");
       expect(data2).toBe("data in storage2");
@@ -77,7 +77,7 @@ describe("Memory Backend Isolation", () => {
       // storage2 should be unaffected
       expect(storage2.count).toBe(1);
       expect(await storage2.has("key2")).toBe(true);
-      expect(await toString(storage2.load("key2"))).toBe("data2");
+      expect(await collectToString(storage2.load("key2"))).toBe("data2");
     });
 
     it("removing key from one instance does not affect same key in other", async () => {
@@ -95,7 +95,7 @@ describe("Memory Backend Isolation", () => {
 
       // storage2 key should still exist
       expect(await storage2.has("key")).toBe(true);
-      expect(await toString(storage2.load("key"))).toBe("data2");
+      expect(await collectToString(storage2.load("key"))).toBe("data2");
     });
 
     it("keys() iteration is isolated per instance", async () => {
@@ -202,8 +202,8 @@ describe("Memory Backend Isolation", () => {
       await storage1.store("shared", toAsyncIterable(largeData1));
       await storage2.store("shared", toAsyncIterable(largeData2));
 
-      const data1 = await toString(storage1.load("shared"));
-      const data2 = await toString(storage2.load("shared"));
+      const data1 = await collectToString(storage1.load("shared"));
+      const data2 = await collectToString(storage2.load("shared"));
 
       expect(data1).toBe(largeData1);
       expect(data2).toBe(largeData2);
@@ -239,7 +239,7 @@ describe("Memory Backend Isolation", () => {
       await storage.store("key", toAsyncIterable("new data"));
 
       expect(await storage.has("key")).toBe(true);
-      expect(await toString(storage.load("key"))).toBe("new data");
+      expect(await collectToString(storage.load("key"))).toBe("new data");
     });
 
     it("remove() cleans up individual entries", async () => {
@@ -327,8 +327,8 @@ describe("Memory Backend Isolation", () => {
         storage2.store("key", toAsyncIterable("from2")),
       ]);
 
-      const data1 = await toString(storage1.load("key"));
-      const data2 = await toString(storage2.load("key"));
+      const data1 = await collectToString(storage1.load("key"));
+      const data2 = await collectToString(storage2.load("key"));
 
       expect(data1).toBe("from1");
       expect(data2).toBe("from2");
@@ -345,9 +345,9 @@ describe("Memory Backend Isolation", () => {
       ]);
 
       expect(storage.count).toBe(3);
-      expect(await toString(storage.load("a"))).toBe("1");
-      expect(await toString(storage.load("b"))).toBe("2");
-      expect(await toString(storage.load("c"))).toBe("3");
+      expect(await collectToString(storage.load("a"))).toBe("1");
+      expect(await collectToString(storage.load("b"))).toBe("2");
+      expect(await collectToString(storage.load("c"))).toBe("3");
     });
   });
 
