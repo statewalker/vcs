@@ -36,17 +36,13 @@ export class FileRawStorage implements RawStorage {
       throw new Error(`Key not found: ${key}`);
     }
 
-    // If range options specified, read full content and slice
-    // TODO: Implement range reading if FilesApi supports it
     if (options?.start !== undefined || options?.end !== undefined) {
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of this.files.read(path)) {
-        chunks.push(chunk);
-      }
-      const fullContent = concatChunks(chunks);
       const start = options.start ?? 0;
-      const end = options.end ?? fullContent.length;
-      yield fullContent.subarray(start, end);
+      const end = options.end ?? stats.size ?? Infinity;
+      yield* this.files.read(path, {
+        start,
+        length: end - start,
+      });
     } else {
       yield* this.files.read(path);
     }
@@ -100,15 +96,4 @@ export class FileRawStorage implements RawStorage {
     const stats = await this.files.stats(path);
     return stats?.size ?? -1;
   }
-}
-
-function concatChunks(chunks: Uint8Array[]): Uint8Array {
-  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return result;
 }
