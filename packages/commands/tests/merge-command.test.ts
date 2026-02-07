@@ -45,7 +45,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
      * JGit: testMergeInItself
      */
     it("should report ALREADY_UP_TO_DATE when merging HEAD into itself", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       const result = await git.merge().include("HEAD").call();
 
@@ -57,7 +57,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
      * JGit: testAlreadyUpToDate
      */
     it("should report ALREADY_UP_TO_DATE when source is ancestor of HEAD", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, repository, initialCommitId } = await createInitializedGit();
 
       // Create a branch at initial commit
       await git.branchCreate().setName("branch1").setStartPoint(initialCommitId).call();
@@ -81,7 +81,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
      * JGit: testFastForward
      */
     it("should fast-forward when HEAD is ancestor of source", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create branch1 at initial commit
       await git.branchCreate().setName("branch1").call();
@@ -135,7 +135,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
      * JGit: testFastForwardOnly
      */
     it("should fail with FF_ONLY when fast-forward not possible", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create divergent branches
       await git.branchCreate().setName("branch1").call();
@@ -161,7 +161,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
      * JGit: testMergeNoFastForward
      */
     it("should create merge commit with NO_FF", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create branch1 at initial commit
       await git.branchCreate().setName("branch1").call();
@@ -220,7 +220,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
     });
 
     it("should use custom merge message", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create branch1
       await git.branchCreate().setName("branch1").call();
@@ -392,13 +392,13 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
 
   describe("error handling", () => {
     it("should throw when no merge head specified", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await expect(git.merge().call()).rejects.toThrow(InvalidMergeHeadsError);
     });
 
     it("should throw when multiple merge heads specified", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await expect(git.merge().include("branch1").include("branch2").call()).rejects.toThrow(
         InvalidMergeHeadsError,
@@ -406,7 +406,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
     });
 
     it("should not be callable twice", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const cmd = git.merge().include("HEAD");
       await cmd.call();
@@ -419,7 +419,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
 
   describe("branch resolution", () => {
     it("should resolve branch name to commit", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create and checkout feature branch
       await git.branchCreate().setName("feature").call();
@@ -440,7 +440,7 @@ describe.each(backends)("MergeCommand ($name backend)", ({ factory }) => {
     });
 
     it("should resolve commit ID directly", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create branch and add commit
       await git.branchCreate().setName("feature").call();
@@ -479,7 +479,7 @@ describe.each(backends)("MergeCommand with log verification ($name backend)", ({
   }
 
   it("should show merge commit in log with correct parents", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, repository } = await createInitializedGit();
 
     // Create divergent branches
     await git.branchCreate().setName("feature").call();

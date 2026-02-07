@@ -30,7 +30,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Based on JGit's testRemove.
    */
   it("should remove a file from the index", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Add and commit a file
     await addFile(workingCopy, "file.txt", "content");
@@ -68,7 +68,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test removing multiple files.
    */
   it("should remove multiple files", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Add and commit files
     await addFile(workingCopy, "a.txt", "a");
@@ -96,7 +96,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test removing a directory pattern.
    */
   it("should remove files by directory pattern", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Add files in different directories
     await addFile(workingCopy, "src/a.txt", "a");
@@ -124,7 +124,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test removing non-existent file doesn't error.
    */
   it("should succeed when removing non-existent file", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Add a file
     await addFile(workingCopy, "file.txt", "content");
@@ -148,7 +148,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test setCached option.
    */
   it("should support cached option", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Add a file
     await addFile(workingCopy, "file.txt", "content");
@@ -168,7 +168,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test error when no pattern specified.
    */
   it("should throw error when no pattern specified", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
@@ -180,7 +180,7 @@ describe.each(backends)("RmCommand ($name backend)", ({ factory }) => {
    * Test glob pattern matching.
    */
   it("should support glob patterns", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     // Add files
     await addFile(workingCopy, "test1.txt", "1");
@@ -217,7 +217,7 @@ describe.each(backends)("RmCommand - API options ($name backend)", ({ factory })
    * Test fluent API.
    */
   it("should support fluent API", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();
@@ -231,7 +231,7 @@ describe.each(backends)("RmCommand - API options ($name backend)", ({ factory })
    * Test command cannot be reused.
    */
   it("should not allow command reuse after call", async () => {
-    const { git, workingCopy, repository } = await createInitializedGit();
+    const { git, workingCopy } = await createInitializedGit();
 
     await addFile(workingCopy, "file.txt", "content");
     await git.commit().setMessage("initial").call();

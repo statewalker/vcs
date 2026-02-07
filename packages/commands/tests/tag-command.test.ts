@@ -32,7 +32,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
 
   describe("TagCommand", () => {
     it("should create lightweight tag at HEAD", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       const ref = await git.tag().setName("v1.0.0").call();
 
@@ -41,7 +41,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should create lightweight tag at specific commit", async () => {
-      const { git, workingCopy, repository, initialCommitId } = await createInitializedGit();
+      const { git, initialCommitId } = await createInitializedGit();
 
       // Create more commits
       await git.commit().setMessage("Second").setAllowEmpty(true).call();
@@ -53,7 +53,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should create annotated tag", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       const ref = await git
         .tag()
@@ -76,7 +76,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should create annotated tag when message is provided", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       const ref = await git.tag().setName("v1.0.0").setMessage("Release").call();
 
@@ -87,7 +87,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject invalid tag names", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await expect(git.tag().setName("v1..0").call()).rejects.toThrow(InvalidTagNameError);
       await expect(git.tag().setName("-v1.0").call()).rejects.toThrow(InvalidTagNameError);
@@ -95,7 +95,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject duplicate tag without force", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.tag().setName("v1.0.0").call();
 
@@ -103,7 +103,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should overwrite tag with force", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       // Create tag at initial commit
       await git.tag().setName("v1.0.0").call();
@@ -121,7 +121,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should require tag name", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await expect(git.tag().call()).rejects.toThrow(InvalidTagNameError);
     });
@@ -129,7 +129,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
 
   describe("DeleteTagCommand", () => {
     it("should delete tag", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git, repository } = await createInitializedGit();
 
       await git.tag().setName("v1.0.0").call();
       expect(await repository.refs.has("refs/tags/v1.0.0")).toBe(true);
@@ -141,7 +141,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should delete multiple tags", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.tag().setName("v1.0.0").call();
       await git.tag().setName("v1.0.1").call();
@@ -152,7 +152,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should reject deleting non-existent tag", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await expect(git.tagDelete().setTags("nonexistent").call()).rejects.toThrow(RefNotFoundError);
     });
@@ -160,7 +160,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
 
   describe("ListTagCommand", () => {
     it("should list tags", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.tag().setName("v1.0.0").call();
       await git.tag().setName("v1.1.0").call();
@@ -175,7 +175,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should return tags in sorted order", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       await git.tag().setName("z-tag").call();
       await git.tag().setName("a-tag").call();
@@ -189,7 +189,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
     });
 
     it("should return empty array when no tags", async () => {
-      const { git, workingCopy, repository } = await createInitializedGit();
+      const { git } = await createInitializedGit();
 
       const tags = await git.tagList().call();
 
