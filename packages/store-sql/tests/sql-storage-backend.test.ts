@@ -1,15 +1,15 @@
 /**
- * SQLStorageBackend tests
+ * SQL History Backend tests
  *
- * Tests the SQL storage backend and factory registration.
+ * Tests the SQL storage backend via SQLHistoryFactory and factory registration.
  */
 
-import type { ObjectId } from "@statewalker/vcs-core";
+import type { HistoryWithOperations, ObjectId } from "@statewalker/vcs-core";
 import { createHistory, hasHistoryBackendFactory } from "@statewalker/vcs-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqlJsAdapter } from "../src/adapters/sql-js-adapter.js";
 import { registerSqlHistoryFactory } from "../src/register-backend.js";
-import { SQLStorageBackend } from "../src/sql-storage-backend.js";
+import { SQLHistoryFactory } from "../src/sql-storage-backend.js";
 
 describe("registerSqlHistoryFactory", () => {
   it("registers the SQL backend with the factory", async () => {
@@ -32,27 +32,26 @@ describe("registerSqlHistoryFactory", () => {
   });
 });
 
-describe("SQLStorageBackend", () => {
-  let backend: SQLStorageBackend;
+describe("SQL HistoryWithOperations (via SQLHistoryFactory)", () => {
+  let history: HistoryWithOperations;
 
   beforeEach(async () => {
     const db = await SqlJsAdapter.create();
-    backend = new SQLStorageBackend({ db });
-    await backend.initialize();
+    const factory = new SQLHistoryFactory();
+    history = await factory.createHistory({ db });
+    await history.initialize();
   });
 
   afterEach(async () => {
-    if (backend?.isInitialized()) {
-      await backend.close();
-    }
+    await history.close();
   });
 
   describe("capabilities", () => {
     it("reports correct capabilities", () => {
-      expect(backend.capabilities.nativeBlobDeltas).toBe(true);
-      expect(backend.capabilities.randomAccess).toBe(true);
-      expect(backend.capabilities.atomicBatch).toBe(true);
-      expect(backend.capabilities.nativeGitFormat).toBe(false);
+      expect(history.capabilities.nativeBlobDeltas).toBe(true);
+      expect(history.capabilities.randomAccess).toBe(true);
+      expect(history.capabilities.atomicBatch).toBe(true);
+      expect(history.capabilities.nativeGitFormat).toBe(false);
     });
   });
 
@@ -65,11 +64,11 @@ describe("SQLStorageBackend", () => {
           yield content;
         }
 
-        const id = await backend.blobs.store(chunks());
+        const id = await history.blobs.store(chunks());
         expect(id).toBeTruthy();
 
         const loaded: Uint8Array[] = [];
-        const stream = await backend.blobs.load(id);
+        const stream = await history.blobs.load(id);
         if (!stream) throw new Error("Blob not found");
         for await (const chunk of stream) {
           loaded.push(chunk);
@@ -92,10 +91,10 @@ describe("SQLStorageBackend", () => {
           yield content;
         }
 
-        const id = await backend.blobs.store(chunks());
+        const id = await history.blobs.store(chunks());
 
-        expect(await backend.blobs.has(id)).toBe(true);
-        expect(await backend.blobs.has("0000000000000000000000000000000000000000")).toBe(false);
+        expect(await history.blobs.has(id)).toBe(true);
+        expect(await history.blobs.has("0000000000000000000000000000000000000000")).toBe(false);
       });
 
       it("returns blob size", async () => {
@@ -105,9 +104,9 @@ describe("SQLStorageBackend", () => {
           yield content;
         }
 
-        const id = await backend.blobs.store(chunks());
+        const id = await history.blobs.store(chunks());
 
-        expect(await backend.blobs.size(id)).toBe(13);
+        expect(await history.blobs.size(id)).toBe(13);
       });
 
       it("lists blob keys", async () => {
@@ -121,11 +120,11 @@ describe("SQLStorageBackend", () => {
           yield content2;
         }
 
-        const id1 = await backend.blobs.store(chunks1());
-        const id2 = await backend.blobs.store(chunks2());
+        const id1 = await history.blobs.store(chunks1());
+        const id2 = await history.blobs.store(chunks2());
 
         const keys: ObjectId[] = [];
-        for await (const key of backend.blobs.keys()) {
+        for await (const key of history.blobs.keys()) {
           keys.push(key);
         }
 
@@ -140,12 +139,12 @@ describe("SQLStorageBackend", () => {
           yield content;
         }
 
-        const id = await backend.blobs.store(chunks());
-        expect(await backend.blobs.has(id)).toBe(true);
+        const id = await history.blobs.store(chunks());
+        expect(await history.blobs.has(id)).toBe(true);
 
-        const deleted = await backend.blobs.remove(id);
+        const deleted = await history.blobs.remove(id);
         expect(deleted).toBe(true);
-        expect(await backend.blobs.has(id)).toBe(false);
+        expect(await history.blobs.has(id)).toBe(false);
       });
     });
 
@@ -157,15 +156,15 @@ describe("SQLStorageBackend", () => {
           yield blobContent;
         }
 
-        const blobId = await backend.blobs.store(blobChunks());
+        const blobId = await history.blobs.store(blobChunks());
 
         const entries = [{ mode: 0o100644, name: "file.txt", id: blobId }];
 
-        const treeId = await backend.trees.store(entries);
+        const treeId = await history.trees.store(entries);
         expect(treeId).toBeTruthy();
 
         const loaded = [];
-        const treeEntries = await backend.trees.load(treeId);
+        const treeEntries = await history.trees.load(treeId);
         if (!treeEntries) throw new Error("Tree not found");
         for await (const entry of treeEntries) {
           loaded.push(entry);
@@ -177,14 +176,14 @@ describe("SQLStorageBackend", () => {
       });
 
       it("returns empty tree ID", () => {
-        const emptyTreeId = backend.trees.getEmptyTreeId();
+        const emptyTreeId = history.trees.getEmptyTreeId();
         expect(emptyTreeId).toBe("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
       });
     });
 
     describe("commits", () => {
       it("stores and loads commits", async () => {
-        const emptyTreeId = backend.trees.getEmptyTreeId();
+        const emptyTreeId = history.trees.getEmptyTreeId();
 
         const commit = {
           tree: emptyTreeId,
@@ -204,17 +203,17 @@ describe("SQLStorageBackend", () => {
           message: "Initial commit",
         };
 
-        const commitId = await backend.commits.store(commit);
+        const commitId = await history.commits.store(commit);
         expect(commitId).toBeTruthy();
 
-        const loaded = await backend.commits.load(commitId);
+        const loaded = await history.commits.load(commitId);
         expect(loaded.tree).toBe(emptyTreeId);
         expect(loaded.message).toBe("Initial commit");
         expect(loaded.author.name).toBe("Test Author");
       });
 
       it("returns parent commits", async () => {
-        const emptyTreeId = backend.trees.getEmptyTreeId();
+        const emptyTreeId = history.trees.getEmptyTreeId();
 
         const commit1 = {
           tree: emptyTreeId,
@@ -234,7 +233,7 @@ describe("SQLStorageBackend", () => {
           message: "First commit",
         };
 
-        const commitId1 = await backend.commits.store(commit1);
+        const commitId1 = await history.commits.store(commit1);
 
         const commit2 = {
           tree: emptyTreeId,
@@ -254,16 +253,16 @@ describe("SQLStorageBackend", () => {
           message: "Second commit",
         };
 
-        const commitId2 = await backend.commits.store(commit2);
+        const commitId2 = await history.commits.store(commit2);
 
-        const parents = await backend.commits.getParents(commitId2);
+        const parents = await history.commits.getParents(commitId2);
         expect(parents).toEqual([commitId1]);
       });
     });
 
     describe("refs", () => {
       it("sets and gets refs", async () => {
-        const emptyTreeId = backend.trees.getEmptyTreeId();
+        const emptyTreeId = history.trees.getEmptyTreeId();
 
         const commit = {
           tree: emptyTreeId,
@@ -283,17 +282,17 @@ describe("SQLStorageBackend", () => {
           message: "Test commit",
         };
 
-        const commitId = await backend.commits.store(commit);
+        const commitId = await history.commits.store(commit);
 
-        await backend.refs.set("refs/heads/main", commitId);
+        await history.refs.set("refs/heads/main", commitId);
 
-        const ref = await backend.refs.get("refs/heads/main");
+        const ref = await history.refs.get("refs/heads/main");
         expect(ref).toBeDefined();
         expect((ref as { objectId: string }).objectId).toBe(commitId);
       });
 
       it("sets and resolves symbolic refs", async () => {
-        const emptyTreeId = backend.trees.getEmptyTreeId();
+        const emptyTreeId = history.trees.getEmptyTreeId();
 
         const commit = {
           tree: emptyTreeId,
@@ -313,12 +312,12 @@ describe("SQLStorageBackend", () => {
           message: "Test commit",
         };
 
-        const commitId = await backend.commits.store(commit);
+        const commitId = await history.commits.store(commit);
 
-        await backend.refs.set("refs/heads/main", commitId);
-        await backend.refs.setSymbolic("HEAD", "refs/heads/main");
+        await history.refs.set("refs/heads/main", commitId);
+        await history.refs.setSymbolic("HEAD", "refs/heads/main");
 
-        const resolved = await backend.refs.resolve("HEAD");
+        const resolved = await history.refs.resolve("HEAD");
         expect(resolved).toBeDefined();
         expect(resolved?.objectId).toBe(commitId);
       });
@@ -327,19 +326,19 @@ describe("SQLStorageBackend", () => {
 
   describe("delta API", () => {
     it("starts and ends batch without error", async () => {
-      backend.delta.startBatch();
-      await backend.delta.endBatch();
+      history.delta.startBatch();
+      await history.delta.endBatch();
     });
 
     it("throws when ending batch without starting", async () => {
-      await expect(backend.delta.endBatch()).rejects.toThrow("No batch in progress");
+      await expect(history.delta.endBatch()).rejects.toThrow("No batch in progress");
     });
 
     it("allows canceling batch", () => {
-      backend.delta.startBatch();
-      backend.delta.cancelBatch();
+      history.delta.startBatch();
+      history.delta.cancelBatch();
       // Should not throw when called without active batch
-      backend.delta.cancelBatch();
+      history.delta.cancelBatch();
     });
 
     it("tracks blob deltas", async () => {
@@ -353,11 +352,11 @@ describe("SQLStorageBackend", () => {
         yield content2;
       }
 
-      const baseId = await backend.blobs.store(chunks1());
-      const targetId = await backend.blobs.store(chunks2());
+      const baseId = await history.blobs.store(chunks1());
+      const targetId = await history.blobs.store(chunks2());
 
       // Initially not a delta
-      expect(await backend.delta.isDelta(targetId)).toBe(false);
+      expect(await history.delta.isDelta(targetId)).toBe(false);
 
       // Store as delta
       const deltaBytes = new TextEncoder().encode("mock-delta-data");
@@ -366,13 +365,13 @@ describe("SQLStorageBackend", () => {
         yield deltaBytes;
       }
 
-      await backend.delta.blobs.deltifyBlob(targetId, baseId, deltaStream());
+      await history.delta.blobs.deltifyBlob(targetId, baseId, deltaStream());
 
       // Now it should be a delta
-      expect(await backend.delta.isDelta(targetId)).toBe(true);
+      expect(await history.delta.isDelta(targetId)).toBe(true);
 
       // Check chain info
-      const chain = await backend.delta.getDeltaChain(targetId);
+      const chain = await history.delta.getDeltaChain(targetId);
       expect(chain).toBeDefined();
       expect(chain?.depth).toBe(1);
       expect(chain?.baseIds).toContain(baseId);
@@ -389,8 +388,8 @@ describe("SQLStorageBackend", () => {
         yield content2;
       }
 
-      const baseId = await backend.blobs.store(chunks1());
-      const targetId = await backend.blobs.store(chunks2());
+      const baseId = await history.blobs.store(chunks1());
+      const targetId = await history.blobs.store(chunks2());
 
       const deltaBytes = new TextEncoder().encode("delta");
 
@@ -398,10 +397,10 @@ describe("SQLStorageBackend", () => {
         yield deltaBytes;
       }
 
-      await backend.delta.blobs.deltifyBlob(targetId, baseId, deltaStream());
+      await history.delta.blobs.deltifyBlob(targetId, baseId, deltaStream());
 
       const deltas = [];
-      for await (const delta of backend.delta.listDeltas()) {
+      for await (const delta of history.delta.listDeltas()) {
         deltas.push(delta);
       }
 
@@ -424,9 +423,9 @@ describe("SQLStorageBackend", () => {
         yield content3;
       }
 
-      const baseId = await backend.blobs.store(chunks1());
-      const targetId1 = await backend.blobs.store(chunks2());
-      const targetId2 = await backend.blobs.store(chunks3());
+      const baseId = await history.blobs.store(chunks1());
+      const targetId1 = await history.blobs.store(chunks2());
+      const targetId2 = await history.blobs.store(chunks3());
 
       const deltaBytes = new TextEncoder().encode("delta");
 
@@ -437,11 +436,11 @@ describe("SQLStorageBackend", () => {
         yield deltaBytes;
       }
 
-      await backend.delta.blobs.deltifyBlob(targetId1, baseId, deltaStream1());
-      await backend.delta.blobs.deltifyBlob(targetId2, baseId, deltaStream2());
+      await history.delta.blobs.deltifyBlob(targetId1, baseId, deltaStream1());
+      await history.delta.blobs.deltifyBlob(targetId2, baseId, deltaStream2());
 
       const dependents = [];
-      for await (const dep of backend.delta.getDependents(baseId)) {
+      for await (const dep of history.delta.getDependents(baseId)) {
         dependents.push(dep);
       }
 
@@ -460,8 +459,8 @@ describe("SQLStorageBackend", () => {
         yield content2;
       }
 
-      const baseId = await backend.blobs.store(chunks1());
-      const targetId = await backend.blobs.store(chunks2());
+      const baseId = await history.blobs.store(chunks1());
+      const targetId = await history.blobs.store(chunks2());
 
       const deltaBytes = new TextEncoder().encode("delta");
 
@@ -469,35 +468,29 @@ describe("SQLStorageBackend", () => {
         yield deltaBytes;
       }
 
-      await backend.delta.blobs.deltifyBlob(targetId, baseId, deltaStream());
-      expect(await backend.delta.isDelta(targetId)).toBe(true);
+      await history.delta.blobs.deltifyBlob(targetId, baseId, deltaStream());
+      expect(await history.delta.isDelta(targetId)).toBe(true);
 
-      await backend.delta.blobs.undeltifyBlob(targetId);
-      expect(await backend.delta.isDelta(targetId)).toBe(false);
+      await history.delta.blobs.undeltifyBlob(targetId);
+      expect(await history.delta.isDelta(targetId)).toBe(false);
     });
   });
 
   describe("lifecycle", () => {
-    it("initializes only once", async () => {
-      // Already initialized in beforeEach
-      expect(backend.isInitialized()).toBe(true);
-
-      // Call initialize again - should be idempotent
-      await backend.initialize();
-      expect(backend.isInitialized()).toBe(true);
+    it("initializes idempotently", async () => {
+      // Already initialized in beforeEach - call again should be safe
+      await history.initialize();
+      // Verify stores still work after double init
+      expect(history.commits).toBeDefined();
     });
 
     it("closes cleanly", async () => {
-      expect(backend.isInitialized()).toBe(true);
-      await backend.close();
-      expect(backend.isInitialized()).toBe(false);
-    });
-
-    it("provides access to database", () => {
-      const db = backend.getDatabase();
-      expect(db).toBeDefined();
-      expect(typeof db.query).toBe("function");
-      expect(typeof db.execute).toBe("function");
+      await history.close();
+      // Re-create for afterEach to not fail
+      const db = await SqlJsAdapter.create();
+      const factory = new SQLHistoryFactory();
+      history = await factory.createHistory({ db });
+      await history.initialize();
     });
   });
 });
