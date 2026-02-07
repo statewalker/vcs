@@ -27,6 +27,8 @@ export interface HttpFetchOptions {
   filter?: string;
   /** Refs to fetch (if not all) */
   refSpecs?: string[];
+  /** Skip updating refStore (for dry run). Defaults to false. */
+  skipRefUpdate?: boolean;
   /** Custom fetch function (for testing or different environments) */
   fetchFn?: typeof fetch;
 }
@@ -183,34 +185,45 @@ export async function httpFetch(
     // Find where pack data starts (after flush or NAK)
     const packStartIndex = findPackDataStart(responseData);
 
-    if (packStartIndex < 0) {
-      // No pack data - might be up-to-date
+    // Check for server error
+    if (sidebandResult.error) {
       return {
-        success: true,
-        updatedRefs: new Map(),
-        objectsImported: 0,
+        success: false,
+        error: sidebandResult.error,
       };
     }
 
-    // Import pack data
-    const packData = responseData.slice(packStartIndex);
-    const packStream = (async function* () {
-      yield packData;
-    })();
+    // Import pack data if we got any
+    let objectsImported = 0;
+    if (sidebandResult.packData.length > 0) {
+      const packData = sidebandResult.packData;
+      const packStream = (async function* () {
+        yield packData;
+      })();
+      const importResult = await repository.importPack(packStream);
+      objectsImported = importResult.objectsImported;
+    }
 
-    const importResult = await repository.importPack(packStream);
-
-    // Update local refs
+    // Build updated refs map (apply refspec mapping if provided)
     const updatedRefs = new Map<string, string>();
     for (const [refName, oid] of state.refs) {
-      await refStore.update(refName, oid);
-      updatedRefs.set(refName, oid);
+      const localRef = applyRefspecMapping(refName, options.refSpecs);
+      if (localRef) {
+        updatedRefs.set(localRef, oid);
+      }
+    }
+
+    // Update refStore so subsequent fetches can send correct have lines
+    if (!options.skipRefUpdate) {
+      for (const [localRef, oid] of updatedRefs) {
+        await refStore.update(localRef, oid);
+      }
     }
 
     return {
       success: true,
       updatedRefs,
-      objectsImported: importResult.objectsImported,
+      objectsImported,
     };
   } catch (error) {
     return {
@@ -221,42 +234,87 @@ export async function httpFetch(
 }
 
 /**
+ * Apply refspec mapping to a remote ref name.
+ *
+ * Returns the local ref name if the remote ref matches a refspec,
+ * or the original name if no refspecs are provided.
+ * Returns undefined if refspecs are provided but none match.
+ *
+ * @param remoteRef - Remote ref name (e.g., "refs/heads/main")
+ * @param refSpecs - Optional refspecs (e.g., ["refs/heads/main:refs/remotes/origin/main"])
+ * @returns Mapped local ref name, or undefined if filtered out
+ */
+function applyRefspecMapping(remoteRef: string, refSpecs?: string[]): string | undefined {
+  if (!refSpecs || refSpecs.length === 0) {
+    return remoteRef;
+  }
+
+  for (const spec of refSpecs) {
+    // Strip force prefix
+    const refspec = spec.startsWith("+") ? spec.slice(1) : spec;
+    const colonIdx = refspec.indexOf(":");
+    if (colonIdx < 0) continue;
+
+    const src = refspec.slice(0, colonIdx);
+    const dst = refspec.slice(colonIdx + 1);
+
+    // Wildcard matching
+    const srcWild = src.indexOf("*");
+    if (srcWild >= 0) {
+      const srcPrefix = src.slice(0, srcWild);
+      const srcSuffix = src.slice(srcWild + 1);
+      if (remoteRef.startsWith(srcPrefix) && remoteRef.endsWith(srcSuffix)) {
+        const endPos = srcSuffix.length > 0 ? remoteRef.length - srcSuffix.length : undefined;
+        const matched = remoteRef.slice(srcPrefix.length, endPos);
+        const dstWild = dst.indexOf("*");
+        if (dstWild >= 0) {
+          return dst.slice(0, dstWild) + matched + dst.slice(dstWild + 1);
+        }
+        return dst;
+      }
+    } else if (src === remoteRef) {
+      // Exact match
+      return dst;
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Parses ref advertisement from /info/refs response.
+ *
+ * Uses proper pkt-line parsing with length prefixes to avoid
+ * issues with flush packets concatenated with next line's prefix.
  */
 function parseRefAdvertisement(data: Uint8Array, state: ProtocolState): void {
-  // Convert to text for easier parsing
-  const text = textDecoder.decode(data);
-  const lines = text.split("\n");
+  let offset = 0;
+  let pastServiceLine = false;
 
-  let _parsingRefs = false;
+  while (offset + 4 <= data.length) {
+    const lengthHex = textDecoder.decode(data.slice(offset, offset + 4));
 
-  for (const line of lines) {
-    // Skip empty lines
-    if (!line.trim()) continue;
-
-    // Skip pkt-line headers
-    if (line.startsWith("0000") || line.startsWith("0001")) {
-      _parsingRefs = true;
+    if (lengthHex === "0000") {
+      offset += 4;
+      if (pastServiceLine) break;
+      pastServiceLine = true;
       continue;
     }
 
-    // Skip service announcement
-    if (line.includes("# service=")) {
-      continue;
-    }
+    const length = parseInt(lengthHex, 16);
+    if (Number.isNaN(length) || length < 4) break;
+    if (offset + length > data.length) break;
 
-    // Extract the actual content (remove pkt-line length prefix if present)
-    let content = line;
-    if (/^[0-9a-f]{4}/.test(content)) {
-      content = content.slice(4);
-    }
+    let payload = textDecoder.decode(data.slice(offset + 4, offset + length));
+    if (payload.endsWith("\n")) payload = payload.slice(0, -1);
+    offset += length;
 
-    // Parse ref line: "OID refname\0capabilities" or "OID refname"
-    const nullIndex = content.indexOf("\0");
-    const refPart = nullIndex >= 0 ? content.slice(0, nullIndex) : content;
-    const capsPart = nullIndex >= 0 ? content.slice(nullIndex + 1) : "";
+    if (payload.includes("# service=")) continue;
 
-    // Parse capabilities from first ref
+    const nullIndex = payload.indexOf("\0");
+    const refPart = nullIndex >= 0 ? payload.slice(0, nullIndex) : payload;
+    const capsPart = nullIndex >= 0 ? payload.slice(nullIndex + 1) : "";
+
     if (capsPart) {
       const caps = capsPart.trim().split(" ");
       for (const cap of caps) {
@@ -264,13 +322,11 @@ function parseRefAdvertisement(data: Uint8Array, state: ProtocolState): void {
       }
     }
 
-    // Parse ref
     const spaceIndex = refPart.indexOf(" ");
     if (spaceIndex > 0) {
       const oid = refPart.slice(0, spaceIndex);
       const refName = refPart.slice(spaceIndex + 1).trim();
 
-      // Skip capabilities^{} pseudo-ref
       if (!refName.endsWith("^{}") && !refName.startsWith("capabilities")) {
         state.refs.set(refName, oid);
       }
@@ -465,25 +521,36 @@ function findPackDataStart(data: Uint8Array): number {
 
 /**
  * Parses receive-pack ref advertisement.
+ *
+ * Uses proper pkt-line parsing with length prefixes.
  */
 function parseReceivePackAdvertisement(data: Uint8Array, state: ProtocolState): void {
-  // Similar to parseRefAdvertisement but for receive-pack
-  const text = textDecoder.decode(data);
-  const lines = text.split("\n");
+  let offset = 0;
+  let pastServiceLine = false;
 
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    if (line.startsWith("0000") || line.startsWith("0001")) continue;
-    if (line.includes("# service=")) continue;
+  while (offset + 4 <= data.length) {
+    const lengthHex = textDecoder.decode(data.slice(offset, offset + 4));
 
-    let content = line;
-    if (/^[0-9a-f]{4}/.test(content)) {
-      content = content.slice(4);
+    if (lengthHex === "0000") {
+      offset += 4;
+      if (pastServiceLine) break;
+      pastServiceLine = true;
+      continue;
     }
 
-    const nullIndex = content.indexOf("\0");
-    const refPart = nullIndex >= 0 ? content.slice(0, nullIndex) : content;
-    const capsPart = nullIndex >= 0 ? content.slice(nullIndex + 1) : "";
+    const length = parseInt(lengthHex, 16);
+    if (Number.isNaN(length) || length < 4) break;
+    if (offset + length > data.length) break;
+
+    let payload = textDecoder.decode(data.slice(offset + 4, offset + length));
+    if (payload.endsWith("\n")) payload = payload.slice(0, -1);
+    offset += length;
+
+    if (payload.includes("# service=")) continue;
+
+    const nullIndex = payload.indexOf("\0");
+    const refPart = nullIndex >= 0 ? payload.slice(0, nullIndex) : payload;
+    const capsPart = nullIndex >= 0 ? payload.slice(nullIndex + 1) : "";
 
     if (capsPart) {
       const caps = capsPart.trim().split(" ");

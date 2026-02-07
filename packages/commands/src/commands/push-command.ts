@@ -320,15 +320,16 @@ export class PushCommand extends TransportCommand<PushResult> {
     });
 
     // Create repository facade for pack operations
-    // Use type assertion for legacy store-based API
     const repository = createVcsRepositoryFacade({
-      blobs: this.blobs,
-      trees: this.trees,
-      commits: this.commits,
-      tags: tagsStore,
-      refs: this.refsStore,
+      history: {
+        blobs: this.blobs,
+        trees: this.trees,
+        commits: this.commits,
+        tags: tagsStore,
+        refs: this.refsStore,
+      } as unknown as Parameters<typeof createVcsRepositoryFacade>[0]["history"],
       serialization,
-    } as unknown as Parameters<typeof createVcsRepositoryFacade>[0]);
+    });
 
     // Create transport ref store adapter
     const refStore = this.createRefStoreAdapter();

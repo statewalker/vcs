@@ -56,7 +56,7 @@ function createWorkingCopyFromTestStores(stores: TestStores): WorkingCopy {
   return new MemoryWorkingCopy({
     history: repository,
     checkout: { staging: stores.staging } as never,
-    worktree: stores.worktree ?? ({} as never),
+    worktree: stores.worktree,
   });
 }
 
@@ -399,8 +399,11 @@ describe("CheckoutCommand working directory updates", () => {
       expect(entry).toBeDefined();
 
       // Load blob content to verify staging has correct version
+      const blobStream = await stores.blobs.load(entry?.objectId ?? "");
+      expect(blobStream).toBeDefined();
+      if (!blobStream) throw new Error("unreachable");
       const chunks: Uint8Array[] = [];
-      for await (const chunk of stores.blobs.load(entry?.objectId ?? "")) {
+      for await (const chunk of blobStream) {
         chunks.push(chunk);
       }
       const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -468,8 +471,11 @@ describe("CheckoutCommand working directory updates", () => {
       const entry = await stores.staging.getEntry("version.txt");
       expect(entry).toBeDefined();
 
+      const blobStream2 = await stores.blobs.load(entry?.objectId ?? "");
+      expect(blobStream2).toBeDefined();
+      if (!blobStream2) throw new Error("unreachable");
       const chunks: Uint8Array[] = [];
-      for await (const chunk of stores.blobs.load(entry?.objectId ?? "")) {
+      for await (const chunk of blobStream2) {
         chunks.push(chunk);
       }
       // Combine chunks into single array for decoding
