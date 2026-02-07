@@ -242,22 +242,27 @@ export class DefaultSerializationApi implements SerializationApi {
   async exportObject(
     id: ObjectId,
   ): Promise<{ type: ObjectTypeString; content: AsyncIterable<Uint8Array> }> {
-    // Try each object type
+    // Try blobs first (uses separate storage, no ambiguity)
     if (await this._blobs.has(id)) {
       const content = await this._blobs.load(id);
       if (!content) throw new Error(`Blob not found: ${id}`);
       return { type: "blob", content };
     }
 
-    if (await this._trees.has(id)) {
-      return { type: "tree", content: this.serializeTree(id) };
-    }
-
-    if (await this._commits.has(id)) {
+    // For shared-storage objects, use load() which checks the type header.
+    // has() can't discriminate types when stores share a GitObjectStore.
+    const commit = await this._commits.load(id);
+    if (commit) {
       return { type: "commit", content: this.serializeCommit(id) };
     }
 
-    if (await this._tags.has(id)) {
+    const tree = await this._trees.load(id);
+    if (tree) {
+      return { type: "tree", content: this.serializeTree(id) };
+    }
+
+    const tag = await this._tags.load(id);
+    if (tag) {
       return { type: "tag", content: this.serializeTag(id) };
     }
 
@@ -422,7 +427,7 @@ class DefaultPackBuilder implements PackBuilder {
   }
 
   private async loadObject(id: ObjectId): Promise<{ type: PackObjectType; content: Uint8Array }> {
-    // Try blobs first (most common)
+    // Try blobs first (uses separate storage, no ambiguity)
     if (await this._blobs.has(id)) {
       const blobContent = await this._blobs.load(id);
       if (!blobContent) throw new Error(`Blob not found: ${id}`);
@@ -433,29 +438,34 @@ class DefaultPackBuilder implements PackBuilder {
       return { type: PackObjectType.BLOB, content: concatBytes(chunks) };
     }
 
-    if (await this._trees.has(id)) {
-      const { serializeTree } = await import("../history/trees/tree-format.js");
-      const tree = await this._trees.load(id);
-      if (!tree) throw new Error(`Tree not found: ${id}`);
-      const entries: TreeEntry[] = [];
-      for await (const entry of tree) {
-        entries.push(entry);
-      }
-      return { type: PackObjectType.TREE, content: serializeTree(entries) };
-    }
-
-    if (await this._commits.has(id)) {
+    // For shared-storage objects, use load() which checks the type header.
+    // has() can't discriminate types when stores share a GitObjectStore.
+    {
       const { serializeCommit } = await import("../history/commits/commit-format.js");
       const commit = await this._commits.load(id);
-      if (!commit) throw new Error(`Commit not found: ${id}`);
-      return { type: PackObjectType.COMMIT, content: serializeCommit(commit) };
+      if (commit) {
+        return { type: PackObjectType.COMMIT, content: serializeCommit(commit) };
+      }
     }
 
-    if (await this._tags.has(id)) {
+    {
+      const { serializeTree } = await import("../history/trees/tree-format.js");
+      const tree = await this._trees.load(id);
+      if (tree) {
+        const entries: TreeEntry[] = [];
+        for await (const entry of tree) {
+          entries.push(entry);
+        }
+        return { type: PackObjectType.TREE, content: serializeTree(entries) };
+      }
+    }
+
+    {
       const { serializeTag } = await import("../history/tags/tag-format.js");
       const tag = await this._tags.load(id);
-      if (!tag) throw new Error(`Tag not found: ${id}`);
-      return { type: PackObjectType.TAG, content: serializeTag(tag) };
+      if (tag) {
+        return { type: PackObjectType.TAG, content: serializeTag(tag) };
+      }
     }
 
     throw new Error(`Object not found: ${id}`);
