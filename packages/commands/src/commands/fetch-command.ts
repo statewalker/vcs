@@ -367,22 +367,34 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     });
 
     // Create repository facade for pack operations
-    // Use type assertion for legacy store-based API
     const repository = createVcsRepositoryFacade({
-      blobs: this.blobs,
-      trees: this.trees,
-      commits: this.commits,
-      tags: tagsStore,
-      refs: this.refsStore,
+      history: {
+        blobs: this.blobs,
+        trees: this.trees,
+        commits: this.commits,
+        tags: tagsStore,
+        refs: this.refsStore,
+      } as unknown as Parameters<typeof createVcsRepositoryFacade>[0]["history"],
       serialization,
-    } as unknown as Parameters<typeof createVcsRepositoryFacade>[0]);
+    });
 
     // Create transport ref store adapter
     const refStore = this.createRefStoreAdapter();
 
+    // Save old ref values before fetch (httpFetch updates refStore directly,
+    // so we need pre-fetch values for status computation)
+    const oldRefValues = new Map<string, string | undefined>();
+    for await (const ref of this.refsStore.list()) {
+      if (!isSymbolicRef(ref) && ref.objectId) {
+        oldRefValues.set(ref.name, ref.objectId);
+      }
+    }
+
     // Execute fetch using new httpFetch API
     const transportResult = await httpFetch(remoteUrl, repository, refStore, {
       depth: this.depth,
+      refSpecs: this.refSpecs.length > 0 ? this.refSpecs : undefined,
+      skipRefUpdate: this.dryRun,
     });
 
     // Check for transport-level errors (invalid remote, network error, etc.)
@@ -406,11 +418,11 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       };
     }
 
-    // Update local refs (unless dry run)
+    // Build tracking ref updates using pre-fetch values for status computation
     const trackingUpdates: TrackingRefUpdate[] = [];
     if (!this.dryRun && transportResult.updatedRefs) {
       for (const [localRef, objectId] of transportResult.updatedRefs) {
-        const update = await this.updateRef(localRef, objectId);
+        const update = await this.computeRefUpdate(localRef, objectId, oldRefValues);
         trackingUpdates.push(update);
       }
 
@@ -422,11 +434,18 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     } else if (transportResult.updatedRefs) {
       // In dry run, just record what would be updated
       for (const [localRef, objectId] of transportResult.updatedRefs) {
+        const oldOid = oldRefValues.get(localRef);
+        const status = !oldOid
+          ? RefUpdateStatus.NEW
+          : oldOid === objectId
+            ? RefUpdateStatus.NO_CHANGE
+            : RefUpdateStatus.NEW;
         trackingUpdates.push({
           localRef,
-          remoteRef: localRef, // Simplified for dry run
+          remoteRef: localRef,
+          oldObjectId: oldOid,
           newObjectId: objectId,
-          status: RefUpdateStatus.NEW,
+          status,
         });
       }
     }
@@ -519,11 +538,17 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   }
 
   /**
-   * Update a local ref.
+   * Compute ref update status using pre-fetch ref values.
+   *
+   * Since httpFetch updates the refStore directly, we use saved pre-fetch
+   * values to correctly determine NEW vs NO_CHANGE vs FAST_FORWARD status.
    */
-  private async updateRef(localRef: string, newObjectId: ObjectId): Promise<TrackingRefUpdate> {
-    const existingRef = await this.refsStore.resolve(localRef);
-    const oldObjectId = existingRef?.objectId;
+  private async computeRefUpdate(
+    localRef: string,
+    newObjectId: ObjectId,
+    oldRefValues: Map<string, string | undefined>,
+  ): Promise<TrackingRefUpdate> {
+    const oldObjectId = oldRefValues.get(localRef);
 
     let status: RefUpdateStatus;
     if (!oldObjectId) {
@@ -538,14 +563,9 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       status = isAncestor ? RefUpdateStatus.FAST_FORWARD : RefUpdateStatus.REJECTED;
     }
 
-    // Actually update the ref
-    if (status !== RefUpdateStatus.NO_CHANGE && status !== RefUpdateStatus.REJECTED) {
-      await this.refsStore.set(localRef, newObjectId);
-    }
-
     return {
       localRef,
-      remoteRef: localRef, // Simplified
+      remoteRef: localRef,
       oldObjectId,
       newObjectId,
       status,
