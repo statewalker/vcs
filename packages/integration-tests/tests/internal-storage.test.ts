@@ -87,13 +87,13 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
       const readmeId = await repository.blobs.store([encoder.encode("# README")]);
       const configId = await repository.blobs.store([encoder.encode("version = 1")]);
 
-      const treeId = await repository.trees.storeTree([
+      const treeId = await repository.trees.store([
         { mode: FileMode.REGULAR_FILE, name: "README.md", id: readmeId },
         { mode: FileMode.REGULAR_FILE, name: "config.txt", id: configId },
       ]);
 
       // Verify tree contents
-      const entries = await toArray(repository.trees.loadTree(treeId));
+      const entries = await toArray(repository.trees.load(treeId));
       expect(entries.length).toBe(2);
 
       const names = entries.map((e) => e.name).sort();
@@ -107,12 +107,12 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
 
       const encoder = new TextEncoder();
       const blobId = await repository.blobs.store([encoder.encode("content")]);
-      const treeId = await repository.trees.storeTree([
+      const treeId = await repository.trees.store([
         { mode: FileMode.REGULAR_FILE, name: "file.txt", id: blobId },
       ]);
 
       const author = testAuthor("Alice", "alice@example.com");
-      const commitId = await repository.commits.storeCommit({
+      const commitId = await repository.commits.store({
         tree: treeId,
         parents: [],
         author,
@@ -120,7 +120,9 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
         message: "Initial commit\n\nWith detailed description.",
       });
 
-      const commit = await repository.commits.loadCommit(commitId);
+      const commit = await repository.commits.load(commitId);
+      expect(commit).toBeDefined();
+      if (!commit) throw new Error("Commit not found");
       expect(commit.tree).toBe(treeId);
       expect(commit.author.name).toBe("Alice");
       expect(commit.message).toContain("Initial commit");
@@ -168,7 +170,7 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
 
       const treeIds: string[] = [];
       for (let i = 0; i < 10; i++) {
-        const treeId = await repository.trees.storeTree([
+        const treeId = await repository.trees.store([
           { mode: FileMode.REGULAR_FILE, name: `file${i}.txt`, id: sharedBlobId },
         ]);
         treeIds.push(treeId);
@@ -180,7 +182,7 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
 
       // But all point to same blob
       for (const treeId of treeIds) {
-        const entries = await toArray(repository.trees.loadTree(treeId));
+        const entries = await toArray(repository.trees.load(treeId));
         expect(entries[0].id).toBe(sharedBlobId);
       }
     });
@@ -200,13 +202,13 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
       const blob2 = await repository.blobs.store([encoder.encode("Direct content 2")]);
 
       // Create tree directly
-      const tree = await repository.trees.storeTree([
+      const tree = await repository.trees.store([
         { mode: FileMode.REGULAR_FILE, name: "a.txt", id: blob1 },
         { mode: FileMode.REGULAR_FILE, name: "b.txt", id: blob2 },
       ]);
 
       // Create commit directly
-      const commit = await repository.commits.storeCommit({
+      const commit = await repository.commits.store({
         tree,
         parents: [],
         author: testAuthor(),
@@ -221,7 +223,9 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
       const ref = await repository.refs.resolve("refs/heads/direct");
       expect(ref?.objectId).toBe(commit);
 
-      const loadedCommit = await repository.commits.loadCommit(commit);
+      const loadedCommit = await repository.commits.load(commit);
+      expect(loadedCommit).toBeDefined();
+      if (!loadedCommit) throw new Error("Commit not found");
       expect(loadedCommit.tree).toBe(tree);
     });
 
@@ -238,26 +242,26 @@ describe.each(backends)("Internal Storage ($name backend)", ({ factory }) => {
       const file3 = await repository.blobs.store([encoder.encode("File 3")]);
 
       // Create subdirectory tree
-      const subTree = await repository.trees.storeTree([
+      const subTree = await repository.trees.store([
         { mode: FileMode.REGULAR_FILE, name: "nested1.txt", id: file2 },
         { mode: FileMode.REGULAR_FILE, name: "nested2.txt", id: file3 },
       ]);
 
       // Create root tree with subdirectory
-      const rootTree = await repository.trees.storeTree([
+      const rootTree = await repository.trees.store([
         { mode: FileMode.REGULAR_FILE, name: "root.txt", id: file1 },
         { mode: FileMode.TREE, name: "subdir", id: subTree },
       ]);
 
       // Verify structure
-      const rootEntries = await toArray(repository.trees.loadTree(rootTree));
+      const rootEntries = await toArray(repository.trees.load(rootTree));
       expect(rootEntries.length).toBe(2);
 
       const subdirEntry = rootEntries.find((e) => e.name === "subdir");
       expect(subdirEntry).toBeDefined();
       expect(subdirEntry?.mode).toBe(FileMode.TREE);
 
-      const subEntries = await toArray(repository.trees.loadTree(subdirEntry?.id));
+      const subEntries = await toArray(repository.trees.load(subdirEntry?.id));
       expect(subEntries.length).toBe(2);
     });
   });
