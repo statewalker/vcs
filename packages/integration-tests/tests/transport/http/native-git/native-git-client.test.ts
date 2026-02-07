@@ -61,11 +61,7 @@ describe("Native Git Client vs VCS Server", () => {
   }
 
   describe("git ls-remote from VCS server", () => {
-    // Note: Skipped because the VCS server's ref advertisement depends on the
-    // pack export pipeline which has known bugs (commit-as-blob type confusion).
-    // When fixed, native `git ls-remote` should list all refs.
-
-    it.skip("lists refs from VCS server", async () => {
+    it("lists refs from VCS server", async () => {
       const ctx = await registerRepo("/ls-remote.git");
       await createTestCommit(ctx.repository, "Main commit", { "a.txt": "a" });
 
@@ -87,10 +83,7 @@ describe("Native Git Client vs VCS Server", () => {
   });
 
   describe("git clone from VCS server", () => {
-    // Note: Skipped because git clone requires the server to generate a valid
-    // pack file, which depends on the pack export pipeline (known bug).
-
-    it.skip("clones a repository with commits", async () => {
+    it("clones a repository with commits", async () => {
       const ctx = await registerRepo("/test-clone.git");
       await createTestCommit(ctx.repository, "Server commit", {
         "hello.txt": "Hello from VCS",
@@ -112,10 +105,7 @@ describe("Native Git Client vs VCS Server", () => {
   });
 
   describe("git push to VCS server", () => {
-    // Note: Skipped because git push requires the server to accept a pack
-    // and import it, which depends on the pack import pipeline (known bug).
-
-    it.skip("pushes commits to VCS server", async () => {
+    it("pushes commits to VCS server", async () => {
       const ctx = await registerRepo("/push-target.git");
 
       const client = createNativeGitClient();

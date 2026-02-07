@@ -53,13 +53,7 @@ describeWithGit("VCS Client vs Native Git Server", () => {
       }
     });
 
-    // Note: The following fetch tests are skipped because the core/serialization
-    // pack import logic has an issue where it treats commit objects as blobs.
-    // The HTTP transport layer (ref discovery, sideband decoding) works correctly
-    // against git-http-backend — only the pack object import pipeline is broken.
-    // See existing skips in http-fetch.test.ts and http-push.test.ts.
-
-    it.skip("fetches a single commit", async () => {
+    it("fetches a single commit", async () => {
       const repoUrl = await server.createBareRepo("one-commit.git");
       const nativeClient = createNativeGitClient();
 
@@ -87,7 +81,7 @@ describeWithGit("VCS Client vs Native Git Server", () => {
       }
     });
 
-    it.skip("fetches multiple commits with history", async () => {
+    it("fetches multiple commits with history", async () => {
       const repoUrl = await server.createBareRepo("multi-commit.git");
       const nativeClient = createNativeGitClient();
 
@@ -116,7 +110,7 @@ describeWithGit("VCS Client vs Native Git Server", () => {
       }
     });
 
-    it.skip("fetches branches and tags", async () => {
+    it("fetches branches and tags", async () => {
       const repoUrl = await server.createBareRepo("branches.git");
       const nativeClient = createNativeGitClient();
 
@@ -149,7 +143,7 @@ describeWithGit("VCS Client vs Native Git Server", () => {
       }
     });
 
-    it.skip("performs incremental fetch (only new objects)", async () => {
+    it("performs incremental fetch (only new objects)", async () => {
       const repoUrl = await server.createBareRepo("incremental.git");
       const nativeClient = createNativeGitClient();
 
@@ -171,11 +165,12 @@ describeWithGit("VCS Client vs Native Git Server", () => {
         await nativeClient.commitFile("second.txt", "second", "Second commit");
         await nativeClient.push();
 
-        // Second fetch should get fewer objects (incremental)
+        // Second fetch should get only new objects (incremental)
         const result2 = await httpFetch(repoUrl, facade, refs);
         expect(result2.success).toBe(true);
-        // Incremental fetch should import fewer objects than initial
-        expect(result2.objectsImported).toBeLessThan(firstImported);
+        // Incremental fetch should not import more objects than initial
+        // (each single-commit fetch imports ~3 objects: commit + tree + blob)
+        expect(result2.objectsImported).toBeLessThanOrEqual(firstImported);
 
         await clientCtx.cleanup();
       } finally {
@@ -185,12 +180,7 @@ describeWithGit("VCS Client vs Native Git Server", () => {
   });
 
   describe("httpPush to git-http-backend", () => {
-    // Note: Push tests are skipped because the core/serialization pack export
-    // pipeline has a bug where it treats commit objects as blobs when building
-    // the pack. Error: "Object <oid> is not a blob (found type: commit)".
-    // See existing skips in http-push.test.ts.
-
-    it.skip("pushes a single commit to empty repo", async () => {
+    it("pushes a single commit to empty repo", async () => {
       const repoUrl = await server.createBareRepo("push-empty.git");
       const clientCtx = await createInitializedTestRepository();
 
@@ -218,7 +208,7 @@ describeWithGit("VCS Client vs Native Git Server", () => {
       }
     });
 
-    it.skip("pushes multiple commits", async () => {
+    it("pushes multiple commits", async () => {
       const repoUrl = await server.createBareRepo("push-multi.git");
       const clientCtx = await createInitializedTestRepository();
 
@@ -248,7 +238,7 @@ describeWithGit("VCS Client vs Native Git Server", () => {
       }
     });
 
-    it.skip("pushes branch using refspec", async () => {
+    it("pushes branch using refspec", async () => {
       const repoUrl = await server.createBareRepo("push-branch.git");
       const clientCtx = await createInitializedTestRepository();
 
@@ -283,10 +273,7 @@ describeWithGit("VCS Client vs Native Git Server", () => {
   });
 
   describe("round-trip: push then fetch", () => {
-    // Note: Skipped because push fails (see above).
-    // When the pack export bug is fixed, this test validates data integrity.
-
-    it.skip("push from VCS, fetch back into another VCS repo", async () => {
+    it("push from VCS, fetch back into another VCS repo", async () => {
       const repoUrl = await server.createBareRepo("roundtrip.git");
 
       // Push from repo A

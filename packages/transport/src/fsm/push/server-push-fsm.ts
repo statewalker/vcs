@@ -11,7 +11,26 @@
  * 7. Send status report
  */
 
-import type { ProcessContext } from "../../context/process-context.js";
+import {
+  getAppliedCommands,
+  getConfig,
+  getOutput,
+  getRefStore,
+  getRepository,
+  getServerPackStream,
+  getServerPushCommands,
+  getServerPushHooks,
+  getServerPushOptions,
+  getState,
+  getTransport,
+  type ProcessContext,
+  type ServerPushCommand,
+  setAppliedCommands,
+  setServerPackStream,
+  setServerPushCommands,
+  setServerPushOptions,
+} from "../../context/context-adapters.js";
+import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 import { type PushCommand, type PushCommandType, ZERO_OID } from "./types.js";
 
@@ -162,12 +181,15 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           }
 
           const line = pkt.text;
-          const parts = line.split(" ", 3);
 
-          // Parse command: old-oid new-oid refname\0caps
-          const oldOid = parts[0];
-          const newOid = parts[1];
-          let refName = parts[2];
+          // Parse command: old-oid SP new-oid SP refname\0caps
+          // Cannot use split(" ", 3) — JS split with limit truncates remaining text.
+          // e.g., "a b c d".split(" ", 3) → ["a", "b", "c"] NOT ["a", "b", "c d"]
+          const sp1 = line.indexOf(" ");
+          const sp2 = line.indexOf(" ", sp1 + 1);
+          const oldOid = line.slice(0, sp1);
+          const newOid = line.slice(sp1 + 1, sp2);
+          let refName = line.slice(sp2 + 1);
 
           // Parse capabilities from first command
           if (refName.includes("\0")) {
@@ -285,8 +307,11 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           return "EMPTY_PACK";
         }
 
-        // Store pack stream for later unpacking
-        state.packStream = ctx.transport.readPack();
+        // Store pack stream for later unpacking.
+        // Use readRawPack() because the client sends raw pack data
+        // after the pkt-line commands, regardless of sideband capability.
+        // Sideband is only used for the server's response direction.
+        setServerPackStream(ctx, transport.readRawPack());
         return "PACK_RECEIVED";
       } catch (e) {
         ctx.output.error = String(e);
@@ -563,22 +588,32 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         const unpackOk = !ctx.output.error?.includes("Unpack");
 
         if (useSideband) {
-          // Build sideband response
-          const statusLines: string[] = [];
-          statusLines.push(unpackOk ? "unpack ok\n" : `unpack ${ctx.output.error}\n`);
+          // Build pkt-line encoded report-status, then send via sideband.
+          // Native git demuxes sideband first (stripping channel byte),
+          // then reads pkt-lines from the inner byte stream.
+          const innerChunks: Uint8Array[] = [];
+          innerChunks.push(encodePacketLine(unpackOk ? "unpack ok" : `unpack ${output.error}`));
 
           for (const cmd of state.pushCommands ?? []) {
             if (cmd.result === "OK") {
-              statusLines.push(`ok ${cmd.refName}\n`);
+              innerChunks.push(encodePacketLine(`ok ${cmd.refName}`));
             } else {
-              statusLines.push(`ng ${cmd.refName} ${cmd.message || "rejected"}\n`);
+              innerChunks.push(encodePacketLine(`ng ${cmd.refName} ${cmd.message || "rejected"}`));
             }
           }
 
-          const encoder = new TextEncoder();
-          for (const line of statusLines) {
-            await ctx.transport.writeSideband(1, encoder.encode(line));
+          innerChunks.push(encodeFlush());
+
+          // Concatenate inner pkt-lines and send as one sideband frame
+          const totalInnerLen = innerChunks.reduce((sum, c) => sum + c.length, 0);
+          const innerData = new Uint8Array(totalInnerLen);
+          let innerOff = 0;
+          for (const chunk of innerChunks) {
+            innerData.set(chunk, innerOff);
+            innerOff += chunk.length;
           }
+
+          await transport.writeSideband(1, innerData);
         } else {
           // Send status directly
           if (unpackOk) {

@@ -5,11 +5,11 @@
  * transport operations (fetch, push).
  */
 
-import type { HistoryWithOperations } from "@statewalker/vcs-core";
 import {
   createRepositoryFacade as createFacadeFromHistory,
   type RepositoryFacade,
 } from "@statewalker/vcs-transport";
+import type { SimpleHistory } from "../../helpers/simple-history.js";
 
 /**
  * Creates a RepositoryFacade from a HistoryWithOperations
@@ -35,6 +35,9 @@ import {
  * const pack = facade.exportPack(new Set([wantOid]), new Set([haveOid]));
  * ```
  */
-export function createRepositoryFacade(history: HistoryWithOperations): RepositoryFacade {
-  return createFacadeFromHistory({ history });
+export function createRepositoryFacade(history: SimpleHistory): RepositoryFacade {
+  // SimpleHistory has the required properties (commits, trees, blobs, tags, refs, serialization,
+  // collectReachableObjects) but doesn't implement the full HistoryWithOperations interface
+  // (missing delta, capabilities). The factory only uses the subset SimpleHistory provides.
+  return createFacadeFromHistory({ history: history as any });
 }

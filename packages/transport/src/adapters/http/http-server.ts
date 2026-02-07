@@ -348,15 +348,12 @@ export async function handleReceivePack(
     state.refs.set(refName, oid);
   }
 
-  // Set up capabilities for receive-pack
-  state.capabilities.add("report-status");
-  state.capabilities.add("report-status-v2");
-  state.capabilities.add("delete-refs");
-  state.capabilities.add("side-band-64k");
-  state.capabilities.add("quiet");
-  state.capabilities.add("atomic");
-  state.capabilities.add("ofs-delta");
-  state.capabilities.add("push-options");
+  // NOTE: Do NOT pre-populate state.capabilities here.
+  // The client's negotiated capabilities will be parsed from the first
+  // command line by the READ_COMMANDS FSM handler. Pre-populating would
+  // cause the FSM to assume capabilities the client didn't negotiate
+  // (e.g., push-options would make the FSM try to read push option
+  // pkt-lines even when the client sends raw pack data instead).
 
   // Collect response data
   const responseChunks: Uint8Array[] = [];
@@ -382,8 +379,10 @@ export async function handleReceivePack(
   setOutput(ctx, new HandlerOutput());
   setConfig(ctx, config);
 
-  // Run server push FSM
+  // Run server push FSM starting from READ_COMMANDS state
+  // (ref advertisement was already sent in GET /info/refs)
   const fsm = new Fsm(serverPushTransitions, serverPushHandlers);
+  fsm.setState("READ_COMMANDS");
 
   try {
     await fsm.run(ctx);
