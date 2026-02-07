@@ -147,9 +147,11 @@ export async function httpFetch(
         requestChunks.push(encodePacketLine(`have ${localOid}`));
       }
     }
-    requestChunks.push(encodeFlush());
 
-    // Send done
+    // Send done (flush before done only needed for multi_ack negotiation rounds)
+    if (state.haves.size > 0) {
+      requestChunks.push(encodeFlush());
+    }
     requestChunks.push(encodePacketLine("done"));
 
     // Concatenate request body
@@ -433,9 +435,9 @@ export async function httpPush(
         wantedOids.add(update.newOid);
       }
 
-      // Build capability string for first line
+      // Build capability string for first line (null byte separates refname from capabilities)
       const caps = firstUpdate
-        ? ` report-status side-band-64k${atomic ? " atomic" : ""}${pushOptions.length > 0 ? " push-options" : ""}`
+        ? `\0report-status side-band-64k${atomic ? " atomic" : ""}${pushOptions.length > 0 ? " push-options" : ""}`
         : "";
 
       const line = `${update.oldOid} ${update.newOid} ${update.refName}${caps}`;
@@ -509,7 +511,13 @@ export async function httpPush(
       readableStreamToAsyncIterable(receivePackResponse.body),
     );
 
-    const refStatus = parseReportStatus(responseData, refUpdates);
+    // Decode sideband if the server uses side-band-64k
+    const sidebandResult = decodeSidebandResponse(responseData);
+    // For push responses, the report-status is sent on sideband channel 1
+    // (decodeSidebandResponse puts channel 1 data in packData)
+    const statusData = sidebandResult.packData.length > 0 ? sidebandResult.packData : responseData;
+
+    const refStatus = parseReportStatus(statusData, refUpdates);
 
     // Check if all refs succeeded
     const allSuccess = Array.from(refStatus.values()).every((status) => status.success);

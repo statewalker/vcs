@@ -73,10 +73,7 @@ describe("Fetch Transport - Real Repository Pack Generation", () => {
     await clientCtx.cleanup();
   });
 
-  // Note: exportPack requires createPack to handle all object types (commits, trees, blobs).
-  // Currently createPack in repository-facade-factory.ts doesn't properly serialize all types.
-  // These tests will be enabled once VcsRepositoryFacade (webrun-vcs-z8c8i) is implemented.
-  it.skip("generates pack from real repository objects", async () => {
+  it("generates pack from real repository objects", async () => {
     // Add commits to server
     await createTestCommit(serverCtx.repository, "Add file", {
       "README.md": "# Hello World",
@@ -108,7 +105,7 @@ describe("Fetch Transport - Real Repository Pack Generation", () => {
     expect(firstChunk[3]).toBe(0x4b); // 'K'
   });
 
-  it.skip("transfers pack over MessagePort channel", async () => {
+  it("transfers pack over MessagePort channel", async () => {
     await createTestCommit(serverCtx.repository, "Add file", {
       "index.ts": "export const VERSION = 1;",
     });
@@ -140,9 +137,7 @@ describe("Fetch Transport - Real Repository Pack Generation", () => {
     expect(received[0][0]).toBe(0x50); // 'P'
   });
 
-  // Note: Pack import requires tree walking support in collectReachableObjects
-  // which is not fully implemented yet. See repository-facade-factory.ts.
-  it.skip("imports transferred pack into client repository", async () => {
+  it("imports transferred pack into client repository", async () => {
     await createTestCommit(serverCtx.repository, "Add file", {
       "test.txt": "Test content",
     });
@@ -216,9 +211,7 @@ describe("Fetch Transport - Real Repository Pack Generation", () => {
 });
 
 describe("Fetch Transport - Incremental Transfer", () => {
-  // Note: exportPack with exclusions requires tree walking support in collectReachableObjects
-  // which is not fully implemented yet. See repository-facade-factory.ts.
-  it.skip("excludes already-known objects from pack", async () => {
+  it("excludes already-known objects from pack", async () => {
     const serverCtx = await createInitializedTestRepository();
 
     try {

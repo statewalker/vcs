@@ -5,7 +5,7 @@
  * RefStore interface used by fetch/push operations.
  */
 
-import type { RefStore as CoreRefStore, Ref, SymbolicRef } from "@statewalker/vcs-core";
+import type { Ref, Refs, SymbolicRef } from "@statewalker/vcs-core";
 import type { RefStore as TransportRefStore } from "@statewalker/vcs-transport";
 
 /**
@@ -36,7 +36,7 @@ function isSymbolicRef(ref: Ref | SymbolicRef): ref is SymbolicRef {
  * await refStore.update("refs/heads/feature", newCommitId);
  * ```
  */
-export function createTransportRefStore(coreRefStore: CoreRefStore): TransportRefStore {
+export function createTransportRefStore(coreRefStore: Refs): TransportRefStore {
   return {
     async get(name: string): Promise<string | undefined> {
       // Resolve to get the final OID (follows symbolic refs)

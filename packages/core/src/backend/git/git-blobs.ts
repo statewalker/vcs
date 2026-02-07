@@ -82,8 +82,16 @@ export class GitBlobs implements Blobs {
    * @param id Blob object ID
    * @returns True if blob exists
    */
-  has(id: ObjectId): Promise<boolean> {
-    return this.objects.has(id);
+  async has(id: ObjectId): Promise<boolean> {
+    if (!(await this.objects.has(id))) {
+      return false;
+    }
+    try {
+      const header = await this.objects.getHeader(id);
+      return header.type === "blob";
+    } catch {
+      return false;
+    }
   }
 
   /**
