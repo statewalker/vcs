@@ -174,14 +174,14 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
       await addFile(store, "config.json", '{"v": 1}');
       await store.staging.write();
       const commit1 = await git.commit().setMessage("v1").call();
-      const commit1Id = await store.commits.storeCommit(commit1);
+      const commit1Id = await store.commits.store(commit1);
 
       await addFile(store, "config.json", '{"v": 2}');
       await store.staging.write();
       await git.commit().setMessage("v2").call();
 
       // Get blob from commit1
-      const commit1Data = await store.commits.loadCommit(commit1Id);
+      const commit1Data = await store.commits.load(commit1Id);
       const entry = await store.trees.getEntry(commit1Data.tree, "config.json");
       expect(entry).toBeDefined();
 
@@ -244,7 +244,7 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
       await addFile(store, "file.txt", "content");
       await store.staging.write();
       const commit1 = await git.commit().setMessage("Commit 1").call();
-      const commit1Id = await store.commits.storeCommit(commit1);
+      const commit1Id = await store.commits.store(commit1);
 
       await addFile(store, "file2.txt", "content2");
       await store.staging.write();
@@ -268,7 +268,7 @@ describe.each(backends)("Staging and Checkout ($name backend)", ({ factory }) =>
       await addFile(store, "file.txt", "content");
       await store.staging.write();
       const commit1 = await git.commit().setMessage("Commit 1").call();
-      const commit1Id = await store.commits.storeCommit(commit1);
+      const commit1Id = await store.commits.store(commit1);
 
       await addFile(store, "file2.txt", "content2");
       await store.staging.write();

@@ -31,7 +31,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
     const { repository } = ctx;
 
     // Initialize refs
-    const emptyTreeId = await repository.trees.storeTree([]);
+    const emptyTreeId = await repository.trees.store([]);
     const initialCommit = {
       tree: emptyTreeId,
       parents: [],
@@ -39,7 +39,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       committer: testAuthor(),
       message: "Initial commit",
     };
-    const commitId = await repository.commits.storeCommit(initialCommit);
+    const commitId = await repository.commits.store(initialCommit);
 
     // Set up refs
     await repository.refs.set("refs/heads/main", commitId);
@@ -90,14 +90,14 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
     const encoder = new TextEncoder();
     const blobId = await repository.blobs.store([encoder.encode("README content")]);
 
-    const treeId = await repository.trees.storeTree([
+    const treeId = await repository.trees.store([
       { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId },
     ]);
 
     expect(treeId).toMatch(/^[0-9a-f]{40}$/);
 
     // Load and verify tree entries
-    const entries = await toArray(repository.trees.loadTree(treeId));
+    const entries = await toArray(repository.trees.load(treeId));
     expect(entries).toHaveLength(1);
     expect(entries[0].name).toBe("README.md");
     expect(entries[0].id).toBe(blobId);
@@ -111,7 +111,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
 
     const encoder = new TextEncoder();
     const blobId = await repository.blobs.store([encoder.encode("content")]);
-    const treeId = await repository.trees.storeTree([
+    const treeId = await repository.trees.store([
       { mode: FileMode.REGULAR_FILE, name: "file.txt", id: blobId },
     ]);
 
@@ -134,11 +134,13 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       message: "Initial commit",
     };
 
-    const commitId = await repository.commits.storeCommit(commit);
+    const commitId = await repository.commits.store(commit);
     expect(commitId).toMatch(/^[0-9a-f]{40}$/);
 
     // Load and verify commit
-    const loaded = await repository.commits.loadCommit(commitId);
+    const loaded = await repository.commits.load(commitId);
+    expect(loaded).toBeDefined();
+    if (!loaded) throw new Error("Commit not found");
     expect(loaded.tree).toBe(treeId);
     expect(loaded.parents).toEqual([]);
     expect(loaded.author.name).toBe("Developer");
@@ -150,8 +152,8 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
     cleanup = ctx.cleanup;
     const { repository } = ctx;
 
-    const emptyTreeId = await repository.trees.storeTree([]);
-    const commit1 = await repository.commits.storeCommit({
+    const emptyTreeId = await repository.trees.store([]);
+    const commit1 = await repository.commits.store({
       tree: emptyTreeId,
       parents: [],
       author: testAuthor(),
@@ -167,7 +169,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
     expect(ref && "objectId" in ref && ref.objectId).toBe(commit1);
 
     // Create second commit and update ref
-    const commit2 = await repository.commits.storeCommit({
+    const commit2 = await repository.commits.store({
       tree: emptyTreeId,
       parents: [commit1],
       author: testAuthor(),
@@ -186,10 +188,10 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
     cleanup = ctx.cleanup;
     const { repository } = ctx;
 
-    const emptyTreeId = await repository.trees.storeTree([]);
+    const emptyTreeId = await repository.trees.store([]);
 
     // Create chain of 3 commits
-    const commit1 = await repository.commits.storeCommit({
+    const commit1 = await repository.commits.store({
       tree: emptyTreeId,
       parents: [],
       author: testAuthor(),
@@ -197,7 +199,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       message: "First",
     });
 
-    const commit2 = await repository.commits.storeCommit({
+    const commit2 = await repository.commits.store({
       tree: emptyTreeId,
       parents: [commit1],
       author: testAuthor(),
@@ -205,7 +207,7 @@ describe.each(backends)("Quick Start ($name backend)", ({ factory }) => {
       message: "Second",
     });
 
-    const commit3 = await repository.commits.storeCommit({
+    const commit3 = await repository.commits.store({
       tree: emptyTreeId,
       parents: [commit2],
       author: testAuthor(),

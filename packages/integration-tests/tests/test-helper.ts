@@ -316,10 +316,15 @@ export async function removeFile(wc: WorkingCopy, path: string): Promise<void> {
 
 /**
  * Collect async iterable to array.
+ * Also accepts a Promise that resolves to an AsyncIterable (for convenience with async load() methods).
  */
-export async function toArray<T>(iterable: AsyncIterable<T>): Promise<T[]> {
+export async function toArray<T>(
+  iterable: AsyncIterable<T> | Promise<AsyncIterable<T> | undefined>,
+): Promise<T[]> {
+  const resolved = await iterable;
+  if (!resolved) throw new Error("Expected iterable but got undefined");
   const result: T[] = [];
-  for await (const item of iterable) {
+  for await (const item of resolved) {
     result.push(item);
   }
   return result;

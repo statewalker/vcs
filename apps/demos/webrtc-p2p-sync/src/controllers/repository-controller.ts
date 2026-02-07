@@ -407,13 +407,19 @@ export function createRepositoryController(ctx: AppContext): () => void {
  */
 async function collectFilesFromTree(
   history: {
-    trees: { loadTree(id: string): AsyncIterable<{ name: string; mode: number; id: string }> };
+    trees: {
+      load(
+        id: string,
+      ): Promise<AsyncIterable<{ name: string; mode: number; id: string }> | undefined>;
+    };
   },
   treeId: string,
   basePath: string,
   fileList: FileEntry[],
 ): Promise<void> {
-  for await (const entry of history.trees.loadTree(treeId)) {
+  const entries = await history.trees.load(treeId);
+  if (!entries) return;
+  for await (const entry of entries) {
     const fullPath = basePath ? `${basePath}/${entry.name}` : entry.name;
     const isDirectory = entry.mode === 0o040000;
 

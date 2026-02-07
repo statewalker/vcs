@@ -2,38 +2,33 @@
  * Memory-backed object storage with Git-compatible IDs
  *
  * Creates typed stores that compute Git-compatible SHA-1 object IDs
- * using the git-codec implementations from the vcs package.
- *
- * The stores implement both legacy interfaces (BlobStore, TreeStore, etc.)
- * and new interfaces (Blobs, Trees, etc.) for backward compatibility.
+ * using the Git implementations from the vcs package.
  */
 
 import type { Blobs, Commits, Tags, Trees } from "@statewalker/vcs-core";
 import {
-  GitBlobStore,
-  GitCommitStore,
+  GitBlobs,
+  GitCommits,
   type GitObjectStore,
   GitObjectStoreImpl,
-  GitTagStore,
-  GitTreeStore,
+  GitTags,
+  GitTrees,
   MemoryRawStorage,
 } from "@statewalker/vcs-core";
 
 /**
  * Collection of memory-backed object stores
- *
- * The stores implement both legacy and new interfaces.
  */
 export interface MemoryObjectStores {
   /** Low-level Git object store */
   objects: GitObjectStore;
-  /** Blob (file content) store - implements both BlobStore and Blobs */
+  /** Blob (file content) store */
   blobs: Blobs;
-  /** Tree (directory) store - implements both TreeStore and Trees */
+  /** Tree (directory) store */
   trees: Trees;
-  /** Commit store - implements both CommitStore and Commits */
+  /** Commit store */
   commits: Commits;
-  /** Tag store - implements both TagStore and Tags */
+  /** Tag store */
   tags: Tags;
 }
 
@@ -65,7 +60,7 @@ export interface CreateMemoryObjectStoresOptions {
  * const blobId = await stores.blobs.store(content);
  *
  * // Store a commit
- * const commitId = await stores.commits.storeCommit({
+ * const commitId = await stores.commits.store({
  *   tree: treeId,
  *   parents: [],
  *   author: { name: "Test", email: "test@test.com", timestamp: 123, tzOffset: "+0000" },
@@ -82,9 +77,9 @@ export function createMemoryObjectStores(
 
   return {
     objects,
-    blobs: new GitBlobStore(objects),
-    trees: new GitTreeStore(objects),
-    commits: new GitCommitStore(objects),
-    tags: new GitTagStore(objects),
+    blobs: new GitBlobs(objects),
+    trees: new GitTrees(objects),
+    commits: new GitCommits(objects),
+    tags: new GitTags(objects),
   };
 }
