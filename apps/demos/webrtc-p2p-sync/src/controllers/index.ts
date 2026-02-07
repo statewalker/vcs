@@ -17,7 +17,6 @@ import {
   MemoryWorkingCopy,
   MemoryWorktree,
 } from "@statewalker/vcs-core";
-import type { RepositoryAccess } from "@statewalker/vcs-transport";
 
 /**
  * Create SerializationApi from History facade.
@@ -26,7 +25,6 @@ function createSerializationApi(history: History): SerializationApi {
   return new DefaultSerializationApi({ history });
 }
 
-import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 import type { PeerConnection, PeerInstance } from "../apis/index.js";
 import {
   createRealPeerJsApi,
@@ -83,15 +81,6 @@ export const [getWorktree, setWorktree] = newAdapter<MemoryWorktree | null>("wor
 export const [getGit, setGit] = newAdapter<Git | null>("git", () => null);
 
 /**
- * Context adapter for RepositoryAccess.
- * Used by Git protocol handlers for transport operations.
- */
-export const [getRepositoryAccess, setRepositoryAccess] = newAdapter<RepositoryAccess | null>(
-  "repository-access",
-  () => null,
-);
-
-/**
  * Context adapter for SerializationApi.
  * Used for pack import/export operations.
  */
@@ -139,11 +128,7 @@ async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
   const git = Git.fromWorkingCopy(workingCopy);
   setGit(ctx, git);
 
-  // 7. Create RepositoryAccess for transport operations
-  const repositoryAccess = createVcsRepositoryAccess({ history });
-  setRepositoryAccess(ctx, repositoryAccess);
-
-  // 8. Create SerializationApi for pack import/export
+  // 7. Create SerializationApi for pack import/export
   const serialization = createSerializationApi(history);
   setSerializationApi(ctx, serialization);
 }

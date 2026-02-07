@@ -1,13 +1,19 @@
 /**
  * Git Peer Server - handles incoming Git protocol requests over PeerJS connections.
  *
- * This service wraps a PeerJS DataConnection with the Git protocol server handler,
- * enabling the remote peer to fetch from or push to our local repository.
+ * Uses the new transport Duplex API (serveOverDuplex) for transport-agnostic
+ * Git protocol serving over PeerJS DataConnections.
+ *
+ * The server waits for a service-type handshake byte from the client before
+ * starting the FSM. This prevents the server from writing (ref advertisement)
+ * before the client is ready to receive.
  */
 
-import { createPeerJsPort } from "@statewalker/vcs-port-peerjs";
-import type { RepositoryAccess } from "@statewalker/vcs-transport";
-import { handleGitSocketConnection } from "@statewalker/vcs-transport";
+import type { History, SerializationApi } from "@statewalker/vcs-core";
+import type { RefStore, RepositoryFacade } from "@statewalker/vcs-transport";
+import { serveOverDuplex } from "@statewalker/vcs-transport";
+import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
+import { createRefStoreAdapter, waitForClientService } from "../adapters/index.js";
 import type { PeerConnection } from "../apis/index.js";
 
 /**
@@ -16,8 +22,10 @@ import type { PeerConnection } from "../apis/index.js";
 export interface GitPeerServerOptions {
   /** The PeerJS DataConnection to serve Git requests over. */
   connection: PeerConnection;
-  /** The local repository to serve. */
-  repository: RepositoryAccess;
+  /** Local repository history. */
+  history: History;
+  /** Serialization API for pack operations. */
+  serialization: SerializationApi;
   /** Optional logger for debugging. */
   logger?: {
     debug?: (...args: unknown[]) => void;
@@ -28,55 +36,67 @@ export interface GitPeerServerOptions {
 /**
  * Set up a Git protocol server on a PeerJS connection.
  *
- * This allows the remote peer to fetch from or push to our repository
- * using the native Git protocol.
+ * The server waits for client requests via a service-type handshake.
+ * Each time the client sends a service byte, the server starts the
+ * appropriate FSM (upload-pack or receive-pack). This allows multiple
+ * sequential operations (fetch then push) on the same connection.
  *
  * @param options - Server options
  * @returns Cleanup function to stop serving
- *
- * @example
- * ```typescript
- * // When a peer connects, set up the server
- * conn.on("open", () => {
- *   const cleanup = setupGitPeerServer({
- *     connection: conn,
- *     repository: repositoryAccess,
- *     logger: console,
- *   });
- *
- *   conn.on("close", cleanup);
- * });
- * ```
  */
 export function setupGitPeerServer(options: GitPeerServerOptions): () => void {
-  const { connection, repository, logger } = options;
+  const { connection, history, serialization, logger } = options;
 
-  // Convert PeerJS connection to MessagePort
-  // Note: connection should already be open
-  const port = createPeerJsPort(connection as unknown as import("peerjs").DataConnection);
+  const repository: RepositoryFacade = createVcsRepositoryFacade({ history, serialization });
+  const refStore: RefStore = createRefStoreAdapter(history.refs);
 
-  // Track cleanup function from handler
-  let handlerCleanup: (() => void) | null = null;
+  let stopped = false;
 
-  // Handle the Git socket connection
-  handleGitSocketConnection(port, {
-    resolveRepository: async (_path: string) => {
-      return repository;
-    },
-    logger,
-  })
-    .then((cleanup) => {
-      handlerCleanup = cleanup;
-    })
-    .catch((error) => {
-      logger?.error?.("Git peer server error:", error);
-    });
+  // Serve requests in a loop: wait for client handshake, serve, repeat
+  async function serveLoop(): Promise<void> {
+    while (!stopped) {
+      try {
+        // Wait for client to send service type byte
+        const { duplex, service } = await waitForClientService(connection);
+
+        if (stopped) {
+          await duplex.close?.();
+          break;
+        }
+
+        logger?.debug?.(`Git server: client requested ${service}`);
+
+        // Serve the requested service
+        const result = await serveOverDuplex({
+          duplex,
+          repository,
+          refStore,
+          service,
+        });
+
+        if (!result.success) {
+          logger?.error?.(`Git server ${service} error:`, result.error);
+        } else {
+          logger?.debug?.(`Git server ${service} complete, objects sent:`, result.objectsSent);
+        }
+      } catch (error) {
+        if (!stopped) {
+          logger?.error?.("Git peer server error:", error);
+        }
+        // Small delay before retrying to avoid tight error loops
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+  }
+
+  serveLoop().catch((error) => {
+    if (!stopped) {
+      logger?.error?.("Git peer server loop error:", error);
+    }
+  });
 
   // Return cleanup function
   return () => {
-    if (handlerCleanup) {
-      handlerCleanup();
-    }
-    port.close();
+    stopped = true;
   };
 }
