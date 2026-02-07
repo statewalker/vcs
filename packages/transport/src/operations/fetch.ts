@@ -239,6 +239,10 @@ export async function fetch(options: FetchOptions): Promise<HttpFetchResult> {
 
 /**
  * Parse ref advertisement for fetch operation.
+ *
+ * Properly parses pkt-line format using length prefixes rather than
+ * naive newline splitting, which fails when flush packets (0000)
+ * are concatenated with the next line's length prefix.
  */
 function parseRefAdvertisementForFetch(data: Uint8Array): {
   refs: Map<string, Uint8Array>;
@@ -247,46 +251,49 @@ function parseRefAdvertisementForFetch(data: Uint8Array): {
 } {
   const refs = new Map<string, Uint8Array>();
   const textDecoder = new TextDecoder();
-  const text = textDecoder.decode(data);
-  const lines = text.split("\n");
 
   let defaultBranch: string | undefined;
   let isEmpty = false;
+  let pastServiceLine = false;
 
-  for (const line of lines) {
-    // Skip empty lines
-    if (!line.trim()) continue;
+  // Parse pkt-lines using length prefixes
+  let offset = 0;
+  while (offset + 4 <= data.length) {
+    const lengthHex = textDecoder.decode(data.slice(offset, offset + 4));
 
-    // Skip flush/delim packets
-    if (line.trim() === "0000" || line.trim() === "0001") {
+    // Flush packet
+    if (lengthHex === "0000") {
+      offset += 4;
+      if (pastServiceLine) break; // End of ref advertisement
+      pastServiceLine = true;
       continue;
     }
+
+    const length = parseInt(lengthHex, 16);
+    if (Number.isNaN(length) || length < 4) break;
+    if (offset + length > data.length) break;
+
+    // Extract payload (excluding length prefix, trimming trailing newline)
+    let payload = textDecoder.decode(data.slice(offset + 4, offset + length));
+    if (payload.endsWith("\n")) payload = payload.slice(0, -1);
+    offset += length;
 
     // Skip service announcement
-    if (line.includes("# service=")) {
-      continue;
-    }
+    if (payload.includes("# service=")) continue;
 
-    // Extract content (remove pkt-line length prefix)
-    let content = line;
-    if (/^[0-9a-f]{4}/.test(content)) {
-      content = content.slice(4);
-    }
+    // Split ref from capabilities (separated by \0)
+    const nullIndex = payload.indexOf("\0");
+    const refPart = nullIndex >= 0 ? payload.slice(0, nullIndex) : payload;
+    const capsPart = nullIndex >= 0 ? payload.slice(nullIndex + 1) : "";
 
-    // Parse capabilities from first line
-    const nullIndex = content.indexOf("\0");
-    const refPart = nullIndex >= 0 ? content.slice(0, nullIndex) : content;
-    const capsPart = nullIndex >= 0 ? content.slice(nullIndex + 1) : "";
-
-    // Check for symref capability to detect default branch
+    // Extract default branch from symref capability
     if (capsPart) {
       const symrefMatch = capsPart.match(/symref=HEAD:([^\s]+)/);
       if (symrefMatch) {
         defaultBranch = symrefMatch[1];
       }
 
-      // Check for empty repository
-      if (content.includes("capabilities^{}")) {
+      if (payload.includes("capabilities^{}")) {
         isEmpty = true;
       }
     }
@@ -297,9 +304,7 @@ function parseRefAdvertisementForFetch(data: Uint8Array): {
       const oidHex = refPart.slice(0, spaceIndex);
       const refName = refPart.slice(spaceIndex + 1).trim();
 
-      // Skip peeled refs and capabilities
       if (!refName.endsWith("^{}") && !refName.startsWith("capabilities") && refName.length > 0) {
-        // Convert hex string to Uint8Array
         const oid = new Uint8Array(20);
         for (let i = 0; i < 20; i++) {
           oid[i] = parseInt(oidHex.slice(i * 2, i * 2 + 2), 16);

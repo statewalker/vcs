@@ -93,6 +93,14 @@ export async function handleInfoRefs(
     "no-done",
   ];
 
+  // Add symref capability if HEAD is a symbolic ref
+  if (refStore.getSymrefTarget) {
+    const headTarget = await refStore.getSymrefTarget("HEAD");
+    if (headTarget) {
+      capabilities.push(`symref=HEAD:${headTarget}`);
+    }
+  }
+
   // First ref with capabilities
   if (refs.length > 0) {
     const [firstRefName, firstOid] = refs[0];

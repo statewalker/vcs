@@ -356,7 +356,7 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
         expect(featureRef).toBeDefined();
 
         // Delete feature branch on server
-        await server.serverStores.refs.delete("refs/heads/feature");
+        await server.serverStores.refs.remove("refs/heads/feature");
 
         // Fetch with prune using URL directly
         const result = await git

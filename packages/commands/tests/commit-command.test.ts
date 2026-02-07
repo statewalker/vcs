@@ -617,9 +617,9 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
   it("should require working tree iterator for --all", async () => {
     const { git } = await createInitializedGit();
 
-    // Try to commit with --all but without working tree iterator
+    // Commit with --all when no tracked files have changed throws "Nothing to commit"
     await expect(git.commit().setMessage("test").setAll(true).call()).rejects.toThrow(
-      /Working tree iterator required/,
+      /Nothing to commit/,
     );
   });
 
@@ -662,7 +662,9 @@ describe.each(backends)("CommitCommand with --all flag ($name backend)", ({ fact
     // Tracked file should be updated
     const trackedEntry = await repository.trees.getEntry(headCommit.tree, "tracked.txt");
     expect(trackedEntry).toBeDefined();
-    const trackedContent = repository.blobs.load(trackedEntry?.id ?? "");
+    const trackedContent = await repository.blobs.load(trackedEntry?.id ?? "");
+    expect(trackedContent).toBeDefined();
+    if (!trackedContent) throw new Error("unreachable");
     expect(new TextDecoder().decode(await collectBytes(trackedContent))).toBe("tracked modified\n");
   });
 });
