@@ -35,14 +35,12 @@ import type {
  */
 export interface SerializationApiConfig {
   /**
-   * History facade for object access
+   * History stores for object access
    *
-   * Use this when you have a History instance from:
-   * - createHistoryWithOperations()
-   * - createHistoryFromStores()
-   * - createMemoryHistory()
+   * Only requires the object stores (blobs, trees, commits, tags).
+   * Accepts a full History instance or just the required stores.
    */
-  history: History;
+  history: Pick<History, "blobs" | "trees" | "commits" | "tags">;
 
   /** Blob delta API for delta-aware import */
   blobDeltaApi?: BlobDeltaApi;
@@ -548,4 +546,3 @@ function concatBytes(arrays: Uint8Array[]): Uint8Array {
 async function* toAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
   yield data;
 }
-

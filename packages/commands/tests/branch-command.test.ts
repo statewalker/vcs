@@ -88,7 +88,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
       // Create a commit
       const commit = await git.commit().setMessage("New").setAllowEmpty(true).call();
-      const _commitId = await repository.commits.storeCommit(commit);
+      const _commitId = await repository.commits.store(commit);
 
       // Force create at new commit
       const ref = await git.branchCreate().setName("feature").setForce(true).call();
@@ -155,7 +155,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
 
       // Add commit to feature branch (simulated by setting ref directly)
       const commit = {
-        tree: (await repository.commits.loadCommit(initialCommitId)).tree,
+        tree: (await repository.commits.load(initialCommitId)).tree,
         parents: [initialCommitId],
         author: {
           name: "Test",
@@ -171,7 +171,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
         },
         message: "Feature commit",
       };
-      const featureCommitId = await repository.commits.storeCommit(commit);
+      const featureCommitId = await repository.commits.store(commit);
       await repository.refs.set("refs/heads/feature", featureCommitId);
 
       // Now feature is ahead of main - should fail to delete
@@ -187,7 +187,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
       await git.branchCreate().setName("feature").setStartPoint(initialCommitId).call();
 
       const commit = {
-        tree: (await repository.commits.loadCommit(initialCommitId)).tree,
+        tree: (await repository.commits.load(initialCommitId)).tree,
         parents: [initialCommitId],
         author: {
           name: "Test",
@@ -203,7 +203,7 @@ describe.each(backends)("BranchCommand ($name backend)", ({ factory }) => {
         },
         message: "Feature commit",
       };
-      const featureCommitId = await repository.commits.storeCommit(commit);
+      const featureCommitId = await repository.commits.store(commit);
       await repository.refs.set("refs/heads/feature", featureCommitId);
 
       // Force delete should work

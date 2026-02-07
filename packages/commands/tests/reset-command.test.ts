@@ -70,7 +70,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
 
       // Staging should match initial commit's tree
       const treeId = await workingCopy.checkout.staging.writeTree(repository.trees);
-      const initialCommit = await repository.commits.loadCommit(initialCommitId);
+      const initialCommit = await repository.commits.load(initialCommitId);
       expect(treeId).toBe(initialCommit.tree);
     });
 
@@ -93,7 +93,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
 
       // Create commit
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
-      const secondId = await repository.commits.storeCommit(second);
+      const secondId = await repository.commits.store(second);
 
       await git.commit().setMessage("Third").setAllowEmpty(true).call();
 
@@ -136,7 +136,7 @@ describe.each(backends)("ResetCommand ($name backend)", ({ factory }) => {
 
       // Create commit
       const second = await git.commit().setMessage("Second").setAllowEmpty(true).call();
-      const secondId = await repository.commits.storeCommit(second);
+      const secondId = await repository.commits.store(second);
 
       // Detach HEAD
       await repository.refs.set("HEAD", secondId);

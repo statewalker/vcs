@@ -357,15 +357,14 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     const tagsStore = this.tagsStore ?? noOpTags;
 
     // Create serialization API from typed stores
-    // Note: SerializationApiConfig accepts stores at top level
-    // Use type assertion since we're passing new interfaces to a legacy-compatible API
     const serialization = new DefaultSerializationApi({
-      blobs: this.blobs,
-      trees: this.trees,
-      commits: this.commits,
-      tags: tagsStore,
-      refs: this.refsStore,
-    } as unknown as ConstructorParameters<typeof DefaultSerializationApi>[0]);
+      history: {
+        blobs: this.blobs,
+        trees: this.trees,
+        commits: this.commits,
+        tags: tagsStore,
+      },
+    });
 
     // Create repository facade for pack operations
     // Use type assertion for legacy store-based API

@@ -366,10 +366,12 @@ export function createTestServer(serverStores?: TransportTestStores): TestServer
 
   // Create serialization API for pack operations
   const serialization = new DefaultSerializationApi({
-    blobs: stores.blobs,
-    trees: stores.trees,
-    commits: stores.commits,
-    tags: stores.tags,
+    history: {
+      blobs: stores.blobs,
+      trees: stores.trees,
+      commits: stores.commits,
+      tags: stores.tags,
+    },
   });
 
   // Create a mock HistoryWithOperations for the repository facade
@@ -438,10 +440,12 @@ export async function createInitializedTestServer(): Promise<
 
   // Create serialization API for pack operations
   const serialization = new DefaultSerializationApi({
-    blobs: stores.blobs,
-    trees: stores.trees,
-    commits: stores.commits,
-    tags: stores.tags,
+    history: {
+      blobs: stores.blobs,
+      trees: stores.trees,
+      commits: stores.commits,
+      tags: stores.tags,
+    },
   });
 
   // Create a mock HistoryWithOperations for the repository facade

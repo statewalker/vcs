@@ -105,7 +105,7 @@ describe.each(backends)("Phase 1 Integration Workflow ($name backend)", ({ facto
 
     const mainCommit2 = await git.commit().setMessage("Main commit 2").setAllowEmpty(true).call();
 
-    const _mainCommit2Id = await repository.commits.storeCommit(mainCommit2);
+    const _mainCommit2Id = await repository.commits.store(mainCommit2);
 
     // Create feature branch from commit 1
     await git.branchCreate().setName("feature").setStartPoint("HEAD~1").call();
@@ -276,7 +276,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     // === STEP 6: Verify merge commit has both parents ===
     const headRef = await repository.refs.resolve("HEAD");
     expect(headRef?.objectId).toBeDefined();
-    const mergeCommit = await repository.commits.loadCommit(headRef?.objectId ?? "");
+    const mergeCommit = await repository.commits.load(headRef?.objectId ?? "");
     expect(mergeCommit.parents.length).toBe(2);
 
     // === STEP 7: Log should show all commits ===
@@ -322,7 +322,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     // Switch to feature - reset staging to match feature branch (initial empty tree)
     await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
     const featureRef = await repository.refs.resolve("refs/heads/feature");
-    const featureCommit = await repository.commits.loadCommit(featureRef?.objectId ?? "");
+    const featureCommit = await repository.commits.load(featureRef?.objectId ?? "");
     await workingCopy.checkout.staging.readTree(repository.trees, featureCommit.tree);
 
     // Add different file on feature
@@ -354,7 +354,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     await addFile(workingCopy, "changing.txt", "version 1");
     await workingCopy.checkout.staging.write();
     const commit1 = await git.commit().setMessage("v1").call();
-    const commit1Id = await repository.commits.storeCommit(commit1);
+    const commit1Id = await repository.commits.store(commit1);
 
     // Modify file
     await addFile(workingCopy, "changing.txt", "version 2");
@@ -365,7 +365,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     await addFile(workingCopy, "new.txt", "new content");
     await workingCopy.checkout.staging.write();
     const commit3 = await git.commit().setMessage("v3").call();
-    const commit3Id = await repository.commits.storeCommit(commit3);
+    const commit3Id = await repository.commits.store(commit3);
 
     // === Diff v1 vs v3 ===
     const entries = await git.diff().setOldTree(commit1Id).setNewTree(commit3Id).call();
@@ -400,7 +400,7 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     // Switch to feature branch - reset staging to match feature's tree
     await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
     const featureRef = await repository.refs.resolve("refs/heads/feature");
-    const featureCommit = await repository.commits.loadCommit(featureRef?.objectId ?? "");
+    const featureCommit = await repository.commits.load(featureRef?.objectId ?? "");
     await workingCopy.checkout.staging.readTree(repository.trees, featureCommit.tree);
 
     // Add different file on feature
@@ -429,11 +429,14 @@ describe.each(backends)("Phase 2 Integration Workflow ($name backend)", ({ facto
     // === Verify: All files present after merge ===
     const mainRef = await repository.refs.resolve("refs/heads/main");
     expect(mainRef?.objectId).toBeDefined();
-    const mainCommit = await repository.commits.loadCommit(mainRef?.objectId ?? "");
+    const mainCommit = await repository.commits.load(mainRef?.objectId ?? "");
     const entries = new Map<string, boolean>();
 
-    for await (const entry of repository.trees.loadTree(mainCommit.tree)) {
-      entries.set(entry.name, true);
+    if (mainCommit) {
+      const treeEntries = await repository.trees.load(mainCommit.tree);
+      for await (const entry of treeEntries ?? []) {
+        entries.set(entry.name, true);
+      }
     }
 
     expect(entries.has("shared.txt")).toBe(true);

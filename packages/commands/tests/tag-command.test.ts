@@ -70,7 +70,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
       expect(tagId).toBeDefined();
 
       // The tag object should exist
-      const tag = await repository.tags?.loadTag(tagId ?? "");
+      const tag = await repository.tags?.load(tagId ?? "");
       expect(tag?.message).toBe("Release version 1.0.0");
       expect(tag?.tagger?.name).toBe("Release Bot");
     });
@@ -82,7 +82,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
 
       // Should be annotated (stored as tag object)
       const tagId = ref.objectId;
-      const tag = await repository.tags?.loadTag(tagId ?? "");
+      const tag = await repository.tags?.load(tagId ?? "");
       expect(tag).toBeDefined();
     });
 
@@ -110,7 +110,7 @@ describe.each(backends)("TagCommand ($name backend)", ({ factory }) => {
 
       // Create new commit
       const commit = await git.commit().setMessage("New").setAllowEmpty(true).call();
-      const _commitId = await repository.commits.storeCommit(commit);
+      const _commitId = await repository.commits.store(commit);
 
       // Force re-tag at new commit
       const ref = await git.tag().setName("v1.0.0").setForce(true).call();

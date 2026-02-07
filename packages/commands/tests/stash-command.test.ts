@@ -55,16 +55,16 @@ describe.each(backends)("StashListCommand ($name backend)", ({ factory }) => {
 
     // Manually create a stash-like commit structure for testing
     // Stash has 2-3 parents: [HEAD, index, optional untracked]
-    const indexCommit = await repository.commits.storeCommit({
-      tree: (await repository.commits.loadCommit(headCommit)).tree,
+    const indexCommit = await repository.commits.store({
+      tree: (await repository.commits.load(headCommit)).tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       message: "index on main: abc1234 initial",
     });
 
-    const stashCommit = await repository.commits.storeCommit({
-      tree: (await repository.commits.loadCommit(headCommit)).tree,
+    const stashCommit = await repository.commits.store({
+      tree: (await repository.commits.load(headCommit)).tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -132,7 +132,7 @@ describe.each(backends)("StashCreateCommand ($name backend)", ({ factory }) => {
     if (!stashCommit) return;
 
     // Load the stash commit and check message
-    const commit = await repository.commits.loadCommit(stashCommit);
+    const commit = await repository.commits.load(stashCommit);
     expect(commit.message).toBe("My custom stash message");
   });
 
@@ -196,7 +196,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
   ) {
     const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await repository.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.load(headCommit);
 
     // Create a blob with the new content
     const encoder = new TextEncoder();
@@ -204,11 +204,11 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
     const blobId = await repository.blobs.store([data]);
 
     // Create a new tree with the modified file
-    const stashTree = await repository.trees.storeTree([
+    const stashTree = await repository.trees.store([
       { name: filename, id: blobId, mode: 0o100644 },
     ]);
 
-    const indexCommit = await repository.commits.storeCommit({
+    const indexCommit = await repository.commits.store({
       tree: stashTree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -216,7 +216,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
       message: "index on main: abc1234 test",
     });
 
-    const stashCommit = await repository.commits.storeCommit({
+    const stashCommit = await repository.commits.store({
       tree: stashTree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -237,9 +237,9 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
   ) {
     const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await repository.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.load(headCommit);
 
-    const indexCommit = await repository.commits.storeCommit({
+    const indexCommit = await repository.commits.store({
       tree: headCommitObj.tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -247,7 +247,7 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
       message: "index on main: abc1234 test",
     });
 
-    const stashCommit = await repository.commits.storeCommit({
+    const stashCommit = await repository.commits.store({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -388,11 +388,9 @@ describe.each(backends)("StashApplyCommand ($name backend)", ({ factory }) => {
     // Create a stash ref without HEAD
     const encoder = new TextEncoder();
     const blobId = await repository.blobs.store([encoder.encode("content")]);
-    const tree = await repository.trees.storeTree([
-      { name: "file.txt", id: blobId, mode: 0o100644 },
-    ]);
+    const tree = await repository.trees.store([{ name: "file.txt", id: blobId, mode: 0o100644 }]);
 
-    const commit = await repository.commits.storeCommit({
+    const commit = await repository.commits.store({
       tree,
       parents: [],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -518,10 +516,10 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
 
     const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await repository.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.load(headCommit);
 
     // Create a stash
-    const indexCommit = await repository.commits.storeCommit({
+    const indexCommit = await repository.commits.store({
       tree: headCommitObj.tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -529,7 +527,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
       message: "index",
     });
 
-    const stashCommit = await repository.commits.storeCommit({
+    const stashCommit = await repository.commits.store({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -561,10 +559,10 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
 
     const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await repository.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.load(headCommit);
 
     // Create a stash
-    const indexCommit = await repository.commits.storeCommit({
+    const indexCommit = await repository.commits.store({
       tree: headCommitObj.tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -572,7 +570,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
       message: "index",
     });
 
-    const stashCommit = await repository.commits.storeCommit({
+    const stashCommit = await repository.commits.store({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -628,10 +626,10 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
 
     const headRef = await repository.refs.resolve("HEAD");
     const headCommit = headRef?.objectId ?? "";
-    const headCommitObj = await repository.commits.loadCommit(headCommit);
+    const headCommitObj = await repository.commits.load(headCommit);
 
     // Create a stash
-    const indexCommit = await repository.commits.storeCommit({
+    const indexCommit = await repository.commits.store({
       tree: headCommitObj.tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -639,7 +637,7 @@ describe.each(backends)("StashDropCommand ($name backend)", ({ factory }) => {
       message: "index",
     });
 
-    const stashCommit = await repository.commits.storeCommit({
+    const stashCommit = await repository.commits.store({
       tree: headCommitObj.tree,
       parents: [headCommit, indexCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
@@ -706,7 +704,7 @@ describe.each(backends)("StashCreateCommand - JGit compatibility tests ($name ba
     if (!stashCommit) return;
 
     // Verify stash commit structure
-    const commit = await repository.commits.loadCommit(stashCommit);
+    const commit = await repository.commits.load(stashCommit);
     expect(commit.parents.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -789,8 +787,8 @@ describe.each(backends)("StashListCommand - additional tests ($name backend)", (
     const headCommit = headRef?.objectId ?? "";
 
     // Create a commit with only 1 parent (not valid stash structure)
-    const invalidStash = await repository.commits.storeCommit({
-      tree: (await repository.commits.loadCommit(headCommit)).tree,
+    const invalidStash = await repository.commits.store({
+      tree: (await repository.commits.load(headCommit)).tree,
       parents: [headCommit],
       author: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },
       committer: { name: "Test", email: "test@test.com", timestamp: 1000, tzOffset: "+0000" },

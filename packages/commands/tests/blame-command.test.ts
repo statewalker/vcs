@@ -671,7 +671,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       await git.branchCreate().setName("side").call();
       await repository.refs.setSymbolic("HEAD", "refs/heads/side");
       const sideRef = await repository.refs.resolve("refs/heads/side");
-      const sideCommit = await repository.commits.loadCommit(sideRef?.objectId ?? "");
+      const sideCommit = await repository.commits.load(sideRef?.objectId ?? "");
       await workingCopy.checkout.staging.readTree(repository.trees, sideCommit.tree);
 
       // Modify on side branch
@@ -684,7 +684,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       // Switch to main and modify differently
       await repository.refs.setSymbolic("HEAD", "refs/heads/main");
       const mainRef = await repository.refs.resolve("refs/heads/main");
-      const mainCommit = await repository.commits.loadCommit(mainRef?.objectId ?? "");
+      const mainCommit = await repository.commits.load(mainRef?.objectId ?? "");
       await workingCopy.checkout.staging.readTree(repository.trees, mainCommit.tree);
 
       // Remove line on main (will conflict with side's modification)
@@ -744,7 +744,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       await git.branchCreate().setName("feature").call();
       await repository.refs.setSymbolic("HEAD", "refs/heads/feature");
       const featureRef = await repository.refs.resolve("refs/heads/feature");
-      const featureCommit = await repository.commits.loadCommit(featureRef?.objectId ?? "");
+      const featureCommit = await repository.commits.load(featureRef?.objectId ?? "");
       await workingCopy.checkout.staging.readTree(repository.trees, featureCommit.tree);
 
       await addFile(workingCopy, "file.txt", "base line\nfeature line\n");
@@ -757,7 +757,7 @@ describe.each(backends)("BlameCommand ($name backend)", ({ factory }) => {
       await repository.refs.setSymbolic("HEAD", "refs/heads/main");
       const mainRef = await repository.refs.resolve("refs/heads/main");
       const mainCommitId = mainRef?.objectId ?? "";
-      const mainCommit = await repository.commits.loadCommit(mainCommitId);
+      const mainCommit = await repository.commits.load(mainCommitId);
       await workingCopy.checkout.staging.readTree(repository.trees, mainCommit.tree);
 
       // Merge feature (should be clean merge)
