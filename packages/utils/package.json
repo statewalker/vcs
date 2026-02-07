@@ -1,6 +1,13 @@
 {
   "name": "@statewalker/vcs-utils",
   "version": "0.1.0",
+  "description": "VCS utilities: hashing (SHA1, CRC32), compression, delta encoding, streams",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git",
+    "directory": "packages/utils"
+  },
   "private": false,
   "publishConfig": {
     "access": "public"

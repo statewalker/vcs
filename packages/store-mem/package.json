@@ -2,6 +2,12 @@
   "name": "@statewalker/vcs-store-mem",
   "version": "0.1.0",
   "description": "In-memory storage backend for StateWalker VCS",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git",
+    "directory": "packages/store-mem"
+  },
   "private": false,
   "publishConfig": {
     "access": "public"
@@ -15,6 +21,9 @@
       "import": "./dist/index.js"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run",
