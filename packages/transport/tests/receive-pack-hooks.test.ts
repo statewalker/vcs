@@ -17,14 +17,6 @@ import { ZERO_OID } from "../src/fsm/push/types.js";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Ref entry for advertisement
- */
-interface RefEntry {
-  name: string;
-  oid: string;
-}
-
-/**
  * Advertise refs hook interface
  */
 interface AdvertiseRefsHook {

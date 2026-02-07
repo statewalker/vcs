@@ -33,7 +33,7 @@ import { TestRepository } from "../helpers/test-repository.js";
 describe("Smart HTTP Client-Server", () => {
   describe("listing refs", () => {
     it("should list remote refs via GET /info/refs?service=git-upload-pack", async () => {
-      const { server, repo, fetch } = createTestHttpServer();
+      const { repo, fetch } = createTestHttpServer();
       const oid = repo.createEmptyCommit("Test commit");
       repo.setRef("refs/heads/main", oid);
 
@@ -58,7 +58,7 @@ describe("Smart HTTP Client-Server", () => {
     });
 
     it("should verify content-type is application/x-git-upload-pack-advertisement", async () => {
-      const { server, repo, fetch } = createTestHttpServer();
+      const { repo, fetch } = createTestHttpServer();
       repo.createEmptyCommit("Test");
       repo.setRef("refs/heads/main", repo.createEmptyCommit("Main"));
 
@@ -83,7 +83,7 @@ describe("Smart HTTP Client-Server", () => {
     });
 
     it("should handle fetch for advertised refs", async () => {
-      const { server, repo, fetch } = createTestHttpServer();
+      const { repo, fetch } = createTestHttpServer();
       const oid = repo.createEmptyCommit("Main commit");
       repo.setRef("refs/heads/main", oid);
 
@@ -101,7 +101,7 @@ describe("Smart HTTP Client-Server", () => {
 
   describe("initial clone", () => {
     it("should clone small repository", async () => {
-      const { server, repo, fetch } = createTestHttpServer();
+      const { repo, fetch } = createTestHttpServer();
       const commit = repo.createEmptyCommit("Initial commit");
       repo.setRef("refs/heads/main", commit);
 
@@ -128,7 +128,7 @@ describe("Smart HTTP Client-Server", () => {
     });
 
     it("should handle protocol v2 headers", async () => {
-      const { server, repo, fetch } = createTestHttpServer({ protocolV2: true });
+      const { repo, fetch } = createTestHttpServer({ protocolV2: true });
       repo.setRef("refs/heads/main", repo.createEmptyCommit("Main"));
 
       const response = await fetch(
@@ -216,7 +216,7 @@ describe("Smart HTTP Client-Server", () => {
 describe("HTTP Server Components", () => {
   describe("DefaultUploadPackFactory", () => {
     it("should create upload pack instance", async () => {
-      const { server, repo, fetch } = createTestHttpServer();
+      const { repo, fetch } = createTestHttpServer();
       repo.setRef("refs/heads/main", repo.createEmptyCommit("Test"));
 
       const response = await fetch(
