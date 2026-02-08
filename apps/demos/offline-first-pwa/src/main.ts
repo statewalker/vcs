@@ -16,8 +16,8 @@ import {
 
 // App state
 let currentStorage: StorageBackend | null = null;
-let _history: History | null = null;
-let _workingCopy: WorkingCopy | null = null;
+let history: History | null = null;
+let workingCopy: WorkingCopy | null = null;
 let git: Git | null = null;
 const stagedFiles = new Map<string, string>();
 
@@ -133,8 +133,8 @@ function checkPwaMode() {
 async function switchStorage(type: StorageType) {
   try {
     // Reset state
-    _history = null;
-    _workingCopy = null;
+    history = null;
+    workingCopy = null;
     git = null;
     stagedFiles.clear();
 
@@ -177,10 +177,15 @@ async function initRepository() {
   }
 
   try {
-    repository = await createGitRepository();
-    const staging = new MemoryStagingStore();
-    store = createGitStore({ repository, staging });
-    git = Git.wrap(store);
+    const result = await Git.init()
+      .setFilesApi(currentStorage.files)
+      .setGitDir(".git")
+      .setInitialBranch("main")
+      .call();
+
+    history = result.repository;
+    workingCopy = result.workingCopy;
+    git = result.git;
 
     btnInit.disabled = true;
     btnInit.textContent = "Repository Ready";
@@ -196,7 +201,7 @@ async function initRepository() {
 }
 
 async function addFile() {
-  if (!store || !git) {
+  if (!history || !workingCopy || !git) {
     repoStatus.textContent = "Initialize repository first";
     return;
   }
@@ -211,10 +216,10 @@ async function addFile() {
   try {
     // Store blob
     const data = new TextEncoder().encode(content);
-    const objectId = await store.blobs.store([data]);
+    const objectId = await history.blobs.store([data]);
 
     // Add to staging
-    const editor = store.staging.editor();
+    const editor = workingCopy.staging.editor();
     editor.add({
       path: fileName,
       apply: () => ({
@@ -262,7 +267,7 @@ function updateStagedList() {
 }
 
 async function createCommit() {
-  if (!store || !git) {
+  if (!history || !git) {
     repoStatus.textContent = "Initialize repository first";
     return;
   }
@@ -278,8 +283,7 @@ async function createCommit() {
   }
 
   try {
-    const commit = await git.commit().setMessage(message).call();
-    const commitId = await store.commits.storeCommit(commit);
+    const commitResult = await git.commit().setMessage(message).call();
 
     // Clear staged files
     stagedFiles.clear();
@@ -289,7 +293,7 @@ async function createCommit() {
     updateStagedList();
     updateCommitList();
 
-    repoStatus.textContent = `Created commit: ${commitId.slice(0, 7)}`;
+    repoStatus.textContent = `Created commit: ${commitResult.id.slice(0, 7)}`;
   } catch (error) {
     console.error("Failed to create commit:", error);
     repoStatus.textContent = `Error: ${(error as Error).message}`;
@@ -297,13 +301,13 @@ async function createCommit() {
 }
 
 async function updateCommitList() {
-  if (!store || !git) {
+  if (!history) {
     commitList.innerHTML = '<p class="empty">No commits yet</p>';
     return;
   }
 
   try {
-    const head = await store.refs.resolve("HEAD");
+    const head = await history.refs.resolve("HEAD");
     if (!head?.objectId) {
       commitList.innerHTML = '<p class="empty">No commits yet</p>';
       return;
@@ -311,13 +315,16 @@ async function updateCommitList() {
 
     const commits: Array<{ id: string; message: string; date: Date }> = [];
 
-    for await (const id of store.commits.walkAncestry(head.objectId, { limit: 10 })) {
-      const commit = await store.commits.loadCommit(id);
-      commits.push({
-        id,
-        message: commit.message.trim(),
-        date: new Date(commit.author.timestamp * 1000),
-      });
+    for await (const id of history.commits.walkAncestry(head.objectId)) {
+      const commit = await history.commits.load(id);
+      if (commit) {
+        commits.push({
+          id,
+          message: commit.message.trim(),
+          date: new Date(commit.author.timestamp * 1000),
+        });
+      }
+      if (commits.length >= 10) break;
     }
 
     if (commits.length === 0) {
