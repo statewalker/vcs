@@ -64,7 +64,7 @@ console.log("Branch updated: refs/heads/main");
 
 // Verify everything works
 const headRef = await history.refs.resolve("HEAD");
-const head = headRef?.id;
+const head = headRef?.objectId;
 console.log(`\nHEAD points to: ${head?.slice(0, 7)}`);
 
 // Load and display the commit

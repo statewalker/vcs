@@ -527,9 +527,9 @@ async function collectTreeFiles(
   for await (const entry of tree) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.mode === FileMode.TREE) {
-      await collectTreeFiles(history, entry.objectId, path, files);
+      await collectTreeFiles(history, entry.id, path, files);
     } else {
-      files.set(path, entry.objectId);
+      files.set(path, entry.id);
     }
   }
 }
@@ -571,10 +571,10 @@ async function restoreTree(
   for await (const entry of tree) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.mode === FileMode.TREE) {
-      await restoreTree(history, backend, entry.objectId, path);
+      await restoreTree(history, backend, entry.id, path);
     } else {
       const chunks: Uint8Array[] = [];
-      const blobData = await history.blobs.load(entry.objectId);
+      const blobData = await history.blobs.load(entry.id);
       if (blobData) {
         for await (const chunk of blobData) {
           chunks.push(chunk);
