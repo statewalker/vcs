@@ -89,23 +89,6 @@ export interface BackendCapabilities {
 }
 
 /**
- * Backend configuration options
- *
- * Different backends accept different options.
- * Common options defined here, backend-specific via extension.
- */
-export interface BackendConfig {
-  /** Path for file-based backends */
-  path?: string;
-  /** Connection string for SQL backends */
-  connectionString?: string;
-  /** Whether to create storage if it doesn't exist */
-  create?: boolean;
-  /** Read-only mode */
-  readOnly?: boolean;
-}
-
-/**
  * Storage operations for optimization and transport
  *
  * This interface provides low-level storage operations that are NOT part
@@ -171,8 +154,3 @@ export interface StorageOperations {
    */
   close(): Promise<void>;
 }
-
-/**
- * Supported backend types
- */
-export type BackendType = "git-files" | "sql" | "kv" | "memory";

@@ -5,7 +5,7 @@
  * where type is "blob", "tree", "commit", or "tag" and size is decimal.
  */
 
-import { concat, encodeString } from "@statewalker/vcs-utils/streams";
+import { encodeString } from "@statewalker/vcs-utils/streams";
 import { ObjectType, type ObjectTypeCode, type ObjectTypeString } from "./object-types.js";
 
 /** Null byte for header termination */
@@ -48,19 +48,6 @@ export function typeStringToCode(type: ObjectTypeString): ObjectTypeCode {
 }
 
 /**
- * Encode a Git object header as generator
- *
- * Format: "type size\0"
- *
- * @param type Object type string
- * @param size Content size in bytes
- * @yields Single chunk containing the encoded header
- */
-export function* encodeHeader(type: ObjectTypeString, size: number): Generator<Uint8Array> {
-  yield encodeString(`${type} ${size}\0`);
-}
-
-/**
  * Encode a Git object header as Uint8Array
  *
  * Format: "type size\0"
@@ -71,17 +58,6 @@ export function* encodeHeader(type: ObjectTypeString, size: number): Generator<U
  */
 export function encodeObjectHeader(type: ObjectTypeString, size: number): Uint8Array {
   return encodeString(`${type} ${size}\0`);
-}
-
-/**
- * Encode a Git object header using type code
- *
- * @param typeCode Object type code
- * @param size Content size in bytes
- * @returns Encoded header as Uint8Array
- */
-export function encodeObjectHeaderFromCode(typeCode: ObjectTypeCode, size: number): Uint8Array {
-  return encodeObjectHeader(typeCodeToString(typeCode), size);
 }
 
 /**
@@ -151,58 +127,6 @@ export function parseHeader(data: Uint8Array): ParsedObjectHeader {
     size,
     contentOffset: nullPos + 1,
   };
-}
-
-/**
- * Strip header from async stream, yielding content only
- *
- * @param input Async stream of raw object data with header
- * @yields Content chunks without header
- */
-export async function* stripHeader(input: AsyncIterable<Uint8Array>): AsyncGenerator<Uint8Array> {
-  let buffer = new Uint8Array(0);
-  let headerParsed = false;
-  let contentOffset = 0;
-
-  for await (const chunk of input) {
-    if (headerParsed) {
-      yield chunk;
-      continue;
-    }
-
-    // Buffer chunks until we have the header
-    buffer = concat(buffer, chunk);
-
-    // Look for null byte
-    let nullPos = -1;
-    for (let i = 0; i < Math.min(buffer.length, 32); i++) {
-      if (buffer[i] === NULL_BYTE) {
-        nullPos = i;
-        break;
-      }
-    }
-
-    if (nullPos === -1) {
-      // Need more data for header
-      if (buffer.length > 32) {
-        throw new Error("Invalid object header: no null byte in first 32 bytes");
-      }
-      continue;
-    }
-
-    // Header found, parse it
-    headerParsed = true;
-    contentOffset = nullPos + 1;
-
-    // Yield remaining content after header
-    if (contentOffset < buffer.length) {
-      yield buffer.subarray(contentOffset);
-    }
-  }
-
-  if (!headerParsed) {
-    throw new Error("Invalid object: empty or truncated header");
-  }
 }
 
 /**

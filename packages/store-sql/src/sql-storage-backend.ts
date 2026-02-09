@@ -1,38 +1,24 @@
 /**
- * SQL Storage Backend
+ * SQL History Factory
  *
- * StorageBackend implementation using SQL database.
- * Provides all three APIs (StructuredStores, DeltaApi, SerializationApi)
- * with transaction support for atomic operations.
- *
- * ## New Pattern (Recommended)
- *
- * Use the factory pattern for new code:
- * - `SQLHistoryFactory` - Implements HistoryBackendFactory interface
- * - Returns HistoryWithOperations directly
- *
- * ## Legacy Pattern (Deprecated)
- *
- * The `SQLStorageBackend` class is deprecated.
- * Use `SQLHistoryFactory` instead.
+ * Factory for creating SQL-backed HistoryWithOperations instances.
+ * Uses SQL database for persistent storage with:
+ * - Atomic transactions for batch operations
+ * - Native delta tracking with depth management
+ * - Rich query capabilities via SQL
  */
 
 import {
   type BackendCapabilities,
   type BaseBackendConfig,
-  type Blobs,
-  type Commits,
   DefaultSerializationApi,
-  type History,
   type HistoryBackendFactory,
+  HistoryImpl,
   type HistoryWithOperations,
   HistoryWithOperationsImpl,
-  type Refs,
-  type SerializationApi,
   type StorageOperations,
-  type Tags,
-  type Trees,
 } from "@statewalker/vcs-core";
+
 import { SQLCommitStore } from "./commit-store.js";
 import type { DatabaseClient } from "./database-client.js";
 import { initializeSchema } from "./migrations/index.js";
@@ -42,18 +28,8 @@ import { SqlDeltaApi } from "./sql-delta-api.js";
 import { SQLTagStore } from "./tag-store.js";
 import { SQLTreeStore } from "./tree-store.js";
 
-// ============================================================================
-// Note: Legacy adapters have been removed.
-// All SQL stores now implement the new interfaces directly:
-// - SQLCommitStore implements Commits
-// - SQLRefStore implements Refs
-// - SQLTreeStore implements Trees
-// - SQLTagStore implements Tags
-// - SqlNativeBlobStoreImpl implements Blobs
-// ============================================================================
-
 /**
- * Configuration for SQLStorageBackend
+ * Configuration for SQL history storage
  */
 export interface SQLStorageBackendConfig extends BaseBackendConfig {
   /** Database client for SQL operations */
@@ -62,140 +38,13 @@ export interface SQLStorageBackendConfig extends BaseBackendConfig {
   autoMigrate?: boolean;
 }
 
-/**
- * SQL Storage Backend
- *
- * Full StorageBackend implementation using SQL database.
- * Supports:
- * - Atomic transactions for batch operations
- * - Native delta tracking with depth management
- * - Rich query capabilities via SQL
- *
- * @deprecated Use `SQLHistoryFactory` instead.
- * The new pattern returns HistoryWithOperations directly, providing unified
- * access to typed stores and storage operations.
- *
- * Migration:
- * ```typescript
- * // Old pattern (deprecated)
- * const backend = new SQLStorageBackend({ db });
- * const history = createHistoryWithOperations({ backend });
- *
- * // New pattern (recommended)
- * const factory = new SQLHistoryFactory();
- * const history = await factory.createHistory({ db });
- * ```
- */
-export class SQLStorageBackend {
-  readonly blobs: Blobs;
-  readonly trees: Trees;
-  readonly commits: Commits;
-  readonly tags: Tags;
-  readonly refs: Refs;
-  readonly delta: SqlDeltaApi;
-  readonly serialization: SerializationApi;
-  readonly capabilities: BackendCapabilities = {
-    nativeBlobDeltas: true,
-    randomAccess: true,
-    atomicBatch: true,
-    nativeGitFormat: false,
-  };
-
-  private readonly db: DatabaseClient;
-  private readonly autoMigrate: boolean;
-  private initialized = false;
-
-  constructor(config: SQLStorageBackendConfig) {
-    this.db = config.db;
-    this.autoMigrate = config.autoMigrate ?? true;
-
-    // Create stores
-    this.blobs = new SqlNativeBlobStoreImpl(this.db);
-    this.trees = new SQLTreeStore(this.db);
-    this.commits = new SQLCommitStore(this.db);
-    this.tags = new SQLTagStore(this.db);
-    this.refs = new SQLRefStore(this.db);
-
-    // Create delta API
-    this.delta = new SqlDeltaApi(this.db);
-
-    // Create serialization API - pass history object with new interfaces
-    // Cast to History since DefaultSerializationApi only uses the store properties
-    this.serialization = new DefaultSerializationApi({
-      history: {
-        blobs: this.blobs,
-        trees: this.trees,
-        commits: this.commits,
-        tags: this.tags,
-        refs: this.refs,
-      } as History,
-      blobDeltaApi: this.delta.blobs,
-    });
-  }
-
-  /**
-   * Initialize the backend
-   *
-   * Creates database tables if needed via migrations.
-   */
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
-
-    if (this.autoMigrate) {
-      await initializeSchema(this.db);
-    }
-
-    this.initialized = true;
-  }
-
-  /**
-   * Close the backend
-   *
-   * Releases database connection.
-   */
-  async close(): Promise<void> {
-    if (!this.initialized) return;
-
-    await this.db.close();
-    this.initialized = false;
-  }
-
-  /**
-   * Check if backend is initialized
-   */
-  isInitialized(): boolean {
-    return this.initialized;
-  }
-
-  /**
-   * Get direct access to the database client
-   *
-   * Use for advanced operations like custom queries
-   * or running multiple operations in a transaction.
-   */
-  getDatabase(): DatabaseClient {
-    return this.db;
-  }
-
-  /**
-   * Get storage operations (delta and serialization APIs)
-   *
-   * Returns a StorageOperations interface without the typed stores.
-   * This is the preferred way to access delta and serialization APIs
-   * going forward, as it separates concerns from the History interface.
-   *
-   * @returns StorageOperations implementation
-   */
-  getOperations(): StorageOperations {
-    return {
-      delta: this.delta,
-      serialization: this.serialization,
-      capabilities: this.capabilities,
-      initialize: () => this.initialize(),
-      close: () => this.close(),
-    };
-  }
-}
+/** SQL backend capabilities */
+const SQL_CAPABILITIES: BackendCapabilities = {
+  nativeBlobDeltas: true,
+  randomAccess: true,
+  atomicBatch: true,
+  nativeGitFormat: false,
+};
 
 /**
  * SQLHistoryFactory - Factory for creating SQL-backed HistoryWithOperations
@@ -233,20 +82,32 @@ export class SQLHistoryFactory implements HistoryBackendFactory<SQLStorageBacken
    * @returns HistoryWithOperations instance (not yet initialized)
    */
   async createHistory(config: SQLStorageBackendConfig): Promise<HistoryWithOperations> {
-    const backend = new SQLStorageBackend(config);
+    const { db, autoMigrate, blobs, trees, commits, tags, refs, delta, serialization } =
+      createSQLStores(config);
 
-    // SQL stores now implement new interfaces directly - no adapters needed
+    let initialized = false;
+
     return new HistoryWithOperationsImpl(
-      backend.blobs,
-      backend.trees,
-      backend.commits,
-      backend.tags,
-      backend.refs,
-      backend.delta,
-      backend.serialization,
-      backend.capabilities,
-      () => backend.initialize(),
-      () => backend.close(),
+      blobs,
+      trees,
+      commits,
+      tags,
+      refs,
+      delta,
+      serialization,
+      SQL_CAPABILITIES,
+      async () => {
+        if (initialized) return;
+        if (autoMigrate) {
+          await initializeSchema(db);
+        }
+        initialized = true;
+      },
+      async () => {
+        if (!initialized) return;
+        await db.close();
+        initialized = false;
+      },
     );
   }
 
@@ -260,7 +121,49 @@ export class SQLHistoryFactory implements HistoryBackendFactory<SQLStorageBacken
    * @returns StorageOperations instance (not yet initialized)
    */
   async createOperations(config: SQLStorageBackendConfig): Promise<StorageOperations> {
-    const backend = new SQLStorageBackend(config);
-    return backend.getOperations();
+    const { db, autoMigrate, delta, serialization } = createSQLStores(config);
+
+    let initialized = false;
+
+    return {
+      delta,
+      serialization,
+      capabilities: SQL_CAPABILITIES,
+      async initialize() {
+        if (initialized) return;
+        if (autoMigrate) {
+          await initializeSchema(db);
+        }
+        initialized = true;
+      },
+      async close() {
+        if (!initialized) return;
+        await db.close();
+        initialized = false;
+      },
+    };
   }
+}
+
+/**
+ * Create all SQL store instances from configuration
+ */
+function createSQLStores(config: SQLStorageBackendConfig) {
+  const db = config.db;
+  const autoMigrate = config.autoMigrate ?? true;
+
+  const blobs = new SqlNativeBlobStoreImpl(db);
+  const trees = new SQLTreeStore(db);
+  const commits = new SQLCommitStore(db);
+  const tags = new SQLTagStore(db);
+  const refs = new SQLRefStore(db);
+  const delta = new SqlDeltaApi(db);
+
+  const history = new HistoryImpl(blobs, trees, commits, tags, refs);
+  const serialization = new DefaultSerializationApi({
+    history,
+    blobDeltaApi: delta.blobs,
+  });
+
+  return { db, autoMigrate, blobs, trees, commits, tags, refs, delta, serialization };
 }
