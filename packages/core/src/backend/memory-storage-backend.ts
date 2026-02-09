@@ -1,30 +1,18 @@
 /**
  * Memory Storage Backend
  *
- * Simple in-memory implementation of StorageBackend for testing.
- * Wraps existing memory stores to provide the unified interface.
+ * In-memory implementations of DeltaApi for testing and ephemeral storage.
  *
- * ## New Pattern (Recommended)
+ * ## Usage
  *
  * Use the factory pattern for new code:
  * - `createMemoryHistoryWithOperations()` - Creates HistoryWithOperations directly
  * - `MemoryHistoryFactory` - Implements HistoryBackendFactory interface
- *
- * ## Legacy Pattern (Deprecated)
- *
- * The `MemoryStorageBackend` class is deprecated.
- * Use `createMemoryHistoryWithOperations()` or `MemoryHistoryFactory` instead.
  */
 
 import type { ObjectId } from "../common/id/object-id.js";
 import type { Blobs } from "../history/blobs/blobs.js";
-import type { Commits } from "../history/commits/commits.js";
 import type { HistoryWithOperations } from "../history/history.js";
-import type { Refs } from "../history/refs/refs.js";
-import type { Tags } from "../history/tags/tags.js";
-import type { Trees } from "../history/trees/trees.js";
-import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
-import type { SerializationApi } from "../serialization/serialization-api.js";
 import type {
   BlobDeltaApi,
   BlobDeltaChainInfo,
@@ -32,28 +20,7 @@ import type {
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
 import type { HistoryBackendFactory, MemoryBackendConfig } from "./history-backend-factory.js";
-import type { BackendCapabilities, StorageOperations } from "./storage-backend.js";
-
-/**
- * Configuration for creating MemoryStorageBackend
- *
- * Uses the new unified interfaces (Blobs, Trees, Commits, Tags, Refs)
- * instead of the legacy store types.
- */
-export interface MemoryStorageBackendConfig {
-  /** Blob storage implementation */
-  blobs: Blobs;
-  /** Tree storage implementation */
-  trees: Trees;
-  /** Commit storage implementation */
-  commits: Commits;
-  /** Tag storage implementation */
-  tags: Tags;
-  /** Reference storage implementation */
-  refs: Refs;
-  /** Optional delta tracking for blobs */
-  deltaTracker?: DeltaTracker;
-}
+import type { StorageOperations } from "./storage-backend.js";
 
 /**
  * Simple delta tracking interface for memory backend
@@ -194,124 +161,6 @@ export class MemoryDeltaApi implements DeltaApi {
       this.batchDepth--;
     }
     // Memory backend doesn't need rollback
-  }
-}
-
-/**
- * In-memory StorageBackend implementation
- *
- * Simple implementation for testing and simple use cases.
- * Does not provide efficient delta compression.
- *
- * @deprecated Use `createMemoryHistoryWithOperations()` or `MemoryHistoryFactory` instead.
- * The new pattern returns HistoryWithOperations directly, providing unified
- * access to typed stores and storage operations.
- *
- * Migration:
- * ```typescript
- * // Old pattern (deprecated)
- * const backend = new MemoryStorageBackend(config);
- * const history = createHistoryWithOperations({ backend });
- *
- * // New pattern (recommended)
- * const history = createMemoryHistoryWithOperations();
- * // OR use the factory:
- * const factory = new MemoryHistoryFactory();
- * const history = await factory.createHistory({});
- * ```
- */
-export class MemoryStorageBackend {
-  readonly blobs: Blobs;
-  readonly trees: Trees;
-  readonly commits: Commits;
-  readonly tags: Tags;
-  readonly refs: Refs;
-  readonly delta: DeltaApi;
-  readonly serialization: SerializationApi;
-  readonly capabilities: BackendCapabilities = {
-    nativeBlobDeltas: false,
-    randomAccess: true,
-    atomicBatch: false,
-    nativeGitFormat: false,
-  };
-
-  private initialized = false;
-
-  constructor(config: MemoryStorageBackendConfig) {
-    this.blobs = config.blobs;
-    this.trees = config.trees;
-    this.commits = config.commits;
-    this.tags = config.tags;
-    this.refs = config.refs;
-
-    this.delta = new MemoryDeltaApi(config.blobs, config.deltaTracker);
-    // Use History interface for DefaultSerializationApi
-    this.serialization = new DefaultSerializationApi({
-      history: {
-        blobs: this.blobs,
-        trees: this.trees,
-        commits: this.commits,
-        tags: this.tags,
-        refs: this.refs,
-      } as import("../history/history.js").History,
-      blobDeltaApi: this.delta.blobs,
-    });
-  }
-
-  async initialize(): Promise<void> {
-    this.initialized = true;
-  }
-
-  async close(): Promise<void> {
-    this.initialized = false;
-  }
-
-  isInitialized(): boolean {
-    return this.initialized;
-  }
-
-  /**
-   * Get storage operations (delta and serialization APIs)
-   *
-   * Returns a StorageOperations interface without the typed stores.
-   * This is the preferred way to access delta and serialization APIs
-   * going forward, as it separates concerns from the History interface.
-   *
-   * @returns StorageOperations implementation
-   */
-  getOperations(): StorageOperations {
-    return new MemoryStorageOperations(this);
-  }
-}
-
-/**
- * StorageOperations implementation for MemoryStorageBackend
- *
- * Wraps the backend's delta and serialization APIs without exposing stores.
- *
- * @internal Exported for use by MemoryHistoryFactory
- */
-export class MemoryStorageOperations implements StorageOperations {
-  constructor(private readonly backend: MemoryStorageBackend) {}
-
-  get delta(): DeltaApi {
-    return this.backend.delta;
-  }
-
-  get serialization(): SerializationApi {
-    return this.backend.serialization;
-  }
-
-  get capabilities(): BackendCapabilities {
-    return this.backend.capabilities;
-  }
-
-  initialize(): Promise<void> {
-    return this.backend.initialize();
-  }
-
-  close(): Promise<void> {
-    return this.backend.close();
   }
 }
 

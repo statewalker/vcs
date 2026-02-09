@@ -12,7 +12,7 @@
  */
 
 import {
-  GitFilesStorageBackend,
+  GitFilesDeltaApi,
   type GitFilesStorageBackendConfig,
 } from "../backend/git-files-storage-backend.js";
 import type {
@@ -20,7 +20,7 @@ import type {
   MemoryBackendConfig,
 } from "../backend/history-backend-factory.js";
 import { MemoryDeltaApi } from "../backend/memory-storage-backend.js";
-import type { BackendCapabilities, StorageOperations } from "../backend/storage-backend.js";
+import type { BackendCapabilities } from "../backend/storage-backend.js";
 import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
 import { MemoryRawStorage } from "../storage/raw/memory-raw-storage.js";
 import type { RawStorage } from "../storage/raw/raw-storage.js";
@@ -86,39 +86,6 @@ export interface HistoryComponentsConfig {
 }
 
 /**
- * Interface for backend objects providing stores and operations
- *
- * Uses the new unified interfaces (Blobs, Trees, Commits, Tags, Refs).
- * External consumers should use the new factory functions instead:
- * - `createGitFilesHistory()` for Git-files backend
- * - `createMemoryHistoryWithOperations()` for in-memory backend
- *
- * @internal This interface is kept for internal use during the migration period.
- */
-interface BackendWithStores extends StorageOperations {
-  readonly blobs: Blobs;
-  readonly trees: Trees;
-  readonly commits: Commits;
-  readonly tags: Tags;
-  readonly refs: Refs;
-}
-
-/**
- * Configuration for creating History from a storage backend
- *
- * @deprecated Use the new factory pattern instead:
- * - `createHistory(type, config)` for registered backend types
- * - `createGitFilesHistory(config)` for Git-files backend
- * - `createMemoryHistoryWithOperations()` for in-memory backend
- *
- * @internal This interface is kept for internal use during the migration period.
- */
-export interface HistoryBackendConfig {
-  /** Storage backend providing all components */
-  backend: BackendWithStores;
-}
-
-/**
  * Create History from explicit store instances
  *
  * Use this when you have already-constructed store instances and want
@@ -174,55 +141,6 @@ export function createHistoryFromComponents(config: HistoryComponentsConfig): Hi
   }
 
   return new HistoryImpl(blobs, trees, commits, tags, refs);
-}
-
-/**
- * Create History from a storage backend
- *
- * Returns HistoryWithOperations with flattened delta/serialization APIs.
- *
- * @deprecated Use the new factory pattern instead:
- * - `createHistory(type, config)` for registered backend types
- * - `createGitFilesHistory(config)` for Git-files backend
- * - `createMemoryHistoryWithOperations()` for in-memory backend
- *
- * Migration example:
- * ```typescript
- * // Old pattern (deprecated)
- * const backend = await createStorageBackend("git-files", { path: ".git" });
- * const history = createHistoryWithOperations({ backend });
- *
- * // New pattern (recommended)
- * const history = await createHistory("git-files", { path: ".git" });
- * // OR for specific backends:
- * const history = createGitFilesHistory(stores);
- * const history = createMemoryHistoryWithOperations();
- * ```
- *
- * @param config Backend configuration
- * @returns HistoryWithOperations instance
- *
- * @internal This function is kept for internal use during the migration period.
- * External consumers should use the new factory functions.
- */
-export function createHistoryWithOperations(config: HistoryBackendConfig): HistoryWithOperations {
-  const { backend } = config;
-
-  // Use new interfaces directly (no adapters needed)
-  const { blobs, trees, commits, tags, refs } = backend;
-
-  return new HistoryWithOperationsImpl(
-    blobs,
-    trees,
-    commits,
-    tags,
-    refs,
-    backend.delta,
-    backend.serialization,
-    backend.capabilities,
-    () => backend.initialize(),
-    () => backend.close(),
-  );
 }
 
 /**
@@ -375,14 +293,24 @@ export function createMemoryHistoryWithOperations(
  * ```
  */
 export function createGitFilesHistory(config: GitFilesStorageBackendConfig): HistoryWithOperations {
-  const backend = new GitFilesStorageBackend(config);
+  const { blobs, trees, commits, tags, refs, packDeltaStore } = config;
 
-  // Use new interfaces directly from backend (no adapters needed)
-  const { blobs, trees, commits, tags, refs } = backend;
+  // Create delta API directly
+  const delta = new GitFilesDeltaApi(packDeltaStore, blobs);
 
   // Create base History for serialization API
   const history = new HistoryImpl(blobs, trees, commits, tags, refs);
-  const serialization = new DefaultSerializationApi({ history, blobDeltaApi: backend.delta.blobs });
+  const serialization = new DefaultSerializationApi({ history, blobDeltaApi: delta.blobs });
+
+  // Git-files backend capabilities
+  const capabilities: BackendCapabilities = {
+    nativeBlobDeltas: true,
+    randomAccess: true,
+    atomicBatch: true,
+    nativeGitFormat: true,
+  };
+
+  let initialized = false;
 
   return new HistoryWithOperationsImpl(
     blobs,
@@ -390,11 +318,21 @@ export function createGitFilesHistory(config: GitFilesStorageBackendConfig): His
     commits,
     tags,
     refs,
-    backend.delta,
+    delta,
     serialization,
-    backend.capabilities,
-    () => backend.initialize(),
-    () => backend.close(),
+    capabilities,
+    async () => {
+      if (!initialized) {
+        await packDeltaStore.initialize();
+        initialized = true;
+      }
+    },
+    async () => {
+      if (initialized) {
+        await packDeltaStore.close();
+        initialized = false;
+      }
+    },
   );
 }
 
