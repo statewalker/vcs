@@ -105,6 +105,13 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "COMPUTE_UPDATES",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const config = getConfig(ctx);
+      const state = getState(ctx);
+      const output = getOutput(ctx);
+      const refStore = getRefStore(ctx);
+      const repository = getRepository(ctx);
+
       try {
         const pushCommands: PushCommand[] = [];
 
@@ -150,6 +157,10 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         (ctx.state as PushProcessState).pushCommands = pushCommands;
 
         if (pushCommands.length === 0) {
+          // Send flush to tell the server we have no commands.
+          // Without this, the server's READ_COMMANDS handler blocks forever
+          // waiting for pkt-line data that never arrives.
+          await transport.writeFlush();
           return "NO_UPDATES";
         }
 

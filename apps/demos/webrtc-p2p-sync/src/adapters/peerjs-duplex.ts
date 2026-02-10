@@ -53,6 +53,7 @@ export function createPeerJsDuplex(connection: PeerConnection): Duplex {
   const incomingQueue: Uint8Array[] = [];
   let resolveNext: ((value: IteratorResult<Uint8Array>) => void) | null = null;
   let closed = false;
+  let receivedProtocolData = false;
 
   const onData = (data: unknown) => {
     const chunk =
@@ -62,8 +63,12 @@ export function createPeerJsDuplex(connection: PeerConnection): Duplex {
           ? new Uint8Array(data)
           : new Uint8Array(data as ArrayBuffer);
 
-    // Handle close signal from remote end
+    // Handle close signal from remote end.
+    // Only honor close markers after receiving real protocol data.
+    // Close markers that arrive before any data are stale leftovers
+    // from a previous operation on the same shared connection.
     if (isCloseMarker(chunk)) {
+      if (!receivedProtocolData) return;
       closed = true;
       if (resolveNext) {
         resolveNext({ value: undefined as unknown as Uint8Array, done: true });
@@ -72,6 +77,7 @@ export function createPeerJsDuplex(connection: PeerConnection): Duplex {
       return;
     }
 
+    receivedProtocolData = true;
     if (resolveNext) {
       resolveNext({ value: chunk, done: false });
       resolveNext = null;
