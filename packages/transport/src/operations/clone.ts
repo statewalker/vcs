@@ -5,23 +5,22 @@
  * over HTTP/HTTPS.
  */
 
-import type { Credentials, ProgressInfo } from "../api/credentials.js";
+import type { ProgressInfo } from "../api/credentials.js";
+import type { RawFetchResult } from "../api/fetch-result.js";
+import type { BaseHttpOptions } from "../api/options.js";
 import { fetch as httpFetch } from "./fetch.js";
+
+/**
+ * @deprecated Use {@link RawFetchResult} from `api/fetch-result.js` instead.
+ */
+export type CloneResult = RawFetchResult;
 
 /**
  * Options for the clone operation.
  */
-export interface CloneOptions {
-  /** Remote URL to clone from */
-  url: string;
+export interface CloneOptions extends BaseHttpOptions {
   /** Branch to clone (if not specified, uses default branch) */
   branch?: string;
-  /** Authentication credentials */
-  auth?: Credentials;
-  /** Additional HTTP headers */
-  headers?: Record<string, string>;
-  /** Request timeout in milliseconds */
-  timeout?: number;
   /** Shallow clone depth (omit for full clone) */
   depth?: number;
   /** Create a bare repository */
@@ -32,22 +31,6 @@ export interface CloneOptions {
   onProgress?: (info: ProgressInfo) => void;
   /** Progress message callback */
   onProgressMessage?: (message: string) => void;
-}
-
-/**
- * Result of a clone operation.
- */
-export interface CloneResult {
-  /** Map of ref names to object IDs */
-  refs: Map<string, Uint8Array>;
-  /** Pack data received */
-  packData: Uint8Array;
-  /** Default branch name */
-  defaultBranch?: string;
-  /** Total bytes received */
-  bytesReceived: number;
-  /** Whether the remote repository is empty */
-  isEmpty: boolean;
 }
 
 /**

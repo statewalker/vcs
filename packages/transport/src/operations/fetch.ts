@@ -5,24 +5,19 @@
  * over HTTP/HTTPS.
  */
 
-import type { Credentials, ProgressInfo } from "../api/credentials.js";
+import type { ProgressInfo } from "../api/credentials.js";
+import type { RawFetchResult } from "../api/fetch-result.js";
+import type { BaseFetchOptions, BaseHttpOptions } from "../api/options.js";
+
+/**
+ * @deprecated Use {@link RawFetchResult} from `api/fetch-result.js` instead.
+ */
+export type HttpFetchResult = RawFetchResult;
 
 /**
  * Options for the fetch operation.
  */
-export interface FetchOptions {
-  /** Remote URL */
-  url: string;
-  /** Refspecs to fetch */
-  refspecs?: string[];
-  /** Authentication credentials */
-  auth?: Credentials;
-  /** Additional HTTP headers */
-  headers?: Record<string, string>;
-  /** Request timeout in milliseconds */
-  timeout?: number;
-  /** Shallow clone depth */
-  depth?: number;
+export interface FetchOptions extends BaseHttpOptions, BaseFetchOptions {
   /** Progress callback */
   onProgress?: (info: ProgressInfo) => void;
   /** Progress message callback */
@@ -31,22 +26,6 @@ export interface FetchOptions {
   localHas?: (objectId: Uint8Array) => Promise<boolean>;
   /** Get local commit objects for negotiation */
   localCommits?: () => AsyncIterable<Uint8Array>;
-}
-
-/**
- * Result of a HTTP fetch operation.
- */
-export interface HttpFetchResult {
-  /** Map of ref names to object IDs */
-  refs: Map<string, Uint8Array>;
-  /** Pack data received */
-  packData: Uint8Array;
-  /** Default branch name */
-  defaultBranch?: string;
-  /** Total bytes received */
-  bytesReceived: number;
-  /** Whether the remote repository is empty */
-  isEmpty: boolean;
 }
 
 /**

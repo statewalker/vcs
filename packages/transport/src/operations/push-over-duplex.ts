@@ -5,8 +5,18 @@
  * a Git push operation over any bidirectional stream.
  */
 
-import type { Duplex } from "../api/duplex.js";
-import type { RepositoryFacade } from "../api/repository-facade.js";
+import type { BaseDuplexOptions, BasePushOptions } from "../api/options.js";
+import type { PushResult } from "../api/push-result.js";
+import {
+  getOutput,
+  type ProcessContext,
+  setConfig,
+  setOutput,
+  setRefStore,
+  setRepository,
+  setState,
+  setTransport,
+} from "../context/context-adapters.js";
 import { HandlerOutput } from "../context/handler-output.js";
 import type { ProcessConfiguration } from "../context/process-config.js";
 import type { ProcessContext, RefStore } from "../context/process-context.js";
@@ -18,48 +28,14 @@ import {
 } from "../fsm/push/client-push-fsm.js";
 import { Fsm } from "../fsm/fsm.js";
 
-/**
- * Result of a push operation.
- */
-export interface PushResult {
-  /** Whether the push was successful */
-  success: boolean;
-  /** Error message if push failed */
-  error?: string;
-  /** Map of ref names to their push status */
-  refStatus?: Map<string, RefPushStatus>;
-}
-
-/**
- * Status of a single ref push.
- */
-export interface RefPushStatus {
-  /** Whether this ref was successfully pushed */
-  success: boolean;
-  /** Error message if this ref failed */
-  error?: string;
-  /** Old object ID (before push) */
-  oldOid?: string;
-  /** New object ID (after push) */
-  newOid?: string;
-}
+export type { PushResult, RefPushStatus } from "../api/push-result.js";
 
 /**
  * Options for push-over-duplex operation.
  */
-export interface PushOverDuplexOptions {
-  /** Bidirectional stream to use for transport */
-  duplex: Duplex;
-  /** Repository facade for pack export */
-  repository: RepositoryFacade;
+export interface PushOverDuplexOptions extends BaseDuplexOptions, BasePushOptions {
   /** Ref store for reading refs to push */
   refStore: RefStore;
-  /** Refspecs to push (source:destination format) */
-  refspecs?: string[];
-  /** Use atomic push (all-or-nothing) */
-  atomic?: boolean;
-  /** Force push even if not fast-forward */
-  force?: boolean;
   /** Delete refs instead of pushing */
   delete?: boolean;
 }
