@@ -7,7 +7,7 @@
  */
 
 import type { History, SerializationApi } from "@statewalker/vcs-core";
-import { isSymbolicRef, serializeTree } from "@statewalker/vcs-core";
+import { isSymbolicRef, serializeCommit, serializeTag, serializeTree } from "@statewalker/vcs-core";
 import type {
   ExportPackOptions,
   PackImportResult,
@@ -118,7 +118,6 @@ export class VcsRepositoryFacade implements RepositoryFacade {
     // Try commits
     const commit = await this.history.commits.load(oid);
     if (commit) {
-      const { serializeCommit } = await import("@statewalker/vcs-core");
       const content = serializeCommit(commit);
       return content.length;
     }
@@ -134,7 +133,6 @@ export class VcsRepositoryFacade implements RepositoryFacade {
     // Try tags
     const tag = await this.history.tags.load(oid);
     if (tag) {
-      const { serializeTag } = await import("@statewalker/vcs-core");
       const content = serializeTag(tag);
       return content.length;
     }

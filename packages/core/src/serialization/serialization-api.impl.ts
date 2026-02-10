@@ -7,17 +7,21 @@
 
 import { deflate, inflate } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
-import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
+import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 import { PackObjectType, PackWriterStream, parsePackEntries } from "../backend/git/pack/index.js";
 import type { ObjectId } from "../common/id/index.js";
 import type { Blobs } from "../history/blobs/blobs.js";
+import { parseCommit, serializeCommit } from "../history/commits/commit-format.js";
 import type { Commits } from "../history/commits/commits.js";
 import type { History } from "../history/history.js";
 import type { ObjectTypeString } from "../history/objects/object-types.js";
+import { parseTag, serializeTag } from "../history/tags/tag-format.js";
 import type { Tags } from "../history/tags/tags.js";
 import type { TreeEntry } from "../history/trees/tree-entry.js";
+import { parseTreeToArray, serializeTree } from "../history/trees/tree-format.js";
 import type { Trees } from "../history/trees/trees.js";
 import type { BlobDeltaApi } from "../storage/delta/blob-delta-api.js";
+import { serializeDeltaToGit } from "../storage/delta/delta-binary-format.js";
 import type {
   PackBuilder,
   PackBuildStats,
@@ -179,7 +183,6 @@ export class DefaultSerializationApi implements SerializationApi {
         case "blob":
           if (entry.type === "delta" && this.blobDeltaApi) {
             // Preserve blob delta if we have delta API
-            const { serializeDeltaToGit } = await import("../storage/delta/delta-binary-format.js");
             const deltaBytes = serializeDeltaToGit(entry.delta);
             await this.blobDeltaApi.deltifyBlob(
               entry.id,
@@ -293,7 +296,6 @@ export class DefaultSerializationApi implements SerializationApi {
   // ============ Private helpers ============
 
   private async *serializeTree(id: ObjectId): AsyncIterable<Uint8Array> {
-    const { hexToBytes } = await import("@statewalker/vcs-utils/hash/utils");
     const entries: Uint8Array[] = [];
 
     const tree = await this._trees.load(id);
@@ -310,21 +312,18 @@ export class DefaultSerializationApi implements SerializationApi {
   }
 
   private async *serializeCommit(id: ObjectId): AsyncIterable<Uint8Array> {
-    const { serializeCommit } = await import("../history/commits/commit-format.js");
     const commit = await this._commits.load(id);
     if (!commit) throw new Error(`Commit not found: ${id}`);
     yield serializeCommit(commit);
   }
 
   private async *serializeTag(id: ObjectId): AsyncIterable<Uint8Array> {
-    const { serializeTag } = await import("../history/tags/tag-format.js");
     const tag = await this._tags.load(id);
     if (!tag) throw new Error(`Tag not found: ${id}`);
     yield serializeTag(tag);
   }
 
   private async storeTreeFromContent(content: Uint8Array): Promise<ObjectId> {
-    const { parseTreeToArray } = await import("../history/trees/tree-format.js");
     const entries = parseTreeToArray(content);
     return this._trees.store(entries);
   }
@@ -338,7 +337,6 @@ export class DefaultSerializationApi implements SerializationApi {
   }
 
   private async storeCommitFromContent(content: Uint8Array): Promise<ObjectId> {
-    const { parseCommit } = await import("../history/commits/commit-format.js");
     const commit = parseCommit(content);
     return this._commits.store(commit);
   }
@@ -352,7 +350,6 @@ export class DefaultSerializationApi implements SerializationApi {
   }
 
   private async storeTagFromContent(content: Uint8Array): Promise<ObjectId> {
-    const { parseTag } = await import("../history/tags/tag-format.js");
     const tag = parseTag(content);
     return this._tags.store(tag);
   }
@@ -441,7 +438,6 @@ class DefaultPackBuilder implements PackBuilder {
     // For shared-storage objects, use load() which checks the type header.
     // has() can't discriminate types when stores share a GitObjectStore.
     {
-      const { serializeCommit } = await import("../history/commits/commit-format.js");
       const commit = await this._commits.load(id);
       if (commit) {
         return { type: PackObjectType.COMMIT, content: serializeCommit(commit) };
@@ -449,7 +445,6 @@ class DefaultPackBuilder implements PackBuilder {
     }
 
     {
-      const { serializeTree } = await import("../history/trees/tree-format.js");
       const tree = await this._trees.load(id);
       if (tree) {
         const entries: TreeEntry[] = [];
@@ -461,7 +456,6 @@ class DefaultPackBuilder implements PackBuilder {
     }
 
     {
-      const { serializeTag } = await import("../history/tags/tag-format.js");
       const tag = await this._tags.load(id);
       if (tag) {
         return { type: PackObjectType.TAG, content: serializeTag(tag) };

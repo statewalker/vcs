@@ -8,15 +8,13 @@
  *
  * ## Usage
  *
- * Use the factory pattern:
+ * Use the factory function:
  * - `createGitFilesHistory()` - Creates HistoryWithOperations directly
- * - `GitFilesHistoryFactory` - Implements HistoryBackendFactory interface
  */
 
 import type { ObjectId } from "../common/id/object-id.js";
 import type { Blobs } from "../history/blobs/blobs.js";
 import type { Commits } from "../history/commits/commits.js";
-import type { HistoryWithOperations } from "../history/history.js";
 import type { Refs } from "../history/refs/refs.js";
 import type { Tags } from "../history/tags/tags.js";
 import type { Trees } from "../history/trees/trees.js";
@@ -28,8 +26,7 @@ import type {
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
 import { parseBinaryDelta } from "../storage/delta/delta-binary-format.js";
 import type { PackDeltaStore } from "./git/pack/index.js";
-import type { BaseBackendConfig, HistoryBackendFactory } from "./history-backend-factory.js";
-import type { StorageOperations } from "./storage-backend.js";
+import type { BaseBackendConfig } from "./history-backend-factory.js";
 
 /**
  * Configuration for GitFilesStorageBackend
@@ -57,7 +54,7 @@ export interface GitFilesStorageBackendConfig extends BaseBackendConfig {
  *
  * Wraps PackDeltaStore's delta operations with the typed BlobDeltaApi interface.
  *
- * @internal Exported for use by GitFilesHistoryFactory
+ * @internal Exported for use by createGitFilesHistory
  */
 export class GitFilesBlobDeltaApi implements BlobDeltaApi {
   constructor(
@@ -149,7 +146,7 @@ export class GitFilesBlobDeltaApi implements BlobDeltaApi {
  *
  * Provides the unified delta interface backed by Git pack files.
  *
- * @internal Exported for use by GitFilesHistoryFactory
+ * @internal Exported for use by createGitFilesHistory
  */
 export class GitFilesDeltaApi implements DeltaApi {
   readonly blobs: BlobDeltaApi;
@@ -221,69 +218,4 @@ function concatBytes(chunks: Uint8Array[]): Uint8Array {
     offset += chunk.length;
   }
   return result;
-}
-
-/**
- * GitFilesHistoryFactory - Factory for creating Git-files backed HistoryWithOperations
- *
- * Implements the HistoryBackendFactory interface to create HistoryWithOperations
- * instances directly from Git-files storage configuration.
- *
- * @example
- * ```typescript
- * const factory = new GitFilesHistoryFactory();
- * const history = await factory.createHistory({
- *   blobs, trees, commits, tags, refs,
- *   packDeltaStore,
- * });
- * await history.initialize();
- *
- * // Use history for normal operations
- * const commit = await history.commits.load(commitId);
- *
- * // Use delta API for GC
- * history.delta.startBatch();
- * await history.delta.blobs.deltifyBlob(blobId, baseId, delta);
- * await history.delta.endBatch();
- *
- * await history.close();
- * ```
- */
-export class GitFilesHistoryFactory implements HistoryBackendFactory<GitFilesStorageBackendConfig> {
-  /**
-   * Create a full HistoryWithOperations instance
-   *
-   * Returns an uninitialized instance. Call initialize() before use.
-   *
-   * @param config Git-files storage backend configuration with all stores
-   * @returns HistoryWithOperations instance (not yet initialized)
-   */
-  async createHistory(config: GitFilesStorageBackendConfig): Promise<HistoryWithOperations> {
-    // Import dynamically to avoid circular dependency
-    const { createGitFilesHistory } = await import("../history/create-history.js");
-    return createGitFilesHistory(config);
-  }
-
-  /**
-   * Create only storage operations (delta and serialization APIs)
-   *
-   * Use this when you only need delta compression or pack file operations
-   * without the full History interface.
-   *
-   * @param config Git-files storage backend configuration
-   * @returns StorageOperations instance (not yet initialized)
-   */
-  async createOperations(config: GitFilesStorageBackendConfig): Promise<StorageOperations> {
-    // Import dynamically to avoid circular dependency
-    const { createGitFilesHistory } = await import("../history/create-history.js");
-    const history = createGitFilesHistory(config);
-
-    return {
-      delta: history.delta,
-      serialization: history.serialization,
-      capabilities: history.capabilities,
-      initialize: () => history.initialize(),
-      close: () => history.close(),
-    };
-  }
 }
