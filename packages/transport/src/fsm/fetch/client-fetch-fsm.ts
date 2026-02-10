@@ -131,7 +131,11 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
           }
         }
 
-        if (ctx.state.wants.size === 0) {
+        if (state.wants.size === 0) {
+          // Send flush to tell the server we have no wants.
+          // Without this, the server's READ_WANTS handler blocks forever
+          // waiting for pkt-line data that never arrives.
+          await transport.writeFlush();
           return "NO_WANTS";
         }
 
