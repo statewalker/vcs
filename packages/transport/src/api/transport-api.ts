@@ -97,6 +97,26 @@ export interface TransportApi {
    * @param data - Pack data chunks
    */
   writePack(data: AsyncIterable<Uint8Array>): Promise<void>;
+
+  /**
+   * Writes raw pack data (bypasses sideband).
+   * Used by push clients where sideband is server→client only.
+   * @param data - Pack data chunks
+   */
+  writeRawPack(data: AsyncIterable<Uint8Array>): Promise<void>;
+
+  // ─────────────────────────────────────────────────────────────
+  // Connection lifecycle
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Closes the underlying transport connection.
+   * After calling close(), all read/write operations should complete
+   * gracefully or throw an error.
+   *
+   * @returns Promise that resolves when the connection is closed
+   */
+  close?(): Promise<void>;
 }
 
 /**

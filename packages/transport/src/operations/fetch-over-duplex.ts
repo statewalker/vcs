@@ -77,8 +77,13 @@ export async function fetchOverDuplex(
   const state = new ProtocolState();
   const transport = createTransportApi(duplex, state);
 
+  // Resolve localHead ref name to an OID for ancestry walking.
+  // walkAncestors expects an OID, not a ref name.
+  const localHeadRef = options.localHead ?? "refs/heads/main";
+  const localHeadOid = await refStore.get(localHeadRef);
+
   const config: ProcessConfiguration = {
-    localHead: options.localHead ?? "refs/heads/main",
+    localHead: localHeadOid,
     maxHaves: options.maxHaves ?? 256,
     depth: options.depth,
     filter: options.filter,

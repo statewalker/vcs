@@ -293,5 +293,20 @@ export function createTransportApi(duplex: Duplex, state: ProtocolState): Transp
         }
       }
     },
+
+    async writeRawPack(packStream: AsyncIterable<Uint8Array>): Promise<void> {
+      // Write raw pack data bypassing sideband.
+      // Used by push clients where sideband is server→client only.
+      for await (const chunk of packStream) {
+        duplex.write(chunk);
+      }
+    },
+
+    // Connection lifecycle
+    async close(): Promise<void> {
+      if (duplex.close) {
+        await duplex.close();
+      }
+    },
   };
 }

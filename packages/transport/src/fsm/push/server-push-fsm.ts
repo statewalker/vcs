@@ -135,11 +135,10 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
         // Empty repository
         if (refsArray.length === 0) {
-          await ctx.transport.writeLine(`${ZERO_OID} capabilities^{}\0${capabilities.join(" ")}`);
-          await ctx.transport.writeFlush();
-          for (const cap of capabilities) {
-            ctx.state.capabilities.add(cap);
-          }
+          await transport.writeLine(`${ZERO_OID} capabilities^{}\0${capabilities.join(" ")}`);
+          await transport.writeFlush();
+          // Don't pre-add server capabilities to state.capabilities.
+          // READ_COMMANDS will populate it with the client's negotiated caps.
           return "EMPTY_REPO";
         }
 
@@ -149,10 +148,9 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           ctx.state.refs.set(name, oid);
           first = false;
         }
-        await ctx.transport.writeFlush();
-        for (const cap of capabilities) {
-          ctx.state.capabilities.add(cap);
-        }
+        await transport.writeFlush();
+        // Don't pre-add server capabilities to state.capabilities.
+        // READ_COMMANDS will populate it with the client's negotiated caps.
         return "REFS_SENT";
       } catch (e) {
         ctx.output.error = String(e);
