@@ -13,6 +13,7 @@ import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { type FilesApi, readAt } from "../../../common/files/index.js";
 import type { ObjectId } from "../../../common/id/index.js";
 import type { RandomAccessReader } from "./random-access-delta.js";
+import { RandomAccessDeltaReader } from "./random-access-delta-reader.js";
 
 /**
  * Pack-specific delta chain information
@@ -406,8 +407,6 @@ export class PackReader {
    * @returns RandomAccessReader for the object
    */
   async createRandomAccessReader(offset: number): Promise<RandomAccessReader> {
-    // Lazy import to avoid circular dependency
-    const { RandomAccessDeltaReader } = await import("./random-access-delta-reader.js");
     return new RandomAccessDeltaReader(this, offset);
   }
 
