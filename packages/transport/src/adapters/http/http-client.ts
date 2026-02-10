@@ -12,9 +12,11 @@ import type { RepositoryFacade } from "../../api/repository-facade.js";
 import type { RefStore } from "../../context/process-context.js";
 import { ProtocolState } from "../../context/protocol-state.js";
 import type { PushResult, RefPushStatus } from "../../operations/push-over-duplex.js";
+import { parseBufferedAdvertisement } from "../../protocol/advertisement-parser.js";
 import { ZERO_OID } from "../../protocol/constants.js";
 import { createEmptyPack } from "../../protocol/pack-utils.js";
 import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
+import { parseReportStatusLines } from "../../protocol/report-status.js";
 import {
   collectChunks,
   decodeSidebandResponse,
@@ -104,8 +106,9 @@ export async function httpFetch(
     // Parse ref advertisement
     const state = new ProtocolState();
     const infoRefsData = await collectChunks(readableStreamToAsyncIterable(infoRefsResponse.body));
-
-    parseRefAdvertisement(infoRefsData, state);
+    const advert = await parseBufferedAdvertisement(infoRefsData);
+    for (const [ref, oid] of advert.refs) state.refs.set(ref, oid);
+    for (const cap of advert.capabilities) state.capabilities.add(cap);
 
     // Check if there's anything to fetch
     if (state.refs.size === 0) {
@@ -290,24 +293,16 @@ function applyRefspecMapping(remoteRef: string, refSpecs?: string[]): string | u
 }
 
 /**
- * Parses ref advertisement from /info/refs response.
- *
- * Uses proper pkt-line parsing with length prefixes to avoid
- * issues with flush packets concatenated with next line's prefix.
+ * Extract text lines from pkt-line encoded data, stripping length prefixes
+ * and sideband channel bytes.
  */
-function parseRefAdvertisement(data: Uint8Array, state: ProtocolState): void {
+function extractPktLineText(data: Uint8Array): string[] {
+  const lines: string[] = [];
   let offset = 0;
-  let pastServiceLine = false;
 
   while (offset + 4 <= data.length) {
     const lengthHex = textDecoder.decode(data.slice(offset, offset + 4));
-
-    if (lengthHex === "0000") {
-      offset += 4;
-      if (pastServiceLine) break;
-      pastServiceLine = true;
-      continue;
-    }
+    if (lengthHex === "0000") break;
 
     const length = parseInt(lengthHex, 16);
     if (Number.isNaN(length) || length < 4) break;
@@ -317,29 +312,16 @@ function parseRefAdvertisement(data: Uint8Array, state: ProtocolState): void {
     if (payload.endsWith("\n")) payload = payload.slice(0, -1);
     offset += length;
 
-    if (payload.includes("# service=")) continue;
-
-    const nullIndex = payload.indexOf("\0");
-    const refPart = nullIndex >= 0 ? payload.slice(0, nullIndex) : payload;
-    const capsPart = nullIndex >= 0 ? payload.slice(nullIndex + 1) : "";
-
-    if (capsPart) {
-      const caps = capsPart.trim().split(" ");
-      for (const cap of caps) {
-        if (cap) state.capabilities.add(cap);
-      }
+    // Strip sideband channel prefix if present
+    if (payload.length > 0 && (payload[0] === "\x01" || payload[0] === "\x02")) {
+      payload = payload.slice(1);
     }
 
-    const spaceIndex = refPart.indexOf(" ");
-    if (spaceIndex > 0) {
-      const oid = refPart.slice(0, spaceIndex);
-      const refName = refPart.slice(spaceIndex + 1).trim();
-
-      if (!refName.endsWith("^{}") && !refName.startsWith("capabilities")) {
-        state.refs.set(refName, oid);
-      }
-    }
+    const trimmed = payload.trim();
+    if (trimmed) lines.push(trimmed);
   }
+
+  return lines;
 }
 
 /**
@@ -395,7 +377,9 @@ function findPackDataStart(data: Uint8Array): number {
     // Parse ref advertisement
     const state = new ProtocolState();
     const infoRefsData = await collectChunks(readableStreamToAsyncIterable(infoRefsResponse.body));
-    parseReceivePackAdvertisement(infoRefsData, state);
+    const pushAdvert = await parseBufferedAdvertisement(infoRefsData);
+    for (const [ref, oid] of pushAdvert.refs) state.refs.set(ref, oid);
+    for (const cap of pushAdvert.capabilities) state.capabilities.add(cap);
 
     // Phase 2: Parse refspecs and determine what to push
     const refUpdates = await resolveRefspecs(refspecs, refStore, state.refs);
@@ -507,10 +491,31 @@ function findPackDataStart(data: Uint8Array): number {
     // (decodeSidebandResponse puts channel 1 data in packData)
     const statusData = sidebandResult.packData.length > 0 ? sidebandResult.packData : responseData;
 
-    const refStatus = parseReportStatus(statusData, refUpdates);
+    // Extract clean status lines from pkt-line encoded data
+    const statusLines = extractPktLineText(statusData);
+    const reportStatus = parseReportStatusLines(statusLines);
+
+    // Convert to RefPushStatus map
+    const refStatus = new Map<string, RefPushStatus>();
+    for (const update of refUpdates) {
+      refStatus.set(update.refName, { success: true });
+    }
+    if (!reportStatus.unpackOk) {
+      for (const update of refUpdates) {
+        refStatus.set(update.refName, {
+          success: false,
+          error: reportStatus.unpackMessage ?? "unpack failed",
+        });
+      }
+    }
+    for (const ref of reportStatus.refUpdates) {
+      if (!ref.ok) {
+        refStatus.set(ref.refName, { success: false, error: ref.message ?? "rejected" });
+      }
+    }
 
     // Check if all refs succeeded
-    const allSuccess = Array.from(refStatus.values()).every((status) => status.success);
+    const allSuccess = reportStatus.ok;
 
     options.onProgress?.(allSuccess ? "Push complete" : "Push completed with errors");
 
@@ -524,57 +529,6 @@ function findPackDataStart(data: Uint8Array): number {
       success: false,
       error: error instanceof Error ? error.message : String(error),
     };
-  }
-}
-
-/**
- * Parses receive-pack ref advertisement.
- *
- * Uses proper pkt-line parsing with length prefixes.
- */
-function parseReceivePackAdvertisement(data: Uint8Array, state: ProtocolState): void {
-  let offset = 0;
-  let pastServiceLine = false;
-
-  while (offset + 4 <= data.length) {
-    const lengthHex = textDecoder.decode(data.slice(offset, offset + 4));
-
-    if (lengthHex === "0000") {
-      offset += 4;
-      if (pastServiceLine) break;
-      pastServiceLine = true;
-      continue;
-    }
-
-    const length = parseInt(lengthHex, 16);
-    if (Number.isNaN(length) || length < 4) break;
-    if (offset + length > data.length) break;
-
-    let payload = textDecoder.decode(data.slice(offset + 4, offset + length));
-    if (payload.endsWith("\n")) payload = payload.slice(0, -1);
-    offset += length;
-
-    if (payload.includes("# service=")) continue;
-
-    const nullIndex = payload.indexOf("\0");
-    const refPart = nullIndex >= 0 ? payload.slice(0, nullIndex) : payload;
-    const capsPart = nullIndex >= 0 ? payload.slice(nullIndex + 1) : "";
-
-    if (capsPart) {
-      const caps = capsPart.trim().split(" ");
-      for (const cap of caps) {
-        if (cap) state.capabilities.add(cap);
-      }
-    }
-
-    const spaceIndex = refPart.indexOf(" ");
-    if (spaceIndex > 0) {
-      const oid = refPart.slice(0, spaceIndex);
-      const refName = refPart.slice(spaceIndex + 1).trim();
-      if (!refName.endsWith("^{}") && !refName.startsWith("capabilities")) {
-        state.refs.set(refName, oid);
-      }
-    }
   }
 }
 
@@ -636,62 +590,4 @@ async function resolveRefspecs(
   }
 
   return updates;
-}
-
-/**
- * Parses report-status from receive-pack response.
- */
-function parseReportStatus(data: Uint8Array, refUpdates: RefUpdate[]): Map<string, RefPushStatus> {
-  const status = new Map<string, RefPushStatus>();
-  const text = textDecoder.decode(data);
-
-  // Initialize all refs as successful (optimistic)
-  for (const update of refUpdates) {
-    status.set(update.refName, { success: true });
-  }
-
-  // Look for "unpack" status and "ng" (not good) lines
-  const lines = text.split("\n");
-
-  for (const line of lines) {
-    let content = line;
-
-    // Remove sideband prefix if present
-    if (content.length > 0 && (content[0] === "\x01" || content[0] === "\x02")) {
-      content = content.slice(1);
-    }
-
-    // Remove pkt-line length prefix if present
-    if (/^[0-9a-f]{4}/.test(content)) {
-      content = content.slice(4);
-    }
-
-    content = content.trim();
-
-    // Check for unpack failure
-    if (content.startsWith("unpack ") && !content.includes("unpack ok")) {
-      // Unpack failed - mark all refs as failed
-      for (const update of refUpdates) {
-        status.set(update.refName, {
-          success: false,
-          error: content,
-        });
-      }
-      continue;
-    }
-
-    // Check for individual ref failures: "ng <ref> <reason>"
-    if (content.startsWith("ng ")) {
-      const parts = content.slice(3).split(" ");
-      const refName = parts[0];
-      const reason = parts.slice(1).join(" ");
-
-      status.set(refName, {
-        success: false,
-        error: reason || "Unknown error",
-      });
-    }
-  }
-
-  return status;
 }

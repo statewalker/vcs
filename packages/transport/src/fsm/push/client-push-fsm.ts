@@ -18,6 +18,10 @@ import {
   getTransport,
   type ProcessContext,
 } from "../../context/context-adapters.js";
+import {
+  applyAdvertisementToState,
+  parseAdvertisement,
+} from "../../protocol/advertisement-parser.js";
 import { createEmptyPack } from "../../protocol/pack-utils.js";
 import { parseRefSpec } from "../../utils/refspec.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
@@ -86,52 +90,10 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
     "READ_ADVERTISEMENT",
     async (ctx) => {
       try {
-        while (true) {
-          const pkt = await ctx.transport.readPktLine();
-          if (pkt.type === "flush") break;
-          if (pkt.type === "eof") {
-            ctx.output.error = "Unexpected end of stream";
-            return "ERROR";
-          }
-          if (pkt.type === "delim") {
-            continue; // Unexpected delimiter in v1 advertisement
-          }
+        const result = await parseAdvertisement(() => transport.readPktLine());
+        applyAdvertisementToState(result, state);
 
-          const line = pkt.text;
-          const spaceIdx = line.indexOf(" ");
-          if (spaceIdx === -1) continue;
-
-          const oid = line.slice(0, spaceIdx);
-          const refAndCaps = line.slice(spaceIdx + 1);
-
-          // Empty repository
-          if (refAndCaps?.startsWith("capabilities^{}")) {
-            const nullIdx = refAndCaps.indexOf("\0");
-            if (nullIdx !== -1) {
-              const caps = refAndCaps.slice(nullIdx + 1).trim();
-              caps.split(" ").forEach((c) => {
-                const trimmed = c.trim();
-                if (trimmed) ctx.state.capabilities.add(trimmed);
-              });
-            }
-            continue;
-          }
-
-          if (refAndCaps?.includes("\0")) {
-            const nullIdx = refAndCaps.indexOf("\0");
-            const ref = refAndCaps.slice(0, nullIdx);
-            const caps = refAndCaps.slice(nullIdx + 1).trim();
-            ctx.state.refs.set(ref, oid);
-            caps.split(" ").forEach((c) => {
-              const trimmed = c.trim();
-              if (trimmed) ctx.state.capabilities.add(trimmed);
-            });
-          } else if (refAndCaps) {
-            ctx.state.refs.set(refAndCaps.trim(), oid);
-          }
-        }
-
-        return ctx.state.refs.size === 0 ? "EMPTY_REPO" : "REFS_RECEIVED";
+        return result.isEmpty ? "EMPTY_REPO" : "REFS_RECEIVED";
       } catch (e) {
         ctx.output.error = String(e);
         return "ERROR";
