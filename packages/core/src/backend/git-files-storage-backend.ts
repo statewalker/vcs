@@ -26,6 +26,7 @@ import type {
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
+import { parseBinaryDelta } from "../storage/delta/delta-binary-format.js";
 import type { PackDeltaStore } from "./git/pack/index.js";
 import type { BaseBackendConfig, HistoryBackendFactory } from "./history-backend-factory.js";
 import type { StorageOperations } from "./storage-backend.js";
@@ -94,7 +95,6 @@ export class GitFilesBlobDeltaApi implements BlobDeltaApi {
     const update = this.packDeltaStore.startUpdate();
 
     // Store target as delta
-    const { parseBinaryDelta } = await import("../storage/delta/delta-binary-format.js");
     const deltaBytes = concatBytes(chunks);
     const deltaInstructions = parseBinaryDelta(deltaBytes);
 

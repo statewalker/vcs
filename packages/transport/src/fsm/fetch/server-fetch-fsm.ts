@@ -10,7 +10,16 @@
  * 6. Send pack
  */
 
-import type { ProcessContext } from "../../context/process-context.js";
+import {
+  getConfig,
+  getOutput,
+  getRefStore,
+  getRepository,
+  getState,
+  getTransport,
+  type ProcessContext,
+} from "../../context/context-adapters.js";
+import { ZERO_OID } from "../../protocol/constants.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 
 /**
@@ -154,11 +163,9 @@ export const serverFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
 
         // Empty repository: send special capabilities^{} line
         if (refsArray.length === 0) {
-          await ctx.transport.writeLine(
-            `${"0".repeat(40)} capabilities^{}\0${capabilities.join(" ")}`,
-          );
-          await ctx.transport.writeFlush();
-          ctx.state.capabilities = new Set(capabilities);
+          await transport.writeLine(`${ZERO_OID} capabilities^{}\0${capabilities.join(" ")}`);
+          await transport.writeFlush();
+          state.capabilities = new Set(capabilities);
           return "EMPTY_REPO";
         }
 

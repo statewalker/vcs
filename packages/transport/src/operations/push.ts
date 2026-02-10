@@ -6,6 +6,8 @@
  */
 
 import type { Credentials } from "../api/credentials.js";
+import { ZERO_OID } from "../protocol/constants.js";
+import { createEmptyPack } from "../protocol/pack-utils.js";
 
 /**
  * An object to push to the remote.
@@ -177,7 +179,7 @@ export async function push(options: PushOptions): Promise<PushResult> {
       }
 
       // Get remote ref value (if exists)
-      const remoteOid = remoteRefs.get(destRef) || "0".repeat(40);
+      const remoteOid = remoteRefs.get(destRef) || ZERO_OID;
 
       refUpdates.push({
         refName: destRef,
@@ -205,10 +207,10 @@ export async function push(options: PushOptions): Promise<PushResult> {
     const oldOids: string[] = [];
 
     for (const update of refUpdates) {
-      if (update.newOid !== "0".repeat(40)) {
+      if (update.newOid !== ZERO_OID) {
         newOids.push(update.newOid);
       }
-      if (update.oldOid !== "0".repeat(40)) {
+      if (update.oldOid !== ZERO_OID) {
         oldOids.push(update.oldOid);
       }
 
@@ -496,29 +498,4 @@ function encodePackObject(obj: PushObject): Uint8Array {
   result.set(obj.content, header.length);
 
   return result;
-}
-
-/**
- * Create an empty pack file.
- */
-function createEmptyPack(): Uint8Array {
-  const textEncoder = new TextEncoder();
-  const pack = new Uint8Array(32);
-
-  // Pack header: "PACK" + version (2) + count (0)
-  pack.set(textEncoder.encode("PACK"), 0);
-  pack[4] = 0;
-  pack[5] = 0;
-  pack[6] = 0;
-  pack[7] = 2;
-  pack[8] = 0;
-  pack[9] = 0;
-  pack[10] = 0;
-  pack[11] = 0;
-
-  // Checksum (placeholder)
-  const checksum = new Uint8Array(20);
-  pack.set(checksum, 12);
-
-  return pack;
 }
