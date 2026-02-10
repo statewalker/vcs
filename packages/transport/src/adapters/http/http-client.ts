@@ -11,7 +11,15 @@ import type { FetchResult } from "../../api/fetch-result.js";
 import type { RepositoryFacade } from "../../api/repository-facade.js";
 import type { RefStore } from "../../context/process-context.js";
 import { ProtocolState } from "../../context/protocol-state.js";
-import { collectChunks, readableStreamToAsyncIterable } from "./http-duplex.js";
+import type { PushResult, RefPushStatus } from "../../operations/push-over-duplex.js";
+import { ZERO_OID } from "../../protocol/constants.js";
+import { createEmptyPack } from "../../protocol/pack-utils.js";
+import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
+import {
+  collectChunks,
+  decodeSidebandResponse,
+  readableStreamToAsyncIterable,
+} from "./http-duplex.js";
 
 /**
  * Options for HTTP fetch operation.
@@ -413,7 +421,7 @@ function findPackDataStart(data: Uint8Array): number {
 
     for (const update of refUpdates) {
       // Collect OIDs we need to send
-      if (update.newOid !== "0".repeat(40)) {
+      if (update.newOid !== ZERO_OID) {
         wantedOids.add(update.newOid);
       }
 
@@ -588,7 +596,6 @@ async function resolveRefspecs(
   remoteRefs: Map<string, string>,
 ): Promise<RefUpdate[]> {
   const updates: RefUpdate[] = [];
-  const zeroOid = "0".repeat(40);
 
   for (const refspec of refspecs) {
     let localRef: string;
@@ -608,8 +615,8 @@ async function resolveRefspecs(
     if (localRef === "") {
       updates.push({
         refName: remoteRef,
-        oldOid: remoteRefs.get(remoteRef) ?? zeroOid,
-        newOid: zeroOid,
+        oldOid: remoteRefs.get(remoteRef) ?? ZERO_OID,
+        newOid: ZERO_OID,
       });
       continue;
     }
@@ -623,7 +630,7 @@ async function resolveRefspecs(
 
     updates.push({
       refName: remoteRef,
-      oldOid: remoteRefs.get(remoteRef) ?? zeroOid,
+      oldOid: remoteRefs.get(remoteRef) ?? ZERO_OID,
       newOid: localOid,
     });
   }

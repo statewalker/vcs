@@ -15,6 +15,9 @@ import { ProtocolState } from "../../context/protocol-state.js";
 import { createTransportApi } from "../../factories/transport-api-factory.js";
 import { serverFetchHandlers, serverFetchTransitions } from "../../fsm/fetch/server-fetch-fsm.js";
 import { Fsm } from "../../fsm/fsm.js";
+import { serverPushHandlers, serverPushTransitions } from "../../fsm/push/server-push-fsm.js";
+import { ZERO_OID } from "../../protocol/constants.js";
+import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import { createSimpleDuplex, readableStreamToAsyncIterable } from "./http-duplex.js";
 
 /**
@@ -114,9 +117,8 @@ export async function handleInfoRefs(
     }
   } else {
     // Empty repo - send capabilities with zero OID
-    const zeroOid = "0".repeat(40);
     const capsStr = capabilities.join(" ");
-    chunks.push(encodePacketLine(`${zeroOid} capabilities^{}\0${capsStr}\n`));
+    chunks.push(encodePacketLine(`${ZERO_OID} capabilities^{}\0${capsStr}\n`));
   }
 
   chunks.push(encodeFlush());
@@ -297,9 +299,8 @@ export async function handleReceivePackInfoRefs(
     }
   } else {
     // Empty repo - send capabilities with zero OID
-    const zeroOid = "0".repeat(40);
     const capsStr = capabilities.join(" ");
-    chunks.push(encodePacketLine(`${zeroOid} capabilities^{}\0${capsStr}\n`));
+    chunks.push(encodePacketLine(`${ZERO_OID} capabilities^{}\0${capsStr}\n`));
   }
 
   chunks.push(encodeFlush());
