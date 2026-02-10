@@ -254,9 +254,10 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
             .map((cmd) => cmd.oldOid),
         );
 
-        // Export and send pack
-        const packStream = ctx.repository.exportPack(wants, haves);
-        await ctx.transport.writePack(packStream);
+        // Export and send raw pack data.
+        // In Git push protocol, sideband is server→client only.
+        const packStream = repository.exportPack(wants, haves);
+        await transport.writeRawPack(packStream);
 
         if (!ctx.state.capabilities.has("report-status")) {
           return "NO_REPORT_STATUS";
