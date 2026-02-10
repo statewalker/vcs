@@ -5,7 +5,7 @@
  * over HTTP/HTTPS.
  */
 
-import type { Credentials } from "../api/credentials.js";
+import type { BaseHttpOptions, BasePushOptions } from "../api/options.js";
 import { ZERO_OID } from "../protocol/constants.js";
 import { createEmptyPack } from "../protocol/pack-utils.js";
 
@@ -24,21 +24,9 @@ export interface PushObject {
 /**
  * Options for the push operation.
  */
-export interface PushOptions {
-  /** Remote URL */
-  url: string;
-  /** Refspecs to push (e.g., "refs/heads/main:refs/heads/main") */
+export interface PushOptions extends BaseHttpOptions, BasePushOptions {
+  /** Refspecs to push (e.g., "refs/heads/main:refs/heads/main") — required for HTTP push */
   refspecs: string[];
-  /** Authentication credentials */
-  auth?: Credentials;
-  /** Additional HTTP headers */
-  headers?: Record<string, string>;
-  /** Request timeout in milliseconds */
-  timeout?: number;
-  /** Force push (allow non-fast-forward) */
-  force?: boolean;
-  /** Atomic push (all-or-nothing) */
-  atomic?: boolean;
   /** Progress message callback */
   onProgressMessage?: (message: string) => void;
   /** Get the object ID for a local ref */
@@ -58,9 +46,9 @@ export interface RefUpdateResult {
 }
 
 /**
- * Result of a push operation.
+ * Result of a push operation over HTTP.
  */
-export interface PushResult {
+export interface HttpPushResult {
   /** Whether the overall push succeeded */
   ok: boolean;
   /** Status of pack unpack on server (if failed) */
@@ -96,7 +84,7 @@ export interface PushResult {
  * }
  * ```
  */
-export async function push(options: PushOptions): Promise<PushResult> {
+export async function push(options: PushOptions): Promise<HttpPushResult> {
   // Normalize URL
   const baseUrl = options.url.endsWith("/") ? options.url.slice(0, -1) : options.url;
 

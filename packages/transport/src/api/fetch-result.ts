@@ -3,7 +3,7 @@
  */
 
 /**
- * Result of a fetch operation.
+ * Result of a high-level fetch operation (duplex or HTTP).
  */
 export interface FetchResult {
   /** Whether the fetch completed successfully */
@@ -26,4 +26,23 @@ export interface ServeResult {
   error?: string;
   /** Number of objects sent */
   objectsSent?: number;
+}
+
+/**
+ * Raw fetch/clone result with pack data and binary OIDs.
+ *
+ * Shared interface for HTTP fetch and clone operations that return
+ * low-level protocol data before it's imported into a repository.
+ */
+export interface RawFetchResult {
+  /** Map of ref names to object IDs */
+  refs: Map<string, Uint8Array>;
+  /** Pack data received */
+  packData: Uint8Array;
+  /** Default branch name */
+  defaultBranch?: string;
+  /** Total bytes received */
+  bytesReceived: number;
+  /** Whether the remote repository is empty */
+  isEmpty: boolean;
 }

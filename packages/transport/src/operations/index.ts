@@ -15,8 +15,14 @@ export type {
   P2PSyncResult,
   SyncDirection,
 } from "./p2p-sync.js";
-
-export { pushOverDuplex } from "./push-over-duplex.js";
+export { p2pSync } from "./p2p-sync.js";
+export type {
+  HttpPushResult,
+  PushObject,
+  PushOptions,
+  RefUpdateResult,
+} from "./push.js";
+export { push } from "./push.js";
 export type {
   PushOverDuplexOptions,
   PushResult,

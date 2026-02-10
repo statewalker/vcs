@@ -5,9 +5,18 @@
  * a Git fetch operation over any bidirectional stream.
  */
 
-import type { Duplex } from "../api/duplex.js";
 import type { FetchResult } from "../api/fetch-result.js";
-import type { RepositoryFacade } from "../api/repository-facade.js";
+import type { BaseDuplexOptions, BaseFetchOptions } from "../api/options.js";
+import {
+  getOutput,
+  type ProcessContext,
+  setConfig,
+  setOutput,
+  setRefStore,
+  setRepository,
+  setState,
+  setTransport,
+} from "../context/context-adapters.js";
 import { HandlerOutput } from "../context/handler-output.js";
 import type { ProcessConfiguration } from "../context/process-config.js";
 import type { ProcessContext, RefStore } from "../context/process-context.js";
@@ -22,17 +31,9 @@ import { Fsm } from "../fsm/fsm.js";
 /**
  * Options for fetch-over-duplex operation.
  */
-export interface FetchOverDuplexOptions {
-  /** Bidirectional stream to use for transport */
-  duplex: Duplex;
-  /** Repository facade for pack import */
-  repository: RepositoryFacade;
+export interface FetchOverDuplexOptions extends BaseDuplexOptions, BaseFetchOptions {
   /** Ref store for reading/writing refs */
   refStore: RefStore;
-  /** Refspecs to fetch (if not all refs) */
-  refspecs?: string[];
-  /** Shallow clone depth */
-  depth?: number;
   /** Filter spec for partial clone (e.g., "blob:none") */
   filter?: string;
   /** Local HEAD ref for negotiation */
