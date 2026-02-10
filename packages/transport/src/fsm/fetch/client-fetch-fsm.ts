@@ -10,7 +10,19 @@
  * 6. Update local refs
  */
 
-import type { ProcessContext } from "../../context/process-context.js";
+import {
+  getConfig,
+  getOutput,
+  getRefStore,
+  getRepository,
+  getState,
+  getTransport,
+  type ProcessContext,
+} from "../../context/context-adapters.js";
+import {
+  applyAdvertisementToState,
+  parseAdvertisement,
+} from "../../protocol/advertisement-parser.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 
 /**
@@ -92,48 +104,10 @@ export const clientFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
     "READ_ADVERTISEMENT",
     async (ctx) => {
       try {
-        while (true) {
-          const pkt = await ctx.transport.readPktLine();
-          if (pkt.type === "flush") break;
-          if (pkt.type === "eof") {
-            ctx.output.error = "Unexpected end of stream";
-            return "ERROR";
-          }
-          if (pkt.type === "delim") {
-            continue; // Unexpected delimiter in v1 advertisement
-          }
+        const result = await parseAdvertisement(() => transport.readPktLine());
+        applyAdvertisementToState(result, state);
 
-          // Type narrowing: pkt.type === "data" guaranteed here
-          const line = pkt.text;
-          // Split on FIRST space only — split(" ", 2) truncates results
-          const spaceIdx = line.indexOf(" ");
-          const oid = spaceIdx >= 0 ? line.slice(0, spaceIdx) : line;
-          const refAndCaps = spaceIdx >= 0 ? line.slice(spaceIdx + 1) : undefined;
-
-          // Check for empty repository (special capabilities^{} line)
-          if (refAndCaps?.startsWith("capabilities^{}")) {
-            const [, caps] = refAndCaps.split("\0");
-            if (caps) {
-              for (const c of caps.split(" ")) {
-                ctx.state.capabilities.add(c);
-              }
-            }
-            continue; // Don't store this as a real ref
-          }
-
-          if (refAndCaps?.includes("\0")) {
-            const [ref, caps] = refAndCaps.split("\0");
-            ctx.state.refs.set(ref, oid);
-            for (const c of caps.split(" ")) {
-              ctx.state.capabilities.add(c);
-            }
-          } else if (refAndCaps) {
-            ctx.state.refs.set(refAndCaps, oid);
-          }
-        }
-
-        // Empty repository check
-        if (ctx.state.refs.size === 0) {
+        if (result.isEmpty) {
           return "EMPTY_REPO";
         }
 
