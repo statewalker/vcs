@@ -1,12 +1,15 @@
 # @statewalker/vcs-transport-adapters
 
-Storage adapters that bridge VCS store interfaces to Git protocol handlers.
+Storage adapters that bridge VCS store interfaces to Git transport protocol interfaces.
 
 ## Overview
 
-This package provides adapters that convert VCS storage interfaces (commits, trees, blobs, refs) to the `RepositoryAccess` interface used by Git protocol handlers. It enables Git HTTP servers to work with any storage backend that implements the VCS store interfaces.
+This package provides adapters that convert VCS storage interfaces to the `RepositoryFacade` and `RepositoryAccess` interfaces used by Git protocol operations. It enables transport operations (fetch, push, clone, P2P sync) to work with any storage backend that implements the VCS store interfaces.
 
-The adapters handle the translation between structured VCS objects and Git's wire format. When fetching, they serialize commits, trees, and blobs to the format expected by Git clients. When receiving pushes, they parse incoming pack data and store objects in the appropriate stores.
+Two adapter types serve different use cases:
+
+- **`createVcsRepositoryFacade()`** — Creates a `RepositoryFacade` for pack-level operations. Use this with `fetchOverDuplex`, `pushOverDuplex`, `serveOverDuplex`, and HTTP operations.
+- **`createVcsRepositoryAccess()`** — Creates a `RepositoryAccess` for object-level server operations. Use this for HTTP server request routing and ref management.
 
 ## Installation
 
@@ -14,126 +17,104 @@ The adapters handle the translation between structured VCS objects and Git's wir
 pnpm add @statewalker/vcs-transport-adapters
 ```
 
-## Public API
+## Usage
 
-### Main Export
+### RepositoryFacade (Recommended for Transport Operations)
+
+Use `createVcsRepositoryFacade` when performing fetch, push, clone, or P2P sync:
 
 ```typescript
-import {
-  // VCS Store adapters (high-level stores)
-  createVcsRepositoryAccess,
-  VcsRepositoryAccess,
-  type VcsRepositoryAccessParams,
-  // GitObjectStore adapters
-  createCoreRepositoryAccess,
-  GitNativeRepositoryAccess,
-  type CoreRepositoryAccessOptions,
-  // Object graph walking
-  createObjectGraphWalker,
-  // Wire format utilities
-  createGitWireFormat,
-  parseGitWireFormat,
-  // Legacy adapter
-  createStorageAdapter,
-  type MinimalStorage,
-} from "@statewalker/vcs-transport-adapters";
+import { fetch, clone, push } from "@statewalker/vcs-transport";
+import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
+
+const facade = createVcsRepositoryFacade({ history });
+
+// Clone
+const result = await clone({
+  url: "https://github.com/user/repo.git",
+  repository: facade,
+});
+
+// Fetch
+await fetch({
+  url: "https://github.com/user/repo.git",
+  repository: facade,
+  refSpecs: ["+refs/heads/*:refs/remotes/origin/*"],
+});
+
+// Push
+await push({
+  url: "https://github.com/user/repo.git",
+  repository: facade,
+  refSpecs: ["refs/heads/main:refs/heads/main"],
+});
 ```
 
-### Key Functions and Classes
+### RepositoryAccess (For Server-Side Operations)
 
-| Export | Purpose |
-|--------|---------|
-| `createVcsRepositoryAccess` | Adapt VCS stores (BlobStore, TreeStore, etc.) to RepositoryAccess |
-| `VcsRepositoryAccess` | Class implementing RepositoryAccess with VCS stores |
-| `createCoreRepositoryAccess` | Adapt GitObjectStore + RefStore to RepositoryAccess |
-| `GitNativeRepositoryAccess` | Direct passthrough to GitObjectStore (object-only, no refs) |
-| `createObjectGraphWalker` | Walk object graph for pack generation |
-| `createStorageAdapter` | Legacy adapter for MinimalStorage |
-
-## Usage Examples
-
-### Using VCS Stores (Recommended)
-
-For backends that use high-level VCS stores (BlobStore, TreeStore, CommitStore, TagStore, RefStore):
+Use `createVcsRepositoryAccess` when building Git HTTP servers or when you need direct object/ref access:
 
 ```typescript
 import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 
-const repositoryAccess = createVcsRepositoryAccess({
+const access = createVcsRepositoryAccess({
   blobs: myBlobStore,
   trees: myTreeStore,
   commits: myCommitStore,
   tags: myTagStore,
   refs: myRefStore,
 });
+
+// List refs
+for await (const ref of access.listRefs()) {
+  console.log(ref.name, ref.oid);
+}
+
+// Check object existence
+const exists = await access.hasObject(objectId);
 ```
 
-### Using GitObjectStore + RefStore
+### Git-Native Object Store
 
-For backends that use GitObjectStore (stores objects in Git wire format):
-
-```typescript
-import { createCoreRepositoryAccess } from "@statewalker/vcs-transport-adapters";
-
-const repositoryAccess = createCoreRepositoryAccess({
-  objectStore: myGitObjectStore,
-  refStore: myRefStore,
-});
-```
-
-### Git-Native Storage (Object-Only)
-
-For object-only operations without refs:
+For backends that store objects in Git wire format (no serialization needed):
 
 ```typescript
 import { GitNativeRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 
-const objectAccess = new GitNativeRepositoryAccess(gitObjectStore);
+const access = new GitNativeRepositoryAccess(gitObjectStore);
 ```
 
-## Architecture
+## Public API
 
-### Design Decisions
+| Export | Description |
+|--------|-------------|
+| `createVcsRepositoryFacade()` | Create RepositoryFacade from History/HistoryWithOperations |
+| `VcsRepositoryFacade` | Class implementing RepositoryFacade |
+| `VcsRepositoryFacadeConfig` | Configuration interface |
+| `createVcsRepositoryAccess()` | Create RepositoryAccess from individual stores |
+| `VcsRepositoryAccess` | Class implementing RepositoryAccess |
+| `VcsRepositoryAccessConfig` | Configuration interface |
+| `createGitNativeRepositoryAccess()` | Create RepositoryAccess from GitObjectStore |
+| `GitNativeRepositoryAccess` | Direct passthrough to GitObjectStore |
+| `ObjectGraphWalker` | Walk object graph for pack generation |
 
-The adapter layer separates storage implementation from protocol handling. Storage backends only need to implement the VCS store interfaces (`CommitStore`, `TreeStore`, `BlobStore`, `RefStore`). The adapters handle all Git-specific formatting.
+## When to Use Which
 
-Two main adapter strategies exist:
-- **VcsRepositoryAccess** for storage using high-level VCS stores
-- **createCoreRepositoryAccess** for storage using GitObjectStore
-
-### RepositoryAccess Interface
-
-The `RepositoryAccess` interface provides protocol handlers with:
-
-```typescript
-interface RepositoryAccess {
-  // Object access
-  hasObject(id: ObjectId): Promise<boolean>;
-  getObjectInfo(id: ObjectId): Promise<ObjectInfo | null>;
-  loadObject(id: ObjectId): AsyncIterable<Uint8Array>;
-  storeObject(type: ObjectTypeCode, content: Uint8Array): Promise<ObjectId>;
-
-  // Ref access
-  listRefs(): AsyncIterable<RefInfo>;
-  getHead(): Promise<HeadInfo | null>;
-  updateRef(name: string, oldId: string | null, newId: string | null): Promise<boolean>;
-
-  // Object walking
-  walkObjects(wants: string[], haves: string[]): AsyncIterable<ObjectInfo>;
-}
-```
+| Scenario | Use |
+|----------|-----|
+| HTTP fetch/push/clone | `createVcsRepositoryFacade()` |
+| Duplex fetch/push/serve | `createVcsRepositoryFacade()` |
+| P2P sync | `createVcsRepositoryFacade()` |
+| Git HTTP server | `createVcsRepositoryAccess()` |
+| Custom server with ref management | `createVcsRepositoryAccess()` |
+| Git-format object store (no VCS stores) | `GitNativeRepositoryAccess` |
 
 ## Dependencies
 
 **Runtime:**
-- `@statewalker/vcs-core` - VCS store interfaces and types
-- `@statewalker/vcs-transport` - Protocol handler types
-- `@statewalker/vcs-utils` - Hashing and serialization utilities
-
-**Development:**
-- `vitest` - Testing
-- `rolldown` - Bundling
-- `typescript` - Type definitions
+- `@statewalker/vcs-core` — VCS store interfaces and types
+- `@statewalker/vcs-transport` — Transport API interfaces
+- `@statewalker/vcs-utils` — Hashing and serialization utilities
 
 ## License
 
