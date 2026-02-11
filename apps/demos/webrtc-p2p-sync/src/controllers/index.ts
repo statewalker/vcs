@@ -98,6 +98,11 @@ async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
   // 1. Create in-memory History (blobs, trees, commits, tags, refs)
   const history = createMemoryHistory();
   await history.initialize();
+
+  // Set HEAD as symbolic ref in history.refs so CommitCommand updates refs/heads/main.
+  // MemoryCheckout.initialHead only sets checkout-local state, not history.refs.
+  await history.refs.setSymbolic("HEAD", "refs/heads/main");
+
   setHistory(ctx, history);
 
   // 2. Create in-memory Staging

@@ -292,9 +292,9 @@ describe("Performance Integration", () => {
         await history.refs.set(`refs/heads/branch-${String(i).padStart(3, "0")}`, commitId);
       }
 
-      // List all refs
+      // List branch refs (exclude HEAD which is auto-created by initialize)
       const refs: string[] = [];
-      for await (const ref of history.refs.list()) {
+      for await (const ref of history.refs.list("refs/")) {
         refs.push(ref.name);
       }
 

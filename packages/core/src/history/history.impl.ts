@@ -45,9 +45,16 @@ export class HistoryImpl implements History {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    // Initialize refs (creates HEAD, etc.)
+    // Initialize refs (creates directory structure, etc.)
     if (this.refs.initialize) {
       await this.refs.initialize();
+    }
+
+    // Set up default HEAD → refs/heads/main if HEAD doesn't exist yet.
+    // For new repos this creates the standard symbolic ref;
+    // for existing repos HEAD is already present and this is a no-op.
+    if (!(await this.refs.has("HEAD"))) {
+      await this.refs.setSymbolic("HEAD", "refs/heads/main");
     }
 
     this.initialized = true;

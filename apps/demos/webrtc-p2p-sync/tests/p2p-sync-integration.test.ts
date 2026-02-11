@@ -637,12 +637,8 @@ describe("P2P Sync Integration", () => {
       if (!sessionId) throw new Error("Session ID not set");
 
       // ========================================
-      // Client 2: Initialize empty repository, then join session
+      // Client 2: Join session (without initializing own repo - matches real demo flow)
       // ========================================
-      const repoModel2 = getRepositoryModel(ctx2);
-      enqueueInitRepoAction(actionsModel2);
-      await waitModel(repoModel2, (m) => m.getState().initialized);
-
       enqueueJoinAction(actionsModel2, { sessionId });
       await waitModel(sessionModel2, (m) => m.getState().mode === "joined");
 
@@ -711,23 +707,20 @@ describe("P2P Sync Integration", () => {
   );
 
   it(
-    "should sync bidirectionally when both clients have different commits",
+    "should sync refs from host to joiner without prior initialization",
     { timeout: 30000 },
     async () => {
       const actionsModel1 = getUserActionsModel(ctx1);
       const actionsModel2 = getUserActionsModel(ctx2);
       const repoModel1 = getRepositoryModel(ctx1);
-      const repoModel2 = getRepositoryModel(ctx2);
       const sessionModel1 = getSessionModel(ctx1);
       const peersModel1 = getPeersModel(ctx1);
       const peersModel2 = getPeersModel(ctx2);
       const syncModel2 = getSyncModel(ctx2);
 
-      // Initialize both repositories
+      // Initialize Client 1's repository (Client 2 joins without init - matches demo flow)
       enqueueInitRepoAction(actionsModel1);
-      enqueueInitRepoAction(actionsModel2);
       await waitModel(repoModel1, (m) => m.getState().initialized);
-      await waitModel(repoModel2, (m) => m.getState().initialized);
 
       // Client 1: Create 3 files
       for (let i = 1; i <= 3; i++) {
@@ -833,11 +826,8 @@ describe("P2P Sync Integration", () => {
       if (!sessionId) throw new Error("Session ID not set");
 
       // ========================================
-      // Client 2: Initialize and join
+      // Client 2: Join (without initializing own repo - matches real demo flow)
       // ========================================
-      enqueueInitRepoAction(actionsModel2);
-      await waitModel(repoModel2, (m) => m.getState().initialized);
-
       enqueueJoinAction(actionsModel2, { sessionId });
       await waitModel(peersModel2, (m) => m.getAll()[0]?.status === "connected", 10000);
       await waitModel(peersModel1, (m) => m.getAll()[0]?.status === "connected", 10000);
@@ -860,6 +850,14 @@ describe("P2P Sync Integration", () => {
 
       // Wait for sync model to reset before next sync
       await waitModel(syncModel2, (m) => m.getState().phase === "idle", 5000);
+
+      // Wait for checkout and refresh to complete after sync
+      await flushPromises(20);
+      await waitModel(
+        repoModel2,
+        (m) => m.getState().commitCount === repoModel1.getState().commitCount,
+        5000,
+      );
 
       // ========================================
       // Client 2: Create new files (2 additional commits)

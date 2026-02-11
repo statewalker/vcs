@@ -67,17 +67,19 @@ export function createSyncController(ctx: AppContext): () => void {
   // Track active sync sessions
   const activeSessions = new Map<string, GitPeerSession>();
 
-  // Set up Git servers when peers connect (only if we're the HOST)
+  // Set up Git servers for ALL connected peers.
+  // Both host and guest need servers: the host serves guests' sync requests,
+  // and the guest must also serve when the host initiates sync.
   register(
     peersModel.onUpdate(() => {
       const history = getHistory(ctx);
       const serialization = getSerializationApi(ctx);
       if (!history || !serialization) return;
 
-      // Check all peers and set up servers for incoming connections (where we're the host)
+      // Set up servers for all connected peers
       for (const [peerId, conn] of connections) {
         const peer = peersModel.get(peerId);
-        if (peer && !peer.isHost) {
+        if (peer) {
           setupGitServerForPeer(peerId, conn);
         }
       }
@@ -194,7 +196,7 @@ export function createSyncController(ctx: AppContext): () => void {
 
       activeSessions.set(peerId, session);
 
-      // Save local main ref before fetch (fetchOverDuplex may overwrite it)
+      // Save local main ref before fetch (fetchOverDuplex overwrites all server-advertised refs)
       const localMainBefore = (await history.refs.resolve("refs/heads/main"))?.objectId ?? null;
 
       // Perform fetch
@@ -213,25 +215,34 @@ export function createSyncController(ctx: AppContext): () => void {
         `Fetched ${fetchResult.objectsReceived} objects, ${fetchResult.refs.size} refs updated`,
       );
 
-      // Remap server refs to remote tracking refs (refspec: +refs/heads/*:refs/remotes/peer/*)
+      // fetchOverDuplex writes ALL server-advertised refs to local refStore,
+      // which may overwrite HEAD (from symbolic to direct) and refs/heads/main.
+      // Restore HEAD as symbolic ref so future commits update refs/heads/main.
+      await history.refs.setSymbolic("HEAD", "refs/heads/main");
+
+      // Remap server refs to remote tracking refs (refs/remotes/peer/*)
+      let remotePeerMain: string | null = null;
       for (const [refName, objectId] of fetchResult.refs) {
         if (refName.startsWith("refs/heads/")) {
           const remoteName = refName.replace("refs/heads/", "refs/remotes/peer/");
           await history.refs.set(remoteName, objectId);
           logModel.info(`Updated ref ${remoteName} -> ${objectId.slice(0, 7)}`);
 
-          // Update local main from remote peer's main (for demo simplicity)
-          // Compare against pre-fetch value since fetchOverDuplex may have already overwritten refs/heads/main
           if (remoteName === "refs/remotes/peer/main") {
-            if (!localMainBefore) {
-              await history.refs.set("refs/heads/main", objectId);
-              logModel.info(`Set local main -> ${objectId.slice(0, 7)}`);
-            } else if (localMainBefore !== objectId) {
-              await history.refs.set("refs/heads/main", objectId);
-              logModel.info(`Updated local main -> ${objectId.slice(0, 7)}`);
-            }
+            remotePeerMain = objectId;
           }
         }
+      }
+
+      // Restore local refs/heads/main:
+      // - If we had local commits, keep them (so push sends them to the peer)
+      // - If this is the first sync (no local main), accept the remote value
+      if (localMainBefore) {
+        await history.refs.set("refs/heads/main", localMainBefore);
+        logModel.info(`Restored local main -> ${localMainBefore.slice(0, 7)}`);
+      } else if (remotePeerMain) {
+        await history.refs.set("refs/heads/main", remotePeerMain);
+        logModel.info(`Set local main -> ${remotePeerMain.slice(0, 7)}`);
       }
 
       // Update sync progress
