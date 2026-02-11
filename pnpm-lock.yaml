@@ -648,6 +648,9 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@statewalker/vcs-utils':
+        specifier: workspace:*
+        version: link:../../../packages/utils
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

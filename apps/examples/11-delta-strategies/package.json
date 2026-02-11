@@ -8,7 +8,8 @@
     "start": "tsx src/main.ts"
   },
   "dependencies": {
-    "@statewalker/vcs-core": "workspace:*"
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

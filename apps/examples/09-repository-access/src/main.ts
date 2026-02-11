@@ -146,46 +146,17 @@ console.log("\n=== Step 4: Serve Over Duplex (MessagePort) ===\n");
 // In a real application, you would use MessagePort, WebSocket, or WebRTC.
 // This demonstrates the pattern using Node's MessageChannel.
 const { MessageChannel } = await import("node:worker_threads");
-const { serveOverDuplex, fetchOverDuplex } = await import("@statewalker/vcs-transport");
+const { serveOverDuplex, fetchOverDuplex, createMessagePortDuplex } = await import(
+  "@statewalker/vcs-transport"
+);
 
 const channel = new MessageChannel();
 
-// Create duplex adapters from MessagePorts
-function createMessagePortDuplex(port: import("node:worker_threads").MessagePort) {
-  const readable = new ReadableStream<Uint8Array>({
-    start(controller) {
-      port.on("message", (data: Uint8Array) => {
-        if (data.length === 2 && data[0] === 0x00 && data[1] === 0xff) {
-          controller.close();
-          return;
-        }
-        controller.enqueue(data);
-      });
-      port.on("close", () => {
-        try {
-          controller.close();
-        } catch {
-          // already closed
-        }
-      });
-    },
-  });
-
-  const writable = new WritableStream<Uint8Array>({
-    write(chunk) {
-      port.postMessage(chunk);
-    },
-    close() {
-      // Send close marker
-      port.postMessage(new Uint8Array([0x00, 0xff]));
-    },
-  });
-
-  return { readable, writable };
-}
-
-const serverDuplex = createMessagePortDuplex(channel.port1);
-const clientDuplex = createMessagePortDuplex(channel.port2);
+// Wrap MessagePorts into transport-compatible Duplex objects
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const serverDuplex = createMessagePortDuplex(channel.port1 as any);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const clientDuplex = createMessagePortDuplex(channel.port2 as any);
 
 // Create a client-side history to receive the data
 const clientHistory = createMemoryHistoryWithOperations();
@@ -216,7 +187,7 @@ const [serveResult, fetchResult] = await Promise.all([
 ]);
 
 console.log(`  Server result: success=${serveResult.success}`);
-console.log(`  Client result: refs fetched=${fetchResult.refs.size}`);
+console.log(`  Client result: refs updated=${fetchResult.updatedRefs?.size ?? 0}`);
 
 // Verify the client got the data
 const clientMainRef = await clientHistory.refs.resolve("refs/heads/main");

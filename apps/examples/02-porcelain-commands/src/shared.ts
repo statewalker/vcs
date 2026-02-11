@@ -31,6 +31,7 @@ export async function getGit(): Promise<{
     // Create the History (object store)
     sharedHistory = createMemoryHistory();
     await sharedHistory.initialize();
+    await sharedHistory.refs.setSymbolic("HEAD", "refs/heads/main");
 
     // Create the Staging area
     const staging = createSimpleStaging();

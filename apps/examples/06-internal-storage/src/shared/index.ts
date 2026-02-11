@@ -176,10 +176,8 @@ export async function createFileHistory(options: {
   await history.initialize();
 
   // Return extended History with objects access
-  return {
-    ...history,
-    objects,
-  };
+  // Use Object.assign to preserve prototype methods (close, initialize)
+  return Object.assign(history, { objects }) as FileHistory;
 }
 
 // ============================================================================
