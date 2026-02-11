@@ -8,7 +8,12 @@
 import { deflate, inflate } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
-import { PackObjectType, PackWriterStream, parsePackEntries } from "../backend/git/pack/index.js";
+import {
+  PackObjectType,
+  PackWriterStream,
+  parsePackEntries,
+  parsePackEntriesFromStream,
+} from "../backend/git/pack/index.js";
 import type { ObjectId } from "../common/id/index.js";
 import type { Blobs } from "../history/blobs/blobs.js";
 import { parseCommit, serializeCommit } from "../history/commits/commit-format.js";
@@ -163,22 +168,14 @@ export class DefaultSerializationApi implements SerializationApi {
    * Import objects from a pack file
    */
   async importPack(pack: AsyncIterable<Uint8Array>): Promise<PackImportResult> {
-    // Collect pack data
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of pack) {
-      chunks.push(chunk);
-    }
-    const packData = concatBytes(chunks);
-
-    // Parse pack entries
-    const result = await parsePackEntries(packData);
-
+    let objectsImported = 0;
     let blobsWithDelta = 0;
     let treesImported = 0;
     let commitsImported = 0;
     let tagsImported = 0;
 
-    for (const entry of result.entries) {
+    // Stream entries one at a time — no full-pack accumulation
+    for await (const entry of parsePackEntriesFromStream(pack)) {
       switch (entry.objectType) {
         case "blob":
           if (entry.type === "delta" && this.blobDeltaApi) {
@@ -214,10 +211,11 @@ export class DefaultSerializationApi implements SerializationApi {
           tagsImported++;
           break;
       }
+      objectsImported++;
     }
 
     return {
-      objectsImported: result.entries.length,
+      objectsImported,
       blobsWithDelta,
       treesImported,
       commitsImported,
