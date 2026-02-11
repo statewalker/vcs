@@ -9,7 +9,7 @@
  * compressed data ends and the next begins.
  */
 
-import { decompressBlockPartial } from "@statewalker/vcs-utils";
+import { BufferedByteReader } from "@statewalker/vcs-utils/streams";
 
 /** Pack file signature "PACK" (0x5041434B) */
 const PACK_SIGNATURE = 0x5041434b;
@@ -25,107 +25,6 @@ const OFS_DELTA = 6;
 
 /** REF_DELTA object type */
 const REF_DELTA = 7;
-
-/**
- * Buffered reader over an async iterator of byte chunks.
- *
- * Provides exact-byte-count reads on top of a chunk-based stream.
- * Buffers only what's needed for the current read — does not accumulate
- * the entire stream.
- */
-class BufferedByteReader {
-  private buffer: Uint8Array = new Uint8Array(0);
-  private iterator: AsyncIterator<Uint8Array>;
-  private done = false;
-
-  constructor(iterator: AsyncIterator<Uint8Array>) {
-    this.iterator = iterator;
-  }
-
-  /** Pre-fill the buffer with leftover data (e.g., from a pkt-line reader drain). */
-  seed(data: Uint8Array): void {
-    if (data.length === 0) return;
-    this.buffer = data;
-  }
-
-  /** Ensure at least `n` bytes are in the buffer by reading from the iterator. */
-  private async ensureBytes(n: number): Promise<void> {
-    while (this.buffer.length < n && !this.done) {
-      const { value, done } = await this.iterator.next();
-      if (done) {
-        this.done = true;
-        break;
-      }
-      const merged = new Uint8Array(this.buffer.length + value.length);
-      merged.set(this.buffer);
-      merged.set(value, this.buffer.length);
-      this.buffer = merged;
-    }
-  }
-
-  /** Read exactly `n` bytes. Throws if stream ends prematurely. */
-  async readExact(n: number): Promise<Uint8Array> {
-    await this.ensureBytes(n);
-    if (this.buffer.length < n) {
-      throw new Error(
-        `Unexpected end of pack stream: wanted ${n} bytes, have ${this.buffer.length}`,
-      );
-    }
-    const result = this.buffer.slice(0, n);
-    this.buffer = this.buffer.subarray(n);
-    return result;
-  }
-
-  /** Returns any unread buffered bytes. */
-  getLeftover(): Uint8Array {
-    return this.buffer;
-  }
-
-  /**
-   * Read one pack object's compressed data.
-   *
-   * Accumulates bytes until `decompressBlockPartial` succeeds, which tells us
-   * exactly how many compressed bytes were consumed. Returns those bytes.
-   *
-   * @param expectedSize - Decompressed size from the object header (for validation)
-   */
-  async readCompressedObject(expectedSize: number): Promise<Uint8Array> {
-    // We need enough data for decompressBlockPartial to succeed.
-    // Start with what we have, grow if needed.
-    const MIN_CHUNK = 64;
-
-    // Ensure we have at least some data to try
-    if (this.buffer.length === 0) {
-      await this.ensureBytes(MIN_CHUNK);
-    }
-
-    while (true) {
-      if (this.buffer.length === 0 && this.done) {
-        throw new Error("Unexpected end of pack stream during compressed object");
-      }
-
-      try {
-        const result = await decompressBlockPartial(this.buffer);
-
-        if (result.data.length !== expectedSize) {
-          throw new Error(
-            `Decompression size mismatch: expected ${expectedSize}, got ${result.data.length}`,
-          );
-        }
-
-        const compressed = this.buffer.slice(0, result.bytesRead);
-        this.buffer = this.buffer.subarray(result.bytesRead);
-        return compressed;
-      } catch {
-        // Not enough data — read more from the stream
-        if (this.done) {
-          throw new Error("Incomplete compressed data in pack stream");
-        }
-        await this.ensureBytes(this.buffer.length + MIN_CHUNK);
-      }
-    }
-  }
-}
 
 /**
  * Read exactly one pack from a byte stream.
