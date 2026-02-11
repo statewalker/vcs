@@ -15,9 +15,7 @@ import {
   parsePacket,
 } from "../protocol/pkt-line-codec.js";
 import { encodeSidebandPacket, SIDEBAND_DATA } from "../protocol/sideband.js";
-import type { Duplex } from "../api/duplex.js";
-import type { PktLineResult, SidebandResult, TransportApi } from "../api/transport-api.js";
-import type { ProtocolState } from "../context/protocol-state.js";
+import { readPackFromStream } from "../utils/pack-stream-reader.js";
 
 const _textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -105,6 +103,43 @@ class PktLineReader {
     const buf = this.buffer;
     this.buffer = new Uint8Array(0);
     return buf;
+  }
+
+  /**
+   * Creates a raw byte stream using this reader's own buffer and iterator.
+   * Avoids creating a second duplex iterator that could compete for data.
+   *
+   * Returns a restore function to put leftover bytes back into the buffer
+   * after the raw stream consumer finishes.
+   */
+  createRawStream(): {
+    stream: AsyncIterable<Uint8Array>;
+    restore: (leftover: Uint8Array) => void;
+  } {
+    const drained = this.drainBuffer();
+    const iter = this.iterator;
+
+    async function* raw(): AsyncGenerator<Uint8Array> {
+      if (drained.length > 0) yield drained;
+      while (true) {
+        const { value, done } = await iter.next();
+        if (done) break;
+        yield value;
+      }
+    }
+
+    return {
+      stream: raw(),
+      restore: (leftover: Uint8Array) => {
+        if (leftover.length > 0) {
+          // Prepend leftover before any existing buffer content
+          const merged = new Uint8Array(leftover.length + this.buffer.length);
+          merged.set(leftover);
+          merged.set(this.buffer, leftover.length);
+          this.buffer = merged;
+        }
+      },
+    };
   }
 
   /**
@@ -265,18 +300,18 @@ export function createTransportApi(duplex: Duplex, state: ProtocolState): Transp
       }
     },
 
-    // Raw pack streaming (bypasses sideband, always reads raw bytes)
+    // Raw pack streaming (bypasses sideband, always reads raw bytes).
+    // Parses the pack header and object boundaries to read exactly one
+    // complete pack, then stops — preventing deadlock when the duplex
+    // is shared with subsequent protocol exchanges (e.g., push report-status).
     async *readRawPack(): AsyncGenerator<Uint8Array> {
-      const remaining = reader.drainBuffer();
-      if (remaining.length > 0) {
-        yield remaining;
-      }
-      const iter = duplex[Symbol.asyncIterator]();
-      while (true) {
-        const { value, done } = await iter.next();
-        if (done) break;
-        yield value;
-      }
+      // Use the reader's own buffer and iterator to avoid creating a
+      // competing duplex iterator that could consume report-status data.
+      const { stream, restore } = reader.createRawStream();
+      const leftover: Uint8Array = yield* readPackFromStream(stream);
+      // Put any unconsumed bytes back so the PktLineReader can use them
+      // for subsequent reads (e.g., report-status after pack).
+      restore(leftover);
     },
 
     async writePack(packStream: AsyncIterable<Uint8Array>): Promise<void> {
