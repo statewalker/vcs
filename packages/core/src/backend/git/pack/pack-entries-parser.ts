@@ -18,9 +18,14 @@ import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import {
   computeObjectId,
   type GitObjectType,
+  MemoryPackObjectCache,
+  type PackObjectCache,
   packTypeToString,
   parsePackHeader,
+  readOfsVarintAsync,
+  readPackObjectVarintAsync,
 } from "@statewalker/vcs-utils/pack";
+import { BufferedByteReader } from "@statewalker/vcs-utils/streams";
 import { PackObjectType } from "./types.js";
 import { readOfsVarint, readPackHeader as readPackHeaderVarint } from "./varint.js";
 
@@ -233,6 +238,188 @@ export async function* parsePackEntriesStream(packData: Uint8Array): AsyncGenera
   for (const entry of result.entries) {
     yield entry;
   }
+}
+
+/**
+ * Parse pack entries from an async stream.
+ *
+ * Unlike `parsePackEntries` which requires the full pack in memory,
+ * this reads from an async iterable using `BufferedByteReader`.
+ * Resolved objects are stored in a `PackObjectCache` which can be
+ * backed by disk storage for large packs.
+ *
+ * Yields entries one at a time in dependency order.
+ *
+ * @param stream Async iterable of pack data chunks
+ * @param cache Optional PackObjectCache (defaults to MemoryPackObjectCache)
+ * @yields Parsed pack entries
+ */
+export async function* parsePackEntriesFromStream(
+  stream: AsyncIterable<Uint8Array>,
+  cache?: PackObjectCache,
+): AsyncGenerator<PackEntry> {
+  const ownedCache = !cache;
+  if (!cache) {
+    cache = new MemoryPackObjectCache();
+  }
+
+  try {
+    const reader = new BufferedByteReader(stream[Symbol.asyncIterator]());
+    let position = 0;
+
+    // 1. Read 12-byte pack header
+    const headerData = await reader.readExact(12);
+    position += 12;
+    const { objectCount } = parsePackHeader(headerData);
+
+    // Lightweight metadata: offset → object ID, and ID → type string
+    const offsetToId = new Map<number, string>();
+    const idToType = new Map<string, string>();
+
+    // 2. Process each object
+    for (let i = 0; i < objectCount; i++) {
+      const entryStart = position;
+
+      // Position-tracking byte reader for varint functions
+      const readByte = async (): Promise<number> => {
+        const b = await reader.readExact(1);
+        position += 1;
+        return b[0];
+      };
+
+      // Read object header (type + uncompressed size)
+      const { type, size } = await readPackObjectVarintAsync(readByte);
+
+      // Read delta base reference if applicable
+      let ofsBaseOffset: number | undefined;
+      let refBaseId: string | undefined;
+
+      if (type === PackObjectType.OFS_DELTA) {
+        const ofsValue = await readOfsVarintAsync(readByte);
+        ofsBaseOffset = entryStart - ofsValue;
+      } else if (type === PackObjectType.REF_DELTA) {
+        const baseIdBytes = await reader.readExact(OBJECT_ID_LENGTH);
+        position += OBJECT_ID_LENGTH;
+        refBaseId = bytesToHex(baseIdBytes);
+      }
+
+      // Read compressed data and decompress
+      // readCompressedObject returns the compressed bytes (for position tracking)
+      // then we decompress again to get the content
+      const compressedData = await reader.readCompressedObject(size);
+      position += compressedData.length;
+      const { data: decompressed } = await decompressBlockPartial(compressedData);
+
+      // Process by object type
+      switch (type) {
+        case PackObjectType.COMMIT:
+        case PackObjectType.TREE:
+        case PackObjectType.BLOB:
+        case PackObjectType.TAG: {
+          const objectType = packTypeToString(type);
+          const id = await computeObjectId(objectType, decompressed);
+
+          await cache.save(id, objectType, singleChunk(decompressed));
+          offsetToId.set(entryStart, id);
+          idToType.set(id, objectType);
+
+          yield { type: "base", id, objectType, content: decompressed };
+          break;
+        }
+
+        case PackObjectType.OFS_DELTA: {
+          if (ofsBaseOffset === undefined) {
+            throw new Error(`OFS_DELTA at position ${entryStart} missing base offset`);
+          }
+
+          const baseId = offsetToId.get(ofsBaseOffset);
+          if (!baseId) {
+            throw new Error(
+              `OFS_DELTA at position ${entryStart}: base at ${ofsBaseOffset} not found`,
+            );
+          }
+
+          const baseType = idToType.get(baseId);
+          if (!baseType) {
+            throw new Error(
+              `OFS_DELTA at position ${entryStart}: type for base ${baseId} not found`,
+            );
+          }
+          const baseContent = await collectBytes(cache.read(baseId));
+          const content = applyGitDelta(baseContent, decompressed);
+          const objectType = baseType as GitObjectType;
+          const id = await computeObjectId(objectType, content);
+          const delta = deserializeDeltaFromGit(decompressed);
+
+          await cache.save(id, objectType, singleChunk(content));
+          offsetToId.set(entryStart, id);
+          idToType.set(id, objectType);
+
+          yield { type: "delta", id, baseId, objectType, delta, content };
+          break;
+        }
+
+        case PackObjectType.REF_DELTA: {
+          if (!refBaseId) {
+            throw new Error(`REF_DELTA at position ${entryStart} missing base ID`);
+          }
+
+          const baseType = idToType.get(refBaseId);
+          if (!baseType) {
+            throw new Error(`REF_DELTA at position ${entryStart}: base ${refBaseId} not found`);
+          }
+
+          const baseContent = await collectBytes(cache.read(refBaseId));
+          const content = applyGitDelta(baseContent, decompressed);
+          const objectType = baseType as GitObjectType;
+          const id = await computeObjectId(objectType, content);
+          const delta = deserializeDeltaFromGit(decompressed);
+
+          await cache.save(id, objectType, singleChunk(content));
+          offsetToId.set(entryStart, id);
+          idToType.set(id, objectType);
+
+          yield { type: "delta", id, baseId: refBaseId, objectType, delta, content };
+          break;
+        }
+
+        default:
+          throw new Error(`Unknown object type ${type} at position ${entryStart}`);
+      }
+    }
+
+    // 3. Read 20-byte pack checksum
+    await reader.readExact(OBJECT_ID_LENGTH);
+  } finally {
+    if (ownedCache && cache) {
+      await cache.dispose();
+    }
+  }
+}
+
+/** Wrap a Uint8Array as a single-chunk async iterable */
+function singleChunk(data: Uint8Array): AsyncIterable<Uint8Array> {
+  return (async function* () {
+    yield data;
+  })();
+}
+
+/** Collect an async iterable of chunks into a single Uint8Array */
+async function collectBytes(stream: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+    total += chunk.length;
+  }
+  if (chunks.length === 1) return chunks[0];
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    result.set(c, offset);
+    offset += c.length;
+  }
+  return result;
 }
 
 /**

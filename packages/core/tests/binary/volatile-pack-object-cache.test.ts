@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
 import { VolatilePackObjectCache } from "../../src/storage/binary/volatile-pack-object-cache.js";
+import { MemoryVolatileStore } from "../../src/storage/binary/volatile-store.memory.js";
 
 function toAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
   return (async function* () {
