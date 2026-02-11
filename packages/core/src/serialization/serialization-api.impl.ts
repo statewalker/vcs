@@ -10,9 +10,9 @@ import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
 import {
   PackObjectType,
-  PackWriterStream,
   parsePackEntries,
   parsePackEntriesFromStream,
+  StreamingPackWriter,
 } from "../backend/git/pack/index.js";
 import type { ObjectId } from "../common/id/index.js";
 import type { Blobs } from "../history/blobs/blobs.js";
@@ -369,7 +369,7 @@ class DefaultPackBuilder implements PackBuilder {
   private readonly _trees: Trees;
   private readonly _commits: Commits;
   private readonly _tags: Tags;
-  private readonly writer: PackWriterStream;
+  private readonly pendingObjects: { id: string; type: PackObjectType; content: Uint8Array }[] = [];
   private readonly options: PackOptions;
   private stats: PackBuildStats = {
     totalObjects: 0,
@@ -384,7 +384,6 @@ class DefaultPackBuilder implements PackBuilder {
     this._trees = trees;
     this._commits = commits;
     this._tags = tags;
-    this.writer = new PackWriterStream();
     this.options = options ?? {};
   }
 
@@ -394,7 +393,7 @@ class DefaultPackBuilder implements PackBuilder {
     }
 
     const { type, content } = await this.loadObject(id);
-    await this.writer.addObject(id, type, content);
+    this.pendingObjects.push({ id, type, content });
 
     this.stats.totalObjects++;
     this.stats.totalSize += content.length;
@@ -413,8 +412,11 @@ class DefaultPackBuilder implements PackBuilder {
     }
     this.finalized = true;
 
-    const result = await this.writer.finalize();
-    yield result.packData;
+    const writer = new StreamingPackWriter(this.pendingObjects.length);
+    for (const obj of this.pendingObjects) {
+      yield* writer.addObject(obj.id, obj.type, obj.content);
+    }
+    yield* writer.finalize();
   }
 
   getStats(): PackBuildStats {
