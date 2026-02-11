@@ -8,7 +8,7 @@ This package enables **completely serverless** peer-to-peer Git repository synch
 
 1. **Eliminating server dependencies** - Peers connect directly using WebRTC data channels
 2. **QR code signaling** - Connection data is compact enough for QR codes (~200-500 bytes)
-3. **Git protocol integration** - Adapts WebRTC channels to the standard `TransportConnection` interface
+3. **Git protocol integration** - Adapts WebRTC channels to the `MessagePortLike` interface for transport
 4. **Browser-first design** - Works in modern browsers with no additional dependencies
 
 ### Use Cases
@@ -34,9 +34,9 @@ pnpm add @statewalker/vcs-port-webrtc
 import {
   PeerManager,
   createDataChannelPort,
-  waitForConnection
+  waitForConnection,
 } from "@statewalker/vcs-port-webrtc";
-import { createPortTransportConnection } from "@statewalker/vcs-transport";
+import { createPortStream } from "@statewalker/vcs-utils";
 
 // === PEER A (Initiator) ===
 const peerA = new PeerManager("initiator");
@@ -67,11 +67,15 @@ receiveFromPeerA((msg) => {
 // === Both peers: wait for connection ===
 const channel = await waitForConnection(peerA); // or peerB
 
-// Create port and transport for Git protocol
+// Create port and stream for binary communication
 const port = createDataChannelPort(channel);
-const transport = createPortTransportConnection(port);
+const stream = createPortStream(port);
 
-// Now use transport.send() and transport.receive() for Git operations
+// Send/receive binary data with ACK-based backpressure
+await stream.send(generateData());
+for await (const chunk of stream.receive()) {
+  // Handle incoming data
+}
 ```
 
 ### QR Code Signaling (Serverless)
@@ -217,11 +221,11 @@ RTCDataChannel                    MessagePortLike
            - Backpressure (bufferedAmount)
 ```
 
-Use with `createPortTransportConnection` from `@statewalker/vcs-transport`:
+Use with `createPortStream` from `@statewalker/vcs-utils` for ACK-based backpressure:
 
 ```typescript
 const port = createDataChannelPort(channel);
-const transport = createPortTransportConnection(port);
+const stream = createPortStream(port);
 ```
 
 ## API Reference
