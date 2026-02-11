@@ -1,4 +1,5 @@
 export * from "./async-iterable.js";
+export * from "./buffered-byte-reader.js";
 export * from "./collect.js";
 export * from "./concat.js";
 export * from "./encoding.js";
