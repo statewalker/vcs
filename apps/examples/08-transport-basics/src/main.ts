@@ -10,14 +10,7 @@
  * with remote Git servers like GitHub.
  */
 
-import {
-  type CloneResult,
-  checkRemote,
-  clone,
-  fetch,
-  fetchRefs,
-  lsRemote,
-} from "@statewalker/vcs-transport";
+import { type CloneResult, clone, fetch, lsRemote } from "@statewalker/vcs-transport";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 
 // Use a small public repository for demonstration
@@ -80,53 +73,56 @@ async function demonstrateLsRemote(): Promise<void> {
 
 /**
  * Demonstrate checking if a remote is accessible.
+ *
+ * Uses lsRemote() wrapped in try/catch — a successful lsRemote
+ * implies the remote exists and is accessible.
  */
 async function demonstrateCheckRemote(): Promise<void> {
-  console.log("=== checkRemote: Verify Repository Access ===\n");
+  console.log("=== Verify Remote Access ===\n");
 
   // Check the public repository
   console.log(`Checking: ${REPO_URL}`);
-  const publicResult = await checkRemote(REPO_URL);
-  console.log(`  Exists: ${publicResult.exists}`);
-  console.log(`  Empty: ${publicResult.isEmpty}`);
-  console.log(`  Default branch: ${publicResult.defaultBranch || "unknown"}`);
+  try {
+    const refs = await lsRemote(REPO_URL);
+    console.log(`  Accessible: true`);
+    console.log(`  Refs found: ${refs.size}`);
+    console.log(`  Empty: ${refs.size === 0}`);
+  } catch (error) {
+    console.log(`  Accessible: false`);
+    console.log(`  Error: ${error instanceof Error ? error.message : error}`);
+  }
   console.log();
 
   // Check a non-existent repository
   const nonExistentUrl = "https://github.com/nonexistent-user-12345/nonexistent-repo.git";
   console.log(`Checking: ${nonExistentUrl}`);
-  const notFoundResult = await checkRemote(nonExistentUrl);
-  console.log(`  Exists: ${notFoundResult.exists}`);
-  console.log(`  Error: ${notFoundResult.error || "none"}`);
+  try {
+    await lsRemote(nonExistentUrl);
+    console.log(`  Accessible: true`);
+  } catch (error) {
+    console.log(`  Accessible: false`);
+    console.log(`  Error: ${error instanceof Error ? error.message : error}`);
+  }
   console.log();
 }
 
 /**
- * Demonstrate fetch refs operation.
+ * Demonstrate listing remote refs in detail.
  *
- * fetchRefs gets the full ref advertisement including
- * capabilities and symbolic refs.
+ * lsRemote returns a Map of ref names to hex OIDs, giving
+ * a snapshot of all branches, tags, and special refs.
  */
-async function demonstrateFetchRefs(): Promise<void> {
-  console.log("=== fetchRefs: Get Full Ref Advertisement ===\n");
+async function demonstrateRefListing(): Promise<void> {
+  console.log("=== Detailed Ref Listing ===\n");
 
-  const advertisement = await fetchRefs(REPO_URL);
+  const refs = await lsRemote(REPO_URL);
 
-  console.log(`Capabilities: ${[...advertisement.capabilities].join(", ")}`);
-  console.log(`Agent: ${advertisement.agent || "unknown"}`);
-  console.log();
+  console.log(`Repository: ${REPO_URL}`);
+  console.log(`Total refs: ${refs.size}\n`);
 
-  if (advertisement.symrefs.size > 0) {
-    console.log("Symbolic refs:");
-    for (const [name, target] of advertisement.symrefs) {
-      console.log(`  ${name} -> ${target}`);
-    }
-    console.log();
-  }
-
-  console.log(`Refs (${advertisement.refs.size}):`);
-  for (const [name, id] of advertisement.refs) {
-    console.log(`  ${name.padEnd(40)} ${bytesToHex(id).slice(0, 8)}`);
+  // Show all refs with full names
+  for (const [name, id] of refs) {
+    console.log(`  ${name.padEnd(40)} ${id.slice(0, 8)}`);
   }
   console.log();
 }
@@ -265,8 +261,8 @@ async function main(): Promise<void> {
   // 2. List remote refs
   if (await runStep("ls-remote", demonstrateLsRemote)) successCount++;
 
-  // 3. Get full ref advertisement
-  if (await runStep("fetchRefs", demonstrateFetchRefs)) successCount++;
+  // 3. Detailed ref listing
+  if (await runStep("refListing", demonstrateRefListing)) successCount++;
 
   // 4. Clone the repository
   if (

@@ -133,7 +133,7 @@ let startTime = performance.now();
 const blobIds: string[] = [];
 for (let i = 0; i < FILE_COUNT; i++) {
   const content = generateContent(SAMPLE_CODE, i);
-  const blobId = await repo.blobs.store([encoder.encode(content)]);
+  const blobId = await history.blobs.store([encoder.encode(content)]);
   blobIds.push(blobId);
 }
 results.push({
@@ -149,7 +149,7 @@ const treeEntries = blobIds.map((id, i) => ({
   name: `file-${i.toString().padStart(3, "0")}.ts`,
   id,
 }));
-const firstTreeId = await repo.trees.storeTree(treeEntries);
+const firstTreeId = await history.trees.store(treeEntries);
 results.push({
   name: "Create tree",
   timeMs: performance.now() - startTime,
@@ -158,8 +158,8 @@ results.push({
 
 // 3. Create initial commit
 startTime = performance.now();
-const firstCommitId = await createCommit(repo, firstTreeId, [], "Initial commit");
-await repo.refs.set("refs/heads/main", firstCommitId);
+const firstCommitId = await createCommit(history, firstTreeId, [], "Initial commit");
+await history.refs.set("refs/heads/main", firstCommitId);
 results.push({
   name: "Create first commit",
   timeMs: performance.now() - startTime,
@@ -176,7 +176,7 @@ for (let i = 0; i < COMMIT_COUNT; i++) {
   for (let j = 0; j < 5; j++) {
     const idx = (i * 5 + j) % FILE_COUNT;
     const content = generateContent(SAMPLE_CODE, i * 1000 + j);
-    const blobId = await repo.blobs.store([encoder.encode(content)]);
+    const blobId = await history.blobs.store([encoder.encode(content)]);
     modifiedEntries[idx] = {
       mode: FileMode.REGULAR_FILE,
       name: modifiedEntries[idx].name,
@@ -185,11 +185,11 @@ for (let i = 0; i < COMMIT_COUNT; i++) {
   }
 
   // Create new tree
-  const newTreeId = await repo.trees.storeTree(modifiedEntries);
+  const newTreeId = await history.trees.store(modifiedEntries);
 
   // Create commit
   const commitId = await createCommit(
-    repo,
+    history,
     newTreeId,
     [previousCommitId],
     `Commit ${i + 1}: Modified 5 files`,
@@ -199,7 +199,7 @@ for (let i = 0; i < COMMIT_COUNT; i++) {
   previousTreeId = newTreeId;
 }
 
-await repo.refs.set("refs/heads/main", previousCommitId);
+await history.refs.set("refs/heads/main", previousCommitId);
 results.push({
   name: `Create ${COMMIT_COUNT} commits`,
   timeMs: performance.now() - startTime,
@@ -211,7 +211,7 @@ startTime = performance.now();
 let commitCount = 0;
 let currentId: string | undefined = previousCommitId;
 while (currentId) {
-  const commit = await repo.commits.loadCommit(currentId);
+  const commit = await history.commits.load(currentId);
   if (!commit) break;
   commitCount++;
   currentId = commit.parents[0];
@@ -225,7 +225,8 @@ results.push({
 // 6. Read trees
 startTime = performance.now();
 const treeEntriesLoaded: Array<{ name: string; id: string }> = [];
-for await (const entry of repo.trees.loadTree(previousTreeId)) {
+// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+for await (const entry of (await history.trees.load(previousTreeId))!) {
   treeEntriesLoaded.push(entry);
 }
 results.push({
@@ -239,7 +240,8 @@ startTime = performance.now();
 let blobsRead = 0;
 for (const entry of treeEntriesLoaded) {
   // Load blob content
-  for await (const _chunk of repo.blobs.load(entry.id)) {
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  for await (const _chunk of (await history.blobs.load(entry.id))!) {
     // Just consume the content
   }
   blobsRead++;
@@ -252,11 +254,11 @@ results.push({
 
 // 8. Reference operations
 startTime = performance.now();
-await repo.refs.set("refs/heads/feature-1", previousCommitId);
-await repo.refs.set("refs/tags/v1.0", previousCommitId);
-const _mainRef = await repo.refs.resolve("refs/heads/main");
-const _featureRef = await repo.refs.resolve("refs/heads/feature-1");
-const _tagRef = await repo.refs.resolve("refs/tags/v1.0");
+await history.refs.set("refs/heads/feature-1", previousCommitId);
+await history.refs.set("refs/tags/v1.0", previousCommitId);
+const _mainRef = await history.refs.resolve("refs/heads/main");
+const _featureRef = await history.refs.resolve("refs/heads/feature-1");
+const _tagRef = await history.refs.resolve("refs/tags/v1.0");
 results.push({
   name: "Reference operations",
   timeMs: performance.now() - startTime,

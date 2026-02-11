@@ -38,7 +38,7 @@ export async function step02Branching(): Promise<void> {
 
   // Delete a branch
   console.log("\nDeleting branch 'bugfix'...");
-  await git.branchDelete().setBranchNames("bugfix").call();
+  await git.branchDelete().setBranchNames("bugfix").setForce(true).call();
   console.log("  Branch 'bugfix' deleted");
 
   // List branches again

@@ -1,5 +1,5 @@
 import {
-  createFileTreeIterator,
+  createFileWorktree,
   createInMemoryFilesApi,
   createMemoryHistory,
   type FilesApi,
@@ -235,11 +235,13 @@ export class InitCommand {
     if (this.worktreeEnabled && !this.bare) {
       worktree =
         this.worktreeStore ??
-        (createFileTreeIterator({
+        createFileWorktree({
           files,
           rootPath: "",
+          blobs: history.blobs,
+          trees: history.trees,
           gitDir,
-        }) as unknown as Worktree);
+        });
     }
 
     // Create WorkingCopy from components
