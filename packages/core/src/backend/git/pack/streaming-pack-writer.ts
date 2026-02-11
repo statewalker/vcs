@@ -9,8 +9,10 @@
  */
 
 import { compressBlock } from "@statewalker/vcs-utils";
+import { CRC32 } from "@statewalker/vcs-utils/hash/crc32";
 import { Sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { hexToBytes } from "@statewalker/vcs-utils/hash/utils";
+import type { PackIndexWriterEntry } from "./pack-index-writer.js";
 import { PackObjectType } from "./types.js";
 import { writeOfsVarint, writePackHeader } from "./varint.js";
 
@@ -55,6 +57,9 @@ export class StreamingPackWriter {
   private finalized = false;
   private currentOffset = 0;
   private readonly objectOffsets = new Map<string, number>();
+  private readonly _indexEntries: PackIndexWriterEntry[] = [];
+  private currentCrc: CRC32 | null = null;
+  private currentEntryId = "";
 
   constructor(private readonly expectedCount: number) {}
 
@@ -68,9 +73,7 @@ export class StreamingPackWriter {
   ): AsyncGenerator<Uint8Array> {
     this.ensureNotFinalized();
     yield* this.emitHeader();
-
-    const entryOffset = this.currentOffset;
-    this.objectOffsets.set(id, entryOffset);
+    this.beginEntry(id);
 
     const header = writePackHeader(type, content.length);
     const compressed = await compressBlock(content, { raw: false });
@@ -78,7 +81,7 @@ export class StreamingPackWriter {
     yield* this.emitChunk(header);
     yield* this.emitChunk(compressed);
 
-    this.objectCount++;
+    this.endEntry();
   }
 
   /**
@@ -87,9 +90,7 @@ export class StreamingPackWriter {
   async *addRefDelta(id: string, baseId: string, delta: Uint8Array): AsyncGenerator<Uint8Array> {
     this.ensureNotFinalized();
     yield* this.emitHeader();
-
-    const entryOffset = this.currentOffset;
-    this.objectOffsets.set(id, entryOffset);
+    this.beginEntry(id);
 
     const header = writePackHeader(PackObjectType.REF_DELTA, delta.length);
     const baseIdBytes = hexToBytes(baseId);
@@ -99,7 +100,7 @@ export class StreamingPackWriter {
     yield* this.emitChunk(baseIdBytes);
     yield* this.emitChunk(compressed);
 
-    this.objectCount++;
+    this.endEntry();
   }
 
   /**
@@ -116,9 +117,9 @@ export class StreamingPackWriter {
       throw new Error(`Base object ${baseId} not found in pack`);
     }
 
-    const entryOffset = this.currentOffset;
-    const negativeOffset = entryOffset - baseOffset;
-    this.objectOffsets.set(id, entryOffset);
+    this.beginEntry(id);
+
+    const negativeOffset = this.currentOffset - baseOffset;
 
     const header = writePackHeader(PackObjectType.OFS_DELTA, delta.length);
     const offsetBytes = writeOfsVarint(negativeOffset);
@@ -128,7 +129,7 @@ export class StreamingPackWriter {
     yield* this.emitChunk(offsetBytes);
     yield* this.emitChunk(compressed);
 
-    this.objectCount++;
+    this.endEntry();
   }
 
   /**
@@ -149,10 +150,53 @@ export class StreamingPackWriter {
     yield checksum;
   }
 
+  /**
+   * Get index entries for all objects written so far
+   *
+   * Each entry contains object ID, byte offset, and CRC32 checksum.
+   * Available after objects are added (no need to wait for finalize).
+   */
+  getIndexEntries(): PackIndexWriterEntry[] {
+    return [...this._indexEntries];
+  }
+
+  /**
+   * Get the offset of a previously written object
+   */
+  getObjectOffset(id: string): number | undefined {
+    return this.objectOffsets.get(id);
+  }
+
   private ensureNotFinalized(): void {
     if (this.finalized) {
       throw new Error("Pack has been finalized");
     }
+  }
+
+  /**
+   * Begin tracking a new object entry (offset + CRC32)
+   */
+  private beginEntry(id: string): void {
+    this.currentEntryId = id;
+    this.objectOffsets.set(id, this.currentOffset);
+    this.currentCrc = new CRC32();
+  }
+
+  /**
+   * Finish tracking the current object entry
+   */
+  private endEntry(): void {
+    const offset = this.objectOffsets.get(this.currentEntryId);
+    if (offset === undefined || !this.currentCrc) {
+      throw new Error("endEntry called without matching beginEntry");
+    }
+    this._indexEntries.push({
+      id: this.currentEntryId,
+      offset,
+      crc32: this.currentCrc.getValue(),
+    });
+    this.currentCrc = null;
+    this.objectCount++;
   }
 
   /**
@@ -173,10 +217,11 @@ export class StreamingPackWriter {
   }
 
   /**
-   * Emit a chunk: update SHA-1 hash, track offset, and yield
+   * Emit a chunk: update SHA-1/CRC32 hashes, track offset, and yield
    */
   private *emitChunk(chunk: Uint8Array): Generator<Uint8Array> {
     this.sha1.update(chunk);
+    this.currentCrc?.update(chunk);
     this.currentOffset += chunk.length;
     yield chunk;
   }
