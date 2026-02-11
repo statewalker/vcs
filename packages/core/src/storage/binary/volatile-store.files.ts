@@ -46,11 +46,15 @@ export class FileVolatileStore implements VolatileStore {
 
     return {
       size: stats?.size ?? 0,
-      read: async function* (): AsyncIterable<Uint8Array> {
+      read: async function* (start = 0): AsyncIterable<Uint8Array> {
         if (disposed) {
           throw new Error("VolatileContent already disposed");
         }
-        yield* files.read(tempPath);
+        if (start > 0) {
+          yield* files.read(tempPath, { start });
+        } else {
+          yield* files.read(tempPath);
+        }
       },
       dispose: async () => {
         if (!disposed) {

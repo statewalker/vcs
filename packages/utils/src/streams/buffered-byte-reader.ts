@@ -95,6 +95,50 @@ export class BufferedByteReader {
     }
   }
 
+  /**
+   * Read one zlib-compressed block from the stream, yield decompressed content.
+   *
+   * Same incremental accumulation as `readCompressedObject()`, but yields
+   * the decompressed data instead of returning compressed bytes.
+   *
+   * @param expectedSize - Expected decompressed size (for validation)
+   */
+  async *readDecompressed(expectedSize: number): AsyncGenerator<Uint8Array> {
+    const MIN_CHUNK = 64;
+
+    if (this.buffer.length === 0) {
+      await this.ensureBytes(MIN_CHUNK);
+    }
+
+    while (true) {
+      if (this.buffer.length === 0 && this.done) {
+        throw new Error("Unexpected end of stream during compressed object");
+      }
+
+      let result: Awaited<ReturnType<typeof decompressBlockPartial>>;
+      try {
+        result = await decompressBlockPartial(this.buffer);
+      } catch {
+        // Decompression failed — likely not enough data, read more
+        if (this.done) {
+          throw new Error("Incomplete compressed data in stream");
+        }
+        await this.ensureBytes(this.buffer.length + MIN_CHUNK);
+        continue;
+      }
+
+      if (result.data.length !== expectedSize) {
+        throw new Error(
+          `Decompression size mismatch: expected ${expectedSize}, got ${result.data.length}`,
+        );
+      }
+
+      this.buffer = this.buffer.subarray(result.bytesRead);
+      yield result.data;
+      return;
+    }
+  }
+
   /** Returns any unread buffered bytes. */
   getLeftover(): Uint8Array {
     return this.buffer;

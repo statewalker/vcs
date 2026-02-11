@@ -75,6 +75,10 @@
     "./files": {
       "types": "./dist/files/index.d.ts",
       "import": "./dist/files/index.js"
+    },
+    "./pack": {
+      "types": "./dist/pack/index.d.ts",
+      "import": "./dist/pack/index.js"
     }
   },
   "files": [
