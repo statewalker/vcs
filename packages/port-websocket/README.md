@@ -4,7 +4,7 @@ WebSocket adapter for MessagePortLike interface.
 
 ## Overview
 
-This package wraps WebSocket connections to provide the `MessagePortLike` interface, enabling use with `createPortStream` or `createPortTransportConnection` for Git protocol communication over WebSocket connections.
+This package wraps WebSocket connections to provide the `MessagePortLike` interface, enabling use with `createPortStream` for binary communication over WebSocket connections.
 
 ## Installation
 
@@ -41,20 +41,27 @@ for await (const chunk of stream.receive()) {
 }
 ```
 
-### With TransportConnection for Git Protocol
+### With Duplex Transport for Git Protocol
+
+For Git protocol operations, use the Duplex-based transport API:
 
 ```typescript
 import { createWebSocketPortAsync } from "@statewalker/vcs-port-websocket";
-import { createPortTransportConnection } from "@statewalker/vcs-transport";
+import { createGitSocketClient, fetchOverDuplex } from "@statewalker/vcs-transport";
 
 const port = await createWebSocketPortAsync("wss://example.com/git");
-const transport = createPortTransportConnection(port);
 
-// Use transport for Git operations
-await transport.send(packets);
-for await (const packet of transport.receive()) {
-  // Handle incoming Git packets
-}
+// Create a Duplex from the port's read/write/close methods
+const duplex = createGitSocketClient({
+  io: {
+    read: () => portToAsyncIterable(port),
+    write: (data) => Promise.resolve(port.postMessage(data)),
+    close: () => Promise.resolve(port.close()),
+  },
+});
+
+// Use Duplex for Git fetch/push operations
+const result = await fetchOverDuplex({ duplex, repository, refStore });
 ```
 
 ### From Existing WebSocket

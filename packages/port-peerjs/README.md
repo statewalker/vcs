@@ -4,7 +4,7 @@ PeerJS DataConnection adapter for MessagePortLike interface.
 
 ## Overview
 
-This package wraps PeerJS DataConnections to provide the `MessagePortLike` interface, enabling use with `createPortStream` or `createPortTransportConnection` for Git protocol communication over PeerJS connections.
+This package wraps PeerJS DataConnections to provide the `MessagePortLike` interface, enabling use with `createPortStream` for binary communication over PeerJS connections.
 
 ## Installation
 
@@ -47,27 +47,31 @@ for await (const chunk of stream.receive()) {
 }
 ```
 
-### With TransportConnection for Git Protocol
+### With Duplex Transport for Git Protocol
 
 ```typescript
 import { createPeerJsPortAsync } from "@statewalker/vcs-port-peerjs";
-import { createPortTransportConnection } from "@statewalker/vcs-transport";
-import Peer from "peerjs";
+import { createGitSocketClient, fetchOverDuplex } from "@statewalker/vcs-transport";
 
 const peer = new Peer();
 const conn = peer.connect(remotePeerId, {
   serialization: "raw",
-  reliable: true
+  reliable: true,
 });
 
 const port = await createPeerJsPortAsync(conn);
-const transport = createPortTransportConnection(port);
 
-// Use transport for Git operations
-await transport.send(packets);
-for await (const packet of transport.receive()) {
-  // Handle incoming Git packets
-}
+// Create a Duplex from the port's read/write/close methods
+const duplex = createGitSocketClient({
+  io: {
+    read: () => portToAsyncIterable(port),
+    write: (data) => Promise.resolve(port.postMessage(data)),
+    close: () => Promise.resolve(port.close()),
+  },
+});
+
+// Use Duplex for Git fetch/push operations
+const result = await fetchOverDuplex({ duplex, repository, refStore });
 ```
 
 ### Synchronous Port Creation
