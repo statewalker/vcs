@@ -24,25 +24,9 @@
       "types": "./dist/protocol/index.d.ts",
       "import": "./dist/protocol/index.js"
     },
-    "./negotiation": {
-      "types": "./dist/negotiation/index.d.ts",
-      "import": "./dist/negotiation/index.js"
-    },
-    "./connection": {
-      "types": "./dist/connection/index.d.ts",
-      "import": "./dist/connection/index.js"
-    },
     "./operations": {
       "types": "./dist/operations/index.d.ts",
       "import": "./dist/operations/index.js"
-    },
-    "./streams": {
-      "types": "./dist/streams/index.d.ts",
-      "import": "./dist/streams/index.js"
-    },
-    "./ports": {
-      "types": "./dist/ports/index.d.ts",
-      "import": "./dist/ports/index.js"
     }
   },
   "files": [
