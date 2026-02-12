@@ -6,7 +6,6 @@
  * 2. POST /git-upload-pack - Negotiate and receive pack
  */
 
-import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import type { FetchResult } from "../../api/fetch-result.js";
 import type { RepositoryFacade } from "../../api/repository-facade.js";
 import type { RefStore } from "../../context/process-context.js";
@@ -194,7 +193,7 @@ export async function httpFetch(
     );
 
     // Find where pack data starts (after flush or NAK)
-    const packStartIndex = findPackDataStart(responseData);
+    const _packStartIndex = findPackDataStart(responseData);
 
     // Check for server error
     if (sidebandResult.error) {
@@ -343,6 +342,58 @@ function findPackDataStart(data: Uint8Array): number {
     ) {
       return i;
     }
+  }
+
+  return -1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HTTP Push Client
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Options for HTTP push operation.
+ */
+export interface HttpPushOptions {
+  /** Refs to push (format: "local:remote" or "refname") */
+  refspecs: string[];
+  /** Use atomic push (all refs succeed or all fail) */
+  atomic?: boolean;
+  /** Push options to send to server */
+  pushOptions?: string[];
+  /** Credentials for authentication */
+  credentials?: { username: string; password: string };
+  /** Additional headers to send */
+  headers?: Record<string, string>;
+  /** Request timeout in milliseconds */
+  timeout?: number;
+  /** Progress callback */
+  onProgress?: (message: string) => void;
+  /** Custom fetch function (for testing or different environments) */
+  fetchFn?: typeof fetch;
+}
+
+/**
+ * Performs a Git push over HTTP smart protocol.
+ */
+export async function httpPush(
+  url: string,
+  repository: RepositoryFacade,
+  refStore: RefStore,
+  options: HttpPushOptions,
+): Promise<PushResult> {
+  const fetchFn = options.fetchFn ?? fetch;
+  const { refspecs, atomic = false, pushOptions = [], credentials, headers = {} } = options;
+
+  // Normalize URL
+  const baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
+
+  // Build authorization header if credentials provided
+  const authHeaders: Record<string, string> = {};
+  if (credentials) {
+    const authString = `${credentials.username}:${credentials.password}`;
+    const base64Auth = btoa(authString);
+    authHeaders.Authorization = `Basic ${base64Auth}`;
   }
 
   const combinedHeaders = { ...headers, ...authHeaders };

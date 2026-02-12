@@ -29,8 +29,8 @@ function createTestTransportPair(): {
 } {
   const [port1, port2] = createMessagePortPair();
 
-  const localReader = createMessagePortReader(port1);
-  const remoteReader = createMessagePortReader(port2);
+  const _localReader = createMessagePortReader(port1);
+  const _remoteReader = createMessagePortReader(port2);
 
   return {
     local: createMessagePortDuplex(channel.port1) as DuplexWithClose,

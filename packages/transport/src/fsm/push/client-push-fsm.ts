@@ -18,6 +18,7 @@ import {
   getTransport,
   type ProcessContext,
 } from "../../context/context-adapters.js";
+import type { ProtocolState } from "../../context/protocol-state.js";
 import {
   applyAdvertisementToState,
   parseAdvertisement,
@@ -90,12 +91,14 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
     "READ_ADVERTISEMENT",
     async (ctx) => {
       try {
+        const transport = getTransport(ctx);
+        const state = getState(ctx);
         const result = await parseAdvertisement(() => transport.readPktLine());
         applyAdvertisementToState(result, state);
 
         return result.isEmpty ? "EMPTY_REPO" : "REFS_RECEIVED";
       } catch (e) {
-        ctx.output.error = String(e);
+        getOutput(ctx).error = String(e);
         return "ERROR";
       }
     },
@@ -107,7 +110,7 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
     async (ctx) => {
       const transport = getTransport(ctx);
       const config = getConfig(ctx);
-      const state = getState(ctx);
+      const state = getState<PushProcessState>(ctx);
       const output = getOutput(ctx);
       const refStore = getRefStore(ctx);
       const repository = getRepository(ctx);
@@ -134,7 +137,7 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
             continue; // Already up to date
           } else {
             // Check if fast-forward
-            const isFastForward = await ctx.repository.has(remoteOid);
+            const isFastForward = await repository.has(remoteOid);
             type = isFastForward ? "UPDATE" : "UPDATE_NONFASTFORWARD";
           }
 
@@ -154,7 +157,7 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         }
 
         // Store push commands in state for use by other handlers
-        (ctx.state as PushProcessState).pushCommands = pushCommands;
+        state.pushCommands = pushCommands;
 
         if (pushCommands.length === 0) {
           // Send flush to tell the server we have no commands.
@@ -166,7 +169,7 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
         return "UPDATES_COMPUTED";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -176,38 +179,42 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "SEND_COMMANDS",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const config = getConfig(ctx);
+      const state = getState<PushProcessState>(ctx);
+      const output = getOutput(ctx);
+
       try {
-        const state = ctx.state as PushProcessState;
-        const atomic = ctx.config.atomic && ctx.state.capabilities.has("atomic");
+        const atomic = config.atomic && state.capabilities.has("atomic");
         const pushOptions =
-          ctx.config.pushOptions?.length && ctx.state.capabilities.has("push-options");
+          config.pushOptions?.length && state.capabilities.has("push-options");
 
         // Build capability string for first command
         const caps: string[] = [];
-        if (ctx.state.capabilities.has("report-status")) caps.push("report-status");
-        if (ctx.state.capabilities.has("delete-refs")) caps.push("delete-refs");
-        if (ctx.state.capabilities.has("ofs-delta")) caps.push("ofs-delta");
-        if (ctx.state.capabilities.has("side-band-64k")) caps.push("side-band-64k");
+        if (state.capabilities.has("report-status")) caps.push("report-status");
+        if (state.capabilities.has("delete-refs")) caps.push("delete-refs");
+        if (state.capabilities.has("ofs-delta")) caps.push("ofs-delta");
+        if (state.capabilities.has("side-band-64k")) caps.push("side-band-64k");
         if (atomic) caps.push("atomic");
         if (pushOptions) caps.push("push-options");
-        if (ctx.config.quiet && ctx.state.capabilities.has("quiet")) caps.push("quiet");
+        if (config.quiet && state.capabilities.has("quiet")) caps.push("quiet");
 
         let first = true;
         for (const cmd of state.pushCommands ?? []) {
           const line = first
             ? `${cmd.oldOid} ${cmd.newOid} ${cmd.refName}\0${caps.join(" ")}`
             : `${cmd.oldOid} ${cmd.newOid} ${cmd.refName}`;
-          await ctx.transport.writeLine(line);
+          await transport.writeLine(line);
           first = false;
         }
-        await ctx.transport.writeFlush();
+        await transport.writeFlush();
 
         if (pushOptions) {
           return "COMMANDS_SENT_OPTIONS";
         }
         return atomic ? "COMMANDS_SENT_ATOMIC" : "COMMANDS_SENT";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -217,14 +224,18 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "SEND_PUSH_OPTIONS",
     async (ctx) => {
+      const transport = getTransport(ctx);
+      const config = getConfig(ctx);
+      const output = getOutput(ctx);
+
       try {
-        for (const option of ctx.config.pushOptions ?? []) {
-          await ctx.transport.writeLine(option);
+        for (const option of config.pushOptions ?? []) {
+          await transport.writeLine(option);
         }
-        await ctx.transport.writeFlush();
+        await transport.writeFlush();
         return "OPTIONS_SENT";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -234,9 +245,12 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
   [
     "SEND_PACK",
     async (ctx) => {
-      try {
-        const state = ctx.state as PushProcessState;
+      const transport = getTransport(ctx);
+      const repository = getRepository(ctx);
+      const state = getState<PushProcessState>(ctx);
+      const output = getOutput(ctx);
 
+      try {
         // Check if pack is needed (not needed for delete-only)
         const needsPack = state.pushCommands?.some((cmd) => cmd.type !== "DELETE");
 
@@ -244,10 +258,10 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           // Empty pack for delete-only push
           // Server expects a minimal pack header
           const emptyPack = createEmptyPack();
-          await ctx.transport.writePktLine(emptyPack);
-          await ctx.transport.writeFlush();
+          await transport.writePktLine(emptyPack);
+          await transport.writeFlush();
 
-          if (!ctx.state.capabilities.has("report-status")) {
+          if (!state.capabilities.has("report-status")) {
             return "NO_REPORT_STATUS";
           }
           return "EMPTY_PACK";
@@ -270,12 +284,12 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         const packStream = repository.exportPack(wants, haves);
         await transport.writeRawPack(packStream);
 
-        if (!ctx.state.capabilities.has("report-status")) {
+        if (!state.capabilities.has("report-status")) {
           return "NO_REPORT_STATUS";
         }
         return "PACK_SENT";
       } catch (e) {
-        ctx.output.error = String(e);
+        output.error = String(e);
         return "ERROR";
       }
     },
@@ -286,35 +300,42 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
     "READ_STATUS",
     async (ctx) => {
       try {
-        const state = ctx.state as PushProcessState;
-        const useSideband = ctx.state.capabilities.has("side-band-64k");
+        const transport = getTransport(ctx);
+        const output = getOutput(ctx);
+        const state = getState<PushProcessState>(ctx);
+        const useSideband = state.capabilities.has("side-band-64k");
         let unpackStatus: string | null = null;
         const commandResults = new Map<string, { result: string; message?: string }>();
 
-        // Read status lines
+        // Read status lines.
+        // Use readPktLine() with manual channel demux for sideband,
+        // because readSideband() throws on flush packets.
         while (true) {
           let line: string;
 
+          const pkt = await transport.readPktLine();
+          if (pkt.type === "flush" || pkt.type === "eof") break;
+          if (pkt.type === "delim") continue;
+
           if (useSideband) {
-            const result = await ctx.transport.readSideband();
-            if (result.channel === 1) {
-              // Data channel - parse pkt-line within
-              const text = new TextDecoder().decode(result.data);
-              line = text.trim();
-            } else if (result.channel === 2) {
-              // Progress
+            // Demux sideband: first byte of payload is the channel
+            const payload = pkt.payload;
+            if (!payload || payload.length < 1) continue;
+            const channel = payload[0];
+            if (channel === 1) {
+              // Data channel
+              line = new TextDecoder().decode(payload.slice(1)).trim();
+            } else if (channel === 2) {
+              // Progress — ignore
               continue;
-            } else if (result.channel === 3) {
-              // Error
-              ctx.output.error = new TextDecoder().decode(result.data);
+            } else if (channel === 3) {
+              // Error channel
+              output.error = new TextDecoder().decode(payload.slice(1));
               return "ERROR";
             } else {
               continue;
             }
           } else {
-            const pkt = await ctx.transport.readPktLine();
-            if (pkt.type === "flush" || pkt.type === "eof") break;
-            if (pkt.type === "delim") continue;
             line = pkt.text.trim();
           }
 
@@ -327,9 +348,9 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
             const refName = line.slice(3);
             commandResults.set(refName, { result: "OK" });
           } else if (line.startsWith("ng ")) {
-            const parts = line.slice(3).split(" ", 2);
-            const refName = parts[0];
-            const reason = parts[1] ?? "rejected";
+            const sp = line.indexOf(" ", 3);
+            const refName = sp === -1 ? line.slice(3) : line.slice(3, sp);
+            const reason = sp === -1 ? "rejected" : line.slice(sp + 1);
             commandResults.set(refName, { result: mapRejectReason(reason), message: reason });
           }
         }
@@ -350,7 +371,7 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
         // Check unpack status
         if (unpackStatus && unpackStatus !== "ok") {
-          ctx.output.error = `Unpack failed: ${unpackStatus}`;
+          output.error = `Unpack failed: ${unpackStatus}`;
           return "STATUS_FAILED";
         }
 
@@ -367,7 +388,7 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         }
         return "STATUS_PARTIAL";
       } catch (e) {
-        ctx.output.error = String(e);
+        getOutput(ctx).error = String(e);
         return "ERROR";
       }
     },
@@ -377,14 +398,14 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 /**
  * Extended ProcessContext state for push operations.
  */
-interface PushProcessState {
+interface PushProcessState extends ProtocolState {
   pushCommands?: PushCommand[];
 }
 
 /**
  * Create an empty pack file (header + checksum only).
  */
-function createEmptyPack(): Uint8Array {
+function _createEmptyPack(): Uint8Array {
   // Pack header with 0 objects + SHA-1 checksum
   // "PACK" + version 2 + 0 objects + checksum
   return new Uint8Array([

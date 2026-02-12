@@ -129,6 +129,8 @@ export const ZERO_ID = "00000000000000000000000000000000000000000000000000000000
   0,
   OBJECT_ID_STRING_LENGTH,
 );
+/** Alias for ZERO_ID, commonly used in git terminology for null OIDs */
+export const ZERO_OID = ZERO_ID;
 
 // Git protocol default ports
 export const GIT_PROTOCOL_PORT = 9418;

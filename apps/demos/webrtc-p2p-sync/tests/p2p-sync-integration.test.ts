@@ -46,8 +46,10 @@ beforeAll(() => {
 
 import {
   enqueueAddFileAction,
+  enqueueCheckoutAction,
   enqueueInitRepoAction,
   enqueueJoinAction,
+  enqueueRefreshRepoAction,
   enqueueShareAction,
   enqueueStartSyncAction,
 } from "../src/actions/index.js";
@@ -61,6 +63,7 @@ import {
   createRepositoryController,
   createSessionController,
   createSyncController,
+  getHistory,
   setConnectionProvider,
   setGit,
   setHistory,
@@ -576,6 +579,196 @@ describe("P2P Sync Integration", () => {
 
       const client2Head = repoModel2.getState().headCommitId;
       expect(client2Head).toBeTruthy();
+    },
+  );
+
+  it(
+    "full round-trip: Client 1 creates repo, Client 2 syncs and adds commits, Client 1 receives all files",
+    { timeout: 30000 },
+    async () => {
+      // Helper: read blob content as string
+      async function readBlobContent(ctx: AppContext, blobId: string): Promise<string> {
+        const history = getHistory(ctx);
+        const stream = await history!.blobs.load(blobId);
+        if (!stream) throw new Error(`Blob ${blobId} not found`);
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of stream) chunks.push(chunk);
+        const combined = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+        let offset = 0;
+        for (const chunk of chunks) {
+          combined.set(chunk, offset);
+          offset += chunk.length;
+        }
+        return new TextDecoder().decode(combined);
+      }
+
+      // Helper: get sorted file names from repo model
+      function getFileNames(ctx: AppContext): string[] {
+        return getRepositoryModel(ctx)
+          .getState()
+          .files.filter((f) => f.type === "file")
+          .map((f) => f.name)
+          .sort();
+      }
+
+      const actionsModel1 = getUserActionsModel(ctx1);
+      const actionsModel2 = getUserActionsModel(ctx2);
+      const repoModel1 = getRepositoryModel(ctx1);
+      const repoModel2 = getRepositoryModel(ctx2);
+      const sessionModel1 = getSessionModel(ctx1);
+      const sessionModel2 = getSessionModel(ctx2);
+      const peersModel1 = getPeersModel(ctx1);
+      const peersModel2 = getPeersModel(ctx2);
+      const syncModel2 = getSyncModel(ctx2);
+
+      // ========================================
+      // Step 1: Client 1 — init repo + create 3 files
+      // ========================================
+      enqueueInitRepoAction(actionsModel1);
+      await waitModel(repoModel1, (m) => m.getState().initialized);
+
+      const client1Files = [
+        { name: "alpha.txt", content: "Alpha content from Client 1" },
+        { name: "beta.txt", content: "Beta content from Client 1" },
+        { name: "gamma.txt", content: "Gamma content from Client 1" },
+      ];
+
+      for (let i = 0; i < client1Files.length; i++) {
+        enqueueAddFileAction(actionsModel1, client1Files[i]);
+        await waitModel(repoModel1, (m) => m.getState().commitCount === i + 2);
+      }
+
+      // Client 1 should have 4 commits (init + 3 files) and 4 files (README.md + 3)
+      expect(repoModel1.getState().commitCount).toBe(4);
+      expect(getFileNames(ctx1)).toEqual(["README.md", "alpha.txt", "beta.txt", "gamma.txt"]);
+
+      // ========================================
+      // Step 2: Client 1 — share
+      // ========================================
+
+      enqueueShareAction(actionsModel1);
+      await waitModel(sessionModel1, (m) => m.getState().mode === "hosting");
+      const sessionId = sessionModel1.getState().sessionId;
+      if (!sessionId) throw new Error("Session ID not set");
+
+      // ========================================
+      // Step 3: Client 2 — join and sync
+      // ========================================
+
+      enqueueJoinAction(actionsModel2, { sessionId });
+      await waitModel(sessionModel2, (m) => m.getState().mode === "joined");
+      await flushPromises(50);
+      await waitModel(
+        peersModel2,
+        (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+        10000,
+      );
+      await waitModel(
+        peersModel1,
+        (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+        10000,
+      );
+
+      const hostPeerId = peersModel2.getAll()[0].id;
+      enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
+      await waitModel(
+        syncModel2,
+        (m) => m.getState().phase === "complete" || m.getState().phase === "error",
+        15000,
+      );
+      expect(syncModel2.getState().phase).toBe("complete");
+
+      // Advance timer to reset sync model, then wait for checkout/refresh
+      const timerApi2 = getTimerApi(ctx2) as MockTimerApi;
+      timerApi2.advance(3000);
+      await waitModel(syncModel2, (m) => m.getState().phase === "idle", 5000);
+      await flushPromises(20);
+      await waitModel(repoModel2, (m) => m.getState().commitCount === 4, 5000);
+
+      // ========================================
+      // Step 4: Verify Client 2 has same data as Client 1
+      // ========================================
+
+      expect(repoModel2.getState().commitCount).toBe(repoModel1.getState().commitCount);
+      expect(repoModel2.getState().headCommitId).toBe(repoModel1.getState().headCommitId);
+      expect(getFileNames(ctx2)).toEqual(["README.md", "alpha.txt", "beta.txt", "gamma.txt"]);
+
+      // Verify file content on Client 2 matches what Client 1 wrote
+      const client2Files = repoModel2.getState().files.filter((f) => f.type === "file");
+      for (const expectedFile of client1Files) {
+        const file = client2Files.find((f) => f.name === expectedFile.name);
+        expect(file, `File ${expectedFile.name} should exist on Client 2`).toBeDefined();
+        const content = await readBlobContent(ctx2, file!.id!);
+        expect(content).toBe(expectedFile.content);
+      }
+
+      // ========================================
+      // Step 5: Client 2 — add new files
+      // ========================================
+
+      const client2NewFiles = [
+        { name: "delta.txt", content: "Delta content from Client 2" },
+        { name: "epsilon.txt", content: "Epsilon content from Client 2" },
+      ];
+
+      for (let i = 0; i < client2NewFiles.length; i++) {
+        enqueueAddFileAction(actionsModel2, client2NewFiles[i]);
+        await waitModel(repoModel2, (m) => m.getState().commitCount === 4 + i + 1, 5000);
+      }
+
+      expect(repoModel2.getState().commitCount).toBe(6);
+      expect(getFileNames(ctx2)).toEqual([
+        "README.md",
+        "alpha.txt",
+        "beta.txt",
+        "delta.txt",
+        "epsilon.txt",
+        "gamma.txt",
+      ]);
+
+      // ========================================
+      // Step 6: Client 2 — second sync (pushes new commits to Client 1)
+      // ========================================
+
+      enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
+      await waitModel(
+        syncModel2,
+        (m) => m.getState().phase === "complete" || m.getState().phase === "error",
+        15000,
+      );
+      expect(syncModel2.getState().phase).toBe("complete");
+
+      // ========================================
+      // Step 7: Refresh Client 1 to see pushed changes
+      // ========================================
+
+      enqueueCheckoutAction(actionsModel1);
+      enqueueRefreshRepoAction(actionsModel1);
+      await flushPromises(20);
+      await waitModel(repoModel1, (m) => m.getState().commitCount === 6, 5000);
+
+      // ========================================
+      // Step 8: Verify Client 1 has all files from both clients
+      // ========================================
+      expect(repoModel1.getState().commitCount).toBe(6);
+      expect(repoModel1.getState().headCommitId).toBe(repoModel2.getState().headCommitId);
+      expect(getFileNames(ctx1)).toEqual([
+        "README.md",
+        "alpha.txt",
+        "beta.txt",
+        "delta.txt",
+        "epsilon.txt",
+        "gamma.txt",
+      ]);
+
+      // Verify Client 2's file content is readable on Client 1
+      const client1AllFiles = repoModel1.getState().files.filter((f) => f.type === "file");
+      for (const expectedFile of [...client1Files, ...client2NewFiles]) {
+        const file = client1AllFiles.find((f) => f.name === expectedFile.name);
+        expect(file, `File ${expectedFile.name} should exist on Client 1`).toBeDefined();
+        const content = await readBlobContent(ctx1, file!.id!);
+        expect(content).toBe(expectedFile.content);
+      }
     },
   );
 });

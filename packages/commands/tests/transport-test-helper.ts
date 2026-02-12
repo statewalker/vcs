@@ -28,8 +28,6 @@ import {
   MemoryStagingStore,
   MemoryTagStore,
 } from "@statewalker/vcs-store-mem";
-import { createGitHttpServer } from "@statewalker/vcs-transport";
-import { createVcsRepositoryAccess } from "@statewalker/vcs-transport-adapters";
 
 import { Git } from "../src/index.js";
 import { testAuthor } from "./test-helper.js";
@@ -378,14 +376,14 @@ export function createTestServer(serverStores?: TransportTestStores): TestServer
   const mockHistory = createMockHistoryWithOperations(stores, serialization);
 
   // Create repository facade for transport operations
-  const repository = createRepositoryFacade({
+  const _repository = createRepositoryFacade({
     history: mockHistory,
   });
 
   // Create transport ref store adapter
-  const refStore = createTransportRefStoreAdapter(stores.refs);
+  const _refStore = createTransportRefStoreAdapter(stores.refs);
 
-  const serverFetch = createFetchHandler({
+  const _serverFetch = createFetchHandler({
     async resolveRepository(repoPath) {
       if (repoPath) {
         return repositoryAccess;
@@ -452,14 +450,14 @@ export async function createInitializedTestServer(): Promise<
   const mockHistory = createMockHistoryWithOperations(stores, serialization);
 
   // Create repository facade for transport operations
-  const repository = createRepositoryFacade({
+  const _repository = createRepositoryFacade({
     history: mockHistory,
   });
 
   // Create transport ref store adapter
-  const refStore = createTransportRefStoreAdapter(stores.refs);
+  const _refStore = createTransportRefStoreAdapter(stores.refs);
 
-  const serverFetch = createFetchHandler({
+  const _serverFetch = createFetchHandler({
     async resolveRepository(repoPath) {
       if (repoPath) {
         return repositoryAccess;

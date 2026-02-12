@@ -54,8 +54,11 @@ export type ProcessContext = Record<string, unknown>;
 export function newAdapter<T>(
   key: string,
   create?: () => T,
-): [get: (ctx: ProcessContext) => T, set: (ctx: ProcessContext, value: T) => void] {
-  function get(ctx: ProcessContext): T {
+): [
+  get: <V extends T = T>(ctx: ProcessContext, validate?: (value: T) => value is V) => V,
+  set: (ctx: ProcessContext, value: T) => void,
+] {
+  function get<V extends T = T>(ctx: ProcessContext, validate?: (value: T) => value is V): V {
     let value = ctx[key] as T | undefined;
     if (value === undefined && create) {
       value = create();
@@ -64,7 +67,10 @@ export function newAdapter<T>(
     if (value === undefined) {
       throw new Error(`Context value not found for key: ${key}`);
     }
-    return value;
+    if (validate && !validate(value)) {
+      throw new Error(`Context value for key "${key}" failed validation`);
+    }
+    return value as V;
   }
   function set(ctx: ProcessContext, value: T): void {
     ctx[key] = value;

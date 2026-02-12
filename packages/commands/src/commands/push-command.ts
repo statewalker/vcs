@@ -335,13 +335,13 @@ export class PushCommand extends TransportCommand<PushResult> {
     const refStore = this.createRefStoreAdapter();
 
     // Build credentials in the expected format
-    const credentials =
+    const _credentials =
       this.credentials?.username && this.credentials?.password
         ? { username: this.credentials.username, password: this.credentials.password }
         : undefined;
 
     // Execute push using new httpPush API
-    const transportResult = await httpPush(remoteUrl, repository, refStore, {
+    const _transportResult = await httpPush(remoteUrl, repository, refStore, {
       refspecs,
       auth: this.credentials,
       headers: this.headers,
@@ -355,7 +355,7 @@ export class PushCommand extends TransportCommand<PushResult> {
       },
       getObjectsToPush: (newIds: string[], oldIds: string[]) =>
         this.getObjectsToPush(newIds, oldIds),
-    };
+    });
 
     // Execute push
     const transportResult = await transportPush(options);
