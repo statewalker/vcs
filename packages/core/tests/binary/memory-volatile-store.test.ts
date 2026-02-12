@@ -124,6 +124,69 @@ describe("MemoryVolatileStore", () => {
     });
   });
 
+  describe("read with offset", () => {
+    it("reads from start when offset is 0", async () => {
+      const store = new MemoryVolatileStore();
+      const content = await store.store(chunks("Hello", " ", "World"));
+
+      const result = await collect(content.read(0));
+      expect(new TextDecoder().decode(result)).toBe("Hello World");
+    });
+
+    it("skips bytes when offset is within first chunk", async () => {
+      const store = new MemoryVolatileStore();
+      const content = await store.store(chunks("Hello", " ", "World"));
+
+      const result = await collect(content.read(3));
+      expect(new TextDecoder().decode(result)).toBe("lo World");
+    });
+
+    it("skips entire first chunk when offset equals chunk size", async () => {
+      const store = new MemoryVolatileStore();
+      const content = await store.store(chunks("Hello", " ", "World"));
+
+      const result = await collect(content.read(5));
+      expect(new TextDecoder().decode(result)).toBe(" World");
+    });
+
+    it("starts mid-second chunk", async () => {
+      const store = new MemoryVolatileStore();
+      const content = await store.store(chunks("AAA", "BBB", "CCC"));
+
+      const result = await collect(content.read(4));
+      expect(new TextDecoder().decode(result)).toBe("BBCCC");
+    });
+
+    it("returns empty when offset equals size", async () => {
+      const store = new MemoryVolatileStore();
+      const content = await store.store(chunks("Hello"));
+
+      const result = await collect(content.read(5));
+      expect(result.length).toBe(0);
+    });
+
+    it("returns empty when offset exceeds size", async () => {
+      const store = new MemoryVolatileStore();
+      const content = await store.store(chunks("Hello"));
+
+      const result = await collect(content.read(100));
+      expect(result.length).toBe(0);
+    });
+
+    it("independent offset reads do not interfere", async () => {
+      const store = new MemoryVolatileStore();
+      const content = await store.store(chunks("ABCDEF"));
+
+      const r1 = await collect(content.read(2));
+      const r2 = await collect(content.read(4));
+      const r3 = await collect(content.read(0));
+
+      expect(new TextDecoder().decode(r1)).toBe("CDEF");
+      expect(new TextDecoder().decode(r2)).toBe("EF");
+      expect(new TextDecoder().decode(r3)).toBe("ABCDEF");
+    });
+  });
+
   describe("multiple stores", () => {
     it("handles multiple independent stores", async () => {
       const store = new MemoryVolatileStore();

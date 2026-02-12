@@ -33,13 +33,24 @@ export class MemoryVolatileStore implements VolatileStore {
 
     return {
       size,
-      read() {
+      read(start = 0) {
         if (disposed) {
           throw new Error("VolatileContent already disposed");
         }
         return (async function* () {
+          let skipped = 0;
           for (const c of chunks) {
-            yield c;
+            if (skipped + c.length <= start) {
+              skipped += c.length;
+              continue;
+            }
+            if (skipped < start) {
+              const offset = start - skipped;
+              yield c.subarray(offset);
+              skipped = start;
+            } else {
+              yield c;
+            }
           }
         })();
       },

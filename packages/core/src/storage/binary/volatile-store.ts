@@ -19,9 +19,10 @@ export interface VolatileContent {
    *
    * Can be called multiple times to re-read the content.
    *
+   * @param start Optional byte offset to start reading from (default 0)
    * @returns Async iterable of content chunks
    */
-  read(): AsyncIterable<Uint8Array>;
+  read(start?: number): AsyncIterable<Uint8Array>;
 
   /**
    * Release resources (delete temp file, free memory)
