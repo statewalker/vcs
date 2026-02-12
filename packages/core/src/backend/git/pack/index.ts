@@ -21,4 +21,5 @@ export * from "./pack-writer.js";
 export * from "./pending-pack.js";
 export * from "./random-access-delta.js";
 export * from "./random-access-delta-reader.js";
+export * from "./streaming-pack-writer.js";
 export * from "./types.js";
