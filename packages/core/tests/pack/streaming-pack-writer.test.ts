@@ -269,6 +269,66 @@ describe("StreamingPackWriter", () => {
     expect(result.entries).toHaveLength(2);
   });
 
+  it("provides correct index entries with CRC32 and offsets", async () => {
+    const blob1 = encoder.encode("index entry test 1");
+    const blob2 = encoder.encode("index entry test 2");
+    const id1 = await computeObjectId("blob", blob1);
+    const id2 = await computeObjectId("blob", blob2);
+
+    const writer = new StreamingPackWriter(2);
+    for await (const _ of writer.addObject(id1, PackObjectType.BLOB, blob1)) {
+      // consume
+    }
+    for await (const _ of writer.addObject(id2, PackObjectType.BLOB, blob2)) {
+      // consume
+    }
+    for await (const _ of writer.finalize()) {
+      // consume
+    }
+
+    const entries = writer.getIndexEntries();
+    expect(entries).toHaveLength(2);
+    expect(entries[0].id).toBe(id1);
+    expect(entries[1].id).toBe(id2);
+
+    // First object starts right after 12-byte pack header
+    expect(entries[0].offset).toBe(12);
+    // Second object starts after first object
+    expect(entries[1].offset).toBeGreaterThan(entries[0].offset);
+
+    // CRC32 values should be non-zero (actual values depend on content)
+    expect(entries[0].crc32).not.toBe(0);
+    expect(entries[1].crc32).not.toBe(0);
+    // Different content → different CRC32
+    expect(entries[0].crc32).not.toBe(entries[1].crc32);
+  });
+
+  it("produces index entries matching PackWriterStream", async () => {
+    const content = encoder.encode("crc32 comparison test");
+    const id = await computeObjectId("blob", content);
+
+    // StreamingPackWriter
+    const streamingWriter = new StreamingPackWriter(1);
+    for await (const _ of streamingWriter.addObject(id, PackObjectType.BLOB, content)) {
+      // consume
+    }
+    for await (const _ of streamingWriter.finalize()) {
+      // consume
+    }
+    const streamingEntries = streamingWriter.getIndexEntries();
+
+    // PackWriterStream
+    const blockWriter = new PackWriterStream();
+    await blockWriter.addObject(id, PackObjectType.BLOB, content);
+    const blockResult = await blockWriter.finalize();
+
+    expect(streamingEntries).toHaveLength(1);
+    expect(blockResult.indexEntries).toHaveLength(1);
+    expect(streamingEntries[0].id).toBe(blockResult.indexEntries[0].id);
+    expect(streamingEntries[0].offset).toBe(blockResult.indexEntries[0].offset);
+    expect(streamingEntries[0].crc32).toBe(blockResult.indexEntries[0].crc32);
+  });
+
   it("handles OFS_DELTA objects", async () => {
     const baseContent = encoder.encode("base content for ofs delta");
     const baseId = await computeObjectId("blob", baseContent);

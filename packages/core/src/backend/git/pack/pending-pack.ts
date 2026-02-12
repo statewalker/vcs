@@ -9,7 +9,7 @@
 
 import type { ObjectId } from "../../../common/id/index.js";
 import { writePackIndexV2 } from "./pack-index-writer.js";
-import { PackWriterStream } from "./pack-writer.js";
+import { StreamingPackWriter } from "./streaming-pack-writer.js";
 import type { PackObjectType } from "./types.js";
 
 /** Default maximum number of objects before auto-flush */
@@ -168,30 +168,19 @@ export class PendingPack {
    * @returns Flush result with pack data and index
    */
   async flush(): Promise<PendingPackFlushData> {
-    if (this.entries.length === 0) {
-      // Generate empty pack
-      const writer = new PackWriterStream();
-      const result = await writer.finalize();
-      const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
-
-      return {
-        packName: generatePackName(),
-        packData: result.packData,
-        indexData,
-        entries: result.indexEntries,
-      };
-    }
-
     // Separate full objects and deltas
     const fullObjects = this.entries.filter((e) => e.type === "full");
     const deltaObjects = this.entries.filter((e) => e.type === "delta");
 
-    const writer = new PackWriterStream();
+    const writer = new StreamingPackWriter(this.entries.length);
+    const chunks: Uint8Array[] = [];
 
     // Write full objects first (they may be bases for deltas)
     for (const entry of fullObjects) {
       if (entry.type === "full") {
-        await writer.addObject(entry.id, entry.objectType, entry.content);
+        for await (const chunk of writer.addObject(entry.id, entry.objectType, entry.content)) {
+          chunks.push(chunk);
+        }
       }
     }
 
@@ -201,17 +190,36 @@ export class PendingPack {
       if (entry.type === "delta") {
         const baseOffset = writer.getObjectOffset(entry.baseId);
         if (baseOffset !== undefined) {
-          // Base is in this pack, use OFS_DELTA
-          await writer.addOfsDelta(entry.id, entry.baseId, entry.delta);
+          for await (const chunk of writer.addOfsDelta(entry.id, entry.baseId, entry.delta)) {
+            chunks.push(chunk);
+          }
         } else {
-          // Base is not in this pack, use REF_DELTA
-          await writer.addRefDelta(entry.id, entry.baseId, entry.delta);
+          for await (const chunk of writer.addRefDelta(entry.id, entry.baseId, entry.delta)) {
+            chunks.push(chunk);
+          }
         }
       }
     }
 
-    const result = await writer.finalize();
-    const indexData = await writePackIndexV2(result.indexEntries, result.packChecksum);
+    // Finalize: yields the 20-byte checksum
+    for await (const chunk of writer.finalize()) {
+      chunks.push(chunk);
+    }
+
+    // Collect pack data
+    const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+    const packData = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const c of chunks) {
+      packData.set(c, offset);
+      offset += c.length;
+    }
+
+    // Build index from writer's tracked entries
+    const packChecksum = packData.subarray(packData.length - 20);
+    const indexEntries = writer.getIndexEntries();
+    const sortedEntries = [...indexEntries].sort((a, b) => a.id.localeCompare(b.id));
+    const indexData = await writePackIndexV2(sortedEntries, packChecksum);
 
     // Clear entries after flush
     this.entries = [];
@@ -219,9 +227,9 @@ export class PendingPack {
 
     return {
       packName: generatePackName(),
-      packData: result.packData,
+      packData,
       indexData,
-      entries: result.indexEntries,
+      entries: sortedEntries,
     };
   }
 
