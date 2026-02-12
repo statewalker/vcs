@@ -14,21 +14,20 @@ import {
   decompressBlockPartial,
   deserializeDeltaFromGit,
 } from "@statewalker/vcs-utils";
-import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
+import {
+  computeObjectId,
+  type GitObjectType,
+  packTypeToString,
+  parsePackHeader,
+} from "@statewalker/vcs-utils/pack";
 import { PackObjectType } from "./types.js";
-import { readOfsVarint, readPackHeader } from "./varint.js";
+import { readOfsVarint, readPackHeader as readPackHeaderVarint } from "./varint.js";
 
-/** Pack file signature "PACK" */
-const PACK_SIGNATURE = 0x5041434b;
+export type { GitObjectType };
 
 /** SHA-1 hash size in bytes */
 const OBJECT_ID_LENGTH = 20;
-
-/**
- * Object type as string
- */
-export type GitObjectType = "commit" | "tree" | "blob" | "tag";
 
 /**
  * Base (non-delta) pack entry
@@ -120,8 +119,8 @@ export async function parsePackEntries(packData: Uint8Array): Promise<ParsePackE
       case PackObjectType.BLOB:
       case PackObjectType.TAG: {
         // Base object
-        const id = await computeObjectId(objHeader.type, decompressed);
         const objectType = packTypeToString(objHeader.type);
+        const id = await computeObjectId(objectType, decompressed);
 
         objectCache.set(entryStart, { type: objHeader.type, content: decompressed, id });
         objectById.set(id, { type: objHeader.type, content: decompressed });
@@ -151,8 +150,8 @@ export async function parsePackEntries(packData: Uint8Array): Promise<ParsePackE
 
         // Resolve content to compute ID
         const content = applyGitDelta(base.content, decompressed);
-        const id = await computeObjectId(base.type, content);
         const objectType = packTypeToString(base.type);
+        const id = await computeObjectId(objectType, content);
 
         // Convert Git binary delta to format-agnostic Delta[]
         const delta = deserializeDeltaFromGit(decompressed);
@@ -187,8 +186,8 @@ export async function parsePackEntries(packData: Uint8Array): Promise<ParsePackE
 
         // Resolve content to compute ID
         const content = applyGitDelta(base.content, decompressed);
-        const id = await computeObjectId(base.type, content);
         const objectType = packTypeToString(base.type);
+        const id = await computeObjectId(objectType, content);
 
         // Convert Git binary delta to format-agnostic Delta[]
         const delta = deserializeDeltaFromGit(decompressed);
@@ -237,67 +236,17 @@ export async function* parsePackEntriesStream(packData: Uint8Array): AsyncGenera
 }
 
 /**
- * Compute object ID (SHA-1 of "type size\0content")
- */
-async function computeObjectId(type: PackObjectType, content: Uint8Array): Promise<string> {
-  const typeStr = packTypeToString(type);
-  const header = new TextEncoder().encode(`${typeStr} ${content.length}\0`);
-
-  const fullData = new Uint8Array(header.length + content.length);
-  fullData.set(header, 0);
-  fullData.set(content, header.length);
-
-  const hash = await sha1(fullData);
-  return bytesToHex(hash);
-}
-
-/**
- * Convert pack object type to string
- */
-function packTypeToString(type: PackObjectType): GitObjectType {
-  switch (type) {
-    case PackObjectType.COMMIT:
-      return "commit";
-    case PackObjectType.TREE:
-      return "tree";
-    case PackObjectType.BLOB:
-      return "blob";
-    case PackObjectType.TAG:
-      return "tag";
-    default:
-      throw new Error(`Unknown object type: ${type}`);
-  }
-}
-
-/**
  * In-memory pack data reader
  */
 class PackDataReader {
   private readonly data: Uint8Array;
-  private readonly view: DataView;
 
   constructor(data: Uint8Array) {
     this.data = data;
-    this.view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   }
 
   readPackHeader(): { version: number; objectCount: number } {
-    if (this.data.length < 12) {
-      throw new Error("Pack data too short for header");
-    }
-
-    const signature = this.view.getUint32(0, false);
-    if (signature !== PACK_SIGNATURE) {
-      throw new Error(`Invalid pack signature: 0x${signature.toString(16)}`);
-    }
-
-    const version = this.view.getUint32(4, false);
-    if (version !== 2 && version !== 3) {
-      throw new Error(`Unsupported pack version: ${version}`);
-    }
-
-    const objectCount = this.view.getUint32(8, false);
-    return { version, objectCount };
+    return parsePackHeader(this.data);
   }
 
   readObjectHeader(offset: number): {
@@ -308,7 +257,7 @@ class PackDataReader {
     headerLength: number;
   } {
     // Read pack header (type + size) using centralized varint
-    const packHeader = readPackHeader(this.data, offset);
+    const packHeader = readPackHeaderVarint(this.data, offset);
     const type = packHeader.type as PackObjectType;
     const size = packHeader.size;
     let headerLength = packHeader.bytesRead;
