@@ -64,6 +64,8 @@ export interface MockTransport extends TransportApi {
   readSideband: Mock;
   writeSideband: Mock;
   writePack: Mock;
+  readRawPack: Mock;
+  writeRawPack: Mock;
 }
 
 /**
@@ -140,6 +142,18 @@ export function createMockTransport(): MockTransport {
       }
     }),
 
+    readRawPack: vi.fn(async function* () {
+      while (packIndex < packChunks.length) {
+        yield packChunks[packIndex++];
+      }
+    }),
+
+    writeRawPack: vi.fn(async (pack: AsyncIterable<Uint8Array>) => {
+      for await (const chunk of pack) {
+        writtenPackData.push(chunk);
+      }
+    }),
+
     // Test helper methods
     _setPackets: (pkts: PktLineResult[]) => {
       packets.length = 0;
@@ -184,6 +198,8 @@ export function createMockTransport(): MockTransport {
       transport.readSideband.mockClear();
       transport.writeSideband.mockClear();
       transport.writePack.mockClear();
+      transport.readRawPack.mockClear();
+      transport.writeRawPack.mockClear();
     },
   };
 
@@ -200,6 +216,7 @@ export interface MockRefStore extends RefStore {
   get: Mock;
   update: Mock;
   listAll: Mock;
+  isRefTip: Mock;
 }
 
 /**
@@ -214,6 +231,13 @@ export function createMockRefStore(): MockRefStore {
       refs.set(name, oid);
     }),
     listAll: vi.fn(async () => refs.entries()),
+
+    isRefTip: vi.fn(async (oid: string) => {
+      for (const value of refs.values()) {
+        if (value === oid) return true;
+      }
+      return false;
+    }),
 
     _setRef: (name: string, oid: string) => {
       refs.set(name, oid);
@@ -245,13 +269,27 @@ export function createTestContext(overrides?: Partial<ProcessContext>): ProcessC
 }
 
 /**
- * Create a minimal mock repository
+ * Mock repository type with test helpers.
  */
-export function createMockRepository(): RepositoryFacade & {
+export type MockRepository = RepositoryFacade & {
   _addObject: (oid: string) => void;
   _hasObject: (oid: string) => boolean;
-} {
+  _setAncestors: (oid: string, ancestors: string[]) => void;
+  _setShallowBoundaries: (boundaries: Set<string>) => void;
+  isReachableFrom: Mock;
+  isReachableFromAnyTip: Mock;
+  computeShallowBoundaries: Mock;
+  computeShallowSince: Mock;
+  computeShallowExclude: Mock;
+};
+
+/**
+ * Create a minimal mock repository
+ */
+export function createMockRepository(): MockRepository {
   const objects = new Map<string, boolean>();
+  const ancestorMap = new Map<string, string[]>();
+  let shallowBoundaries = new Set<string>();
 
   return {
     importPack: vi.fn(async () => ({
@@ -268,15 +306,49 @@ export function createMockRepository(): RepositoryFacade & {
 
     has: vi.fn(async (oid: string) => objects.has(oid)),
 
-    async *walkAncestors(_startOid: string) {
-      // Empty by default
+    async *walkAncestors(startOid: string) {
+      const anc = ancestorMap.get(startOid);
+      if (anc) {
+        for (const a of anc) yield a;
+      }
     },
+
+    isReachableFrom: vi.fn(async (oid: string, from: string | string[]) => {
+      const fromArray = Array.isArray(from) ? from : [from];
+      for (const f of fromArray) {
+        const anc = ancestorMap.get(f);
+        if (anc?.includes(oid)) return true;
+      }
+      return false;
+    }),
+
+    isReachableFromAnyTip: vi.fn(async (_oid: string) => false),
+
+    computeShallowBoundaries: vi.fn(
+      async (_wants: Set<string>, _depth: number) => new Set(shallowBoundaries),
+    ),
+
+    computeShallowSince: vi.fn(
+      async (_wants: Set<string>, _timestamp: number) => new Set(shallowBoundaries),
+    ),
+
+    computeShallowExclude: vi.fn(
+      async (_wants: Set<string>, _excludeRefs: string[]) => new Set(shallowBoundaries),
+    ),
 
     _addObject: (oid: string) => {
       objects.set(oid, true);
     },
 
     _hasObject: (oid: string) => objects.has(oid),
+
+    _setAncestors: (oid: string, ancestors: string[]) => {
+      ancestorMap.set(oid, ancestors);
+    },
+
+    _setShallowBoundaries: (boundaries: Set<string>) => {
+      shallowBoundaries = boundaries;
+    },
   };
 }
 
@@ -522,4 +594,22 @@ export function testOid(seed: string | number): string {
   const str = String(seed);
   const hash = str.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return hash.toString(16).padStart(8, "0").repeat(5);
+}
+
+/**
+ * Mock hooks for testing server-side upload-pack hooks.
+ */
+export interface MockHooks {
+  preUpload: Mock;
+  postUpload: Mock;
+}
+
+/**
+ * Create mock hooks for testing.
+ */
+export function createMockHooks(): MockHooks {
+  return {
+    preUpload: vi.fn(async () => ({ ok: true })),
+    postUpload: vi.fn(async () => {}),
+  };
 }

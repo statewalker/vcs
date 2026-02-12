@@ -7,6 +7,9 @@
  * - Pack streaming
  */
 
+import type { Duplex } from "../api/duplex.js";
+import type { PktLineResult, SidebandResult, TransportApi } from "../api/transport-api.js";
+import type { ProtocolState } from "../context/protocol-state.js";
 import {
   encodeDelim,
   encodeFlush,

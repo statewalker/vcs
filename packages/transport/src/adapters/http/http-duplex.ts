@@ -116,6 +116,87 @@ export class BufferWriter {
  * @param sendRequest - Function that sends HTTP request and returns response body
  * @returns Object with duplex for writing and getResponse for reading after send
  */
+/**
+ * Result of decoding a sideband-encoded HTTP response.
+ */
+export interface SidebandDecodedResponse {
+  /** Pack data from sideband channel 1 */
+  packData: Uint8Array;
+  /** Progress messages from sideband channel 2 */
+  progressMessages: string[];
+  /** Error message from sideband channel 3 (if any) */
+  error?: string;
+}
+
+const textDecoder = new TextDecoder();
+
+/**
+ * Decodes a sideband-encoded HTTP response buffer.
+ *
+ * Parses pkt-lines from a buffered response, separating sideband channels:
+ * - Channel 1: pack data
+ * - Channel 2: progress messages
+ * - Channel 3: error messages
+ *
+ * Non-sideband pkt-lines (NAK, ACK, shallow, unshallow) are skipped.
+ *
+ * @param data - Buffered response bytes
+ * @returns Decoded response with pack data, progress, and errors
+ */
+export function decodeSidebandResponse(data: Uint8Array): SidebandDecodedResponse {
+  const packChunks: Uint8Array[] = [];
+  const progressMessages: string[] = [];
+  let error: string | undefined;
+  let offset = 0;
+
+  while (offset < data.length) {
+    // Need at least 4 bytes for length prefix
+    if (offset + 4 > data.length) break;
+
+    const lengthHex = textDecoder.decode(data.slice(offset, offset + 4));
+
+    // Flush packet
+    if (lengthHex === "0000") {
+      offset += 4;
+      break;
+    }
+
+    const length = parseInt(lengthHex, 16);
+    if (Number.isNaN(length) || length < 4) break;
+    if (offset + length > data.length) break;
+
+    const payload = data.slice(offset + 4, offset + length);
+    offset += length;
+
+    if (payload.length === 0) continue;
+
+    // Check if this is a sideband packet (first byte is channel)
+    const firstByte = payload[0];
+    if (firstByte === 1 || firstByte === 2 || firstByte === 3) {
+      const channelData = payload.slice(1);
+      if (firstByte === 1) {
+        packChunks.push(channelData);
+      } else if (firstByte === 2) {
+        progressMessages.push(textDecoder.decode(channelData));
+      } else {
+        error = textDecoder.decode(channelData);
+      }
+    }
+    // Non-sideband lines (NAK, ACK, shallow, unshallow) are skipped
+  }
+
+  // Concatenate pack chunks
+  const totalLength = packChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const packData = new Uint8Array(totalLength);
+  let packOffset = 0;
+  for (const chunk of packChunks) {
+    packData.set(chunk, packOffset);
+    packOffset += chunk.length;
+  }
+
+  return { packData, progressMessages, error };
+}
+
 export function createHttpClientDuplex(
   sendRequest: (body: Uint8Array) => Promise<ReadableStream<Uint8Array>>,
 ): {

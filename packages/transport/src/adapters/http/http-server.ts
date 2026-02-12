@@ -7,6 +7,16 @@
  */
 
 import type { RepositoryFacade } from "../../api/repository-facade.js";
+import {
+  type ProcessContext as AdapterProcessContext,
+  getOutput,
+  setConfig,
+  setOutput,
+  setRefStore,
+  setRepository,
+  setState,
+  setTransport,
+} from "../../context/context-adapters.js";
 import { HandlerOutput } from "../../context/handler-output.js";
 import type { ProcessConfiguration } from "../../context/process-config.js";
 import type { ProcessContext, RefStore } from "../../context/process-context.js";
@@ -379,7 +389,7 @@ export async function handleReceivePack(
     allowNonFastForward: false,
   };
 
-  const ctx: ProcessContext = {};
+  const ctx: AdapterProcessContext = {};
   setTransport(ctx, transport);
   setRepository(ctx, repository);
   setRefStore(ctx, refStore);

@@ -40,4 +40,10 @@ export interface Duplex {
    * @param data - The bytes to send
    */
   write(data: Uint8Array): void;
+
+  /**
+   * Closes the transport connection.
+   * Optional - not all transports support explicit close.
+   */
+  close?(): Promise<void>;
 }

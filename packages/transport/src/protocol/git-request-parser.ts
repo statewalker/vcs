@@ -21,6 +21,10 @@
  */
 
 import { parsePacket } from "./pkt-line-codec.js";
+import type { ServiceType } from "./types.js";
+
+/** Git protocol service type alias. */
+export type GitProtocolService = ServiceType;
 
 /**
  * Parsed git:// protocol request.
