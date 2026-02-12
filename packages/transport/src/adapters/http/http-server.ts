@@ -6,7 +6,6 @@
  * - POST /git-upload-pack - Pack negotiation and transfer
  */
 
-import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import type { RepositoryFacade } from "../../api/repository-facade.js";
 import { HandlerOutput } from "../../context/handler-output.js";
 import type { ProcessConfiguration } from "../../context/process-config.js";

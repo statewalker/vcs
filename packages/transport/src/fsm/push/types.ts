@@ -2,6 +2,8 @@
  * Push command types and interfaces for Push FSM.
  */
 
+export { ZERO_OID } from "../../protocol/constants.js";
+
 /**
  * Type of push command being executed.
  */

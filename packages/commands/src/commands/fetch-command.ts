@@ -391,7 +391,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     }
 
     // Execute fetch using new httpFetch API
-    const transportResult = await httpFetch(remoteUrl, repository, refStore, {
+    const _transportResult = await httpFetch(remoteUrl, repository, refStore, {
       depth: this.depth,
       refSpecs: this.refSpecs.length > 0 ? this.refSpecs : undefined,
       skipRefUpdate: this.dryRun,
@@ -482,7 +482,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
    * Build refspecs for the fetch.
    */
   private createRefStoreAdapter(): TransportRefStore {
-    const refs = this.refsStore;
+    const _refs = this.refsStore;
 
     // Default refspecs based on remote
     const defaultSpecs = [`+refs/heads/*:refs/remotes/${this.remote}/*`];
@@ -493,23 +493,6 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     }
 
     return defaultSpecs;
-  }
-
-  /**
-   * Get local commits for negotiation.
-   */
-  private async *getLocalCommits(): AsyncIterable<Uint8Array> {
-    // Get commits from local refs for negotiation
-    for await (const ref of this.store.refs.list("refs/heads/")) {
-      if (!isSymbolicRef(ref) && ref.objectId) {
-        yield hexToBytes(ref.objectId);
-      }
-    }
-    for await (const ref of this.store.refs.list("refs/remotes/")) {
-      if (!isSymbolicRef(ref) && ref.objectId) {
-        yield hexToBytes(ref.objectId);
-      }
-    }
   }
 
   /**

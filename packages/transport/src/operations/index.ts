@@ -7,9 +7,6 @@ export type {
 export { fetch } from "./fetch.js";
 export type { FetchOverDuplexOptions } from "./fetch-over-duplex.js";
 export { fetchOverDuplex } from "./fetch-over-duplex.js";
-export type { FetchOverDuplexOptions } from "./fetch-over-duplex.js";
-
-export { p2pSync } from "./p2p-sync.js";
 export type {
   P2PSyncOptions,
   P2PSyncResult,
@@ -28,6 +25,6 @@ export type {
   PushResult,
   RefPushStatus,
 } from "./push-over-duplex.js";
-
-export { serveOverDuplex } from "./serve-over-duplex.js";
+export { pushOverDuplex } from "./push-over-duplex.js";
 export type { ServeOverDuplexOptions } from "./serve-over-duplex.js";
+export { serveOverDuplex } from "./serve-over-duplex.js";
