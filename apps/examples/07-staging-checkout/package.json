@@ -12,7 +12,8 @@
     "step:04": "tsx src/steps/04-status.ts",
     "step:05": "tsx src/steps/05-checkout-files.ts",
     "step:06": "tsx src/steps/06-checkout-branches.ts",
-    "step:07": "tsx src/steps/07-clean-reset.ts"
+    "step:07": "tsx src/steps/07-clean-reset.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",

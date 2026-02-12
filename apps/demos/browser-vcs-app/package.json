@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:app": "playwright test",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-commands": "workspace:*",

@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Real repository performance benchmarks - simulates realistic Git workflows",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*"

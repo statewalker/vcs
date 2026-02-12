@@ -10,7 +10,8 @@
     "step:02": "tsx src/steps/02-commit-ancestry.ts",
     "step:03": "tsx src/steps/03-diff-commits.ts",
     "step:04": "tsx src/steps/04-blame.ts",
-    "step:05": "tsx src/steps/05-file-history.ts"
+    "step:05": "tsx src/steps/05-file-history.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",

@@ -13,7 +13,8 @@
     "step:05": "tsx src/steps/05-log-diff.ts",
     "step:06": "tsx src/steps/06-status.ts",
     "step:07": "tsx src/steps/07-tag.ts",
-    "step:08": "tsx src/steps/08-stash.ts"
+    "step:08": "tsx src/steps/08-stash.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",

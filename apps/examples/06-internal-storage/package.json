@@ -10,7 +10,8 @@
     "step:02": "tsx src/main.ts --step=02",
     "step:03": "tsx src/main.ts --step=03",
     "step:04": "tsx src/main.ts --step=04",
-    "step:05": "tsx src/main.ts --step=05"
+    "step:05": "tsx src/main.ts --step=05",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",
