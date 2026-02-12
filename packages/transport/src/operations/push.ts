@@ -5,6 +5,9 @@
  * over HTTP/HTTPS.
  */
 
+import { compressBlock } from "@statewalker/vcs-utils";
+import { sha1 } from "@statewalker/vcs-utils/hash";
+
 import type { BaseHttpOptions, BasePushOptions } from "../api/options.js";
 import { ZERO_OID } from "../protocol/constants.js";
 import { createEmptyPack } from "../protocol/pack-utils.js";
@@ -33,6 +36,8 @@ export interface PushOptions extends BaseHttpOptions, BasePushOptions {
   getLocalRef?: (refName: string) => Promise<string | undefined>;
   /** Get objects to push for given new/old object IDs */
   getObjectsToPush?: (newIds: string[], oldIds: string[]) => AsyncIterable<PushObject>;
+  /** Export a valid pack stream for the given wants/exclude sets (preferred over getObjectsToPush) */
+  exportPack?: (wants: Set<string>, exclude: Set<string>) => AsyncIterable<Uint8Array>;
 }
 
 /**
@@ -156,7 +161,9 @@ export async function push(options: PushOptions): Promise<HttpPushResult> {
     }> = [];
 
     for (const refspec of options.refspecs) {
-      const [source, dest] = refspec.split(":");
+      // Strip force prefix before parsing
+      const normalized = refspec.startsWith("+") ? refspec.slice(1) : refspec;
+      const [source, dest] = normalized.split(":");
       const destRef = dest || source;
 
       // Get local ref value
@@ -202,9 +209,9 @@ export async function push(options: PushOptions): Promise<HttpPushResult> {
         oldOids.push(update.oldOid);
       }
 
-      // Build capability string for first line
+      // Build capability string for first line (NUL-separated per Git protocol)
       const caps = firstUpdate
-        ? ` report-status side-band-64k${options.atomic ? " atomic" : ""}${options.force ? "" : ""}`
+        ? `\0report-status side-band-64k${options.atomic ? " atomic" : ""}`
         : "";
 
       const line = `${update.oldOid} ${update.newOid} ${update.refName}${caps}`;
@@ -216,7 +223,15 @@ export async function push(options: PushOptions): Promise<HttpPushResult> {
 
     // Generate pack data
     let objectCount = 0;
-    if (newOids.length > 0 && options.getObjectsToPush) {
+    if (newOids.length > 0 && options.exportPack) {
+      // Preferred: use RepositoryFacade.exportPack for proper pack encoding
+      const wantsSet = new Set(newOids);
+      const excludeSet = new Set(oldOids);
+      for await (const chunk of options.exportPack(wantsSet, excludeSet)) {
+        requestChunks.push(chunk);
+      }
+      objectCount = newOids.length; // Approximate
+    } else if (newOids.length > 0 && options.getObjectsToPush) {
       const packWriter = new PackWriter();
 
       for await (const obj of options.getObjectsToPush(newOids, oldOids)) {
@@ -224,7 +239,7 @@ export async function push(options: PushOptions): Promise<HttpPushResult> {
         objectCount++;
       }
 
-      const packData = packWriter.finish();
+      const packData = await packWriter.finish();
       requestChunks.push(packData);
     } else {
       // Empty pack for delete-only operations
@@ -332,6 +347,62 @@ function parseReceivePackAdvertisement(data: Uint8Array): Map<string, string> {
 }
 
 /**
+ * Parse a single status line from report-status (e.g. "unpack ok", "ok refname", "ng refname msg").
+ */
+function parseStatusLine(
+  content: string,
+  updates: Map<string, RefUpdateResult>,
+  setUnpack: (status: string) => void,
+): void {
+  if (content.startsWith("unpack ")) {
+    setUnpack(content);
+  } else if (content.startsWith("ok ")) {
+    const refName = content.slice(3);
+    updates.set(refName, { ok: true });
+  } else if (content.startsWith("ng ")) {
+    const rest = content.slice(3);
+    const spaceIdx = rest.indexOf(" ");
+    const refName = spaceIdx >= 0 ? rest.slice(0, spaceIdx) : rest;
+    const message = spaceIdx >= 0 ? rest.slice(spaceIdx + 1) : "unknown error";
+    updates.set(refName, { ok: false, message });
+  }
+}
+
+/**
+ * Parse inner pkt-line encoded status lines from sideband channel 1 data.
+ *
+ * When side-band-64k is negotiated, the server wraps each status line in a
+ * pkt-line before sending it on channel 1. This function strips the inner
+ * pkt-line framing and feeds each status line to parseStatusLine.
+ */
+function parsePktLineStatusStream(
+  data: Uint8Array,
+  textDecoder: TextDecoder,
+  updates: Map<string, RefUpdateResult>,
+  setUnpack: (status: string) => void,
+): void {
+  let pos = 0;
+  while (pos < data.length) {
+    if (pos + 4 > data.length) break;
+
+    const innerLenHex = textDecoder.decode(data.slice(pos, pos + 4));
+    if (innerLenHex === "0000") {
+      // Inner flush — end of status stream
+      pos += 4;
+      continue;
+    }
+
+    const innerLen = parseInt(innerLenHex, 16);
+    if (Number.isNaN(innerLen) || innerLen < 4) break;
+    if (pos + innerLen > data.length) break;
+
+    const innerPayload = textDecoder.decode(data.slice(pos + 4, pos + innerLen)).trim();
+    parseStatusLine(innerPayload, updates, setUnpack);
+    pos += innerLen;
+  }
+}
+
+/**
  * Parse report-status response.
  */
 function parseReportStatus(
@@ -363,28 +434,32 @@ function parseReportStatus(
 
     const payload = data.slice(offset + 4, offset + length);
     if (payload.length > 0) {
-      const channel = payload[0];
-      const content = textDecoder.decode(payload.slice(1)).trim();
+      const firstByte = payload[0];
 
-      if (channel === 1) {
-        // Status line
-        if (content.startsWith("unpack ")) {
-          unpackStatus = content;
-        } else if (content.startsWith("ok ")) {
-          const refName = content.slice(3);
-          updates.set(refName, { ok: true });
-        } else if (content.startsWith("ng ")) {
-          const parts = content.slice(3).split(" ", 2);
-          const refName = parts[0];
-          const message = parts[1] || "unknown error";
-          updates.set(refName, { ok: false, message });
+      // Detect sideband vs plain text: sideband packets have channel byte 1-3
+      if (firstByte >= 1 && firstByte <= 3) {
+        if (firstByte === 1) {
+          // Status data on sideband channel 1 is itself pkt-line encoded.
+          // Parse inner pkt-lines from the sideband payload.
+          const innerData = payload.slice(1);
+          parsePktLineStatusStream(innerData, textDecoder, updates, (s) => {
+            unpackStatus = s;
+          });
+        } else if (firstByte === 2) {
+          // Progress message
+          const content = textDecoder.decode(payload.slice(1)).trim();
+          if (onProgress) onProgress(content);
+        } else {
+          // Error message
+          const content = textDecoder.decode(payload.slice(1)).trim();
+          throw new Error(`Server error: ${content}`);
         }
-      } else if (channel === 2) {
-        // Progress message
-        if (onProgress) onProgress(content);
-      } else if (channel === 3) {
-        // Error message
-        throw new Error(`Server error: ${content}`);
+      } else {
+        // Plain text (no sideband) — parse status directly
+        const content = textDecoder.decode(payload).trim();
+        parseStatusLine(content, updates, (s) => {
+          unpackStatus = s;
+        });
       }
     }
 
@@ -411,7 +486,7 @@ class PackWriter {
     this.objects.push(obj);
   }
 
-  finish(): Uint8Array {
+  async finish(): Promise<Uint8Array> {
     if (this.objects.length === 0) {
       return createEmptyPack();
     }
@@ -422,12 +497,10 @@ class PackWriter {
     // Pack header: "PACK" + version (2) + object count
     const header = new Uint8Array(12);
     header.set(textEncoder.encode("PACK"), 0);
-    // Version 2 (big-endian)
     header[4] = 0;
     header[5] = 0;
     header[6] = 0;
     header[7] = 2;
-    // Object count (big-endian)
     const count = this.objects.length;
     header[8] = (count >> 24) & 0xff;
     header[9] = (count >> 16) & 0xff;
@@ -435,35 +508,36 @@ class PackWriter {
     header[11] = count & 0xff;
     chunks.push(header);
 
-    // Pack objects
+    // Pack objects (with zlib compression)
     for (const obj of this.objects) {
-      chunks.push(encodePackObject(obj));
+      chunks.push(await encodePackObject(obj));
     }
 
     // Concatenate all chunks
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const packData = new Uint8Array(totalLength + 20); // +20 for SHA-1 checksum
+    const dataLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const packContent = new Uint8Array(dataLength);
     let offset = 0;
     for (const chunk of chunks) {
-      packData.set(chunk, offset);
+      packContent.set(chunk, offset);
       offset += chunk.length;
     }
 
-    // TODO: Compute actual SHA-1 checksum
-    // For now, use placeholder
-    const checksum = new Uint8Array(20);
-    packData.set(checksum, offset);
+    // Compute SHA-1 checksum of pack content
+    const checksum = await sha1(packContent);
+
+    // Append checksum
+    const packData = new Uint8Array(dataLength + 20);
+    packData.set(packContent, 0);
+    packData.set(checksum, dataLength);
 
     return packData;
   }
 }
 
 /**
- * Encode a single pack object.
+ * Encode a single pack object with zlib compression.
  */
-function encodePackObject(obj: PushObject): Uint8Array {
-  // Simplified object encoding
-  // In a real implementation, this would handle compression and delta encoding
+async function encodePackObject(obj: PushObject): Promise<Uint8Array> {
   const header: number[] = [];
   let size = obj.content.length;
   const typeBits = obj.type & 0x7;
@@ -480,10 +554,13 @@ function encodePackObject(obj: PushObject): Uint8Array {
   }
   header.push(byte);
 
-  // Concatenate header and content
-  const result = new Uint8Array(header.length + obj.content.length);
+  // Zlib-compress the content (Git pack format requires this)
+  const compressed = await compressBlock(obj.content);
+
+  // Concatenate header and compressed content
+  const result = new Uint8Array(header.length + compressed.length);
   result.set(new Uint8Array(header), 0);
-  result.set(obj.content, header.length);
+  result.set(compressed, header.length);
 
   return result;
 }

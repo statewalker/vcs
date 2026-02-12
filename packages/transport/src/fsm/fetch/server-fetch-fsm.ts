@@ -31,7 +31,7 @@ export const serverFetchTransitions: FsmTransition[] = [
 
   // Send refs to client
   ["SEND_ADVERTISEMENT", "REFS_SENT", "READ_WANTS"],
-  ["SEND_ADVERTISEMENT", "EMPTY_REPO", "READ_WANTS"], // Send capabilities^{} for empty repo
+  ["SEND_ADVERTISEMENT", "EMPTY_REPO", ""], // Empty repo → exit (client will disconnect)
   ["SEND_ADVERTISEMENT", "ERROR", ""],
 
   // Read wants from client

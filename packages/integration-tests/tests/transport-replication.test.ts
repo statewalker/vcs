@@ -13,31 +13,40 @@ import type { SimpleHistory } from "./helpers/simple-history.js";
 import { createCommit, createInitializedGitFromFactory, toArray } from "./test-helper.js";
 
 /**
- * Duplex with close method for tests
+ * Test transport endpoint wrapping a MessagePort Duplex.
  */
-interface DuplexWithClose extends Duplex {
+interface TestTransportEndpoint {
+  writer(data: Uint8Array): void;
+  reader: AsyncGenerator<Uint8Array>;
   close(): Promise<void>;
+}
+
+function wrapDuplex(duplex: Duplex, port: MessagePort): TestTransportEndpoint {
+  return {
+    writer: (data: Uint8Array) => duplex.write(data),
+    reader: duplex[Symbol.asyncIterator]() as AsyncGenerator<Uint8Array>,
+    close: async () => {
+      port.postMessage("__close__");
+    },
+  };
 }
 
 /**
  * Create a connected pair of MessagePort transports for testing.
  */
 function createTestTransportPair(): {
-  local: DuplexWithClose;
-  remote: DuplexWithClose;
+  local: TestTransportEndpoint;
+  remote: TestTransportEndpoint;
   cleanup: () => void;
 } {
-  const [port1, port2] = createMessagePortPair();
-
-  const _localReader = createMessagePortReader(port1);
-  const _remoteReader = createMessagePortReader(port2);
+  const channel = new MessageChannel();
 
   return {
-    local: createMessagePortDuplex(channel.port1) as DuplexWithClose,
-    remote: createMessagePortDuplex(channel.port2) as DuplexWithClose,
+    local: wrapDuplex(createMessagePortDuplex(channel.port1), channel.port1),
+    remote: wrapDuplex(createMessagePortDuplex(channel.port2), channel.port2),
     cleanup: () => {
-      port1.close();
-      port2.close();
+      channel.port1.close();
+      channel.port2.close();
     },
   };
 }

@@ -1,22 +1,4 @@
-import type { Tags } from "@statewalker/vcs-core";
-import { DefaultSerializationApi, isSymbolicRef } from "@statewalker/vcs-core";
-import { httpPush, type RefStore as TransportRefStore } from "@statewalker/vcs-transport";
-import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
-
-/**
- * No-op Tags for repositories without tag support.
- * Only used as a fallback when tags store is not provided.
- */
-const noOpTags: Tags = {
-  store: () => Promise.reject(new Error("Tag storage not available")),
-  load: () => Promise.resolve(undefined),
-  getTarget: () => Promise.resolve(undefined),
-  has: () => Promise.resolve(false),
-  remove: () => Promise.resolve(false),
-  async *keys() {
-    // Empty iterator - no tags available
-  },
-};
+import { type PushObject, push as transportPush } from "@statewalker/vcs-transport";
 
 import { InvalidRemoteError, NonFastForwardError, PushRejectedException } from "../errors/index.js";
 import { type PushResult, PushStatus, type RemoteRefUpdate } from "../results/push-result.js";
@@ -306,42 +288,23 @@ export class PushCommand extends TransportCommand<PushResult> {
       };
     }
 
-    // Get tags store (use no-op fallback if not available)
-    const tagsStore = this.tagsStore ?? noOpTags;
+    // Build exportPack if history supports serialization (HistoryWithOperations)
+    const history = this._workingCopy.history;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const serialization = (history as any).serialization as
+      | { createPack(objectIds: AsyncIterable<string>): AsyncIterable<Uint8Array> }
+      | undefined;
 
-    // Create serialization API from typed stores
-    const serialization = new DefaultSerializationApi({
-      history: {
-        blobs: this.blobs,
-        trees: this.trees,
-        commits: this.commits,
-        tags: tagsStore,
-      },
-    });
+    const exportPack = serialization
+      ? async function* (wants: Set<string>, exclude: Set<string>): AsyncIterable<Uint8Array> {
+          const objectIds = history.collectReachableObjects(wants, exclude);
+          yield* serialization.createPack(objectIds);
+        }
+      : undefined;
 
-    // Create repository facade for pack operations
-    const repository = createVcsRepositoryFacade({
-      history: {
-        blobs: this.blobs,
-        trees: this.trees,
-        commits: this.commits,
-        tags: tagsStore,
-        refs: this.refsStore,
-      } as unknown as Parameters<typeof createVcsRepositoryFacade>[0]["history"],
-      serialization,
-    });
-
-    // Create transport ref store adapter
-    const refStore = this.createRefStoreAdapter();
-
-    // Build credentials in the expected format
-    const _credentials =
-      this.credentials?.username && this.credentials?.password
-        ? { username: this.credentials.username, password: this.credentials.password }
-        : undefined;
-
-    // Execute push using new httpPush API
-    const _transportResult = await httpPush(remoteUrl, repository, refStore, {
+    // Execute push using high-level push API
+    const transportResult = await transportPush({
+      url: remoteUrl,
       refspecs,
       auth: this.credentials,
       headers: this.headers,
@@ -349,16 +312,14 @@ export class PushCommand extends TransportCommand<PushResult> {
       force: this.force,
       atomic: this.atomic,
       onProgressMessage: this.progressMessageCallback,
+      exportPack,
       getLocalRef: async (refName: string) => {
-        const ref = await this.store.refs.resolve(refName);
+        const ref = await this.refsStore.resolve(refName);
         return ref?.objectId;
       },
       getObjectsToPush: (newIds: string[], oldIds: string[]) =>
         this.getObjectsToPush(newIds, oldIds),
     });
-
-    // Execute push
-    const transportResult = await transportPush(options);
 
     // Convert to PushResult
     const remoteUpdates: RemoteRefUpdate[] = [];
@@ -416,51 +377,6 @@ export class PushCommand extends TransportCommand<PushResult> {
     // Try to get remote URL from config
     // For now, treat as URL if not a known remote
     return remote;
-  }
-
-  /**
-   * Create a transport RefStore adapter from the history store refs.
-   */
-  private createRefStoreAdapter(): TransportRefStore {
-    const refs = this.refsStore;
-
-    return {
-      async get(name: string): Promise<string | undefined> {
-        const ref = await refs.resolve(name);
-        return ref?.objectId;
-      },
-
-      async update(name: string, oid: string): Promise<void> {
-        await refs.set(name, oid);
-      },
-
-      async listAll(): Promise<Iterable<[string, string]>> {
-        const result: Array<[string, string]> = [];
-        for await (const ref of refs.list()) {
-          if (!isSymbolicRef(ref) && ref.objectId) {
-            result.push([ref.name, ref.objectId]);
-          }
-        }
-        return result;
-      },
-
-      async getSymrefTarget(name: string): Promise<string | undefined> {
-        const ref = await refs.get(name);
-        if (ref && isSymbolicRef(ref)) {
-          return ref.target;
-        }
-        return undefined;
-      },
-
-      async isRefTip(oid: string): Promise<boolean> {
-        for await (const ref of refs.list()) {
-          if (!isSymbolicRef(ref) && ref.objectId === oid) {
-            return true;
-          }
-        }
-        return false;
-      },
-    };
   }
 
   /**
@@ -534,13 +450,14 @@ export class PushCommand extends TransportCommand<PushResult> {
       visitedObjects.add(commitId);
 
       try {
-        const commit = await this.store.commits.loadCommit(commitId);
+        const commit = await this.commits.load(commitId);
+        if (!commit) continue;
 
         // Yield commit object
         yield await this.loadObjectForPush(commitId, 1);
 
         // Yield tree and its contents
-        await this.yieldTreeObjects(commit.tree, visitedObjects);
+        yield* this.yieldTreeObjects(commit.tree, visitedObjects);
 
         // Queue parent commits
         for (const parent of commit.parents) {
@@ -575,8 +492,8 @@ export class PushCommand extends TransportCommand<PushResult> {
       depth++;
 
       try {
-        const commit = await this.store.commits.loadCommit(id);
-        queue.push(...commit.parents);
+        const commit = await this.commits.load(id);
+        if (commit) queue.push(...commit.parents);
       } catch {
         // Commit not found, skip
       }
@@ -599,7 +516,7 @@ export class PushCommand extends TransportCommand<PushResult> {
     yield await this.loadObjectForPush(treeId, 2);
 
     // Recursively process tree entries
-    for await (const entry of this.store.trees.loadTree(treeId)) {
+    for await (const entry of this.trees.loadTree(treeId)) {
       if (visited.has(entry.id)) {
         continue;
       }
@@ -620,8 +537,11 @@ export class PushCommand extends TransportCommand<PushResult> {
    */
   private async loadObjectForPush(objectId: string, type: number): Promise<PushObject> {
     const chunks: Uint8Array[] = [];
-    for await (const chunk of this.store.blobs.load(objectId)) {
-      chunks.push(chunk);
+    const blobContent = await this.blobs.load(objectId);
+    if (blobContent) {
+      for await (const chunk of blobContent) {
+        chunks.push(chunk);
+      }
     }
 
     // Concatenate chunks

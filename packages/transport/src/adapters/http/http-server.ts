@@ -405,8 +405,12 @@ export async function handleReceivePack(
   try {
     await fsm.run(ctx);
 
+    // Only return 500 if the FSM errored without producing a proper
+    // protocol response (e.g., it never reached SEND_STATUS).
+    // When SEND_STATUS runs, responseChunks will contain pkt-line data
+    // even if earlier stages (like UNPACK) set output.error.
     const output = getOutput(ctx);
-    if (output.error) {
+    if (output.error && responseChunks.length === 0) {
       return {
         status: 500,
         headers: { "Content-Type": "text/plain" },
