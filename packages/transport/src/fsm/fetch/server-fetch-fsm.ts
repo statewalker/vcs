@@ -415,10 +415,7 @@ export const serverFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
           if (cmd === "deepen" && repository.computeShallowBoundaries) {
             // Depth-based shallow
             const depth = Number.parseInt(value, 10);
-            const boundaries = await repository.computeShallowBoundaries(
-              state.wants,
-              depth,
-            );
+            const boundaries = await repository.computeShallowBoundaries(state.wants, depth);
             state.serverShallow = boundaries;
           } else if (cmd === "deepen-since" && repository.computeShallowSince) {
             // Time-based shallow
@@ -590,9 +587,7 @@ export const serverFetchHandlers = new Map<string, FsmStateHandler<ProcessContex
         }
 
         // Send ACK common for each common object found in this batch
-        const newCommon = [...state.commonBase].filter(
-          (oid) => !state.ackedCommon?.has(oid),
-        );
+        const newCommon = [...state.commonBase].filter((oid) => !state.ackedCommon?.has(oid));
         state.ackedCommon = state.ackedCommon ?? new Set();
 
         for (const oid of newCommon) {

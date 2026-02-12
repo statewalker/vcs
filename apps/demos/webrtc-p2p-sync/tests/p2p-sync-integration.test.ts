@@ -589,7 +589,7 @@ describe("P2P Sync Integration", () => {
       // Helper: read blob content as string
       async function readBlobContent(ctx: AppContext, blobId: string): Promise<string> {
         const history = getHistory(ctx);
-        const stream = await history!.blobs.load(blobId);
+        const stream = await history?.blobs.load(blobId);
         if (!stream) throw new Error(`Blob ${blobId} not found`);
         const chunks: Uint8Array[] = [];
         for await (const chunk of stream) chunks.push(chunk);
@@ -698,7 +698,7 @@ describe("P2P Sync Integration", () => {
       for (const expectedFile of client1Files) {
         const file = client2Files.find((f) => f.name === expectedFile.name);
         expect(file, `File ${expectedFile.name} should exist on Client 2`).toBeDefined();
-        const content = await readBlobContent(ctx2, file!.id!);
+        const content = await readBlobContent(ctx2, file?.id!);
         expect(content).toBe(expectedFile.content);
       }
 
@@ -766,7 +766,7 @@ describe("P2P Sync Integration", () => {
       for (const expectedFile of [...client1Files, ...client2NewFiles]) {
         const file = client1AllFiles.find((f) => f.name === expectedFile.name);
         expect(file, `File ${expectedFile.name} should exist on Client 1`).toBeDefined();
-        const content = await readBlobContent(ctx1, file!.id!);
+        const content = await readBlobContent(ctx1, file?.id!);
         expect(content).toBe(expectedFile.content);
       }
     },
