@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "tsx src/main.ts",
-    "git": "tsx src/main.ts"
+    "git": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",

@@ -51,7 +51,8 @@
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run --passWithNoTests",
-    "lint": "biome lint src tests"
+    "lint": "biome lint src tests",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-utils": "workspace:*"

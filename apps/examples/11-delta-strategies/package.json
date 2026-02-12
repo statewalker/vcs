@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Delta Strategies: Storage optimization with DeltaApi",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",

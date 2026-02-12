@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Custom Storage: Building storage backends from components",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*"

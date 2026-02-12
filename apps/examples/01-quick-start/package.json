@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Quick Start: Get running in 5 minutes with VCS",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*"

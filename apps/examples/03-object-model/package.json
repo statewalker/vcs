@@ -10,7 +10,8 @@
     "step:02": "tsx src/steps/02-tree-structure.ts",
     "step:03": "tsx src/steps/03-commit-anatomy.ts",
     "step:04": "tsx src/steps/04-tags.ts",
-    "step:05": "tsx src/steps/05-deduplication.ts"
+    "step:05": "tsx src/steps/05-deduplication.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*"

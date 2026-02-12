@@ -27,7 +27,8 @@
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run",
-    "lint": "biome lint src tests"
+    "lint": "biome lint src tests",
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "peerjs": "^1.5.0"
