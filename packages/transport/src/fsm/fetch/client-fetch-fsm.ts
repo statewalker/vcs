@@ -61,6 +61,7 @@ export const clientFetchTransitions: FsmTransition[] = [
   ["SEND_HAVES", "HAVES_SENT", "READ_ACKS"],
   ["SEND_HAVES", "NO_HAVES", "SEND_DONE"], // no local commits
   ["SEND_HAVES", "ALL_HAVES_SENT", "SEND_DONE"], // Stateless RPC: all haves at once
+  ["SEND_HAVES", "MAX_HAVES", "SEND_DONE"], // hit max haves limit
   ["SEND_HAVES", "ERROR", ""],
 
   // Negotiation: read ACK/NAK responses
