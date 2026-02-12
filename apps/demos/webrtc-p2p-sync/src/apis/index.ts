@@ -1,4 +1,12 @@
 export {
+  getConnectionProvider,
+  type IPeerConnectionProvider,
+  type PeerConnectionCallbacks,
+  type PeerConnectionResult,
+  type SessionId,
+  setConnectionProvider,
+} from "./peer-connection-provider.js";
+export {
   createRealPeerJsApi,
   getPeerJsApi,
   type PeerConnection,
@@ -6,7 +14,6 @@ export {
   type PeerJsApi,
   setPeerJsApi,
 } from "./peerjs-api.js";
-
 export {
   createRealTimerApi,
   getTimerApi,

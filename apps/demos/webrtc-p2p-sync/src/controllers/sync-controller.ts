@@ -20,7 +20,6 @@ import {
   listenCancelSyncAction,
   listenStartSyncAction,
 } from "../actions/index.js";
-import type { PeerConnection } from "../apis/index.js";
 import { getTimerApi } from "../apis/index.js";
 import {
   getActivityLogModel,
@@ -77,10 +76,10 @@ export function createSyncController(ctx: AppContext): () => void {
       if (!history || !serialization) return;
 
       // Set up servers for all connected peers
-      for (const [peerId, conn] of connections) {
+      for (const [peerId, port] of connections) {
         const peer = peersModel.get(peerId);
         if (peer) {
-          setupGitServerForPeer(peerId, conn);
+          setupGitServerForPeer(peerId, port);
         }
       }
 
@@ -96,7 +95,7 @@ export function createSyncController(ctx: AppContext): () => void {
   /**
    * Set up Git server for a peer connection.
    */
-  function setupGitServerForPeer(peerId: string, conn: PeerConnection): void {
+  function setupGitServerForPeer(peerId: string, port: MessagePort): void {
     if (gitServers.has(peerId)) return;
 
     const history = getHistory(ctx);
@@ -108,7 +107,7 @@ export function createSyncController(ctx: AppContext): () => void {
 
     try {
       const cleanup = setupGitPeerServer({
-        connection: conn,
+        port,
         history,
         serialization,
         logger: {
@@ -159,9 +158,9 @@ export function createSyncController(ctx: AppContext): () => void {
       return;
     }
 
-    // Get the peer connection
-    const conn = connections.get(peerId);
-    if (!conn) {
+    // Get the peer's MessagePort
+    const port = connections.get(peerId);
+    if (!port) {
       logModel.error(`Peer ${peerId} not connected`);
       return;
     }
@@ -183,7 +182,7 @@ export function createSyncController(ctx: AppContext): () => void {
     try {
       // Create Git peer session
       const session = createGitPeerSession({
-        connection: conn,
+        port,
         history,
         serialization,
         onProgress: (phase, message) => {
