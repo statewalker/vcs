@@ -186,8 +186,7 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
       try {
         const atomic = config.atomic && state.capabilities.has("atomic");
-        const pushOptions =
-          config.pushOptions?.length && state.capabilities.has("push-options");
+        const pushOptions = config.pushOptions?.length && state.capabilities.has("push-options");
 
         // Build capability string for first command
         const caps: string[] = [];
