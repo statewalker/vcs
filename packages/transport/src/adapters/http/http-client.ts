@@ -192,8 +192,8 @@ export async function httpFetch(
       readableStreamToAsyncIterable(uploadPackResponse.body),
     );
 
-    // Find where pack data starts (after flush or NAK)
-    const _packStartIndex = findPackDataStart(responseData);
+    // Decode sideband-encoded response
+    const sidebandResult = decodeSidebandResponse(responseData);
 
     // Check for server error
     if (sidebandResult.error) {
@@ -321,30 +321,6 @@ function extractPktLineText(data: Uint8Array): string[] {
   }
 
   return lines;
-}
-
-/**
- * Finds where pack data starts in the response.
- *
- * Pack data starts after "NAK" or after ACK negotiation.
- * It's identified by the PACK signature (0x50, 0x41, 0x43, 0x4b).
- */
-function findPackDataStart(data: Uint8Array): number {
-  // Look for PACK signature
-  const packSignature = [0x50, 0x41, 0x43, 0x4b]; // "PACK"
-
-  for (let i = 0; i <= data.length - 4; i++) {
-    if (
-      data[i] === packSignature[0] &&
-      data[i + 1] === packSignature[1] &&
-      data[i + 2] === packSignature[2] &&
-      data[i + 3] === packSignature[3]
-    ) {
-      return i;
-    }
-  }
-
-  return -1;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

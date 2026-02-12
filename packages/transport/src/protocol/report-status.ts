@@ -151,6 +151,43 @@ function parseRefStatusLine(line: string): RefUpdateStatus | undefined {
 }
 
 /**
+ * Parse report-status from an array of pre-decoded text lines.
+ *
+ * Used by the HTTP client where pkt-line and sideband decoding
+ * has already been done on the buffered response.
+ *
+ * @param lines - Status lines (e.g., ["unpack ok", "ok refs/heads/main"])
+ * @returns Parsed push report status
+ */
+export function parseReportStatusLines(lines: string[]): PushReportStatus {
+  const result: PushReportStatus = {
+    unpackOk: false,
+    refUpdates: [],
+    ok: false,
+  };
+
+  let firstLine = true;
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+
+    if (firstLine) {
+      firstLine = false;
+      parseUnpackLine(line, result);
+    } else {
+      const refStatus = parseRefStatusLine(line);
+      if (refStatus) {
+        result.refUpdates.push(refStatus);
+      }
+    }
+  }
+
+  result.ok = result.unpackOk && result.refUpdates.every((r) => r.ok);
+  return result;
+}
+
+/**
  * Parse report-status-v2 response from server.
  *
  * Protocol v2 format has additional structure with option lines.

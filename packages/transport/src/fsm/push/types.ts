@@ -59,3 +59,47 @@ export function mapRejectReason(reason: string): PushCommandResult {
   if (reason.includes("lock")) return "LOCK_FAILURE";
   return "REJECTED_OTHER_REASON";
 }
+
+/**
+ * Parsed refspec result.
+ */
+export interface ParsedRefspec {
+  /** Source ref (local side), or null for delete */
+  src: string | null;
+  /** Destination ref (remote side) */
+  dst: string;
+  /** Whether this is a force push (+) */
+  force: boolean;
+}
+
+/**
+ * Parse a refspec string into its components.
+ *
+ * Formats:
+ * - "src:dst" — push src to dst
+ * - "+src:dst" — force push src to dst
+ * - "ref" — push ref to same name
+ * - ":dst" — delete dst
+ *
+ * @param refspec - Refspec string to parse
+ * @returns Parsed refspec
+ */
+export function parseRefspec(refspec: string): ParsedRefspec {
+  let spec = refspec;
+  let force = false;
+
+  if (spec.startsWith("+")) {
+    force = true;
+    spec = spec.slice(1);
+  }
+
+  const colonIdx = spec.indexOf(":");
+  if (colonIdx < 0) {
+    return { src: spec, dst: spec, force };
+  }
+
+  const src = spec.slice(0, colonIdx);
+  const dst = spec.slice(colonIdx + 1);
+
+  return { src: src || null, dst, force };
+}

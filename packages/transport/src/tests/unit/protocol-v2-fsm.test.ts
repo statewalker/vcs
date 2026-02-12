@@ -73,7 +73,17 @@ function createMockTransport(responses: PktLineResult[] = []): TransportApi & {
       // Return empty pack
     },
 
+    async *readRawPack(): AsyncGenerator<Uint8Array> {
+      // Return empty pack
+    },
+
     async writePack(data: AsyncIterable<Uint8Array>): Promise<void> {
+      for await (const chunk of data) {
+        this.packWritten.push(chunk);
+      }
+    },
+
+    async writeRawPack(data: AsyncIterable<Uint8Array>): Promise<void> {
       for await (const chunk of data) {
         this.packWritten.push(chunk);
       }
