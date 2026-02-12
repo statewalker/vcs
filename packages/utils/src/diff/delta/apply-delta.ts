@@ -160,7 +160,7 @@ export async function* applyGitDeltaStreaming(
   source: RandomAccessStream,
   delta: RandomAccessStream,
 ): AsyncGenerator<Uint8Array> {
-  const reader = new BufferedByteReader(delta());
+  const reader = new BufferedByteReader(delta()[Symbol.asyncIterator]());
 
   // Read base size header (unused for streaming, but must be consumed)
   await readDeltaVarint(reader);

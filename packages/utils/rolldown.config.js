@@ -17,6 +17,7 @@ export default defineConfig({
     "ports/index": "src/ports/index.ts",
     "cache/index": "src/cache/index.ts",
     "files/index": "src/files/index.ts",
+    "pack/index": "src/pack/index.ts",
   },
   output: {
     dir: "dist",
