@@ -3,6 +3,11 @@
  */
 
 export {
+  createMessagePortClientDuplex,
+  createMessagePortDuplex,
+  waitForMessagePortClientService,
+} from "./messageport-duplex.js";
+export {
   createClientDuplex,
   createPeerJsDuplex,
   type GitServiceType,

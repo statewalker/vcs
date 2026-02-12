@@ -9,8 +9,7 @@ import type { History, SerializationApi } from "@statewalker/vcs-core";
 import type { RefStore, RepositoryFacade } from "@statewalker/vcs-transport";
 import { fetchOverDuplex, pushOverDuplex } from "@statewalker/vcs-transport";
 import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
-import { createClientDuplex, createRefStoreAdapter } from "../adapters/index.js";
-import type { PeerConnection } from "../apis/index.js";
+import { createMessagePortClientDuplex, createRefStoreAdapter } from "../adapters/index.js";
 
 /**
  * Interface for the Git peer session.
@@ -72,8 +71,8 @@ export interface GitPushResult {
  * Options for creating a Git peer session.
  */
 export interface GitPeerSessionOptions {
-  /** The PeerJS DataConnection to use. */
-  connection: PeerConnection;
+  /** The MessagePort to communicate over. */
+  port: MessagePort;
   /** Local repository history. */
   history: History;
   /** Serialization API for pack operations. */
@@ -93,7 +92,7 @@ export interface GitPeerSessionOptions {
  * @returns A GitPeerSession instance
  */
 export function createGitPeerSession(options: GitPeerSessionOptions): GitPeerSession {
-  const { connection, history, serialization, onProgress } = options;
+  const { port, history, serialization, onProgress } = options;
 
   const repository: RepositoryFacade = createVcsRepositoryFacade({ history, serialization });
   const refStore: RefStore = createRefStoreAdapter(history.refs);
@@ -112,7 +111,7 @@ export function createGitPeerSession(options: GitPeerSessionOptions): GitPeerSes
         onProgress?.("discovering", "Connecting to peer...");
 
         // Create client duplex with service handshake (triggers server)
-        const duplex = createClientDuplex(connection, "git-upload-pack");
+        const duplex = createMessagePortClientDuplex(port, "git-upload-pack");
 
         onProgress?.("transferring", "Fetching from peer...");
 
@@ -158,7 +157,7 @@ export function createGitPeerSession(options: GitPeerSessionOptions): GitPeerSes
         onProgress?.("discovering", "Connecting to peer...");
 
         // Create client duplex with service handshake (triggers server)
-        const duplex = createClientDuplex(connection, "git-receive-pack");
+        const duplex = createMessagePortClientDuplex(port, "git-receive-pack");
 
         onProgress?.("transferring", "Pushing to peer...");
 

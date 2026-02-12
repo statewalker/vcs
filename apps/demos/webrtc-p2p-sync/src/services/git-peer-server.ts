@@ -13,15 +13,14 @@ import type { History, SerializationApi } from "@statewalker/vcs-core";
 import type { RefStore, RepositoryFacade } from "@statewalker/vcs-transport";
 import { serveOverDuplex } from "@statewalker/vcs-transport";
 import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
-import { createRefStoreAdapter, waitForClientService } from "../adapters/index.js";
-import type { PeerConnection } from "../apis/index.js";
+import { createRefStoreAdapter, waitForMessagePortClientService } from "../adapters/index.js";
 
 /**
  * Options for setting up Git peer server.
  */
 export interface GitPeerServerOptions {
-  /** The PeerJS DataConnection to serve Git requests over. */
-  connection: PeerConnection;
+  /** The MessagePort to serve Git requests over. */
+  port: MessagePort;
   /** Local repository history. */
   history: History;
   /** Serialization API for pack operations. */
@@ -45,7 +44,7 @@ export interface GitPeerServerOptions {
  * @returns Cleanup function to stop serving
  */
 export function setupGitPeerServer(options: GitPeerServerOptions): () => void {
-  const { connection, history, serialization, logger } = options;
+  const { port, history, serialization, logger } = options;
 
   const repository: RepositoryFacade = createVcsRepositoryFacade({ history, serialization });
   const refStore: RefStore = createRefStoreAdapter(history.refs);
@@ -57,7 +56,7 @@ export function setupGitPeerServer(options: GitPeerServerOptions): () => void {
     while (!stopped) {
       try {
         // Wait for client to send service type byte
-        const { duplex, service } = await waitForClientService(connection);
+        const { duplex, service } = await waitForMessagePortClientService(port);
 
         if (stopped) {
           await duplex.close?.();

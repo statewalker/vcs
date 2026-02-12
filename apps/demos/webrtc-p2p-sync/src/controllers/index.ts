@@ -25,10 +25,10 @@ function createSerializationApi(history: History): SerializationApi {
   return new DefaultSerializationApi({ history });
 }
 
-import type { PeerConnection, PeerInstance } from "../apis/index.js";
 import {
   createRealPeerJsApi,
   createRealTimerApi,
+  setConnectionProvider,
   setPeerJsApi,
   setTimerApi,
 } from "../apis/index.js";
@@ -41,17 +41,9 @@ import { newAdapter } from "../utils/index.js";
 export type AppContext = Record<string, unknown>;
 
 /**
- * Context adapter for PeerJS peer instance.
+ * Context adapter for active peer connections (MessagePort per peer).
  */
-export const [getPeerInstance, setPeerInstance] = newAdapter<PeerInstance | null>(
-  "peer-instance",
-  () => null,
-);
-
-/**
- * Context adapter for active peer connections.
- */
-export const [getPeerConnections, setPeerConnections] = newAdapter<Map<string, PeerConnection>>(
+export const [getPeerConnections, setPeerConnections] = newAdapter<Map<string, MessagePort>>(
   "peer-connections",
   () => new Map(),
 );
@@ -150,15 +142,19 @@ export async function createAppContext(): Promise<AppContext> {
   const ctx: AppContext = {};
 
   // Initialize state storage for peer connections
-  getPeerInstance(ctx);
   getPeerConnections(ctx);
 
   // Initialize Git infrastructure
   await initializeGitInfrastructure(ctx);
 
   // Inject real API implementations
-  setPeerJsApi(ctx, await createRealPeerJsApi());
+  const peerJsApi = await createRealPeerJsApi();
+  setPeerJsApi(ctx, peerJsApi);
   setTimerApi(ctx, createRealTimerApi());
+
+  // Create PeerJS-backed connection provider
+  const { PeerJsConnectionProvider } = await import("../apis/peerjs-connection-provider.js");
+  setConnectionProvider(ctx, new PeerJsConnectionProvider(peerJsApi));
 
   return ctx;
 }
@@ -175,7 +171,6 @@ export function createTestContext(): AppContext {
   const ctx: AppContext = {};
 
   // Initialize state storage for peer connections
-  getPeerInstance(ctx);
   getPeerConnections(ctx);
 
   // Note: Git infrastructure and APIs must be injected by the test
@@ -190,6 +185,8 @@ export const setRepository = setHistory;
 
 // Re-export types for convenience
 export type { WorkingCopy } from "@statewalker/vcs-core";
+// Re-export connection provider adapter
+export { getConnectionProvider, setConnectionProvider } from "../apis/index.js";
 // Re-export controller factories
 export { createControllers } from "./main-controller.js";
 export { createRepositoryController } from "./repository-controller.js";
