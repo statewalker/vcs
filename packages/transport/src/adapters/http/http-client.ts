@@ -512,13 +512,11 @@ export async function httpPush(
       readableStreamToAsyncIterable(receivePackResponse.body),
     );
 
-    // Decode sideband if the server uses side-band-64k
+    // Decode sideband if the server uses side-band-64k.
+    // After sideband decoding, channel 1 data contains pkt-line encoded
+    // report-status lines. If no sideband, the raw response is pkt-line.
     const sidebandResult = decodeSidebandResponse(responseData);
-    // For push responses, the report-status is sent on sideband channel 1
-    // (decodeSidebandResponse puts channel 1 data in packData)
     const statusData = sidebandResult.packData.length > 0 ? sidebandResult.packData : responseData;
-
-    // Extract clean status lines from pkt-line encoded data
     const statusLines = extractPktLineText(statusData);
     const reportStatus = parseReportStatusLines(statusLines);
 

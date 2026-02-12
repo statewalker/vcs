@@ -423,7 +423,7 @@ export class CloneCommand extends TransportCommand<CloneResult> {
 
     return {
       fetchResult,
-      defaultBranch,
+      defaultBranch: defaultBranch ?? "main",
       remoteName: this.remoteName,
       bare: this.bare,
       headCommit,

@@ -21,6 +21,7 @@ import {
   type ProcessContext,
 } from "../../context/context-adapters.js";
 import type { ProtocolState } from "../../context/protocol-state.js";
+import { encodeFlush, encodePacketLine } from "../../protocol/pkt-line-codec.js";
 import type { FsmStateHandler, FsmTransition } from "../types.js";
 import { type PushCommand, type PushCommandType, ZERO_OID } from "./types.js";
 
@@ -601,19 +602,22 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
         const unpackOk = !output.error?.includes("Unpack");
 
         if (useSideband) {
-          // Send each status line as a separate sideband frame on channel 1.
-          // The client reads sideband-wrapped pkt-lines and demuxes by channel byte.
-          const encoder = new TextEncoder();
-          const unpackLine = unpackOk ? "unpack ok\n" : `unpack ${output.error}\n`;
-          await transport.writeSideband(1, encoder.encode(unpackLine));
+          // With sideband, each status line must be pkt-line encoded
+          // before being wrapped in the sideband frame. The client
+          // demuxes sideband, then parses the inner pkt-line stream.
+          const unpackLine = unpackOk ? "unpack ok" : `unpack ${output.error}`;
+          await transport.writeSideband(1, encodePacketLine(unpackLine));
 
           for (const cmd of state.pushCommands ?? []) {
             const line =
               cmd.result === "OK"
-                ? `ok ${cmd.refName}\n`
-                : `ng ${cmd.refName} ${cmd.message || "rejected"}\n`;
-            await transport.writeSideband(1, encoder.encode(line));
+                ? `ok ${cmd.refName}`
+                : `ng ${cmd.refName} ${cmd.message || "rejected"}`;
+            await transport.writeSideband(1, encodePacketLine(line));
           }
+
+          // Send inner flush on channel 1 to terminate the report-status
+          await transport.writeSideband(1, encodeFlush());
         } else {
           // Send status directly
           if (unpackOk) {

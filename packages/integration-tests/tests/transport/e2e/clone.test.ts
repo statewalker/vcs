@@ -74,11 +74,9 @@ describe("E2E: Clone Empty Repository", () => {
         }),
       ]);
 
-      // Client detects empty repo and exits cleanly (nothing to fetch).
-      // Server may report failure since the client closes before sending wants.
+      // Both sides detect empty repo and exit cleanly.
       expect(clientResult.success).toBe(true);
-      // Server gets EOF when client disconnects after empty advertisement
-      expect(serverResult.success).toBe(false);
+      expect(serverResult.success).toBe(true);
     } finally {
       pair.cleanup();
       await serverCtx.cleanup();

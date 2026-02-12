@@ -122,5 +122,11 @@ export function createMessagePortDuplex(port: MessagePort): Duplex {
         port.postMessage(data);
       }
     },
+
+    async close(): Promise<void> {
+      if (!closed) {
+        port.postMessage("__close__");
+      }
+    },
   };
 }

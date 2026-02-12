@@ -28,6 +28,11 @@ import {
   MemoryStagingStore,
   MemoryTagStore,
 } from "@statewalker/vcs-store-mem";
+import {
+  createFetchHandler,
+  createRepositoryFacade,
+  type RefStore,
+} from "@statewalker/vcs-transport";
 
 import { Git } from "../src/index.js";
 import { testAuthor } from "./test-helper.js";
@@ -191,7 +196,7 @@ function createMockFetch(
 /**
  * Create a transport RefStore adapter from a vcs-core Refs.
  */
-function createTransportRefStoreAdapter(refs: Refs): TransportRefStore {
+function createTransportRefStoreAdapter(refs: Refs): RefStore {
   return {
     async get(name: string): Promise<string | undefined> {
       const ref = await refs.resolve(name);
@@ -376,24 +381,23 @@ export function createTestServer(serverStores?: TransportTestStores): TestServer
   const mockHistory = createMockHistoryWithOperations(stores, serialization);
 
   // Create repository facade for transport operations
-  const _repository = createRepositoryFacade({
+  const repository = createRepositoryFacade({
     history: mockHistory,
   });
 
   // Create transport ref store adapter
-  const _refStore = createTransportRefStoreAdapter(stores.refs);
+  const refStore = createTransportRefStoreAdapter(stores.refs);
 
-  const _serverFetch = createFetchHandler({
+  const serverFetch = createFetchHandler({
     async resolveRepository(repoPath) {
       if (repoPath) {
-        return repositoryAccess;
+        return { repository, refStore };
       }
       return null;
     },
   });
 
   const baseUrl = "http://localhost:3000";
-  const serverFetch = (request: Request) => server.fetch(request);
 
   return {
     fetch: serverFetch,
@@ -450,24 +454,23 @@ export async function createInitializedTestServer(): Promise<
   const mockHistory = createMockHistoryWithOperations(stores, serialization);
 
   // Create repository facade for transport operations
-  const _repository = createRepositoryFacade({
+  const repository = createRepositoryFacade({
     history: mockHistory,
   });
 
   // Create transport ref store adapter
-  const _refStore = createTransportRefStoreAdapter(stores.refs);
+  const refStore = createTransportRefStoreAdapter(stores.refs);
 
-  const _serverFetch = createFetchHandler({
+  const serverFetch = createFetchHandler({
     async resolveRepository(repoPath) {
       if (repoPath) {
-        return repositoryAccess;
+        return { repository, refStore };
       }
       return null;
     },
   });
 
   const baseUrl = "http://localhost:3000";
-  const serverFetch = (request: Request) => server.fetch(request);
 
   return {
     fetch: serverFetch,

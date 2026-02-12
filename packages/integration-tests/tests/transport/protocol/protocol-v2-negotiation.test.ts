@@ -282,10 +282,9 @@ describe("Protocol: Capability Exchange", () => {
       }),
     ]);
 
-    // Client detects empty repo and exits cleanly (nothing to fetch).
-    // Server gets EOF when client closes before sending wants.
+    // Both sides detect empty repo and exit cleanly.
     expect(clientResult.success).toBe(true);
-    expect(serverResult.success).toBe(false);
+    expect(serverResult.success).toBe(true);
     await emptyServerCtx.cleanup();
   });
 });
