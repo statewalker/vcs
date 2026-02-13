@@ -53,9 +53,11 @@ export {
 export {
   enqueueCheckoutAction,
   enqueueInitRepoAction,
+  enqueueOpenRepoAction,
   enqueueRefreshRepoAction,
   listenCheckoutAction,
   listenInitRepoAction,
+  listenOpenRepoAction,
   listenRefreshRepoAction,
 } from "./repo-actions.js";
 

@@ -7,11 +7,16 @@
 
 import {
   CompressedRawStorage,
+  createCommits,
   createFileRefStore,
   createGitObjectStore,
-  createHistoryFromComponents,
+  createHistoryFromStores,
+  createRefsAdapter,
+  createTags,
+  createTrees,
   FileRawStorage,
   type FilesApi,
+  GitBlobStore,
   type GitObjectStore,
   type History,
   joinPath,
@@ -73,25 +78,21 @@ export async function createFileHistory(options: CreateFileHistoryOptions): Prom
 
   const objectsDir = joinPath(gitDir, "objects");
 
-  // Create compressed file storage for objects
+  // Create compressed file storage for objects.
+  // All objects (including blobs) go through the same GitObjectStore so they
+  // are stored with Git headers in the shared .git/objects directory.
   const looseStorage = new FileRawStorage(files, objectsDir);
   const compressedStorage = new CompressedRawStorage(looseStorage);
-
-  // Create blob storage (blobs are stored separately for efficiency)
-  const blobStorage = new CompressedRawStorage(new FileRawStorage(files, objectsDir));
-
-  // Create Git object store for trees, commits, tags
   const objects = createGitObjectStore(compressedStorage);
-
-  // Create file-based ref store
   const refStore = createFileRefStore(files, gitDir);
 
-  // Create History from components
-  const history = createHistoryFromComponents({
-    blobStorage,
-    objects,
-    refs: { type: "adapter", refStore },
-  });
+  const blobs = new GitBlobStore(objects);
+  const trees = createTrees(objects);
+  const commits = createCommits(objects);
+  const tags = createTags(objects);
+  const refs = createRefsAdapter(refStore);
+
+  const history = createHistoryFromStores({ blobs, trees, commits, tags, refs });
 
   // Initialize if creating
   if (create) {

@@ -6,6 +6,12 @@
 
 export { createIntents } from "./intents.js";
 export { newIntent } from "./new-intent.js";
+export {
+  handleOpenRepositoryIntent,
+  type OpenRepositoryParams,
+  type OpenRepositoryResult,
+  runOpenRepositoryIntent,
+} from "./open-repository-intent.js";
 export type { Intent, IntentHandler, Intents } from "./types.js";
 
 import { newAdapter } from "../utils/index.js";

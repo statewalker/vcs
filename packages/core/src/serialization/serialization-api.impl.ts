@@ -291,15 +291,10 @@ export class DefaultSerializationApi implements SerializationApi {
   async exportObject(
     id: ObjectId,
   ): Promise<{ type: ObjectTypeString; content: AsyncIterable<Uint8Array> }> {
-    // Try blobs first (uses separate storage, no ambiguity)
-    if (await this._blobs.has(id)) {
-      const content = await this._blobs.load(id);
-      if (!content) throw new Error(`Blob not found: ${id}`);
-      return { type: "blob", content };
-    }
-
-    // For shared-storage objects, use load() which checks the type header.
-    // has() can't discriminate types when stores share a GitObjectStore.
+    // Check structured types first — their load() methods validate the type
+    // header, so they work correctly even when all objects share the same
+    // storage (e.g. file-backed .git/objects).  Blobs are checked last
+    // because blobs.has() cannot discriminate types in shared storage.
     const commit = await this._commits.load(id);
     if (commit) {
       return { type: "commit", content: this.serializeCommit(id) };
@@ -313,6 +308,12 @@ export class DefaultSerializationApi implements SerializationApi {
     const tag = await this._tags.load(id);
     if (tag) {
       return { type: "tag", content: this.serializeTag(id) };
+    }
+
+    if (await this._blobs.has(id)) {
+      const content = await this._blobs.load(id);
+      if (!content) throw new Error(`Blob not found: ${id}`);
+      return { type: "blob", content };
     }
 
     throw new Error(`Object not found: ${id}`);
@@ -574,19 +575,10 @@ class DefaultPackBuilder implements PackBuilder {
   }
 
   private async loadObject(id: ObjectId): Promise<{ type: PackObjectType; content: Uint8Array }> {
-    // Try blobs first (uses separate storage, no ambiguity)
-    if (await this._blobs.has(id)) {
-      const blobContent = await this._blobs.load(id);
-      if (!blobContent) throw new Error(`Blob not found: ${id}`);
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of blobContent) {
-        chunks.push(chunk);
-      }
-      return { type: PackObjectType.BLOB, content: concatBytes(chunks) };
-    }
-
-    // For shared-storage objects, use load() which checks the type header.
-    // has() can't discriminate types when stores share a GitObjectStore.
+    // Check structured types first — their load() methods validate the type
+    // header, so they work correctly even when all objects share the same
+    // storage (e.g. file-backed .git/objects).  Blobs are checked last
+    // because blobs.has() cannot discriminate types in shared storage.
     {
       const commit = await this._commits.load(id);
       if (commit) {
@@ -610,6 +602,16 @@ class DefaultPackBuilder implements PackBuilder {
       if (tag) {
         return { type: PackObjectType.TAG, content: serializeTag(tag) };
       }
+    }
+
+    if (await this._blobs.has(id)) {
+      const blobContent = await this._blobs.load(id);
+      if (!blobContent) throw new Error(`Blob not found: ${id}`);
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of blobContent) {
+        chunks.push(chunk);
+      }
+      return { type: PackObjectType.BLOB, content: concatBytes(chunks) };
     }
 
     throw new Error(`Object not found: ${id}`);
