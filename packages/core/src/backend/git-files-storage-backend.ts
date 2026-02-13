@@ -23,8 +23,10 @@ import type {
   BlobDeltaChainInfo,
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
+import type { CommitDeltaApi } from "../storage/delta/commit-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
 import { parseBinaryDelta } from "../storage/delta/delta-binary-format.js";
+import { GitFilesCommitDeltaApi } from "../storage/delta/git-commit-delta-api.js";
 import type { PackDeltaStore } from "./git/pack/index.js";
 import type { BaseBackendConfig } from "./history-backend-factory.js";
 
@@ -150,13 +152,18 @@ export class GitFilesBlobDeltaApi implements BlobDeltaApi {
  */
 export class GitFilesDeltaApi implements DeltaApi {
   readonly blobs: BlobDeltaApi;
+  readonly commits?: CommitDeltaApi;
   private batchDepth = 0;
 
   constructor(
     private readonly packDeltaStore: PackDeltaStore,
     blobs: Blobs,
+    options?: { enableCommitDeltas?: boolean },
   ) {
     this.blobs = new GitFilesBlobDeltaApi(packDeltaStore, blobs);
+    if (options?.enableCommitDeltas !== false) {
+      this.commits = new GitFilesCommitDeltaApi(packDeltaStore);
+    }
   }
 
   async isDelta(id: ObjectId): Promise<boolean> {
@@ -164,7 +171,10 @@ export class GitFilesDeltaApi implements DeltaApi {
   }
 
   async getDeltaChain(id: ObjectId): Promise<BlobDeltaChainInfo | undefined> {
-    return this.blobs.getBlobDeltaChain(id);
+    const blobChain = await this.blobs.getBlobDeltaChain(id);
+    if (blobChain) return blobChain;
+    if (this.commits) return this.commits.getCommitDeltaChain(id);
+    return undefined;
   }
 
   async *listDeltas(): AsyncIterable<StorageDeltaRelationship> {
