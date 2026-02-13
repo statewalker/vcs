@@ -401,7 +401,16 @@ export const serverPushHandlers = new Map<string, FsmStateHandler<ProcessContext
 
           // For updates, check fast-forward (unless config allows non-ff)
           if (cmd.type === "UPDATE") {
-            const isFastForward = await repository.has(cmd.oldOid);
+            // Walk ancestry from newOid to verify oldOid is a proper ancestor.
+            // Just checking repository.has(oldOid) only verifies object existence,
+            // not that newOid descends from oldOid.
+            let isFastForward = false;
+            for await (const ancestorOid of repository.walkAncestors(cmd.newOid)) {
+              if (ancestorOid === cmd.oldOid) {
+                isFastForward = true;
+                break;
+              }
+            }
             if (!isFastForward && !config.allowNonFastForward) {
               cmd.result = "REJECTED_NONFASTFORWARD";
               cmd.message = "non-fast-forward";

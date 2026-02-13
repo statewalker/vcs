@@ -83,7 +83,11 @@ function createMockTransport(responses: PktLineResult[] = []): TransportApi & {
 }
 
 // Mock repository facade
-function createMockRepository(objects: Set<string> = new Set()): RepositoryFacade {
+// ancestorMap: maps a starting OID to its full ancestor chain (in walk order)
+function createMockRepository(
+  objects: Set<string> = new Set(),
+  ancestorMap: Map<string, string[]> = new Map(),
+): RepositoryFacade {
   return {
     async importPack(): Promise<PackImportResult> {
       return {
@@ -105,8 +109,11 @@ function createMockRepository(objects: Set<string> = new Set()): RepositoryFacad
     async has(oid: string): Promise<boolean> {
       return objects.has(oid);
     },
-    async *walkAncestors(): AsyncGenerator<string> {
-      // Empty generator
+    async *walkAncestors(startOid: string): AsyncGenerator<string> {
+      const chain = ancestorMap.get(startOid);
+      if (chain) {
+        for (const oid of chain) yield oid;
+      }
     },
   };
 }
@@ -259,7 +266,7 @@ describe("Client Push FSM", () => {
   });
 
   describe("COMPUTE_UPDATES state", () => {
-    it("computes update for existing ref", async () => {
+    it("computes update for existing ref (fast-forward)", async () => {
       const localOid = "a".repeat(40);
       const remoteOid = "b".repeat(40);
 
@@ -268,8 +275,11 @@ describe("Client Push FSM", () => {
       context.refStore = refStore;
       context.config.pushRefspecs = ["refs/heads/main:refs/heads/main"];
 
-      // Simulate server has the remote OID
-      repository = createMockRepository(new Set([remoteOid]));
+      // Ancestry: localOid descends from remoteOid (fast-forward)
+      repository = createMockRepository(
+        new Set([remoteOid, localOid]),
+        new Map([[localOid, [localOid, remoteOid]]]),
+      );
       context.repository = repository;
 
       const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
@@ -280,6 +290,63 @@ describe("Client Push FSM", () => {
       const state = context.state as { pushCommands?: PushCommand[] };
       expect(state.pushCommands).toHaveLength(1);
       expect(state.pushCommands?.[0].type).toBe("UPDATE");
+    });
+
+    it("detects non-fast-forward when remote OID is not an ancestor of local OID", async () => {
+      const localOid = "a".repeat(40);
+      const remoteOid = "b".repeat(40);
+      const commonAncestor = "c".repeat(40);
+
+      context.state.refs.set("refs/heads/main", remoteOid);
+      refStore = createMockRefStore(new Map([["refs/heads/main", localOid]]));
+      context.refStore = refStore;
+      context.config.pushRefspecs = ["+refs/heads/main:refs/heads/main"];
+
+      // Ancestry: localOid descends from commonAncestor, NOT from remoteOid
+      // Both objects exist locally but they diverged from a common ancestor
+      repository = createMockRepository(
+        new Set([remoteOid, localOid, commonAncestor]),
+        new Map([[localOid, [localOid, commonAncestor]]]),
+      );
+      context.repository = repository;
+
+      const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
+      fsm.setState("COMPUTE_UPDATES");
+      await fsm.run(context, "SEND_COMMANDS");
+
+      expect(fsm.getState()).toBe("SEND_COMMANDS");
+      const state = context.state as { pushCommands?: PushCommand[] };
+      expect(state.pushCommands).toHaveLength(1);
+      // With force (+), non-FF is allowed, so type should be UPDATE_NONFASTFORWARD
+      expect(state.pushCommands?.[0].type).toBe("UPDATE_NONFASTFORWARD");
+    });
+
+    it("rejects non-fast-forward without force flag", async () => {
+      const localOid = "a".repeat(40);
+      const remoteOid = "b".repeat(40);
+      const commonAncestor = "c".repeat(40);
+
+      context.state.refs.set("refs/heads/main", remoteOid);
+      refStore = createMockRefStore(new Map([["refs/heads/main", localOid]]));
+      context.refStore = refStore;
+      // No force (+) prefix
+      context.config.pushRefspecs = ["refs/heads/main:refs/heads/main"];
+
+      // Ancestry: localOid descends from commonAncestor, NOT from remoteOid
+      repository = createMockRepository(
+        new Set([remoteOid, localOid, commonAncestor]),
+        new Map([[localOid, [localOid, commonAncestor]]]),
+      );
+      context.repository = repository;
+
+      const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
+      fsm.setState("COMPUTE_UPDATES");
+      const result = await fsm.run(context);
+
+      // Should fail with LOCAL_VALIDATION_FAILED (terminal state "")
+      expect(result).toBe(true);
+      expect(fsm.getState()).toBe("");
+      expect(context.output.error).toContain("non-fast-forward");
     });
 
     it("computes create for new ref", async () => {
@@ -445,13 +512,16 @@ describe("Server Push FSM", () => {
   });
 
   describe("VALIDATE_COMMANDS state", () => {
-    it("validates commands successfully", async () => {
+    it("validates fast-forward commands successfully", async () => {
       const oldOid = "a".repeat(40);
       const newOid = "b".repeat(40);
 
       context.state.refs.set("refs/heads/main", oldOid);
-      // Repository needs to have oldOid for fast-forward check
-      repository = createMockRepository(new Set([oldOid, newOid]));
+      // Ancestry: newOid descends from oldOid (fast-forward)
+      repository = createMockRepository(
+        new Set([oldOid, newOid]),
+        new Map([[newOid, [newOid, oldOid]]]),
+      );
       context.repository = repository;
 
       (context.state as { pushCommands?: PushCommand[] }).pushCommands = [
@@ -470,6 +540,74 @@ describe("Server Push FSM", () => {
       await fsm.run(context, "RUN_PRE_RECEIVE_HOOK", "SEND_STATUS");
 
       expect(fsm.getState()).toBe("RUN_PRE_RECEIVE_HOOK");
+    });
+
+    it("rejects non-fast-forward push on server", async () => {
+      const oldOid = "a".repeat(40);
+      const newOid = "b".repeat(40);
+      const commonAncestor = "c".repeat(40);
+
+      context.state.refs.set("refs/heads/main", oldOid);
+      // Ancestry: newOid descends from commonAncestor, NOT from oldOid
+      repository = createMockRepository(
+        new Set([oldOid, newOid, commonAncestor]),
+        new Map([[newOid, [newOid, commonAncestor]]]),
+      );
+      context.repository = repository;
+
+      (context.state as { pushCommands?: PushCommand[] }).pushCommands = [
+        {
+          oldOid,
+          newOid,
+          refName: "refs/heads/main",
+          type: "UPDATE",
+          result: "NOT_ATTEMPTED",
+        },
+      ];
+
+      const fsm = new Fsm(serverPushTransitions, serverPushHandlers);
+      fsm.setState("VALIDATE_COMMANDS");
+      await fsm.run(context, "SEND_STATUS");
+
+      expect(fsm.getState()).toBe("SEND_STATUS");
+      const state = context.state as { pushCommands?: PushCommand[] };
+      expect(state.pushCommands?.[0].result).toBe("REJECTED_NONFASTFORWARD");
+      expect(state.pushCommands?.[0].message).toBe("non-fast-forward");
+    });
+
+    it("allows non-fast-forward with allowNonFastForward config", async () => {
+      const oldOid = "a".repeat(40);
+      const newOid = "b".repeat(40);
+      const commonAncestor = "c".repeat(40);
+
+      context.state.refs.set("refs/heads/main", oldOid);
+      context.config.allowNonFastForward = true;
+      // Ancestry: newOid descends from commonAncestor, NOT from oldOid
+      repository = createMockRepository(
+        new Set([oldOid, newOid, commonAncestor]),
+        new Map([[newOid, [newOid, commonAncestor]]]),
+      );
+      context.repository = repository;
+
+      (context.state as { pushCommands?: PushCommand[] }).pushCommands = [
+        {
+          oldOid,
+          newOid,
+          refName: "refs/heads/main",
+          type: "UPDATE",
+          result: "NOT_ATTEMPTED",
+        },
+      ];
+
+      const fsm = new Fsm(serverPushTransitions, serverPushHandlers);
+      fsm.setState("VALIDATE_COMMANDS");
+      await fsm.run(context, "RUN_PRE_RECEIVE_HOOK", "SEND_STATUS");
+
+      expect(fsm.getState()).toBe("RUN_PRE_RECEIVE_HOOK");
+      const state = context.state as { pushCommands?: PushCommand[] };
+      // Should be reclassified as non-fast-forward but still allowed
+      expect(state.pushCommands?.[0].type).toBe("UPDATE_NONFASTFORWARD");
+      expect(state.pushCommands?.[0].result).toBe("NOT_ATTEMPTED");
     });
 
     it("rejects command when old OID doesnt match", async () => {

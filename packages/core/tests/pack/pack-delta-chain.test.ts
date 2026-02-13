@@ -552,4 +552,85 @@ describe("delta chain resolution", () => {
       await reader.close();
     });
   });
+
+  describe("cross-pack REF_DELTA resolution", () => {
+    /**
+     * Test that PackDirectory resolves REF_DELTA when the base
+     * object is in a different pack file (thin pack scenario).
+     *
+     * Beads issue: webrun-vcs-amxl1
+     */
+    it("resolves REF_DELTA when base is in a different pack", async () => {
+      const baseContent = new Uint8Array(512).fill(0xf3);
+      const baseId = fakeId(100);
+
+      const targetContent = modifyFirstByte(0x42, baseContent);
+      const targetId = fakeId(101);
+
+      const delta = createFirstByteChangeDelta(baseContent.length, 0x42);
+
+      // Pack 1: contains only the base (full object)
+      const writer1 = new PackWriterStream();
+      await writer1.addObject(baseId, PackObjectType.BLOB, baseContent);
+      const result1 = await writer1.finalize();
+      const index1 = await writePackIndexV2(result1.indexEntries, result1.packChecksum);
+
+      // Pack 2: contains only the delta (REF_DELTA pointing to base in pack 1)
+      const writer2 = new PackWriterStream();
+      await writer2.addRefDelta(targetId, baseId, delta);
+      const result2 = await writer2.finalize();
+      const index2 = await writePackIndexV2(result2.indexEntries, result2.packChecksum);
+
+      // Write both packs to the directory
+      await files.mkdir(basePath);
+      await files.write(`${basePath}/pack-base.pack`, [result1.packData]);
+      await files.write(`${basePath}/pack-base.idx`, [index1]);
+      await files.write(`${basePath}/pack-delta.pack`, [result2.packData]);
+      await files.write(`${basePath}/pack-delta.idx`, [index2]);
+
+      // Load through PackDirectory (cross-pack resolution)
+      const dir = new PackDirectory({ files, basePath });
+      const loaded = await dir.load(targetId);
+
+      expect(loaded).toBeDefined();
+      expect(loaded).toEqual(targetContent);
+
+      await dir.close();
+    });
+
+    it("resolves cross-pack delta chain info", async () => {
+      const baseContent = new Uint8Array(256).fill(0xaa);
+      const baseId = fakeId(200);
+
+      const delta = createFirstByteChangeDelta(baseContent.length, 0xbb);
+      const targetId = fakeId(201);
+
+      // Pack 1: base object
+      const writer1 = new PackWriterStream();
+      await writer1.addObject(baseId, PackObjectType.BLOB, baseContent);
+      const result1 = await writer1.finalize();
+      const index1 = await writePackIndexV2(result1.indexEntries, result1.packChecksum);
+
+      // Pack 2: delta only
+      const writer2 = new PackWriterStream();
+      await writer2.addRefDelta(targetId, baseId, delta);
+      const result2 = await writer2.finalize();
+      const index2 = await writePackIndexV2(result2.indexEntries, result2.packChecksum);
+
+      await files.mkdir(basePath);
+      await files.write(`${basePath}/pack-base.pack`, [result1.packData]);
+      await files.write(`${basePath}/pack-base.idx`, [index1]);
+      await files.write(`${basePath}/pack-thin.pack`, [result2.packData]);
+      await files.write(`${basePath}/pack-thin.idx`, [index2]);
+
+      const dir = new PackDirectory({ files, basePath });
+      const chainInfo = await dir.getDeltaChainInfo(targetId);
+
+      expect(chainInfo).toBeDefined();
+      expect(chainInfo?.baseId).toBe(baseId);
+      expect(chainInfo?.depth).toBe(1);
+
+      await dir.close();
+    });
+  });
 });

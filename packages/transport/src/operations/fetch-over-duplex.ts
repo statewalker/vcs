@@ -14,6 +14,7 @@ import { ProtocolState } from "../context/protocol-state.js";
 import { createTransportApi } from "../factories/transport-api-factory.js";
 import { clientFetchHandlers, clientFetchTransitions } from "../fsm/fetch/client-fetch-fsm.js";
 import { Fsm } from "../fsm/fsm.js";
+import { expandFromSource, matchSource, parseRefSpec } from "../utils/refspec.js";
 
 /**
  * Options for fetch-over-duplex operation.
@@ -97,11 +98,28 @@ export async function fetchOverDuplex(options: FetchOverDuplexOptions): Promise<
       };
     }
 
-    // Update local refs to match remote refs
+    // Update local refs, applying refspec mapping if provided
     const updatedRefs = new Map<string, string>();
+    const parsedSpecs = (options.refspecs ?? []).map(parseRefSpec);
+
     for (const [refName, oid] of state.refs) {
-      await refStore.update(refName, oid);
-      updatedRefs.set(refName, oid);
+      if (parsedSpecs.length > 0) {
+        // Apply refspec mapping: map server ref names to local ref names
+        for (const spec of parsedSpecs) {
+          if (spec.negative) continue;
+          if (matchSource(spec, refName)) {
+            const expanded = expandFromSource(spec, refName);
+            const localName = expanded.destination ?? refName;
+            await refStore.update(localName, oid);
+            updatedRefs.set(localName, oid);
+            break;
+          }
+        }
+      } else {
+        // No refspecs — direct mapping (backward compatible)
+        await refStore.update(refName, oid);
+        updatedRefs.set(refName, oid);
+      }
     }
 
     return {
