@@ -41,7 +41,7 @@ export interface SQLStorageBackendConfig extends BaseBackendConfig {
 /** SQL backend capabilities */
 const SQL_CAPABILITIES: BackendCapabilities = {
   nativeBlobDeltas: true,
-  nativeTreeDeltas: false,
+  nativeTreeDeltas: true,
   nativeCommitDeltas: false,
   randomAccess: true,
   atomicBatch: true,
@@ -165,6 +165,7 @@ function createSQLStores(config: SQLStorageBackendConfig) {
   const serialization = new DefaultSerializationApi({
     history,
     blobDeltaApi: delta.blobs,
+    treeDeltaApi: delta.trees,
   });
 
   return { db, autoMigrate, blobs, trees, commits, tags, refs, delta, serialization };

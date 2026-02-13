@@ -14,6 +14,7 @@ import type {
   StreamingDeltaResult,
 } from "@statewalker/vcs-core";
 import type { DatabaseClient } from "./database-client.js";
+import { SqlTreeDeltaApi } from "./sql-tree-delta-api.js";
 
 /**
  * SQL-based BlobDeltaApi implementation
@@ -216,18 +217,24 @@ class SqlBlobDeltaApi implements BlobDeltaApi {
  */
 export class SqlDeltaApi implements DeltaApi {
   readonly blobs: BlobDeltaApi;
+  readonly trees: SqlTreeDeltaApi;
   private batchDepth = 0;
 
   constructor(readonly db: DatabaseClient) {
     this.blobs = new SqlBlobDeltaApi(db);
+    this.trees = new SqlTreeDeltaApi(db);
   }
 
   async isDelta(id: ObjectId): Promise<boolean> {
-    return this.blobs.isBlobDelta(id);
+    if (await this.blobs.isBlobDelta(id)) return true;
+    if (await this.trees.isTreeDelta(id)) return true;
+    return false;
   }
 
   async getDeltaChain(id: ObjectId): Promise<BlobDeltaChainInfo | undefined> {
-    return this.blobs.getBlobDeltaChain(id);
+    const blobChain = await this.blobs.getBlobDeltaChain(id);
+    if (blobChain) return blobChain;
+    return this.trees.getTreeDeltaChain(id);
   }
 
   async *listDeltas(): AsyncIterable<StorageDeltaRelationship> {

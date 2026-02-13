@@ -46,6 +46,7 @@ export * from "./ref-store.js";
 export * from "./register-backend.js";
 export * from "./sql-delta-api.js";
 export * from "./sql-storage-backend.js";
+export * from "./sql-tree-delta-api.js";
 export * from "./staging-store.js";
 // Synchronization utilities
 export * from "./sync.js";
