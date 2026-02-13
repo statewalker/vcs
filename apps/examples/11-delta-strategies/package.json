@@ -1,0 +1,20 @@
+{
+  "name": "@statewalker/vcs-example-11-delta-strategies",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Delta Strategies: Storage optimization with DeltaApi",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

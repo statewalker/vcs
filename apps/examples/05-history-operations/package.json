@@ -1,0 +1,26 @@
+{
+  "name": "@statewalker/vcs-example-05-history-operations",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Working with repository history - log, diff, blame, ancestry",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "step:01": "tsx src/steps/01-log-traversal.ts",
+    "step:02": "tsx src/steps/02-commit-ancestry.ts",
+    "step:03": "tsx src/steps/03-diff-commits.ts",
+    "step:04": "tsx src/steps/04-blame.ts",
+    "step:05": "tsx src/steps/05-file-history.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-commands": "workspace:*",
+    "@statewalker/vcs-store-mem": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

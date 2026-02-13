@@ -1,0 +1,8 @@
+{
+  "name": "@statewalker/vcs-store-sql",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./adapters/sql-js": "./src/adapters/sql-js-adapter.ts"
+  }
+}

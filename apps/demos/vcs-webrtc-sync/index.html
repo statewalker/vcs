@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VCS WebRTC Sync - P2P Git Synchronization</title>
+    <link rel="stylesheet" href="/src/styles/main.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>VCS WebRTC Sync</h1>
+        <p class="subtitle">Browser-based Git with P2P synchronization</p>
+      </header>
+
+      <main>
+        <section id="storage-section">
+          <h2>Storage</h2>
+          <div id="storage-container"></div>
+        </section>
+
+        <div class="two-column">
+          <section id="working-dir-section">
+            <h2>Working Directory</h2>
+            <div id="file-list-container"></div>
+          </section>
+
+          <section id="staging-section">
+            <h2>Staging Area</h2>
+            <div id="staging-container"></div>
+          </section>
+        </div>
+
+        <section id="commit-section">
+          <h2>Commit</h2>
+          <div id="commit-form-container"></div>
+        </section>
+
+        <section id="history-section">
+          <h2>Commit History</h2>
+          <div id="commit-history-container"></div>
+        </section>
+
+        <section id="connection-section">
+          <h2>P2P Connection</h2>
+          <div id="connection-container"></div>
+          <div id="sharing-container"></div>
+        </section>
+
+        <section id="log-section">
+          <h2>Activity Log</h2>
+          <div id="activity-log-container"></div>
+        </section>
+      </main>
+
+      <footer>
+        <p>
+          Powered by <a href="https://github.com/statewalker/webrun-vcs">WebRun VCS</a>
+        </p>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

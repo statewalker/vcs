@@ -1,0 +1,29 @@
+{
+  "name": "@statewalker/vcs-demo-browser-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-based VCS application with swappable storage backends",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:app": "playwright test",
+    "test:ui": "playwright test --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@statewalker/vcs-commands": "workspace:*",
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-store-mem": "workspace:*",
+    "@statewalker/webrun-files": "catalog:",
+    "@statewalker/webrun-files-browser": "catalog:",
+    "@statewalker/webrun-files-mem": "catalog:"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "^6.0.0"
+  }
+}

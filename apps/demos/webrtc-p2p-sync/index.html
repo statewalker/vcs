@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebRTC P2P Git Sync</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+      }
+
+      /* Main Layout */
+      .app-layout {
+        display: grid;
+        grid-template-columns: 350px 1fr 300px;
+        grid-template-rows: auto auto 1fr;
+        gap: 20px;
+        min-height: calc(100vh - 150px);
+      }
+
+      /* Panel Styles */
+      .panel {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .panel h3 {
+        margin: 0;
+        padding: 12px 16px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 14px;
+        color: #495057;
+      }
+
+      .panel-content {
+        padding: 16px;
+      }
+
+      /* Connection Panel */
+      #connection-panel {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .connection-panel .panel-section {
+        padding: 16px;
+      }
+
+      .connection-panel h3 {
+        margin: 0 0 8px 0;
+        font-size: 15px;
+        color: #333;
+      }
+
+      .connection-panel .hint {
+        color: #6c757d;
+        font-size: 13px;
+        margin: 0 0 12px 0;
+      }
+
+      .connection-panel .divider {
+        text-align: center;
+        color: #adb5bd;
+        font-size: 13px;
+        margin: 16px 0;
+        position: relative;
+      }
+
+      .connection-panel .divider::before,
+      .connection-panel .divider::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        width: 40%;
+        height: 1px;
+        background: #dee2e6;
+      }
+
+      .connection-panel .divider::before {
+        left: 0;
+      }
+
+      .connection-panel .divider::after {
+        right: 0;
+      }
+
+      .join-input-group {
+        display: flex;
+        gap: 8px;
+      }
+
+      .join-input-group input {
+        flex: 1;
+      }
+
+      /* Session Info */
+      .session-info {
+        margin-bottom: 16px;
+      }
+
+      .session-info label {
+        display: block;
+        font-size: 12px;
+        color: #6c757d;
+        margin-bottom: 4px;
+      }
+
+      .session-id {
+        font-family: monospace;
+        font-size: 14px;
+        background: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 4px;
+        display: block;
+        word-break: break-all;
+      }
+
+      /* QR Code */
+      .qr-container {
+        text-align: center;
+        margin: 16px 0;
+      }
+
+      .qr-code {
+        max-width: 200px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+      }
+
+      .qr-placeholder {
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+        background: #f8f9fa;
+        border: 1px dashed #dee2e6;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #adb5bd;
+        font-size: 13px;
+      }
+
+      /* Share URL */
+      .share-url-section {
+        margin-bottom: 16px;
+      }
+
+      .share-url-section label {
+        display: block;
+        font-size: 12px;
+        color: #6c757d;
+        margin-bottom: 4px;
+      }
+
+      .url-copy-group {
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+      }
+
+      .share-url {
+        flex: 1;
+        font-family: monospace;
+        font-size: 11px;
+        background: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 4px;
+        word-break: break-all;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #007bff;
+        text-decoration: none;
+        display: block;
+      }
+
+      .share-url:hover {
+        text-decoration: underline;
+        color: #0056b3;
+      }
+
+      /* Error Display */
+      .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 12px;
+        border-radius: 4px;
+        margin-top: 16px;
+        font-size: 13px;
+      }
+
+      /* Sharing/Peers Panel */
+      #sharing-panel {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .peers-panel {
+        padding-bottom: 0.5em;
+      }
+
+      .peers-panel h3 {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        color: #333;
+      }
+
+      .peer-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .peer-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 4px;
+      }
+
+      .peer-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .peer-name {
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .peer-status {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      .status-connected {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .status-connecting {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      .peer-role {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        background: #e2e3e5;
+        color: #383d41;
+      }
+
+      .peer-meta {
+        font-size: 12px;
+        color: #6c757d;
+      }
+
+      .peer-actions {
+        margin-top: 8px;
+      }
+
+      /* Sync Progress */
+      .sync-progress {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .sync-progress .phase {
+        font-size: 12px;
+        color: #6c757d;
+        text-transform: capitalize;
+      }
+
+      .progress-bar {
+        flex: 1;
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: #007bff;
+        transition: width 0.3s ease;
+      }
+
+      /* Repository Panels */
+      #storage-panel {
+        grid-column: 1;
+        grid-row: 2 / 4;
+      }
+
+      #files-panel {
+        grid-column: 2;
+        grid-row: 2 / 4;
+      }
+
+      #history-panel {
+        grid-column: 3;
+        grid-row: 1 / 3;
+      }
+
+      .storage-panel {
+        padding: 16px;
+      }
+
+      .storage-panel h3,
+      .files-panel h3,
+      .history-panel h3 {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        color: #333;
+      }
+
+      .repo-info {
+        margin-bottom: 16px;
+      }
+
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid #f1f3f4;
+        font-size: 13px;
+      }
+
+      .info-row label {
+        color: #6c757d;
+      }
+
+      .info-row code {
+        font-family: monospace;
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      /* File List */
+      .file-list {
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .file-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 4px;
+        font-size: 13px;
+      }
+
+      .file-icon {
+        font-size: 16px;
+      }
+
+      .file-name {
+        font-family: monospace;
+      }
+
+      .file-actions {
+        margin-top: 12px;
+      }
+
+      /* Commit History */
+      .commit-list {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .commit-item {
+        padding: 12px;
+        border-bottom: 1px solid #f1f3f4;
+      }
+
+      .commit-item:last-child {
+        border-bottom: none;
+      }
+
+      .commit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+      }
+
+      .commit-id {
+        font-family: monospace;
+        font-size: 12px;
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      .commit-date {
+        font-size: 11px;
+        color: #6c757d;
+      }
+
+      .commit-message {
+        font-size: 13px;
+        color: #333;
+        margin-bottom: 4px;
+      }
+
+      .commit-author {
+        font-size: 11px;
+        color: #6c757d;
+      }
+
+      /* Log Panel */
+      #log-panel {
+        grid-column: 3;
+        grid-row: 3;
+      }
+
+      .log-panel h3 {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        color: #333;
+      }
+
+      .log-entries {
+        background: #263238;
+        color: #eceff1;
+        font-family: monospace;
+        font-size: 11px;
+        padding: 12px;
+        border-radius: 4px;
+        height: 250px;
+        overflow-y: auto;
+      }
+
+      .log-entry {
+        margin-bottom: 4px;
+        line-height: 1.4;
+      }
+
+      .log-time {
+        color: #78909c;
+      }
+
+      .log-info .log-message {
+        color: #eceff1;
+      }
+
+      .log-warn .log-message {
+        color: #ffb74d;
+      }
+
+      .log-error .log-message {
+        color: #ef5350;
+      }
+
+      /* Buttons */
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.2s;
+      }
+
+      button:hover {
+        background: #0056b3;
+      }
+
+      button:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .btn-primary {
+        background: #007bff;
+      }
+
+      .btn-primary:hover {
+        background: #0056b3;
+      }
+
+      .btn-secondary {
+        background: #6c757d;
+      }
+
+      .btn-secondary:hover {
+        background: #545b62;
+      }
+
+      .btn-danger {
+        background: #dc3545;
+      }
+
+      .btn-danger:hover {
+        background: #c82333;
+      }
+
+      .btn-small {
+        padding: 4px 8px;
+        font-size: 12px;
+      }
+
+      .btn-sync {
+        background: #28a745;
+      }
+
+      .btn-sync:hover {
+        background: #218838;
+      }
+
+      .btn-cancel {
+        background: #ffc107;
+        color: #212529;
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+
+      /* Inputs */
+      input[type="text"],
+      textarea {
+        padding: 8px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 13px;
+        width: 100%;
+      }
+
+      input[type="text"]:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+      }
+
+      /* Empty State */
+      .empty-state {
+        color: #6c757d;
+        font-size: 13px;
+        text-align: center;
+        padding: 20px;
+      }
+
+      /* Responsive */
+      @media (max-width: 1200px) {
+        .app-layout {
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: auto auto auto auto;
+        }
+
+        #connection-panel {
+          grid-column: 1;
+          grid-row: 1;
+        }
+
+        #storage-panel {
+          grid-column: 1;
+          grid-row: 2;
+        }
+
+        #sharing-panel {
+          grid-column: 2;
+          grid-row: 1;
+        }
+
+        #files-panel {
+          grid-column: 2;
+          grid-row: 2;
+        }
+
+        #history-panel {
+          grid-column: 1;
+          grid-row: 3;
+        }
+
+        #log-panel {
+          grid-column: 2;
+          grid-row: 3;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .app-layout {
+          grid-template-columns: 1fr;
+        }
+
+        #connection-panel,
+        #sharing-panel,
+        #storage-panel,
+        #files-panel,
+        #history-panel,
+        #log-panel {
+          grid-column: 1;
+          grid-row: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>WebRTC P2P Git Sync</h1>
+    <p class="subtitle">
+      Share and synchronize repositories peer-to-peer using WebRTC
+    </p>
+
+    <div class="app-layout">
+      <!-- Connection Panel -->
+      <div id="connection-panel" class="panel">
+        <!-- Content injected by connection-view.ts -->
+      </div>
+
+      <!-- Sharing/Peers Panel -->
+      <div id="sharing-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by sharing-view.ts -->
+        </div>
+      </div>
+
+      <!-- Storage Panel -->
+      <div id="storage-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by storage-view.ts -->
+        </div>
+      </div>
+
+      <!-- Files Panel -->
+      <div id="files-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by file-list-view.ts -->
+        </div>
+      </div>
+
+      <!-- History Panel -->
+      <div id="history-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by commit-history-view.ts -->
+        </div>
+      </div>
+
+      <!-- Log Panel -->
+      <div id="log-panel" class="panel">
+        <div class="panel-content">
+          <!-- Content injected by activity-log-view.ts -->
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

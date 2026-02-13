@@ -1,0 +1,5 @@
+*.patch -crlf
+*Image -crlf
+*.out -crlf
+delta* -text
+literal* -text

@@ -1,0 +1,67 @@
+{
+  "name": "@statewalker/vcs-core",
+  "version": "0.1.0",
+  "description": "Core VCS interfaces, storage abstractions, and history management",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git",
+    "directory": "packages/core"
+  },
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./history": {
+      "types": "./dist/history/index.d.ts",
+      "import": "./dist/history/index.js"
+    },
+    "./workspace": {
+      "types": "./dist/workspace/index.d.ts",
+      "import": "./dist/workspace/index.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "import": "./dist/storage/index.js"
+    },
+    "./backend": {
+      "types": "./dist/backend/index.d.ts",
+      "import": "./dist/backend/index.js"
+    },
+    "./serialization": {
+      "types": "./dist/serialization/index.d.ts",
+      "import": "./dist/serialization/index.js"
+    },
+    "./staging": {
+      "types": "./dist/workspace/staging/index.d.ts",
+      "import": "./dist/workspace/staging/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run --passWithNoTests",
+    "lint": "biome lint src tests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@statewalker/vcs-utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@statewalker/vcs-utils-node": "workspace:*",
+    "@types/node": "catalog:",
+    "rolldown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

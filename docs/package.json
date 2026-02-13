@@ -1,0 +1,17 @@
+{
+  "name": "@statewalker/vcs-docs",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "npx @observablehq/framework preview",
+    "build": "npx @observablehq/framework build",
+    "clean": "rimraf src/.observablehq/cache"
+  },
+  "dependencies": {
+    "@observablehq/framework": "catalog:"
+  },
+  "devDependencies": {
+    "rimraf": "catalog:"
+  }
+}
