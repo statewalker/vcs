@@ -72,6 +72,10 @@ Provide context for the next session about:
 - What's in progress
 - Any blockers or issues discovered
 
+## Why Formatting Runs at Session End (Not Per-Edit)
+
+The PostToolUse hook runs `tsc --noEmit` after each edit for fast type-checking. Biome formatting is deferred to session end (`pnpm format:fix`) because running it after every edit adds latency without proportional benefit — formatting issues don't block development flow the way type errors do.
+
 ## Critical Rules
 
 - **Work is NOT complete until `git push` succeeds**

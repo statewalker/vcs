@@ -1,5 +1,13 @@
 # Claude Code Project Guidelines
 
+## Project Overview
+
+**webrun-vcs** is a pure-TypeScript Git implementation (read/write) organized as a pnpm monorepo.
+
+Key packages: `vcs-core` (objects, refs, packfiles), `vcs-commands` (porcelain API), `vcs-transport` (fetch/push protocols), `vcs-store-*` (storage backends).
+
+Tech stack: TypeScript, pnpm workspaces, Vitest (testing), Biome (lint + format), Rolldown (bundling).
+
 ## General Behavior
 
 Do not over-analyze or over-explore before acting. When the task is clear, start implementation immediately. Ask for clarification only when genuinely ambiguous.
@@ -42,6 +50,12 @@ When editing existing test files, NEVER overwrite/replace the entire file. Alway
 
 When working from checklist/epic documents, complete ALL items listed — do not skip or forget items. Before reporting done, re-read the checklist and verify every item is addressed.
 
+### Plan Mode
+For multi-file features or architectural changes, start in plan mode. Iterate on the plan before switching to execution. Return to plan mode if implementation diverges significantly.
+
+### Subagents
+Use subagents for parallel independent subtasks (e.g., researching multiple packages simultaneously, running tests while editing). Keep the main context focused on the primary task.
+
 ## Documentation / Notes
 
 When the user asks for structural consistency or formatting conformity in documents, apply it uniformly without arguing — even if some sections seem like they don't need it.
@@ -77,6 +91,9 @@ bd create --title="..." --type=task --priority=2
 
 **[Full Guide](.claude/workflows/beads-integration.md)**
 
+### Pull Requests
+Branch from `main`, use descriptive branch names (`feat/X`, `fix/Y`). PR titles under 70 chars. Include a test plan in the description.
+
 ### Session Protocol
 Before ending any session:
 
@@ -88,6 +105,22 @@ git push                                        # MANDATORY
 ```
 
 **[Full Guide](.claude/workflows/session-protocol.md)**
+
+## Common Pitfalls
+
+- **Import extensions**: Always use `.js` in imports, never `.ts` or extensionless
+- **`git-cli-sandbox`**: `apps/demos/git-cli-sandbox/` is stale — ignore its test failures
+- **`split()` limit**: `"a b".split(" ", 2)` gives `["a","b"]` not `["a","b c"]` — use `indexOf` + `slice`
+- **Refs vs Checkout**: `CommitCommand` uses `history.refs`, not `checkout.head`
+
+## Self-Maintenance
+
+When you discover an undocumented convention, encounter a repeated mistake, or learn a project-specific gotcha during a session, **propose an update to CLAUDE.md** (or the relevant `.claude/*` file). This keeps guidance current and prevents the same mistakes across sessions.
+
+Trigger examples:
+- You get corrected on a pattern — add it to the relevant conventions section
+- A build/test fails due to an undocumented requirement — document it
+- You discover a stale reference or outdated instruction — fix it
 
 ## Project-Specific Tools
 
