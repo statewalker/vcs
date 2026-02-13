@@ -23,8 +23,10 @@ import type {
   BlobDeltaChainInfo,
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
+import type { CommitDeltaApi } from "../storage/delta/commit-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
 import { parseBinaryDelta } from "../storage/delta/delta-binary-format.js";
+import { GitFilesCommitDeltaApi } from "../storage/delta/git-commit-delta-api.js";
 import { GitFilesTreeDeltaApi } from "../storage/delta/git-tree-delta-api.js";
 import type { TreeDeltaApi } from "../storage/delta/tree-delta-api.js";
 import type { PackDeltaStore } from "./git/pack/index.js";
@@ -153,16 +155,21 @@ export class GitFilesBlobDeltaApi implements BlobDeltaApi {
 export class GitFilesDeltaApi implements DeltaApi {
   readonly blobs: BlobDeltaApi;
   readonly trees?: TreeDeltaApi;
+  readonly commits?: CommitDeltaApi;
   private batchDepth = 0;
 
   constructor(
     private readonly packDeltaStore: PackDeltaStore,
     blobs: Blobs,
     trees?: Trees,
+    options?: { enableCommitDeltas?: boolean },
   ) {
     this.blobs = new GitFilesBlobDeltaApi(packDeltaStore, blobs);
     if (trees) {
       this.trees = new GitFilesTreeDeltaApi(packDeltaStore, trees);
+    }
+    if (options?.enableCommitDeltas !== false) {
+      this.commits = new GitFilesCommitDeltaApi(packDeltaStore);
     }
   }
 
@@ -175,8 +182,10 @@ export class GitFilesDeltaApi implements DeltaApi {
     const blobChain = await this.blobs.getBlobDeltaChain(id);
     if (blobChain) return blobChain;
     if (this.trees) {
-      return this.trees.getTreeDeltaChain(id);
+      const treeChain = this.trees.getTreeDeltaChain(id);
+      if (treeChain) return treeChain;
     }
+    if (this.commits) return this.commits.getCommitDeltaChain(id);
     return undefined;
   }
 
