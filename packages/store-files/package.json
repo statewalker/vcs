@@ -1,0 +1,49 @@
+{
+  "name": "@statewalker/vcs-store-files",
+  "version": "0.1.0",
+  "description": "File-backed storage backend for StateWalker VCS",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git",
+    "directory": "packages/store-files"
+  },
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run",
+    "lint": "biome check --write .",
+    "lint:check": "biome check .",
+    "lint:fix": "biome check --write --unsafe .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "format:fix": "biome check --write --unsafe .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@statewalker/vcs-testing": "workspace:*",
+    "rolldown": "catalog:",
+    "vitest": "catalog:",
+    "typescript": "catalog:",
+    "@types/node": "catalog:"
+  }
+}
