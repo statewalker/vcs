@@ -1,7 +1,0 @@
-{
-  "name": "@statewalker/vcs-store-mem",
-  "version": "0.1.0",
-  "exports": {
-    ".": "./src/index.ts"
-  }
-}
