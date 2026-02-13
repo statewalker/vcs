@@ -247,8 +247,8 @@ export async function refreshFiles(ctx: Map<string, unknown>): Promise<void> {
     // Get files from staging store (index)
     // Note: In Git, the index contains ALL tracked files, not just staged changes
     const indexFiles = new Map<string, string>();
-    if (workingCopy.staging) {
-      for await (const entry of workingCopy.staging.entries()) {
+    if (workingCopy.checkout.staging) {
+      for await (const entry of workingCopy.checkout.staging.entries()) {
         indexFiles.set(entry.path, entry.objectId);
       }
     }
@@ -346,13 +346,13 @@ export async function unstageFile(ctx: Map<string, unknown>, path: string): Prom
   const workingCopy = getWorkingCopy(ctx);
   const logModel = getActivityLogModel(ctx);
 
-  if (!workingCopy || !workingCopy.staging) {
+  if (!workingCopy || !workingCopy.checkout.staging) {
     logModel.error("No repository initialized");
     return;
   }
 
   try {
-    const editor = workingCopy.staging.createEditor();
+    const editor = workingCopy.checkout.staging.createEditor();
     editor.remove(path);
     await editor.finish();
     logModel.info(`Unstaged: ${path}`);
@@ -391,8 +391,8 @@ export async function commit(ctx: Map<string, unknown>, message: string): Promis
     const commitId = await history.commits.store(commitData);
 
     // Clear the Git staging store after commit
-    if (workingCopy.staging) {
-      await workingCopy.staging.clear();
+    if (workingCopy.checkout.staging) {
+      await workingCopy.checkout.staging.clear();
     }
 
     // Update HEAD
