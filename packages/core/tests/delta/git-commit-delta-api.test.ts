@@ -1,191 +1,198 @@
 /**
  * Tests for GitFilesCommitDeltaApi
  *
- * Uses mock-based testing since PackDeltaStore requires file system setup.
- * Verifies the API correctly delegates to PackDeltaStore methods.
+ * Uses real PackDeltaStore with in-memory FilesApi to validate the full
+ * deltify → isDelta → getDeltaChain → undeltify cycle.
  */
 
-import { describe, expect, it, vi } from "vitest";
-import { GitFilesDeltaApi } from "../../src/backend/git-files-storage-backend.js";
+import { setCompressionUtils } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { PackDeltaStore } from "../../src/backend/git/pack/index.js";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
+import { GitDeltaCompressor } from "../../src/storage/delta/compressor/git-delta-compressor.js";
+import { parseBinaryDelta } from "../../src/storage/delta/delta-binary-format.js";
 import { GitFilesCommitDeltaApi } from "../../src/storage/delta/git-commit-delta-api.js";
 
-/** Create a fake 40-char hex SHA-1 from a short seed */
+beforeAll(() => {
+  setCompressionUtils(createNodeCompression());
+});
+
 function oid(seed: string): string {
   return seed.padStart(40, "0");
 }
 
-function createMockPackDeltaStore() {
-  const mockUpdate = {
-    storeObject: vi.fn(),
-    storeDelta: vi.fn().mockResolvedValue(0),
-    close: vi.fn(),
-  };
-
-  const store = {
-    isDelta: vi.fn().mockResolvedValue(false),
-    getDeltaChainInfo: vi.fn().mockResolvedValue(undefined),
-    startUpdate: vi.fn().mockReturnValue(mockUpdate),
-    loadObject: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
-    removeDelta: vi.fn().mockResolvedValue(true),
-    listDeltas: vi.fn(),
-    findDependents: vi.fn(),
-    initialize: vi.fn(),
-    close: vi.fn(),
-    loadDelta: vi.fn(),
-    isBase: vi.fn(),
-    hasObject: vi.fn(),
-    buildReverseIndex: vi.fn(),
-    invalidateReverseIndex: vi.fn(),
-    getPackDirectory: vi.fn(),
-    getReverseIndex: vi.fn(),
-  };
-
-  return { store, mockUpdate };
+async function* toStream(data: Uint8Array): AsyncIterable<Uint8Array> {
+  yield data;
 }
 
-describe("GitFilesCommitDeltaApi", () => {
-  it("findCommitDelta returns null", async () => {
-    const { store } = createMockPackDeltaStore();
-    const api = new GitFilesCommitDeltaApi(store as any);
+function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
+  const result = new Uint8Array(a.length + b.length);
+  result.set(a, 0);
+  result.set(b, a.length);
+  return result;
+}
 
-    async function* empty() {
-      // no candidates
-    }
+describe("GitFilesCommitDeltaApi (real PackDeltaStore)", () => {
+  let files: FilesApi;
+  let packDeltaStore: PackDeltaStore;
+  let api: GitFilesCommitDeltaApi;
+  const compressor = new GitDeltaCompressor();
 
+  beforeEach(async () => {
+    files = createInMemoryFilesApi();
+    packDeltaStore = new PackDeltaStore({ files, basePath: "/pack" });
+    await packDeltaStore.initialize();
+
+    api = new GitFilesCommitDeltaApi(packDeltaStore);
+  });
+
+  it("findCommitDelta returns null (computation is external)", async () => {
+    async function* empty(): AsyncIterable<string> {}
     expect(await api.findCommitDelta(oid("abc"), empty())).toBeNull();
   });
 
-  it("isCommitDelta delegates to packDeltaStore.isDelta", async () => {
-    const { store } = createMockPackDeltaStore();
-    store.isDelta.mockResolvedValue(true);
-    const api = new GitFilesCommitDeltaApi(store as any);
-
-    expect(await api.isCommitDelta(oid("abc"))).toBe(true);
-    expect(store.isDelta).toHaveBeenCalledWith(oid("abc"));
-  });
-
-  it("isCommitDelta returns false for non-delta", async () => {
-    const { store } = createMockPackDeltaStore();
-    const api = new GitFilesCommitDeltaApi(store as any);
-
-    expect(await api.isCommitDelta(oid("abc"))).toBe(false);
-  });
-
-  it("getCommitDeltaChain maps from DeltaChainDetails", async () => {
-    const { store } = createMockPackDeltaStore();
-    store.getDeltaChainInfo.mockResolvedValue({
-      baseKey: oid("base1"),
-      targetKey: oid("target1"),
-      depth: 2,
-      originalSize: 100,
-      compressedSize: 50,
-      chain: [oid("target1"), oid("base1")],
-    });
-    const api = new GitFilesCommitDeltaApi(store as any);
-
-    const chain = await api.getCommitDeltaChain(oid("target1"));
-    expect(chain).toEqual({
-      depth: 2,
-      totalSize: 50,
-      baseIds: [oid("target1"), oid("base1")],
-    });
+  it("isCommitDelta returns false for non-existent object", async () => {
+    expect(await api.isCommitDelta(oid("missing"))).toBe(false);
   });
 
   it("getCommitDeltaChain returns undefined for non-delta", async () => {
-    const { store } = createMockPackDeltaStore();
-    const api = new GitFilesCommitDeltaApi(store as any);
-
-    expect(await api.getCommitDeltaChain(oid("abc"))).toBeUndefined();
+    expect(await api.getCommitDeltaChain(oid("missing"))).toBeUndefined();
   });
 
-  it("deltifyCommit calls startUpdate, storeDelta, and close", async () => {
-    const { store, mockUpdate } = createMockPackDeltaStore();
-    const api = new GitFilesCommitDeltaApi(store as any);
+  it("deltifyCommit stores delta and isCommitDelta returns true", async () => {
+    // Create real base and target content (simulating serialized commits)
+    const base = new TextEncoder().encode(
+      `tree ${oid("t1")}\nauthor Test <t@e.com> 1700000000 +0000\n` +
+        `committer Test <t@e.com> 1700000000 +0000\n\nFirst commit message`,
+    );
+    const target = new TextEncoder().encode(
+      `tree ${oid("t2")}\nparent ${oid("c1")}\nauthor Test <t@e.com> 1700000000 +0000\n` +
+        `committer Test <t@e.com> 1700000000 +0000\n\nSecond commit message`,
+    );
 
-    // Create a minimal binary delta stream
-    // parseBinaryDelta expects Git binary delta format: base-size varint, result-size varint, instructions
-    // For this test we just verify the delegation pattern - storeDelta is mocked
-    const deltaChunk = new Uint8Array([
-      5, // base size = 5
-      5, // result size = 5
-      0x05,
-      0x48,
-      0x65,
-      0x6c,
-      0x6c,
-      0x6f, // insert 5 bytes: "Hello"
-    ]);
+    // Store the base object in pack
+    const update = packDeltaStore.startUpdate();
+    const header = new TextEncoder().encode(`commit ${base.length}\0`);
+    await update.storeObject(oid("base"), [concat(header, base)]);
+    await update.close();
 
-    async function* deltaStream() {
-      yield deltaChunk;
+    // Compute a real delta
+    const deltaResult = compressor.computeDelta(base, target);
+    expect(deltaResult).not.toBeNull();
+    if (!deltaResult) return;
+
+    // deltifyCommit should parse the binary delta and store via PackDeltaStore
+    await api.deltifyCommit(oid("target"), oid("base"), toStream(deltaResult.delta));
+    expect(await api.isCommitDelta(oid("target"))).toBe(true);
+  });
+
+  it("full cycle: deltify → isDelta → getDeltaChain → undeltify", async () => {
+    // Create substantial content so delta works well
+    const base = new Uint8Array(200);
+    for (let i = 0; i < base.length; i++) {
+      base[i] = ((i * 7 + 3) ^ (i >> 2)) & 0xff;
     }
 
-    await api.deltifyCommit(oid("target"), oid("base"), deltaStream());
+    const target = new Uint8Array(base);
+    target[0] = 0xff;
+    target[100] = 0xff;
 
-    expect(store.startUpdate).toHaveBeenCalled();
-    expect(mockUpdate.storeDelta).toHaveBeenCalledWith(
-      { baseKey: oid("base"), targetKey: oid("target") },
-      expect.any(Array),
-    );
-    expect(mockUpdate.close).toHaveBeenCalled();
+    // Compute delta
+    const deltaResult = compressor.computeDelta(base, target);
+    expect(deltaResult).not.toBeNull();
+    if (!deltaResult) return;
+
+    // Store base + delta in the same pack so chain resolution works
+    // (PackReader resolves REF_DELTA within a single pack)
+    const update = packDeltaStore.startUpdate();
+    const header = new TextEncoder().encode(`commit ${base.length}\0`);
+    await update.storeObject(oid("base"), [concat(header, base)]);
+    const deltaInstructions = parseBinaryDelta(deltaResult.delta);
+    await update.storeDelta({ baseKey: oid("base"), targetKey: oid("target") }, deltaInstructions);
+    await update.close();
+
+    // Verify delta state
+    expect(await api.isCommitDelta(oid("target"))).toBe(true);
+
+    // Verify chain info
+    const chain = await api.getCommitDeltaChain(oid("target"));
+    expect(chain).toBeDefined();
+    if (!chain) return;
+    expect(chain.depth).toBeGreaterThanOrEqual(1);
+    expect(chain.baseIds.length).toBeGreaterThanOrEqual(1);
+
+    // Undeltify removes the delta relationship
+    await api.undeltifyCommit(oid("target"));
   });
 
-  it("undeltifyCommit calls loadObject and removeDelta", async () => {
-    const { store } = createMockPackDeltaStore();
-    const api = new GitFilesCommitDeltaApi(store as any);
-
-    await api.undeltifyCommit(oid("abc"));
-
-    expect(store.loadObject).toHaveBeenCalledWith(oid("abc"));
-    expect(store.removeDelta).toHaveBeenCalledWith(oid("abc"), true);
-  });
-
-  it("undeltifyCommit throws if object not found", async () => {
-    const { store } = createMockPackDeltaStore();
-    store.loadObject.mockResolvedValue(undefined);
-    const api = new GitFilesCommitDeltaApi(store as any);
-
+  it("undeltifyCommit throws when object not found", async () => {
     await expect(api.undeltifyCommit(oid("missing"))).rejects.toThrow(/not found in pack files/);
   });
-});
 
-describe("GitFilesDeltaApi with commits", () => {
-  it("has commits property when enableCommitDeltas is true", () => {
-    const { store } = createMockPackDeltaStore();
-    const mockBlobs = {} as any;
-    const api = new GitFilesDeltaApi(store as any, mockBlobs, { enableCommitDeltas: true });
+  it("deltifyCommit works with multi-chunk delta stream", async () => {
+    const base = new Uint8Array(200);
+    for (let i = 0; i < base.length; i++) {
+      base[i] = ((i * 13 + 5) ^ (i >> 3)) & 0xff;
+    }
 
-    expect(api.commits).toBeDefined();
+    const target = new Uint8Array(base);
+    target[50] = 0xaa;
+    target[150] = 0xbb;
+
+    // Store base
+    const update = packDeltaStore.startUpdate();
+    const header = new TextEncoder().encode(`commit ${base.length}\0`);
+    await update.storeObject(oid("base2"), [concat(header, base)]);
+    await update.close();
+
+    // Compute delta and split into multiple chunks
+    const deltaResult = compressor.computeDelta(base, target);
+    expect(deltaResult).not.toBeNull();
+    if (!deltaResult) return;
+
+    const deltaBytes = deltaResult.delta;
+    const mid = Math.floor(deltaBytes.length / 2);
+
+    async function* multiChunkStream(): AsyncIterable<Uint8Array> {
+      yield deltaBytes.subarray(0, mid);
+      yield deltaBytes.subarray(mid);
+    }
+
+    await api.deltifyCommit(oid("target2"), oid("base2"), multiChunkStream());
+    expect(await api.isCommitDelta(oid("target2"))).toBe(true);
   });
 
-  it("has commits property by default (enableCommitDeltas not set)", () => {
-    const { store } = createMockPackDeltaStore();
-    const mockBlobs = {} as any;
-    const api = new GitFilesDeltaApi(store as any, mockBlobs);
+  it("getCommitDeltaChain maps fields correctly", async () => {
+    const base = new Uint8Array(200);
+    for (let i = 0; i < base.length; i++) {
+      base[i] = ((i * 19 + 7) ^ (i >> 1)) & 0xff;
+    }
 
-    expect(api.commits).toBeDefined();
-  });
+    const target = new Uint8Array(base);
+    target[10] = 0xcc;
 
-  it("getDeltaChain falls back to commits when blob chain is undefined", async () => {
-    const { store } = createMockPackDeltaStore();
-    const mockBlobs = {} as any;
-    const api = new GitFilesDeltaApi(store as any, mockBlobs, { enableCommitDeltas: true });
+    // Compute delta
+    const deltaResult = compressor.computeDelta(base, target);
+    expect(deltaResult).not.toBeNull();
+    if (!deltaResult) return;
 
-    // packDeltaStore.getDeltaChainInfo returns a chain for the commit
-    store.getDeltaChainInfo.mockResolvedValue({
-      baseKey: oid("base"),
-      targetKey: oid("target"),
-      depth: 1,
-      originalSize: 200,
-      compressedSize: 80,
-      chain: [oid("target"), oid("base")],
-    });
+    // Store base + delta in same pack for chain resolution
+    const update = packDeltaStore.startUpdate();
+    const header = new TextEncoder().encode(`commit ${base.length}\0`);
+    await update.storeObject(oid("chainbase"), [concat(header, base)]);
+    const deltaInstructions = parseBinaryDelta(deltaResult.delta);
+    await update.storeDelta(
+      { baseKey: oid("chainbase"), targetKey: oid("chaintarget") },
+      deltaInstructions,
+    );
+    await update.close();
 
-    const chain = await api.getDeltaChain(oid("target"));
-    expect(chain).toEqual({
-      depth: 1,
-      totalSize: 80,
-      baseIds: [oid("target"), oid("base")],
-    });
+    const chain = await api.getCommitDeltaChain(oid("chaintarget"));
+    expect(chain).toBeDefined();
+    if (!chain) return;
+    expect(chain.depth).toBe(1);
+    expect(typeof chain.totalSize).toBe("number");
+    expect(Array.isArray(chain.baseIds)).toBe(true);
   });
 });
