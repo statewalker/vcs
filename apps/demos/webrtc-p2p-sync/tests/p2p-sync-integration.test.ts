@@ -87,13 +87,13 @@ import {
 async function createTestAppContext(registry: MemoryPeerRegistry): Promise<AppContext> {
   const ctx: AppContext = {};
 
-  // Initialize all models
-  getSessionModel(ctx);
-  getPeersModel(ctx);
-  getSyncModel(ctx);
-  getRepositoryModel(ctx);
-  getActivityLogModel(ctx);
-  getUserActionsModel(ctx);
+  // // Initialize all models
+  // getSessionModel(ctx);
+  // getPeersModel(ctx);
+  // getSyncModel(ctx);
+  // getRepositoryModel(ctx);
+  // getActivityLogModel(ctx);
+  // getUserActionsModel(ctx);
 
   // Initialize Git infrastructure using Three-Part Architecture
 
@@ -975,6 +975,119 @@ describe("P2P Sync Integration", () => {
         "peer-file.txt",
         "server-new-file.txt",
       ]);
+    },
+  );
+
+  it(
+    "should preserve host history in a backup branch when both peers create divergent commits",
+    { timeout: 30000 },
+    async () => {
+      const actionsModel1 = getUserActionsModel(ctx1);
+      const actionsModel2 = getUserActionsModel(ctx2);
+      const repoModel1 = getRepositoryModel(ctx1);
+      const repoModel2 = getRepositoryModel(ctx2);
+      const sessionModel1 = getSessionModel(ctx1);
+      const sessionModel2 = getSessionModel(ctx2);
+      const peersModel1 = getPeersModel(ctx1);
+      const peersModel2 = getPeersModel(ctx2);
+      const syncModel2 = getSyncModel(ctx2);
+
+      // Step 1: Client 1 initializes repo with a file
+      enqueueInitRepoAction(actionsModel1);
+      await waitModel(repoModel1, (m) => m.getState().initialized);
+
+      enqueueAddFileAction(actionsModel1, {
+        name: "shared.txt",
+        content: "Shared content",
+      });
+      await waitModel(repoModel1, (m) => m.getState().commitCount === 2);
+
+      // Step 2: Client 1 shares, Client 2 joins
+      enqueueShareAction(actionsModel1);
+      await waitModel(sessionModel1, (m) => m.getState().mode === "hosting");
+      const sessionId = sessionModel1.getState().sessionId;
+      if (!sessionId) throw new Error("Session ID not set");
+
+      enqueueJoinAction(actionsModel2, { sessionId });
+      await waitModel(sessionModel2, (m) => m.getState().mode === "joined");
+      await flushPromises(50);
+      await waitModel(
+        peersModel2,
+        (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+        10000,
+      );
+      await waitModel(
+        peersModel1,
+        (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+        10000,
+      );
+
+      // Step 3: Client 2 syncs (gets Client 1's commits)
+      const hostPeerId = peersModel2.getAll()[0].id;
+      enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
+      await waitModel(
+        syncModel2,
+        (m) => m.getState().phase === "complete" || m.getState().phase === "error",
+        15000,
+      );
+      expect(syncModel2.getState().phase).toBe("complete");
+
+      // Reset sync model
+      const timerApi2 = getTimerApi(ctx2) as MockTimerApi;
+      timerApi2.advance(3000);
+      await waitModel(syncModel2, (m) => m.getState().phase === "idle", 5000);
+      await flushPromises(20);
+      await waitModel(repoModel2, (m) => m.getState().commitCount === 2, 5000);
+
+      // Step 4: Both clients create commits independently (DIVERGENT HISTORY!)
+      // Client 1 adds a file
+      enqueueAddFileAction(actionsModel1, {
+        name: "host-divergent.txt",
+        content: "Host divergent content",
+      });
+      await waitModel(repoModel1, (m) => m.getState().commitCount === 3, 5000);
+
+      // Client 2 adds a file
+      enqueueAddFileAction(actionsModel2, {
+        name: "joiner-divergent.txt",
+        content: "Joiner divergent content",
+      });
+      await waitModel(repoModel2, (m) => m.getState().commitCount === 3, 5000);
+
+      // Save Client 1's current main before sync (this is the commit that would be lost)
+      const history1 = getHistory(ctx1);
+      if (!history1) throw new Error("History not initialized");
+      const client1MainRef = await history1.refs.resolve("refs/heads/main");
+      const client1MainBefore = client1MainRef?.objectId;
+      expect(client1MainBefore).toBeTruthy();
+
+      // Step 5: Client 2 syncs again (divergent history detected)
+      enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
+      await waitModel(
+        syncModel2,
+        (m) => m.getState().phase === "complete" || m.getState().phase === "error",
+        15000,
+      );
+      expect(syncModel2.getState().phase).toBe("complete");
+
+      // Wait for auto-refresh on Client 1
+      await flushPromises(30);
+
+      // Step 6: Verify Client 1's divergent history was preserved in a backup branch
+      const backupRefs: [string, string][] = [];
+      for await (const entry of history1.refs.list("refs/heads/local-")) {
+        if ("objectId" in entry && entry.objectId) {
+          backupRefs.push([entry.name, entry.objectId]);
+        }
+      }
+
+      // A backup branch should have been created
+      expect(backupRefs.length).toBeGreaterThan(0);
+
+      // The backup branch should point to Client 1's original divergent commit
+      const [backupName, backupOid] = backupRefs[0];
+      expect(backupOid).toBe(client1MainBefore);
+      expect(backupName).toMatch(/^refs\/heads\/local-/);
     },
   );
 });

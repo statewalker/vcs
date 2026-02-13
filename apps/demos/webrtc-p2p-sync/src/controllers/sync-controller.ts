@@ -14,6 +14,7 @@
  * 4. Local refs are updated automatically by the transport layer
  */
 
+import type { History } from "@statewalker/vcs-core";
 import {
   enqueueCheckoutAction,
   enqueueRefreshRepoAction,
@@ -249,6 +250,26 @@ export function createSyncController(ctx: AppContext): () => void {
         logModel.info(`Set local main -> ${remotePeerMain.slice(0, 7)}`);
       }
 
+      // Determine push refspecs — check for divergent history
+      let pushRefspecs = ["refs/heads/main:refs/heads/main"];
+
+      if (localMainBefore && remotePeerMain && localMainBefore !== remotePeerMain) {
+        // Both sides have commits. Check if remote main is an ancestor of
+        // local main (fast-forward). If not, histories have diverged.
+        const remoteIsAncestor = await isAncestor(history, remotePeerMain, localMainBefore);
+        if (!remoteIsAncestor) {
+          // Divergent histories — preserve the remote's current main in a
+          // backup branch before overwriting it with our push.
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "").slice(0, 15);
+          const backupBranch = `refs/heads/local-${peerId}-${timestamp}`;
+          pushRefspecs = [
+            `refs/remotes/peer/main:${backupBranch}`,
+            "+refs/heads/main:refs/heads/main",
+          ];
+          logModel.info(`Divergent histories detected, backing up remote main to ${backupBranch}`);
+        }
+      }
+
       // Update sync progress
       syncModel.updateProgress(fetchResult.objectsReceived, 0);
 
@@ -257,7 +278,7 @@ export function createSyncController(ctx: AppContext): () => void {
       syncModel.update({ direction: "push", phase: "transferring" });
 
       const pushResult = await session.push({
-        refspecs: ["refs/heads/main:refs/heads/main"],
+        refspecs: pushRefspecs,
       });
 
       if (!pushResult.ok && pushResult.error) {
@@ -346,6 +367,42 @@ export function createSyncController(ctx: AppContext): () => void {
 
     originalCleanup();
   };
+}
+
+/**
+ * Check if `ancestorId` is an ancestor of `descendantId` by walking commit parents.
+ * Returns true if ancestorId is reachable from descendantId (i.e., fast-forward).
+ */
+async function isAncestor(
+  history: History,
+  ancestorId: string,
+  descendantId: string,
+): Promise<boolean> {
+  if (ancestorId === descendantId) return true;
+
+  const visited = new Set<string>();
+  const queue = [descendantId];
+
+  while (queue.length > 0) {
+    const id = queue.shift();
+    if (!id) continue;
+    if (id === ancestorId) return true;
+    if (visited.has(id)) continue;
+    visited.add(id);
+
+    try {
+      const commit = await history.commits.load(id);
+      if (commit) {
+        for (const parent of commit.parents) {
+          if (!visited.has(parent)) queue.push(parent);
+        }
+      }
+    } catch {
+      // Commit not loadable, stop this branch
+    }
+  }
+
+  return false;
 }
 
 // Re-import for internal use (avoid circular dependency)
