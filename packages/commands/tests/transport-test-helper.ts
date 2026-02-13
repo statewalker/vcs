@@ -266,6 +266,8 @@ function createMockHistoryWithOperations(
     delta: {} as never,
     capabilities: {
       nativeBlobDeltas: false,
+      nativeTreeDeltas: false,
+      nativeCommitDeltas: false,
       randomAccess: false,
       atomicBatch: false,
       nativeGitFormat: false,

@@ -11,12 +11,15 @@
 
 import type { ObjectId } from "../common/id/object-id.js";
 import type { Blobs } from "../history/blobs/blobs.js";
+import type { Trees } from "../history/trees/trees.js";
 import type {
   BlobDeltaApi,
   BlobDeltaChainInfo,
   StreamingDeltaResult,
 } from "../storage/delta/blob-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
+import { MemoryTreeDeltaApi } from "../storage/delta/memory-tree-delta-api.js";
+import type { TreeDeltaApi } from "../storage/delta/tree-delta-api.js";
 
 /**
  * Simple delta tracking interface for memory backend
@@ -111,21 +114,33 @@ export class MemoryBlobDeltaApi implements BlobDeltaApi {
  */
 export class MemoryDeltaApi implements DeltaApi {
   readonly blobs: BlobDeltaApi;
+  readonly trees?: TreeDeltaApi;
   private batchDepth = 0;
 
   constructor(
     blobs: Blobs,
     private readonly tracker: DeltaTracker | undefined,
+    trees?: Trees,
   ) {
     this.blobs = new MemoryBlobDeltaApi(blobs, tracker);
+    if (trees) {
+      this.trees = new MemoryTreeDeltaApi(trees);
+    }
   }
 
   async isDelta(id: ObjectId): Promise<boolean> {
-    return this.blobs.isBlobDelta(id);
+    if (await this.blobs.isBlobDelta(id)) return true;
+    if (this.trees && (await this.trees.isTreeDelta(id))) return true;
+    return false;
   }
 
   async getDeltaChain(id: ObjectId): Promise<BlobDeltaChainInfo | undefined> {
-    return this.blobs.getBlobDeltaChain(id);
+    const blobChain = await this.blobs.getBlobDeltaChain(id);
+    if (blobChain) return blobChain;
+    if (this.trees) {
+      return this.trees.getTreeDeltaChain(id);
+    }
+    return undefined;
   }
 
   async *listDeltas(): AsyncIterable<StorageDeltaRelationship> {

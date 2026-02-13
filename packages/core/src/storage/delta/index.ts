@@ -1,6 +1,7 @@
 export * from "./blob-delta-api.js";
 export * from "./candidate-finder/index.js";
 export * from "./candidate-finder.js";
+export * from "./commit-delta-api.js";
 export * from "./compressor/index.js";
 export * from "./delta-api.js";
 export * from "./delta-binary-format.js";
@@ -10,5 +11,8 @@ export * from "./delta-engine.js";
 export * from "./delta-store.js";
 export * from "./engine/index.js";
 export * from "./gc-controller.js";
+export * from "./memory-tree-delta-api.js";
 export * from "./strategy/index.js";
+export * from "./structural-tree-delta.js";
+export * from "./tree-delta-api.js";
 export * from "./types.js";

@@ -5,6 +5,7 @@
  * Uses commit relationships (parents) and tree structure to find candidates.
  */
 
+import type { ObjectId } from "../../../common/id/object-id.js";
 import type { Commits } from "../../../history/commits/commits.js";
 import { ObjectType, type ObjectTypeCode } from "../../../history/objects/object-types.js";
 import type { Trees } from "../../../history/trees/trees.js";
@@ -16,17 +17,29 @@ import type {
 } from "../candidate-finder.js";
 
 /**
+ * Options specific to CommitTreeCandidateFinder
+ */
+export interface CommitTreeFinderOptions extends CandidateFinderOptions {
+  /**
+   * Recent commit IDs to use as starting points for tree candidate search.
+   * When provided, the finder walks ancestry from these commits to find
+   * trees at the same path as the target tree.
+   */
+  recentCommitIds?: ObjectId[];
+}
+
+/**
  * CommitTreeCandidateFinder implementation
  *
  * Finds delta candidates based on commit/tree relationships:
  * - For commits: parent commits are best candidates
- * - For trees: trees from parent commits at same path
+ * - For trees: trees at the same path in ancestor commits
  */
 export class CommitTreeCandidateFinder implements CandidateFinder {
   constructor(
     private readonly commits: Commits,
     private readonly trees: Trees,
-    private readonly options: CandidateFinderOptions = {},
+    private readonly options: CommitTreeFinderOptions = {},
   ) {}
 
   async *findCandidates(target: DeltaTarget): AsyncIterable<DeltaCandidate> {
@@ -53,15 +66,13 @@ export class CommitTreeCandidateFinder implements CandidateFinder {
         const parent = await this.commits.load(parentId);
         if (!parent) continue;
 
-        // Estimate size (commits are usually small)
-        // In practice, we'd need to serialize to get actual size
-        const estimatedSize = target.size; // Assume similar size
+        const estimatedSize = target.size;
 
         yield {
           id: parentId,
           type: ObjectType.COMMIT as ObjectTypeCode,
           size: estimatedSize,
-          similarity: 0.95, // Parent commits are very similar
+          similarity: 0.95,
           reason: "parent-commit",
         };
         count++;
@@ -75,38 +86,31 @@ export class CommitTreeCandidateFinder implements CandidateFinder {
     const maxCandidates = this.options.maxCandidates ?? 10;
     let count = 0;
 
-    // For trees, we look for trees with similar structure
-    // This is a simplified implementation - a full implementation would
-    // track tree paths through commits to find related trees
-
-    // If we have a path, try to find trees at that path in recent commits
-    if (target.path) {
-      // This requires walking recent commits and finding trees at the same path
-      // For now, we'll use a simpler approach: look for recently accessed trees
-      // with similar size
-      // Placeholder: in a full implementation, this would:
-      // 1. Walk recent commits
-      // 2. For each commit, navigate to the tree at target.path
-      // 3. Yield those trees as candidates
+    // Strategy 1: If we have a path and recent commit context, walk commits
+    // and find trees at the same path — highest-quality candidates.
+    if (target.path && this.options.recentCommitIds?.length) {
+      for await (const candidate of this.findTreesByPath(target, maxCandidates)) {
+        if (count >= maxCandidates) return;
+        yield candidate;
+        count++;
+      }
+      if (count > 0) return;
     }
 
-    // Simple fallback: look for trees of similar size
-    // This isn't ideal but provides some candidates
+    // Strategy 2 (fallback): Look at subtrees of the target tree itself.
+    // Sibling trees sometimes share structure (e.g., src/ and test/ mirrors).
     try {
-      // Trees from the same commit structure tend to be similar
-      // We could also look at sibling trees (trees in the same parent tree)
       const treeEntries = await this.trees.load(target.id);
       if (!treeEntries) return;
       for await (const entry of treeEntries) {
         if (count >= maxCandidates) return;
 
         if (entry.mode === 0o040000) {
-          // Directory entry - another tree
           yield {
             id: entry.id,
             type: ObjectType.TREE as ObjectTypeCode,
-            size: target.size, // Estimate
-            similarity: 0.3, // Lower similarity for sibling trees
+            size: target.size,
+            similarity: 0.3,
             reason: "same-tree",
           };
           count++;
@@ -115,5 +119,72 @@ export class CommitTreeCandidateFinder implements CandidateFinder {
     } catch {
       // If tree can't be loaded, skip
     }
+  }
+
+  /**
+   * Walk recent commits and find the tree at the same path.
+   *
+   * Given a target tree at path "src/utils", this navigates each
+   * ancestor commit's root tree down to "src/utils" and yields
+   * the matching tree as a candidate.
+   */
+  private async *findTreesByPath(
+    target: DeltaTarget,
+    maxCandidates: number,
+  ): AsyncIterable<DeltaCandidate> {
+    if (!target.path || !this.options.recentCommitIds?.length) return;
+
+    const pathSegments = target.path.split("/").filter(Boolean);
+    let count = 0;
+    const seen = new Set<string>();
+
+    for (const startCommitId of this.options.recentCommitIds) {
+      // Walk ancestry from each recent commit (limit per commit)
+      for await (const commitId of this.commits.walkAncestry(startCommitId, { limit: 10 })) {
+        if (count >= maxCandidates) return;
+
+        const rootTreeId = await this.commits.getTree(commitId);
+        if (!rootTreeId) continue;
+
+        // Navigate to the tree at the target's path
+        const treeId =
+          pathSegments.length > 0
+            ? await this.resolveTreePath(rootTreeId, pathSegments)
+            : rootTreeId;
+        if (!treeId || treeId === target.id || seen.has(treeId)) continue;
+
+        seen.add(treeId);
+
+        yield {
+          id: treeId,
+          type: ObjectType.TREE as ObjectTypeCode,
+          size: target.size,
+          similarity: 0.85,
+          reason: "same-tree",
+        };
+        count++;
+      }
+    }
+  }
+
+  /**
+   * Navigate a tree path to find a subtree ID.
+   *
+   * Given root tree and path ["src", "utils"], looks up entry "src" in root,
+   * then entry "utils" in the resulting tree.
+   */
+  private async resolveTreePath(
+    rootTreeId: string,
+    pathSegments: string[],
+  ): Promise<string | undefined> {
+    let currentId = rootTreeId;
+
+    for (const segment of pathSegments) {
+      const entry = await this.trees.getEntry(currentId, segment);
+      if (!entry || entry.mode !== 0o040000) return undefined;
+      currentId = entry.id;
+    }
+
+    return currentId;
   }
 }

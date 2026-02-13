@@ -223,15 +223,20 @@ export function createMemoryHistoryWithOperations(
   // Create base History for serialization API
   const history = new HistoryImpl(blobs, trees, commits, tags, refs);
 
-  // Create delta API (memory backend doesn't track deltas by default)
-  const delta = new MemoryDeltaApi(blobs, undefined);
+  // Create delta API (memory backend doesn't track blob deltas, but supports tree deltas)
+  const delta = new MemoryDeltaApi(blobs, undefined, trees);
 
   // Create serialization API using the History interface
-  const serialization = new DefaultSerializationApi({ history });
+  const serialization = new DefaultSerializationApi({
+    history,
+    treeDeltaApi: delta.trees,
+  });
 
   // Memory backend capabilities
   const capabilities: BackendCapabilities = {
     nativeBlobDeltas: false,
+    nativeTreeDeltas: true,
+    nativeCommitDeltas: false,
     randomAccess: true,
     atomicBatch: false,
     nativeGitFormat: false,
@@ -305,6 +310,8 @@ export function createGitFilesHistory(config: GitFilesStorageBackendConfig): His
   // Git-files backend capabilities
   const capabilities: BackendCapabilities = {
     nativeBlobDeltas: true,
+    nativeTreeDeltas: false,
+    nativeCommitDeltas: false,
     randomAccess: true,
     atomicBatch: true,
     nativeGitFormat: true,

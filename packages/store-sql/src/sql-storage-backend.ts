@@ -41,6 +41,8 @@ export interface SQLStorageBackendConfig extends BaseBackendConfig {
 /** SQL backend capabilities */
 const SQL_CAPABILITIES: BackendCapabilities = {
   nativeBlobDeltas: true,
+  nativeTreeDeltas: false,
+  nativeCommitDeltas: false,
   randomAccess: true,
   atomicBatch: true,
   nativeGitFormat: false,
