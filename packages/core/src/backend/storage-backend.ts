@@ -64,6 +64,21 @@ export interface BackendCapabilities {
   nativeBlobDeltas: boolean;
 
   /**
+   * Can store tree deltas natively
+   *
+   * If true, tree deltas are stored in backend-specific format.
+   * Git-files: binary deltas. SQL/KV/memory: structural deltas.
+   */
+  nativeTreeDeltas: boolean;
+
+  /**
+   * Can store commit deltas natively
+   *
+   * If true, commit deltas are stored as binary deltas.
+   */
+  nativeCommitDeltas: boolean;
+
+  /**
    * Supports random access reads
    *
    * If true, can efficiently read arbitrary byte ranges.

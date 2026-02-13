@@ -1,21 +1,23 @@
 /**
- * Unified Delta API - Blob-only delta management with batch operations
+ * Unified Delta API - Delta management with batch operations
  *
  * This is the main entry point for delta operations in the storage layer.
- * Only blobs have delta support in internal storage - trees and commits
- * are stored as-is for fast access.
+ * Supports blobs (always), trees (optional), and commits (optional).
  *
- * Wire format (pack files) can still use deltas for all object types,
- * but internal storage only tracks blob deltas.
+ * Tree/commit delta support is backend-dependent:
+ * - Git-files: binary deltas (same algorithm as blobs)
+ * - SQL/KV/memory: structural tree deltas (base tree + entry changes)
  */
 
 import type { ObjectId } from "../../common/id/object-id.js";
 import type { BlobDeltaApi, BlobDeltaChainInfo } from "./blob-delta-api.js";
+import type { CommitDeltaApi } from "./commit-delta-api.js";
+import type { TreeDeltaApi } from "./tree-delta-api.js";
 
 /**
  * Storage delta relationship with metadata
  *
- * Describes a delta dependency between two blobs with storage statistics.
+ * Describes a delta dependency between two objects with storage statistics.
  * Used for enumeration and analysis of storage structure.
  *
  * Note: Different from DeltaRelationship in delta-reverse-index.ts which
@@ -63,19 +65,30 @@ export interface StorageDeltaRelationship {
 export interface DeltaApi {
   /**
    * Blob delta operations
-   *
-   * This is where the real delta work happens.
-   * Trees and commits don't have delta operations.
    */
   readonly blobs: BlobDeltaApi;
 
-  // === Cross-type queries (blob-only in practice) ===
+  /**
+   * Tree delta operations (optional, backend-dependent)
+   *
+   * When available, trees can be stored as deltas.
+   * Git-files backends use binary deltas; SQL/KV/memory use structural deltas.
+   */
+  readonly trees?: TreeDeltaApi;
+
+  /**
+   * Commit delta operations (optional, backend-dependent)
+   *
+   * When available, commits can be stored as binary deltas.
+   */
+  readonly commits?: CommitDeltaApi;
+
+  // === Cross-type queries ===
 
   /**
    * Check if object is stored as delta
    *
-   * Only blobs can be stored as deltas in internal storage.
-   * Trees and commits always return false.
+   * Checks blobs, then trees (if available), then commits (if available).
    *
    * @param id ObjectId to check
    * @returns True if stored as delta
@@ -85,8 +98,7 @@ export interface DeltaApi {
   /**
    * Get delta chain for object
    *
-   * Only blobs have delta chains.
-   * Trees and commits always return undefined.
+   * Checks blobs, then trees (if available), then commits (if available).
    *
    * @param id ObjectId to query
    * @returns Chain info or undefined if not a delta
@@ -96,17 +108,17 @@ export interface DeltaApi {
   /**
    * Enumerate all delta relationships
    *
-   * Returns all blob delta relationships in storage.
+   * Returns delta relationships across all object types.
    * Useful for storage analysis and optimization planning.
    *
-   * @yields Delta relationships (all are blobs)
+   * @yields Delta relationships
    */
   listDeltas(): AsyncIterable<StorageDeltaRelationship>;
 
   /**
    * Get objects that depend on a base object
    *
-   * Returns all blobs that are stored as deltas against the given base.
+   * Returns all objects stored as deltas against the given base.
    * Important for safe object deletion - a base cannot be deleted
    * while dependents exist.
    *

@@ -26,7 +26,9 @@ import type { TreeEntry } from "../history/trees/tree-entry.js";
 import { parseTreeToArray, serializeTree } from "../history/trees/tree-format.js";
 import type { Trees } from "../history/trees/trees.js";
 import type { BlobDeltaApi } from "../storage/delta/blob-delta-api.js";
+import type { CommitDeltaApi } from "../storage/delta/commit-delta-api.js";
 import { serializeDeltaToGit } from "../storage/delta/delta-binary-format.js";
+import type { TreeDeltaApi } from "../storage/delta/tree-delta-api.js";
 import type {
   PackBuilder,
   PackBuildStats,
@@ -53,6 +55,12 @@ export interface SerializationApiConfig {
 
   /** Blob delta API for delta-aware import */
   blobDeltaApi?: BlobDeltaApi;
+
+  /** Tree delta API for delta-aware import (optional, backend-dependent) */
+  treeDeltaApi?: TreeDeltaApi;
+
+  /** Commit delta API for delta-aware import (optional, backend-dependent) */
+  commitDeltaApi?: CommitDeltaApi;
 }
 
 /**
@@ -71,6 +79,10 @@ export class DefaultSerializationApi implements SerializationApi {
   private readonly _tags: Tags;
   /** Optional blob delta API for delta-aware import */
   private readonly blobDeltaApi?: BlobDeltaApi;
+  /** Optional tree delta API for delta-aware import */
+  private readonly treeDeltaApi?: TreeDeltaApi;
+  /** Optional commit delta API for delta-aware import */
+  private readonly commitDeltaApi?: CommitDeltaApi;
 
   constructor(config: SerializationApiConfig) {
     this._blobs = config.history.blobs;
@@ -78,6 +90,8 @@ export class DefaultSerializationApi implements SerializationApi {
     this._commits = config.history.commits;
     this._tags = config.history.tags;
     this.blobDeltaApi = config.blobDeltaApi;
+    this.treeDeltaApi = config.treeDeltaApi;
+    this.commitDeltaApi = config.commitDeltaApi;
   }
 
   /**
@@ -194,14 +208,34 @@ export class DefaultSerializationApi implements SerializationApi {
           break;
 
         case "tree":
-          // Trees are always stored fully resolved
-          await this.storeTreeFromContent(entry.content);
+          if (entry.type === "delta" && this.treeDeltaApi) {
+            // Preserve tree delta if we have tree delta API
+            const treeDeltaBytes = serializeDeltaToGit(entry.delta);
+            await this.treeDeltaApi.deltifyTree(
+              entry.id,
+              entry.baseId,
+              toAsyncIterable(treeDeltaBytes),
+            );
+          } else {
+            // Store as full tree
+            await this.storeTreeFromContent(entry.content);
+          }
           treesImported++;
           break;
 
         case "commit":
-          // Commits are always stored fully resolved
-          await this.storeCommitFromContent(entry.content);
+          if (entry.type === "delta" && this.commitDeltaApi) {
+            // Preserve commit delta if we have commit delta API
+            const commitDeltaBytes = serializeDeltaToGit(entry.delta);
+            await this.commitDeltaApi.deltifyCommit(
+              entry.id,
+              entry.baseId,
+              toAsyncIterable(commitDeltaBytes),
+            );
+          } else {
+            // Store as full commit
+            await this.storeCommitFromContent(entry.content);
+          }
           commitsImported++;
           break;
 
