@@ -82,6 +82,13 @@ export class GitObjectStoreImpl implements GitObjectStore {
       // Compute final hash
       id = bytesToHex(hasher.finalize());
 
+      // Skip write if object already exists — content-addressed objects are
+      // immutable, so storing the same ID again is a no-op. This prevents
+      // errors when BrowserFilesApi's createWritable() fails on existing files.
+      if (await this.storage.has(id)) {
+        return id;
+      }
+
       // Get content stream to store
       let contentToStore: AsyncIterable<Uint8Array> = bufferedWithHash.read();
 
