@@ -32,6 +32,7 @@ import {
   setPeerJsApi,
   setTimerApi,
 } from "../apis/index.js";
+import { getIntents } from "../intents/index.js";
 import { newAdapter } from "../utils/index.js";
 
 /**
@@ -144,6 +145,9 @@ export async function createAppContext(): Promise<AppContext> {
   // Initialize state storage for peer connections
   getPeerConnections(ctx);
 
+  // Initialize intent dispatcher
+  getIntents(ctx);
+
   // Initialize Git infrastructure
   await initializeGitInfrastructure(ctx);
 
@@ -187,6 +191,8 @@ export const setRepository = setHistory;
 export type { WorkingCopy } from "@statewalker/vcs-core";
 // Re-export connection provider adapter
 export { getConnectionProvider, setConnectionProvider } from "../apis/index.js";
+// Re-export intent adapters
+export { getIntents, setIntents } from "../intents/index.js";
 // Re-export controller factories
 export { createControllers } from "./main-controller.js";
 export { createRepositoryController } from "./repository-controller.js";
