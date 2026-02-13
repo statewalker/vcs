@@ -1,6 +1,6 @@
 import { createInMemoryFilesApi, type FilesApi, joinPath } from "@statewalker/vcs-utils/files";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSimpleStaging } from "../../../src/workspace/staging/simple-staging.js";
+import { createMemoryGitStaging } from "../../../src/workspace/staging/git-staging.js";
 import type { Staging } from "../../../src/workspace/staging/staging.js";
 import { MergeStage } from "../../../src/workspace/staging/types.js";
 import { GitResolutionStore } from "../../../src/workspace/transformation/resolution-store.impl.js";
@@ -85,7 +85,7 @@ describe("ResolutionStore", () => {
 
   beforeEach(async () => {
     files = createInMemoryFilesApi();
-    staging = createSimpleStaging();
+    staging = createMemoryGitStaging();
     blobs = new TestBlobs();
 
     await files.mkdir(gitDir);

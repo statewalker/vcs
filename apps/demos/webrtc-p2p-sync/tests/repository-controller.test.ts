@@ -7,8 +7,8 @@
 
 import { Git } from "@statewalker/vcs-commands";
 import {
+  createMemoryGitStaging,
   createMemoryHistory,
-  createSimpleStaging,
   MemoryCheckout,
   MemoryWorkingCopy,
   MemoryWorktree,
@@ -205,7 +205,7 @@ async function createTestAppContext(): Promise<AppContext> {
   setHistory(ctx, history);
 
   // 2. Create in-memory Staging
-  const staging = createSimpleStaging();
+  const staging = createMemoryGitStaging();
 
   // 3. Create in-memory Checkout (HEAD, operation states)
   const checkout = new MemoryCheckout({

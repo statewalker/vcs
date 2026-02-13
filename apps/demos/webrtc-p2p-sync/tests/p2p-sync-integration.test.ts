@@ -11,8 +11,8 @@
 import { Git } from "@statewalker/vcs-commands";
 import type { History, SerializationApi } from "@statewalker/vcs-core";
 import {
+  createMemoryGitStaging,
   createMemoryHistory,
-  createSimpleStaging,
   DefaultSerializationApi,
   MemoryCheckout,
   MemoryWorkingCopy,
@@ -107,7 +107,7 @@ async function createTestAppContext(registry: MemoryPeerRegistry): Promise<AppCo
   setHistory(ctx, history);
 
   // 2. Create in-memory Staging
-  const staging = createSimpleStaging();
+  const staging = createMemoryGitStaging();
 
   // 3. Create in-memory Checkout (HEAD, operation states)
   const checkout = new MemoryCheckout({

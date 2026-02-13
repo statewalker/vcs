@@ -17,7 +17,7 @@ import {
   GitCheckout,
   type GitCheckoutFilesApi,
 } from "../../../src/workspace/checkout/git-checkout.js";
-import { SimpleStaging } from "../../../src/workspace/staging/simple-staging.js";
+import { createMemoryGitStaging } from "../../../src/workspace/staging/git-staging.js";
 
 /**
  * Run git command in a directory
@@ -99,7 +99,7 @@ describe("GitCheckout Git Interoperability", () => {
       const refs = new RefsAdapter(refStore);
       await refs.initialize();
 
-      const staging = new SimpleStaging();
+      const staging = createMemoryGitStaging();
       const checkout = new GitCheckout({
         staging,
         refs,
@@ -162,7 +162,7 @@ describe("GitCheckout Git Interoperability", () => {
       const refs = new RefsAdapter(refStore);
       await refs.initialize();
 
-      const staging = new SimpleStaging();
+      const staging = createMemoryGitStaging();
       const checkout = new GitCheckout({
         staging,
         refs,
@@ -218,7 +218,7 @@ describe("GitCheckout Git Interoperability", () => {
       await refs.initialize();
       const initialCommit = git(["rev-parse", "HEAD"], repoDir);
 
-      const staging = new SimpleStaging();
+      const staging = createMemoryGitStaging();
       const checkout = new GitCheckout({
         staging,
         refs,

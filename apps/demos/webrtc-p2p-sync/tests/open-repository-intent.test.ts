@@ -12,8 +12,8 @@
 import { Git } from "@statewalker/vcs-commands";
 import type { History, SerializationApi } from "@statewalker/vcs-core";
 import {
+  createMemoryGitStaging,
   createMemoryHistory,
-  createSimpleStaging,
   DefaultSerializationApi,
   MemoryCheckout,
   MemoryWorkingCopy,
@@ -82,7 +82,7 @@ async function createTestAppContext(registry: MemoryPeerRegistry): Promise<AppCo
   await history.refs.setSymbolic("HEAD", "refs/heads/main");
   setHistory(ctx, history);
 
-  const staging = createSimpleStaging();
+  const staging = createMemoryGitStaging();
   const checkout = new MemoryCheckout({
     staging,
     initialHead: { type: "symbolic", target: "refs/heads/main" },

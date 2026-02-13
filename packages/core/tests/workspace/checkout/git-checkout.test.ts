@@ -11,11 +11,12 @@ import {
   GitCheckout,
   type GitCheckoutFilesApi,
 } from "../../../src/workspace/checkout/git-checkout.js";
-import { SimpleStaging } from "../../../src/workspace/staging/simple-staging.js";
+import { createMemoryGitStaging } from "../../../src/workspace/staging/git-staging.js";
+import type { Staging } from "../../../src/workspace/staging/staging.js";
 import { checkoutConformanceTests } from "./checkout.conformance.test.js";
 
 let checkout: GitCheckout;
-let staging: SimpleStaging;
+let staging: Staging;
 let refs: MemoryRefs;
 let files: GitCheckoutFilesApi;
 
@@ -62,7 +63,7 @@ checkoutConformanceTests(
     } as GitCheckoutFilesApi;
 
     // Create initial HEAD
-    staging = new SimpleStaging();
+    staging = createMemoryGitStaging();
     refs = new MemoryRefs();
 
     // Initialize HEAD to point to main branch

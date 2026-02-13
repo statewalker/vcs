@@ -6,16 +6,17 @@
 
 import type { Checkout } from "../../../src/workspace/checkout/checkout.js";
 import { MemoryCheckout } from "../../../src/workspace/checkout/memory-checkout.js";
-import { SimpleStaging } from "../../../src/workspace/staging/simple-staging.js";
+import { createMemoryGitStaging } from "../../../src/workspace/staging/git-staging.js";
+import type { Staging } from "../../../src/workspace/staging/staging.js";
 import { checkoutConformanceTests } from "./checkout.conformance.test.js";
 
 let checkout: MemoryCheckout;
-let staging: SimpleStaging;
+let staging: Staging;
 
 checkoutConformanceTests(
   "MemoryCheckout",
   async (): Promise<Checkout> => {
-    staging = new SimpleStaging();
+    staging = createMemoryGitStaging();
     checkout = new MemoryCheckout({
       staging,
     });

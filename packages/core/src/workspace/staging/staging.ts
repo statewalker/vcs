@@ -4,7 +4,7 @@
  * This interface provides operations for the staging area (Git index).
  * Use factory functions to create instances:
  * - createGitStaging() for Git index file format
- * - createSimpleStaging() for in-memory/testing
+ * - createMemoryGitStaging() for in-memory/testing
  */
 
 import type { ObjectId } from "../../common/id/index.js";
@@ -62,7 +62,7 @@ export type ConflictResolution = "ours" | "theirs" | "base" | IndexEntry;
  * This is the primary interface for working with the staging area.
  * Use factory functions to create instances:
  * - createGitStaging() for Git index file format
- * - createSimpleStaging() for in-memory/testing
+ * - createMemoryGitStaging() for in-memory/testing
  */
 export interface Staging {
   // ========== Entry Operations ==========
