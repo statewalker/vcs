@@ -340,6 +340,52 @@ describe("writeSideband chunking via createTransportApi", () => {
     expect(reassembled).toEqual(data);
   });
 
+  it("should produce exactly one packet at the max payload boundary", async () => {
+    const { createTransportApi } = await import("../src/factories/transport-api-factory.js");
+    const { ProtocolState } = await import("../src/context/protocol-state.js");
+
+    const written: Uint8Array[] = [];
+    const fakeDuplex = {
+      write(data: Uint8Array) {
+        written.push(new Uint8Array(data));
+      },
+      async close() {},
+      async *[Symbol.asyncIterator](): AsyncGenerator<Uint8Array> {},
+    };
+
+    const state = new ProtocolState();
+    const transport = createTransportApi(fakeDuplex, state);
+
+    // Exactly maxPayload bytes — should fit in one packet with no split
+    const maxPayload = SIDEBAND_MAX_BUF - SIDEBAND_HDR_SIZE; // 65515
+    const data = new Uint8Array(maxPayload);
+    await transport.writeSideband(1, data);
+
+    expect(written).toHaveLength(1);
+    expect(written[0].length).toBe(SIDEBAND_MAX_BUF);
+  });
+
+  it("should write nothing for empty data", async () => {
+    const { createTransportApi } = await import("../src/factories/transport-api-factory.js");
+    const { ProtocolState } = await import("../src/context/protocol-state.js");
+
+    const written: Uint8Array[] = [];
+    const fakeDuplex = {
+      write(data: Uint8Array) {
+        written.push(new Uint8Array(data));
+      },
+      async close() {},
+      async *[Symbol.asyncIterator](): AsyncGenerator<Uint8Array> {},
+    };
+
+    const state = new ProtocolState();
+    const transport = createTransportApi(fakeDuplex, state);
+
+    await transport.writeSideband(1, new Uint8Array(0));
+
+    expect(written).toHaveLength(0);
+  });
+
   it("should not chunk data that fits in a single packet", async () => {
     const { createTransportApi } = await import("../src/factories/transport-api-factory.js");
     const { ProtocolState } = await import("../src/context/protocol-state.js");
