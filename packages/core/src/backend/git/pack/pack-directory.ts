@@ -13,7 +13,7 @@ import type { ObjectTypeCode } from "../../../history/objects/object-types.js";
 import { DeltaReverseIndex } from "./delta-reverse-index.js";
 import { readPackIndex } from "./pack-index-reader.js";
 import { type PackDeltaChainInfo, PackReader } from "./pack-reader.js";
-import type { PackIndex } from "./types.js";
+import type { PackIndex, PackObject } from "./types.js";
 
 /**
  * Options for PackDirectory
@@ -110,6 +110,7 @@ export class PackDirectory {
     const index = await this.loadIndex(name);
     const packPath = joinPath(this.basePath, `${name}.pack`);
     const reader = new PackReader(this.files, packPath, index);
+    reader.resolveExternalBase = (baseId) => this.resolveBase(baseId, name);
     await reader.open();
 
     // Add to cache
@@ -134,6 +135,7 @@ export class PackDirectory {
     // If we're just getting the index, we might as well cache the reader too
     const packPath = joinPath(this.basePath, `${name}.pack`);
     const reader = new PackReader(this.files, packPath, index);
+    reader.resolveExternalBase = (baseId) => this.resolveBase(baseId, name);
     await reader.open();
     this.addToCache(name, reader, index);
 
@@ -447,6 +449,28 @@ export class PackDirectory {
    */
   async close(): Promise<void> {
     await this.invalidate();
+  }
+
+  /**
+   * Resolve a base object from any pack except the excluded one.
+   *
+   * Used as the resolveExternalBase callback for PackReader
+   * to enable cross-pack REF_DELTA resolution.
+   */
+  private async resolveBase(
+    baseId: ObjectId,
+    excludePack: string,
+  ): Promise<PackObject | undefined> {
+    const names = await this.scan();
+    for (const name of names) {
+      if (name === excludePack) continue;
+      const index = await this.getIndex(name);
+      if (index.has(baseId)) {
+        const reader = await this.getPack(name);
+        return reader.get(baseId);
+      }
+    }
+    return undefined;
   }
 
   /**

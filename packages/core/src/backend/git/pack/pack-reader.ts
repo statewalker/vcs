@@ -56,6 +56,12 @@ export class PackReader {
   private opened = false;
   private length = 0;
 
+  /**
+   * Optional callback to resolve base objects not found in this pack.
+   * Used by PackDirectory to enable cross-pack REF_DELTA resolution.
+   */
+  resolveExternalBase?: (baseId: ObjectId) => Promise<PackObject | undefined>;
+
   constructor(files: FilesApi, packPath: string, index: PackIndex) {
     this.files = files;
     this.packPath = packPath;
@@ -182,11 +188,20 @@ export class PackReader {
         if (header.baseId === undefined) {
           throw new Error("REF_DELTA missing base ID");
         }
+        let base: PackObject;
         const baseOffset = this.index.findOffset(header.baseId);
-        if (baseOffset === -1) {
+        if (baseOffset !== -1) {
+          base = await this.load(baseOffset);
+        } else if (this.resolveExternalBase) {
+          // Cross-pack resolution: base object is in a different pack
+          const external = await this.resolveExternalBase(header.baseId);
+          if (!external) {
+            throw new Error(`Base object not found: ${header.baseId}`);
+          }
+          base = external;
+        } else {
           throw new Error(`Base object not found: ${header.baseId}`);
         }
-        const base = await this.load(baseOffset);
         const delta = await this.decompress(offset + header.headerLength, header.size);
         const content = applyGitDelta(base.content, delta);
         return {
@@ -260,6 +275,11 @@ export class PackReader {
         baseId = currentHeader.baseId;
         currentOffset = this.index.findOffset(baseId);
         if (currentOffset === -1) {
+          // Base is in a different pack — resolve externally and return
+          if (this.resolveExternalBase) {
+            const fullObject = await this.load(offset);
+            return { baseId, depth, savings: fullObject.size - deltaSize };
+          }
           throw new Error(`Base object not found: ${baseId}`);
         }
       }

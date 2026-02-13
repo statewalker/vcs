@@ -201,11 +201,12 @@ export function createSyncController(ctx: AppContext): () => void {
 
       activeSessions.set(peerId, session);
 
-      // Save local main ref before fetch (fetchOverDuplex overwrites all server-advertised refs)
+      // Save local main ref before fetch for divergence detection
       const localMainBefore = (await history.refs.resolve("refs/heads/main"))?.objectId ?? null;
 
-      // Perform fetch
-      // The transport layer handles pack import and ref updates automatically
+      // Perform fetch with refspec mapping — fetchOverDuplex maps
+      // server refs/heads/* to local refs/remotes/peer/* directly,
+      // so refs/heads/main and HEAD are never overwritten.
       syncModel.setDiscoveryComplete(0);
 
       const fetchResult = await session.fetch({
@@ -220,33 +221,19 @@ export function createSyncController(ctx: AppContext): () => void {
         `Fetched ${fetchResult.objectsReceived} objects, ${fetchResult.refs.size} refs updated`,
       );
 
-      // fetchOverDuplex writes ALL server-advertised refs to local refStore,
-      // which may overwrite HEAD (from symbolic to direct) and refs/heads/main.
-      // Restore HEAD as symbolic ref so future commits update refs/heads/main.
-      await history.refs.setSymbolic("HEAD", "refs/heads/main");
-
-      // Remap server refs to remote tracking refs (refs/remotes/peer/*)
+      // Log updated remote tracking refs and find peer's main
       let remotePeerMain: string | null = null;
       for (const [refName, objectId] of fetchResult.refs) {
-        if (refName.startsWith("refs/heads/")) {
-          const remoteName = refName.replace("refs/heads/", "refs/remotes/peer/");
-          await history.refs.set(remoteName, objectId);
-          logModel.info(`Updated ref ${remoteName} -> ${objectId.slice(0, 7)}`);
-
-          if (remoteName === "refs/remotes/peer/main") {
-            remotePeerMain = objectId;
-          }
+        logModel.info(`Updated ref ${refName} -> ${objectId.slice(0, 7)}`);
+        if (refName === "refs/remotes/peer/main") {
+          remotePeerMain = objectId;
         }
       }
 
-      // Restore local refs/heads/main:
-      // - If we had local commits, keep them (so push sends them to the peer)
-      // - If this is the first sync (no local main), accept the remote value
-      if (localMainBefore) {
-        await history.refs.set("refs/heads/main", localMainBefore);
-        logModel.info(`Restored local main -> ${localMainBefore.slice(0, 7)}`);
-      } else if (remotePeerMain) {
+      // If this is the first sync (no local main), accept the remote value
+      if (!localMainBefore && remotePeerMain) {
         await history.refs.set("refs/heads/main", remotePeerMain);
+        await history.refs.setSymbolic("HEAD", "refs/heads/main");
         logModel.info(`Set local main -> ${remotePeerMain.slice(0, 7)}`);
       }
 

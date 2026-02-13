@@ -136,8 +136,15 @@ export const clientPushHandlers = new Map<string, FsmStateHandler<ProcessContext
           } else if (localOid === remoteOid) {
             continue; // Already up to date
           } else {
-            // Check if fast-forward
-            const isFastForward = await repository.has(remoteOid);
+            // Check if fast-forward by verifying the remote OID is
+            // an ancestor of the local OID (not just that it exists).
+            let isFastForward = false;
+            for await (const ancestorOid of repository.walkAncestors(localOid)) {
+              if (ancestorOid === remoteOid) {
+                isFastForward = true;
+                break;
+              }
+            }
             type = isFastForward ? "UPDATE" : "UPDATE_NONFASTFORWARD";
           }
 
