@@ -1,6 +1,12 @@
 import type { ObjectId } from "@statewalker/vcs-core";
 import { isSymbolicRef } from "@statewalker/vcs-core";
-import { fetch as transportFetch } from "@statewalker/vcs-transport";
+import {
+  expandFromSource,
+  matchSource,
+  parseRefSpec,
+  type RefSpec,
+  fetch as transportFetch,
+} from "@statewalker/vcs-transport";
 
 import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
 import {
@@ -337,6 +343,9 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       throw new InvalidRemoteError(this.remote);
     }
 
+    // Parse refspecs for source→destination mapping
+    const parsedSpecs = this.refSpecs.map((s) => parseRefSpec(s));
+
     // Save old ref values before fetch for status computation
     const oldRefValues = new Map<string, string | undefined>();
     for await (const ref of this.refsStore.list()) {
@@ -366,11 +375,29 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       advertisedRefs.set(refName, bytesToHex(objectId));
     }
 
-    // Build tracking ref updates
+    // Build tracking ref updates by mapping server refs through refspecs
     const trackingUpdates: TrackingRefUpdate[] = [];
-    for (const [refName, objectIdBytes] of transportResult.refs) {
+    for (const [serverRefName, objectIdBytes] of transportResult.refs) {
       const objectId = bytesToHex(objectIdBytes);
-      const update = await this.computeRefUpdate(refName, objectId, oldRefValues);
+
+      // Map server ref name to local ref name via refspecs
+      const localRefName = this.mapServerRef(serverRefName, parsedSpecs);
+      if (!localRefName) continue;
+
+      const isForce = this.forceUpdate || this.isRefSpecForced(serverRefName, parsedSpecs);
+      const update = await this.computeRefUpdate(
+        localRefName,
+        serverRefName,
+        objectId,
+        oldRefValues,
+        isForce,
+      );
+
+      // Write the mapped ref to local store (unless dry-run)
+      if (!this.dryRun) {
+        await this.refsStore.set(localRefName, objectId);
+      }
+
       trackingUpdates.push(update);
     }
 
@@ -394,6 +421,34 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       isEmpty: transportResult.isEmpty,
       messages: [],
     };
+  }
+
+  /**
+   * Map a server ref name to a local ref name using parsed refspecs.
+   * Returns undefined if no refspec matches.
+   */
+  private mapServerRef(serverRef: string, specs: RefSpec[]): string | undefined {
+    for (const spec of specs) {
+      if (spec.negative) continue;
+      if (!spec.source || !spec.destination) continue;
+      if (!matchSource(spec, serverRef)) continue;
+
+      const expanded = expandFromSource(spec, serverRef);
+      return expanded.destination ?? undefined;
+    }
+    return undefined;
+  }
+
+  /**
+   * Check if any matching refspec has the force flag for a given server ref.
+   */
+  private isRefSpecForced(serverRef: string, specs: RefSpec[]): boolean {
+    for (const spec of specs) {
+      if (spec.negative) continue;
+      if (!spec.source) continue;
+      if (matchSource(spec, serverRef) && spec.force) return true;
+    }
+    return false;
   }
 
   /**
@@ -423,13 +478,15 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   /**
    * Compute ref update status using pre-fetch ref values.
    *
-   * Since httpFetch updates the refStore directly, we use saved pre-fetch
-   * values to correctly determine NEW vs NO_CHANGE vs FAST_FORWARD status.
+   * Uses saved pre-fetch values to correctly determine
+   * NEW vs NO_CHANGE vs FAST_FORWARD status.
    */
   private async computeRefUpdate(
     localRef: string,
+    remoteRef: string,
     newObjectId: ObjectId,
     oldRefValues: Map<string, string | undefined>,
+    force: boolean,
   ): Promise<TrackingRefUpdate> {
     const oldObjectId = oldRefValues.get(localRef);
 
@@ -438,7 +495,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       status = RefUpdateStatus.NEW;
     } else if (oldObjectId === newObjectId) {
       status = RefUpdateStatus.NO_CHANGE;
-    } else if (this.forceUpdate) {
+    } else if (force) {
       status = RefUpdateStatus.FORCED;
     } else {
       // Check if fast-forward
@@ -448,7 +505,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
 
     return {
       localRef,
-      remoteRef: localRef,
+      remoteRef,
       oldObjectId,
       newObjectId,
       status,
