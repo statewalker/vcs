@@ -101,9 +101,7 @@ function setupBrowserIntents(ctx: AppContext): () => void {
           // because the user gesture has expired by this point in the async chain.
           const rootHandle: FileSystemDirectoryHandle = await (
             globalThis as unknown as {
-              showDirectoryPicker: (opts: {
-                mode: string;
-              }) => Promise<FileSystemDirectoryHandle>;
+              showDirectoryPicker: (opts: { mode: string }) => Promise<FileSystemDirectoryHandle>;
             }
           ).showDirectoryPicker({ mode: "readwrite" });
           const files = new BrowserFilesApi({ rootHandle });

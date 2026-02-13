@@ -13,8 +13,8 @@
 
 import { Git } from "@statewalker/vcs-commands";
 import {
+  createMemoryGitStaging,
   createMemoryHistory,
-  createSimpleStaging,
   DefaultSerializationApi,
   MemoryCheckout,
   MemoryWorkingCopy,
@@ -67,7 +67,7 @@ async function createTestAppContext(_name: string): Promise<AppContext> {
   await history.initialize();
   setHistory(ctx, history);
 
-  const staging = createSimpleStaging();
+  const staging = createMemoryGitStaging();
   const checkout = new MemoryCheckout({
     staging,
     initialHead: { type: "symbolic", target: "refs/heads/main" },

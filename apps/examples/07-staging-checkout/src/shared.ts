@@ -5,10 +5,10 @@
 import { Git } from "@statewalker/vcs-commands";
 import {
   createMemoryCheckout,
+  createMemoryGitStaging,
   createMemoryHistory,
   createMemoryWorkingCopy,
   createMemoryWorktree,
-  createSimpleStaging,
   FileMode,
   type History,
   MergeStage,
@@ -34,7 +34,7 @@ export async function getGit(): Promise<{
     await sharedHistory.initialize();
 
     // Create the Staging area
-    const staging = createSimpleStaging();
+    const staging = createMemoryGitStaging();
 
     // Create the Checkout (HEAD, staging, operation states)
     const checkout = createMemoryCheckout({ staging });

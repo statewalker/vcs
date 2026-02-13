@@ -7,7 +7,12 @@
  * All entries are kept sorted by (path, stage) for binary search.
  */
 
-import { FileMode, type FilesApi, readFile } from "../../common/files/index.js";
+import {
+  createInMemoryFilesApi,
+  FileMode,
+  type FilesApi,
+  readFile,
+} from "../../common/files/index.js";
 import type { ObjectId } from "../../common/id/index.js";
 import type { TreeEntry } from "../../history/trees/tree-entry.js";
 import type { Trees } from "../../history/trees/trees.js";
@@ -674,4 +679,16 @@ function storeTreeEntries(trees: Trees, entries: Iterable<TreeEntry>): Promise<O
  */
 export function createGitStaging(files: FilesApi, indexPath: string): Staging {
   return new GitStaging(files, indexPath);
+}
+
+/**
+ * Create an in-memory GitStaging backed by MemFilesApi.
+ *
+ * Replacement for createSimpleStaging() that uses the real Git index
+ * implementation with an in-memory filesystem. Useful for tests and
+ * scenarios where no disk persistence is needed.
+ */
+export function createMemoryGitStaging(): Staging {
+  const files = createInMemoryFilesApi();
+  return new GitStaging(files, "index");
 }

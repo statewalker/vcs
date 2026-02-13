@@ -13,11 +13,11 @@ import {
   createCommits,
   createFileRefStore,
   createGitObjectStore,
+  createGitStaging,
   createHistoryFromStores,
+  createMemoryGitStaging,
   createMemoryHistory,
   createRefsAdapter,
-  createGitStaging,
-  createSimpleStaging,
   createTags,
   createTrees,
   DefaultSerializationApi,
@@ -46,7 +46,7 @@ export async function initializeGitInMemory(ctx: AppContext): Promise<void> {
   await history.refs.setSymbolic("HEAD", "refs/heads/main");
   setHistory(ctx, history);
 
-  const staging = createSimpleStaging();
+  const staging = createMemoryGitStaging();
   const checkout = new MemoryCheckout({
     staging,
     initialHead: { type: "symbolic", target: "refs/heads/main" },
