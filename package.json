@@ -1,0 +1,52 @@
+{
+  "name": "@statewalker/vcs-monorepo",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git"
+  },
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "test:app": "turbo run test:app",
+    "lint": "biome check --write .",
+    "lint:check": "biome check .",
+    "lint:fix": "biome check --write --unsafe .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "format:fix": "biome check --write --unsafe .",
+    "dev:notes": "pnpm --filter @statewalker/vcs-notes dev",
+    "dev:demo": "pnpm --filter demo dev",
+    "docs:dev": "pnpm --filter @statewalker/vcs-docs dev",
+    "docs:build": "pnpm --filter @statewalker/vcs-docs build",
+    "deps:check": "./scripts/update-deps.sh --check-only",
+    "deps:update": "./scripts/update-deps.sh",
+    "deps:update:safe": "./scripts/update-deps.sh --test --build",
+    "deps:update:interactive": "./scripts/update-deps.sh --interactive",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@changesets/cli": "^2.29.8",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "pnpm": "catalog:",
+    "rolldown": "catalog:",
+    "tsx": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "eslintConfig": {
+    "extends": []
+  },
+  "dependencies": {
+    "@statewalker/utils": "^0.4.2"
+  }
+}

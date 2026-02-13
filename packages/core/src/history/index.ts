@@ -1,0 +1,28 @@
+export * from "./blobs/index.js";
+export * from "./commits/index.js";
+export type {
+  GitFilesHistoryConfig,
+  HistoryComponentsConfig,
+  HistoryStoresConfig,
+} from "./create-history.js";
+export {
+  createGitFilesHistory,
+  createHistoryFromComponents,
+  createHistoryFromStores,
+  createMemoryHistory,
+  createMemoryHistoryWithOperations,
+} from "./create-history.js";
+// Format utilities for Git object serialization (moved from common/format)
+export * from "./format/index.js";
+// Object hash functions for deterministic ID computation (moved from common/hash)
+export * from "./hash/index.js";
+export { HistoryImpl, HistoryWithOperationsImpl } from "./history.impl.js";
+// New History facade (Phase C3)
+export type { History, HistoryWithOperations } from "./history.js";
+
+// Base interface for content-addressed stores (Phase C)
+export * from "./object-storage.js";
+export * from "./objects/index.js";
+export * from "./refs/index.js";
+export * from "./tags/index.js";
+export * from "./trees/index.js";

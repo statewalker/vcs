@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Versioned Documents - StateWalker VCS Demo</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Versioned Documents</h1>
+        <p class="subtitle">Document versioning with Git-like storage</p>
+      </header>
+
+      <main>
+        <section class="upload-section">
+          <h2>Upload Document</h2>
+          <div class="drop-zone" id="drop-zone">
+            <p>Drag & drop a DOCX file here</p>
+            <p>or</p>
+            <input type="file" id="file-input" accept=".docx,.odt" />
+            <button id="btn-select">Select File</button>
+          </div>
+          <div id="upload-status" class="status"></div>
+        </section>
+
+        <section class="document-section" id="document-section" style="display: none;">
+          <h2>Current Document</h2>
+          <div class="document-info">
+            <div id="doc-name" class="doc-name"></div>
+            <div id="doc-type" class="doc-type"></div>
+          </div>
+
+          <div class="actions">
+            <div class="version-input">
+              <input type="text" id="version-message" placeholder="Version message (e.g., 'Updated chapter 3')" />
+              <button id="btn-save-version">Save Version</button>
+            </div>
+          </div>
+
+          <h3>Internal Structure</h3>
+          <div id="file-tree" class="file-tree"></div>
+        </section>
+
+        <section class="history-section" id="history-section" style="display: none;">
+          <h2>Version History</h2>
+          <div id="version-list" class="version-list"></div>
+        </section>
+
+        <section class="compare-section" id="compare-section" style="display: none;">
+          <h2>Compare Versions</h2>
+          <div class="compare-controls">
+            <select id="compare-from"></select>
+            <span>vs</span>
+            <select id="compare-to"></select>
+            <button id="btn-compare">Compare</button>
+          </div>
+          <div id="diff-output" class="diff-output"></div>
+        </section>
+      </main>
+
+      <footer>
+        <p>Powered by <a href="https://github.com/anthropics/claude-code">StateWalker VCS</a></p>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,109 @@
+{
+  "name": "@statewalker/vcs-utils",
+  "version": "0.1.0",
+  "description": "VCS utilities: hashing (SHA1, CRC32), compression, delta encoding, streams",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statewalker/vcs.git",
+    "directory": "packages/utils"
+  },
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./compression": {
+      "types": "./dist/compression/index.d.ts",
+      "import": "./dist/compression/index.js"
+    },
+    "./hash": {
+      "types": "./dist/hash/index.d.ts",
+      "import": "./dist/hash/index.js"
+    },
+    "./hash/crc32": {
+      "types": "./dist/hash/crc32/index.d.ts",
+      "import": "./dist/hash/crc32/index.js"
+    },
+    "./hash/sha1": {
+      "types": "./dist/hash/sha1/index.d.ts",
+      "import": "./dist/hash/sha1/index.js"
+    },
+    "./hash/utils": {
+      "types": "./dist/hash/utils/index.d.ts",
+      "import": "./dist/hash/utils/index.js"
+    },
+    "./hash/fossil-checksum": {
+      "types": "./dist/hash/fossil-checksum/index.d.ts",
+      "import": "./dist/hash/fossil-checksum/index.js"
+    },
+    "./hash/rolling-checksum": {
+      "types": "./dist/hash/rolling-checksum/index.d.ts",
+      "import": "./dist/hash/rolling-checksum/index.js"
+    },
+    "./hash/strong-checksum": {
+      "types": "./dist/hash/strong-checksum/index.d.ts",
+      "import": "./dist/hash/strong-checksum/index.js"
+    },
+    "./diff": {
+      "types": "./dist/diff/index.d.ts",
+      "import": "./dist/diff/index.js"
+    },
+    "./encoding": {
+      "types": "./dist/encoding/index.d.ts",
+      "import": "./dist/encoding/index.js"
+    },
+    "./streams": {
+      "types": "./dist/streams/index.d.ts",
+      "import": "./dist/streams/index.js"
+    },
+    "./ports": {
+      "types": "./dist/ports/index.d.ts",
+      "import": "./dist/ports/index.js"
+    },
+    "./cache": {
+      "types": "./dist/cache/index.d.ts",
+      "import": "./dist/cache/index.js"
+    },
+    "./files": {
+      "types": "./dist/files/index.d.ts",
+      "import": "./dist/files/index.js"
+    },
+    "./pack": {
+      "types": "./dist/pack/index.d.ts",
+      "import": "./dist/pack/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run",
+    "test:browser": "vitest run --config vitest.config.browser.ts",
+    "lint": "biome lint src tests",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/pako": "^2.0.4",
+    "@vitest/browser": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
+    "playwright": "catalog:",
+    "rolldown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@statewalker/webrun-files": "catalog:",
+    "@statewalker/webrun-files-mem": "catalog:",
+    "pako": "^2.1.0"
+  }
+}

@@ -1,0 +1,411 @@
+/**
+ * Sync controller - orchestrates Git synchronization over WebRTC.
+ *
+ * Uses the new transport Duplex API (fetchOverDuplex/pushOverDuplex/serveOverDuplex)
+ * for efficient sync:
+ * - Only transfers missing objects (proper negotiation)
+ * - Uses packfile format (delta compression)
+ * - Standard Git protocol (interoperable)
+ *
+ * Flow:
+ * 1. Host sets up Git server on each incoming connection
+ * 2. When user clicks sync, client performs fetch then push
+ * 3. Pack data is imported automatically by the transport layer
+ * 4. Local refs are updated automatically by the transport layer
+ */
+
+import { ContentMergeStrategy, isMergeSuccessful, MergeStatus } from "@statewalker/vcs-commands";
+import type { History } from "@statewalker/vcs-core";
+import {
+  enqueueCheckoutAction,
+  enqueueRefreshRepoAction,
+  listenCancelSyncAction,
+  listenStartSyncAction,
+} from "../actions/index.js";
+import { getTimerApi } from "../apis/index.js";
+import {
+  getActivityLogModel,
+  getPeersModel,
+  getSyncModel,
+  getUserActionsModel,
+} from "../models/index.js";
+import {
+  createGitPeerSession,
+  type GitPeerSession,
+  setupGitPeerServer,
+} from "../services/index.js";
+import { newRegistry } from "../utils/index.js";
+import type { AppContext } from "./index.js";
+import { getGit, getHistory, getSerializationApi } from "./index.js";
+
+// How long to show "complete" state before resetting
+const COMPLETE_DISPLAY_MS = 2000;
+
+/**
+ * Create the sync controller.
+ *
+ * @param ctx The application context
+ * @returns Cleanup function
+ */
+export function createSyncController(ctx: AppContext): () => void {
+  const [register, cleanup] = newRegistry();
+
+  // Get models
+  const syncModel = getSyncModel(ctx);
+  const peersModel = getPeersModel(ctx);
+  const logModel = getActivityLogModel(ctx);
+  const actionsModel = getUserActionsModel(ctx);
+
+  // Get APIs
+  const timerApi = getTimerApi(ctx);
+
+  // Get peer connections
+  const connections = getPeerConnections(ctx);
+
+  // Track active Git servers (one per incoming connection)
+  const gitServers = new Map<string, () => void>();
+
+  // Track active sync sessions
+  const activeSessions = new Map<string, GitPeerSession>();
+
+  // Set up Git servers for ALL connected peers.
+  // Both host and guest need servers: the host serves guests' sync requests,
+  // and the guest must also serve when the host initiates sync.
+  register(
+    peersModel.onUpdate(() => {
+      const history = getHistory(ctx);
+      const serialization = getSerializationApi(ctx);
+      if (!history || !serialization) return;
+
+      // Set up servers for all connected peers
+      for (const [peerId, port] of connections) {
+        const peer = peersModel.get(peerId);
+        if (peer) {
+          setupGitServerForPeer(peerId, port);
+        }
+      }
+
+      // Clean up servers for disconnected peers
+      for (const peerId of gitServers.keys()) {
+        if (!connections.has(peerId)) {
+          cleanupGitServer(peerId);
+        }
+      }
+    }),
+  );
+
+  /**
+   * Set up Git server for a peer connection.
+   */
+  function setupGitServerForPeer(peerId: string, port: MessagePort): void {
+    if (gitServers.has(peerId)) return;
+
+    const history = getHistory(ctx);
+    const serialization = getSerializationApi(ctx);
+    if (!history || !serialization) return;
+
+    const displayName = peersModel.get(peerId)?.displayName ?? peerId;
+    logModel.info(`Setting up Git server for ${displayName}`);
+
+    try {
+      const cleanup = setupGitPeerServer({
+        port,
+        history,
+        serialization,
+        logger: {
+          debug: (...args) => logModel.info(`[Git Server] ${args.join(" ")}`),
+          error: (...args) => logModel.error(`[Git Server] ${args.join(" ")}`),
+        },
+        onPushReceived: () => {
+          logModel.info(`Received push from ${displayName}, updating working directory...`);
+          enqueueCheckoutAction(actionsModel);
+          enqueueRefreshRepoAction(actionsModel);
+        },
+      });
+
+      gitServers.set(peerId, cleanup);
+    } catch (error) {
+      logModel.error(`Failed to set up Git server for ${displayName}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Clean up Git server for a peer.
+   */
+  function cleanupGitServer(peerId: string): void {
+    const cleanup = gitServers.get(peerId);
+    if (cleanup) {
+      cleanup();
+      gitServers.delete(peerId);
+    }
+  }
+
+  // Listen to user actions
+  register(
+    listenStartSyncAction(actionsModel, (actions) => {
+      for (const { peerId } of actions) {
+        handleSyncStart(peerId);
+      }
+    }),
+  );
+
+  register(
+    listenCancelSyncAction(actionsModel, () => {
+      handleSyncCancel();
+    }),
+  );
+
+  /**
+   * Start sync with a peer (fetch their data, then push ours).
+   */
+  async function handleSyncStart(peerId: string): Promise<void> {
+    // Don't start if already syncing
+    if (syncModel.isActive) {
+      logModel.warn("Sync already in progress");
+      return;
+    }
+
+    // Get the peer's MessagePort
+    const port = connections.get(peerId);
+    if (!port) {
+      logModel.error(`Peer ${peerId} not connected`);
+      return;
+    }
+
+    // Get repository history and serialization
+    const history = getHistory(ctx);
+    const serialization = getSerializationApi(ctx);
+    if (!history || !serialization) {
+      logModel.error("Repository not initialized");
+      return;
+    }
+
+    const displayName = peersModel.get(peerId)?.displayName ?? peerId;
+    logModel.info(`Starting sync with ${displayName}...`);
+
+    // Start sync (discovering phase)
+    syncModel.startSync(peerId, "fetch");
+
+    try {
+      // Create Git peer session
+      const session = createGitPeerSession({
+        port,
+        history,
+        serialization,
+        onProgress: (phase, message) => {
+          logModel.info(`[Sync] ${phase}: ${message}`);
+          if (phase === "transferring") {
+            syncModel.update({ phase: "transferring" });
+          }
+        },
+      });
+
+      activeSessions.set(peerId, session);
+
+      // Save local main ref before fetch for divergence detection
+      const localMainBefore = (await history.refs.resolve("refs/heads/main"))?.objectId ?? null;
+
+      // Perform fetch with refspec mapping — fetchOverDuplex maps
+      // server refs/heads/* to local refs/remotes/peer/* directly,
+      // so refs/heads/main and HEAD are never overwritten.
+      syncModel.setDiscoveryComplete(0);
+
+      const fetchResult = await session.fetch({
+        refspecs: ["+refs/heads/*:refs/remotes/peer/*"],
+      });
+
+      if (!fetchResult.ok) {
+        throw new Error(fetchResult.error ?? "Fetch failed");
+      }
+
+      logModel.info(
+        `Fetched ${fetchResult.objectsReceived} objects, ${fetchResult.refs.size} refs updated`,
+      );
+
+      // Log updated remote tracking refs and find peer's main
+      let remotePeerMain: string | null = null;
+      for (const [refName, objectId] of fetchResult.refs) {
+        logModel.info(`Updated ref ${refName} -> ${objectId.slice(0, 7)}`);
+        if (refName === "refs/remotes/peer/main") {
+          remotePeerMain = objectId;
+        }
+      }
+
+      // If this is the first sync (no local main), accept the remote value
+      if (!localMainBefore && remotePeerMain) {
+        await history.refs.set("refs/heads/main", remotePeerMain);
+        await history.refs.setSymbolic("HEAD", "refs/heads/main");
+        logModel.info(`Set local main -> ${remotePeerMain.slice(0, 7)}`);
+      }
+
+      // Determine push refspecs — check for divergent history
+      const pushRefspecs = ["refs/heads/main:refs/heads/main"];
+
+      if (localMainBefore && remotePeerMain && localMainBefore !== remotePeerMain) {
+        // Both sides have commits. Check if remote main is an ancestor of
+        // local main (fast-forward). If not, histories have diverged.
+        const remoteIsAncestor = await isAncestor(history, remotePeerMain, localMainBefore);
+        if (!remoteIsAncestor) {
+          // Divergent histories — merge remote into local before pushing.
+          // This makes the push a fast-forward from the remote's perspective
+          // because the merge commit has the remote's main as a parent.
+          logModel.info("Divergent histories detected, merging remote changes...");
+
+          const git = getGit(ctx);
+          if (!git) throw new Error("Git not initialized");
+
+          const mergeResult = await git
+            .merge()
+            .include("refs/remotes/peer/main")
+            .setContentMergeStrategy(ContentMergeStrategy.UNION)
+            .call();
+
+          if (isMergeSuccessful(mergeResult.status)) {
+            logModel.info(`Merge successful: ${mergeResult.status}`);
+          } else if (mergeResult.status === MergeStatus.CONFLICTING) {
+            const conflicts = mergeResult.conflicts?.join(", ") ?? "unknown";
+            logModel.warn(`Merge has unresolvable conflicts: ${conflicts}`);
+            throw new Error(`Merge conflicts: ${conflicts}`);
+          } else {
+            throw new Error(`Merge failed: ${mergeResult.status}`);
+          }
+        }
+      }
+
+      // Update sync progress
+      syncModel.updateProgress(fetchResult.objectsReceived, 0);
+
+      // Now push our changes to the peer
+      logModel.info("Pushing local changes to peer...");
+      syncModel.update({ direction: "push", phase: "transferring" });
+
+      const pushResult = await session.push({
+        refspecs: pushRefspecs,
+      });
+
+      if (!pushResult.ok && pushResult.error) {
+        logModel.warn(`Push failed: ${pushResult.error}`);
+      } else {
+        logModel.info("Push complete");
+      }
+
+      // Mark complete
+      syncModel.complete({
+        objectsReceived: fetchResult.objectsReceived,
+        objectsSent: 0,
+        refsUpdated: [...fetchResult.refs.keys()],
+      });
+
+      peersModel.updatePeer(peerId, { lastSyncAt: new Date() });
+      logModel.info(`Sync complete with ${displayName}`);
+
+      // Clean up session
+      await session.close();
+      activeSessions.delete(peerId);
+
+      // Reset after delay
+      timerApi.setTimeout(() => {
+        if (syncModel.getState().phase === "complete") {
+          syncModel.reset();
+        }
+      }, COMPLETE_DISPLAY_MS);
+
+      // Checkout HEAD to update working directory with synced files
+      enqueueCheckoutAction(actionsModel);
+
+      // Refresh repository state
+      enqueueRefreshRepoAction(actionsModel);
+    } catch (error) {
+      const message = (error as Error).message;
+      syncModel.fail(message);
+      logModel.error(`Sync failed: ${message}`);
+
+      // Clean up session on error
+      const session = activeSessions.get(peerId);
+      if (session) {
+        await session.close();
+        activeSessions.delete(peerId);
+      }
+
+      // Reset after delay
+      timerApi.setTimeout(() => {
+        if (syncModel.getState().phase === "error") {
+          syncModel.reset();
+        }
+      }, COMPLETE_DISPLAY_MS);
+    }
+  }
+
+  /**
+   * Cancel ongoing sync.
+   */
+  async function handleSyncCancel(): Promise<void> {
+    if (!syncModel.isActive) return;
+
+    logModel.warn("Sync cancelled");
+
+    // Close any active sessions
+    for (const [peerId, session] of activeSessions) {
+      await session.close();
+      activeSessions.delete(peerId);
+    }
+
+    syncModel.reset();
+  }
+
+  // Clean up on unmount
+  const originalCleanup = cleanup;
+  return () => {
+    // Clean up all Git servers
+    for (const peerId of gitServers.keys()) {
+      cleanupGitServer(peerId);
+    }
+
+    // Close all active sessions
+    for (const session of activeSessions.values()) {
+      session.close().catch(() => {});
+    }
+    activeSessions.clear();
+
+    originalCleanup();
+  };
+}
+
+/**
+ * Check if `ancestorId` is an ancestor of `descendantId` by walking commit parents.
+ * Returns true if ancestorId is reachable from descendantId (i.e., fast-forward).
+ */
+async function isAncestor(
+  history: History,
+  ancestorId: string,
+  descendantId: string,
+): Promise<boolean> {
+  if (ancestorId === descendantId) return true;
+
+  const visited = new Set<string>();
+  const queue = [descendantId];
+
+  while (queue.length > 0) {
+    const id = queue.shift();
+    if (!id) continue;
+    if (id === ancestorId) return true;
+    if (visited.has(id)) continue;
+    visited.add(id);
+
+    try {
+      const commit = await history.commits.load(id);
+      if (commit) {
+        for (const parent of commit.parents) {
+          if (!visited.has(parent)) queue.push(parent);
+        }
+      }
+    } catch {
+      // Commit not loadable, stop this branch
+    }
+  }
+
+  return false;
+}
+
+// Re-import for internal use (avoid circular dependency)
+import { getPeerConnections } from "./index.js";

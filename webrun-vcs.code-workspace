@@ -1,0 +1,20 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "../webrun-files"
+    },
+    {
+      "path": "../statewalker/packages/statewalker-site-fsm"
+    }
+  ],
+  "settings": {
+    "files.associations": {
+      "*.json": "jsonc"
+    },
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true
+  }
+}

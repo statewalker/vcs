@@ -1,0 +1,33 @@
+{
+  "name": "@statewalker/vcs-testing",
+  "version": "0.1.0",
+  "description": "Test utilities for StateWalker VCS",
+  "private": true,
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest run --passWithNoTests",
+    "lint": "biome lint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@statewalker/vcs-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "vitest": "^4.0.0"
+  },
+  "devDependencies": {
+    "rolldown": "catalog:",
+    "vitest": "catalog:",
+    "typescript": "catalog:",
+    "@types/node": "catalog:"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@statewalker/vcs-demo-git-cli-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Git CLI sandbox using VCS porcelain API - clone, commit, branch, merge, push via HTTP (WIP - requires @statewalker/vcs-store-fs)",
+  "bin": {
+    "vcs-git": "./dist/main.js"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "git": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-commands": "workspace:*",
+    "@statewalker/vcs-transport": "workspace:*",
+    "@statewalker/vcs-store-mem": "workspace:*",
+    "@statewalker/vcs-utils": "workspace:*",
+    "@statewalker/vcs-utils-node": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}
