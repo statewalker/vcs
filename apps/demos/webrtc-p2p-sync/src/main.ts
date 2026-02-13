@@ -74,42 +74,24 @@ function createViews(ctx: AppContext): () => void {
 }
 
 /**
- * Check if the File System Access API is available (desktop browsers).
- */
-function supportsFileSystemAccess(): boolean {
-  return typeof (globalThis as Record<string, unknown>).showDirectoryPicker === "function";
-}
-
-/**
  * Register browser-specific intent handlers.
  *
- * Desktop: opens native folder picker via File System Access API.
- * Mobile/fallback: creates an in-memory FilesApi.
+ * Opens a native folder picker via the File System Access API
+ * using openBrowserFilesApi from @statewalker/webrun-files-browser.
  */
 function setupBrowserIntents(ctx: AppContext): () => void {
   const intents = getIntents(ctx);
 
   return handleOpenRepositoryIntent(intents, (intent) => {
-    if (supportsFileSystemAccess()) {
-      // Desktop path — open native folder picker, then wrap in FilesApi
-      intent.resolve(
-        (async () => {
-          const handle = await (
-            globalThis as unknown as {
-              showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
-            }
-          ).showDirectoryPicker();
-          const { BrowserFilesApi } = await import("@statewalker/webrun-files-browser");
-          const files = new BrowserFilesApi({ rootHandle: handle });
-          return { files, label: handle.name };
-        })(),
-      );
-    } else {
-      // Mobile / no File System Access API — use in-memory storage
-      import("@statewalker/webrun-files-mem").then(async ({ MemFilesApi }) => {
-        intent.resolve({ files: new MemFilesApi(), label: "In-Memory" });
-      });
-    }
+    // Call intent.resolve() synchronously with a promise so that
+    // intent.resolved is true when run() returns.
+    intent.resolve(
+      (async () => {
+        const { openBrowserFilesApi } = await import("@statewalker/webrun-files-browser");
+        const files = await openBrowserFilesApi();
+        return { files, label: "Local Folder" };
+      })(),
+    );
     return true;
   });
 }
