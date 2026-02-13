@@ -114,6 +114,11 @@ export function createSyncController(ctx: AppContext): () => void {
           debug: (...args) => logModel.info(`[Git Server] ${args.join(" ")}`),
           error: (...args) => logModel.error(`[Git Server] ${args.join(" ")}`),
         },
+        onPushReceived: () => {
+          logModel.info(`Received push from ${displayName}, updating working directory...`);
+          enqueueCheckoutAction(actionsModel);
+          enqueueRefreshRepoAction(actionsModel);
+        },
       });
 
       gitServers.set(peerId, cleanup);

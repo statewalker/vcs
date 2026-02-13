@@ -1,3 +1,4 @@
+import { serializeCommit, serializeTree, type TreeEntry } from "@statewalker/vcs-core";
 import { type PushObject, push as transportPush } from "@statewalker/vcs-transport";
 
 import { InvalidRemoteError, NonFastForwardError, PushRejectedException } from "../errors/index.js";
@@ -534,23 +535,45 @@ export class PushCommand extends TransportCommand<PushResult> {
 
   /**
    * Load an object for pushing.
+   *
+   * Serializes objects to raw Git format based on type:
+   * - type 1 (commit): serialize via serializeCommit()
+   * - type 2 (tree): serialize via serializeTree()
+   * - type 3 (blob): load raw content from blob store
    */
   private async loadObjectForPush(objectId: string, type: number): Promise<PushObject> {
-    const chunks: Uint8Array[] = [];
-    const blobContent = await this.blobs.load(objectId);
-    if (blobContent) {
-      for await (const chunk of blobContent) {
-        chunks.push(chunk);
-      }
-    }
+    let content: Uint8Array;
 
-    // Concatenate chunks
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const content = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      content.set(chunk, offset);
-      offset += chunk.length;
+    if (type === 1) {
+      // Commit
+      const commit = await this.commits.load(objectId);
+      if (!commit) {
+        throw new Error(`Commit not found: ${objectId}`);
+      }
+      content = serializeCommit(commit);
+    } else if (type === 2) {
+      // Tree
+      const entries: TreeEntry[] = [];
+      for await (const entry of this.trees.loadTree(objectId)) {
+        entries.push(entry);
+      }
+      content = serializeTree(entries);
+    } else {
+      // Blob (type 3) or other
+      const chunks: Uint8Array[] = [];
+      const blobContent = await this.blobs.load(objectId);
+      if (blobContent) {
+        for await (const chunk of blobContent) {
+          chunks.push(chunk);
+        }
+      }
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      content = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        content.set(chunk, offset);
+        offset += chunk.length;
+      }
     }
 
     return {

@@ -30,6 +30,11 @@ export interface GitPeerServerOptions {
     debug?: (...args: unknown[]) => void;
     error?: (...args: unknown[]) => void;
   };
+  /**
+   * Optional callback invoked after a successful git-receive-pack operation.
+   * Use this to trigger checkout and UI refresh when a peer pushes commits.
+   */
+  onPushReceived?: () => void;
 }
 
 /**
@@ -44,7 +49,7 @@ export interface GitPeerServerOptions {
  * @returns Cleanup function to stop serving
  */
 export function setupGitPeerServer(options: GitPeerServerOptions): () => void {
-  const { port, history, serialization, logger } = options;
+  const { port, history, serialization, logger, onPushReceived } = options;
 
   const repository: RepositoryFacade = createVcsRepositoryFacade({ history, serialization });
   const refStore: RefStore = createRefStoreAdapter(history.refs);
@@ -77,6 +82,16 @@ export function setupGitPeerServer(options: GitPeerServerOptions): () => void {
           logger?.error?.(`Git server ${service} error:`, result.error);
         } else {
           logger?.debug?.(`Git server ${service} complete, objects sent:`, result.objectsSent);
+
+          // After a successful receive-pack, notify the caller so they can
+          // update the working directory and refresh the UI.
+          if (service === "git-receive-pack" && onPushReceived) {
+            try {
+              onPushReceived();
+            } catch (callbackError) {
+              logger?.error?.("onPushReceived callback error:", callbackError);
+            }
+          }
         }
       } catch (error) {
         if (!stopped) {

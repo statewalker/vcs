@@ -698,7 +698,8 @@ describe("P2P Sync Integration", () => {
       for (const expectedFile of client1Files) {
         const file = client2Files.find((f) => f.name === expectedFile.name);
         expect(file, `File ${expectedFile.name} should exist on Client 2`).toBeDefined();
-        const content = await readBlobContent(ctx2, file?.id!);
+        if (!file?.id) continue;
+        const content = await readBlobContent(ctx2, file.id);
         expect(content).toBe(expectedFile.content);
       }
 
@@ -766,9 +767,214 @@ describe("P2P Sync Integration", () => {
       for (const expectedFile of [...client1Files, ...client2NewFiles]) {
         const file = client1AllFiles.find((f) => f.name === expectedFile.name);
         expect(file, `File ${expectedFile.name} should exist on Client 1`).toBeDefined();
-        const content = await readBlobContent(ctx1, file?.id!);
+        if (!file?.id) continue;
+        const content = await readBlobContent(ctx1, file.id);
         expect(content).toBe(expectedFile.content);
       }
+    },
+  );
+
+  it(
+    "should auto-refresh server repo when peer pushes commits (no manual refresh needed)",
+    { timeout: 30000 },
+    async () => {
+      const actionsModel1 = getUserActionsModel(ctx1);
+      const actionsModel2 = getUserActionsModel(ctx2);
+      const repoModel1 = getRepositoryModel(ctx1);
+      const repoModel2 = getRepositoryModel(ctx2);
+      const sessionModel1 = getSessionModel(ctx1);
+      const sessionModel2 = getSessionModel(ctx2);
+      const peersModel1 = getPeersModel(ctx1);
+      const peersModel2 = getPeersModel(ctx2);
+      const syncModel2 = getSyncModel(ctx2);
+
+      // Step 1: Client 1 initializes repo with a file
+      enqueueInitRepoAction(actionsModel1);
+      await waitModel(repoModel1, (m) => m.getState().initialized);
+
+      enqueueAddFileAction(actionsModel1, {
+        name: "host-file.txt",
+        content: "Host file content",
+      });
+      await waitModel(repoModel1, (m) => m.getState().commitCount === 2);
+
+      // Step 2: Client 1 shares
+      enqueueShareAction(actionsModel1);
+      await waitModel(sessionModel1, (m) => m.getState().mode === "hosting");
+      const sessionId = sessionModel1.getState().sessionId;
+      if (!sessionId) throw new Error("Session ID not set");
+
+      // Step 3: Client 2 joins
+      enqueueJoinAction(actionsModel2, { sessionId });
+      await waitModel(sessionModel2, (m) => m.getState().mode === "joined");
+      await flushPromises(50);
+      await waitModel(
+        peersModel2,
+        (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+        10000,
+      );
+      await waitModel(
+        peersModel1,
+        (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+        10000,
+      );
+
+      // Step 4: Client 2 syncs (fetches Client 1's repo)
+      const hostPeerId = peersModel2.getAll()[0].id;
+      enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
+      await waitModel(
+        syncModel2,
+        (m) => m.getState().phase === "complete" || m.getState().phase === "error",
+        15000,
+      );
+      expect(syncModel2.getState().phase).toBe("complete");
+
+      // Reset sync model
+      const timerApi2 = getTimerApi(ctx2) as MockTimerApi;
+      timerApi2.advance(3000);
+      await waitModel(syncModel2, (m) => m.getState().phase === "idle", 5000);
+      await flushPromises(20);
+      await waitModel(repoModel2, (m) => m.getState().commitCount === 2, 5000);
+
+      // Step 5: Client 2 adds a new file
+      enqueueAddFileAction(actionsModel2, {
+        name: "joiner-file.txt",
+        content: "Joiner file content",
+      });
+      await waitModel(repoModel2, (m) => m.getState().commitCount === 3, 5000);
+
+      // Step 6: Client 2 syncs again (pushes new commit to Client 1's server)
+      enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
+      await waitModel(
+        syncModel2,
+        (m) => m.getState().phase === "complete" || m.getState().phase === "error",
+        15000,
+      );
+      expect(syncModel2.getState().phase).toBe("complete");
+
+      // Step 7: Wait for auto-refresh on Client 1 (NO manual enqueueCheckoutAction/enqueueRefreshRepoAction!)
+      await flushPromises(30);
+      await waitModel(repoModel1, (m) => m.getState().commitCount === 3, 5000);
+
+      // Verify Client 1 sees the joiner's file without manual refresh
+      const client1Files = repoModel1
+        .getState()
+        .files.filter((f) => f.type === "file")
+        .map((f) => f.name)
+        .sort();
+      expect(client1Files).toContain("joiner-file.txt");
+      expect(client1Files).toContain("host-file.txt");
+      expect(client1Files).toContain("README.md");
+    },
+  );
+
+  it(
+    "should not roll back peer files when server commits after receiving push",
+    { timeout: 30000 },
+    async () => {
+      const actionsModel1 = getUserActionsModel(ctx1);
+      const actionsModel2 = getUserActionsModel(ctx2);
+      const repoModel1 = getRepositoryModel(ctx1);
+      const repoModel2 = getRepositoryModel(ctx2);
+      const sessionModel1 = getSessionModel(ctx1);
+      const sessionModel2 = getSessionModel(ctx2);
+      const peersModel1 = getPeersModel(ctx1);
+      const peersModel2 = getPeersModel(ctx2);
+      const syncModel2 = getSyncModel(ctx2);
+
+      // Step 1: Client 1 initializes repo
+      enqueueInitRepoAction(actionsModel1);
+      await waitModel(repoModel1, (m) => m.getState().initialized);
+
+      enqueueAddFileAction(actionsModel1, {
+        name: "original.txt",
+        content: "Original content",
+      });
+      await waitModel(repoModel1, (m) => m.getState().commitCount === 2);
+
+      // Step 2: Client 1 shares, Client 2 joins
+      enqueueShareAction(actionsModel1);
+      await waitModel(sessionModel1, (m) => m.getState().mode === "hosting");
+      const sessionId = sessionModel1.getState().sessionId;
+      if (!sessionId) throw new Error("Session ID not set");
+
+      enqueueJoinAction(actionsModel2, { sessionId });
+      await waitModel(sessionModel2, (m) => m.getState().mode === "joined");
+      await flushPromises(50);
+      await waitModel(
+        peersModel2,
+        (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+        10000,
+      );
+      await waitModel(
+        peersModel1,
+        (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+        10000,
+      );
+
+      // Step 3: Client 2 syncs (fetches Client 1's repo)
+      const hostPeerId = peersModel2.getAll()[0].id;
+      enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
+      await waitModel(
+        syncModel2,
+        (m) => m.getState().phase === "complete" || m.getState().phase === "error",
+        15000,
+      );
+      expect(syncModel2.getState().phase).toBe("complete");
+
+      const timerApi2 = getTimerApi(ctx2) as MockTimerApi;
+      timerApi2.advance(3000);
+      await waitModel(syncModel2, (m) => m.getState().phase === "idle", 5000);
+      await flushPromises(20);
+      await waitModel(repoModel2, (m) => m.getState().commitCount === 2, 5000);
+
+      // Step 4: Client 2 adds a file
+      enqueueAddFileAction(actionsModel2, {
+        name: "peer-file.txt",
+        content: "Peer file content",
+      });
+      await waitModel(repoModel2, (m) => m.getState().commitCount === 3, 5000);
+
+      // Step 5: Client 2 syncs again (pushes peer-file.txt to Client 1)
+      enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
+      await waitModel(
+        syncModel2,
+        (m) => m.getState().phase === "complete" || m.getState().phase === "error",
+        15000,
+      );
+      expect(syncModel2.getState().phase).toBe("complete");
+
+      // Step 6: Wait for auto-refresh on Client 1
+      await flushPromises(30);
+      await waitModel(repoModel1, (m) => m.getState().commitCount === 3, 5000);
+
+      // Verify Client 1 sees peer-file.txt
+      let client1Files = repoModel1
+        .getState()
+        .files.filter((f) => f.type === "file")
+        .map((f) => f.name)
+        .sort();
+      expect(client1Files).toContain("peer-file.txt");
+
+      // Step 7: Client 1 creates a NEW commit (this is the critical test)
+      enqueueAddFileAction(actionsModel1, {
+        name: "server-new-file.txt",
+        content: "Server new content",
+      });
+      await waitModel(repoModel1, (m) => m.getState().commitCount === 4, 5000);
+
+      // Step 8: Verify Client 1's new commit did NOT revert peer-file.txt
+      client1Files = repoModel1
+        .getState()
+        .files.filter((f) => f.type === "file")
+        .map((f) => f.name)
+        .sort();
+      expect(client1Files).toEqual([
+        "README.md",
+        "original.txt",
+        "peer-file.txt",
+        "server-new-file.txt",
+      ]);
     },
   );
 });
