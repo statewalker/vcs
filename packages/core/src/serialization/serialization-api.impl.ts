@@ -28,6 +28,7 @@ import type { Trees } from "../history/trees/trees.js";
 import type { BlobDeltaApi } from "../storage/delta/blob-delta-api.js";
 import type { CommitDeltaApi } from "../storage/delta/commit-delta-api.js";
 import { serializeDeltaToGit } from "../storage/delta/delta-binary-format.js";
+import type { DeltaCompressor } from "../storage/delta/delta-compressor.js";
 import type { TreeDeltaApi } from "../storage/delta/tree-delta-api.js";
 import type {
   PackBuilder,
@@ -61,6 +62,9 @@ export interface SerializationApiConfig {
 
   /** Commit delta API for delta-aware import (optional, backend-dependent) */
   commitDeltaApi?: CommitDeltaApi;
+
+  /** Delta compressor for computing deltas during pack export */
+  deltaCompressor?: DeltaCompressor;
 }
 
 /**
@@ -83,6 +87,8 @@ export class DefaultSerializationApi implements SerializationApi {
   private readonly treeDeltaApi?: TreeDeltaApi;
   /** Optional commit delta API for delta-aware import */
   private readonly commitDeltaApi?: CommitDeltaApi;
+  /** Optional delta compressor for pack export */
+  private readonly deltaCompressor?: DeltaCompressor;
 
   constructor(config: SerializationApiConfig) {
     this._blobs = config.history.blobs;
@@ -92,6 +98,7 @@ export class DefaultSerializationApi implements SerializationApi {
     this.blobDeltaApi = config.blobDeltaApi;
     this.treeDeltaApi = config.treeDeltaApi;
     this.commitDeltaApi = config.commitDeltaApi;
+    this.deltaCompressor = config.deltaCompressor;
   }
 
   /**
@@ -261,7 +268,14 @@ export class DefaultSerializationApi implements SerializationApi {
    * Create incremental pack builder
    */
   createPackBuilder(options?: PackOptions): PackBuilder {
-    return new DefaultPackBuilder(this._blobs, this._trees, this._commits, this._tags, options);
+    return new DefaultPackBuilder(
+      this._blobs,
+      this._trees,
+      this._commits,
+      this._tags,
+      options,
+      this.deltaCompressor,
+    );
   }
 
   /**
@@ -396,15 +410,30 @@ export class DefaultSerializationApi implements SerializationApi {
 }
 
 /**
+ * Pending pack entry — either a full object or a delta
+ */
+type PendingPackEntry =
+  | { kind: "full"; id: string; type: PackObjectType; content: Uint8Array }
+  | { kind: "delta"; id: string; baseId: string; delta: Uint8Array };
+
+/**
  * Default PackBuilder implementation
+ *
+ * When a DeltaCompressor is provided, uses a sliding window of recently
+ * added objects to find delta bases for new objects during addObjectWithDelta().
  */
 class DefaultPackBuilder implements PackBuilder {
   private readonly _blobs: Blobs;
   private readonly _trees: Trees;
   private readonly _commits: Commits;
   private readonly _tags: Tags;
-  private readonly pendingObjects: { id: string; type: PackObjectType; content: Uint8Array }[] = [];
+  private readonly pendingObjects: PendingPackEntry[] = [];
   private readonly options: PackOptions;
+  private readonly deltaCompressor?: DeltaCompressor;
+  /** Sliding window of recently seen objects for delta base candidates */
+  private readonly window = new Map<string, { type: PackObjectType; content: Uint8Array }>();
+  private readonly windowOrder: string[] = [];
+  private static readonly MAX_WINDOW_SIZE = 10;
   private stats: PackBuildStats = {
     totalObjects: 0,
     deltifiedObjects: 0,
@@ -413,12 +442,20 @@ class DefaultPackBuilder implements PackBuilder {
   };
   private finalized = false;
 
-  constructor(blobs: Blobs, trees: Trees, commits: Commits, tags: Tags, options?: PackOptions) {
+  constructor(
+    blobs: Blobs,
+    trees: Trees,
+    commits: Commits,
+    tags: Tags,
+    options?: PackOptions,
+    deltaCompressor?: DeltaCompressor,
+  ) {
     this._blobs = blobs;
     this._trees = trees;
     this._commits = commits;
     this._tags = tags;
     this.options = options ?? {};
+    this.deltaCompressor = deltaCompressor;
   }
 
   async addObject(id: ObjectId): Promise<void> {
@@ -427,17 +464,79 @@ class DefaultPackBuilder implements PackBuilder {
     }
 
     const { type, content } = await this.loadObject(id);
-    this.pendingObjects.push({ id, type, content });
+    this.pendingObjects.push({ kind: "full", id, type, content });
 
     this.stats.totalObjects++;
     this.stats.totalSize += content.length;
     this.options.onProgress?.(this.stats);
   }
 
-  async addObjectWithDelta(id: ObjectId, _preferredBaseId?: ObjectId): Promise<void> {
-    // For now, just add as full object
-    // TODO: Implement delta computation when preferredBaseId is provided
-    await this.addObject(id);
+  async addObjectWithDelta(id: ObjectId, preferredBaseId?: ObjectId): Promise<void> {
+    if (this.finalized) {
+      throw new Error("Pack already finalized");
+    }
+
+    const { type, content } = await this.loadObject(id);
+    let deltaEntry: { baseId: string; delta: Uint8Array } | null = null;
+
+    if (this.deltaCompressor) {
+      // Try preferred base first
+      if (preferredBaseId) {
+        const base = this.window.get(preferredBaseId);
+        if (base && base.type === type) {
+          const result = this.deltaCompressor.computeDelta(base.content, content);
+          if (result) {
+            deltaEntry = { baseId: preferredBaseId, delta: result.delta };
+          }
+        }
+      }
+
+      // Scan window for same-type objects
+      if (!deltaEntry) {
+        let bestResult: ReturnType<DeltaCompressor["computeDelta"]> = null;
+        let bestBaseId: string | null = null;
+
+        for (const [wId, wObj] of this.window) {
+          if (wObj.type !== type) continue;
+
+          const estimate = this.deltaCompressor.estimateDeltaQuality(
+            wObj.content.length,
+            content.length,
+          );
+          if (!estimate.worthTrying) continue;
+
+          const result = this.deltaCompressor.computeDelta(wObj.content, content);
+          if (result && (!bestResult || result.ratio > bestResult.ratio)) {
+            bestResult = result;
+            bestBaseId = wId;
+          }
+        }
+
+        if (bestResult && bestBaseId) {
+          deltaEntry = { baseId: bestBaseId, delta: bestResult.delta };
+        }
+      }
+    }
+
+    if (deltaEntry) {
+      this.pendingObjects.push({
+        kind: "delta",
+        id,
+        baseId: deltaEntry.baseId,
+        delta: deltaEntry.delta,
+      });
+      this.stats.deltifiedObjects++;
+      this.stats.deltaSavings += content.length - deltaEntry.delta.length;
+    } else {
+      this.pendingObjects.push({ kind: "full", id, type, content });
+    }
+
+    // Add to sliding window (regardless of delta result, so it can be a base for later objects)
+    this.addToWindow(id, type, content);
+
+    this.stats.totalObjects++;
+    this.stats.totalSize += content.length;
+    this.options.onProgress?.(this.stats);
   }
 
   async *finalize(): AsyncIterable<Uint8Array> {
@@ -447,14 +546,31 @@ class DefaultPackBuilder implements PackBuilder {
     this.finalized = true;
 
     const writer = new StreamingPackWriter(this.pendingObjects.length);
-    for (const obj of this.pendingObjects) {
-      yield* writer.addObject(obj.id, obj.type, obj.content);
+    for (const entry of this.pendingObjects) {
+      if (entry.kind === "delta") {
+        yield* writer.addRefDelta(entry.id, entry.baseId, entry.delta);
+      } else {
+        yield* writer.addObject(entry.id, entry.type, entry.content);
+      }
     }
     yield* writer.finalize();
   }
 
   getStats(): PackBuildStats {
     return { ...this.stats };
+  }
+
+  private addToWindow(id: string, type: PackObjectType, content: Uint8Array): void {
+    this.window.set(id, { type, content });
+    this.windowOrder.push(id);
+
+    // Evict oldest when window is full
+    while (this.windowOrder.length > DefaultPackBuilder.MAX_WINDOW_SIZE) {
+      const evicted = this.windowOrder.shift();
+      if (evicted !== undefined) {
+        this.window.delete(evicted);
+      }
+    }
   }
 
   private async loadObject(id: ObjectId): Promise<{ type: PackObjectType; content: Uint8Array }> {
