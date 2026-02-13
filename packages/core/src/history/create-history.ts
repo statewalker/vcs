@@ -300,8 +300,8 @@ export function createMemoryHistoryWithOperations(
 export function createGitFilesHistory(config: GitFilesStorageBackendConfig): HistoryWithOperations {
   const { blobs, trees, commits, tags, refs, packDeltaStore } = config;
 
-  // Create delta API directly (with tree delta support)
-  const delta = new GitFilesDeltaApi(packDeltaStore, blobs, trees);
+  // Create delta API directly (with tree and commit delta support)
+  const delta = new GitFilesDeltaApi(packDeltaStore, blobs, trees, { enableCommitDeltas: true });
 
   // Create base History for serialization API
   const history = new HistoryImpl(blobs, trees, commits, tags, refs);
@@ -309,13 +309,14 @@ export function createGitFilesHistory(config: GitFilesStorageBackendConfig): His
     history,
     blobDeltaApi: delta.blobs,
     treeDeltaApi: delta.trees,
+    commitDeltaApi: delta.commits,
   });
 
   // Git-files backend capabilities
   const capabilities: BackendCapabilities = {
     nativeBlobDeltas: true,
     nativeTreeDeltas: true,
-    nativeCommitDeltas: false,
+    nativeCommitDeltas: true,
     randomAccess: true,
     atomicBatch: true,
     nativeGitFormat: true,
