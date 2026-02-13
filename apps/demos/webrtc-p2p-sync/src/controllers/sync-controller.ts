@@ -14,6 +14,7 @@
  * 4. Local refs are updated automatically by the transport layer
  */
 
+import { ContentMergeStrategy, isMergeSuccessful, MergeStatus } from "@statewalker/vcs-commands";
 import type { History } from "@statewalker/vcs-core";
 import {
   enqueueCheckoutAction,
@@ -35,7 +36,7 @@ import {
 } from "../services/index.js";
 import { newRegistry } from "../utils/index.js";
 import type { AppContext } from "./index.js";
-import { getHistory, getSerializationApi } from "./index.js";
+import { getGit, getHistory, getSerializationApi } from "./index.js";
 
 // How long to show "complete" state before resetting
 const COMPLETE_DISPLAY_MS = 2000;
@@ -238,22 +239,36 @@ export function createSyncController(ctx: AppContext): () => void {
       }
 
       // Determine push refspecs — check for divergent history
-      let pushRefspecs = ["refs/heads/main:refs/heads/main"];
+      const pushRefspecs = ["refs/heads/main:refs/heads/main"];
 
       if (localMainBefore && remotePeerMain && localMainBefore !== remotePeerMain) {
         // Both sides have commits. Check if remote main is an ancestor of
         // local main (fast-forward). If not, histories have diverged.
         const remoteIsAncestor = await isAncestor(history, remotePeerMain, localMainBefore);
         if (!remoteIsAncestor) {
-          // Divergent histories — preserve the remote's current main in a
-          // backup branch before overwriting it with our push.
-          const timestamp = new Date().toISOString().replace(/[:.]/g, "").slice(0, 15);
-          const backupBranch = `refs/heads/local-${peerId}-${timestamp}`;
-          pushRefspecs = [
-            `refs/remotes/peer/main:${backupBranch}`,
-            "+refs/heads/main:refs/heads/main",
-          ];
-          logModel.info(`Divergent histories detected, backing up remote main to ${backupBranch}`);
+          // Divergent histories — merge remote into local before pushing.
+          // This makes the push a fast-forward from the remote's perspective
+          // because the merge commit has the remote's main as a parent.
+          logModel.info("Divergent histories detected, merging remote changes...");
+
+          const git = getGit(ctx);
+          if (!git) throw new Error("Git not initialized");
+
+          const mergeResult = await git
+            .merge()
+            .include("refs/remotes/peer/main")
+            .setContentMergeStrategy(ContentMergeStrategy.UNION)
+            .call();
+
+          if (isMergeSuccessful(mergeResult.status)) {
+            logModel.info(`Merge successful: ${mergeResult.status}`);
+          } else if (mergeResult.status === MergeStatus.CONFLICTING) {
+            const conflicts = mergeResult.conflicts?.join(", ") ?? "unknown";
+            logModel.warn(`Merge has unresolvable conflicts: ${conflicts}`);
+            throw new Error(`Merge conflicts: ${conflicts}`);
+          } else {
+            throw new Error(`Merge failed: ${mergeResult.status}`);
+          }
         }
       }
 

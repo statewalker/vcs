@@ -352,7 +352,7 @@ export function createRepositoryController(ctx: AppContext): () => void {
       const fileList: FileEntry[] = [];
       if (commits.length > 0) {
         const headCommit = await history.commits.load(commits[0].id);
-        if (headCommit.tree) {
+        if (headCommit?.tree) {
           await collectFilesFromTree(history, headCommit.tree, "", fileList);
         }
       }

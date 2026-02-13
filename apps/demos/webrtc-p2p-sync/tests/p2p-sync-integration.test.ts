@@ -979,7 +979,7 @@ describe("P2P Sync Integration", () => {
   );
 
   it(
-    "should preserve host history in a backup branch when both peers create divergent commits",
+    "should merge divergent histories before pushing instead of creating backup branches",
     { timeout: 30000 },
     async () => {
       const actionsModel1 = getUserActionsModel(ctx1);
@@ -991,6 +991,7 @@ describe("P2P Sync Integration", () => {
       const peersModel1 = getPeersModel(ctx1);
       const peersModel2 = getPeersModel(ctx2);
       const syncModel2 = getSyncModel(ctx2);
+      const logModel2 = getActivityLogModel(ctx2);
 
       // Step 1: Client 1 initializes repo with a file
       enqueueInitRepoAction(actionsModel1);
@@ -1054,14 +1055,7 @@ describe("P2P Sync Integration", () => {
       });
       await waitModel(repoModel2, (m) => m.getState().commitCount === 3, 5000);
 
-      // Save Client 1's current main before sync (this is the commit that would be lost)
-      const history1 = getHistory(ctx1);
-      if (!history1) throw new Error("History not initialized");
-      const client1MainRef = await history1.refs.resolve("refs/heads/main");
-      const client1MainBefore = client1MainRef?.objectId;
-      expect(client1MainBefore).toBeTruthy();
-
-      // Step 5: Client 2 syncs again (divergent history detected)
+      // Step 5: Client 2 syncs again (should merge remote into local, then push)
       enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
       await waitModel(
         syncModel2,
@@ -1070,24 +1064,53 @@ describe("P2P Sync Integration", () => {
       );
       expect(syncModel2.getState().phase).toBe("complete");
 
-      // Wait for auto-refresh on Client 1
+      // Verify merge log message appeared
+      const logs = logModel2.getEntries();
+      const mergeLog = logs.find((e) => e.message.includes("Merge successful"));
+      expect(mergeLog).toBeDefined();
+
+      // Wait for checkout/refresh on Client 2
+      timerApi2.advance(3000);
+      await waitModel(syncModel2, (m) => m.getState().phase === "idle", 5000);
+      await flushPromises(20);
+
+      // Step 6: Verify Client 2 has ALL files from both peers (merged)
+      // Commits: init(1) + shared(1) + host(1) + joiner(1) + merge(1) = 5
+      await waitModel(repoModel2, (m) => m.getState().commitCount >= 4, 5000);
+
+      const client2Files = repoModel2
+        .getState()
+        .files.filter((f) => f.type === "file")
+        .map((f) => f.name)
+        .sort();
+      expect(client2Files).toContain("README.md");
+      expect(client2Files).toContain("shared.txt");
+      expect(client2Files).toContain("host-divergent.txt");
+      expect(client2Files).toContain("joiner-divergent.txt");
+
+      // Step 7: Wait for auto-refresh on Client 1 (push should have updated it)
       await flushPromises(30);
+      await waitModel(repoModel1, (m) => m.getState().commitCount >= 4, 5000);
 
-      // Step 6: Verify Client 1's divergent history was preserved in a backup branch
-      const backupRefs: [string, string][] = [];
+      // Verify Client 1 also has all files
+      const client1Files = repoModel1
+        .getState()
+        .files.filter((f) => f.type === "file")
+        .map((f) => f.name)
+        .sort();
+      expect(client1Files).toContain("README.md");
+      expect(client1Files).toContain("shared.txt");
+      expect(client1Files).toContain("host-divergent.txt");
+      expect(client1Files).toContain("joiner-divergent.txt");
+
+      // Step 8: Verify NO backup branches were created on Client 1
+      const history1 = getHistory(ctx1);
+      if (!history1) throw new Error("History not initialized");
+      const backupRefs: string[] = [];
       for await (const entry of history1.refs.list("refs/heads/local-")) {
-        if ("objectId" in entry && entry.objectId) {
-          backupRefs.push([entry.name, entry.objectId]);
-        }
+        backupRefs.push(entry.name);
       }
-
-      // A backup branch should have been created
-      expect(backupRefs.length).toBeGreaterThan(0);
-
-      // The backup branch should point to Client 1's original divergent commit
-      const [backupName, backupOid] = backupRefs[0];
-      expect(backupOid).toBe(client1MainBefore);
-      expect(backupName).toMatch(/^refs\/heads\/local-/);
+      expect(backupRefs).toHaveLength(0);
     },
   );
 });
