@@ -18,6 +18,7 @@ import {
   MemoryWorkingCopy,
   MemoryWorktree,
 } from "@statewalker/vcs-core";
+import { MemFilesApi } from "@statewalker/webrun-files-mem";
 
 function createSerializationApi(history: History): SerializationApi {
   return new DefaultSerializationApi({ history });
@@ -64,6 +65,7 @@ import {
   createSessionController,
   createSyncController,
   getHistory,
+  initializeGitFromFiles,
   setConnectionProvider,
   setGit,
   setHistory,
@@ -1113,4 +1115,136 @@ describe("P2P Sync Integration", () => {
       expect(backupRefs).toHaveLength(0);
     },
   );
+});
+
+/**
+ * Create a test context backed by MemFilesApi instead of pure MemoryHistory.
+ */
+async function createFilesBackedTestContext(registry: MemoryPeerRegistry): Promise<AppContext> {
+  const ctx: AppContext = {};
+
+  // Initialize git from MemFilesApi (file-backed storage in memory)
+  const files = new MemFilesApi();
+  await initializeGitFromFiles(ctx, files);
+
+  // Inject memory connection provider
+  setConnectionProvider(ctx, new MemoryConnectionProvider(registry));
+  setTimerApi(ctx, new MockTimerApi());
+
+  return ctx;
+}
+
+describe("P2P Sync with FilesApi-backed repos", () => {
+  let registry: MemoryPeerRegistry;
+  let ctx1: AppContext;
+  let ctx2: AppContext;
+  let cleanup1: (() => void)[] = [];
+  let cleanup2: (() => void)[] = [];
+
+  beforeEach(async () => {
+    registry = new MemoryPeerRegistry();
+
+    // Both clients use FilesApi-backed git
+    ctx1 = await createFilesBackedTestContext(registry);
+    ctx2 = await createFilesBackedTestContext(registry);
+
+    cleanup1 = [
+      createRepositoryController(ctx1),
+      createSessionController(ctx1),
+      createSyncController(ctx1),
+    ];
+    cleanup2 = [
+      createRepositoryController(ctx2),
+      createSessionController(ctx2),
+      createSyncController(ctx2),
+    ];
+  });
+
+  afterEach(() => {
+    for (const fn of cleanup1) fn();
+    for (const fn of cleanup2) fn();
+    cleanup1 = [];
+    cleanup2 = [];
+    registry.reset();
+  });
+
+  it("should sync between two FilesApi-backed repos", { timeout: 30000 }, async () => {
+    const actionsModel1 = getUserActionsModel(ctx1);
+    const actionsModel2 = getUserActionsModel(ctx2);
+    const repoModel1 = getRepositoryModel(ctx1);
+    const sessionModel1 = getSessionModel(ctx1);
+    const peersModel1 = getPeersModel(ctx1);
+    const peersModel2 = getPeersModel(ctx2);
+    const syncModel2 = getSyncModel(ctx2);
+    const logModel2 = getActivityLogModel(ctx2);
+
+    // Client 1: Init repo and create files
+    enqueueInitRepoAction(actionsModel1);
+    await waitModel(repoModel1, (m) => m.getState().initialized);
+
+    for (let i = 1; i <= 3; i++) {
+      enqueueAddFileAction(actionsModel1, {
+        name: `file${i}.txt`,
+        content: `File ${i} content`,
+      });
+      await waitModel(repoModel1, (m) => m.getState().commitCount === i + 1);
+    }
+    expect(repoModel1.getState().commitCount).toBe(4);
+
+    // Client 1: Share
+    enqueueShareAction(actionsModel1);
+    await waitModel(sessionModel1, (m) => m.getState().mode === "hosting");
+    const sessionId = sessionModel1.getState().sessionId;
+    if (!sessionId) throw new Error("Session ID not set");
+
+    // Client 2: Join
+    enqueueJoinAction(actionsModel2, { sessionId });
+    await flushPromises(50);
+    await waitModel(
+      peersModel2,
+      (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+      10000,
+    );
+    await waitModel(
+      peersModel1,
+      (m) => m.count > 0 && m.getAll()[0]?.status === "connected",
+      10000,
+    );
+
+    // Client 2: Sync
+    const hostPeerId = peersModel2.getAll()[0].id;
+    enqueueStartSyncAction(actionsModel2, { peerId: hostPeerId });
+    await waitModel(
+      syncModel2,
+      (m) => m.getState().phase === "complete" || m.getState().phase === "error",
+      15000,
+    );
+    if (syncModel2.getState().phase === "error") {
+      const errorLogs = logModel2.getEntries().filter((e) => e.level === "error");
+      const allLogs = logModel2.getEntries().map((e) => `[${e.level}] ${e.message}`);
+      console.error("Sync error logs:", errorLogs);
+      console.error("All logs:", allLogs);
+    }
+    expect(syncModel2.getState().phase).toBe("complete");
+
+    // Verify refs were synced
+    const refUpdateLog = logModel2
+      .getEntries()
+      .find((e) => e.message.includes("Updated ref refs/remotes/peer/main"));
+    expect(refUpdateLog).toBeDefined();
+
+    const localMainLog = logModel2
+      .getEntries()
+      .find(
+        (e) => e.message.includes("Set local main") || e.message.includes("Updated local main"),
+      );
+    expect(localMainLog).toBeDefined();
+
+    // Verify Client 2's history has the commits
+    const client2History = getHistory(ctx2);
+    expect(client2History).not.toBeNull();
+    const client2Head = await client2History?.refs.resolve("refs/heads/main");
+    const client1Head = repoModel1.getState().headCommitId;
+    expect(client2Head?.objectId).toBe(client1Head);
+  });
 });

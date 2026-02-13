@@ -1,29 +1,14 @@
 /**
  * Controllers index - exports all controllers and app context utilities.
  *
- * Uses the new Three-Part Architecture (History/Checkout/Worktree):
+ * Uses the Three-Part Architecture (History/Checkout/Worktree):
  * - History: Immutable repository objects (blobs, trees, commits, tags, refs)
  * - Checkout: Mutable local state (HEAD, staging, operation states)
- * - Worktree: File system access (in-memory for this demo)
+ * - Worktree: File system access (in-memory or file-backed)
  */
 
-import { Git } from "@statewalker/vcs-commands";
-import type { History, SerializationApi, WorkingCopy } from "@statewalker/vcs-core";
-import {
-  createMemoryHistory,
-  createSimpleStaging,
-  DefaultSerializationApi,
-  MemoryCheckout,
-  MemoryWorkingCopy,
-  MemoryWorktree,
-} from "@statewalker/vcs-core";
-
-/**
- * Create SerializationApi from History facade.
- */
-function createSerializationApi(history: History): SerializationApi {
-  return new DefaultSerializationApi({ history });
-}
+import type { Git } from "@statewalker/vcs-commands";
+import type { History, SerializationApi, WorkingCopy, Worktree } from "@statewalker/vcs-core";
 
 import {
   createRealPeerJsApi,
@@ -34,6 +19,7 @@ import {
 } from "../apis/index.js";
 import { getIntents } from "../intents/index.js";
 import { newAdapter } from "../utils/index.js";
+import { initializeGitInMemory } from "./git-infrastructure.js";
 
 /**
  * Application context type.
@@ -63,10 +49,9 @@ export const [getWorkingCopy, setWorkingCopy] = newAdapter<WorkingCopy | null>(
 );
 
 /**
- * Context adapter for MemoryWorktree (in-memory file storage).
- * Provides access to the worktree for file operations in the demo.
+ * Context adapter for Worktree (file storage — in-memory or file-backed).
  */
-export const [getWorktree, setWorktree] = newAdapter<MemoryWorktree | null>("worktree", () => null);
+export const [getWorktree, setWorktree] = newAdapter<Worktree | null>("worktree", () => null);
 
 /**
  * Context adapter for Git porcelain API.
@@ -83,53 +68,12 @@ export const [getSerializationApi, setSerializationApi] = newAdapter<Serializati
 );
 
 /**
- * Initialize the Git infrastructure using the new Three-Part Architecture.
- *
- * @param ctx The application context to initialize
+ * Context adapter for storage mode label (e.g. "In-Memory" or "/projects/my-app").
  */
-async function initializeGitInfrastructure(ctx: AppContext): Promise<void> {
-  // 1. Create in-memory History (blobs, trees, commits, tags, refs)
-  const history = createMemoryHistory();
-  await history.initialize();
-
-  // Set HEAD as symbolic ref in history.refs so CommitCommand updates refs/heads/main.
-  // MemoryCheckout.initialHead only sets checkout-local state, not history.refs.
-  await history.refs.setSymbolic("HEAD", "refs/heads/main");
-
-  setHistory(ctx, history);
-
-  // 2. Create in-memory Staging
-  const staging = createSimpleStaging();
-
-  // 3. Create in-memory Checkout (HEAD, operation states)
-  const checkout = new MemoryCheckout({
-    staging,
-    initialHead: { type: "symbolic", target: "refs/heads/main" },
-  });
-
-  // 4. Create in-memory Worktree (file storage)
-  const worktree = new MemoryWorktree({
-    blobs: history.blobs,
-    trees: history.trees,
-  });
-  setWorktree(ctx, worktree);
-
-  // 5. Create WorkingCopy (combines history, checkout, worktree)
-  const workingCopy = new MemoryWorkingCopy({
-    history,
-    checkout,
-    worktree,
-  });
-  setWorkingCopy(ctx, workingCopy);
-
-  // 6. Create Git porcelain API
-  const git = Git.fromWorkingCopy(workingCopy);
-  setGit(ctx, git);
-
-  // 7. Create SerializationApi for pack import/export
-  const serialization = createSerializationApi(history);
-  setSerializationApi(ctx, serialization);
-}
+export const [getStorageLabel, setStorageLabel] = newAdapter<string>(
+  "storage-label",
+  () => "In-Memory",
+);
 
 /**
  * Create and initialize the application context.
@@ -148,8 +92,8 @@ export async function createAppContext(): Promise<AppContext> {
   // Initialize intent dispatcher
   getIntents(ctx);
 
-  // Initialize Git infrastructure
-  await initializeGitInfrastructure(ctx);
+  // Initialize Git infrastructure (in-memory by default)
+  await initializeGitInMemory(ctx);
 
   // Inject real API implementations
   const peerJsApi = await createRealPeerJsApi();
@@ -183,7 +127,6 @@ export function createTestContext(): AppContext {
 }
 
 // Legacy compatibility - re-export getRepository as alias for getHistory
-// This helps other files that may still reference getRepository
 export const getRepository = getHistory;
 export const setRepository = setHistory;
 
@@ -193,6 +136,8 @@ export type { WorkingCopy } from "@statewalker/vcs-core";
 export { getConnectionProvider, setConnectionProvider } from "../apis/index.js";
 // Re-export intent adapters
 export { getIntents, setIntents } from "../intents/index.js";
+// Re-export git infrastructure functions
+export { initializeGitFromFiles, initializeGitInMemory } from "./git-infrastructure.js";
 // Re-export controller factories
 export { createControllers } from "./main-controller.js";
 export { createRepositoryController } from "./repository-controller.js";

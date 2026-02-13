@@ -11,7 +11,13 @@
  * - Controllers: Business logic, API interactions, update Models
  */
 
-import { type AppContext, createAppContext, createControllers } from "./controllers/index.js";
+import {
+  type AppContext,
+  createAppContext,
+  createControllers,
+  getIntents,
+} from "./controllers/index.js";
+import { handleOpenRepositoryIntent } from "./intents/index.js";
 import { parseSessionIdFromUrl } from "./lib/index.js";
 import { getActivityLogModel, getSessionModel } from "./models/index.js";
 import { newRegistry } from "./utils/index.js";
@@ -68,6 +74,47 @@ function createViews(ctx: AppContext): () => void {
 }
 
 /**
+ * Check if the File System Access API is available (desktop browsers).
+ */
+function supportsFileSystemAccess(): boolean {
+  return typeof (globalThis as Record<string, unknown>).showDirectoryPicker === "function";
+}
+
+/**
+ * Register browser-specific intent handlers.
+ *
+ * Desktop: opens native folder picker via File System Access API.
+ * Mobile/fallback: creates an in-memory FilesApi.
+ */
+function setupBrowserIntents(ctx: AppContext): () => void {
+  const intents = getIntents(ctx);
+
+  return handleOpenRepositoryIntent(intents, (intent) => {
+    if (supportsFileSystemAccess()) {
+      // Desktop path — open native folder picker, then wrap in FilesApi
+      intent.resolve(
+        (async () => {
+          const handle = await (
+            globalThis as unknown as {
+              showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
+            }
+          ).showDirectoryPicker();
+          const { BrowserFilesApi } = await import("@statewalker/webrun-files-browser");
+          const files = new BrowserFilesApi({ rootHandle: handle });
+          return { files, label: handle.name };
+        })(),
+      );
+    } else {
+      // Mobile / no File System Access API — use in-memory storage
+      import("@statewalker/webrun-files-mem").then(async ({ MemFilesApi }) => {
+        intent.resolve({ files: new MemFilesApi(), label: "In-Memory" });
+      });
+    }
+    return true;
+  });
+}
+
+/**
  * Initialize the application.
  */
 async function initializeApp(): Promise<() => void> {
@@ -76,6 +123,9 @@ async function initializeApp(): Promise<() => void> {
 
   // Registry for cleanup
   const [register, cleanup] = newRegistry();
+
+  // Register browser intent handlers
+  register(setupBrowserIntents(ctx));
 
   // Create controllers (handle business logic)
   register(createControllers(ctx));

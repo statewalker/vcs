@@ -17,11 +17,13 @@ import {
   listenCheckoutAction,
   listenCreateCommitAction,
   listenInitRepoAction,
+  listenOpenRepoAction,
   listenRefreshRepoAction,
   listenStageAllAction,
   listenStageFileAction,
   listenUnstageFileAction,
 } from "../actions/index.js";
+import { getIntents, runOpenRepositoryIntent } from "../intents/index.js";
 import {
   type CommitEntry,
   type FileEntry,
@@ -31,7 +33,13 @@ import {
 } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 import type { AppContext } from "./index.js";
-import { getGit, getHistory, getWorktree } from "./index.js";
+import {
+  getGit,
+  getHistory,
+  getWorktree,
+  initializeGitFromFiles,
+  setStorageLabel,
+} from "./index.js";
 
 /**
  * Create the repository controller.
@@ -104,6 +112,12 @@ export function createRepositoryController(ctx: AppContext): () => void {
     }),
   );
 
+  register(
+    listenOpenRepoAction(actionsModel, () => {
+      handleOpenRepository();
+    }),
+  );
+
   // ============ File Helper Methods ============
 
   /**
@@ -117,6 +131,37 @@ export function createRepositoryController(ctx: AppContext): () => void {
   }
 
   // ============ Action Handlers ============
+
+  /**
+   * Open a repository from persistent storage via the intent system.
+   */
+  async function handleOpenRepository(): Promise<void> {
+    try {
+      const intents = getIntents(ctx);
+      const intent = runOpenRepositoryIntent(intents, { title: "Select project folder" });
+
+      if (!intent.resolved) {
+        logModel.error("No handler resolved the open-repository intent");
+        return;
+      }
+
+      const { files, label } = await intent.promise;
+
+      // Re-initialize git infrastructure from the selected folder
+      await initializeGitFromFiles(ctx, files);
+      setStorageLabel(ctx, label);
+
+      logModel.info(`Opened repository: ${label}`);
+
+      // Refresh repository state
+      const git = getGit(ctx);
+      if (git) {
+        await refreshRepositoryState(git);
+      }
+    } catch (error) {
+      logModel.error(`Failed to open repository: ${(error as Error).message}`);
+    }
+  }
 
   /**
    * Initialize the repository with an initial commit.

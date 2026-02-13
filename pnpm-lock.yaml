@@ -412,6 +412,15 @@ importers:
       '@statewalker/vcs-utils':
         specifier: workspace:*
         version: link:../../../packages/utils
+      '@statewalker/webrun-files':
+        specifier: 'catalog:'
+        version: 0.7.0
+      '@statewalker/webrun-files-browser':
+        specifier: 'catalog:'
+        version: 0.7.0
+      '@statewalker/webrun-files-mem':
+        specifier: 'catalog:'
+        version: 0.7.0
       peerjs:
         specifier: ^1.5.4
         version: 1.5.5

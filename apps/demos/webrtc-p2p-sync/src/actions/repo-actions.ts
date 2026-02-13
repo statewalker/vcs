@@ -18,3 +18,8 @@ export const [enqueueRefreshRepoAction, listenRefreshRepoAction] = newUserAction
  * Request to checkout HEAD (update working directory from commit).
  */
 export const [enqueueCheckoutAction, listenCheckoutAction] = newUserAction("repo:checkout");
+
+/**
+ * Request to open a repository from persistent storage (folder picker).
+ */
+export const [enqueueOpenRepoAction, listenOpenRepoAction] = newUserAction("repo:open");

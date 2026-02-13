@@ -3,11 +3,18 @@
  *
  * Shows:
  * - Initialize repository button
- * - Storage info and controls
+ * - Open Repository button (persistent storage via FilesApi)
+ * - Storage mode indicator
+ * - Repository info and controls
  */
 
-import { enqueueInitRepoAction, enqueueRefreshRepoAction } from "../actions/index.js";
+import {
+  enqueueInitRepoAction,
+  enqueueOpenRepoAction,
+  enqueueRefreshRepoAction,
+} from "../actions/index.js";
 import type { AppContext } from "../controllers/index.js";
+import { getStorageLabel } from "../controllers/index.js";
 import { getRepositoryModel, getUserActionsModel } from "../models/index.js";
 import { newRegistry } from "../utils/index.js";
 
@@ -28,13 +35,20 @@ export function createStorageView(ctx: AppContext, container: HTMLElement): () =
   // Render function
   function render(): void {
     const state = repoModel.getState();
+    const storageLabel = getStorageLabel(ctx);
 
     if (!state.initialized) {
       container.innerHTML = `
         <div class="storage-panel">
           <h3>Repository</h3>
+          <div class="storage-mode">
+            <span class="storage-indicator">${storageLabel === "In-Memory" ? "&#x1F4BE;" : "&#x1F4C2;"} ${storageLabel}</span>
+          </div>
           <p class="hint">Initialize a Git repository to start.</p>
-          <button id="btn-init-repo" class="btn-primary">Initialize Repository</button>
+          <div class="btn-group">
+            <button id="btn-init-repo" class="btn-primary">Initialize Repository</button>
+            <button id="btn-open-repo" class="btn-secondary">Open Repository</button>
+          </div>
         </div>
       `;
 
@@ -43,10 +57,19 @@ export function createStorageView(ctx: AppContext, container: HTMLElement): () =
       initBtn.onclick = () => {
         enqueueInitRepoAction(actionsModel);
       };
+
+      // Bind open button
+      const openBtn = container.querySelector("#btn-open-repo") as HTMLButtonElement;
+      openBtn.onclick = () => {
+        enqueueOpenRepoAction(actionsModel);
+      };
     } else {
       container.innerHTML = `
         <div class="storage-panel">
           <h3>Repository</h3>
+          <div class="storage-mode">
+            <span class="storage-indicator">${storageLabel === "In-Memory" ? "&#x1F4BE;" : "&#x1F4C2;"} ${storageLabel}</span>
+          </div>
           <div class="repo-info">
             <div class="info-row">
               <label>Branch:</label>
@@ -61,7 +84,10 @@ export function createStorageView(ctx: AppContext, container: HTMLElement): () =
               <code>${state.headCommitId?.slice(0, 8) ?? "none"}</code>
             </div>
           </div>
-          <button id="btn-refresh-repo" class="btn-small">Refresh</button>
+          <div class="btn-group">
+            <button id="btn-refresh-repo" class="btn-small">Refresh</button>
+            <button id="btn-open-repo" class="btn-small">Open Repository</button>
+          </div>
         </div>
       `;
 
@@ -69,6 +95,12 @@ export function createStorageView(ctx: AppContext, container: HTMLElement): () =
       const refreshBtn = container.querySelector("#btn-refresh-repo") as HTMLButtonElement;
       refreshBtn.onclick = () => {
         enqueueRefreshRepoAction(actionsModel);
+      };
+
+      // Bind open button
+      const openBtn = container.querySelector("#btn-open-repo") as HTMLButtonElement;
+      openBtn.onclick = () => {
+        enqueueOpenRepoAction(actionsModel);
       };
     }
   }
