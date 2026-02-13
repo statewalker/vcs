@@ -285,11 +285,10 @@ describe("Performance Benchmarks", () => {
     });
 
     it("end-to-end MessagePort fetch transfers pack at >1MB/sec", { timeout: 60000 }, async () => {
-      // Server repo with ~2MB of data (40 commits × 50KB blobs)
-      // Blob size must stay under pkt-line limit of 65520 bytes
+      // Server repo with ~4MB of data (40 commits × 100KB blobs)
       const server = createMemoryHistoryWithOperations();
       await server.initialize();
-      const tipId = await createLargeRepo(server, 40, 50 * 1024);
+      const tipId = await createLargeRepo(server, 40, 100 * 1024);
 
       // Measure pack size for throughput calculation
       const packBytes = await collectBytes(

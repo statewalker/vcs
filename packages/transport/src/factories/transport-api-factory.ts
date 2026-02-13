@@ -17,7 +17,12 @@ import {
   encodePacketLine,
   parsePacket,
 } from "../protocol/pkt-line-codec.js";
-import { encodeSidebandPacket, SIDEBAND_DATA } from "../protocol/sideband.js";
+import {
+  encodeSidebandPacket,
+  SIDEBAND_DATA,
+  SIDEBAND_HDR_SIZE,
+  SIDEBAND_MAX_BUF,
+} from "../protocol/sideband.js";
 import { readPackFromStream } from "../utils/pack-stream-reader.js";
 
 const _textEncoder = new TextEncoder();
@@ -197,10 +202,17 @@ class PktLineWriter {
 
   /**
    * Writes data on a sideband channel.
+   * Automatically chunks data that exceeds the pkt-line size limit.
    */
   writeSideband(channel: 1 | 2 | 3, data: Uint8Array): void {
-    const packet = encodeSidebandPacket(channel, data);
-    this.duplex.write(packet);
+    const maxPayload = SIDEBAND_MAX_BUF - SIDEBAND_HDR_SIZE;
+    let offset = 0;
+    while (offset < data.length) {
+      const end = Math.min(offset + maxPayload, data.length);
+      const chunk = data.subarray(offset, end);
+      this.duplex.write(encodeSidebandPacket(channel, chunk));
+      offset = end;
+    }
   }
 }
 

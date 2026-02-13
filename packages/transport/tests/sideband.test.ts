@@ -283,6 +283,85 @@ describe("encodeSidebandPacket", () => {
     expect(() => encodeSidebandPacket(0, data)).toThrow("channel 0 must be in range [1, 255]");
     expect(() => encodeSidebandPacket(256, data)).toThrow("channel 256 must be in range [1, 255]");
   });
+
+  it("should reject oversized data", () => {
+    const maxPayload = SIDEBAND_MAX_BUF - SIDEBAND_HDR_SIZE;
+    const oversized = new Uint8Array(maxPayload + 1);
+    expect(() => encodeSidebandPacket(SIDEBAND_DATA, oversized)).toThrow("must be <=");
+  });
+});
+
+describe("writeSideband chunking via createTransportApi", () => {
+  it("should chunk data larger than max sideband payload", async () => {
+    const { createTransportApi } = await import("../src/factories/transport-api-factory.js");
+    const { ProtocolState } = await import("../src/context/protocol-state.js");
+
+    const written: Uint8Array[] = [];
+    const fakeDuplex = {
+      write(data: Uint8Array) {
+        written.push(new Uint8Array(data));
+      },
+      async close() {},
+      async *[Symbol.asyncIterator](): AsyncGenerator<Uint8Array> {},
+    };
+
+    const state = new ProtocolState();
+    const transport = createTransportApi(fakeDuplex, state);
+
+    // Create data that spans 3 sideband packets
+    const maxPayload = SIDEBAND_MAX_BUF - SIDEBAND_HDR_SIZE; // 65515
+    const totalSize = maxPayload * 2 + 100; // two full packets + one partial
+    const data = new Uint8Array(totalSize);
+    for (let i = 0; i < data.length; i++) data[i] = i & 0xff;
+
+    await transport.writeSideband(1, data);
+
+    expect(written).toHaveLength(3);
+
+    // First two packets are max size
+    expect(written[0].length).toBe(SIDEBAND_MAX_BUF);
+    expect(written[1].length).toBe(SIDEBAND_MAX_BUF);
+    // Third packet is the remainder
+    expect(written[2].length).toBe(100 + SIDEBAND_HDR_SIZE);
+
+    // Verify channel byte in each packet
+    expect(written[0][4]).toBe(SIDEBAND_DATA);
+    expect(written[1][4]).toBe(SIDEBAND_DATA);
+    expect(written[2][4]).toBe(SIDEBAND_DATA);
+
+    // Verify data integrity: reassemble and compare
+    const reassembled = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const pkt of written) {
+      const payload = pkt.slice(SIDEBAND_HDR_SIZE);
+      reassembled.set(payload, offset);
+      offset += payload.length;
+    }
+    expect(reassembled).toEqual(data);
+  });
+
+  it("should not chunk data that fits in a single packet", async () => {
+    const { createTransportApi } = await import("../src/factories/transport-api-factory.js");
+    const { ProtocolState } = await import("../src/context/protocol-state.js");
+
+    const written: Uint8Array[] = [];
+    const fakeDuplex = {
+      write(data: Uint8Array) {
+        written.push(new Uint8Array(data));
+      },
+      async close() {},
+      async *[Symbol.asyncIterator](): AsyncGenerator<Uint8Array> {},
+    };
+
+    const state = new ProtocolState();
+    const transport = createTransportApi(fakeDuplex, state);
+
+    const data = new Uint8Array(1000);
+    await transport.writeSideband(1, data);
+
+    expect(written).toHaveLength(1);
+    expect(written[0].length).toBe(1000 + SIDEBAND_HDR_SIZE);
+  });
 });
 
 describe("SideBandProgressParser", () => {
