@@ -428,6 +428,9 @@ export class CheckoutCommand extends GitCommand<CheckoutResult> {
       // Use this.trees which is CommandTrees (has loadTree method for TreeStore compatibility)
       await this.staging.readTree(this.trees as any, targetTreeId);
 
+      // Persist staging to .git/index so native git sees the correct state
+      await this.staging.write();
+
       // Write files to working directory if not a bare repository
       if (this.hasFileWriteSupport()) {
         await this.writeTreeToWorkdir(targetTreeId, "");

@@ -302,4 +302,94 @@ describe("Open Repository Intent", () => {
     const headRef = await history?.refs.resolve("HEAD");
     expect(headRef?.objectId).toBeTruthy();
   });
+
+  it("should persist .git/index and preserve all files across commits", async () => {
+    const actionsModel = getUserActionsModel(ctx);
+    const repoModel = getRepositoryModel(ctx);
+
+    // Use a shared MemFilesApi so we can inspect .git/index
+    const sharedFiles = new MemFilesApi();
+
+    intentCleanup();
+    const intents = getIntents(ctx);
+    intentCleanup = handleOpenRepositoryIntent(intents, (intent) => {
+      intent.resolve({ files: sharedFiles, label: "index-test" });
+      return true;
+    });
+
+    // Open and initialize
+    enqueueOpenRepoAction(actionsModel);
+    await flushPromises(20);
+    enqueueInitRepoAction(actionsModel);
+    await waitModel(repoModel, (m) => m.getState().initialized, 5000);
+
+    // Add first file
+    enqueueAddFileAction(actionsModel, { name: "file-a.txt", content: "aaa" });
+    await waitModel(repoModel, (m) => m.getState().commitCount === 2, 5000);
+
+    // Verify .git/index exists on disk
+    const indexExists = await sharedFiles.exists(".git/index");
+    expect(indexExists).toBe(true);
+
+    // Add second file — the commit tree must include BOTH files
+    enqueueAddFileAction(actionsModel, { name: "file-b.txt", content: "bbb" });
+    await waitModel(repoModel, (m) => m.getState().commitCount === 3, 5000);
+
+    // Both files should be in HEAD tree
+    const files = repoModel.getState().files.filter((f) => f.type === "file");
+    const fileNames = files.map((f) => f.name).sort();
+    expect(fileNames).toContain("README.md");
+    expect(fileNames).toContain("file-a.txt");
+    expect(fileNames).toContain("file-b.txt");
+  });
+
+  it("should preserve tracked files after reopening repository", async () => {
+    const actionsModel = getUserActionsModel(ctx);
+    const repoModel = getRepositoryModel(ctx);
+
+    // Use a persistent MemFilesApi
+    const persistentFiles = new MemFilesApi();
+
+    intentCleanup();
+    const intents = getIntents(ctx);
+    intentCleanup = handleOpenRepositoryIntent(intents, (intent) => {
+      intent.resolve({ files: persistentFiles, label: "reopen-test" });
+      return true;
+    });
+
+    // Open, init, add two files
+    enqueueOpenRepoAction(actionsModel);
+    await flushPromises(20);
+    enqueueInitRepoAction(actionsModel);
+    await waitModel(repoModel, (m) => m.getState().initialized, 5000);
+
+    enqueueAddFileAction(actionsModel, { name: "first.txt", content: "111" });
+    await waitModel(repoModel, (m) => m.getState().commitCount === 2, 5000);
+
+    enqueueAddFileAction(actionsModel, { name: "second.txt", content: "222" });
+    await waitModel(repoModel, (m) => m.getState().commitCount === 3, 5000);
+
+    // Verify 3 files present before reopen
+    const filesBefore = repoModel.getState().files.filter((f) => f.type === "file");
+    expect(filesBefore).toHaveLength(3); // README.md + first.txt + second.txt
+
+    // Simulate page reload: reopen the same files
+    enqueueOpenRepoAction(actionsModel);
+    await flushPromises(20);
+    enqueueRefreshRepoAction(actionsModel);
+    await flushPromises(20);
+
+    // All 3 files should still be in the repository
+    const filesAfter = repoModel.getState().files.filter((f) => f.type === "file");
+    expect(filesAfter).toHaveLength(3);
+
+    // Add a third file after reopen — all 4 must be in the commit
+    enqueueAddFileAction(actionsModel, { name: "third.txt", content: "333" });
+    await waitModel(repoModel, (m) => m.getState().commitCount === 4, 5000);
+
+    const filesAfterAdd = repoModel.getState().files.filter((f) => f.type === "file");
+    expect(filesAfterAdd).toHaveLength(4);
+    const names = filesAfterAdd.map((f) => f.name).sort();
+    expect(names).toEqual(["README.md", "first.txt", "second.txt", "third.txt"]);
+  });
 });

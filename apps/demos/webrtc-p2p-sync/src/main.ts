@@ -10,6 +10,8 @@
  * - Views: UI rendering, update UserActionsModel on user input
  * - Controllers: Business logic, API interactions, update Models
  */
+import { BrowserFilesApi } from "@statewalker/webrun-files-browser";
+import { MemFilesApi } from "@statewalker/webrun-files-mem";
 
 import {
   type AppContext,
@@ -81,15 +83,36 @@ function createViews(ctx: AppContext): () => void {
  */
 function setupBrowserIntents(ctx: AppContext): () => void {
   const intents = getIntents(ctx);
+  const logModel = getActivityLogModel(ctx);
 
   return handleOpenRepositoryIntent(intents, (intent) => {
     // Call intent.resolve() synchronously with a promise so that
     // intent.resolved is true when run() returns.
     intent.resolve(
       (async () => {
-        const { openBrowserFilesApi } = await import("@statewalker/webrun-files-browser");
-        const files = await openBrowserFilesApi();
-        return { files, label: "Local Folder" };
+        if (
+          typeof (globalThis as unknown as Record<string, unknown>).showDirectoryPicker ===
+          "function"
+        ) {
+          // Desktop browsers with File System Access API
+          // Must call showDirectoryPicker with { mode: "readwrite" } directly —
+          // the library's openBrowserFilesApi() omits the mode, getting a read-only
+          // handle then trying to upgrade via verifyPermission() which fails
+          // because the user gesture has expired by this point in the async chain.
+          const rootHandle: FileSystemDirectoryHandle = await (
+            globalThis as unknown as {
+              showDirectoryPicker: (opts: {
+                mode: string;
+              }) => Promise<FileSystemDirectoryHandle>;
+            }
+          ).showDirectoryPicker({ mode: "readwrite" });
+          const files = new BrowserFilesApi({ rootHandle });
+          return { files, label: rootHandle.name };
+        } else {
+          // Mobile browsers or environments without File System Access API
+          logModel.info("File System Access API not available, using in-memory storage.");
+          return { files: new MemFilesApi(), label: "In-Memory" };
+        }
       })(),
     );
     return true;

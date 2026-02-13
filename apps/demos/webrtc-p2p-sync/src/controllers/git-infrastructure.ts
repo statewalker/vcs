@@ -16,6 +16,7 @@ import {
   createHistoryFromStores,
   createMemoryHistory,
   createRefsAdapter,
+  createGitStaging,
   createSimpleStaging,
   createTags,
   createTrees,
@@ -133,8 +134,9 @@ export async function initializeGitFromFiles(ctx: AppContext, files: FilesApi): 
   });
   setWorktree(ctx, worktree as MemoryWorktree);
 
-  // Create staging + checkout (in-memory — lightweight state)
-  const staging = createSimpleStaging();
+  // Create file-backed staging (reads/writes native .git/index)
+  const indexPath = joinPath(gitDir, "index");
+  const staging = createGitStaging(files, indexPath);
   const checkout = new MemoryCheckout({
     staging,
     initialHead: { type: "symbolic", target: "refs/heads/main" },
@@ -155,4 +157,8 @@ export async function initializeGitFromFiles(ctx: AppContext, files: FilesApi): 
   // Create SerializationApi
   const serialization = createSerializationApi(history);
   setSerializationApi(ctx, serialization);
+
+  // Read existing .git/index if present — populates staging with
+  // the persisted index entries so new commits include all tracked files.
+  await staging.read();
 }
