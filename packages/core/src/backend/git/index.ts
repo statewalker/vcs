@@ -16,4 +16,4 @@ export * from "./git-commits.js";
 export * from "./git-tags.js";
 export * from "./git-trees.js";
 // Pack file handling
-export * from "./pack/index.js";
+export * from "../../pack/index.js";

@@ -14,17 +14,17 @@
 
 import type { Delta } from "@statewalker/vcs-utils";
 import { collect, newByteSplitter, readHeader } from "@statewalker/vcs-utils/streams";
-import type { FilesApi } from "../../../common/files/index.js";
-import { parseHeader } from "../../../history/objects/object-header.js";
-import type { ObjectTypeCode } from "../../../history/objects/object-types.js";
-import { parseBinaryDelta, serializeDelta } from "../../../storage/delta/delta-binary-format.js";
+import type { FilesApi } from "../common/files/index.js";
+import { parseHeader } from "../history/objects/object-header.js";
+import type { ObjectTypeCode } from "../history/objects/object-types.js";
+import { parseBinaryDelta, serializeDelta } from "../storage/delta/delta-binary-format.js";
 import type {
   DeltaChainDetails,
   DeltaInfo,
   DeltaStore,
   DeltaStoreUpdate,
   StoredDelta,
-} from "../../../storage/delta/delta-store.js";
+} from "../storage/delta/delta-store.js";
 import type { DeltaReverseIndex } from "./delta-reverse-index.js";
 import { PackDirectory } from "./pack-directory.js";
 import { PendingPack } from "./pending-pack.js";

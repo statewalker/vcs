@@ -1,4 +1,4 @@
-import type { ObjectId } from "../common/id/index.js";
+import type { ObjectId } from "../../common";
 
 /**
  * Base interface for content-addressed object stores
@@ -59,6 +59,3 @@ export interface ObjectStorage<V> {
    */
   keys(): AsyncIterable<ObjectId>;
 }
-
-// Re-export ObjectId for convenience
-export type { ObjectId } from "../common/id/index.js";
