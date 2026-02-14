@@ -20,7 +20,9 @@ export class MemoryVolatileStore implements VolatileStore {
    * @param content Async iterable of content chunks
    * @returns Handle with size and ability to re-read content
    */
-  async store(content: AsyncIterable<Uint8Array>): Promise<VolatileContent> {
+  async store(
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<VolatileContent> {
     const chunks: Uint8Array[] = [];
     let size = 0;
 

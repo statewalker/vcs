@@ -36,7 +36,7 @@ class GitTreeStore implements Trees {
   async load(id: ObjectId): Promise<AsyncIterable<TreeEntry> | undefined> {
     // Handle empty tree specially
     if (id === EMPTY_TREE_ID) {
-      return (async function* () {})();
+      return emptyTreeEntries();
     }
 
     if (!(await this.has(id))) {
@@ -141,6 +141,16 @@ class GitTreeStore implements Trees {
   getEmptyTreeId(): ObjectId {
     return EMPTY_TREE_ID;
   }
+}
+
+/**
+ * Return an empty async iterable of tree entries.
+ *
+ * Extracted as a named function to prevent rolldown from optimizing
+ * away `(async function* () {})()` to a bare `return;`.
+ */
+async function* emptyTreeEntries(): AsyncGenerator<TreeEntry> {
+  // intentionally yields nothing
 }
 
 /**

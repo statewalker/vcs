@@ -360,7 +360,7 @@ describe("GitCommits", () => {
 
     expect(await commitStore.isAncestor(c1, c3)).toBe(true);
     expect(await commitStore.isAncestor(c3, c1)).toBe(false);
-    expect(await commitStore.isAncestor(c2, c2)).toBe(false); // same commit is not its own ancestor
+    expect(await commitStore.isAncestor(c2, c2)).toBe(true); // same commit is its own ancestor (matches Git behavior)
   });
 
   it("returns undefined when loading wrong object type", async () => {

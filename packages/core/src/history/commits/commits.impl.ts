@@ -182,7 +182,7 @@ class GitCommitStore implements Commits {
    * Check if commitA is ancestor of commitB
    */
   async isAncestor(ancestorId: ObjectId, descendantId: ObjectId): Promise<boolean> {
-    if (ancestorId === descendantId) return false;
+    if (ancestorId === descendantId) return true;
     for await (const id of this.walkAncestry(descendantId)) {
       if (id === ancestorId) {
         return true;
