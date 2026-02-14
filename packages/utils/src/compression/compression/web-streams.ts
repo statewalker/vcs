@@ -43,6 +43,8 @@ export async function* deflateWeb(
             throw err;
           }
         })();
+        // Prevent unhandled rejection if generator is aborted before await
+        writePromise.catch(() => {});
 
         while (true) {
           const { done, value } = await reader.read();
@@ -50,8 +52,8 @@ export async function* deflateWeb(
           yield value;
         }
 
-        await writePromise;
         // Ensure write completed without error
+        await writePromise;
       } finally {
         reader.releaseLock();
       }
@@ -88,6 +90,8 @@ export async function* inflateWeb(
         throw err;
       }
     })();
+    // Prevent unhandled rejection if generator is aborted before await
+    writePromise.catch(() => {});
 
     // Read and yield decompressed chunks
     try {
