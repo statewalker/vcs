@@ -3,7 +3,7 @@
  *
  * Used by tests and helper functions like entriesToCommit.
  */
-export async function toArray<T>(input: AsyncIterable<T>): Promise<T[]> {
+export async function toArray<T>(input: Iterable<T> | AsyncIterable<T>): Promise<T[]> {
   const result: T[] = [];
   for await (const item of input) {
     result.push(item);

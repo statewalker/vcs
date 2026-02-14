@@ -242,7 +242,7 @@ export async function* decodeTreeEntries(
 
     // Keep unparsed data
     if (offset > 0) {
-      buffer = buffer.subarray(offset);
+      buffer = buffer.slice(offset);
     }
   }
 

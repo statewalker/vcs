@@ -12,7 +12,7 @@
  * - Maintain reflogs for history tracking
  */
 
-import type { ObjectId } from "../object-storage.js";
+import type { ObjectId } from "../../common/index.js";
 import type { Ref, SymbolicRef } from "./ref-types.js";
 import type { ReflogEntry, ReflogReader } from "./reflog-types.js";
 

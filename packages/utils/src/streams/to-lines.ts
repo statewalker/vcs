@@ -4,7 +4,9 @@
  *
  * @param input The input async iterable stream
  */
-export async function* toLines(input: AsyncIterable<Uint8Array>): AsyncGenerator<string> {
+export async function* toLines(
+  input: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
+): AsyncGenerator<string> {
   const decoder = new TextDecoder();
   let buffer = "";
 

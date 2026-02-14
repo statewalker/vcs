@@ -17,7 +17,7 @@ import {
   PackWriterStream,
   readPackIndex,
   writePackIndexV2,
-} from "../../src/backend/git/pack/index.js";
+} from "../../src/pack/index.js";
 import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
 
 // Set up Node.js compression before tests

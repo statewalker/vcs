@@ -14,7 +14,7 @@
  * Based on: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
-import type { RawStorage } from "../../../storage/raw/index.js";
+import type { RawStorage } from "../storage/raw/index.js";
 
 /**
  * Configuration for GitPackStore

@@ -5,7 +5,8 @@
  * and consistent method names (remove instead of delete).
  */
 
-import type { ObjectId, ObjectStorage } from "../object-storage.js";
+import type { ObjectId } from "../../common/index.js";
+import type { ObjectStorage } from "../objects/index.js";
 
 /**
  * Blob content as a streaming type

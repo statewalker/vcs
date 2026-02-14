@@ -29,7 +29,7 @@ import { parseBinaryDelta } from "../storage/delta/delta-binary-format.js";
 import { GitFilesCommitDeltaApi } from "../storage/delta/git-commit-delta-api.js";
 import { GitFilesTreeDeltaApi } from "../storage/delta/git-tree-delta-api.js";
 import type { TreeDeltaApi } from "../storage/delta/tree-delta-api.js";
-import type { PackDeltaStore } from "./git/pack/index.js";
+import type { PackDeltaStore } from "../pack/index.js";
 import type { BaseBackendConfig } from "./history-backend-factory.js";
 
 /**

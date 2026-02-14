@@ -12,7 +12,8 @@
  *   <commit message>
  */
 
-import { asAsyncIterable, collect, encodeString, toArray } from "@statewalker/vcs-utils/streams";
+// import { collect, encodeString } from "@statewalker/vcs-utils/streams";
+import { toLines } from "@statewalker/vcs-utils";
 import { formatPersonIdent, parsePersonIdent } from "../format/person-ident.js";
 import type { CommitEntry } from "../format/types.js";
 import type { Commit } from "./commits.js";
@@ -30,49 +31,46 @@ const LF = "\n";
 export async function* encodeCommitEntries(
   entries: AsyncIterable<CommitEntry> | Iterable<CommitEntry>,
 ): AsyncGenerator<Uint8Array> {
-  const collected: CommitEntry[] = [];
-  for await (const entry of asAsyncIterable(entries)) {
-    collected.push(entry);
+  // Build commit content
+
+  const encoder = new TextEncoder();
+  function line(str: string): Uint8Array {
+    return encoder.encode(`${str}${LF}`);
   }
 
-  // Build commit content
-  const lines: string[] = [];
-
-  for (const entry of collected) {
+  for await (const entry of entries) {
     switch (entry.type) {
       case "tree":
-        lines.push(`tree ${entry.value}`);
+        yield line(`tree ${entry.value}`);
         break;
       case "parent":
-        lines.push(`parent ${entry.value}`);
+        yield line(`parent ${entry.value}`);
         break;
       case "author":
-        lines.push(`author ${formatPersonIdent(entry.value)}`);
+        yield line(`author ${formatPersonIdent(entry.value)}`);
         break;
       case "committer":
-        lines.push(`committer ${formatPersonIdent(entry.value)}`);
+        yield line(`committer ${formatPersonIdent(entry.value)}`);
         break;
       case "encoding":
-        lines.push(`encoding ${entry.value}`);
+        yield line(`encoding ${entry.value}`);
         break;
       case "gpgsig": {
         // GPG signature with continuation lines
         const sigLines = entry.value.split("\n");
-        lines.push(`gpgsig ${sigLines[0]}`);
+        yield line(`gpgsig ${sigLines[0]}`);
         for (let i = 1; i < sigLines.length; i++) {
-          lines.push(` ${sigLines[i]}`);
+          yield line(` ${sigLines[i]}`);
         }
         break;
       }
       case "message":
         // Empty line before message
-        lines.push("");
-        lines.push(entry.value);
+        yield line("");
+        yield line(entry.value);
         break;
     }
   }
-
-  yield encodeString(lines.join(LF));
 }
 
 /**
@@ -85,9 +83,11 @@ export async function computeCommitSize(
   entries: AsyncIterable<CommitEntry> | Iterable<CommitEntry>,
 ): Promise<number> {
   // Collect entries and compute size using encodeCommitEntries
-  const entryList = await toArray(asAsyncIterable(entries));
-  const chunks = await collect(encodeCommitEntries(entryList));
-  return chunks.length;
+  let size = 0;
+  for await (const block of encodeCommitEntries(entries)) {
+    size += block.length;
+  }
+  return size;
 }
 
 /**
@@ -97,23 +97,18 @@ export async function computeCommitSize(
  * @yields Commit entries in order
  */
 export async function* decodeCommitEntries(
-  input: AsyncIterable<Uint8Array>,
+  input: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
 ): AsyncGenerator<CommitEntry> {
-  const data = await collect(input);
-  const decoder = new TextDecoder();
-  const text = decoder.decode(data);
-
+  // const data = await collect(input);
   // Split by LF, strip CR for CRLF handling
-  const rawLines = text.split(LF);
-  const lines = rawLines.map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
+  const lines = toLines(input);
 
   let inGpgSig = false;
   const gpgSigLines: string[] = [];
-  let messageStart = -1;
+  let messageLines: string[] | undefined;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
+  for await (const rawLine of lines) {
+    const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
     // Continuation line for gpgsig
     if (inGpgSig) {
       if (line.startsWith(" ")) {
@@ -127,38 +122,39 @@ export async function* decodeCommitEntries(
     }
 
     // Empty line marks start of message
-    if (line === "" && messageStart === -1) {
-      messageStart = i + 1;
-      break;
-    }
+    if (line === "" && !messageLines) {
+      messageLines = [];
+    } else if (messageLines) {
+      messageLines.push(line);
+    } else {
+      // Parse header lines
+      const spacePos = line.indexOf(" ");
+      if (spacePos === -1) continue;
 
-    // Parse header lines
-    const spacePos = line.indexOf(" ");
-    if (spacePos === -1) continue;
+      const key = line.substring(0, spacePos);
+      const value = line.substring(spacePos + 1);
 
-    const key = line.substring(0, spacePos);
-    const value = line.substring(spacePos + 1);
-
-    switch (key) {
-      case "tree":
-        yield { type: "tree", value };
-        break;
-      case "parent":
-        yield { type: "parent", value };
-        break;
-      case "author":
-        yield { type: "author", value: parsePersonIdent(value) };
-        break;
-      case "committer":
-        yield { type: "committer", value: parsePersonIdent(value) };
-        break;
-      case "encoding":
-        yield { type: "encoding", value };
-        break;
-      case "gpgsig":
-        inGpgSig = true;
-        gpgSigLines.push(value);
-        break;
+      switch (key) {
+        case "tree":
+          yield { type: "tree", value };
+          break;
+        case "parent":
+          yield { type: "parent", value };
+          break;
+        case "author":
+          yield { type: "author", value: parsePersonIdent(value) };
+          break;
+        case "committer":
+          yield { type: "committer", value: parsePersonIdent(value) };
+          break;
+        case "encoding":
+          yield { type: "encoding", value };
+          break;
+        case "gpgsig":
+          inGpgSig = true;
+          gpgSigLines.push(value);
+          break;
+      }
     }
   }
 
@@ -168,8 +164,8 @@ export async function* decodeCommitEntries(
   }
 
   // Extract message
-  if (messageStart !== -1 && messageStart < lines.length) {
-    const message = lines.slice(messageStart).join(LF);
+  if (messageLines) {
+    const message = messageLines.join(LF);
     yield { type: "message", value: message };
   }
 }
@@ -317,7 +313,7 @@ export function serializeCommit(commit: Commit): Uint8Array {
   // Message
   lines.push(commit.message);
 
-  return encoder.encode(lines.join(LF));
+  return encoder.encode(lines.join(LF) + LF);
 }
 
 /**
@@ -405,10 +401,15 @@ export function parseCommit(data: Uint8Array): Commit {
     throw new Error("Invalid commit: missing committer");
   }
 
-  // Extract message
+  // Extract message — strip trailing empty lines (format artifact from trailing LF,
+  // matching decodeCommitEntries/toLines behavior)
   let message = "";
   if (messageStart !== -1 && messageStart < lines.length) {
-    message = lines.slice(messageStart).join(LF);
+    let end = lines.length;
+    while (end > messageStart && lines[end - 1] === "") {
+      end--;
+    }
+    message = lines.slice(messageStart, end).join(LF);
   }
 
   const commit: Commit = {

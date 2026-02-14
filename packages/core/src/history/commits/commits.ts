@@ -6,7 +6,8 @@
  */
 
 import type { PersonIdent } from "../../common/person/person-ident.js";
-import type { ObjectId, ObjectStorage } from "../object-storage.js";
+import type { ObjectId } from "../../common/index.js";
+import type { ObjectStorage } from "../objects/index.js";
 
 /**
  * Commit object
