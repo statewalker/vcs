@@ -22,7 +22,8 @@ import {
   extractGitObjectContent,
   parseHeader,
 } from "../../src/history/objects/object-header.js";
-import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.js";
+import { createGitObjectStore } from "../../src/history/objects/object-store.impl.js";
+import type { GitObjectStore } from "../../src/history/objects/object-store.js";
 import { FileRawStorage } from "../../src/storage/raw/file-raw-storage.js";
 import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 
@@ -243,11 +244,11 @@ describe("Git Files Format Compliance", () => {
 
   describe("GitObjectStore with Compression", () => {
     let storage: MemoryRawStorage;
-    let store: GitObjectStoreImpl;
+    let store: GitObjectStore;
 
     beforeEach(() => {
       storage = new MemoryRawStorage();
-      store = new GitObjectStoreImpl({ storage, compress: true });
+      store = createGitObjectStore(storage, { compress: true });
     });
 
     it("stores blob with correct SHA-1", async () => {
@@ -303,14 +304,14 @@ describe("Git Files Format Compliance", () => {
   describe("Loose Object Path Structure", () => {
     let files: FilesApi;
     let storage: FileRawStorage;
-    let store: GitObjectStoreImpl;
+    let store: GitObjectStore;
     const basePath = "/objects";
 
     beforeEach(async () => {
       files = createInMemoryFilesApi();
       await files.mkdir(basePath);
       storage = new FileRawStorage(files, basePath);
-      store = new GitObjectStoreImpl({ storage, compress: true });
+      store = createGitObjectStore(storage, { compress: true });
     });
 
     it("stores object with 2-char prefix directory", async () => {

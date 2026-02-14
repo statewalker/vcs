@@ -17,11 +17,11 @@
  * - `HistoryBackendFactory` - Factory interface for backend registration
  */
 
+// Pack file handling (previously re-exported via ./git/)
+export * from "../pack/index.js";
 // Export serialization API for backend implementations
 export { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
-
 export * from "./factory.js";
-export * from "./git/index.js";
 export * from "./git-files-storage-backend.js";
 export * from "./history-backend-factory.js";
 export * from "./memory-storage-backend.js";

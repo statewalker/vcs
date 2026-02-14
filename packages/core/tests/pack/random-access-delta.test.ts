@@ -8,6 +8,7 @@
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
 import {
   analyzeDelta,
   findInstructionsForRange,
@@ -17,7 +18,6 @@ import {
   readPackIndex,
   writePackIndexV2,
 } from "../../src/pack/index.js";
-import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {

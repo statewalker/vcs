@@ -183,11 +183,11 @@ console.log("  Best for: fully custom stores, wrapping external databases");
 console.log("  Returns: History (basic interface)\n");
 
 // Build individual store instances manually
-const customBlobStorage = new MemoryRawStorage();
+const _customBlobStorage = new MemoryRawStorage();
 const customObjectStorage = new MemoryRawStorage();
 const customObjects = createGitObjectStore(customObjectStorage);
 
-const customBlobs = createBlobs(customBlobStorage);
+const customBlobs = createBlobs(customObjects);
 const customTrees = createTrees(customObjects);
 const customCommits = createCommits(customObjects);
 const customTags = createTags(customObjects);

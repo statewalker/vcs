@@ -1,11 +1,11 @@
 /**
- * Tests for domain stores (GitObjectStore, GitBlobs, GitCommits, GitTrees, GitTags)
+ * Tests for domain stores (GitObjectStore, GitBlobStore, GitCommits, GitTrees, GitTags)
  */
 
 import { describe, expect, it } from "vitest";
-import { GitBlobs, GitCommits, GitTags, GitTrees } from "../../src/backend/git/index.js";
 import { FileMode } from "../../src/common/files/index.js";
-import { GitObjectStoreImpl } from "../../src/history/objects/object-store.impl.js";
+import { createBlobs, createCommits, createTags, createTrees } from "../../src/history/index.js";
+import { createGitObjectStore } from "../../src/history/objects/object-store.impl.js";
 import { ObjectType } from "../../src/history/objects/object-types.js";
 import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 import { collectBytes } from "../helpers/assertion-helpers.js";
@@ -17,14 +17,14 @@ import {
 
 function createTestStores() {
   const storage = new MemoryRawStorage();
-  const objectStore = new GitObjectStoreImpl({ storage });
+  const objectStore = createGitObjectStore(storage);
   return {
     storage,
     objectStore,
-    blobStore: new GitBlobs(objectStore),
-    commitStore: new GitCommits(objectStore),
-    treeStore: new GitTrees(objectStore),
-    tagStore: new GitTags(objectStore),
+    blobStore: createBlobs(objectStore),
+    commitStore: createCommits(objectStore),
+    treeStore: createTrees(objectStore),
+    tagStore: createTags(objectStore),
   };
 }
 
@@ -133,7 +133,7 @@ describe("GitObjectStoreImpl", () => {
   });
 });
 
-describe("GitBlobs", () => {
+describe("GitBlobStore", () => {
   it("stores and loads blob content", async () => {
     const { blobStore } = createTestStores();
     const content = new TextEncoder().encode("file content");
@@ -197,19 +197,16 @@ describe("GitBlobs", () => {
     expect(await blobStore.has("0000000000000000000000000000000000000000")).toBe(false);
   });
 
-  it("throws when loading wrong object type", async () => {
+  it("returns undefined when loading wrong object type", async () => {
     const { objectStore, blobStore } = createTestStores();
 
     // Store a commit and try to load as blob
-    const commitStore = new GitCommits(objectStore);
+    const commitStore = createCommits(objectStore);
     const commit = createTestCommit();
     const commitId = await commitStore.store(commit);
 
-    await expect(async () => {
-      const result = await blobStore.load(commitId);
-      if (!result) throw new Error("Blob not found");
-      await collectBytes(result);
-    }).rejects.toThrow(/not a blob/);
+    const result = await blobStore.load(commitId);
+    expect(result).toBeUndefined();
   });
 });
 
@@ -363,13 +360,13 @@ describe("GitCommits", () => {
 
     expect(await commitStore.isAncestor(c1, c3)).toBe(true);
     expect(await commitStore.isAncestor(c3, c1)).toBe(false);
-    expect(await commitStore.isAncestor(c2, c2)).toBe(true); // same commit
+    expect(await commitStore.isAncestor(c2, c2)).toBe(false); // same commit is not its own ancestor
   });
 
   it("returns undefined when loading wrong object type", async () => {
     const { objectStore, commitStore } = createTestStores();
 
-    const blobStore = new GitBlobs(objectStore);
+    const blobStore = createBlobs(objectStore);
     const blobId = await blobStore.store([new TextEncoder().encode("not a commit")]);
 
     const result = await commitStore.load(blobId);
@@ -455,7 +452,7 @@ describe("GitTrees", () => {
   it("returns undefined when loading wrong object type", async () => {
     const { objectStore, treeStore } = createTestStores();
 
-    const blobStore = new GitBlobs(objectStore);
+    const blobStore = createBlobs(objectStore);
     const blobId = await blobStore.store([new TextEncoder().encode("not a tree")]);
 
     const result = await treeStore.load(blobId);
@@ -563,7 +560,7 @@ describe("GitTags", () => {
   it("returns undefined when loading wrong object type", async () => {
     const { objectStore, tagStore } = createTestStores();
 
-    const blobStore = new GitBlobs(objectStore);
+    const blobStore = createBlobs(objectStore);
     const blobId = await blobStore.store([new TextEncoder().encode("not a tag")]);
 
     const result = await tagStore.load(blobId);

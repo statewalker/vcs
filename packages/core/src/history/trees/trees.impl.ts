@@ -16,7 +16,7 @@ import type { Trees } from "./trees.js";
  * Handles tree entry serialization (sorting, binary format)
  * and delegates storage to GitObjectStore.
  */
-export class GitTreeStore implements Trees {
+class GitTreeStore implements Trees {
   constructor(private readonly objects: GitObjectStore) {}
 
   // ============ New Trees Interface ============
