@@ -7,24 +7,40 @@
 
 import { deflate, inflate } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
-import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
+import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
+import { collect } from "@statewalker/vcs-utils/streams";
+import type { ObjectId } from "../common/id/index.js";
+import type { Blobs } from "../history/blobs/blobs.js";
+import {
+  collectCommitBytes,
+  commitToEntries,
+  decodeCommitEntries,
+  encodeCommitEntries,
+  entriesToCommit,
+} from "../history/commits/commit-format.js";
+import type { Commits } from "../history/commits/commits.js";
+import type { History } from "../history/history.js";
+import type { ObjectTypeString } from "../history/objects/object-types.js";
+import {
+  collectTagBytes,
+  decodeTagEntries,
+  encodeTagEntries,
+  entriesToTag,
+  tagToEntries,
+} from "../history/tags/tag-format.js";
+import type { Tags } from "../history/tags/tags.js";
+import {
+  collectTreeBytes,
+  decodeTreeEntries,
+  encodeTreeEntries,
+} from "../history/trees/tree-format.js";
+import type { Trees } from "../history/trees/trees.js";
 import {
   PackObjectType,
   parsePackEntries,
   parsePackEntriesFromStream,
   StreamingPackWriter,
 } from "../pack/index.js";
-import type { ObjectId } from "../common/id/index.js";
-import type { Blobs } from "../history/blobs/blobs.js";
-import { parseCommit, serializeCommit } from "../history/commits/commit-format.js";
-import type { Commits } from "../history/commits/commits.js";
-import type { History } from "../history/history.js";
-import type { ObjectTypeString } from "../history/objects/object-types.js";
-import { parseTag, serializeTag } from "../history/tags/tag-format.js";
-import type { Tags } from "../history/tags/tags.js";
-import type { TreeEntry } from "../history/trees/tree-entry.js";
-import { parseTreeToArray, serializeTree } from "../history/trees/tree-format.js";
-import type { Trees } from "../history/trees/trees.js";
 import type { BlobDeltaApi } from "../storage/delta/blob-delta-api.js";
 import type { CommitDeltaApi } from "../storage/delta/commit-delta-api.js";
 import { serializeDeltaToGit } from "../storage/delta/delta-binary-format.js";
@@ -202,11 +218,7 @@ export class DefaultSerializationApi implements SerializationApi {
           if (entry.type === "delta" && this.blobDeltaApi) {
             // Preserve blob delta if we have delta API
             const deltaBytes = serializeDeltaToGit(entry.delta);
-            await this.blobDeltaApi.deltifyBlob(
-              entry.id,
-              entry.baseId,
-              toAsyncIterable(deltaBytes),
-            );
+            await this.blobDeltaApi.deltifyBlob(entry.id, entry.baseId, [deltaBytes]);
             blobsWithDelta++;
           } else {
             // Store as full blob
@@ -218,14 +230,10 @@ export class DefaultSerializationApi implements SerializationApi {
           if (entry.type === "delta" && this.treeDeltaApi) {
             // Preserve tree delta if we have tree delta API
             const treeDeltaBytes = serializeDeltaToGit(entry.delta);
-            await this.treeDeltaApi.deltifyTree(
-              entry.id,
-              entry.baseId,
-              toAsyncIterable(treeDeltaBytes),
-            );
+            await this.treeDeltaApi.deltifyTree(entry.id, entry.baseId, [treeDeltaBytes]);
           } else {
             // Store as full tree
-            await this.storeTreeFromContent(entry.content);
+            await this.storeTreeFromStream([entry.content]);
           }
           treesImported++;
           break;
@@ -234,21 +242,17 @@ export class DefaultSerializationApi implements SerializationApi {
           if (entry.type === "delta" && this.commitDeltaApi) {
             // Preserve commit delta if we have commit delta API
             const commitDeltaBytes = serializeDeltaToGit(entry.delta);
-            await this.commitDeltaApi.deltifyCommit(
-              entry.id,
-              entry.baseId,
-              toAsyncIterable(commitDeltaBytes),
-            );
+            await this.commitDeltaApi.deltifyCommit(entry.id, entry.baseId, [commitDeltaBytes]);
           } else {
             // Store as full commit
-            await this.storeCommitFromContent(entry.content);
+            await this.storeCommitFromStream([entry.content]);
           }
           commitsImported++;
           break;
 
         case "tag":
           // Tags are always stored fully resolved
-          await this.storeTagFromContent(entry.content);
+          await this.storeTagFromStream([entry.content]);
           tagsImported++;
           break;
       }
@@ -324,7 +328,7 @@ export class DefaultSerializationApi implements SerializationApi {
    */
   async importObject(
     type: ObjectTypeString,
-    content: AsyncIterable<Uint8Array>,
+    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   ): Promise<ObjectId> {
     switch (type) {
       case "blob":
@@ -343,70 +347,42 @@ export class DefaultSerializationApi implements SerializationApi {
   // ============ Private helpers ============
 
   private async *serializeTree(id: ObjectId): AsyncIterable<Uint8Array> {
-    const entries: Uint8Array[] = [];
-
     const tree = await this._trees.load(id);
     if (!tree) throw new Error(`Tree not found: ${id}`);
-
-    for await (const entry of tree) {
-      // Format: "mode name\0<20-byte-sha>"
-      const modeAndName = new TextEncoder().encode(`${entry.mode.toString(8)} ${entry.name}\0`);
-      const sha = hexToBytes(entry.id);
-      entries.push(concatBytes([modeAndName, sha]));
-    }
-
-    yield concatBytes(entries);
+    yield* encodeTreeEntries(tree);
   }
 
   private async *serializeCommit(id: ObjectId): AsyncIterable<Uint8Array> {
     const commit = await this._commits.load(id);
     if (!commit) throw new Error(`Commit not found: ${id}`);
-    yield serializeCommit(commit);
+    yield* encodeCommitEntries(commitToEntries(commit));
   }
 
   private async *serializeTag(id: ObjectId): AsyncIterable<Uint8Array> {
     const tag = await this._tags.load(id);
     if (!tag) throw new Error(`Tag not found: ${id}`);
-    yield serializeTag(tag);
+    yield* encodeTagEntries(tagToEntries(tag));
   }
 
-  private async storeTreeFromContent(content: Uint8Array): Promise<ObjectId> {
-    const entries = parseTreeToArray(content);
-    return this._trees.store(entries);
+  private async storeTreeFromStream(
+    content: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
+  ): Promise<ObjectId> {
+    const entries = decodeTreeEntries(content);
+    return await this._trees.store(entries);
   }
 
-  private async storeTreeFromStream(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of content) {
-      chunks.push(chunk);
-    }
-    return this.storeTreeFromContent(concatBytes(chunks));
-  }
-
-  private async storeCommitFromContent(content: Uint8Array): Promise<ObjectId> {
-    const commit = parseCommit(content);
+  private async storeCommitFromStream(
+    content: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
+  ): Promise<ObjectId> {
+    const commit = await entriesToCommit(decodeCommitEntries(content));
     return this._commits.store(commit);
   }
 
-  private async storeCommitFromStream(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of content) {
-      chunks.push(chunk);
-    }
-    return this.storeCommitFromContent(concatBytes(chunks));
-  }
-
-  private async storeTagFromContent(content: Uint8Array): Promise<ObjectId> {
-    const tag = parseTag(content);
+  private async storeTagFromStream(
+    content: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
+  ): Promise<ObjectId> {
+    const tag = await entriesToTag(decodeTagEntries(content));
     return this._tags.store(tag);
-  }
-
-  private async storeTagFromStream(content: AsyncIterable<Uint8Array>): Promise<ObjectId> {
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of content) {
-      chunks.push(chunk);
-    }
-    return this.storeTagFromContent(concatBytes(chunks));
   }
 }
 
@@ -582,36 +558,28 @@ class DefaultPackBuilder implements PackBuilder {
     {
       const commit = await this._commits.load(id);
       if (commit) {
-        return { type: PackObjectType.COMMIT, content: serializeCommit(commit) };
+        return { type: PackObjectType.COMMIT, content: await collectCommitBytes(commit) };
       }
     }
 
     {
       const tree = await this._trees.load(id);
       if (tree) {
-        const entries: TreeEntry[] = [];
-        for await (const entry of tree) {
-          entries.push(entry);
-        }
-        return { type: PackObjectType.TREE, content: serializeTree(entries) };
+        return { type: PackObjectType.TREE, content: await collectTreeBytes(tree) };
       }
     }
 
     {
       const tag = await this._tags.load(id);
       if (tag) {
-        return { type: PackObjectType.TAG, content: serializeTag(tag) };
+        return { type: PackObjectType.TAG, content: await collectTagBytes(tag) };
       }
     }
 
     if (await this._blobs.has(id)) {
       const blobContent = await this._blobs.load(id);
       if (!blobContent) throw new Error(`Blob not found: ${id}`);
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of blobContent) {
-        chunks.push(chunk);
-      }
-      return { type: PackObjectType.BLOB, content: concatBytes(chunks) };
+      return { type: PackObjectType.BLOB, content: await collect(blobContent) };
     }
 
     throw new Error(`Object not found: ${id}`);

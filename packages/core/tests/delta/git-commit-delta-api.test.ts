@@ -8,8 +8,8 @@
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { PackDeltaStore } from "../../src/pack/index.js";
 import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
+import { PackDeltaStore } from "../../src/pack/index.js";
 import { GitDeltaCompressor } from "../../src/storage/delta/compressor/git-delta-compressor.js";
 import { parseBinaryDelta } from "../../src/storage/delta/delta-binary-format.js";
 import { GitFilesCommitDeltaApi } from "../../src/storage/delta/git-commit-delta-api.js";

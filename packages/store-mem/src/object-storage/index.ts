@@ -7,12 +7,12 @@
 
 import type { Blobs, Commits, Tags, Trees } from "@statewalker/vcs-core";
 import {
-  GitBlobs,
-  GitCommits,
+  createBlobs,
+  createCommits,
+  createGitObjectStore,
+  createTags,
+  createTrees,
   type GitObjectStore,
-  GitObjectStoreImpl,
-  GitTags,
-  GitTrees,
   MemoryRawStorage,
 } from "@statewalker/vcs-core";
 
@@ -73,13 +73,13 @@ export function createMemoryObjectStores(
   options: CreateMemoryObjectStoresOptions = {},
 ): MemoryObjectStores {
   const storage = options.storage ?? new MemoryRawStorage();
-  const objects = new GitObjectStoreImpl({ storage });
+  const objects = createGitObjectStore(storage);
 
   return {
     objects,
-    blobs: new GitBlobs(objects),
-    trees: new GitTrees(objects),
-    commits: new GitCommits(objects),
-    tags: new GitTags(objects),
+    blobs: createBlobs(objects),
+    trees: createTrees(objects),
+    commits: createCommits(objects),
+    tags: createTags(objects),
   };
 }

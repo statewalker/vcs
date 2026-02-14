@@ -19,7 +19,9 @@ export async function toArray<T>(input: Iterable<T> | AsyncIterable<T>): Promise
  *
  * Use sparingly - prefer streaming where possible.
  */
-export async function collect(input: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
+export async function collect(
+  input: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   let totalLength = 0;
   for await (const chunk of input) {

@@ -1,4 +1,4 @@
-import type { ObjectId } from "../../common";
+import type { ObjectId } from "../../common/index.js";
 
 /**
  * Base interface for content-addressed object stores

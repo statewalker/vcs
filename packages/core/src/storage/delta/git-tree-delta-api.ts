@@ -8,9 +8,9 @@
  * compression of trees in Git-files backends.
  */
 
-import type { PackDeltaStore } from "../../pack/index.js";
 import type { ObjectId } from "../../common/id/object-id.js";
 import type { Trees } from "../../history/trees/trees.js";
+import type { PackDeltaStore } from "../../pack/index.js";
 import type {
   BlobDeltaChainInfo,
   DeltaCandidateSource,

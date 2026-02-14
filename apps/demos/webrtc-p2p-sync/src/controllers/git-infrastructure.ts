@@ -10,6 +10,7 @@ import { Git } from "@statewalker/vcs-commands";
 import type { FilesApi, History, SerializationApi, Worktree } from "@statewalker/vcs-core";
 import {
   CompressedRawStorage,
+  createBlobs,
   createCommits,
   createFileRefStore,
   createGitObjectStore,
@@ -23,7 +24,6 @@ import {
   DefaultSerializationApi,
   FileRawStorage,
   FileWorktree,
-  GitBlobStore,
   joinPath,
   MemoryCheckout,
   MemoryWorkingCopy,
@@ -114,7 +114,7 @@ export async function initializeGitFromFiles(ctx: AppContext, files: FilesApi): 
   const objects = createGitObjectStore(compressedStorage);
   const refStore = createFileRefStore(files, gitDir);
 
-  const blobs = new GitBlobStore(objects);
+  const blobs = createBlobs(objects);
   const trees = createTrees(objects);
   const commits = createCommits(objects);
   const tags = createTags(objects);
