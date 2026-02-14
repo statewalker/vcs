@@ -269,9 +269,7 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         expect(loaded.length).toBe(largeContent.length);
 
         // Verify content integrity
-        for (let i = 0; i < loaded.length; i++) {
-          expect(loaded[i]).toBe(largeContent[i]);
-        }
+        expect(loaded).toEqual(largeContent);
       });
     });
 
