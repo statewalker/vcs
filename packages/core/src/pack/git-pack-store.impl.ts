@@ -7,8 +7,8 @@
  * Based on: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
-import type { FilesApi } from "../../../common/files/index.js";
-import { parseHeader } from "../../../history/objects/object-header.js";
+import type { FilesApi } from "../common/files/index.js";
+import { parseHeader } from "../history/objects/object-header.js";
 import type {
   FlushResult,
   GitPackStore,

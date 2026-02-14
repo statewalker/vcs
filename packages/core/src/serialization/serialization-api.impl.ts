@@ -13,7 +13,7 @@ import {
   parsePackEntries,
   parsePackEntriesFromStream,
   StreamingPackWriter,
-} from "../backend/git/pack/index.js";
+} from "../pack/index.js";
 import type { ObjectId } from "../common/id/index.js";
 import type { Blobs } from "../history/blobs/blobs.js";
 import { parseCommit, serializeCommit } from "../history/commits/commit-format.js";

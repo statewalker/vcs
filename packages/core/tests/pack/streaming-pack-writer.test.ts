@@ -16,7 +16,7 @@ import {
   parsePackEntries,
   parsePackEntriesFromStream,
   StreamingPackWriter,
-} from "../../src/backend/git/pack/index.js";
+} from "../../src/pack/index.js";
 
 beforeAll(() => {
   setCompressionUtils(createNodeCompression());

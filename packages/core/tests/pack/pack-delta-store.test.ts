@@ -14,7 +14,7 @@ import {
   PackObjectType,
   writePack,
   writePackIndexV2,
-} from "../../src/backend/git/pack/index.js";
+} from "../../src/pack/index.js";
 import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
 import type { DeltaInfo } from "../../src/storage/delta/delta-store.js";
 

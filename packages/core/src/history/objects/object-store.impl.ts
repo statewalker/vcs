@@ -1,12 +1,10 @@
-import { deflate, inflate } from "@statewalker/vcs-utils";
-import { Sha1 } from "@statewalker/vcs-utils/hash/sha1";
-import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
+import { deflate, inflate } from "@statewalker/vcs-utils/compression";
 import type { ObjectId } from "../../common/id/index.js";
 import type { VolatileStore } from "../../storage/binary/volatile-store.js";
 import { MemoryVolatileStore } from "../../storage/binary/volatile-store.memory.js";
 import type { RawStorage } from "../../storage/raw/raw-storage.js";
+import { handleTypedContent } from "./handle-typed-content.js";
 import { loadWithHeader } from "./load-with-header.js";
-import { encodeObjectHeader } from "./object-header.js";
 import type { GitObjectHeader, GitObjectStore, GitObjectStoreOptions } from "./object-store.js";
 import type { ObjectTypeString } from "./object-types.js";
 
@@ -42,68 +40,30 @@ export class GitObjectStoreImpl implements GitObjectStore {
     type: ObjectTypeString,
     content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   ): Promise<ObjectId> {
-    const buffered = await this.volatile.store(content);
-    try {
-      return await this.storeWithSize(type, buffered.size, buffered.read());
-    } finally {
-      await buffered.dispose();
-    }
-  }
+    return await handleTypedContent({
+      volatile: this.volatile,
+      type,
+      content,
+      handle: async (id, full) => {
+        // Skip write if object already exists — content-addressed objects are
+        // immutable, so storing the same ID again is a no-op. This prevents
+        // errors when BrowserFilesApi's createWritable() fails on existing files.
+        if (!(await this.storage.has(id))) {
+          // Get content stream to store
+          let contentToStore: AsyncIterable<Uint8Array> = full.read();
 
-  /**
-   * Store content with known size (optimized path)
-   *
-   * Computes hash while streaming content to storage.
-   * Use this when content size is known upfront (e.g., commits, trees, tags).
-   */
-  private async storeWithSize(
-    type: ObjectTypeString,
-    size: number,
-    content: AsyncIterable<Uint8Array>,
-  ): Promise<ObjectId> {
-    // Build the Git object: header + content, computing hash as we go
-    const header = encodeObjectHeader(type, size);
-    const hasher = new Sha1();
-    const fullContent = (async function* prependedStream(
-      content: AsyncIterable<Uint8Array>,
-    ): AsyncIterable<Uint8Array> {
-      hasher.update(header);
-      yield header;
-      for await (const chunk of content) {
-        hasher.update(chunk);
-        yield chunk;
-      }
-    })(content);
+          if (this.compress) {
+            // Apply compression if needed
+            contentToStore = deflate(contentToStore, { raw: false });
+          }
 
-    // Store the full content in volatile storage first to compute hash
-    const bufferedWithHash = await this.volatile.store(fullContent);
-    let id: ObjectId;
-    try {
-      // Compute final hash
-      id = bytesToHex(hasher.finalize());
+          // Store in raw storage
+          await this.storage.store(id, contentToStore);
+        }
 
-      // Skip write if object already exists — content-addressed objects are
-      // immutable, so storing the same ID again is a no-op. This prevents
-      // errors when BrowserFilesApi's createWritable() fails on existing files.
-      if (await this.storage.has(id)) {
         return id;
-      }
-
-      // Get content stream to store
-      let contentToStore: AsyncIterable<Uint8Array> = bufferedWithHash.read();
-
-      // Apply compression if needed
-      if (this.compress) {
-        contentToStore = deflate(contentToStore, { raw: false });
-      }
-
-      // Store in raw storage
-      await this.storage.store(id, contentToStore);
-    } finally {
-      await bufferedWithHash.dispose();
-    }
-
-    return id;
+      },
+    });
   }
 
   /**
@@ -168,4 +128,30 @@ export class GitObjectStoreImpl implements GitObjectStore {
   async *list(): AsyncIterable<ObjectId> {
     yield* this.storage.keys();
   }
+}
+
+/**
+ * Create a Git object store with the given storage backend
+ *
+ * This is the primary factory function for creating GitObjectStore instances.
+ * For Git-compatible file storage, set compress: true.
+ *
+ * @param storage Raw storage backend for persisted objects
+ * @param options Additional options (volatile store, compression)
+ * @returns GitObjectStore instance
+ *
+ * @example
+ * ```typescript
+ * // Simple in-memory store
+ * const store = createGitObjectStore(new MemoryRawStorage());
+ *
+ * // Git-compatible file store with compression
+ * const store = createGitObjectStore(fileStorage, { compress: true });
+ * ```
+ */
+export function createGitObjectStore(
+  storage: RawStorage,
+  options?: Omit<GitObjectStoreOptions, "storage">,
+): GitObjectStore {
+  return new GitObjectStoreImpl({ storage, ...options });
 }

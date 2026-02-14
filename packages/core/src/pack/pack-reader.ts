@@ -10,8 +10,8 @@
 
 import { applyGitDelta, decompressBlockPartial } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
-import { type FilesApi, readAt } from "../../../common/files/index.js";
-import type { ObjectId } from "../../../common/id/index.js";
+import { type FilesApi, readAt } from "../common/files/index.js";
+import type { ObjectId } from "../common/id/index.js";
 import type { RandomAccessReader } from "./random-access-delta.js";
 import { RandomAccessDeltaReader } from "./random-access-delta-reader.js";
 

@@ -8,7 +8,7 @@
  * PackDeltaStore handles object loading and delta resolution internally.
  */
 
-import type { PackDeltaStore } from "../../backend/git/pack/index.js";
+import type { PackDeltaStore } from "../../pack/index.js";
 import type { ObjectId } from "../../common/id/object-id.js";
 import type {
   BlobDeltaChainInfo,
