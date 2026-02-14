@@ -128,7 +128,7 @@ export function createHistoryFromStores(config: HistoryStoresConfig): History {
  * ```
  */
 export function createHistoryFromComponents(config: HistoryComponentsConfig): History {
-  const blobs = createBlobs(config.blobStorage);
+  const blobs = createBlobs(config.objects);
   const trees = createTrees(config.objects);
   const commits = createCommits(config.objects);
   const tags = createTags(config.objects);
@@ -207,14 +207,12 @@ export function createMemoryHistory(): History {
 export function createMemoryHistoryWithOperations(
   _config: MemoryBackendConfig = {},
 ): HistoryWithOperations {
-  // Create memory storage for blobs (separate from object storage)
-  const blobStorage = new MemoryRawStorage();
   // Create memory object storage for trees, commits, tags
   const objectStorage = new MemoryRawStorage();
   const objects = createGitObjectStore(objectStorage);
 
   // Create typed stores using new interfaces
-  const blobs = createBlobs(blobStorage);
+  const blobs = createBlobs(objects);
   const trees = createTrees(objects);
   const commits = createCommits(objects);
   const tags = createTags(objects);
