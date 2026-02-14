@@ -13,7 +13,7 @@
  */
 
 import { bytesToHex, hexToBytes } from "@statewalker/vcs-utils/hash/utils";
-import { asAsyncIterable, concat, encodeString } from "@statewalker/vcs-utils/streams";
+import { collect, concat, encodeString, toArray } from "@statewalker/vcs-utils/streams";
 import { FileMode } from "../../common/files/index.js";
 import { GitFormat } from "../../common/id/object-id.js";
 import type { TreeEntry } from "./tree-entry.js";
@@ -122,7 +122,7 @@ export async function* encodeTreeEntries(
 ): AsyncGenerator<Uint8Array> {
   // Collect and sort entries
   const collected: TreeEntry[] = [];
-  for await (const entry of asAsyncIterable(entries)) {
+  for await (const entry of entries) {
     validateEntryName(entry.name);
     collected.push(entry);
   }
@@ -174,7 +174,7 @@ export async function computeTreeSize(
   let size = 0;
   const encoder = new TextEncoder();
 
-  for await (const entry of asAsyncIterable(entries)) {
+  for await (const entry of entries) {
     const mode = encodeMode(entry.mode);
     const name = encoder.encode(entry.name);
     size += mode.length + 1 + name.length + 1 + OBJECT_ID_LENGTH;
@@ -190,7 +190,7 @@ export async function computeTreeSize(
  * @yields Tree entries in stored order
  */
 export async function* decodeTreeEntries(
-  input: AsyncIterable<Uint8Array>,
+  input: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
 ): AsyncGenerator<TreeEntry> {
   let buffer = new Uint8Array(0);
 
@@ -253,10 +253,33 @@ export async function* decodeTreeEntries(
 }
 
 /**
+ * Serialize tree entries to bytes via streaming internals
+ *
+ * @param entries Tree entries (any order, will be sorted)
+ * @returns Serialized tree content (without header)
+ */
+export async function collectTreeBytes(
+  entries: AsyncIterable<TreeEntry> | Iterable<TreeEntry>,
+): Promise<Uint8Array> {
+  return collect(encodeTreeEntries(entries));
+}
+
+/**
+ * Parse tree entries from bytes via streaming internals
+ *
+ * @param data Serialized tree content (without header)
+ * @returns Array of tree entries
+ */
+export async function parseTreeFromBytes(data: Uint8Array): Promise<TreeEntry[]> {
+  return toArray(decodeTreeEntries([data]));
+}
+
+/**
  * Serialize tree entries to Git tree format (buffer-based)
  *
  * @param entries Tree entries (will be sorted)
  * @returns Serialized tree content (without header)
+ * @deprecated Use collectTreeBytes or encodeTreeEntries
  */
 export function serializeTree(entries: TreeEntry[]): Uint8Array {
   // Validate all entry names first

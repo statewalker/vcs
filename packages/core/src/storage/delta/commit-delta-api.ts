@@ -50,7 +50,7 @@ export interface CommitDeltaApi {
   deltifyCommit(
     targetId: ObjectId,
     baseId: ObjectId,
-    delta: AsyncIterable<Uint8Array>,
+    delta: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   ): Promise<void>;
 
   /**

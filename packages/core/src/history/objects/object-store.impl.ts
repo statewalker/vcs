@@ -14,7 +14,7 @@ import type { ObjectTypeString } from "./object-types.js";
  * This implementation uses the new RawStorage interface for storing Git objects.
  * It supports optional compression (needed for Git-compatible file storage).
  */
-export class GitObjectStoreImpl implements GitObjectStore {
+class GitObjectStoreImpl implements GitObjectStore {
   private readonly volatile: VolatileStore;
   private readonly storage: RawStorage;
   private readonly compress: boolean;
@@ -24,10 +24,10 @@ export class GitObjectStoreImpl implements GitObjectStore {
    *
    * @param options Configuration options including storage backend
    */
-  constructor(options: GitObjectStoreOptions) {
-    this.storage = options.storage;
-    this.volatile = options.volatile ?? new MemoryVolatileStore();
-    this.compress = options.compress ?? false;
+  constructor({ storage, volatile, compress = true }: GitObjectStoreOptions) {
+    this.storage = storage;
+    this.volatile = volatile ?? new MemoryVolatileStore();
+    this.compress = compress;
   }
 
   /**

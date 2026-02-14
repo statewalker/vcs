@@ -12,7 +12,7 @@
  *   <tag message>
  */
 
-import { asAsyncIterable, mapStream, toLines } from "@statewalker/vcs-utils/streams";
+import { collect, mapStream, toLines } from "@statewalker/vcs-utils/streams";
 import { formatPersonIdent, parsePersonIdent } from "../format/person-ident.js";
 import type { TagEntry } from "../format/types.js";
 import { typeCodeToString, typeStringToCode } from "../objects/object-header.js";
@@ -92,7 +92,7 @@ export async function computeTagSize(
  * @yields Tag entries in order
  */
 export async function* decodeTagEntries(
-  input: AsyncIterable<Uint8Array>,
+  input: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
 ): AsyncGenerator<TagEntry> {
   let inGpgSig = false;
   let inMessage = false;
@@ -219,7 +219,7 @@ export async function entriesToTag(
   let gpgSignature: string | undefined;
   let message = "";
 
-  for await (const entry of asAsyncIterable(entries)) {
+  for await (const entry of entries) {
     switch (entry.type) {
       case "object":
         object = entry.value;
@@ -278,10 +278,31 @@ export async function entriesToTag(
 }
 
 /**
+ * Serialize tag to bytes via streaming internals
+ *
+ * @param tag Tag object
+ * @returns Serialized tag content (without header)
+ */
+export async function collectTagBytes(tag: AnnotatedTag): Promise<Uint8Array> {
+  return collect(encodeTagEntries(tagToEntries(tag)));
+}
+
+/**
+ * Parse tag from bytes via streaming internals
+ *
+ * @param data Serialized tag content (without header)
+ * @returns Parsed tag object
+ */
+export async function parseTagFromBytes(data: Uint8Array): Promise<AnnotatedTag> {
+  return entriesToTag(decodeTagEntries([data]));
+}
+
+/**
  * Serialize an annotated tag to Git tag format (buffer-based)
  *
  * @param tag Tag object
  * @returns Serialized tag content (without header)
+ * @deprecated Use collectTagBytes or encodeTagEntries(tagToEntries(tag))
  */
 export function serializeTag(tag: AnnotatedTag): Uint8Array {
   const encoder = new TextEncoder();

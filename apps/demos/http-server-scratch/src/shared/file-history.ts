@@ -7,6 +7,7 @@
 
 import {
   CompressedRawStorage,
+  createBlobs,
   createCommits,
   createFileRefStore,
   createGitObjectStore,
@@ -16,7 +17,6 @@ import {
   createTrees,
   FileRawStorage,
   type FilesApi,
-  GitBlobStore,
   type GitObjectStore,
   type History,
   joinPath,
@@ -86,7 +86,7 @@ export async function createFileHistory(options: CreateFileHistoryOptions): Prom
   const objects = createGitObjectStore(compressedStorage);
   const refStore = createFileRefStore(files, gitDir);
 
-  const blobs = new GitBlobStore(objects);
+  const blobs = createBlobs(objects);
   const trees = createTrees(objects);
   const commits = createCommits(objects);
   const tags = createTags(objects);

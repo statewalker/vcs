@@ -5,8 +5,8 @@
  * and consistent method names (remove instead of delete).
  */
 
-import type { PersonIdent } from "../../common/person/person-ident.js";
 import type { ObjectId } from "../../common/index.js";
+import type { PersonIdent } from "../../common/person/person-ident.js";
 import type { ObjectStorage } from "../objects/index.js";
 import type { ObjectTypeCode } from "../objects/object-types.js";
 

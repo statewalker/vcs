@@ -20,7 +20,7 @@ import type { AncestryOptions, Commit, Commits } from "./commits.js";
  *
  * Handles commit serialization and provides graph traversal.
  */
-export class GitCommitStore implements Commits {
+class GitCommitStore implements Commits {
   constructor(private readonly objects: GitObjectStore) {}
 
   // ============ New Commits Interface ============

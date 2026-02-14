@@ -15,7 +15,7 @@ import type { AnnotatedTag, Tags } from "./tags.js";
  *
  * Handles tag serialization and delegates storage to GitObjectStore.
  */
-export class GitTagStore implements Tags {
+class GitTagStore implements Tags {
   constructor(private readonly objects: GitObjectStore) {}
 
   // ============ New Tags Interface ============

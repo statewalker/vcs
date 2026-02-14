@@ -14,7 +14,7 @@ import type { Blobs } from "./blobs.js";
  *
  * Delegates all operations to GitObjectStore with "blob" type.
  */
-export class GitBlobStore implements Blobs {
+class GitBlobStore implements Blobs {
   constructor(private readonly objects: GitObjectStore) {}
 
   /**
@@ -99,10 +99,12 @@ export class GitBlobStore implements Blobs {
    * Get blob size in bytes
    */
   async size(id: ObjectId): Promise<number> {
-    if (!(await this.has(id))) {
-      return -1;
-    }
     const header = await this.objects.getHeader(id);
+    if (header.type !== "blob") {
+      throw new Error(
+        `Object ${id} is not a blob (found type: ${header.type})`,
+      );
+    }
     return header.size;
   }
 }

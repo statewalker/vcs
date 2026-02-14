@@ -9,6 +9,7 @@
 
 import {
   CompressedRawStorage,
+  createBlobs,
   createCommits,
   createFileRefStore,
   createGitObjectStore,
@@ -18,7 +19,6 @@ import {
   createTrees,
   FileRawStorage,
   type FilesApi,
-  GitBlobStore,
   type GitObjectStore,
   type History,
   joinPath,
@@ -53,7 +53,7 @@ export interface GitFilesBackendResult {
  *
  * Wires up all storage layers from a single FilesApi:
  * 1. FileRawStorage → CompressedRawStorage → GitObjectStore (loose objects)
- * 2. GitBlobStore (blobs with Git headers in shared objects dir)
+ * 2. Blobs (via createBlobs, with Git headers in shared objects dir)
  * 3. Trees, Commits, Tags (from GitObjectStore)
  * 4. FileRefStore → Refs adapter
  * 5. Composed into History via createHistoryFromStores()
@@ -93,7 +93,7 @@ export async function createGitFilesBackend(
   const objects = createGitObjectStore(compressedStorage);
   const refStore = createFileRefStore(files, gitDir);
 
-  const blobs = new GitBlobStore(objects);
+  const blobs = createBlobs(objects);
   const trees = createTrees(objects);
   const commits = createCommits(objects);
   const tags = createTags(objects);

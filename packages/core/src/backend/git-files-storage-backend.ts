@@ -18,6 +18,7 @@ import type { Commits } from "../history/commits/commits.js";
 import type { Refs } from "../history/refs/refs.js";
 import type { Tags } from "../history/tags/tags.js";
 import type { Trees } from "../history/trees/trees.js";
+import type { PackDeltaStore } from "../pack/index.js";
 import type {
   BlobDeltaApi,
   BlobDeltaChainInfo,
@@ -29,7 +30,6 @@ import { parseBinaryDelta } from "../storage/delta/delta-binary-format.js";
 import { GitFilesCommitDeltaApi } from "../storage/delta/git-commit-delta-api.js";
 import { GitFilesTreeDeltaApi } from "../storage/delta/git-tree-delta-api.js";
 import type { TreeDeltaApi } from "../storage/delta/tree-delta-api.js";
-import type { PackDeltaStore } from "../pack/index.js";
 import type { BaseBackendConfig } from "./history-backend-factory.js";
 
 /**

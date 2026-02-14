@@ -32,7 +32,11 @@ export interface DeltaTracker {
   /** Get delta chain info */
   getChain(id: ObjectId): Promise<BlobDeltaChainInfo | undefined>;
   /** Store blob as delta */
-  storeDelta(targetId: ObjectId, baseId: ObjectId, delta: Uint8Array): Promise<void>;
+  storeDelta(
+    targetId: ObjectId,
+    baseId: ObjectId,
+    delta: Iterable<Uint8Array> | AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  ): Promise<void>;
   /** Expand delta to full content */
   undeltify(id: ObjectId): Promise<void>;
   /** List all delta relationships */
@@ -66,21 +70,13 @@ export class MemoryBlobDeltaApi implements BlobDeltaApi {
   async deltifyBlob(
     targetId: ObjectId,
     baseId: ObjectId,
-    delta: AsyncIterable<Uint8Array>,
+    delta: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   ): Promise<void> {
     if (!this.tracker) {
       // No delta tracking - silently ignore
       return;
     }
-
-    // Collect delta bytes
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of delta) {
-      chunks.push(chunk);
-    }
-    const deltaBytes = concatBytes(chunks);
-
-    await this.tracker.storeDelta(targetId, baseId, deltaBytes);
+    await this.tracker.storeDelta(targetId, baseId, delta);
   }
 
   async undeltifyBlob(id: ObjectId): Promise<void> {
@@ -173,18 +169,4 @@ export class MemoryDeltaApi implements DeltaApi {
     }
     // Memory backend doesn't need rollback
   }
-}
-
-/**
- * Concatenate byte arrays
- */
-function concatBytes(chunks: Uint8Array[]): Uint8Array {
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return result;
 }

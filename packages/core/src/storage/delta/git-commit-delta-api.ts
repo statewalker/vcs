@@ -8,8 +8,9 @@
  * PackDeltaStore handles object loading and delta resolution internally.
  */
 
-import type { PackDeltaStore } from "../../pack/index.js";
+import { collect } from "@statewalker/vcs-utils";
 import type { ObjectId } from "../../common/id/object-id.js";
+import type { PackDeltaStore } from "../../pack/index.js";
 import type {
   BlobDeltaChainInfo,
   DeltaCandidateSource,
@@ -41,20 +42,17 @@ export class GitFilesCommitDeltaApi implements CommitDeltaApi {
   async deltifyCommit(
     targetId: ObjectId,
     baseId: ObjectId,
-    delta: AsyncIterable<Uint8Array>,
+    delta: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
   ): Promise<void> {
     // Collect delta bytes
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of delta) {
-      chunks.push(chunk);
-    }
+    const chunks: Uint8Array = await collect(delta);
 
     // Start batch update to create pack with delta
     const update = this.packDeltaStore.startUpdate();
 
     // Store target as delta
-    const deltaBytes = concatBytes(chunks);
-    const deltaInstructions = parseBinaryDelta(deltaBytes);
+    // const deltaBytes = concatBytes(chunks);
+    const deltaInstructions = parseBinaryDelta(chunks);
 
     await update.storeDelta({ baseKey: baseId, targetKey: targetId }, deltaInstructions);
 
@@ -88,18 +86,4 @@ export class GitFilesCommitDeltaApi implements CommitDeltaApi {
       baseIds: chainInfo.chain,
     };
   }
-}
-
-/**
- * Concatenate byte arrays
- */
-function concatBytes(chunks: Uint8Array[]): Uint8Array {
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return result;
 }

@@ -12,8 +12,8 @@
  *   <commit message>
  */
 
-// import { collect, encodeString } from "@statewalker/vcs-utils/streams";
 import { toLines } from "@statewalker/vcs-utils";
+import { collect } from "@statewalker/vcs-utils/streams";
 import { formatPersonIdent, parsePersonIdent } from "../format/person-ident.js";
 import type { CommitEntry } from "../format/types.js";
 import type { Commit } from "./commits.js";
@@ -270,10 +270,31 @@ export async function entriesToCommit(
 }
 
 /**
+ * Serialize commit to bytes via streaming internals
+ *
+ * @param commit Commit object
+ * @returns Serialized commit content (without header)
+ */
+export async function collectCommitBytes(commit: Commit): Promise<Uint8Array> {
+  return collect(encodeCommitEntries(commitToEntries(commit)));
+}
+
+/**
+ * Parse commit from bytes via streaming internals
+ *
+ * @param data Serialized commit content (without header)
+ * @returns Parsed commit object
+ */
+export async function parseCommitFromBytes(data: Uint8Array): Promise<Commit> {
+  return entriesToCommit(decodeCommitEntries([data]));
+}
+
+/**
  * Serialize a commit to Git commit format (buffer-based)
  *
  * @param commit Commit object
  * @returns Serialized commit content (without header)
+ * @deprecated Use collectCommitBytes or encodeCommitEntries(commitToEntries(commit))
  */
 export function serializeCommit(commit: Commit): Uint8Array {
   const encoder = new TextEncoder();

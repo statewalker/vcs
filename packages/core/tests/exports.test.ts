@@ -6,17 +6,17 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  createBlobs,
+  createCommits,
+  createGitObjectStore,
   createPersonIdent,
   createRef,
   createSymbolicRef,
+  createTags,
+  createTrees,
   DeleteStagingEntry,
   FileMode,
   formatPersonIdent,
-  GitBlobStore,
-  GitCommitStore,
-  GitObjectStoreImpl,
-  GitTagStore,
-  GitTreeStore,
   isSymbolicRef,
   // Raw storage
   MemoryRawStorage,
@@ -151,29 +151,29 @@ describe("Core exports", () => {
   });
 
   describe("Store implementations", () => {
-    it("exports GitBlobStore class", () => {
-      expect(GitBlobStore).toBeDefined();
-      expect(typeof GitBlobStore).toBe("function");
+    it("exports createBlobs factory", () => {
+      expect(createBlobs).toBeDefined();
+      expect(typeof createBlobs).toBe("function");
     });
 
-    it("exports GitCommitStore class", () => {
-      expect(GitCommitStore).toBeDefined();
-      expect(typeof GitCommitStore).toBe("function");
+    it("exports createCommits factory", () => {
+      expect(createCommits).toBeDefined();
+      expect(typeof createCommits).toBe("function");
     });
 
-    it("exports GitTreeStore class", () => {
-      expect(GitTreeStore).toBeDefined();
-      expect(typeof GitTreeStore).toBe("function");
+    it("exports createTrees factory", () => {
+      expect(createTrees).toBeDefined();
+      expect(typeof createTrees).toBe("function");
     });
 
-    it("exports GitTagStore class", () => {
-      expect(GitTagStore).toBeDefined();
-      expect(typeof GitTagStore).toBe("function");
+    it("exports createTags factory", () => {
+      expect(createTags).toBeDefined();
+      expect(typeof createTags).toBe("function");
     });
 
-    it("exports GitObjectStoreImpl class", () => {
-      expect(GitObjectStoreImpl).toBeDefined();
-      expect(typeof GitObjectStoreImpl).toBe("function");
+    it("exports createGitObjectStore factory", () => {
+      expect(createGitObjectStore).toBeDefined();
+      expect(typeof createGitObjectStore).toBe("function");
     });
   });
 });
