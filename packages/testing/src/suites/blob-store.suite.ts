@@ -340,10 +340,11 @@ export function createBlobStoreTests(name: string, factory: BlobStoreFactory): v
         expect(result).toBeUndefined();
       });
 
-      it("throws when getting size of non-existent blob", async () => {
+      it("returns -1 for size of non-existent blob", async () => {
         const nonExistentId = "0000000000000000000000000000000000000000";
 
-        await expect(ctx.blobStore.size(nonExistentId)).rejects.toThrow();
+        const size = await ctx.blobStore.size(nonExistentId);
+        expect(size).toBe(-1);
       });
 
       it("handles empty content correctly", async () => {
