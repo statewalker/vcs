@@ -1,67 +1,104 @@
 /**
- * Tags implementation using GitObjectStore
+ * Git tag store implementation
  *
- * This implementation wraps GitObjectStore for annotated tag storage,
- * ensuring Git-compatible format and SHA-1 computation.
+ * Wraps GitObjectStore with tag serialization/deserialization.
  */
 
 import type { ObjectId } from "../../common/id/index.js";
 import type { GitObjectStore } from "../objects/object-store.js";
 import { ObjectType } from "../objects/object-types.js";
 import { decodeTagEntries, encodeTagEntries, entriesToTag, tagToEntries } from "./tag-format.js";
-import type { Tag, Tags } from "./tags.js";
+import type { AnnotatedTag, Tags } from "./tags.js";
 
 /**
- * Storage-agnostic Tags implementation using GitObjectStore
+ * Git tag store implementation
  *
- * Stores annotated tags in Git binary format for compatibility with
- * transport layer and SHA-1 computation.
+ * Handles tag serialization and delegates storage to GitObjectStore.
  */
-export class TagsImpl implements Tags {
+export class GitTagStore implements Tags {
   constructor(private readonly objects: GitObjectStore) {}
 
+  // ============ New Tags Interface ============
+
   /**
-   * Store an annotated tag
-   *
-   * @param tag Tag data
-   * @returns ObjectId of the stored tag
+   * Store an annotated tag (new interface)
    */
-  async store(tag: Tag): Promise<ObjectId> {
+  async store(tag: AnnotatedTag): Promise<ObjectId> {
     const entries = tagToEntries(tag);
     return this.objects.store("tag", encodeTagEntries(entries));
   }
 
   /**
-   * Load a tag by ID
-   *
-   * @param id Tag object ID
-   * @returns Tag data if found, undefined otherwise
+   * Load a tag by ID (new interface)
+   * Returns undefined if tag doesn't exist.
    */
-  async load(id: ObjectId): Promise<Tag | undefined> {
-    if (!(await this.objects.has(id))) {
+  async load(id: ObjectId): Promise<AnnotatedTag | undefined> {
+    if (!(await this.has(id))) {
       return undefined;
     }
+    return this.loadTagInternal(id);
+  }
 
+  /**
+   * Remove tag (new interface)
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    return this.objects.remove(id);
+  }
+
+  /**
+   * Load an annotated tag by ID (internal implementation)
+   */
+  private async loadTagInternal(id: ObjectId): Promise<AnnotatedTag> {
     const [header, content] = await this.objects.loadWithHeader(id);
     try {
       if (header.type !== "tag") {
-        // Not a tag, close the stream
-        await content?.return?.(void 0);
-        return undefined;
+        throw new Error(`Object ${id} is not a tag (found type: ${header.type})`);
       }
       const entries = decodeTagEntries(content);
       return entriesToTag(entries);
-    } catch {
-      await content?.return?.(void 0);
+    } catch (err) {
+      content?.return?.(void 0);
+      throw err;
+    }
+  }
+
+  // ============ Common Methods ============
+
+  /**
+   * Get the tagged object ID
+   *
+   * Follows tag chains if peel is true.
+   * Returns undefined if tag doesn't exist (new interface behavior).
+   */
+  async getTarget(id: ObjectId, peel = false): Promise<ObjectId | undefined> {
+    if (!(await this.has(id))) {
       return undefined;
+    }
+
+    const tag = await this.loadTagInternal(id);
+
+    if (!peel || tag.objectType !== ObjectType.TAG) {
+      return tag.object;
+    }
+
+    // Follow tag chain
+    let currentId = tag.object;
+    while (true) {
+      if (!(await this.objects.has(currentId))) {
+        return currentId;
+      }
+      const header = await this.objects.getHeader(currentId);
+      if (header.type !== "tag") {
+        return currentId;
+      }
+      const nextTag = await this.loadTagInternal(currentId);
+      currentId = nextTag.object;
     }
   }
 
   /**
    * Check if tag exists
-   *
-   * @param id Tag object ID
-   * @returns True if tag exists
    */
   async has(id: ObjectId): Promise<boolean> {
     if (!(await this.objects.has(id))) {
@@ -76,19 +113,7 @@ export class TagsImpl implements Tags {
   }
 
   /**
-   * Remove a tag
-   *
-   * @param id Tag object ID
-   * @returns True if tag was removed, false if it didn't exist
-   */
-  remove(id: ObjectId): Promise<boolean> {
-    return this.objects.remove(id);
-  }
-
-  /**
-   * Iterate over all stored tag IDs
-   *
-   * @returns AsyncIterable of all tag object IDs
+   * Enumerate all tag object IDs
    */
   async *keys(): AsyncIterable<ObjectId> {
     for await (const id of this.objects.list()) {
@@ -102,40 +127,6 @@ export class TagsImpl implements Tags {
       }
     }
   }
-
-  /**
-   * Get the target object ID
-   *
-   * @param tagId Tag object ID
-   * @param peel If true, follow tag chains to the final non-tag object
-   * @returns Target object ID if tag exists, undefined otherwise
-   */
-  async getTarget(tagId: ObjectId, peel?: boolean): Promise<ObjectId | undefined> {
-    const tag = await this.load(tagId);
-    if (!tag) {
-      return undefined;
-    }
-
-    if (!peel) {
-      return tag.object;
-    }
-
-    // Peel: follow tag chains to the final non-tag object
-    let targetId = tag.object;
-    let targetType = tag.objectType;
-
-    while (targetType === ObjectType.TAG) {
-      const innerTag = await this.load(targetId);
-      if (!innerTag) {
-        // Target tag doesn't exist, return what we have
-        return targetId;
-      }
-      targetId = innerTag.object;
-      targetType = innerTag.objectType;
-    }
-
-    return targetId;
-  }
 }
 
 /**
@@ -145,5 +136,5 @@ export class TagsImpl implements Tags {
  * @returns Tags instance
  */
 export function createTags(objects: GitObjectStore): Tags {
-  return new TagsImpl(objects);
+  return new GitTagStore(objects);
 }

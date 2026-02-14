@@ -1,98 +1,126 @@
 /**
- * Trees implementation using GitObjectStore
+ * Git tree store implementation
  *
- * This implementation wraps GitObjectStore for tree storage,
- * ensuring Git-compatible format and SHA-1 computation.
+ * Wraps GitObjectStore with tree serialization/deserialization.
  */
 
 import type { ObjectId } from "../../common/id/index.js";
 import type { GitObjectStore } from "../objects/object-store.js";
 import type { TreeEntry } from "./tree-entry.js";
 import { decodeTreeEntries, EMPTY_TREE_ID, encodeTreeEntries } from "./tree-format.js";
-import type { Tree, Trees } from "./trees.js";
+import type { Trees } from "./trees.js";
 
 /**
- * Storage-agnostic Trees implementation using GitObjectStore
+ * Git tree store implementation
  *
- * Stores trees in Git binary format for compatibility with
- * transport layer and SHA-1 computation.
+ * Handles tree entry serialization (sorting, binary format)
+ * and delegates storage to GitObjectStore.
  */
-export class TreesImpl implements Trees {
+export class GitTreeStore implements Trees {
   constructor(private readonly objects: GitObjectStore) {}
 
+  // ============ New Trees Interface ============
+
   /**
-   * Store a tree
-   *
-   * Entries are collected, sorted canonically, and stored.
-   *
-   * @param tree Tree entries (any order)
-   * @returns ObjectId of the stored tree
+   * Store tree entries (new interface)
    */
-  async store(tree: Tree): Promise<ObjectId> {
-    return this.objects.store("tree", encodeTreeEntries(toIterable(tree)));
+  async store(entries: AsyncIterable<TreeEntry> | Iterable<TreeEntry>): Promise<ObjectId> {
+    return this.objects.store("tree", encodeTreeEntries(entries));
   }
 
   /**
-   * Load tree entries
+   * Load tree entries (new interface)
    *
-   * Returns entries in canonical sorted order (as stored in Git).
-   *
-   * @param id Tree object ID
-   * @returns AsyncIterable of tree entries in sorted order, or undefined if not found
+   * Returns undefined if tree doesn't exist.
    */
   async load(id: ObjectId): Promise<AsyncIterable<TreeEntry> | undefined> {
-    // Handle empty tree specially - no need to look it up in storage
+    // Handle empty tree specially
     if (id === EMPTY_TREE_ID) {
-      return emptyAsyncIterable();
+      return (async function* () {})();
     }
 
-    if (!(await this.objects.has(id))) {
+    if (!(await this.has(id))) {
       return undefined;
+    }
+
+    // Return a new async iterable that wraps the loadTree method
+    const self = this;
+    return (async function* () {
+      yield* self.loadTreeInternal(id);
+    })();
+  }
+
+  /**
+   * Remove tree (new interface)
+   */
+  async remove(id: ObjectId): Promise<boolean> {
+    // Git objects are content-addressed and generally immutable
+    // This is implemented for interface compliance but shouldn't be used in practice
+    return this.objects.remove(id);
+  }
+
+  /**
+   * Load tree entries as stream (internal implementation)
+   *
+   * Handles the well-known empty tree ID specially since it doesn't need
+   * to be stored - it's a virtual constant representing an empty directory.
+   */
+  private async *loadTreeInternal(id: ObjectId): AsyncIterable<TreeEntry> {
+    // Handle empty tree specially - no need to look it up in storage
+    if (id === EMPTY_TREE_ID) {
+      return;
     }
 
     const [header, content] = await this.objects.loadWithHeader(id);
-    if (header.type !== "tree") {
-      // Not a tree, close the stream and return undefined
-      await content?.return?.(void 0);
-      return undefined;
+    try {
+      if (header.type !== "tree") {
+        throw new Error(`Object ${id} is not a tree (found type: ${header.type})`);
+      }
+      yield* decodeTreeEntries(content);
+    } catch (err) {
+      content?.return?.(void 0);
+      throw err;
     }
+  }
 
-    return decodeTreeEntries(content);
+  // ============ Common Methods ============
+
+  /**
+   * Get specific entry from tree
+   */
+  async getEntry(treeId: ObjectId, name: string): Promise<TreeEntry | undefined> {
+    const entries = await this.load(treeId);
+    if (!entries) return undefined;
+    for await (const entry of entries) {
+      if (entry.name === name) {
+        return entry;
+      }
+    }
+    return undefined;
   }
 
   /**
    * Check if tree exists
    *
    * The empty tree is always considered to exist.
-   *
-   * @param id Tree object ID
-   * @returns True if tree exists
    */
   async has(id: ObjectId): Promise<boolean> {
     if (id === EMPTY_TREE_ID) {
       return true;
     }
-    return this.objects.has(id);
-  }
-
-  /**
-   * Remove a tree
-   *
-   * @param id Tree object ID
-   * @returns True if tree was removed, false if it didn't exist
-   */
-  async remove(id: ObjectId): Promise<boolean> {
-    if (id === EMPTY_TREE_ID) {
-      // Can't remove the empty tree - it's virtual
+    if (!(await this.objects.has(id))) {
       return false;
     }
-    return this.objects.remove(id);
+    try {
+      const header = await this.objects.getHeader(id);
+      return header.type === "tree";
+    } catch {
+      return false;
+    }
   }
 
   /**
-   * Iterate over all stored tree IDs
-   *
-   * @returns AsyncIterable of all tree object IDs
+   * Enumerate all tree object IDs
    */
   async *keys(): AsyncIterable<ObjectId> {
     for await (const id of this.objects.list()) {
@@ -108,57 +136,11 @@ export class TreesImpl implements Trees {
   }
 
   /**
-   * Get a single entry from a tree by name
-   *
-   * @param treeId Tree object ID
-   * @param name Entry name to look up
-   * @returns Entry if found, undefined otherwise
-   */
-  async getEntry(treeId: ObjectId, name: string): Promise<TreeEntry | undefined> {
-    const entries = await this.load(treeId);
-    if (!entries) {
-      return undefined;
-    }
-
-    for await (const entry of entries) {
-      if (entry.name === name) {
-        return entry;
-      }
-    }
-    return undefined;
-  }
-
-  /**
-   * Get the well-known empty tree ID
-   *
-   * @returns SHA-1 of the empty tree (4b825dc...)
+   * Get well-known empty tree ID
    */
   getEmptyTreeId(): ObjectId {
     return EMPTY_TREE_ID;
   }
-}
-
-/**
- * Helper function to convert Tree type to async iterable
- */
-function toIterable(tree: Tree): AsyncIterable<TreeEntry> | Iterable<TreeEntry> {
-  // Arrays are iterable
-  if (Array.isArray(tree)) {
-    return tree;
-  }
-  // Check for async iterable
-  if (Symbol.asyncIterator in tree) {
-    return tree as AsyncIterable<TreeEntry>;
-  }
-  // Sync iterable
-  return tree as Iterable<TreeEntry>;
-}
-
-/**
- * Empty async iterable helper
- */
-async function* emptyAsyncIterable(): AsyncIterable<TreeEntry> {
-  // yields nothing
 }
 
 /**
@@ -168,5 +150,5 @@ async function* emptyAsyncIterable(): AsyncIterable<TreeEntry> {
  * @returns Trees instance
  */
 export function createTrees(objects: GitObjectStore): Trees {
-  return new TreesImpl(objects);
+  return new GitTreeStore(objects);
 }
