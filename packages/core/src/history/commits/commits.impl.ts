@@ -1,8 +1,8 @@
 /**
- * Commits implementation using GitObjectStore
+ * Git commit store implementation
  *
- * This implementation wraps GitObjectStore for commit storage,
- * ensuring Git-compatible format and SHA-1 computation.
+ * Wraps GitObjectStore with commit serialization/deserialization.
+ * Provides graph traversal operations for commit history.
  */
 
 import type { ObjectId } from "../../common/id/index.js";
@@ -13,22 +13,20 @@ import {
   encodeCommitEntries,
   entriesToCommit,
 } from "./commit-format.js";
-import type { Commit, Commits, WalkOptions } from "./commits.js";
+import type { AncestryOptions, Commit, Commits } from "./commits.js";
 
 /**
- * Storage-agnostic Commits implementation using GitObjectStore
+ * Git commit store implementation
  *
- * Stores commits in Git binary format for compatibility with
- * transport layer and SHA-1 computation.
+ * Handles commit serialization and provides graph traversal.
  */
-export class CommitsImpl implements Commits {
+export class GitCommitStore implements Commits {
   constructor(private readonly objects: GitObjectStore) {}
 
+  // ============ New Commits Interface ============
+
   /**
-   * Store a commit
-   *
-   * @param commit Commit data
-   * @returns ObjectId of the stored commit
+   * Store a commit object (new interface)
    */
   async store(commit: Commit): Promise<ObjectId> {
     const entries = commitToEntries(commit);
@@ -36,120 +34,75 @@ export class CommitsImpl implements Commits {
   }
 
   /**
-   * Load a commit by ID
-   *
-   * @param id Commit object ID
-   * @returns Commit data if found, undefined otherwise
+   * Load a commit object by ID (new interface)
+   * Returns undefined if commit doesn't exist.
    */
   async load(id: ObjectId): Promise<Commit | undefined> {
-    if (!(await this.objects.has(id))) {
+    if (!(await this.has(id))) {
       return undefined;
     }
-
-    const [header, content] = await this.objects.loadWithHeader(id);
     try {
-      if (header.type !== "commit") {
-        // Not a commit, close the stream
-        await content?.return?.(void 0);
-        return undefined;
-      }
-      const entries = decodeCommitEntries(content);
-      return entriesToCommit(entries);
+      return await this.loadCommitInternal(id);
     } catch {
-      await content?.return?.(void 0);
       return undefined;
     }
   }
 
   /**
-   * Check if commit exists
-   *
-   * @param id Commit object ID
-   * @returns True if commit exists
+   * Remove commit (new interface)
    */
-  async has(id: ObjectId): Promise<boolean> {
-    if (!(await this.objects.has(id))) {
-      return false;
-    }
-    try {
-      const header = await this.objects.getHeader(id);
-      return header.type === "commit";
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Remove a commit
-   *
-   * @param id Commit object ID
-   * @returns True if commit was removed, false if it didn't exist
-   */
-  remove(id: ObjectId): Promise<boolean> {
+  async remove(id: ObjectId): Promise<boolean> {
     return this.objects.remove(id);
   }
 
   /**
-   * Iterate over all stored commit IDs
-   *
-   * @returns AsyncIterable of all commit object IDs
+   * Load a commit object by ID (internal implementation)
    */
-  async *keys(): AsyncIterable<ObjectId> {
-    for await (const id of this.objects.list()) {
-      try {
-        const header = await this.objects.getHeader(id);
-        if (header.type === "commit") {
-          yield id;
-        }
-      } catch {
-        // Skip invalid objects
+  private async loadCommitInternal(id: ObjectId): Promise<Commit> {
+    const [header, content] = await this.objects.loadWithHeader(id);
+    try {
+      if (header.type !== "commit") {
+        throw new Error(`Object ${id} is not a commit (found type: ${header.type})`);
       }
+      const entries = decodeCommitEntries(content);
+      return entriesToCommit(entries);
+    } catch (err) {
+      content?.return?.(void 0);
+      throw err;
     }
   }
 
   /**
    * Get parent commit IDs
-   *
-   * @param commitId Commit object ID
-   * @returns Array of parent commit IDs (empty for root commits)
    */
-  async getParents(commitId: ObjectId): Promise<ObjectId[]> {
-    const commit = await this.load(commitId);
+  async getParents(id: ObjectId): Promise<ObjectId[]> {
+    const commit = await this.load(id);
     return commit?.parents ?? [];
   }
 
   /**
    * Get tree ID for a commit
-   *
-   * @param commitId Commit object ID
-   * @returns Tree ID if commit exists, undefined otherwise
    */
-  async getTree(commitId: ObjectId): Promise<ObjectId | undefined> {
-    const commit = await this.load(commitId);
+  async getTree(id: ObjectId): Promise<ObjectId | undefined> {
+    const commit = await this.load(id);
     return commit?.tree;
   }
 
   /**
-   * Walk commit ancestry
-   *
-   * Traverses the commit graph from a starting point in reverse chronological order.
-   *
-   * @param startId Starting commit ID (or array of IDs)
-   * @param options Walk options (limit, stopAt, firstParentOnly)
-   * @returns AsyncIterable of commit IDs
+   * Walk commit ancestry (depth-first)
    */
   async *walkAncestry(
-    startId: ObjectId | ObjectId[],
-    options?: WalkOptions,
+    startIds: ObjectId | ObjectId[],
+    options: AncestryOptions = {},
   ): AsyncIterable<ObjectId> {
-    const starts = Array.isArray(startId) ? startId : [startId];
+    const starts = Array.isArray(startIds) ? startIds : [startIds];
     const visited = new Set<ObjectId>();
-    const stopAt = new Set(options?.stopAt ?? []);
+    const stopAt = new Set(options.stopAt || []);
     const stack = [...starts];
     let count = 0;
 
     while (stack.length > 0) {
-      if (options?.limit !== undefined && count >= options.limit) {
+      if (options.limit !== undefined && count >= options.limit) {
         break;
       }
 
@@ -165,10 +118,9 @@ export class CommitsImpl implements Commits {
       count++;
 
       const parents = await this.getParents(id);
-      if (options?.firstParentOnly && parents.length > 0) {
+      if (options.firstParentOnly && parents.length > 0) {
         stack.push(parents[0]);
       } else {
-        // Add parents in reverse order so first parent is processed first
         for (let i = parents.length - 1; i >= 0; i--) {
           stack.push(parents[i]);
         }
@@ -177,25 +129,17 @@ export class CommitsImpl implements Commits {
   }
 
   /**
-   * Find merge base between two commits
-   *
-   * Returns the most recent common ancestor(s) of two commits,
-   * or empty array if they share no common history.
-   *
-   * @param commit1 First commit ID
-   * @param commit2 Second commit ID
-   * @returns Array of merge base commit IDs
+   * Find merge base (common ancestor)
    */
-  async findMergeBase(commit1: ObjectId, commit2: ObjectId): Promise<ObjectId[]> {
-    // Collect ancestors of commit1
-    const ancestors1 = new Set<ObjectId>();
-    for await (const id of this.walkAncestry(commit1)) {
-      ancestors1.add(id);
+  async findMergeBase(commitA: ObjectId, commitB: ObjectId): Promise<ObjectId[]> {
+    const ancestorsA = new Set<ObjectId>();
+
+    for await (const id of this.walkAncestry(commitA)) {
+      ancestorsA.add(id);
     }
 
-    // Find first common ancestor in commit2's history
-    for await (const id of this.walkAncestry(commit2)) {
-      if (ancestors1.has(id)) {
+    for await (const id of this.walkAncestry(commitB)) {
+      if (ancestorsA.has(id)) {
         return [id];
       }
     }
@@ -204,20 +148,43 @@ export class CommitsImpl implements Commits {
   }
 
   /**
-   * Check if one commit is an ancestor of another
-   *
-   * @param ancestor Potential ancestor commit ID
-   * @param descendant Potential descendant commit ID
-   * @returns True if ancestor is reachable from descendant
+   * Check if commit exists and is actually a commit object
    */
-  async isAncestor(ancestor: ObjectId, descendant: ObjectId): Promise<boolean> {
-    // A commit is not its own ancestor
-    if (ancestor === descendant) {
+  async has(id: ObjectId): Promise<boolean> {
+    if (!(await this.objects.has(id))) {
       return false;
     }
+    try {
+      const header = await this.objects.getHeader(id);
+      return header.type === "commit";
+    } catch {
+      return false;
+    }
+  }
 
-    for await (const id of this.walkAncestry(descendant)) {
-      if (id === ancestor) {
+  /**
+   * Enumerate all commit object IDs
+   */
+  async *keys(): AsyncIterable<ObjectId> {
+    for await (const id of this.objects.list()) {
+      try {
+        const header = await this.objects.getHeader(id);
+        if (header.type === "commit") {
+          yield id;
+        }
+      } catch {
+        // Skip invalid objects
+      }
+    }
+  }
+
+  /**
+   * Check if commitA is ancestor of commitB
+   */
+  async isAncestor(ancestorId: ObjectId, descendantId: ObjectId): Promise<boolean> {
+    if (ancestorId === descendantId) return false;
+    for await (const id of this.walkAncestry(descendantId)) {
+      if (id === ancestorId) {
         return true;
       }
     }
@@ -232,5 +199,5 @@ export class CommitsImpl implements Commits {
  * @returns Commits instance
  */
 export function createCommits(objects: GitObjectStore): Commits {
-  return new CommitsImpl(objects);
+  return new GitCommitStore(objects);
 }
