@@ -327,11 +327,11 @@ export function commitsConformanceTests(
         expect(await store.isAncestor(id1, id2)).toBe(false);
       });
 
-      it("commit is not its own ancestor", async () => {
+      it("commit is its own ancestor", async () => {
         const commit = createCommit({ message: "Self" });
         const id = await store.store(commit);
 
-        expect(await store.isAncestor(id, id)).toBe(false);
+        expect(await store.isAncestor(id, id)).toBe(true);
       });
     });
 

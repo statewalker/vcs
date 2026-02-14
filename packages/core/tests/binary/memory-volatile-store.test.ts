@@ -187,6 +187,48 @@ describe("MemoryVolatileStore", () => {
     });
   });
 
+  describe("sync iterable support", () => {
+    it("stores sync iterable content", async () => {
+      const store = new MemoryVolatileStore();
+      const data = [encoder.encode("Hello"), encoder.encode(" World")];
+
+      const content = await store.store(data);
+      expect(content.size).toBe(11);
+
+      const result = await collect(content.read());
+      expect(new TextDecoder().decode(result)).toBe("Hello World");
+    });
+
+    it("stores single Uint8Array wrapped in array", async () => {
+      const store = new MemoryVolatileStore();
+      const data = [encoder.encode("Test")];
+
+      const content = await store.store(data);
+      expect(content.size).toBe(4);
+    });
+
+    it("stores empty sync iterable", async () => {
+      const store = new MemoryVolatileStore();
+      const content = await store.store([]);
+
+      expect(content.size).toBe(0);
+    });
+
+    it("stores generator function (sync)", async () => {
+      const store = new MemoryVolatileStore();
+      function* syncChunks(): Iterable<Uint8Array> {
+        yield encoder.encode("AAA");
+        yield encoder.encode("BBB");
+      }
+
+      const content = await store.store(syncChunks());
+      expect(content.size).toBe(6);
+
+      const result = await collect(content.read());
+      expect(new TextDecoder().decode(result)).toBe("AAABBB");
+    });
+  });
+
   describe("multiple stores", () => {
     it("handles multiple independent stores", async () => {
       const store = new MemoryVolatileStore();

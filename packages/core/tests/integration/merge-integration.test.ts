@@ -630,8 +630,8 @@ describe("Merge Integration", () => {
       expect(await history.commits.isAncestor(commit1, commit3)).toBe(true);
       expect(await history.commits.isAncestor(commit2, commit3)).toBe(true);
       expect(await history.commits.isAncestor(commit3, commit1)).toBe(false);
-      // Note: isAncestor uses strict definition - a commit is NOT considered its own ancestor
-      expect(await history.commits.isAncestor(commit1, commit1)).toBe(false);
+      // A commit is considered its own ancestor (matches Git behavior)
+      expect(await history.commits.isAncestor(commit1, commit1)).toBe(true);
     });
   });
 });
