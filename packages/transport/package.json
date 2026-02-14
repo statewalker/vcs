@@ -35,7 +35,8 @@
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
     "test": "vitest run",
-    "lint": "biome lint src tests",
+    "test:bench": "vitest run --config vitest.bench.config.ts",
+    "lint": "biome lint src tests tests-bench",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

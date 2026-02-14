@@ -240,17 +240,6 @@ async function createTestAppContext(): Promise<AppContext> {
 }
 
 /**
- * Wait for async operations to complete.
- * Uses multiple microtask flushes to allow deeply nested promises to resolve.
- */
-async function flushPromises(): Promise<void> {
-  // Multiple flushes to handle nested async operations
-  for (let i = 0; i < 10; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-}
-
-/**
  * Wait for a condition to become true (for async state changes).
  */
 async function waitFor(condition: () => boolean, timeout = 1000, interval = 10): Promise<void> {
@@ -311,8 +300,9 @@ describe("RepositoryController", () => {
     beforeEach(async () => {
       // Initialize repository first
       const actionsModel = getUserActionsModel(ctx);
+      const repoModel = getRepositoryModel(ctx);
       enqueueInitRepoAction(actionsModel);
-      await flushPromises();
+      await waitFor(() => repoModel.getState().initialized);
     });
 
     it("should update commit count when a file is added", async () => {
@@ -400,8 +390,9 @@ describe("RepositoryController", () => {
   describe("model notifications", () => {
     beforeEach(async () => {
       const actionsModel = getUserActionsModel(ctx);
+      const repoModel = getRepositoryModel(ctx);
       enqueueInitRepoAction(actionsModel);
-      await flushPromises();
+      await waitFor(() => repoModel.getState().initialized);
     });
 
     it("should notify listeners when commit count changes", async () => {
@@ -459,10 +450,11 @@ describe("RepositoryController", () => {
   describe("activity log", () => {
     it("should log initialization message", async () => {
       const actionsModel = getUserActionsModel(ctx);
+      const repoModel = getRepositoryModel(ctx);
       const logModel = getActivityLogModel(ctx);
 
       enqueueInitRepoAction(actionsModel);
-      await flushPromises();
+      await waitFor(() => repoModel.getState().initialized);
 
       const entries = logModel.getEntries();
       const initMessages = entries.filter(
@@ -473,15 +465,16 @@ describe("RepositoryController", () => {
 
     it("should log file addition message", async () => {
       const actionsModel = getUserActionsModel(ctx);
+      const repoModel = getRepositoryModel(ctx);
       const logModel = getActivityLogModel(ctx);
 
       // Initialize first
       enqueueInitRepoAction(actionsModel);
-      await flushPromises();
+      await waitFor(() => repoModel.getState().initialized);
 
       // Add a file
       enqueueAddFileAction(actionsModel, { name: "my-file.txt", content: "Content" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().commitCount === 2);
 
       const entries = logModel.getEntries();
       const addMessages = entries.filter((e) => e.message.includes("my-file.txt"));
@@ -492,8 +485,9 @@ describe("RepositoryController", () => {
   describe("refresh", () => {
     beforeEach(async () => {
       const actionsModel = getUserActionsModel(ctx);
+      const repoModel = getRepositoryModel(ctx);
       enqueueInitRepoAction(actionsModel);
-      await flushPromises();
+      await waitFor(() => repoModel.getState().initialized);
     });
 
     it("should refresh repository state on request", async () => {
@@ -506,7 +500,7 @@ describe("RepositoryController", () => {
 
       // Request refresh
       enqueueRefreshRepoAction(actionsModel);
-      await flushPromises();
+      await waitFor(() => listener.mock.calls.length > 0);
 
       // Listener should have been called
       expect(listener).toHaveBeenCalled();
@@ -521,6 +515,7 @@ describe("RepositoryController", () => {
   describe("direct Git verification", () => {
     it("should create actual commits in the Git store", async () => {
       const actionsModel = getUserActionsModel(ctx);
+      const repoModel = getRepositoryModel(ctx);
       const git = getGit(ctx);
       if (!git) {
         throw new Error("Git not initialized");
@@ -528,13 +523,13 @@ describe("RepositoryController", () => {
 
       // Initialize
       enqueueInitRepoAction(actionsModel);
-      await flushPromises();
+      await waitFor(() => repoModel.getState().initialized);
 
       // Add files
       enqueueAddFileAction(actionsModel, { name: "file1.txt", content: "Content 1" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().commitCount === 2);
       enqueueAddFileAction(actionsModel, { name: "file2.txt", content: "Content 2" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().commitCount === 3);
 
       // Verify commits directly via Git API
       const commits: string[] = [];
@@ -550,6 +545,7 @@ describe("RepositoryController", () => {
 
     it("should store files in the repository", async () => {
       const actionsModel = getUserActionsModel(ctx);
+      const repoModel = getRepositoryModel(ctx);
       const worktree = getWorktree(ctx);
       if (!worktree) {
         throw new Error("Worktree not initialized");
@@ -557,11 +553,11 @@ describe("RepositoryController", () => {
 
       // Initialize
       enqueueInitRepoAction(actionsModel);
-      await flushPromises();
+      await waitFor(() => repoModel.getState().initialized);
 
       // Add a file
       enqueueAddFileAction(actionsModel, { name: "hello.txt", content: "Hello, World!" });
-      await flushPromises();
+      await waitFor(() => repoModel.getState().commitCount === 2);
 
       // Verify file exists in working directory
       const content: Uint8Array[] = [];

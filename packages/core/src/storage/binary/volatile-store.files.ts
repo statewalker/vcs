@@ -31,9 +31,7 @@ export class FileVolatileStore implements VolatileStore {
   /**
    * Store content stream temporarily
    */
-  async store(
-    content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
-  ): Promise<VolatileContent> {
+  async store(content: AsyncIterable<Uint8Array> | Iterable<Uint8Array>): Promise<VolatileContent> {
     const tempPath = joinPath(this.tempDir, `temp-${Date.now()}-${this.counter++}`);
 
     // Ensure temp directory exists
