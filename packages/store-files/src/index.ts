@@ -10,4 +10,5 @@
 export * from "./create-git-files-backend.js";
 export * from "./create-git-files-history-with-ops.js";
 export * from "./gc.js";
+export * from "./gc-strategy.js";
 export * from "./repack.js";

@@ -23,8 +23,8 @@ export interface RepackOptions {
   looseStorage: FileRawStorage;
   /** Destination: pack directory for pack files */
   packDirectory: PackDirectory;
-  /** FilesApi for file operations */
-  files: FilesApi;
+  /** @deprecated Unused — kept for backward compatibility */
+  files?: FilesApi;
   /** If true, report what would be done without actually doing it */
   dryRun?: boolean;
 }
