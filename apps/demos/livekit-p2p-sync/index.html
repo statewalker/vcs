@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveKit P2P Git Sync</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --border: #0f3460;
+      --primary: #e94560;
+      --text: #eee;
+      --text-dim: #888;
+      --success: #4ecca3;
+      --error: #ff6b6b;
+      --font: 'Segoe UI', system-ui, sans-serif;
+      --mono: 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    h1 { font-size: 1.4rem; margin-bottom: 1rem; color: var(--primary); }
+    h2 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .panel-connection { grid-column: 1; grid-row: 1; }
+    .panel-peers { grid-column: 2; grid-row: 1; }
+    .panel-repo { grid-column: 1; grid-row: 2; }
+    .panel-files { grid-column: 2; grid-row: 2; }
+    .panel-log { grid-column: 3; grid-row: 1 / 3; }
+
+    input, button, select {
+      font-family: var(--font);
+      font-size: 0.85rem;
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    input { width: 100%; margin-bottom: 0.5rem; }
+    input:focus { outline: 1px solid var(--primary); }
+
+    button {
+      cursor: pointer;
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+      font-weight: 600;
+      margin-right: 0.3rem;
+      margin-bottom: 0.3rem;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.secondary { background: var(--border); border-color: var(--border); }
+
+    .field { margin-bottom: 0.5rem; }
+    .field label { display: block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.2rem; }
+
+    .status { font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 4px; display: inline-block; margin-bottom: 0.5rem; }
+    .status-disconnected { background: #333; }
+    .status-connected { background: #1b4332; color: var(--success); }
+    .status-connecting { background: #332b00; color: #ffd60a; }
+
+    .peer-list { list-style: none; }
+    .peer-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .peer-list li:last-child { border-bottom: none; }
+    .peer-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 0.4rem; }
+
+    .file-list { list-style: none; font-family: var(--mono); font-size: 0.8rem; }
+    .file-list li { padding: 0.2rem 0; }
+
+    .commit-list { list-style: none; font-size: 0.8rem; }
+    .commit-list li { padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
+    .commit-list li:last-child { border-bottom: none; }
+    .commit-hash { color: var(--primary); font-family: var(--mono); }
+    .commit-msg { color: var(--text); }
+    .commit-time { color: var(--text-dim); font-size: 0.7rem; }
+
+    #log-output {
+      background: #111;
+      border-radius: 4px;
+      padding: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      height: 400px;
+      overflow-y: auto;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log-info { color: #888; }
+    .log-success { color: var(--success); }
+    .log-error { color: var(--error); }
+
+    .empty { color: var(--text-dim); font-style: italic; font-size: 0.8rem; }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel-connection, .panel-peers, .panel-repo, .panel-files, .panel-log {
+        grid-column: 1; grid-row: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>LiveKit P2P Git Sync</h1>
+
+  <div class="layout">
+    <!-- Connection Panel -->
+    <div class="panel panel-connection" id="connection-panel">
+      <h2>Connection</h2>
+      <div class="field">
+        <label for="lk-url">LiveKit URL</label>
+        <input type="text" id="lk-url" placeholder="ws://localhost:7880" value="ws://localhost:7880" />
+      </div>
+      <div class="field">
+        <label for="lk-room">Room Name</label>
+        <input type="text" id="lk-room" placeholder="git-sync" value="git-sync" />
+      </div>
+      <div class="field">
+        <label for="lk-identity">Identity</label>
+        <input type="text" id="lk-identity" placeholder="user-1" />
+      </div>
+      <div class="field">
+        <label for="lk-token">Token (leave empty for dev mode)</label>
+        <input type="text" id="lk-token" placeholder="Auto-generated for livekit-server --dev" />
+      </div>
+      <div>
+        <button id="btn-connect">Connect</button>
+        <button id="btn-disconnect" class="secondary" disabled>Disconnect</button>
+      </div>
+      <div id="connection-status" class="status status-disconnected" style="margin-top: 0.5rem;">Disconnected</div>
+    </div>
+
+    <!-- Peers Panel -->
+    <div class="panel panel-peers" id="peers-panel">
+      <h2>Participants</h2>
+      <ul id="peer-list" class="peer-list">
+        <li class="empty">No participants yet</li>
+      </ul>
+    </div>
+
+    <!-- Repository Panel -->
+    <div class="panel panel-repo" id="repo-panel">
+      <h2>Repository</h2>
+      <div style="margin-bottom: 0.5rem;">
+        <button id="btn-init">Init Repo</button>
+        <button id="btn-add-file" class="secondary" disabled>Add File</button>
+      </div>
+      <h2 style="margin-top: 0.5rem;">Commits</h2>
+      <ul id="commit-list" class="commit-list">
+        <li class="empty">No commits</li>
+      </ul>
+    </div>
+
+    <!-- Files Panel -->
+    <div class="panel panel-files" id="files-panel">
+      <h2>Files</h2>
+      <ul id="file-list" class="file-list">
+        <li class="empty">Repository not initialized</li>
+      </ul>
+    </div>
+
+    <!-- Log Panel -->
+    <div class="panel panel-log" id="log-panel">
+      <h2>Activity Log</h2>
+      <div id="log-output"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
