@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-store-files": "workspace:*",
     "@statewalker/vcs-commands": "workspace:*",
     "@statewalker/vcs-transport": "workspace:*",
     "@statewalker/vcs-transport-adapters": "workspace:*",

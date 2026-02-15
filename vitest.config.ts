@@ -74,6 +74,11 @@ export default defineConfig({
         find: "@statewalker/vcs-store-sql/adapters/sql-js",
         replacement: path.resolve(rootDir, "packages/store-sql/src/adapters/sql-js-adapter"),
       },
+      // Core subpath aliases
+      {
+        find: "@statewalker/vcs-core/transformation",
+        replacement: path.resolve(rootDir, "packages/core/src/workspace/transformation"),
+      },
       // Base package aliases (must come after subpath aliases)
       {
         find: "@statewalker/vcs-commands",

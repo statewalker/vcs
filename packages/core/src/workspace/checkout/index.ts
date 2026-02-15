@@ -1,8 +1,4 @@
 // Checkout interface
 export * from "./checkout.js";
-// Checkout implementations
-export * from "./git-checkout.js";
+// Checkout implementations (memory only - file-based moved to store-files)
 export * from "./memory-checkout.js";
-// Legacy implementations (deprecated - temporarily disabled due to removed dependencies)
-// export * from "./checkout-store.files.js";
-// export * from "./checkout-store.memory.js";

@@ -159,6 +159,9 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@statewalker/vcs-store-files':
+        specifier: workspace:*
+        version: link:../../../packages/store-files
       '@statewalker/vcs-store-mem':
         specifier: workspace:*
         version: link:../../../packages/store-mem
@@ -224,6 +227,9 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@statewalker/vcs-store-files':
+        specifier: workspace:*
+        version: link:../../../packages/store-files
       '@statewalker/vcs-store-mem':
         specifier: workspace:*
         version: link:../../../packages/store-mem
@@ -326,6 +332,9 @@ importers:
       '@statewalker/vcs-port-webrtc':
         specifier: workspace:*
         version: link:../../../packages/port-webrtc
+      '@statewalker/vcs-store-files':
+        specifier: workspace:*
+        version: link:../../../packages/store-files
       '@statewalker/vcs-transport':
         specifier: workspace:*
         version: link:../../../packages/transport
@@ -698,6 +707,9 @@ importers:
       '@statewalker/vcs-core':
         specifier: workspace:*
         version: link:../core
+      '@statewalker/vcs-store-files':
+        specifier: workspace:*
+        version: link:../store-files
       '@statewalker/vcs-store-mem':
         specifier: workspace:*
         version: link:../store-mem
