@@ -99,10 +99,16 @@ export async function* decodeTagEntries(
   const gpgSigLines: string[] = [];
   const messageLines: string[] = [];
 
-  for await (const line of toLines(input)) {
-    // If we're in message mode, collect all remaining lines
+  // keepDelimiter=true preserves trailing "\n" for byte-level round-trip fidelity
+  for await (const rawLine of toLines(input, true)) {
+    // Strip line terminator for header parsing
+    let line = rawLine;
+    if (line.endsWith("\n")) line = line.slice(0, -1);
+    if (line.endsWith("\r")) line = line.slice(0, -1);
+
+    // If we're in message mode, collect raw lines preserving delimiters
     if (inMessage) {
-      messageLines.push(line);
+      messageLines.push(rawLine);
       continue;
     }
 
@@ -169,9 +175,9 @@ export async function* decodeTagEntries(
     yield { type: "gpgsig", value: gpgSigLines.join("\n") };
   }
 
-  // Extract message
+  // Extract message — raw lines already include delimiters
   if (messageLines.length > 0) {
-    const message = messageLines.join(LF);
+    const message = messageLines.join("");
     yield { type: "message", value: message };
   }
 }
@@ -433,10 +439,13 @@ export function parseTag(data: Uint8Array): AnnotatedTag {
     throw new Error("Invalid tag: missing tag name");
   }
 
-  // Extract message
+  // Extract message — preserve exact content after the empty-line separator
   let message = "";
-  if (messageStart !== -1 && messageStart < lines.length) {
-    message = lines.slice(messageStart).join(LF);
+  {
+    const sepIdx = text.indexOf("\n\n");
+    if (sepIdx !== -1) {
+      message = text.substring(sepIdx + 2);
+    }
   }
 
   const tag: AnnotatedTag = {

@@ -67,7 +67,8 @@ export async function* encodeCommitEntries(
       case "message":
         // Empty line before message
         yield line("");
-        yield line(entry.value);
+        // Emit message as-is — no trailing \n appended
+        yield encoder.encode(entry.value);
         break;
     }
   }
@@ -99,16 +100,19 @@ export async function computeCommitSize(
 export async function* decodeCommitEntries(
   input: Iterable<Uint8Array> | AsyncIterable<Uint8Array>,
 ): AsyncGenerator<CommitEntry> {
-  // const data = await collect(input);
-  // Split by LF, strip CR for CRLF handling
-  const lines = toLines(input);
+  // keepDelimiter=true preserves trailing "\n" for byte-level round-trip fidelity
+  const rawLines = toLines(input, true);
 
   let inGpgSig = false;
   const gpgSigLines: string[] = [];
   let messageLines: string[] | undefined;
 
-  for await (const rawLine of lines) {
-    const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+  for await (const rawLine of rawLines) {
+    // Strip line terminator for header parsing
+    let line = rawLine;
+    if (line.endsWith("\n")) line = line.slice(0, -1);
+    if (line.endsWith("\r")) line = line.slice(0, -1);
+
     // Continuation line for gpgsig
     if (inGpgSig) {
       if (line.startsWith(" ")) {
@@ -125,7 +129,8 @@ export async function* decodeCommitEntries(
     if (line === "" && !messageLines) {
       messageLines = [];
     } else if (messageLines) {
-      messageLines.push(line);
+      // Collect raw message lines preserving delimiters
+      messageLines.push(rawLine);
     } else {
       // Parse header lines
       const spacePos = line.indexOf(" ");
@@ -163,9 +168,9 @@ export async function* decodeCommitEntries(
     yield { type: "gpgsig", value: gpgSigLines.join("\n") };
   }
 
-  // Extract message
+  // Extract message — raw lines already include delimiters
   if (messageLines) {
-    const message = messageLines.join(LF);
+    const message = messageLines.join("");
     yield { type: "message", value: message };
   }
 }
@@ -331,10 +336,8 @@ export function serializeCommit(commit: Commit): Uint8Array {
   // Empty line before message
   lines.push("");
 
-  // Message
-  lines.push(commit.message);
-
-  return encoder.encode(lines.join(LF) + LF);
+  // Message emitted as-is — no trailing \n appended
+  return encoder.encode(`${lines.join(LF)}\n${commit.message}`);
 }
 
 /**
@@ -422,15 +425,14 @@ export function parseCommit(data: Uint8Array): Commit {
     throw new Error("Invalid commit: missing committer");
   }
 
-  // Extract message — strip trailing empty lines (format artifact from trailing LF,
-  // matching decodeCommitEntries/toLines behavior)
+  // Extract message — preserve exact content after the empty-line separator
   let message = "";
-  if (messageStart !== -1 && messageStart < lines.length) {
-    let end = lines.length;
-    while (end > messageStart && lines[end - 1] === "") {
-      end--;
+  {
+    const normalizedText = text.replace(/\r\n/g, "\n");
+    const sepIdx = normalizedText.indexOf("\n\n");
+    if (sepIdx !== -1) {
+      message = normalizedText.substring(sepIdx + 2);
     }
-    message = lines.slice(messageStart, end).join(LF);
   }
 
   const commit: Commit = {
