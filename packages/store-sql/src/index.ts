@@ -35,6 +35,8 @@ export * from "./binary-storage/index.js";
 export * from "./commit-store.js";
 // Database client interface
 export * from "./database-client.js";
+// GC strategy for SQL storage
+export * from "./gc-strategy.js";
 // Migrations
 export * from "./migrations/index.js";
 // Native SQL stores with query capabilities
