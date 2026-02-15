@@ -3,11 +3,13 @@
  *
  * Creates a History instance from a FilesApi with standard Git on-disk layout:
  * - Loose objects in `.git/objects/XX/XXXX...` (compressed with zlib)
+ * - Pack files in `.git/objects/pack/` (read-only fallback)
  * - Refs in `.git/refs/`, HEAD in `.git/HEAD`
  * - All objects (including blobs) stored with Git headers for format compatibility
  */
 
 import {
+  CompositeRawStorage,
   createFileRefStore,
   createGitObjectStore,
   createHistoryFromComponents,
@@ -16,6 +18,8 @@ import {
   type GitObjectStore,
   type History,
   joinPath,
+  PackDirectory,
+  PackDirectoryAdapter,
 } from "@statewalker/vcs-core";
 
 /**
@@ -40,15 +44,21 @@ export interface GitFilesBackendResult {
   history: History;
   /** Low-level GitObjectStore for raw object access (headers, type codes) */
   objects: GitObjectStore;
+  /** Pack directory for pack file management (repack, GC) */
+  packDirectory: PackDirectory;
+  /** Loose object storage (for repack/GC operations) */
+  looseStorage: FileRawStorage;
 }
 
 /**
  * Create a file-backed Git storage backend.
  *
  * Wires up all storage layers from a single FilesApi:
- * 1. FileRawStorage → GitObjectStore (loose objects with zlib compression)
- * 2. FileRefStore → Refs adapter
- * 3. Composed into History via createHistoryFromComponents()
+ * 1. FileRawStorage (loose objects with zlib compression)
+ * 2. PackDirectoryAdapter (read-only pack file access)
+ * 3. CompositeRawStorage (loose + packs) → GitObjectStore
+ * 4. FileRefStore → Refs adapter
+ * 5. Composed into History via createHistoryFromComponents()
  *
  * @example
  * ```typescript
@@ -71,6 +81,7 @@ export async function createGitFilesBackend(
   const { files, gitDir = ".git", create = false, defaultBranch = "main" } = options;
 
   const objectsDir = joinPath(gitDir, "objects");
+  const packDir = joinPath(objectsDir, "pack");
 
   if (create) {
     await createGitDirectoryStructure(files, gitDir, objectsDir, defaultBranch);
@@ -78,10 +89,15 @@ export async function createGitFilesBackend(
 
   // Build storage layers.
   // FileRawStorage handles zlib compression/decompression (compress: true by default).
-  // GitObjectStore adds Git headers ("type size\0content") — matching real Git's
-  // on-disk format: zlib(header + content).
+  // PackDirectoryAdapter provides read-only access to pack files.
+  // CompositeRawStorage combines loose (read/write) with packs (read-only fallback).
+  // GitObjectStore adds Git headers ("type size\0content").
   const looseStorage = new FileRawStorage(files, objectsDir);
-  const objects = createGitObjectStore(looseStorage);
+  const packDirectory = new PackDirectory({ files, basePath: packDir });
+  await packDirectory.scan();
+  const packAdapter = new PackDirectoryAdapter(packDirectory);
+  const compositeStorage = new CompositeRawStorage(looseStorage, [packAdapter]);
+  const objects = createGitObjectStore(compositeStorage);
   const refStore = createFileRefStore(files, gitDir);
 
   const history = createHistoryFromComponents({
@@ -89,7 +105,7 @@ export async function createGitFilesBackend(
     refs: { type: "adapter", refStore },
   });
 
-  return { history, objects };
+  return { history, objects, packDirectory, looseStorage };
 }
 
 /**
