@@ -173,7 +173,9 @@ function setupParticipantPort(identity: string): void {
     serialization,
     onPushReceived: () => {
       log(`Received push from ${identity}`, "success");
-      refreshUI();
+      refreshUI().catch((e) =>
+        log(`UI refresh error: ${e instanceof Error ? e.message : String(e)}`, "error"),
+      );
     },
     log: (msg) => log(`[server:${identity}] ${msg}`),
   });
@@ -231,7 +233,7 @@ async function handleInit(): Promise<void> {
     await history.refs.set("refs/heads/main", commitId);
 
     log(`Initialized repository: ${commitId.slice(0, 7)}`, "success");
-    refreshUI();
+    await refreshUI();
   } catch (error) {
     log(`Init failed: ${error instanceof Error ? error.message : String(error)}`, "error");
   }
@@ -288,7 +290,7 @@ async function handleAddFile(): Promise<void> {
     await history.refs.set("refs/heads/main", commitId);
 
     log(`Added ${fileName}: ${commitId.slice(0, 7)}`, "success");
-    refreshUI();
+    await refreshUI();
   } catch (error) {
     log(`Add file failed: ${error instanceof Error ? error.message : String(error)}`, "error");
   }
@@ -312,7 +314,10 @@ async function handleSync(identity: string): Promise<void> {
     log: (msg) => log(`[sync:${identity}] ${msg}`),
   });
 
-  // Fetch from peer
+  // Remember local main before fetch
+  const localMainBefore = await history.refs.resolve("refs/heads/main");
+
+  // Fetch from peer → refs/remotes/peer/*
   const fetchResult = await session.fetch();
   if (fetchResult.ok && fetchResult.objectsReceived > 0) {
     log(`Fetched ${fetchResult.objectsReceived} objects from ${identity}`, "success");
@@ -320,6 +325,51 @@ async function handleSync(identity: string): Promise<void> {
     log(`Already up to date with ${identity}`);
   } else {
     log(`Fetch failed: ${fetchResult.error}`, "error");
+  }
+
+  // Merge fetched refs into local main (fast-forward or create merge commit)
+  if (fetchResult.ok) {
+    const remotePeerMain = fetchResult.refs.get("refs/remotes/peer/main");
+    if (remotePeerMain) {
+      if (!localMainBefore?.objectId) {
+        // No local commits — fast-forward to remote
+        await history.refs.set("refs/heads/main", remotePeerMain);
+        log(`Fast-forwarded main to ${remotePeerMain.slice(0, 7)}`, "success");
+      } else if (localMainBefore.objectId !== remotePeerMain) {
+        // Check if remote is ancestor of local (already up to date)
+        const isRemoteAncestor = await isAncestorOf(
+          history,
+          remotePeerMain,
+          localMainBefore.objectId,
+        );
+        if (isRemoteAncestor) {
+          log("Remote is already included in local history");
+        } else {
+          // Check if local is ancestor of remote (can fast-forward)
+          const isLocalAncestor = await isAncestorOf(
+            history,
+            localMainBefore.objectId,
+            remotePeerMain,
+          );
+          if (isLocalAncestor) {
+            await history.refs.set("refs/heads/main", remotePeerMain);
+            log(`Fast-forwarded main to ${remotePeerMain.slice(0, 7)}`, "success");
+          } else {
+            // Diverged — create a merge commit combining both trees
+            const mergeCommitId = await createMergeCommit(
+              history,
+              localMainBefore.objectId,
+              remotePeerMain,
+              identity,
+            );
+            if (mergeCommitId) {
+              await history.refs.set("refs/heads/main", mergeCommitId);
+              log(`Merged remote into main: ${mergeCommitId.slice(0, 7)}`, "success");
+            }
+          }
+        }
+      }
+    }
   }
 
   // Push to peer
@@ -330,7 +380,71 @@ async function handleSync(identity: string): Promise<void> {
     log(`Push failed: ${pushResult.error}`, "error");
   }
 
-  refreshUI();
+  await refreshUI();
+}
+
+/**
+ * Check if `ancestor` is an ancestor of `descendant` by walking parents.
+ */
+async function isAncestorOf(
+  h: History,
+  ancestor: string,
+  descendant: string,
+): Promise<boolean> {
+  const visited = new Set<string>();
+  const queue = [descendant];
+
+  while (queue.length > 0) {
+    const oid = queue.shift();
+    if (!oid) continue;
+    if (oid === ancestor) return true;
+    if (visited.has(oid)) continue;
+    visited.add(oid);
+
+    const commit = await h.commits.load(oid);
+    if (commit) {
+      for (const parent of commit.parents) {
+        queue.push(parent);
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Create a simple merge commit that takes the remote tree
+ * (picks the "newer" side for simplicity in the demo).
+ */
+async function createMergeCommit(
+  h: History,
+  localOid: string,
+  remoteOid: string,
+  peerIdentity: string,
+): Promise<string | null> {
+  try {
+    // Use the remote tree as the merge result (simple "theirs" strategy for the demo)
+    const remoteCommit = await h.commits.load(remoteOid);
+    if (!remoteCommit) return null;
+
+    const now = Date.now() / 1000;
+    const author = {
+      name: roomManager?.getLocalIdentity() ?? "User",
+      email: "demo@example.com",
+      timestamp: now,
+      tzOffset: "+0000",
+    };
+
+    return await h.commits.store({
+      tree: remoteCommit.tree,
+      parents: [localOid, remoteOid],
+      author,
+      committer: author,
+      message: `Merge from ${peerIdentity}`,
+    });
+  } catch (error) {
+    log(`Merge failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+    return null;
+  }
 }
 
 // --- UI Updates ---
@@ -440,10 +554,18 @@ async function updateCommitList(): Promise<void> {
   }
 }
 
-function refreshUI(): void {
+async function refreshUI(): Promise<void> {
   updateButtons();
-  updateFileList();
-  updateCommitList();
+  try {
+    await updateFileList();
+  } catch (error) {
+    log(`File list update error: ${error instanceof Error ? error.message : String(error)}`, "error");
+  }
+  try {
+    await updateCommitList();
+  } catch (error) {
+    log(`Commit list update error: ${error instanceof Error ? error.message : String(error)}`, "error");
+  }
 }
 
 // --- Bootstrap ---
