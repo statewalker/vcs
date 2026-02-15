@@ -4,14 +4,16 @@
  * Tests for pack-based object storage implementing RawStorage.
  */
 
+import {
+  createGitObject,
+  createInMemoryFilesApi,
+  type GitPackStore,
+  MemoryRawStorage,
+} from "@statewalker/vcs-core";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryFilesApi } from "../../../src/common/files/index.js";
-import { createGitObject } from "../../../src/history/objects/object-header.js";
 import { createGitPackStore } from "../../../src/pack/git-pack-store.impl.js";
-import type { GitPackStore } from "../../../src/pack/git-pack-store.js";
-import { MemoryRawStorage } from "../../../src/storage/raw/memory-raw-storage.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {

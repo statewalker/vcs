@@ -5,7 +5,10 @@
  * repacks remaining loose objects into pack files.
  */
 
-import { FileRawStorage, type FilesApi, type History, joinPath } from "@statewalker/vcs-core";
+import type { FilesApi, History } from "@statewalker/vcs-core";
+import { joinPath } from "@statewalker/vcs-core";
+
+import { FileRawStorage } from "./storage/raw/file-raw-storage.js";
 
 /**
  * Options for garbage collection.

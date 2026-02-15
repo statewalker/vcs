@@ -7,18 +7,18 @@
  * Beads issue: webrun-vcs-vlbj
  */
 
-import { applyGitDelta, setCompressionUtils } from "@statewalker/vcs-utils";
-import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
 import {
-  PackDirectory,
+  createInMemoryFilesApi,
+  type FilesApi,
   PackObjectType,
-  PackReader,
   PackWriterStream,
   readPackIndex,
   writePackIndexV2,
-} from "../../src/pack/index.js";
+} from "@statewalker/vcs-core";
+import { applyGitDelta, setCompressionUtils } from "@statewalker/vcs-utils";
+import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { PackDirectory, PackReader } from "../../src/pack/index.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {
@@ -80,7 +80,6 @@ function createFirstByteChangeDelta(baseSize: number, newFirstByte: number): Uin
   const copyLength = baseSize - 1;
 
   // Build COPY command
-  // We need offset=1 (1 byte) and size=copyLength
   const copyBytes: number[] = [];
 
   if (copyLength < 0x10000) {
@@ -158,15 +157,15 @@ describe("delta chain resolution", () => {
      *
      * Ported from JGit PackTest.java#testDelta_SmallObjectChain
      *
-     * Creates: data0 (base) → data1 (delta) → data2 (delta) → data3 (delta)
+     * Creates: data0 (base) -> data1 (delta) -> data2 (delta) -> data3 (delta)
      * Each delta changes the first byte of the previous object.
      */
-    it("resolves 4-level REF_DELTA chain (A→B→C→D)", async () => {
+    it("resolves 4-level REF_DELTA chain (A->B->C->D)", async () => {
       // Create base content: 512 bytes filled with 0xf3 (like JGit test)
       const baseContent = new Uint8Array(512).fill(0xf3);
       const baseId = fakeId(0);
 
-      // Create chain: base → data1 → data2 → data3
+      // Create chain: base -> data1 -> data2 -> data3
       // Each level changes the first byte to a different value
       const data1 = modifyFirstByte(0x01, baseContent);
       const id1 = fakeId(1);

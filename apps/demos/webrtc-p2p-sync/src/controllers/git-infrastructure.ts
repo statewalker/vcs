@@ -16,13 +16,13 @@ import {
   createMemoryGitStaging,
   createMemoryHistory,
   DefaultSerializationApi,
-  FileRawStorage,
   FileWorktree,
   joinPath,
   MemoryCheckout,
   MemoryWorkingCopy,
   MemoryWorktree,
 } from "@statewalker/vcs-core";
+import { FileRawStorage } from "@statewalker/vcs-store-files";
 
 import type { AppContext } from "./index.js";
 import { setGit, setHistory, setSerializationApi, setWorkingCopy, setWorktree } from "./index.js";

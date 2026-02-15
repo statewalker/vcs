@@ -5,14 +5,10 @@
  * HistoryWithOperations (delta API, serialization, capabilities).
  */
 
-import {
-  createGitFilesHistory,
-  type HistoryWithOperations,
-  joinPath,
-  PackDeltaStore,
-} from "@statewalker/vcs-core";
-
+import type { HistoryWithOperations } from "@statewalker/vcs-core";
+import { createGitFilesHistory, joinPath } from "@statewalker/vcs-core";
 import { createGitFilesBackend, type GitFilesBackendOptions } from "./create-git-files-backend.js";
+import { PackDeltaStore } from "./pack/pack-delta-store.js";
 
 /**
  * Options for creating file-backed History with full operations support.

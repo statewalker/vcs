@@ -5,15 +5,16 @@
  * with an index, then removes the loose files.
  */
 
+import type { FilesApi } from "@statewalker/vcs-core";
 import {
-  type FileRawStorage,
-  type FilesApi,
-  type PackDirectory,
   parseHeader,
   StreamingPackWriter,
   typeStringToCode,
   writePackIndexV2,
 } from "@statewalker/vcs-core";
+
+import type { PackDirectory } from "./pack/pack-directory.js";
+import type { FileRawStorage } from "./storage/raw/file-raw-storage.js";
 
 /**
  * Options for the repack operation.

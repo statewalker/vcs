@@ -11,13 +11,13 @@
 import type {
   CompactResult,
   DeltaCandidatePair,
-  FileRawStorage,
   GcStrategy,
-  PackDirectory,
   StorageStats,
 } from "@statewalker/vcs-core";
 
+import type { PackDirectory } from "./pack/pack-directory.js";
 import { repack } from "./repack.js";
+import type { FileRawStorage } from "./storage/raw/file-raw-storage.js";
 
 /**
  * Options for creating a FileGcStrategy.

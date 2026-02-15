@@ -16,9 +16,9 @@ import {
   createFileRefStore,
   createGitObjectStore,
   createHistoryFromComponents,
-  FileRawStorage,
   joinPath,
 } from "@statewalker/vcs-core";
+import { FileRawStorage } from "@statewalker/vcs-store-files";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";

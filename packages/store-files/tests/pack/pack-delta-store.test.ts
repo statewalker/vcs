@@ -4,19 +4,19 @@
  * Tests the native pack-based delta store implementation.
  */
 
+import type { DeltaInfo } from "@statewalker/vcs-core";
+import {
+  createInMemoryFilesApi,
+  type FilesApi,
+  PackObjectType,
+  writePack,
+  writePackIndexV2,
+} from "@statewalker/vcs-core";
 import type { Delta } from "@statewalker/vcs-utils";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
-import {
-  PackDeltaStore,
-  PackDirectory,
-  PackObjectType,
-  writePack,
-  writePackIndexV2,
-} from "../../src/pack/index.js";
-import type { DeltaInfo } from "../../src/storage/delta/delta-store.js";
+import { PackDeltaStore, PackDirectory } from "../../src/pack/index.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {

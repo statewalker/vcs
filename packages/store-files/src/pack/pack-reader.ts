@@ -8,11 +8,10 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/BinaryDelta.java
  */
 
+import type { FilesApi, ObjectId, RandomAccessReader } from "@statewalker/vcs-core";
+import { readAt } from "@statewalker/vcs-core";
 import { applyGitDelta, decompressBlockPartial } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
-import { type FilesApi, readAt } from "../common/files/index.js";
-import type { ObjectId } from "../common/id/index.js";
-import type { RandomAccessReader } from "./random-access-delta.js";
 import { RandomAccessDeltaReader } from "./random-access-delta-reader.js";
 
 /**
@@ -35,7 +34,7 @@ import type {
   PackObject,
   PackObjectHeader,
   PackObjectType,
-} from "./types.js";
+} from "@statewalker/vcs-core";
 
 /** Pack file signature "PACK" */
 const PACK_SIGNATURE = new Uint8Array([0x50, 0x41, 0x43, 0x4b]);
@@ -307,7 +306,7 @@ export class PackReader {
    * Used to resolve OFS_DELTA base references.
    *
    * Note: This is O(n) - for large packs, consider using
-   * PackReverseIndex for offset→id mapping.
+   * PackReverseIndex for offset->id mapping.
    *
    * Based on: jgit PackReverseIndex.java#findObject
    *

@@ -186,4 +186,29 @@ export interface DeltaStore {
    * @returns True if object exists
    */
   hasObject?(key: string): Promise<boolean>;
+
+  /**
+   * Find all objects that depend on a base (optional)
+   *
+   * Returns target keys for which this base is used as a delta source.
+   *
+   * @param baseKey Base object key
+   * @returns Array of dependent target keys
+   */
+  findDependents?(baseKey: string): Promise<string[]>;
+
+  /**
+   * Initialize the delta store (optional lifecycle)
+   *
+   * For pack-based implementations, loads pack index files.
+   * Memory-based stores typically don't need initialization.
+   */
+  initialize?(): Promise<void>;
+
+  /**
+   * Close the delta store and release resources (optional lifecycle)
+   *
+   * For pack-based implementations, flushes caches and closes file handles.
+   */
+  close?(): Promise<void>;
 }

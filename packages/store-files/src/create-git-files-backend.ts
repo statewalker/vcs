@@ -8,19 +8,18 @@
  * - All objects (including blobs) stored with Git headers for format compatibility
  */
 
+import type { FilesApi, GitObjectStore, History } from "@statewalker/vcs-core";
 import {
   CompositeRawStorage,
   createFileRefStore,
   createGitObjectStore,
   createHistoryFromComponents,
-  FileRawStorage,
-  type FilesApi,
-  type GitObjectStore,
-  type History,
   joinPath,
-  PackDirectory,
-  PackDirectoryAdapter,
 } from "@statewalker/vcs-core";
+
+import { PackDirectory } from "./pack/pack-directory.js";
+import { FileRawStorage } from "./storage/raw/file-raw-storage.js";
+import { PackDirectoryAdapter } from "./storage/raw/pack-directory-adapter.js";
 
 /**
  * Options for creating a file-backed Git storage backend.

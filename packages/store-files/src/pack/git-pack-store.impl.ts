@@ -7,17 +7,16 @@
  * Based on: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ObjectDirectory.java
  */
 
-import type { FilesApi } from "../common/files/index.js";
-import { parseHeader } from "../history/objects/object-header.js";
 import type {
+  FilesApi,
   FlushResult,
   GitPackStore,
   GitPackStoreConfig,
+  PackObjectType,
   PackStoreStats,
-} from "./git-pack-store.js";
+} from "@statewalker/vcs-core";
+import { PendingPack, parseHeader } from "@statewalker/vcs-core";
 import { PackDirectory } from "./pack-directory.js";
-import { PendingPack } from "./pending-pack.js";
-import type { PackObjectType } from "./types.js";
 
 /** Default maximum pending objects before auto-flush */
 const DEFAULT_MAX_PENDING_OBJECTS = 100;

@@ -1,10 +1,13 @@
+import {
+  createGitObject,
+  createInMemoryFilesApi,
+  type FilesApi,
+  PackObjectType,
+  StreamingPackWriter,
+  writePackIndexV2,
+} from "@statewalker/vcs-core";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryFilesApi, type FilesApi } from "../../../src/common/files/index.js";
-import { createGitObject } from "../../../src/history/objects/object-header.js";
-import { PackDirectory } from "../../../src/pack/pack-directory.js";
-import { writePackIndexV2 } from "../../../src/pack/pack-index-writer.js";
-import { StreamingPackWriter } from "../../../src/pack/streaming-pack-writer.js";
-import { PackObjectType } from "../../../src/pack/types.js";
+import { PackDirectory } from "../../../src/pack/index.js";
 import { PackDirectoryAdapter } from "../../../src/storage/raw/pack-directory-adapter.js";
 
 async function collectBytes(iter: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
