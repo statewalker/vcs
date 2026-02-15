@@ -3,6 +3,7 @@ import { createGitObjectStore } from "../../../src/history/objects/index.js";
 import type { GitObjectStore } from "../../../src/history/objects/object-store.js";
 import { ChunkedRawStorage } from "../../../src/storage/chunked/chunked-raw-storage.js";
 import { MemoryChunkAccess } from "../../../src/storage/chunked/memory-chunk-access.js";
+import { CompressedRawStorage } from "../../../src/storage/raw/compressed-raw-storage.js";
 import { MemoryRawStorage } from "../../../src/storage/raw/memory-raw-storage.js";
 
 describe("GitObjectStore with RawStorage backends", () => {
@@ -168,7 +169,7 @@ describe("GitObjectStore with RawStorage backends", () => {
 
     beforeEach(() => {
       storage = new MemoryRawStorage();
-      store = createGitObjectStore(storage, { compress: true });
+      store = createGitObjectStore(new CompressedRawStorage(storage));
     });
 
     it("compresses content on store", async () => {
@@ -217,7 +218,7 @@ describe("GitObjectStore with RawStorage backends", () => {
     beforeEach(() => {
       access = new MemoryChunkAccess();
       const storage = new ChunkedRawStorage(access, 512); // Small chunks for testing
-      store = createGitObjectStore(storage, { compress: true });
+      store = createGitObjectStore(new CompressedRawStorage(storage));
     });
 
     it("handles large compressed content across chunks", async () => {

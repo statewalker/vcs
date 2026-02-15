@@ -32,7 +32,8 @@ export interface GitObjectStoreOptions {
    * Raw storage backend for persisted objects
    *
    * All Git objects are stored through this interface. The storage
-   * handles compression internally (if needed).
+   * handles compression internally (if needed, e.g. FileRawStorage
+   * compresses by default).
    */
   storage: RawStorage;
 
@@ -44,15 +45,6 @@ export interface GitObjectStoreOptions {
    * If not provided, a default in-memory volatile store is used.
    */
   volatile?: VolatileStore;
-
-  /**
-   * Whether to compress content before storage
-   *
-   * When true, content is ZLIB-compressed before being passed to
-   * RawStorage. This is needed for Git-compatible file storage.
-   * Default: false (assumes RawStorage handles compression if needed)
-   */
-  compress?: boolean;
 }
 
 /**

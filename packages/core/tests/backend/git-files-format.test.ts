@@ -24,6 +24,7 @@ import {
 } from "../../src/history/objects/object-header.js";
 import { createGitObjectStore } from "../../src/history/objects/object-store.impl.js";
 import type { GitObjectStore } from "../../src/history/objects/object-store.js";
+import { CompressedRawStorage } from "../../src/storage/raw/compressed-raw-storage.js";
 import { FileRawStorage } from "../../src/storage/raw/file-raw-storage.js";
 import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
 
@@ -242,13 +243,14 @@ describe("Git Files Format Compliance", () => {
     });
   });
 
-  describe("GitObjectStore with Compression", () => {
-    let storage: MemoryRawStorage;
+  describe("GitObjectStore with Compressed Storage", () => {
+    let innerStorage: MemoryRawStorage;
     let store: GitObjectStore;
 
     beforeEach(() => {
-      storage = new MemoryRawStorage();
-      store = createGitObjectStore(storage, { compress: true });
+      innerStorage = new MemoryRawStorage();
+      const compressedStorage = new CompressedRawStorage(innerStorage);
+      store = createGitObjectStore(compressedStorage);
     });
 
     it("stores blob with correct SHA-1", async () => {
@@ -267,12 +269,12 @@ describe("Git Files Format Compliance", () => {
       expect(loaded).toEqual(originalContent);
     });
 
-    it("stores compressed content in storage", async () => {
+    it("stores compressed content in underlying storage", async () => {
       const content = toBytes("hello world");
       const id = await store.store("blob", [content]);
 
-      // Get raw bytes from storage
-      const rawStored = await collectBytes(storage.load(id));
+      // Get raw bytes from the inner (uncompressed) storage
+      const rawStored = await collectBytes(innerStorage.load(id));
 
       // Should be zlib compressed (starts with 0x78)
       expect(rawStored[0]).toBe(0x78);
@@ -282,7 +284,7 @@ describe("Git Files Format Compliance", () => {
       const content = toBytes("hello");
       const id = await store.store("blob", [content]);
 
-      // loadRaw should return header + content (decompressed)
+      // loadRaw should return header + content (decompressed by storage layer)
       const raw = await collectBytes(store.loadRaw(id));
 
       // Should start with "blob 5\0"
@@ -311,7 +313,7 @@ describe("Git Files Format Compliance", () => {
       files = createInMemoryFilesApi();
       await files.mkdir(basePath);
       storage = new FileRawStorage(files, basePath);
-      store = createGitObjectStore(storage, { compress: true });
+      store = createGitObjectStore(storage);
     });
 
     it("stores object with 2-char prefix directory", async () => {

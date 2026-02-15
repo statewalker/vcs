@@ -217,7 +217,10 @@ describe("Merge History: Low-level isolation", () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "vcs-merge-history-"));
     execSync(`cp -r "${FIXTURE_REPO}" "${path.join(tempDir, "repo")}"`, { stdio: "pipe" });
     // Fixture stores .git as dot-git to avoid embedded-repo issues; rename back
-    execSync(`mv "${path.join(tempDir, "repo", "dot-git")}" "${path.join(tempDir, "repo", ".git")}"`, { stdio: "pipe" });
+    execSync(
+      `mv "${path.join(tempDir, "repo", "dot-git")}" "${path.join(tempDir, "repo", ".git")}"`,
+      { stdio: "pipe" },
+    );
   });
 
   afterEach(async () => {
@@ -386,7 +389,10 @@ describe("Merge History: Full P2P sync", () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "vcs-merge-sync-"));
     execSync(`cp -r "${FIXTURE_REPO}" "${path.join(tempDir, "repo")}"`, { stdio: "pipe" });
     // Fixture stores .git as dot-git to avoid embedded-repo issues; rename back
-    execSync(`mv "${path.join(tempDir, "repo", "dot-git")}" "${path.join(tempDir, "repo", ".git")}"`, { stdio: "pipe" });
+    execSync(
+      `mv "${path.join(tempDir, "repo", "dot-git")}" "${path.join(tempDir, "repo", ".git")}"`,
+      { stdio: "pipe" },
+    );
 
     registry = new MemoryPeerRegistry();
 

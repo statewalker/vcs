@@ -1,5 +1,21 @@
+import { deflate, inflate, slice } from "@statewalker/vcs-utils";
 import { dirname, type FilesApi, joinPath } from "../../common/files/index.js";
 import type { RawStorage } from "./raw-storage.js";
+
+/**
+ * Options for FileRawStorage
+ */
+export interface FileRawStorageOptions {
+  /**
+   * Whether to compress content with zlib before writing to disk.
+   *
+   * When true, content is ZLIB-deflated on store() and ZLIB-inflated on load().
+   * This matches Git's on-disk format for loose objects.
+   *
+   * Default: true (for backward compatibility with existing Git repos)
+   */
+  compress?: boolean;
+}
 
 /**
  * File-based RawStorage with Git loose object structure
@@ -9,12 +25,20 @@ import type { RawStorage } from "./raw-storage.js";
  * - Remaining characters -> filename
  *
  * Example: key "abc123..." is stored at "basePath/ab/c123..."
+ *
+ * When compress is enabled (default), content is zlib-compressed on disk,
+ * matching Git's standard loose object format.
  */
 export class FileRawStorage implements RawStorage {
+  private readonly compress: boolean;
+
   constructor(
     private readonly files: FilesApi,
     private readonly basePath: string,
-  ) {}
+    options?: FileRawStorageOptions,
+  ) {
+    this.compress = options?.compress ?? true;
+  }
 
   private getPath(key: string): string {
     const prefix = key.substring(0, 2);
@@ -26,7 +50,11 @@ export class FileRawStorage implements RawStorage {
     const path = this.getPath(key);
     const dir = dirname(path);
     await this.files.mkdir(dir);
-    await this.files.write(path, content);
+    if (this.compress) {
+      await this.files.write(path, deflate(content, { raw: false }));
+    } else {
+      await this.files.write(path, content);
+    }
   }
 
   async *load(key: string, options?: { start?: number; end?: number }): AsyncIterable<Uint8Array> {
@@ -36,7 +64,16 @@ export class FileRawStorage implements RawStorage {
       throw new Error(`Key not found: ${key}`);
     }
 
-    if (options?.start !== undefined || options?.end !== undefined) {
+    if (this.compress) {
+      const decompressed = inflate(this.files.read(path), { raw: false });
+      if (options?.start !== undefined || options?.end !== undefined) {
+        const start = options.start ?? 0;
+        const length = options.end !== undefined ? options.end - start : undefined;
+        yield* slice(decompressed, start, length);
+      } else {
+        yield* decompressed;
+      }
+    } else if (options?.start !== undefined || options?.end !== undefined) {
       const start = options.start ?? 0;
       const end = options.end ?? stats.size ?? Infinity;
       yield* this.files.read(path, {

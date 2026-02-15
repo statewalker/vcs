@@ -1,4 +1,3 @@
-import { deflate, inflate } from "@statewalker/vcs-utils/compression";
 import type { ObjectId } from "../../common/id/index.js";
 import type { VolatileStore } from "../../storage/binary/volatile-store.js";
 import { MemoryVolatileStore } from "../../storage/binary/volatile-store.memory.js";
@@ -11,23 +10,22 @@ import type { ObjectTypeString } from "./object-types.js";
 /**
  * Git object store implementation using RawStorage
  *
- * This implementation uses the new RawStorage interface for storing Git objects.
- * It supports optional compression (needed for Git-compatible file storage).
+ * This is a header-framing layer only: it prepends "type size\0" on store
+ * and parses/strips headers on load. Compression is handled by the
+ * underlying RawStorage (e.g. FileRawStorage with compress: true).
  */
 class GitObjectStoreImpl implements GitObjectStore {
   private readonly volatile: VolatileStore;
   private readonly storage: RawStorage;
-  private readonly compress: boolean;
 
   /**
    * Create a Git object store
    *
    * @param options Configuration options including storage backend
    */
-  constructor({ storage, volatile, compress = true }: GitObjectStoreOptions) {
+  constructor({ storage, volatile }: GitObjectStoreOptions) {
     this.storage = storage;
     this.volatile = volatile ?? new MemoryVolatileStore();
-    this.compress = compress;
   }
 
   /**
@@ -49,16 +47,7 @@ class GitObjectStoreImpl implements GitObjectStore {
         // immutable, so storing the same ID again is a no-op. This prevents
         // errors when BrowserFilesApi's createWritable() fails on existing files.
         if (!(await this.storage.has(id))) {
-          // Get content stream to store
-          let contentToStore: AsyncIterable<Uint8Array> = full.read();
-
-          if (this.compress) {
-            // Apply compression if needed
-            contentToStore = deflate(contentToStore, { raw: false });
-          }
-
-          // Store in raw storage
-          await this.storage.store(id, contentToStore);
+          await this.storage.store(id, full.read());
         }
 
         return id;
@@ -89,14 +78,7 @@ class GitObjectStoreImpl implements GitObjectStore {
    * Load raw object including header
    */
   async *loadRaw(id: ObjectId): AsyncGenerator<Uint8Array> {
-    let content: AsyncIterable<Uint8Array> = this.storage.load(id);
-
-    // Decompress if compression is enabled
-    if (this.compress) {
-      content = inflate(content, { raw: false });
-    }
-
-    yield* content;
+    yield* this.storage.load(id);
   }
 
   /**
@@ -134,10 +116,11 @@ class GitObjectStoreImpl implements GitObjectStore {
  * Create a Git object store with the given storage backend
  *
  * This is the primary factory function for creating GitObjectStore instances.
- * For Git-compatible file storage, set compress: true.
+ * The object store is a header-framing layer only — compression should be
+ * handled by the underlying RawStorage (e.g. FileRawStorage with compress: true).
  *
  * @param storage Raw storage backend for persisted objects
- * @param options Additional options (volatile store, compression)
+ * @param options Additional options (volatile store)
  * @returns GitObjectStore instance
  *
  * @example
@@ -145,8 +128,8 @@ class GitObjectStoreImpl implements GitObjectStore {
  * // Simple in-memory store
  * const store = createGitObjectStore(new MemoryRawStorage());
  *
- * // Git-compatible file store with compression
- * const store = createGitObjectStore(fileStorage, { compress: true });
+ * // Git-compatible file store (FileRawStorage compresses by default)
+ * const store = createGitObjectStore(new FileRawStorage(files, objectsDir));
  * ```
  */
 export function createGitObjectStore(
