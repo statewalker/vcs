@@ -77,9 +77,9 @@ export async function createGitFilesBackend(
   }
 
   // Build storage layers.
-  // All objects (including blobs) go through a single GitObjectStore which
-  // handles zlib compression/decompression and Git headers ("type size\0content")
-  // — matching real Git's on-disk format.
+  // FileRawStorage handles zlib compression/decompression (compress: true by default).
+  // GitObjectStore adds Git headers ("type size\0content") — matching real Git's
+  // on-disk format: zlib(header + content).
   const looseStorage = new FileRawStorage(files, objectsDir);
   const objects = createGitObjectStore(looseStorage);
   const refStore = createFileRefStore(files, gitDir);

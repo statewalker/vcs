@@ -8,7 +8,7 @@ rawStorageConformanceTests(
   "FileRawStorage",
   async () => {
     files = createInMemoryFilesApi();
-    return new FileRawStorage(files, "/objects");
+    return new FileRawStorage(files, "/objects", { compress: false });
   },
   async () => {
     // createInMemoryFilesApi cleanup is automatic (new instance each test)

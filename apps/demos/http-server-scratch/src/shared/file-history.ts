@@ -6,7 +6,6 @@
  */
 
 import {
-  CompressedRawStorage,
   createBlobs,
   createCommits,
   createFileRefStore,
@@ -78,12 +77,11 @@ export async function createFileHistory(options: CreateFileHistoryOptions): Prom
 
   const objectsDir = joinPath(gitDir, "objects");
 
-  // Create compressed file storage for objects.
+  // Create file storage for objects (FileRawStorage handles zlib compression by default).
   // All objects (including blobs) go through the same GitObjectStore so they
   // are stored with Git headers in the shared .git/objects directory.
   const looseStorage = new FileRawStorage(files, objectsDir);
-  const compressedStorage = new CompressedRawStorage(looseStorage);
-  const objects = createGitObjectStore(compressedStorage);
+  const objects = createGitObjectStore(looseStorage);
   const refStore = createFileRefStore(files, gitDir);
 
   const blobs = createBlobs(objects);

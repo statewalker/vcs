@@ -13,7 +13,6 @@ import type {
   PersonIdent,
 } from "@statewalker/vcs-core";
 import {
-  CompressedRawStorage,
   createFileRefStore,
   createGitObjectStore,
   createHistoryFromComponents,
@@ -131,15 +130,14 @@ export async function createFileHistory(options: {
 
   const objectsDir = joinPath(gitDir, "objects");
 
-  // Create compressed file storage for objects
+  // Create file storage for objects (FileRawStorage compresses by default)
   const looseStorage = new FileRawStorage(files, objectsDir);
-  const compressedStorage = new CompressedRawStorage(looseStorage);
 
-  // Create blob storage (blobs are stored separately for efficiency)
-  const blobStorage = new CompressedRawStorage(new FileRawStorage(files, objectsDir));
+  // Create blob storage (same directory, FileRawStorage handles compression)
+  const blobStorage = new FileRawStorage(files, objectsDir);
 
   // Create Git object store for trees, commits, tags
-  const objects = createGitObjectStore(compressedStorage);
+  const objects = createGitObjectStore(looseStorage);
 
   // Create file-based ref store
   const refStore = createFileRefStore(files, gitDir);
