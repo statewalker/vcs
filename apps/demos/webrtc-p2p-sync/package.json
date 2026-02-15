@@ -27,6 +27,7 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "@statewalker/vcs-utils-node": "workspace:*",
     "@types/node": "catalog:",
     "@types/qrcode": "^1.5.5",
     "typescript": "catalog:",
