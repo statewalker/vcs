@@ -1,6 +1,6 @@
-import { createInMemoryFilesApi, type FilesApi } from "../../../src/common/files/index.js";
+import { createInMemoryFilesApi, type FilesApi } from "@statewalker/vcs-core";
+import { rawStorageConformanceTests } from "../../../../core/tests/storage/raw/raw-storage.conformance.test.js";
 import { FileRawStorage } from "../../../src/storage/raw/index.js";
-import { rawStorageConformanceTests } from "./raw-storage.conformance.test.js";
 
 let files: FilesApi;
 

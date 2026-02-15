@@ -6,14 +6,23 @@
  * Based on jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/PackDirectory.java
  */
 
-import { basename, type FilesApi, joinPath, readFile } from "../common/files/index.js";
-import type { ObjectId } from "../common/id/index.js";
-import { createGitObject, typeCodeToString } from "../history/objects/object-header.js";
-import type { ObjectTypeCode } from "../history/objects/object-types.js";
-import { DeltaReverseIndex } from "./delta-reverse-index.js";
-import { readPackIndex } from "./pack-index-reader.js";
+import type {
+  FilesApi,
+  ObjectId,
+  ObjectTypeCode,
+  PackIndex,
+  PackObject,
+} from "@statewalker/vcs-core";
+import {
+  basename,
+  createGitObject,
+  DeltaReverseIndex,
+  joinPath,
+  readFile,
+  readPackIndex,
+  typeCodeToString,
+} from "@statewalker/vcs-core";
 import { type PackDeltaChainInfo, PackReader } from "./pack-reader.js";
-import type { PackIndex, PackObject } from "./types.js";
 
 /**
  * Options for PackDirectory
@@ -382,7 +391,7 @@ export class PackDirectory {
    *
    * Iterates through all objects and yields those stored as deltas.
    *
-   * @returns Async iterable of target→base relationships
+   * @returns Async iterable of target->base relationships
    */
   async *listDeltaRelationships(): AsyncIterable<{ target: ObjectId; base: ObjectId }> {
     for await (const id of this.listObjects()) {
@@ -397,7 +406,7 @@ export class PackDirectory {
    * Build reverse index for efficient dependent lookups
    *
    * Scans all packs once to build an in-memory index of
-   * base→targets relationships.
+   * base->targets relationships.
    *
    * @returns DeltaReverseIndex with O(1) lookups
    */

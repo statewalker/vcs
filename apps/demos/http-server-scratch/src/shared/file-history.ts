@@ -14,12 +14,12 @@ import {
   createRefsAdapter,
   createTags,
   createTrees,
-  FileRawStorage,
   type FilesApi,
   type GitObjectStore,
   type History,
   joinPath,
 } from "@statewalker/vcs-core";
+import { FileRawStorage } from "@statewalker/vcs-store-files";
 
 /**
  * Extended History type that also exposes the GitObjectStore for low-level operations.

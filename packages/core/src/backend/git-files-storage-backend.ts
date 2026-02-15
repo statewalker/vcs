@@ -18,7 +18,6 @@ import type { Commits } from "../history/commits/commits.js";
 import type { Refs } from "../history/refs/refs.js";
 import type { Tags } from "../history/tags/tags.js";
 import type { Trees } from "../history/trees/trees.js";
-import type { PackDeltaStore } from "../pack/index.js";
 import type {
   BlobDeltaApi,
   BlobDeltaChainInfo,
@@ -27,6 +26,7 @@ import type {
 import type { CommitDeltaApi } from "../storage/delta/commit-delta-api.js";
 import type { DeltaApi, StorageDeltaRelationship } from "../storage/delta/delta-api.js";
 import { parseBinaryDelta } from "../storage/delta/delta-binary-format.js";
+import type { DeltaStore } from "../storage/delta/delta-store.js";
 import { GitFilesCommitDeltaApi } from "../storage/delta/git-commit-delta-api.js";
 import { GitFilesTreeDeltaApi } from "../storage/delta/git-tree-delta-api.js";
 import type { TreeDeltaApi } from "../storage/delta/tree-delta-api.js";
@@ -50,19 +50,19 @@ export interface GitFilesStorageBackendConfig extends BaseBackendConfig {
   /** Reference storage implementation */
   refs: Refs;
   /** Pack-based delta store for native Git delta operations */
-  packDeltaStore: PackDeltaStore;
+  packDeltaStore: DeltaStore;
 }
 
 /**
- * BlobDeltaApi implementation using PackDeltaStore
+ * BlobDeltaApi implementation using DeltaStore
  *
- * Wraps PackDeltaStore's delta operations with the typed BlobDeltaApi interface.
+ * Wraps DeltaStore's delta operations with the typed BlobDeltaApi interface.
  *
  * @internal Exported for use by createGitFilesHistory
  */
 export class GitFilesBlobDeltaApi implements BlobDeltaApi {
   constructor(
-    private readonly packDeltaStore: PackDeltaStore,
+    private readonly packDeltaStore: DeltaStore,
     private readonly blobs: Blobs,
   ) {}
 
@@ -107,7 +107,7 @@ export class GitFilesBlobDeltaApi implements BlobDeltaApi {
 
   async undeltifyBlob(id: ObjectId): Promise<void> {
     // Load resolved content from pack
-    const content = await this.packDeltaStore.loadObject(id);
+    const content = await this.packDeltaStore.loadObject?.(id);
     if (!content) {
       throw new Error(`Blob ${id} not found in pack files`);
     }
@@ -146,7 +146,7 @@ export class GitFilesBlobDeltaApi implements BlobDeltaApi {
 }
 
 /**
- * DeltaApi implementation using PackDeltaStore
+ * DeltaApi implementation using DeltaStore
  *
  * Provides the unified delta interface backed by Git pack files.
  *
@@ -159,7 +159,7 @@ export class GitFilesDeltaApi implements DeltaApi {
   private batchDepth = 0;
 
   constructor(
-    private readonly packDeltaStore: PackDeltaStore,
+    private readonly packDeltaStore: DeltaStore,
     blobs: Blobs,
     trees?: Trees,
     options?: { enableCommitDeltas?: boolean },
@@ -202,7 +202,7 @@ export class GitFilesDeltaApi implements DeltaApi {
   }
 
   async *getDependents(baseId: ObjectId): AsyncIterable<ObjectId> {
-    const dependents = await this.packDeltaStore.findDependents(baseId);
+    const dependents = (await this.packDeltaStore.findDependents?.(baseId)) ?? [];
     for (const dep of dependents) {
       yield dep;
     }
@@ -210,7 +210,7 @@ export class GitFilesDeltaApi implements DeltaApi {
 
   startBatch(): void {
     this.batchDepth++;
-    // PackDeltaStore uses startUpdate() per batch, not global state
+    // DeltaStore uses startUpdate() per batch, not global state
   }
 
   async endBatch(): Promise<void> {

@@ -274,7 +274,7 @@ export function createMemoryHistoryWithOperations(
  *   commits: myCommitStore,
  *   tags: myTagStore,
  *   refs: myRefStore,
- *   packDeltaStore: myPackDeltaStore,
+ *   packDeltaStore: myDeltaStore,
  * });
  * await history.initialize();
  *
@@ -325,13 +325,13 @@ export function createGitFilesHistory(config: GitFilesStorageBackendConfig): His
     capabilities,
     async () => {
       if (!initialized) {
-        await packDeltaStore.initialize();
+        await packDeltaStore.initialize?.();
         initialized = true;
       }
     },
     async () => {
       if (initialized) {
-        await packDeltaStore.close();
+        await packDeltaStore.close?.();
         initialized = false;
       }
     },

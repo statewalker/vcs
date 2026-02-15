@@ -13,9 +13,8 @@
  * before the adapter is used.
  */
 
-import type { ObjectId } from "../../common/id/index.js";
+import type { ObjectId, RawStorage } from "@statewalker/vcs-core";
 import type { PackDirectory } from "../../pack/pack-directory.js";
-import type { RawStorage } from "./raw-storage.js";
 
 /**
  * Read-only RawStorage backed by pack files

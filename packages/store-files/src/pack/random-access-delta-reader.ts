@@ -5,9 +5,9 @@
  * by analyzing delta instructions and reading only required portions.
  */
 
-import { analyzeDelta, findInstructionsForRange } from "./delta-instruction-analyzer.js";
+import type { AnalyzedDelta, RandomAccessReader } from "@statewalker/vcs-core";
+import { analyzeDelta, findInstructionsForRange } from "@statewalker/vcs-core";
 import type { PackReader } from "./pack-reader.js";
-import type { AnalyzedDelta, RandomAccessReader } from "./random-access-delta.js";
 
 /** Default chunk size for streaming (64KB) */
 const STREAM_CHUNK_SIZE = 65536;

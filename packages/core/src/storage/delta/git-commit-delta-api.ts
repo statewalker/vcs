@@ -2,15 +2,14 @@
  * Git Files Commit Delta API - Binary delta operations for commit objects
  *
  * Follows the same pattern as GitFilesBlobDeltaApi but for commits.
- * Uses PackDeltaStore for native Git pack-based delta storage.
+ * Uses DeltaStore for native Git pack-based delta storage.
  *
  * Commits don't need a separate store reference (unlike blobs) because
- * PackDeltaStore handles object loading and delta resolution internally.
+ * DeltaStore handles object loading and delta resolution internally.
  */
 
 import { collect } from "@statewalker/vcs-utils";
 import type { ObjectId } from "../../common/id/object-id.js";
-import type { PackDeltaStore } from "../../pack/index.js";
 import type {
   BlobDeltaChainInfo,
   DeltaCandidateSource,
@@ -18,17 +17,18 @@ import type {
 } from "./blob-delta-api.js";
 import type { CommitDeltaApi } from "./commit-delta-api.js";
 import { parseBinaryDelta } from "./delta-binary-format.js";
+import type { DeltaStore } from "./delta-store.js";
 
 /**
- * CommitDeltaApi implementation using PackDeltaStore
+ * CommitDeltaApi implementation using DeltaStore
  *
- * Wraps PackDeltaStore's delta operations with the typed CommitDeltaApi interface.
+ * Wraps DeltaStore's delta operations with the typed CommitDeltaApi interface.
  * Mirrors GitFilesBlobDeltaApi but without the blob-specific content loading.
  *
  * @internal Exported for use by createGitFilesHistory
  */
 export class GitFilesCommitDeltaApi implements CommitDeltaApi {
-  constructor(private readonly packDeltaStore: PackDeltaStore) {}
+  constructor(private readonly packDeltaStore: DeltaStore) {}
 
   async findCommitDelta(
     _targetId: ObjectId,
@@ -62,7 +62,7 @@ export class GitFilesCommitDeltaApi implements CommitDeltaApi {
 
   async undeltifyCommit(id: ObjectId): Promise<void> {
     // Load resolved content from pack
-    const content = await this.packDeltaStore.loadObject(id);
+    const content = await this.packDeltaStore.loadObject?.(id);
     if (!content) {
       throw new Error(`Commit ${id} not found in pack files`);
     }

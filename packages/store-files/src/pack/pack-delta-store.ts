@@ -12,23 +12,26 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/pack/PackWriter.java
  */
 
-import type { Delta } from "@statewalker/vcs-utils";
-import { collect, newByteSplitter, readHeader } from "@statewalker/vcs-utils/streams";
-import type { FilesApi } from "../common/files/index.js";
-import { parseHeader } from "../history/objects/object-header.js";
-import type { ObjectTypeCode } from "../history/objects/object-types.js";
-import { parseBinaryDelta, serializeDelta } from "../storage/delta/delta-binary-format.js";
 import type {
   DeltaChainDetails,
   DeltaInfo,
+  DeltaReverseIndex,
   DeltaStore,
   DeltaStoreUpdate,
+  FilesApi,
+  ObjectTypeCode,
   StoredDelta,
-} from "../storage/delta/delta-store.js";
-import type { DeltaReverseIndex } from "./delta-reverse-index.js";
+} from "@statewalker/vcs-core";
+import {
+  PackObjectType,
+  PendingPack,
+  parseBinaryDelta,
+  parseHeader,
+  serializeDelta,
+} from "@statewalker/vcs-core";
+import type { Delta } from "@statewalker/vcs-utils";
+import { collect, newByteSplitter, readHeader } from "@statewalker/vcs-utils/streams";
 import { PackDirectory } from "./pack-directory.js";
-import { PendingPack } from "./pending-pack.js";
-import { PackObjectType } from "./types.js";
 
 /**
  * Options for PackDeltaStore

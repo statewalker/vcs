@@ -7,10 +7,9 @@
  * Based on jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/GC.java
  */
 
-import { type FilesApi, joinPath, readFile } from "../common/files/index.js";
+import type { FilesApi, PackObjectType } from "@statewalker/vcs-core";
+import { joinPath, PendingPack, readFile } from "@statewalker/vcs-core";
 import type { PackDirectory } from "./pack-directory.js";
-import { PendingPack } from "./pending-pack.js";
-import type { PackObjectType } from "./types.js";
 
 /** Default minimum pack size to keep separate (1MB) */
 const DEFAULT_MIN_PACK_SIZE = 1 * 1024 * 1024;

@@ -5,8 +5,8 @@
  * handling of large content that exceeds available memory.
  */
 
-import { type FilesApi, joinPath } from "../../common/files/index.js";
-import type { VolatileContent, VolatileStore } from "./volatile-store.js";
+import type { FilesApi, VolatileContent, VolatileStore } from "@statewalker/vcs-core";
+import { joinPath } from "@statewalker/vcs-core";
 
 /**
  * File-based volatile storage

@@ -4,15 +4,17 @@
  * Tests pack file merging and consolidation.
  */
 
+import {
+  createInMemoryFilesApi,
+  type FilesApi,
+  PackObjectType,
+  PackWriterStream,
+  writePackIndexV2,
+} from "@statewalker/vcs-core";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
-import { PackConsolidator } from "../../src/pack/pack-consolidator.js";
-import { PackDirectory } from "../../src/pack/pack-directory.js";
-import { writePackIndexV2 } from "../../src/pack/pack-index-writer.js";
-import { PackWriterStream } from "../../src/pack/pack-writer.js";
-import { PackObjectType } from "../../src/pack/types.js";
+import { PackConsolidator, PackDirectory } from "../../src/pack/index.js";
 
 // Set up Node.js compression before tests
 beforeAll(() => {

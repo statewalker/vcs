@@ -1,6 +1,6 @@
+import type { FilesApi, RawStorage } from "@statewalker/vcs-core";
+import { dirname, joinPath } from "@statewalker/vcs-core";
 import { deflate, inflate, slice } from "@statewalker/vcs-utils";
-import { dirname, type FilesApi, joinPath } from "../../common/files/index.js";
-import type { RawStorage } from "./raw-storage.js";
 
 /**
  * Options for FileRawStorage

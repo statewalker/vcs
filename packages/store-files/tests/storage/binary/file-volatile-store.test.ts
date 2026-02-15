@@ -2,10 +2,10 @@
  * Tests for FileVolatileStore
  */
 
+import { createInMemoryFilesApi, type FilesApi } from "@statewalker/vcs-core";
 import { collect } from "@statewalker/vcs-utils";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
-import { FileVolatileStore } from "../../src/storage/binary/volatile-store.files.js";
+import { FileVolatileStore } from "../../../src/storage/binary/volatile-store.files.js";
 
 describe("FileVolatileStore", () => {
   let files: FilesApi;

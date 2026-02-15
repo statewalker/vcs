@@ -9,24 +9,26 @@
  * - Blob, tree, and commit object formats
  */
 
+import {
+  CompressedRawStorage,
+  createGitObject,
+  createGitObjectStore,
+  createInMemoryFilesApi,
+  createMemoryHistory,
+  encodeObjectHeader,
+  extractGitObjectContent,
+  type FilesApi,
+  type GitObjectStore,
+  type History,
+  joinPath,
+  MemoryRawStorage,
+  parseHeader,
+} from "@statewalker/vcs-core";
 import { deflate, inflate } from "@statewalker/vcs-utils";
 import { sha1 } from "@statewalker/vcs-utils/hash";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
-import { createInMemoryFilesApi, type FilesApi, joinPath } from "../../src/common/files/index.js";
-import { createMemoryHistory, type History } from "../../src/history/index.js";
-import {
-  createGitObject,
-  encodeObjectHeader,
-  extractGitObjectContent,
-  parseHeader,
-} from "../../src/history/objects/object-header.js";
-import { createGitObjectStore } from "../../src/history/objects/object-store.impl.js";
-import type { GitObjectStore } from "../../src/history/objects/object-store.js";
-import { CompressedRawStorage } from "../../src/storage/raw/compressed-raw-storage.js";
-import { FileRawStorage } from "../../src/storage/raw/file-raw-storage.js";
-import { MemoryRawStorage } from "../../src/storage/raw/memory-raw-storage.js";
+import { FileRawStorage } from "../../src/storage/raw/index.js";
 
 // Helper to compute sha1 and return hex string
 async function sha1Hex(data: Uint8Array): Promise<string> {

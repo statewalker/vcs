@@ -2,17 +2,20 @@
  * Tests for GitFilesCommitDeltaApi
  *
  * Uses real PackDeltaStore with in-memory FilesApi to validate the full
- * deltify → isDelta → getDeltaChain → undeltify cycle.
+ * deltify -> isDelta -> getDeltaChain -> undeltify cycle.
  */
 
+import {
+  createInMemoryFilesApi,
+  type FilesApi,
+  GitDeltaCompressor,
+  GitFilesCommitDeltaApi,
+  parseBinaryDelta,
+} from "@statewalker/vcs-core";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryFilesApi, type FilesApi } from "../../src/common/files/index.js";
 import { PackDeltaStore } from "../../src/pack/index.js";
-import { GitDeltaCompressor } from "../../src/storage/delta/compressor/git-delta-compressor.js";
-import { parseBinaryDelta } from "../../src/storage/delta/delta-binary-format.js";
-import { GitFilesCommitDeltaApi } from "../../src/storage/delta/git-commit-delta-api.js";
 
 beforeAll(() => {
   setCompressionUtils(createNodeCompression());
@@ -87,7 +90,7 @@ describe("GitFilesCommitDeltaApi (real PackDeltaStore)", () => {
     expect(await api.isCommitDelta(oid("target"))).toBe(true);
   });
 
-  it("full cycle: deltify → isDelta → getDeltaChain → undeltify", async () => {
+  it("full cycle: deltify -> isDelta -> getDeltaChain -> undeltify", async () => {
     // Create substantial content so delta works well
     const base = new Uint8Array(200);
     for (let i = 0; i < base.length; i++) {
