@@ -130,15 +130,13 @@ console.log("\n=== Pattern 3: createHistoryFromComponents() ===\n");
 console.log("  Best for: custom storage layers, shared storage between instances");
 console.log("  Returns: History (basic interface)\n");
 
-// Separate blob storage from object storage
-// This is how VCS works internally: blobs are stored as raw content,
-// while trees/commits/tags are stored as Git objects with headers.
-const blobStorage = new MemoryRawStorage();
+// Use a single object store for all Git objects (blobs, trees, commits, tags).
+// createHistoryFromComponents builds typed stores (blobs, trees, commits, tags)
+// from the shared GitObjectStore automatically.
 const objectStorage = new MemoryRawStorage();
 const objects = createGitObjectStore(objectStorage);
 
 const history3 = createHistoryFromComponents({
-  blobStorage,
   objects,
   refs: { type: "memory" },
 });
@@ -169,8 +167,8 @@ const commit3 = await history3.commits.store({
 await history3.refs.set("refs/heads/main", commit3);
 
 console.log(`  Commit: ${commit3.slice(0, 7)}`);
-console.log("  blobStorage and objectStorage are separate MemoryRawStorage instances");
-console.log("  This separation enables different storage strategies for blobs vs metadata");
+console.log("  All Git objects share a single MemoryRawStorage via GitObjectStore");
+console.log("  createHistoryFromComponents auto-builds typed stores (blobs, trees, commits, tags)");
 
 await history3.close();
 
@@ -241,14 +239,12 @@ console.log("\n=== Pattern 5: Shared Storage ===\n");
 console.log("  Best for: multi-workspace, testing isolation, read replicas");
 console.log("  Pattern: Multiple History instances sharing the same raw storage\n");
 
-// Create shared storage
-const sharedBlobStorage = new MemoryRawStorage();
+// Create shared object storage
 const sharedObjectStorage = new MemoryRawStorage();
 const sharedObjects = createGitObjectStore(sharedObjectStorage);
 
 // Create two History instances that share the same underlying storage
 const historyA = createHistoryFromComponents({
-  blobStorage: sharedBlobStorage,
   objects: sharedObjects,
   refs: { type: "memory" }, // separate refs per workspace
 });
@@ -256,7 +252,6 @@ await historyA.initialize();
 await historyA.refs.setSymbolic("HEAD", "refs/heads/main");
 
 const historyB = createHistoryFromComponents({
-  blobStorage: sharedBlobStorage,
   objects: sharedObjects,
   refs: { type: "memory" }, // separate refs per workspace
 });
@@ -313,7 +308,7 @@ console.log("  createMemoryHistory()");
 console.log("    -> Quick testing, no delta/serialization needed\n");
 console.log("  createMemoryHistoryWithOperations()");
 console.log("    -> Testing with transport/pack/delta operations\n");
-console.log("  createHistoryFromComponents({ blobStorage, objects, refs })");
+console.log("  createHistoryFromComponents({ objects, refs })");
 console.log("    -> Custom storage layer, shared storage between instances\n");
 console.log("  createHistoryFromStores({ blobs, trees, commits, tags, refs })");
 console.log("    -> Fully custom store implementations (SQL, IndexedDB, etc.)\n");
