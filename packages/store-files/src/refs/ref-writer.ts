@@ -9,9 +9,17 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectoryUpdate.java
  */
 
-import type { ObjectId } from "@statewalker/vcs-core";
-import { dirname, type FilesApi, joinPath, readFile } from "../../common/files/index.js";
-import { isSymbolicRef, type Ref, SYMREF_PREFIX, type SymbolicRef } from "./ref-types.js";
+import {
+  dirname,
+  type FilesApi,
+  isSymbolicRef,
+  joinPath,
+  type ObjectId,
+  type Ref,
+  readFile,
+  SYMREF_PREFIX,
+  type SymbolicRef,
+} from "@statewalker/vcs-core";
 
 /**
  * Write a loose ref to disk

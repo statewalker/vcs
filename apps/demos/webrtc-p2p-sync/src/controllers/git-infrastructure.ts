@@ -9,7 +9,6 @@
 import { Git } from "@statewalker/vcs-commands";
 import type { FilesApi, History, SerializationApi, Worktree } from "@statewalker/vcs-core";
 import {
-  createFileRefStore,
   createGitObjectStore,
   createGitStaging,
   createHistoryFromComponents,
@@ -22,7 +21,7 @@ import {
   MemoryWorkingCopy,
   MemoryWorktree,
 } from "@statewalker/vcs-core";
-import { FileRawStorage } from "@statewalker/vcs-store-files";
+import { createFileRefStore, FileRawStorage } from "@statewalker/vcs-store-files";
 
 import type { AppContext } from "./index.js";
 import { setGit, setHistory, setSerializationApi, setWorkingCopy, setWorktree } from "./index.js";

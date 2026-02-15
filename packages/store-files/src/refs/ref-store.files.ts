@@ -5,13 +5,18 @@
  * Supports both loose refs and packed-refs.
  */
 
-import type { FilesApi } from "../../common/files/index.js";
-import type { ObjectId } from "../../common/id/index.js";
+import type {
+  FilesApi,
+  ObjectId,
+  Ref,
+  ReflogReader,
+  RefStore,
+  RefUpdateResult,
+  SymbolicRef,
+} from "@statewalker/vcs-core";
 
 import { packRefs } from "./packed-refs-writer.js";
 import { readAllRefs, readRef, resolveRef } from "./ref-reader.js";
-import type { RefStore, RefUpdateResult } from "./ref-store.js";
-import type { Ref, SymbolicRef } from "./ref-types.js";
 import {
   createRefsStructure,
   deleteRef,
@@ -20,7 +25,6 @@ import {
   writeSymbolicRef,
 } from "./ref-writer.js";
 import { createReflogReader } from "./reflog-reader.js";
-import type { ReflogReader } from "./reflog-types.js";
 import { hasReflog } from "./reflog-writer.js";
 
 /**

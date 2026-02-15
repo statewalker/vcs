@@ -9,15 +9,15 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FileRefStore } from "../../../src/history/refs/ref-store.files.js";
-import { RefsAdapter } from "../../../src/history/refs/refs.impl.js";
 import {
+  createMemoryGitStaging,
   GitCheckout,
   type GitCheckoutFilesApi,
-} from "../../../src/workspace/checkout/git-checkout.js";
-import { createMemoryGitStaging } from "../../../src/workspace/staging/git-staging.js";
+  RefsAdapter,
+} from "@statewalker/vcs-core";
+import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { FileRefStore } from "../../src/refs/ref-store.files.js";
 
 /**
  * Run git command in a directory

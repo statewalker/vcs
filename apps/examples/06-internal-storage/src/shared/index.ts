@@ -12,13 +12,8 @@ import type {
   ObjectId,
   PersonIdent,
 } from "@statewalker/vcs-core";
-import {
-  createFileRefStore,
-  createGitObjectStore,
-  createHistoryFromComponents,
-  joinPath,
-} from "@statewalker/vcs-core";
-import { FileRawStorage } from "@statewalker/vcs-store-files";
+import { createGitObjectStore, createHistoryFromComponents, joinPath } from "@statewalker/vcs-core";
+import { createFileRefStore, FileRawStorage } from "@statewalker/vcs-store-files";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";

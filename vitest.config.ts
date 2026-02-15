@@ -97,6 +97,10 @@ export default defineConfig({
         replacement: path.resolve(rootDir, "packages/store-mem/src"),
       },
       {
+        find: "@statewalker/vcs-store-files",
+        replacement: path.resolve(rootDir, "packages/store-files/src"),
+      },
+      {
         find: "@statewalker/vcs-store-sql",
         replacement: path.resolve(rootDir, "packages/store-sql/src"),
       },

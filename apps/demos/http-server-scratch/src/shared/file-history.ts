@@ -8,7 +8,6 @@
 import {
   createBlobs,
   createCommits,
-  createFileRefStore,
   createGitObjectStore,
   createHistoryFromStores,
   createRefsAdapter,
@@ -19,7 +18,7 @@ import {
   type History,
   joinPath,
 } from "@statewalker/vcs-core";
-import { FileRawStorage } from "@statewalker/vcs-store-files";
+import { createFileRefStore, FileRawStorage } from "@statewalker/vcs-store-files";
 
 /**
  * Extended History type that also exposes the GitObjectStore for low-level operations.

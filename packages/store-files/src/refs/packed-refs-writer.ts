@@ -8,16 +8,17 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import { type FilesApi, joinPath } from "../../common/files/index.js";
-import { readPackedRefs } from "./packed-refs-reader.js";
-import { readLooseRef } from "./ref-reader.js";
 import {
+  type FilesApi,
   isSymbolicRef,
+  joinPath,
   PACKED_REFS,
   PACKED_REFS_HEADER,
   PACKED_REFS_PEELED,
   type Ref,
-} from "./ref-types.js";
+} from "@statewalker/vcs-core";
+import { readPackedRefs } from "./packed-refs-reader.js";
+import { readLooseRef } from "./ref-reader.js";
 import { deleteRef } from "./ref-writer.js";
 
 /**

@@ -11,13 +11,12 @@
 import type { FilesApi, GitObjectStore, History } from "@statewalker/vcs-core";
 import {
   CompositeRawStorage,
-  createFileRefStore,
   createGitObjectStore,
   createHistoryFromComponents,
   joinPath,
 } from "@statewalker/vcs-core";
-
 import { PackDirectory } from "./pack/pack-directory.js";
+import { createFileRefStore } from "./refs/ref-store.files.js";
 import { FileRawStorage } from "./storage/raw/file-raw-storage.js";
 import { PackDirectoryAdapter } from "./storage/raw/pack-directory-adapter.js";
 

@@ -12,19 +12,21 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import { type FilesApi, joinPath, readFile } from "../../common/files/index.js";
-import type { ObjectId } from "../../common/id/index.js";
 import {
   createPeeledRef,
   createPeeledTagRef,
   createRef,
+  type FilesApi,
+  joinPath,
   OBJECT_ID_STRING_LENGTH,
+  type ObjectId,
   PACKED_REFS,
   PACKED_REFS_HEADER,
   PACKED_REFS_PEELED,
   type Ref,
   RefStorage,
-} from "./ref-types.js";
+  readFile,
+} from "@statewalker/vcs-core";
 
 /**
  * Parsed packed-refs result
