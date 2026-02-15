@@ -8,21 +8,23 @@
  * - jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/RefDirectory.java
  */
 
-import { type FilesApi, joinPath, readFile } from "../../common/files/index.js";
-import type { ObjectId } from "../../common/id/index.js";
-import { findPackedRef, readPackedRefs } from "./packed-refs-reader.js";
 import {
   createRef,
   createSymbolicRef,
+  type FilesApi,
   HEAD,
   isSymbolicRef,
+  joinPath,
   OBJECT_ID_STRING_LENGTH,
+  type ObjectId,
   R_REFS,
   type Ref,
   RefStorage,
+  readFile,
   SYMREF_PREFIX,
   type SymbolicRef,
-} from "./ref-types.js";
+} from "@statewalker/vcs-core";
+import { findPackedRef, readPackedRefs } from "./packed-refs-reader.js";
 
 /** Maximum depth for resolving symbolic refs */
 const MAX_SYMBOLIC_REF_DEPTH = 5;

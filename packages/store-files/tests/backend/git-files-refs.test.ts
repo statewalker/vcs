@@ -9,35 +9,32 @@
  * - Atomic operations (compare-and-swap)
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
-
 import {
   createInMemoryFilesApi,
   type FilesApi,
-  joinPath,
-  readFile,
-} from "../../src/common/files/index.js";
-import { parsePackedRefs, readPackedRefs } from "../../src/history/refs/packed-refs-reader.js";
-import { packRefs } from "../../src/history/refs/packed-refs-writer.js";
-import {
-  readAllRefs,
-  readLooseRef,
-  readRef,
-  resolveRef,
-} from "../../src/history/refs/ref-reader.js";
-import { FileRefStore } from "../../src/history/refs/ref-store.files.js";
-import {
   isSymbolicRef,
+  joinPath,
   type ObjectId,
   type Ref,
   RefStorage,
-} from "../../src/history/refs/ref-types.js";
+  readFile,
+  type SymbolicRef,
+} from "@statewalker/vcs-core";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   createRefsStructure,
   deleteRef,
+  FileRefStore,
+  packRefs,
+  parsePackedRefs,
+  readAllRefs,
+  readLooseRef,
+  readPackedRefs,
+  readRef,
+  resolveRef,
   writeObjectRef,
   writeSymbolicRef,
-} from "../../src/history/refs/ref-writer.js";
+} from "../../src/refs/index.js";
 
 // Test constants
 const TEST_OID_1 = "0123456789abcdef0123456789abcdef01234567" as ObjectId;
@@ -444,7 +441,7 @@ ${TEST_OID_1} refs/tags/v1.0.0
       await refStore.set("refs/heads/feature", TEST_OID_2);
       await refStore.set("refs/tags/v1.0", TEST_OID_3);
 
-      const refs: (Ref | typeof import("../../src/history/refs/ref-types.js").SymbolicRef)[] = [];
+      const refs: (Ref | SymbolicRef)[] = [];
       for await (const ref of refStore.list("refs/")) {
         refs.push(ref);
       }
@@ -464,7 +461,7 @@ ${TEST_OID_1} refs/tags/v1.0.0
       await refStore.set("refs/heads/feature", TEST_OID_2);
       await refStore.set("refs/tags/v1.0", TEST_OID_3);
 
-      const refs: (Ref | typeof import("../../src/history/refs/ref-types.js").SymbolicRef)[] = [];
+      const refs: (Ref | SymbolicRef)[] = [];
       for await (const ref of refStore.list("refs/heads/")) {
         refs.push(ref);
       }

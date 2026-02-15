@@ -12,10 +12,13 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/internal/storage/file/ReflogReaderImpl.java
  */
 
-import type { FilesApi } from "../../common/files/index.js";
-import { joinPath } from "../../common/files/index.js";
-import { parsePersonIdent } from "../format/index.js";
-import type { ReflogEntry, ReflogReader } from "./reflog-types.js";
+import {
+  type FilesApi,
+  joinPath,
+  parsePersonIdent,
+  type ReflogEntry,
+  type ReflogReader,
+} from "@statewalker/vcs-core";
 
 const LOGS_DIR = "logs";
 

@@ -16,6 +16,8 @@ export * from "./gc.js";
 export * from "./gc-strategy.js";
 // Pack file management (file-dependent)
 export * from "./pack/index.js";
+// Refs (file-dependent)
+export * from "./refs/index.js";
 // Repack
 export * from "./repack.js";
 // Storage implementations (file-dependent)
