@@ -9,18 +9,12 @@
 import { Git } from "@statewalker/vcs-commands";
 import type { FilesApi, History, SerializationApi, Worktree } from "@statewalker/vcs-core";
 import {
-  CompressedRawStorage,
-  createBlobs,
-  createCommits,
   createFileRefStore,
   createGitObjectStore,
   createGitStaging,
-  createHistoryFromStores,
+  createHistoryFromComponents,
   createMemoryGitStaging,
   createMemoryHistory,
-  createRefsAdapter,
-  createTags,
-  createTrees,
   DefaultSerializationApi,
   FileRawStorage,
   FileWorktree,
@@ -106,21 +100,17 @@ export async function initializeGitFromFiles(ctx: AppContext, files: FilesApi): 
   }
 
   // Build History from file components.
-  // All objects (including blobs) go through the same GitObjectStore so they
-  // are stored with Git headers ("type size\0content") in the shared
-  // .git/objects directory — matching real Git's on-disk format.
+  // All objects (including blobs) go through a single GitObjectStore which
+  // handles zlib compression/decompression and Git headers ("type size\0content")
+  // — matching real Git's on-disk format.
   const looseStorage = new FileRawStorage(files, objectsDir);
-  const compressedStorage = new CompressedRawStorage(looseStorage);
-  const objects = createGitObjectStore(compressedStorage);
+  const objects = createGitObjectStore(looseStorage);
   const refStore = createFileRefStore(files, gitDir);
 
-  const blobs = createBlobs(objects);
-  const trees = createTrees(objects);
-  const commits = createCommits(objects);
-  const tags = createTags(objects);
-  const refs = createRefsAdapter(refStore);
-
-  const history = createHistoryFromStores({ blobs, trees, commits, tags, refs });
+  const history = createHistoryFromComponents({
+    objects,
+    refs: { type: "adapter", refStore },
+  });
   await history.initialize();
   setHistory(ctx, history);
 
