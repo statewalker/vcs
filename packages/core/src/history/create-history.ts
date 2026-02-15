@@ -23,7 +23,6 @@ import { MemoryDeltaApi } from "../backend/memory-storage-backend.js";
 import type { BackendCapabilities } from "../backend/storage-backend.js";
 import { DefaultSerializationApi } from "../serialization/serialization-api.impl.js";
 import { MemoryRawStorage } from "../storage/raw/memory-raw-storage.js";
-import type { RawStorage } from "../storage/raw/raw-storage.js";
 import { createBlobs } from "./blobs/blobs.impl.js";
 import type { Blobs } from "./blobs/blobs.js";
 import { createCommits } from "./commits/commits.impl.js";
@@ -60,14 +59,6 @@ export interface HistoryStoresConfig {
  * Configuration for creating History from low-level components
  */
 export interface HistoryComponentsConfig {
-  /**
-   * Raw storage for blobs
-   *
-   * Blobs are stored directly in RawStorage without Git headers
-   * for efficiency with large files.
-   */
-  blobStorage: RawStorage;
-
   /**
    * Git object store for structured types
    *
@@ -121,7 +112,6 @@ export function createHistoryFromStores(config: HistoryStoresConfig): History {
  * @example
  * ```typescript
  * const history = createHistoryFromComponents({
- *   blobStorage: new MemoryRawStorage(),
  *   objects: createGitObjectStore(new MemoryRawStorage()),
  *   refs: { type: "memory" },
  * });
@@ -139,8 +129,13 @@ export function createHistoryFromComponents(config: HistoryComponentsConfig): Hi
   } else {
     refs = createRefsAdapter(config.refs.refStore);
   }
-
-  return new HistoryImpl(blobs, trees, commits, tags, refs);
+  return createHistoryFromStores({
+    blobs,
+    trees,
+    commits,
+    tags,
+    refs,
+  });
 }
 
 /**
@@ -164,12 +159,9 @@ export function createHistoryFromComponents(config: HistoryComponentsConfig): Hi
  * ```
  */
 export function createMemoryHistory(): History {
-  const blobStorage = new MemoryRawStorage();
   const objectStorage = new MemoryRawStorage();
   const objects = createGitObjectStore(objectStorage);
-
   return createHistoryFromComponents({
-    blobStorage,
     objects,
     refs: { type: "memory" },
   });
