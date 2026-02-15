@@ -48,11 +48,18 @@ export interface GitObjectStoreOptions {
 }
 
 /**
- * Unified Git object storage interface
+ * Low-level Git object storage interface (raw bytes with headers)
  *
  * Provides storage for all Git object types (blob, commit, tree, tag).
  * Objects are stored with Git format: "type size\0content"
  * and identified by their SHA-1 hash.
+ *
+ * This is the **raw layer** — it works with untyped byte streams and
+ * Git object headers. Higher-level typed stores (Blobs, Trees, Commits, Tags)
+ * extend {@link ObjectStorage} and wrap a GitObjectStore to provide
+ * serialization/deserialization of semantic values.
+ *
+ * @see {@link ObjectStorage} for the generic typed store interface
  */
 export interface GitObjectStore {
   /**

@@ -1,10 +1,14 @@
 import type { ObjectId } from "../../common/index.js";
 
 /**
- * Base interface for content-addressed object stores
+ * Base interface for content-addressed object stores (typed/semantic layer)
  *
- * All object stores (Blobs, Trees, Commits, Tags) share these common
- * operations for consistency and to enable generic utilities.
+ * All typed object stores (Blobs, Trees, Commits, Tags) extend this
+ * interface with domain-specific operations. This is the **high-level layer**
+ * that works with parsed values (Commit objects, TreeEntry arrays, etc.).
+ *
+ * Concrete implementations typically wrap a {@link GitObjectStore} which
+ * handles the underlying Git object format (headers, SHA-1 hashing).
  *
  * Type parameter V represents the object type being stored:
  * - Blobs: streaming content (AsyncIterable<Uint8Array>)
@@ -13,6 +17,7 @@ import type { ObjectId } from "../../common/index.js";
  * - Tags: Tag structure
  *
  * @template V The object type being stored
+ * @see {@link GitObjectStore} for the raw byte-level storage interface
  */
 export interface ObjectStorage<V> {
   /**
