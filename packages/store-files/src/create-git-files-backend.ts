@@ -8,15 +8,9 @@
  */
 
 import {
-  CompressedRawStorage,
-  createBlobs,
-  createCommits,
   createFileRefStore,
   createGitObjectStore,
-  createHistoryFromStores,
-  createRefsAdapter,
-  createTags,
-  createTrees,
+  createHistoryFromComponents,
   FileRawStorage,
   type FilesApi,
   type GitObjectStore,
@@ -52,11 +46,9 @@ export interface GitFilesBackendResult {
  * Create a file-backed Git storage backend.
  *
  * Wires up all storage layers from a single FilesApi:
- * 1. FileRawStorage → CompressedRawStorage → GitObjectStore (loose objects)
- * 2. Blobs (via createBlobs, with Git headers in shared objects dir)
- * 3. Trees, Commits, Tags (from GitObjectStore)
- * 4. FileRefStore → Refs adapter
- * 5. Composed into History via createHistoryFromStores()
+ * 1. FileRawStorage → GitObjectStore (loose objects with zlib compression)
+ * 2. FileRefStore → Refs adapter
+ * 3. Composed into History via createHistoryFromComponents()
  *
  * @example
  * ```typescript
@@ -85,21 +77,17 @@ export async function createGitFilesBackend(
   }
 
   // Build storage layers.
-  // All objects (including blobs) go through the same GitObjectStore so they
-  // are stored with Git headers ("type size\0content") in the shared
-  // .git/objects directory — matching real Git's on-disk format.
+  // All objects (including blobs) go through a single GitObjectStore which
+  // handles zlib compression/decompression and Git headers ("type size\0content")
+  // — matching real Git's on-disk format.
   const looseStorage = new FileRawStorage(files, objectsDir);
-  const compressedStorage = new CompressedRawStorage(looseStorage);
-  const objects = createGitObjectStore(compressedStorage);
+  const objects = createGitObjectStore(looseStorage);
   const refStore = createFileRefStore(files, gitDir);
 
-  const blobs = createBlobs(objects);
-  const trees = createTrees(objects);
-  const commits = createCommits(objects);
-  const tags = createTags(objects);
-  const refs = createRefsAdapter(refStore);
-
-  const history = createHistoryFromStores({ blobs, trees, commits, tags, refs });
+  const history = createHistoryFromComponents({
+    objects,
+    refs: { type: "adapter", refStore },
+  });
 
   return { history, objects };
 }
