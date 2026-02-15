@@ -1,0 +1,26 @@
+{
+  "name": "@statewalker/vcs-demo-livekit-p2p-sync",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser VCS with LiveKit peer-to-peer synchronization",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@statewalker/vcs-core": "workspace:*",
+    "@statewalker/vcs-commands": "workspace:*",
+    "@statewalker/vcs-transport": "workspace:*",
+    "@statewalker/vcs-transport-adapters": "workspace:*",
+    "@statewalker/vcs-port-livekit": "workspace:*",
+    "livekit-client": "^2.9.7"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "^6.0.0"
+  }
+}
