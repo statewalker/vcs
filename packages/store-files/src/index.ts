@@ -22,3 +22,5 @@ export * from "./refs/index.js";
 export * from "./repack.js";
 // Storage implementations (file-dependent)
 export * from "./storage/index.js";
+// Workspace implementations (file-dependent)
+export * from "./workspace/index.js";

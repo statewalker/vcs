@@ -8,13 +8,13 @@
  */
 
 import {
-  createFileWorktree,
   createInMemoryFilesApi,
   type FilesApi,
   MemoryWorkingCopy,
   type WorkingCopy,
   type Worktree,
 } from "@statewalker/vcs-core";
+import { createFileWorktree } from "@statewalker/vcs-store-files";
 import {
   createMemoryObjectStores,
   MemoryRefStore,

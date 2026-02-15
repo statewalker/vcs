@@ -5,13 +5,8 @@
  */
 
 import { Git } from "@statewalker/vcs-commands";
-import {
-  FileMode,
-  FileStagingStore,
-  type History,
-  type StagingStore,
-  type WorkingCopy,
-} from "@statewalker/vcs-core";
+import { FileMode, type History, type StagingStore, type WorkingCopy } from "@statewalker/vcs-core";
+import { FileStagingStore } from "@statewalker/vcs-store-files";
 import {
   createBrowserFsStorage,
   createMemoryStorage,

@@ -6,7 +6,7 @@
  */
 
 import { Git } from "@statewalker/vcs-commands";
-import { FileStagingStore } from "@statewalker/vcs-core";
+import { FileStagingStore } from "@statewalker/vcs-store-files";
 import {
   cleanupRepo,
   createFilesApi,

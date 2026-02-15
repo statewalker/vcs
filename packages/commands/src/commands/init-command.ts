@@ -1,5 +1,4 @@
 import {
-  createFileWorktree,
   createInMemoryFilesApi,
   createMemoryHistory,
   type FilesApi,
@@ -7,6 +6,7 @@ import {
   type WorkingCopy,
   type Worktree,
 } from "@statewalker/vcs-core";
+import { createFileWorktree } from "@statewalker/vcs-store-files";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 
 import { Git } from "../git.js";

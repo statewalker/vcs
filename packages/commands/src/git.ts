@@ -129,7 +129,7 @@ export class Git implements Disposable {
    * await result.git.add().addFilepattern(".").call();
    *
    * // Initialize with custom staging for native git compatibility
-   * import { FileStagingStore } from "@statewalker/vcs-core";
+   * import { FileStagingStore } from "@statewalker/vcs-store-files";
    * const staging = new FileStagingStore(files, ".git/index");
    *
    * const result = await Git.init()

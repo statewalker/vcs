@@ -43,6 +43,10 @@
     "./staging": {
       "types": "./dist/workspace/staging/index.d.ts",
       "import": "./dist/workspace/staging/index.js"
+    },
+    "./transformation": {
+      "types": "./dist/workspace/transformation/index.d.ts",
+      "import": "./dist/workspace/transformation/index.js"
     }
   },
   "files": [
