@@ -215,7 +215,7 @@ async function handleInit(): Promise<void> {
       { mode: FileMode.REGULAR_FILE, name: "README.md", id: blob },
     ]);
 
-    const now = Date.now() / 1000;
+    const now = Math.floor(Date.now() / 1000);
     const author = {
       name: roomManager?.getLocalIdentity() ?? "User",
       email: "demo@example.com",
@@ -272,7 +272,7 @@ async function handleAddFile(): Promise<void> {
 
     const tree = await history.trees.store(existingEntries);
 
-    const now = Date.now() / 1000;
+    const now = Math.floor(Date.now() / 1000);
     const author = {
       name: roomManager?.getLocalIdentity() ?? "User",
       email: "demo@example.com",
@@ -426,7 +426,7 @@ async function createMergeCommit(
     const remoteCommit = await h.commits.load(remoteOid);
     if (!remoteCommit) return null;
 
-    const now = Date.now() / 1000;
+    const now = Math.floor(Date.now() / 1000);
     const author = {
       name: roomManager?.getLocalIdentity() ?? "User",
       email: "demo@example.com",

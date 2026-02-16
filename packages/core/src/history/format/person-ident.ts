@@ -20,7 +20,11 @@ import type { PersonIdent } from "../../common/person/person-ident.js";
  * @returns Formatted string
  */
 export function formatPersonIdent(ident: PersonIdent): string {
-  return `${ident.name} <${ident.email}> ${ident.timestamp} ${ident.tzOffset}`;
+  // Git timestamps are always integers (seconds since epoch).
+  // Floor to prevent float timestamps from causing hash mismatches
+  // during pack import round-trips (parseInt in parsePersonIdent truncates).
+  const ts = Math.floor(ident.timestamp);
+  return `${ident.name} <${ident.email}> ${ts} ${ident.tzOffset}`;
 }
 
 /**
