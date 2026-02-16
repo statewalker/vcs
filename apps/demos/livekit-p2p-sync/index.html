@@ -20,37 +20,44 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html, body { height: 100%; overflow: hidden; }
+
     body {
       font-family: var(--font);
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
-      padding: 1rem;
     }
 
-    h1 { font-size: 1.4rem; margin-bottom: 1rem; color: var(--primary); }
-    h2 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+    h1 { font-size: 1.4rem; color: var(--primary); padding: 0.75rem 1rem; flex-shrink: 0; }
+    h2 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; flex-shrink: 0; }
 
     .layout {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: auto 1fr 1fr;
       gap: 1rem;
-      max-width: 1200px;
-      margin: 0 auto;
+      padding: 0 1rem 1rem;
+      position: fixed;
+      inset: 0;
     }
+
+    .layout > h1 { grid-column: 1 / -1; }
 
     .panel {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
-    .panel-connection { grid-column: 1; grid-row: 1; }
-    .panel-peers { grid-column: 2; grid-row: 1; }
-    .panel-repo { grid-column: 1; grid-row: 2; }
-    .panel-files { grid-column: 2; grid-row: 2; }
-    .panel-log { grid-column: 3; grid-row: 1 / 3; }
+    .panel-connection { grid-column: 1; grid-row: 2; }
+    .panel-peers { grid-column: 1; grid-row: 3; }
+    .panel-repo { grid-column: 2; grid-row: 2; }
+    .panel-files { grid-column: 2; grid-row: 3; }
+    .panel-log { grid-column: 3; grid-row: 2 / 4; }
 
     input, button, select {
       font-family: var(--font);
@@ -86,7 +93,13 @@
     .status-connected { background: #1b4332; color: var(--success); }
     .status-connecting { background: #332b00; color: #ffd60a; }
 
-    .peer-list { list-style: none; }
+    .peer-list, .file-list, .commit-list {
+      list-style: none;
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
     .peer-list li {
       display: flex;
       align-items: center;
@@ -98,10 +111,10 @@
     .peer-list li:last-child { border-bottom: none; }
     .peer-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 0.4rem; }
 
-    .file-list { list-style: none; font-family: var(--mono); font-size: 0.8rem; }
+    .file-list { font-family: var(--mono); font-size: 0.8rem; }
     .file-list li { padding: 0.2rem 0; }
 
-    .commit-list { list-style: none; font-size: 0.8rem; }
+    .commit-list { font-size: 0.8rem; }
     .commit-list li { padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
     .commit-list li:last-child { border-bottom: none; }
     .commit-hash { color: var(--primary); font-family: var(--mono); }
@@ -114,8 +127,9 @@
       padding: 0.5rem;
       font-family: var(--mono);
       font-size: 0.75rem;
-      height: 400px;
+      flex: 1;
       overflow-y: auto;
+      min-height: 0;
       line-height: 1.5;
       white-space: pre-wrap;
       word-break: break-all;
@@ -124,10 +138,17 @@
     .log-success { color: var(--success); }
     .log-error { color: var(--error); }
 
+    .panel-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+
     .empty { color: var(--text-dim); font-style: italic; font-size: 0.8rem; }
 
     @media (max-width: 900px) {
-      .layout { grid-template-columns: 1fr; }
+      .layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto repeat(5, 1fr);
+        position: static;
+        height: 100vh;
+      }
       .panel-connection, .panel-peers, .panel-repo, .panel-files, .panel-log {
         grid-column: 1; grid-row: auto;
       }
@@ -135,33 +156,35 @@
   </style>
 </head>
 <body>
-  <h1>LiveKit P2P Git Sync</h1>
-
   <div class="layout">
+    <h1>LiveKit P2P Git Sync</h1>
+
     <!-- Connection Panel -->
     <div class="panel panel-connection" id="connection-panel">
       <h2>Connection</h2>
-      <div class="field">
-        <label for="lk-url">LiveKit URL</label>
-        <input type="text" id="lk-url" placeholder="ws://localhost:7880" value="ws://localhost:7880" />
+      <div class="panel-scroll">
+        <div class="field">
+          <label for="lk-url">LiveKit URL</label>
+          <input type="text" id="lk-url" placeholder="ws://localhost:7880" value="ws://localhost:7880" />
+        </div>
+        <div class="field">
+          <label for="lk-room">Room Name</label>
+          <input type="text" id="lk-room" placeholder="git-sync" value="git-sync" />
+        </div>
+        <div class="field">
+          <label for="lk-identity">Identity</label>
+          <input type="text" id="lk-identity" placeholder="user-1" />
+        </div>
+        <div class="field">
+          <label for="lk-token">Token (leave empty for dev mode)</label>
+          <input type="text" id="lk-token" placeholder="Auto-generated for livekit-server --dev" />
+        </div>
+        <div>
+          <button id="btn-connect">Connect</button>
+          <button id="btn-disconnect" class="secondary" disabled>Disconnect</button>
+        </div>
+        <div id="connection-status" class="status status-disconnected" style="margin-top: 0.5rem;">Disconnected</div>
       </div>
-      <div class="field">
-        <label for="lk-room">Room Name</label>
-        <input type="text" id="lk-room" placeholder="git-sync" value="git-sync" />
-      </div>
-      <div class="field">
-        <label for="lk-identity">Identity</label>
-        <input type="text" id="lk-identity" placeholder="user-1" />
-      </div>
-      <div class="field">
-        <label for="lk-token">Token (leave empty for dev mode)</label>
-        <input type="text" id="lk-token" placeholder="Auto-generated for livekit-server --dev" />
-      </div>
-      <div>
-        <button id="btn-connect">Connect</button>
-        <button id="btn-disconnect" class="secondary" disabled>Disconnect</button>
-      </div>
-      <div id="connection-status" class="status status-disconnected" style="margin-top: 0.5rem;">Disconnected</div>
     </div>
 
     <!-- Peers Panel -->
@@ -175,7 +198,7 @@
     <!-- Repository Panel -->
     <div class="panel panel-repo" id="repo-panel">
       <h2>Repository</h2>
-      <div style="margin-bottom: 0.5rem;">
+      <div style="margin-bottom: 0.5rem; flex-shrink: 0;">
         <button id="btn-init">Init Repo</button>
         <button id="btn-add-file" class="secondary" disabled>Add File</button>
       </div>
