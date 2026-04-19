@@ -93,9 +93,8 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@types/pako": "^2.0.4",
+    "@types/pako": "catalog:",
     "@vitest/browser": "catalog:",
-    "@vitest/browser-playwright": "catalog:",
     "playwright": "catalog:",
     "rolldown": "catalog:",
     "typescript": "catalog:",
@@ -104,6 +103,6 @@
   "dependencies": {
     "@statewalker/webrun-files": "catalog:",
     "@statewalker/webrun-files-mem": "catalog:",
-    "pako": "^2.1.0"
+    "pako": "catalog:"
   }
 }

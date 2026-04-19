@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "peerjs": "^1.5.0"
+    "peerjs": "^1.5.5"
   },
   "peerDependenciesMeta": {
     "peerjs": {
@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "peerjs": "^1.5.4",
+    "peerjs": "catalog:",
     "rolldown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

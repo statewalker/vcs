@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "livekit-client": "^2.0.0"
+    "livekit-client": "^2.18.3"
   },
   "peerDependenciesMeta": {
     "livekit-client": {
@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "livekit-client": "^2.9.7",
+    "livekit-client": "catalog:",
     "rolldown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
