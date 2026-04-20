@@ -40,15 +40,15 @@
   },
   "devDependencies": {
     "@statewalker/vcs-testing": "workspace:*",
-    "sql.js": "1.11.0",
-    "@types/sql.js": "^1.4.9",
+    "sql.js": "catalog:",
+    "@types/sql.js": "catalog:",
     "rolldown": "catalog:",
     "vitest": "catalog:",
     "typescript": "catalog:",
     "@types/node": "catalog:"
   },
   "peerDependencies": {
-    "sql.js": ">=1.8.0"
+    "sql.js": ">=1.14.1"
   },
   "peerDependenciesMeta": {
     "sql.js": {
