@@ -72,7 +72,7 @@ export function createConnectionView(ctx: AppContext, container: HTMLElement): (
   }
 
   // Subscribe to model updates
-  register(connectionModel.onUpdate(render));
+  register(connectionModel.autorun(render));
 
   // Initial render
   render();

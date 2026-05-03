@@ -1,4 +1,4 @@
-import { BaseClass } from "../utils/index.js";
+import { Base } from "../utils/index.js";
 
 /**
  * WebRTC connection states.
@@ -14,7 +14,7 @@ export type PeerRole = "initiator" | "responder";
  * Model representing WebRTC connection state.
  * Tracks connection status, peer role, and errors.
  */
-export class ConnectionModel extends BaseClass {
+export class ConnectionModel extends Base {
   #state: ConnectionState = "new";
   #peerRole: PeerRole | null = null;
   #error: string | null = null;
@@ -36,33 +36,43 @@ export class ConnectionModel extends BaseClass {
   }
 
   setConnecting(role: PeerRole): void {
-    this.#state = "connecting";
-    this.#peerRole = role;
-    this.#error = null;
-    this.notify();
+    return this.update(() => {
+      this.#state = "connecting";
+      this.#peerRole = role;
+      this.#error = null;
+    
+    });
   }
 
   setConnected(): void {
-    this.#state = "connected";
-    this.#error = null;
-    this.notify();
+    return this.update(() => {
+      this.#state = "connected";
+      this.#error = null;
+    
+    });
   }
 
   setDisconnected(): void {
-    this.#state = "disconnected";
-    this.notify();
+    return this.update(() => {
+      this.#state = "disconnected";
+    
+    });
   }
 
   setFailed(error: string): void {
-    this.#state = "failed";
-    this.#error = error;
-    this.notify();
+    return this.update(() => {
+      this.#state = "failed";
+      this.#error = error;
+    
+    });
   }
 
   reset(): void {
-    this.#state = "new";
-    this.#peerRole = null;
-    this.#error = null;
-    this.notify();
+    return this.update(() => {
+      this.#state = "new";
+      this.#peerRole = null;
+      this.#error = null;
+    
+    });
   }
 }

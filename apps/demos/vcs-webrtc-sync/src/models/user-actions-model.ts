@@ -8,7 +8,7 @@
  * This ensures Views communicate with Controllers exclusively via Models.
  */
 
-import { BaseClass } from "../utils/index.js";
+import { Base } from "../utils/index.js";
 
 /**
  * Storage action types.
@@ -52,7 +52,7 @@ export type SyncAction = { type: "push" } | { type: "fetch" };
  * Model for tracking user-initiated action requests.
  * Views set action requests, controllers consume and clear them.
  */
-export class UserActionsModel extends BaseClass {
+export class UserActionsModel extends Base {
   #storageAction: StorageAction | null = null;
   #fileAction: FileAction | null = null;
   #commitAction: CommitAction | null = null;
@@ -65,29 +65,39 @@ export class UserActionsModel extends BaseClass {
   }
 
   requestOpenFolder(): void {
-    this.#storageAction = { type: "open-folder" };
-    this.notify();
+    return this.update(() => {
+      this.#storageAction = { type: "open-folder" };
+    
+    });
   }
 
   requestUseMemory(): void {
-    this.#storageAction = { type: "use-memory" };
-    this.notify();
+    return this.update(() => {
+      this.#storageAction = { type: "use-memory" };
+    
+    });
   }
 
   requestInitRepository(): void {
-    this.#storageAction = { type: "init-repository" };
-    this.notify();
+    return this.update(() => {
+      this.#storageAction = { type: "init-repository" };
+    
+    });
   }
 
   requestCreateSamples(): void {
-    this.#storageAction = { type: "create-samples" };
-    this.notify();
+    return this.update(() => {
+      this.#storageAction = { type: "create-samples" };
+    
+    });
   }
 
   clearStorageAction(): void {
     if (this.#storageAction) {
-      this.#storageAction = null;
-      this.notify();
+      return this.update(() => {
+        this.#storageAction = null;
+      
+      });
     }
   }
 
@@ -97,24 +107,32 @@ export class UserActionsModel extends BaseClass {
   }
 
   requestRefresh(): void {
-    this.#fileAction = { type: "refresh" };
-    this.notify();
+    return this.update(() => {
+      this.#fileAction = { type: "refresh" };
+    
+    });
   }
 
   requestStage(path: string): void {
-    this.#fileAction = { type: "stage", path };
-    this.notify();
+    return this.update(() => {
+      this.#fileAction = { type: "stage", path };
+    
+    });
   }
 
   requestUnstage(path: string): void {
-    this.#fileAction = { type: "unstage", path };
-    this.notify();
+    return this.update(() => {
+      this.#fileAction = { type: "unstage", path };
+    
+    });
   }
 
   clearFileAction(): void {
     if (this.#fileAction) {
-      this.#fileAction = null;
-      this.notify();
+      return this.update(() => {
+        this.#fileAction = null;
+      
+      });
     }
   }
 
@@ -124,19 +142,25 @@ export class UserActionsModel extends BaseClass {
   }
 
   requestCommit(message: string): void {
-    this.#commitAction = { type: "commit", message };
-    this.notify();
+    return this.update(() => {
+      this.#commitAction = { type: "commit", message };
+    
+    });
   }
 
   requestRestore(commitId: string): void {
-    this.#commitAction = { type: "restore", commitId };
-    this.notify();
+    return this.update(() => {
+      this.#commitAction = { type: "restore", commitId };
+    
+    });
   }
 
   clearCommitAction(): void {
     if (this.#commitAction) {
-      this.#commitAction = null;
-      this.notify();
+      return this.update(() => {
+        this.#commitAction = null;
+      
+      });
     }
   }
 
@@ -146,29 +170,39 @@ export class UserActionsModel extends BaseClass {
   }
 
   requestCreateOffer(): void {
-    this.#connectionAction = { type: "create-offer" };
-    this.notify();
+    return this.update(() => {
+      this.#connectionAction = { type: "create-offer" };
+    
+    });
   }
 
   requestAcceptOffer(payload: string): void {
-    this.#connectionAction = { type: "accept-offer", payload };
-    this.notify();
+    return this.update(() => {
+      this.#connectionAction = { type: "accept-offer", payload };
+    
+    });
   }
 
   requestAcceptAnswer(payload: string): void {
-    this.#connectionAction = { type: "accept-answer", payload };
-    this.notify();
+    return this.update(() => {
+      this.#connectionAction = { type: "accept-answer", payload };
+    
+    });
   }
 
   requestCloseConnection(): void {
-    this.#connectionAction = { type: "close-connection" };
-    this.notify();
+    return this.update(() => {
+      this.#connectionAction = { type: "close-connection" };
+    
+    });
   }
 
   clearConnectionAction(): void {
     if (this.#connectionAction) {
-      this.#connectionAction = null;
-      this.notify();
+      return this.update(() => {
+        this.#connectionAction = null;
+      
+      });
     }
   }
 
@@ -178,19 +212,25 @@ export class UserActionsModel extends BaseClass {
   }
 
   requestPush(): void {
-    this.#syncAction = { type: "push" };
-    this.notify();
+    return this.update(() => {
+      this.#syncAction = { type: "push" };
+    
+    });
   }
 
   requestFetch(): void {
-    this.#syncAction = { type: "fetch" };
-    this.notify();
+    return this.update(() => {
+      this.#syncAction = { type: "fetch" };
+    
+    });
   }
 
   clearSyncAction(): void {
     if (this.#syncAction) {
-      this.#syncAction = null;
-      this.notify();
+      return this.update(() => {
+        this.#syncAction = null;
+      
+      });
     }
   }
 }

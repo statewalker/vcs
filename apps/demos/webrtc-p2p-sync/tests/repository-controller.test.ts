@@ -400,7 +400,7 @@ describe("RepositoryController", () => {
       const repoModel = getRepositoryModel(ctx);
 
       const listener = vi.fn();
-      repoModel.onUpdate(listener);
+      repoModel.autorun(listener);
 
       // Reset call count after subscription
       listener.mockClear();
@@ -427,9 +427,9 @@ describe("RepositoryController", () => {
       const listener2 = vi.fn();
       const listener3 = vi.fn();
 
-      repoModel.onUpdate(listener1);
-      repoModel.onUpdate(listener2);
-      repoModel.onUpdate(listener3);
+      repoModel.autorun(listener1);
+      repoModel.autorun(listener2);
+      repoModel.autorun(listener3);
 
       // Clear initial calls
       listener1.mockClear();
@@ -495,7 +495,7 @@ describe("RepositoryController", () => {
       const repoModel = getRepositoryModel(ctx);
 
       const listener = vi.fn();
-      repoModel.onUpdate(listener);
+      repoModel.autorun(listener);
       listener.mockClear();
 
       // Request refresh

@@ -100,8 +100,8 @@ export function createFileListView(ctx: AppContext, container: HTMLElement): () 
   }
 
   // Subscribe to model updates
-  register(fileListModel.onUpdate(render));
-  register(repoModel.onUpdate(render));
+  register(fileListModel.autorun(render));
+  register(repoModel.autorun(render));
 
   // Initial render
   render();

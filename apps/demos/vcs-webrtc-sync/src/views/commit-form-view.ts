@@ -78,9 +78,9 @@ export function createCommitFormView(ctx: AppContext, container: HTMLElement): (
   }
 
   // Subscribe to model updates
-  register(commitFormModel.onUpdate(render));
-  register(stagingModel.onUpdate(render));
-  register(repoModel.onUpdate(render));
+  register(commitFormModel.autorun(render));
+  register(stagingModel.autorun(render));
+  register(repoModel.autorun(render));
 
   // Initial render
   render();

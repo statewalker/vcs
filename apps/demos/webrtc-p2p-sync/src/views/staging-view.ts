@@ -40,7 +40,7 @@ export function createStagingView(ctx: AppContext, container: HTMLElement): () =
   }
 
   // Subscribe to model updates
-  register(repoModel.onUpdate(render));
+  register(repoModel.autorun(render));
 
   // Initial render
   render();

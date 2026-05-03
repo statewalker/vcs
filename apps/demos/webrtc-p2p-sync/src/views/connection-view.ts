@@ -199,7 +199,7 @@ export function createConnectionView(ctx: AppContext, container: HTMLElement): (
   }
 
   // Subscribe to model updates
-  register(sessionModel.onUpdate(render));
+  register(sessionModel.autorun(render));
 
   // Initial render
   render();

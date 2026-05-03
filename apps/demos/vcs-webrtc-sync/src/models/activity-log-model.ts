@@ -1,4 +1,4 @@
-import { BaseClass } from "../utils/index.js";
+import { Base } from "../utils/index.js";
 
 /**
  * Log entry severity level.
@@ -18,7 +18,7 @@ export interface LogEntry {
  * Model representing the activity log.
  * Tracks timestamped events and messages.
  */
-export class ActivityLogModel extends BaseClass {
+export class ActivityLogModel extends Base {
   #entries: LogEntry[] = [];
   #maxEntries: number;
 
@@ -32,20 +32,22 @@ export class ActivityLogModel extends BaseClass {
   }
 
   log(message: string, level: LogLevel = "info"): void {
-    const entry: LogEntry = {
-      timestamp: Date.now(),
-      message,
-      level,
-    };
+    return this.update(() => {
+      const entry: LogEntry = {
+        timestamp: Date.now(),
+        message,
+        level,
+      };
 
-    this.#entries.push(entry);
+      this.#entries.push(entry);
 
-    // Trim if exceeding max
-    if (this.#entries.length > this.#maxEntries) {
-      this.#entries = this.#entries.slice(-this.#maxEntries);
-    }
+      // Trim if exceeding max
+      if (this.#entries.length > this.#maxEntries) {
+        this.#entries = this.#entries.slice(-this.#maxEntries);
+      }
 
-    this.notify();
+    
+    });
   }
 
   info(message: string): void {
@@ -66,8 +68,10 @@ export class ActivityLogModel extends BaseClass {
 
   clear(): void {
     if (this.#entries.length > 0) {
-      this.#entries = [];
-      this.notify();
+      return this.update(() => {
+        this.#entries = [];
+      
+      });
     }
   }
 }

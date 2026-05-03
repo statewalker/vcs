@@ -56,7 +56,7 @@ export function createActivityLogView(ctx: AppContext, container: HTMLElement): 
   }
 
   // Subscribe to model updates
-  register(logModel.onUpdate(render));
+  register(logModel.autorun(render));
 
   // Initial render
   render();

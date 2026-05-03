@@ -82,7 +82,7 @@ export function createMainController(ctx: AppContext): () => void {
   // When repository status changes, log it
   const repoModel = getRepositoryModel(ctx);
   register(
-    repoModel.onUpdate(() => {
+    repoModel.autorun(() => {
       // Status logging is handled by individual controllers
     }),
   );
@@ -91,7 +91,7 @@ export function createMainController(ctx: AppContext): () => void {
   const connectionModel = getConnectionModel(ctx);
   const sharingModel = getSharingFormModel(ctx);
   register(
-    connectionModel.onUpdate(() => {
+    connectionModel.autorun(() => {
       if (connectionModel.state === "connected") {
         sharingModel.reset();
       }
@@ -102,7 +102,7 @@ export function createMainController(ctx: AppContext): () => void {
   const stagingModel = getStagingModel(ctx);
   const _commitFormModel = getCommitFormModel(ctx);
   register(
-    stagingModel.onUpdate(() => {
+    stagingModel.autorun(() => {
       // Views will check stagingModel.isEmpty to enable/disable commit
     }),
   );
@@ -110,7 +110,7 @@ export function createMainController(ctx: AppContext): () => void {
   // Subscribe to UserActionsModel and handle user-initiated actions
   const actionsModel = getUserActionsModel(ctx);
   register(
-    actionsModel.onUpdate(() => {
+    actionsModel.autorun(() => {
       // Handle storage actions
       const storageAction = actionsModel.storageAction;
       if (storageAction) {

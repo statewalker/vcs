@@ -1,10 +1,10 @@
-import { BaseClass } from "../utils/index.js";
+import { Base } from "../utils/index.js";
 
 /**
  * Model representing the commit form state.
  * Tracks commit message input and committing state.
  */
-export class CommitFormModel extends BaseClass {
+export class CommitFormModel extends Base {
   #message = "";
   #isCommitting = false;
 
@@ -22,15 +22,19 @@ export class CommitFormModel extends BaseClass {
 
   setMessage(message: string): void {
     if (this.#message !== message) {
-      this.#message = message;
-      this.notify();
+      return this.update(() => {
+        this.#message = message;
+      
+      });
     }
   }
 
   setCommitting(isCommitting: boolean): void {
     if (this.#isCommitting !== isCommitting) {
-      this.#isCommitting = isCommitting;
-      this.notify();
+      return this.update(() => {
+        this.#isCommitting = isCommitting;
+      
+      });
     }
   }
 
@@ -39,7 +43,9 @@ export class CommitFormModel extends BaseClass {
     this.#message = "";
     this.#isCommitting = false;
     if (hadContent) {
-      this.notify();
+      return this.update(() => {
+      
+      });
     }
   }
 }

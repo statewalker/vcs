@@ -88,8 +88,8 @@ export function createCommitHistoryView(ctx: AppContext, container: HTMLElement)
   }
 
   // Subscribe to model updates
-  register(historyModel.onUpdate(render));
-  register(repoModel.onUpdate(render));
+  register(historyModel.autorun(render));
+  register(repoModel.autorun(render));
 
   // Initial render
   render();

@@ -1,4 +1,4 @@
-import { BaseClass } from "../utils/index.js";
+import { Base } from "../utils/index.js";
 
 /**
  * File status in the working directory.
@@ -17,7 +17,7 @@ export interface FileEntry {
  * Model representing files in the working directory.
  * Tracks file list and loading state.
  */
-export class FileListModel extends BaseClass {
+export class FileListModel extends Base {
   #files: FileEntry[] = [];
   #loading = false;
 
@@ -32,8 +32,10 @@ export class FileListModel extends BaseClass {
   setFiles(files: FileEntry[]): void {
     const sorted = [...files].sort((a, b) => a.path.localeCompare(b.path));
     if (!this.#filesEqual(sorted)) {
-      this.#files = sorted;
-      this.notify();
+      return this.update(() => {
+        this.#files = sorted;
+      
+      });
     }
   }
 
@@ -52,22 +54,28 @@ export class FileListModel extends BaseClass {
 
   setLoading(loading: boolean): void {
     if (this.#loading !== loading) {
-      this.#loading = loading;
-      this.notify();
+      return this.update(() => {
+        this.#loading = loading;
+      
+      });
     }
   }
 
   updateFileStatus(path: string, status: FileStatus): void {
     const index = this.#files.findIndex((f) => f.path === path);
     if (index >= 0) {
-      this.#files[index] = { ...this.#files[index], status };
-      this.notify();
+      return this.update(() => {
+        this.#files[index] = { ...this.#files[index], status };
+      
+      });
     }
   }
 
   clear(): void {
-    this.#files = [];
-    this.#loading = false;
-    this.notify();
+    return this.update(() => {
+      this.#files = [];
+      this.#loading = false;
+    
+    });
   }
 }

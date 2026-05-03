@@ -2,7 +2,7 @@
  * Models Module
  *
  * Observable state containers for the application.
- * Each model extends BaseClass and notifies views of state changes.
+ * Each model extends Base and notifies views of state changes.
  * Adapters provide typed context access for dependency injection.
  */
 

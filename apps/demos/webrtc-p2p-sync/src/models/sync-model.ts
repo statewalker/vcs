@@ -4,7 +4,7 @@
  * Tracks the current sync phase and progress for Git protocol operations.
  */
 
-import { BaseClass, newAdapter } from "../utils/index.js";
+import { Base, newAdapter } from "../utils/index.js";
 
 /**
  * Current phase of a sync operation (Git protocol phases).
@@ -109,7 +109,7 @@ function createIdleState(): SyncState {
  * This model holds NO business logic. Controllers update this model
  * during sync operations, and views display the progress.
  */
-export class SyncModel extends BaseClass {
+export class SyncModel extends Base {
   private state: SyncState = createIdleState();
 
   /**
@@ -140,8 +140,10 @@ export class SyncModel extends BaseClass {
    * Update multiple fields at once (single notification).
    */
   update(partial: Partial<SyncState>): void {
-    Object.assign(this.state, partial);
-    this.notify();
+    return this.update(() => {
+      Object.assign(this.state, partial);
+    
+    });
   }
 
   /**
@@ -151,68 +153,82 @@ export class SyncModel extends BaseClass {
    * @param direction Direction of sync (fetch or push)
    */
   startSync(peerId: string, direction: SyncDirection = "fetch"): void {
-    this.state = {
-      ...createIdleState(),
-      phase: "discovering",
-      direction,
-      peerId,
-    };
-    this.notify();
+    return this.update(() => {
+      this.state = {
+        ...createIdleState(),
+        phase: "discovering",
+        direction,
+        peerId,
+      };
+    
+    });
   }
 
   /**
    * Update discovery phase - remote refs discovered.
    */
   setDiscoveryComplete(remoteRefsCount: number): void {
-    this.state.remoteRefsCount = remoteRefsCount;
-    this.state.phase = "negotiating";
-    this.notify();
+    return this.update(() => {
+      this.state.remoteRefsCount = remoteRefsCount;
+      this.state.phase = "negotiating";
+    
+    });
   }
 
   /**
    * Update negotiation phase - wants/haves determined.
    */
   setNegotiationComplete(wantedObjects: number, commonAncestors: number): void {
-    this.state.wantedObjects = wantedObjects;
-    this.state.commonAncestors = commonAncestors;
-    this.state.objectsTotal = wantedObjects;
-    this.state.phase = "transferring";
-    this.notify();
+    return this.update(() => {
+      this.state.wantedObjects = wantedObjects;
+      this.state.commonAncestors = commonAncestors;
+      this.state.objectsTotal = wantedObjects;
+      this.state.phase = "transferring";
+    
+    });
   }
 
   /**
    * Update progress during transfer phase.
    */
   updateProgress(objectsTransferred: number, bytesTransferred: number): void {
-    this.state.objectsTransferred = objectsTransferred;
-    this.state.bytesTransferred = bytesTransferred;
-    this.notify();
+    return this.update(() => {
+      this.state.objectsTransferred = objectsTransferred;
+      this.state.bytesTransferred = bytesTransferred;
+    
+    });
   }
 
   /**
    * Mark sync as complete with result.
    */
   complete(result?: SyncResult): void {
-    this.state.phase = "complete";
-    this.state.result = result ?? null;
-    this.notify();
+    return this.update(() => {
+      this.state.phase = "complete";
+      this.state.result = result ?? null;
+    
+    });
   }
 
   /**
    * Mark sync as failed.
    */
   fail(error: string): void {
-    this.state.phase = "error";
-    this.state.error = error;
-    this.notify();
+    return this.update(() => {
+      this.state.phase = "error";
+      this.state.error = error;
+    
+    });
   }
 
   /**
    * Reset to idle state.
    */
   reset(): void {
-    this.state = createIdleState();
-    this.notify();
+    return this.update(() => {
+      this.state = createIdleState();
+    
+    });
   }
 }
 

@@ -5,7 +5,7 @@
  * QR code data, and any errors.
  */
 
-import { BaseClass, newAdapter } from "../utils/index.js";
+import { Base, newAdapter } from "../utils/index.js";
 
 /**
  * Current session connection mode.
@@ -36,7 +36,7 @@ export interface SessionState {
  * This model holds NO business logic. Controllers react to state changes
  * and perform actual PeerJS operations.
  */
-export class SessionModel extends BaseClass {
+export class SessionModel extends Base {
   private state: SessionState = {
     mode: "disconnected",
     sessionId: null,
@@ -57,71 +57,87 @@ export class SessionModel extends BaseClass {
    * Set the connection mode.
    */
   setMode(mode: SessionMode): void {
-    this.state.mode = mode;
-    this.notify();
+    return this.update(() => {
+      this.state.mode = mode;
+    
+    });
   }
 
   /**
    * Set the session ID.
    */
   setSessionId(id: string | null): void {
-    this.state.sessionId = id;
-    this.notify();
+    return this.update(() => {
+      this.state.sessionId = id;
+    
+    });
   }
 
   /**
    * Set the shareable URL.
    */
   setShareUrl(url: string | null): void {
-    this.state.shareUrl = url;
-    this.notify();
+    return this.update(() => {
+      this.state.shareUrl = url;
+    
+    });
   }
 
   /**
    * Set the QR code data URL.
    */
   setQrCodeDataUrl(dataUrl: string | null): void {
-    this.state.qrCodeDataUrl = dataUrl;
-    this.notify();
+    return this.update(() => {
+      this.state.qrCodeDataUrl = dataUrl;
+    
+    });
   }
 
   /**
    * Set the join input field value.
    */
   setJoinInputValue(value: string): void {
-    this.state.joinInputValue = value;
-    this.notify();
+    return this.update(() => {
+      this.state.joinInputValue = value;
+    
+    });
   }
 
   /**
    * Set the error message.
    */
   setError(error: string | null): void {
-    this.state.error = error;
-    this.notify();
+    return this.update(() => {
+      this.state.error = error;
+    
+    });
   }
 
   /**
    * Update multiple fields at once (single notification).
    */
   update(partial: Partial<SessionState>): void {
-    Object.assign(this.state, partial);
-    this.notify();
+    return this.update(() => {
+      Object.assign(this.state, partial);
+    
+    });
   }
 
   /**
    * Reset to disconnected state.
    */
   reset(): void {
-    this.state = {
-      mode: "disconnected",
-      sessionId: null,
-      shareUrl: null,
-      qrCodeDataUrl: null,
-      joinInputValue: this.state.joinInputValue, // Keep input value
-      error: null,
-    };
-    this.notify();
+    return this.update(() => {
+      this.state = {
+        mode: "disconnected",
+        sessionId: null,
+        shareUrl: null,
+        qrCodeDataUrl: null,
+        joinInputValue: this.state.joinInputValue, // Keep input value
+        error: null,
+      };
+    
+    });
   }
 }
 

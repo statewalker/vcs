@@ -1,4 +1,4 @@
-import { BaseClass } from "../utils/index.js";
+import { Base } from "../utils/index.js";
 
 /**
  * Represents a commit in the history.
@@ -15,7 +15,7 @@ export interface CommitEntry {
  * Model representing the commit history.
  * Tracks list of commits and loading state.
  */
-export class CommitHistoryModel extends BaseClass {
+export class CommitHistoryModel extends Base {
   #commits: CommitEntry[] = [];
   #loading = false;
 
@@ -28,25 +28,33 @@ export class CommitHistoryModel extends BaseClass {
   }
 
   setCommits(commits: CommitEntry[]): void {
-    this.#commits = [...commits];
-    this.notify();
+    return this.update(() => {
+      this.#commits = [...commits];
+    
+    });
   }
 
   setLoading(loading: boolean): void {
     if (this.#loading !== loading) {
-      this.#loading = loading;
-      this.notify();
+      return this.update(() => {
+        this.#loading = loading;
+      
+      });
     }
   }
 
   prependCommit(commit: CommitEntry): void {
-    this.#commits = [commit, ...this.#commits];
-    this.notify();
+    return this.update(() => {
+      this.#commits = [commit, ...this.#commits];
+    
+    });
   }
 
   clear(): void {
-    this.#commits = [];
-    this.#loading = false;
-    this.notify();
+    return this.update(() => {
+      this.#commits = [];
+      this.#loading = false;
+    
+    });
   }
 }

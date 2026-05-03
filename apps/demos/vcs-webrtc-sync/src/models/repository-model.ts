@@ -1,4 +1,4 @@
-import { BaseClass } from "../utils/index.js";
+import { Base } from "../utils/index.js";
 
 /**
  * Repository status states.
@@ -9,7 +9,7 @@ export type RepositoryStatus = "no-storage" | "no-repository" | "ready" | "error
  * Model representing the Git repository state.
  * Tracks repository status, current branch, HEAD commit, and change state.
  */
-export class RepositoryModel extends BaseClass {
+export class RepositoryModel extends Base {
   #status: RepositoryStatus = "no-storage";
   #folderName: string | null = null;
   #branchName: string | null = null;
@@ -42,54 +42,68 @@ export class RepositoryModel extends BaseClass {
   }
 
   setNoStorage(): void {
-    this.#status = "no-storage";
-    this.#folderName = null;
-    this.#branchName = null;
-    this.#headCommit = null;
-    this.#hasUncommittedChanges = false;
-    this.#errorMessage = null;
-    this.notify();
+    return this.update(() => {
+      this.#status = "no-storage";
+      this.#folderName = null;
+      this.#branchName = null;
+      this.#headCommit = null;
+      this.#hasUncommittedChanges = false;
+      this.#errorMessage = null;
+    
+    });
   }
 
   setNoRepository(folderName: string): void {
-    this.#status = "no-repository";
-    this.#folderName = folderName;
-    this.#branchName = null;
-    this.#headCommit = null;
-    this.#hasUncommittedChanges = false;
-    this.#errorMessage = null;
-    this.notify();
+    return this.update(() => {
+      this.#status = "no-repository";
+      this.#folderName = folderName;
+      this.#branchName = null;
+      this.#headCommit = null;
+      this.#hasUncommittedChanges = false;
+      this.#errorMessage = null;
+    
+    });
   }
 
   setReady(folderName: string, branchName: string, headCommit: string): void {
-    this.#status = "ready";
-    this.#folderName = folderName;
-    this.#branchName = branchName;
-    this.#headCommit = headCommit;
-    this.#errorMessage = null;
-    this.notify();
+    return this.update(() => {
+      this.#status = "ready";
+      this.#folderName = folderName;
+      this.#branchName = branchName;
+      this.#headCommit = headCommit;
+      this.#errorMessage = null;
+    
+    });
   }
 
   setError(message: string): void {
-    this.#status = "error";
-    this.#errorMessage = message;
-    this.notify();
+    return this.update(() => {
+      this.#status = "error";
+      this.#errorMessage = message;
+    
+    });
   }
 
   updateHead(headCommit: string): void {
-    this.#headCommit = headCommit;
-    this.notify();
+    return this.update(() => {
+      this.#headCommit = headCommit;
+    
+    });
   }
 
   updateBranch(branchName: string): void {
-    this.#branchName = branchName;
-    this.notify();
+    return this.update(() => {
+      this.#branchName = branchName;
+    
+    });
   }
 
   setUncommittedChanges(hasChanges: boolean): void {
     if (this.#hasUncommittedChanges !== hasChanges) {
-      this.#hasUncommittedChanges = hasChanges;
-      this.notify();
+      return this.update(() => {
+        this.#hasUncommittedChanges = hasChanges;
+      
+      });
     }
   }
 }

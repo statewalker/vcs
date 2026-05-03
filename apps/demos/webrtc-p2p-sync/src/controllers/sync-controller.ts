@@ -72,7 +72,7 @@ export function createSyncController(ctx: AppContext): () => void {
   // Both host and guest need servers: the host serves guests' sync requests,
   // and the guest must also serve when the host initiates sync.
   register(
-    peersModel.onUpdate(() => {
+    peersModel.autorun(() => {
       const history = getHistory(ctx);
       const serialization = getSerializationApi(ctx);
       if (!history || !serialization) return;

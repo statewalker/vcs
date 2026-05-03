@@ -171,9 +171,9 @@ export function createSharingView(ctx: AppContext, container: HTMLElement): () =
   }
 
   // Subscribe to model updates
-  register(sharingModel.onUpdate(render));
-  register(connectionModel.onUpdate(render));
-  register(repoModel.onUpdate(render));
+  register(sharingModel.autorun(render));
+  register(connectionModel.autorun(render));
+  register(repoModel.autorun(render));
 
   // Initial render
   render();

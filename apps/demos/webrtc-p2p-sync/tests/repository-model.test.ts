@@ -25,7 +25,7 @@ describe("RepositoryModel", () => {
     const model = new RepositoryModel();
     const listener = vi.fn();
 
-    model.onUpdate(listener);
+    model.autorun(listener);
     model.update({
       initialized: true,
       branch: "main",

@@ -4,7 +4,7 @@
  * Tracks application events and messages for display to the user.
  */
 
-import { BaseClass, newAdapter } from "../utils/index.js";
+import { Base, newAdapter } from "../utils/index.js";
 
 /**
  * Log entry severity level.
@@ -31,7 +31,7 @@ export interface LogEntry {
  * This model holds NO business logic. Controllers add log entries
  * as they perform operations.
  */
-export class ActivityLogModel extends BaseClass {
+export class ActivityLogModel extends Base {
   private entries: LogEntry[] = [];
   private maxEntries = 100;
   private nextId = 1;
@@ -54,19 +54,21 @@ export class ActivityLogModel extends BaseClass {
    * Add a new log entry.
    */
   addEntry(level: LogLevel, message: string): void {
-    this.entries.push({
-      id: this.nextId++,
-      timestamp: new Date(),
-      level,
-      message,
+    return this.update(() => {
+      this.entries.push({
+        id: this.nextId++,
+        timestamp: new Date(),
+        level,
+        message,
+      });
+
+      // Keep only the last N entries
+      if (this.entries.length > this.maxEntries) {
+        this.entries = this.entries.slice(-this.maxEntries);
+      }
+
+    
     });
-
-    // Keep only the last N entries
-    if (this.entries.length > this.maxEntries) {
-      this.entries = this.entries.slice(-this.maxEntries);
-    }
-
-    this.notify();
   }
 
   /**
@@ -94,8 +96,10 @@ export class ActivityLogModel extends BaseClass {
    * Clear all entries.
    */
   clear(): void {
-    this.entries = [];
-    this.notify();
+    return this.update(() => {
+      this.entries = [];
+    
+    });
   }
 
   /**
@@ -104,8 +108,10 @@ export class ActivityLogModel extends BaseClass {
   setMaxEntries(max: number): void {
     this.maxEntries = max;
     if (this.entries.length > max) {
-      this.entries = this.entries.slice(-max);
-      this.notify();
+      return this.update(() => {
+        this.entries = this.entries.slice(-max);
+      
+      });
     }
   }
 }

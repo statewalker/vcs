@@ -122,8 +122,8 @@ export function createSharingView(ctx: AppContext, container: HTMLElement): () =
   }
 
   // Subscribe to model updates
-  register(peersModel.onUpdate(render));
-  register(syncModel.onUpdate(render));
+  register(peersModel.autorun(render));
+  register(syncModel.autorun(render));
 
   // Initial render
   render();

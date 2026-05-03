@@ -4,7 +4,7 @@
  * Tracks all connected peers and their states.
  */
 
-import { BaseClass, newAdapter } from "../utils/index.js";
+import { Base, newAdapter } from "../utils/index.js";
 
 /**
  * Connection status of a peer.
@@ -33,7 +33,7 @@ export interface PeerState {
  * This model holds NO business logic. Controllers update this model
  * when PeerJS connection events occur.
  */
-export class PeersModel extends BaseClass {
+export class PeersModel extends Base {
   private peers: Map<string, PeerState> = new Map();
 
   /**
@@ -68,8 +68,10 @@ export class PeersModel extends BaseClass {
    * Add a new peer.
    */
   addPeer(peer: PeerState): void {
-    this.peers.set(peer.id, peer);
-    this.notify();
+    return this.update(() => {
+      this.peers.set(peer.id, peer);
+    
+    });
   }
 
   /**
@@ -78,8 +80,10 @@ export class PeersModel extends BaseClass {
   updatePeer(id: string, partial: Partial<PeerState>): void {
     const peer = this.peers.get(id);
     if (peer) {
-      Object.assign(peer, partial);
-      this.notify();
+      return this.update(() => {
+        Object.assign(peer, partial);
+      
+      });
     }
   }
 
@@ -88,7 +92,9 @@ export class PeersModel extends BaseClass {
    */
   removePeer(id: string): void {
     if (this.peers.delete(id)) {
-      this.notify();
+      return this.update(() => {
+      
+      });
     }
   }
 
@@ -97,8 +103,10 @@ export class PeersModel extends BaseClass {
    */
   clear(): void {
     if (this.peers.size > 0) {
-      this.peers.clear();
-      this.notify();
+      return this.update(() => {
+        this.peers.clear();
+      
+      });
     }
   }
 

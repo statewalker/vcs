@@ -38,7 +38,7 @@ describe("ActivityLogModel", () => {
     const model = getActivityLogModel(ctx);
     const listener = spy<() => void>();
 
-    model.onUpdate(listener);
+    model.autorun(listener);
     model.info("Test");
 
     expect(listener.calls).toHaveLength(1);

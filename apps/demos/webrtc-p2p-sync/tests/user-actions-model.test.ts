@@ -242,7 +242,7 @@ describe("UserActionsModel", () => {
       const model = new UserActionsModel();
       const generalListener = vi.fn();
 
-      model.onUpdate(generalListener);
+      model.autorun(generalListener);
       model.enqueue("test", { value: 1 });
 
       await flushMicrotasks();

@@ -70,7 +70,7 @@
  * - **Testing**: Easy to test action flow in isolation
  */
 
-import { BaseClass, newAdapter } from "../utils/index.js";
+import { Base, newAdapter } from "../utils/index.js";
 
 /**
  * Handler function for action listeners.
@@ -84,7 +84,7 @@ export type ActionListener<T> = (actions: T[]) => void;
  * Multiple enqueues in the same tick are batched together.
  * All listeners for a type receive the same actions, then actions are cleared.
  */
-export class UserActionsModel extends BaseClass {
+export class UserActionsModel extends Base {
   private pendingActionsByType: Map<string, unknown[]> = new Map();
   private typeListeners: Map<string, Set<(actions: unknown[]) => void>> = new Map();
   private dispatchScheduled = false;
@@ -140,21 +140,23 @@ export class UserActionsModel extends BaseClass {
    * Dispatch all pending actions to their listeners, then clear.
    */
   private dispatchAll(): void {
-    for (const [type, actions] of this.pendingActionsByType) {
-      if (actions.length === 0) continue;
-      const listeners = this.typeListeners.get(type);
-      if (listeners && listeners.size > 0) {
-        for (const handler of listeners) {
-          try {
-            handler([...actions]); // Copy to prevent mutation
-          } catch (error) {
-            console.error(`Error in action handler for "${type}":`, error);
+    return this.update(() => {
+      for (const [type, actions] of this.pendingActionsByType) {
+        if (actions.length === 0) continue;
+        const listeners = this.typeListeners.get(type);
+        if (listeners && listeners.size > 0) {
+          for (const handler of listeners) {
+            try {
+              handler([...actions]); // Copy to prevent mutation
+            } catch (error) {
+              console.error(`Error in action handler for "${type}":`, error);
+            }
           }
         }
       }
-    }
-    this.pendingActionsByType.clear();
-    this.notify();
+      this.pendingActionsByType.clear();
+    
+    });
   }
 
   /**

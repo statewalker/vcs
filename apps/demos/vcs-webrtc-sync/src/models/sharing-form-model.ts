@@ -1,4 +1,4 @@
-import { BaseClass } from "../utils/index.js";
+import { Base } from "../utils/index.js";
 
 /**
  * Sharing form mode.
@@ -9,7 +9,7 @@ export type SharingMode = "idle" | "share" | "connect";
  * Model representing the sharing/signaling form state.
  * Tracks mode, local signal (offer/answer), and remote signal input.
  */
-export class SharingFormModel extends BaseClass {
+export class SharingFormModel extends Base {
   #mode: SharingMode = "idle";
   #localSignal = "";
   #remoteSignal = "";
@@ -32,46 +32,58 @@ export class SharingFormModel extends BaseClass {
   }
 
   startShare(): void {
-    this.#mode = "share";
-    this.#localSignal = "";
-    this.#remoteSignal = "";
-    this.#isProcessing = true;
-    this.notify();
+    return this.update(() => {
+      this.#mode = "share";
+      this.#localSignal = "";
+      this.#remoteSignal = "";
+      this.#isProcessing = true;
+    
+    });
   }
 
   startConnect(): void {
-    this.#mode = "connect";
-    this.#localSignal = "";
-    this.#remoteSignal = "";
-    this.#isProcessing = false;
-    this.notify();
+    return this.update(() => {
+      this.#mode = "connect";
+      this.#localSignal = "";
+      this.#remoteSignal = "";
+      this.#isProcessing = false;
+    
+    });
   }
 
   setLocalSignal(signal: string): void {
-    this.#localSignal = signal;
-    this.#isProcessing = false;
-    this.notify();
+    return this.update(() => {
+      this.#localSignal = signal;
+      this.#isProcessing = false;
+    
+    });
   }
 
   setRemoteSignal(signal: string): void {
     if (this.#remoteSignal !== signal) {
-      this.#remoteSignal = signal;
-      this.notify();
+      return this.update(() => {
+        this.#remoteSignal = signal;
+      
+      });
     }
   }
 
   setProcessing(processing: boolean): void {
     if (this.#isProcessing !== processing) {
-      this.#isProcessing = processing;
-      this.notify();
+      return this.update(() => {
+        this.#isProcessing = processing;
+      
+      });
     }
   }
 
   reset(): void {
-    this.#mode = "idle";
-    this.#localSignal = "";
-    this.#remoteSignal = "";
-    this.#isProcessing = false;
-    this.notify();
+    return this.update(() => {
+      this.#mode = "idle";
+      this.#localSignal = "";
+      this.#remoteSignal = "";
+      this.#isProcessing = false;
+    
+    });
   }
 }

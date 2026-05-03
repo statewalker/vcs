@@ -59,7 +59,7 @@ export function createStagingView(ctx: AppContext, container: HTMLElement): () =
   }
 
   // Subscribe to model updates
-  register(stagingModel.onUpdate(render));
+  register(stagingModel.autorun(render));
 
   // Initial render
   render();

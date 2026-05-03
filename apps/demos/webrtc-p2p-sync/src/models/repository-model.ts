@@ -4,7 +4,7 @@
  * Tracks the state of the local Git repository.
  */
 
-import { BaseClass, newAdapter } from "../utils/index.js";
+import { Base, newAdapter } from "../utils/index.js";
 
 /**
  * A file or directory entry in the repository.
@@ -66,7 +66,7 @@ export interface RepositoryState {
  * This model holds NO business logic. Controllers update this model
  * after performing Git operations.
  */
-export class RepositoryModel extends BaseClass {
+export class RepositoryModel extends Base {
   private state: RepositoryState = {
     initialized: false,
     branch: null,
@@ -90,77 +90,93 @@ export class RepositoryModel extends BaseClass {
    * Update multiple fields at once (single notification).
    */
   update(partial: Partial<RepositoryState>): void {
-    Object.assign(this.state, partial);
-    this.notify();
+    return this.update(() => {
+      Object.assign(this.state, partial);
+    
+    });
   }
 
   /**
    * Set initialized state.
    */
   setInitialized(initialized: boolean): void {
-    this.state.initialized = initialized;
-    this.notify();
+    return this.update(() => {
+      this.state.initialized = initialized;
+    
+    });
   }
 
   /**
    * Set current branch.
    */
   setBranch(branch: string | null): void {
-    this.state.branch = branch;
-    this.notify();
+    return this.update(() => {
+      this.state.branch = branch;
+    
+    });
   }
 
   /**
    * Set files in the repository.
    */
   setFiles(files: FileEntry[]): void {
-    this.state.files = files;
-    this.notify();
+    return this.update(() => {
+      this.state.files = files;
+    
+    });
   }
 
   /**
    * Set HEAD commit ID.
    */
   setHeadCommitId(id: string | null): void {
-    this.state.headCommitId = id;
-    this.notify();
+    return this.update(() => {
+      this.state.headCommitId = id;
+    
+    });
   }
 
   /**
    * Set commit history.
    */
   setCommits(commits: CommitEntry[]): void {
-    this.state.commits = commits;
-    this.state.commitCount = commits.length;
-    this.notify();
+    return this.update(() => {
+      this.state.commits = commits;
+      this.state.commitCount = commits.length;
+    
+    });
   }
 
   /**
    * Add a new commit to history.
    */
   addCommit(commit: CommitEntry): void {
-    this.state.commits.unshift(commit);
-    this.state.commitCount = this.state.commits.length;
-    this.state.headCommitId = commit.id;
-    this.notify();
+    return this.update(() => {
+      this.state.commits.unshift(commit);
+      this.state.commitCount = this.state.commits.length;
+      this.state.headCommitId = commit.id;
+    
+    });
   }
 
   /**
    * Reset repository state.
    */
   reset(): void {
-    this.state = {
-      initialized: false,
-      branch: null,
-      commitCount: 0,
-      files: [],
-      headCommitId: null,
-      commits: [],
-      staged: [],
-      unstaged: [],
-      untracked: [],
-    };
-    this.notify();
+    return this.update(() => {
+      this.state = {
+        initialized: false,
+        branch: null,
+        commitCount: 0,
+        files: [],
+        headCommitId: null,
+        commits: [],
+        staged: [],
+        unstaged: [],
+        untracked: [],
+      };
+    
+    });
   }
 }
 

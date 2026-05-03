@@ -179,7 +179,7 @@ async function waitModel<M extends SubscribableModel>(
       }
     };
 
-    unsubscribe = model.onUpdate(() => {
+    unsubscribe = model.autorun(() => {
       if (check(model)) {
         cleanup();
         resolve();
