@@ -11,7 +11,7 @@ catalog:
   "@statewalker/webrun-files": ^0.7.0
   "@statewalker/webrun-files-browser": ^0.7.1
   "@statewalker/webrun-files-mem": ^0.7.2
-  "@statewalker/webrun-files-node": ^0.7.0
+  "@statewalker/webrun-files-node": ^0.7.2
   "@types/node": ^25.6.0
   "@types/pako": ^2.0.4
   "@types/sql.js": ^1.4.11
