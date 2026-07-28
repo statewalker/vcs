@@ -16,6 +16,13 @@ export interface LsRemoteOptions {
   headers?: Record<string, string>;
   /** Request timeout in milliseconds */
   timeout?: number;
+  /**
+   * Fetch implementation used for the smart-HTTP request. Defaults to
+   * `globalThis.fetch` bound to `globalThis`. Normalized to a single
+   * `(Request) => Promise<Response>` shape so an alternative transport (e.g. a
+   * webrun-streams `Duplex`) can back the client without a network port.
+   */
+  fetchImpl?: (request: Request) => Promise<Response>;
 }
 
 /**
@@ -64,12 +71,18 @@ export async function lsRemote(
     ? setTimeout(() => controller?.abort(), options.timeout)
     : undefined;
 
+  // Normalize to a single (Request) => Promise<Response> shape; default to
+  // native fetch, preserving exact behavior when fetchImpl is omitted.
+  const doFetch = options?.fetchImpl ?? globalThis.fetch.bind(globalThis);
+
   try {
-    const response = await fetch(infoRefsUrl, {
-      method: "GET",
-      headers,
-      signal: controller?.signal,
-    });
+    const response = await doFetch(
+      new Request(infoRefsUrl, {
+        method: "GET",
+        headers,
+        signal: controller?.signal,
+      }),
+    );
 
     if (timeoutId) clearTimeout(timeoutId);
 

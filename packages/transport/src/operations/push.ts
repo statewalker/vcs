@@ -127,17 +127,23 @@ export async function push(options: PushOptions): Promise<HttpPushResult> {
 
   const encodeFlush = (): Uint8Array => textEncoder.encode("0000");
 
+  // Normalize to a single (Request) => Promise<Response> shape; default to
+  // native fetch, preserving exact behavior when fetchImpl is omitted.
+  const doFetch = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
+
   try {
     // Phase 1: GET /info/refs to get remote refs
     const infoRefsUrl = `${baseUrl}/info/refs?service=git-receive-pack`;
-    const infoRefsResponse = await globalThis.fetch(infoRefsUrl, {
-      method: "GET",
-      headers: {
-        ...headers,
-        Accept: "application/x-git-receive-pack-advertisement",
-      },
-      signal: controller?.signal,
-    });
+    const infoRefsResponse = await doFetch(
+      new Request(infoRefsUrl, {
+        method: "GET",
+        headers: {
+          ...headers,
+          Accept: "application/x-git-receive-pack-advertisement",
+        },
+        signal: controller?.signal,
+      }),
+    );
 
     if (!infoRefsResponse.ok) {
       throw new Error(
@@ -257,16 +263,18 @@ export async function push(options: PushOptions): Promise<HttpPushResult> {
 
     // Phase 4: POST /git-receive-pack
     const receivePackUrl = `${baseUrl}/git-receive-pack`;
-    const receivePackResponse = await globalThis.fetch(receivePackUrl, {
-      method: "POST",
-      headers: {
-        ...headers,
-        "Content-Type": "application/x-git-receive-pack-request",
-        Accept: "application/x-git-receive-pack-result",
-      },
-      body: requestBody,
-      signal: controller?.signal,
-    });
+    const receivePackResponse = await doFetch(
+      new Request(receivePackUrl, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/x-git-receive-pack-request",
+          Accept: "application/x-git-receive-pack-result",
+        },
+        body: requestBody,
+        signal: controller?.signal,
+      }),
+    );
 
     if (!receivePackResponse.ok) {
       throw new Error(
