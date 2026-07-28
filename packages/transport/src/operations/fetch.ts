@@ -67,17 +67,23 @@ export async function fetch(options: FetchOptions): Promise<HttpFetchResult> {
     ? setTimeout(() => controller?.abort(), options.timeout)
     : undefined;
 
+  // Normalize to a single (Request) => Promise<Response> shape; default to
+  // native fetch, preserving exact behavior when fetchImpl is omitted.
+  const doFetch = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
+
   try {
     // Phase 1: GET /info/refs to get ref advertisement
     const infoRefsUrl = `${baseUrl}/info/refs?service=git-upload-pack`;
-    const infoRefsResponse = await globalThis.fetch(infoRefsUrl, {
-      method: "GET",
-      headers: {
-        ...headers,
-        Accept: "application/x-git-upload-pack-advertisement",
-      },
-      signal: controller?.signal,
-    });
+    const infoRefsResponse = await doFetch(
+      new Request(infoRefsUrl, {
+        method: "GET",
+        headers: {
+          ...headers,
+          Accept: "application/x-git-upload-pack-advertisement",
+        },
+        signal: controller?.signal,
+      }),
+    );
 
     if (!infoRefsResponse.ok) {
       throw new Error(
@@ -167,16 +173,18 @@ export async function fetch(options: FetchOptions): Promise<HttpFetchResult> {
 
     // Phase 3: POST /git-upload-pack to receive pack
     const uploadPackUrl = `${baseUrl}/git-upload-pack`;
-    const uploadPackResponse = await globalThis.fetch(uploadPackUrl, {
-      method: "POST",
-      headers: {
-        ...headers,
-        "Content-Type": "application/x-git-upload-pack-request",
-        Accept: "application/x-git-upload-pack-result",
-      },
-      body: requestBody,
-      signal: controller?.signal,
-    });
+    const uploadPackResponse = await doFetch(
+      new Request(uploadPackUrl, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/x-git-upload-pack-request",
+          Accept: "application/x-git-upload-pack-result",
+        },
+        body: requestBody,
+        signal: controller?.signal,
+      }),
+    );
 
     if (!uploadPackResponse.ok) {
       throw new Error(

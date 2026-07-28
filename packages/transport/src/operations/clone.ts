@@ -59,6 +59,7 @@ export async function clone(options: CloneOptions): Promise<CloneResult> {
     auth: options.auth,
     headers: options.headers,
     timeout: options.timeout,
+    fetchImpl: options.fetchImpl,
     depth: options.depth,
     onProgress: options.onProgress,
     onProgressMessage: options.onProgressMessage,
