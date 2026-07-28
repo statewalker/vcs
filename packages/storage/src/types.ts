@@ -28,11 +28,25 @@ export interface BlobStore {
     bytes: ByteStream,
     opts?: { verify?: (bytes: ByteStream) => Promise<string> },
   ): Promise<void>;
-  /** Read the blob's bytes. Yields an empty stream if the id is absent (FilesApi convention). */
-  get(id: string): ByteStream;
+  /**
+   * Read the blob's bytes. Yields an empty stream if the id is absent (FilesApi
+   * convention).
+   *
+   * The optional `range` reads a partial slice, matching `RawStorage.load`'s
+   * semantics exactly so an adapter is a straight pass-through: `start` is the
+   * inclusive byte offset (default 0) and `end` is the **exclusive** upper bound
+   * (default end of content). `{ start }` reads from `start` to the end;
+   * `{ end }` reads `[0, end)`. Existing callers pass nothing and are unaffected.
+   */
+  get(id: string, range?: { start?: number; end?: number }): ByteStream;
   has(id: string): Promise<boolean>;
   /** Remove the blob; resolves `true` if something was removed, `false` if absent. */
   remove(id: string): Promise<boolean>;
+  /**
+   * Byte length of the stored blob, or `-1` if the id is absent — matching
+   * `RawStorage.size`.
+   */
+  size(id: string): Promise<number>;
   /** Ids currently stored, optionally filtered by prefix. */
   list(prefix?: string): AsyncIterable<string>;
 }

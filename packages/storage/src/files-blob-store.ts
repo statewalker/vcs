@@ -33,11 +33,20 @@ export function filesBlobStore(files: FilesApi, opts?: FilesBlobStoreOptions): B
         await files.write(path, bytes);
       }
     },
-    get(id): ByteStream {
-      return files.read(pathFor(id));
+    get(id, range): ByteStream {
+      if (!range) return files.read(pathFor(id));
+      // FilesApi.read takes {start,length}; our range is {start,end} with end
+      // exclusive — translate length = end - start (undefined ⇒ read to end).
+      const start = range.start ?? 0;
+      const length = range.end !== undefined ? range.end - start : undefined;
+      return files.read(pathFor(id), { start, length });
     },
     async has(id) {
       return files.exists(pathFor(id));
+    },
+    async size(id) {
+      const stats = await files.stats(pathFor(id));
+      return stats?.size ?? -1;
     },
     async remove(id) {
       return files.remove(pathFor(id));

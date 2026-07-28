@@ -70,6 +70,47 @@ function runBlobStoreSuite(name: string, make: () => BlobStore): void {
       ).rejects.toThrow();
       expect(await store.has("not-the-hash")).toBe(false);
     });
+
+    it("get(range): full read with no range is unchanged", async () => {
+      const store = make();
+      await store.put("a1", streamOf("0123456789"));
+      expect(await collectText(store.get("a1"))).toBe("0123456789");
+    });
+
+    it("get(range): start+end returns the [start,end) slice (end exclusive)", async () => {
+      const store = make();
+      await store.put("a1", streamOf("0123456789"));
+      expect(await collectText(store.get("a1", { start: 2, end: 5 }))).toBe("234");
+    });
+
+    it("get(range): start-only reads from start to end of content", async () => {
+      const store = make();
+      await store.put("a1", streamOf("0123456789"));
+      expect(await collectText(store.get("a1", { start: 7 }))).toBe("789");
+    });
+
+    it("get(range): end-only reads from 0 to end (exclusive)", async () => {
+      const store = make();
+      await store.put("a1", streamOf("0123456789"));
+      expect(await collectText(store.get("a1", { end: 4 }))).toBe("0123");
+    });
+
+    it("get(range): slice spanning multiple stored chunks", async () => {
+      const store = make();
+      await store.put("a1", streamOf("012", "345", "678", "9"));
+      expect(await collectText(store.get("a1", { start: 2, end: 8 }))).toBe("234567");
+    });
+
+    it("size: returns the stored byte length", async () => {
+      const store = make();
+      await store.put("a1", streamOf("hello ", "world"));
+      expect(await store.size("a1")).toBe(11);
+    });
+
+    it("size: returns -1 for an absent id", async () => {
+      const store = make();
+      expect(await store.size("missing")).toBe(-1);
+    });
   });
 }
 
