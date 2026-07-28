@@ -4,20 +4,19 @@
  * Stores staging area entries in a SQL database.
  */
 
+import type { ObjectId, TreeEntry, Trees } from "@statewalker/vcs-core";
 import type {
   IndexBuilder,
   IndexEdit,
   IndexEditor,
   MergeStageValue,
-  ObjectId,
   ReadTreeOptions,
   Staging,
   StagingEntry,
   StagingEntryOptions,
-  TreeEntry,
-  Trees,
-} from "@statewalker/vcs-core";
-import { FileMode, MergeStage } from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
+import { FileMode } from "@statewalker/vcs-core";
+import { MergeStage } from "@statewalker/vcs-working-tree";
 import type { DatabaseClient } from "./database-client.js";
 
 /**

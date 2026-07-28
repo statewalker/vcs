@@ -9,27 +9,25 @@
  * This is the primary Worktree implementation for file-based repositories.
  */
 
+import type { Blobs, ObjectId, Trees } from "@statewalker/vcs-core";
 import type {
-  Blobs,
   IgnoreManager,
-  ObjectId,
-  Trees,
   Worktree,
   WorktreeCheckoutOptions,
   WorktreeCheckoutResult,
   WorktreeEntry,
   WorktreeWalkOptions,
   WorktreeWriteOptions,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 import {
   basename,
-  createIgnoreManager,
   type FileInfo,
   FileMode,
   type FilesApi,
   joinPath,
   readFile,
 } from "@statewalker/vcs-core";
+import { createIgnoreManager } from "@statewalker/vcs-working-tree";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 

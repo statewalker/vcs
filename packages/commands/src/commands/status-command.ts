@@ -1,5 +1,6 @@
 import type { ObjectId } from "@statewalker/vcs-core";
-import { FileMode, MergeStage } from "@statewalker/vcs-core";
+import { FileMode } from "@statewalker/vcs-core";
+import { MergeStage } from "@statewalker/vcs-working-tree";
 
 import { GitCommand } from "../git-command.js";
 import { type Status, StatusImpl } from "../results/status-result.js";

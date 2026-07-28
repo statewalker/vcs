@@ -10,8 +10,8 @@ import type {
   MergeStageValue,
   Staging,
   StagingEntry,
-} from "@statewalker/vcs-core";
-import { MergeStage } from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
+import { MergeStage } from "@statewalker/vcs-working-tree";
 import { vi } from "vitest";
 
 /**

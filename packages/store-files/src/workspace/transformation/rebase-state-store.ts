@@ -11,7 +11,7 @@ import type {
   RebaseState,
   RebaseTodoAction,
   RebaseTodoItem,
-} from "@statewalker/vcs-core/transformation";
+} from "@statewalker/vcs-working-tree/transformation";
 import type { FilesApi } from "@statewalker/vcs-utils/files";
 
 /**

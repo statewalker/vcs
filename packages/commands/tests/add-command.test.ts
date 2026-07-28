@@ -8,10 +8,8 @@
  * Reference: tmp/jgit/org.eclipse.jgit.test/tst/org/eclipse/jgit/api/AddCommandTest.java
  */
 
+import { FileMode, type History, type ObjectId } from "@statewalker/vcs-core";
 import {
-  FileMode,
-  type History,
-  type ObjectId,
   type WorkingCopy,
   type Worktree,
   type WorktreeCheckoutOptions,
@@ -19,7 +17,7 @@ import {
   type WorktreeEntry,
   type WorktreeWalkOptions,
   type WorktreeWriteOptions,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { NoFilepatternError } from "../src/errors/index.js";

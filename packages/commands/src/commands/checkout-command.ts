@@ -33,7 +33,8 @@
  * ```
  */
 
-import { FileMode, type ObjectId, type Ref, UpdateStagingEntry } from "@statewalker/vcs-core";
+import { FileMode, type ObjectId, type Ref } from "@statewalker/vcs-core";
+import { UpdateStagingEntry } from "@statewalker/vcs-working-tree";
 
 import {
   MissingArgumentError,

@@ -11,21 +11,21 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/treewalk/FileTreeIterator.java
  */
 
+import type { ObjectId } from "@statewalker/vcs-core";
 import type {
   IgnoreManager,
-  ObjectId,
   WorktreeEntry,
   WorktreeStoreOptions,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 import {
   basename,
-  createIgnoreManager,
   type FileInfo,
   FileMode,
   type FilesApi,
   joinPath,
   readFile,
 } from "@statewalker/vcs-core";
+import { createIgnoreManager } from "@statewalker/vcs-working-tree";
 import { sha1 } from "@statewalker/vcs-utils/hash/sha1";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 

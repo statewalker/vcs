@@ -9,12 +9,11 @@
  * - Worktree: Filesystem access
  */
 
+import type { History, ObjectId } from "@statewalker/vcs-core";
 import type {
   Checkout,
   CherryPickState,
-  History,
   MergeState,
-  ObjectId,
   RebaseState,
   RevertState,
   Staging,
@@ -22,7 +21,7 @@ import type {
   WorkingCopy,
   WorkingCopyConfig,
   Worktree,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 import {
   createStatusCalculator,
   getStateCapabilities,
@@ -30,7 +29,7 @@ import {
   type RepositoryStatus,
   type StateCapabilities,
   type StatusOptions,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 import type { CherryPickStateFilesApi } from "./cherry-pick-state-reader.js";
 import type { MergeStateFilesApi } from "./merge-state-reader.js";
 import type { RebaseStateFilesApi } from "./rebase-state-reader.js";

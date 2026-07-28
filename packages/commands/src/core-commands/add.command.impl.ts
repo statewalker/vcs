@@ -9,14 +9,13 @@
  * Reference: jgit/org.eclipse.jgit/src/org/eclipse/jgit/api/AddCommand.java
  */
 
+import { type Blobs, FileMode } from "@statewalker/vcs-core";
 import {
-  type Blobs,
   DeleteStagingEntry,
-  FileMode,
   type Staging,
   UpdateStagingEntry,
   type Worktree,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 import type { Add, AddOptions, AddResult } from "./add.command.js";
 
 /**

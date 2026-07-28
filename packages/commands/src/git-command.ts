@@ -5,16 +5,14 @@ import type {
   ObjectId,
   Ref,
   Refs,
-  Staging,
   SymbolicRef,
   Tag,
   Tags,
   Tree,
   TreeEntry,
   Trees,
-  WorkingCopy,
-  Worktree,
 } from "@statewalker/vcs-core";
+import type { Staging, WorkingCopy, Worktree } from "@statewalker/vcs-working-tree";
 import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import { NoHeadError, RefNotFoundError } from "./errors/index.js";

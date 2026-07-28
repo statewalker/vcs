@@ -7,7 +7,7 @@
  * - Allows working-copy-specific settings
  */
 
-import type { WorkingCopyConfig } from "@statewalker/vcs-core";
+import type { WorkingCopyConfig } from "@statewalker/vcs-working-tree";
 
 /**
  * Files API subset needed for config operations

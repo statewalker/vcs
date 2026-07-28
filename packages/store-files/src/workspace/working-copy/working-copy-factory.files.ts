@@ -5,15 +5,15 @@
  * and to add additional worktrees to an existing repository.
  */
 
+import type { History } from "@statewalker/vcs-core";
 import type {
   AddWorktreeOptions,
   Checkout,
-  History,
   WorkingCopy,
   WorkingCopyFactory,
   WorkingCopyOptions,
   Worktree,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 
 import { createGitStashStore, type StashFilesApi } from "./stash-store.files.js";
 import { GitWorkingCopy, type WorkingCopyFilesApi } from "./working-copy.files.js";

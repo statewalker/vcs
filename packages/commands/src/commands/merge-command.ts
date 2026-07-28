@@ -1,5 +1,6 @@
 import type { Commit, ObjectId, TreeEntry } from "@statewalker/vcs-core";
-import { FileMode, isSymbolicRef, MergeStage } from "@statewalker/vcs-core";
+import { FileMode, isSymbolicRef } from "@statewalker/vcs-core";
+import { MergeStage } from "@statewalker/vcs-working-tree";
 import {
   merge3Way,
   MergeContentStrategy as UtilsMergeContentStrategy,

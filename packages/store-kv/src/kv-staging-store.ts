@@ -4,20 +4,19 @@
  * Stores staging area entries using a key-value backend with JSON serialization.
  */
 
+import type { ObjectId, TreeEntry, Trees } from "@statewalker/vcs-core";
 import type {
   IndexBuilder,
   IndexEditor,
   MergeStageValue,
-  ObjectId,
   ReadTreeOptions,
   Staging,
   StagingEdit,
   StagingEntry,
   StagingEntryOptions,
-  TreeEntry,
-  Trees,
-} from "@statewalker/vcs-core";
-import { FileMode, MergeStage } from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
+import { FileMode } from "@statewalker/vcs-core";
+import { MergeStage } from "@statewalker/vcs-working-tree";
 import type { KVStore } from "./kv-store.js";
 
 /**

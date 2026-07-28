@@ -18,6 +18,7 @@
     "@statewalker/vcs-transport": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*",
     "@statewalker/vcs-utils-node": "workspace:*",
+    "@statewalker/vcs-working-tree": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

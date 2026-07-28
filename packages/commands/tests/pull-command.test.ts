@@ -9,7 +9,7 @@
  * and error handling rather than full integration testing.
  */
 
-import type { WorkingCopy } from "@statewalker/vcs-core";
+import type { WorkingCopy } from "@statewalker/vcs-working-tree";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Git, TagOption } from "../src/index.js";

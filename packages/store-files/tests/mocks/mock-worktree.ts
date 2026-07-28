@@ -2,7 +2,7 @@
  * Mock Worktree for testing
  */
 
-import type { Worktree, WorktreeEntry } from "@statewalker/vcs-core";
+import type { Worktree, WorktreeEntry } from "@statewalker/vcs-working-tree";
 import { vi } from "vitest";
 
 /**

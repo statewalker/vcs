@@ -1,4 +1,5 @@
-import type { Checkout, History, WorkingCopy, Worktree } from "@statewalker/vcs-core";
+import type { History } from "@statewalker/vcs-core";
+import type { Checkout, WorkingCopy, Worktree } from "@statewalker/vcs-working-tree";
 
 import {
   AddCommand,

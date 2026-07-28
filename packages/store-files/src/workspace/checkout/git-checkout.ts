@@ -9,6 +9,7 @@
  * - REVERT_HEAD: Revert in progress
  */
 
+import type { ObjectId, Refs } from "@statewalker/vcs-core";
 import type {
   Checkout,
   CheckoutCherryPickState,
@@ -19,10 +20,8 @@ import type {
   CheckoutRevertState,
   CheckoutStash,
   HeadValue,
-  ObjectId,
-  Refs,
   Staging,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 import {
   type CherryPickStateFilesApi,
   readCherryPickState,

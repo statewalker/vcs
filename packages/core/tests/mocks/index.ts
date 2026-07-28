@@ -5,6 +5,3 @@
 // Re-export the actual MemoryRawStorage as it works well for tests
 export { MemoryRawStorage } from "../../src/storage/raw/index.js";
 export * from "./mock-commit-store.js";
-export * from "./mock-staging-store.js";
-export * from "./mock-tree-store.js";
-export * from "./mock-worktree.js";

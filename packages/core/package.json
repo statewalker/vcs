@@ -24,10 +24,6 @@
       "types": "./dist/history/index.d.ts",
       "import": "./dist/history/index.js"
     },
-    "./workspace": {
-      "types": "./dist/workspace/index.d.ts",
-      "import": "./dist/workspace/index.js"
-    },
     "./storage": {
       "types": "./dist/storage/index.d.ts",
       "import": "./dist/storage/index.js"
@@ -39,14 +35,6 @@
     "./serialization": {
       "types": "./dist/serialization/index.d.ts",
       "import": "./dist/serialization/index.js"
-    },
-    "./staging": {
-      "types": "./dist/workspace/staging/index.d.ts",
-      "import": "./dist/workspace/staging/index.js"
-    },
-    "./transformation": {
-      "types": "./dist/workspace/transformation/index.d.ts",
-      "import": "./dist/workspace/transformation/index.js"
     }
   },
   "files": [

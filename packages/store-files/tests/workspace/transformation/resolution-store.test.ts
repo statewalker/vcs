@@ -1,5 +1,5 @@
-import { createMemoryGitStaging, MergeStage, type Staging } from "@statewalker/vcs-core";
-import type { ResolutionStore } from "@statewalker/vcs-core/transformation";
+import { createMemoryGitStaging, MergeStage, type Staging } from "@statewalker/vcs-working-tree";
+import type { ResolutionStore } from "@statewalker/vcs-working-tree/transformation";
 import { GitResolutionStore } from "@statewalker/vcs-store-files";
 import { createInMemoryFilesApi, type FilesApi, joinPath } from "@statewalker/vcs-utils/files";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

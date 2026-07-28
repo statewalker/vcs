@@ -1,4 +1,5 @@
-import type { Commit, ObjectId, PersonIdent, Worktree } from "@statewalker/vcs-core";
+import type { Commit, ObjectId, PersonIdent } from "@statewalker/vcs-core";
+import type { Worktree } from "@statewalker/vcs-working-tree";
 import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import {

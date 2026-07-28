@@ -5,15 +5,15 @@
  * for creating WorkingCopy instances in tests.
  */
 
+import type { ObjectId } from "@statewalker/vcs-core";
 import type {
-  ObjectId,
   Worktree,
   WorktreeCheckoutOptions,
   WorktreeCheckoutResult,
   WorktreeEntry,
   WorktreeWalkOptions,
   WorktreeWriteOptions,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 
 /**
  * Simple mock Worktree for testing.

@@ -1,25 +1,17 @@
-import type {
-  IndexBuilder,
-  IndexEditor,
-  ObjectId,
-  Staging,
-  TreeEntry,
-  Trees,
-} from "@statewalker/vcs-core";
+import type { ObjectId, TreeEntry, Trees } from "@statewalker/vcs-core";
+import type { IndexBuilder, IndexEditor, Staging } from "@statewalker/vcs-working-tree";
+import { FileMode, type FilesApi, readFile } from "@statewalker/vcs-core";
 import {
-  FileMode,
-  type FilesApi,
   INDEX_VERSION_2,
   type IndexVersion,
   MergeStage,
   type MergeStageValue,
   parseIndexFile,
-  readFile,
   type StagingEdit,
   type StagingEntry,
   type StagingEntryOptions,
   serializeIndexFile,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 
 /**
  * File-based staging store implementation.

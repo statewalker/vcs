@@ -18,10 +18,10 @@ import {
   joinPath,
   type ObjectId,
   type RefStore,
-  type Staging,
   type TreeEntry,
   type Trees,
 } from "@statewalker/vcs-core";
+import { type Staging } from "@statewalker/vcs-working-tree";
 import type { Checkout, CheckoutOptions, CheckoutResult } from "./checkout.command.js";
 
 /**

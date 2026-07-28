@@ -7,8 +7,10 @@
  * different backend factories.
  */
 
-import type { History, ObjectId, PersonIdent, WorkingCopy } from "@statewalker/vcs-core";
-import { FileMode, MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-core";
+import type { History, ObjectId, PersonIdent } from "@statewalker/vcs-core";
+import type { WorkingCopy } from "@statewalker/vcs-working-tree";
+import { FileMode } from "@statewalker/vcs-core";
+import { MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-working-tree";
 import {
   createMemoryObjectStores,
   MemoryRefStore,

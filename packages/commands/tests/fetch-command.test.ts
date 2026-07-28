@@ -5,7 +5,8 @@
  * Tests run against all storage backends (Memory, SQL).
  */
 
-import type { Ref, WorkingCopy } from "@statewalker/vcs-core";
+import type { Ref } from "@statewalker/vcs-core";
+import type { WorkingCopy } from "@statewalker/vcs-working-tree";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Git, RefUpdateStatus, TagOption } from "../src/index.js";
