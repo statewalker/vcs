@@ -40,7 +40,7 @@ export enum ListBranchMode {
  * import { WorkingCopy, History, Checkout, Worktree, Blobs, Trees, Commits } from "@statewalker/vcs-commands";
  *
  * // Or import directly from core:
- * import { WorkingCopy } from "@statewalker/vcs-core";
+ * import { WorkingCopy } from "@statewalker/vcs-working-tree";
  * ```
  */
 export type {

@@ -16,12 +16,10 @@ import {
   type ObjectId,
   type Refs,
   type SerializationApi,
-  type Staging,
   type Tags,
   type Trees,
-  type WorkingCopy,
-  type Worktree,
 } from "@statewalker/vcs-core";
+import { type Staging, type WorkingCopy, type Worktree } from "@statewalker/vcs-working-tree";
 import {
   createMemoryObjectStores,
   MemoryRefStore,

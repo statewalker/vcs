@@ -379,16 +379,15 @@ async function collectBytes(iterable: AsyncIterable<Uint8Array>): Promise<Uint8A
   return result;
 }
 
+import { FileMode, type ObjectId } from "@statewalker/vcs-core";
 import {
-  FileMode,
-  type ObjectId,
   type Worktree,
   type WorktreeCheckoutOptions,
   type WorktreeCheckoutResult,
   type WorktreeEntry,
   type WorktreeWalkOptions,
   type WorktreeWriteOptions,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 
 /**
  * Mock working tree for testing CommitCommand with --all flag.

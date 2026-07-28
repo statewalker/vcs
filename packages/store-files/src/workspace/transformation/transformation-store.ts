@@ -5,12 +5,13 @@
  * and revert operations, with detection of which operation is in progress.
  */
 
-import type { Blobs, Staging } from "@statewalker/vcs-core";
+import type { Blobs } from "@statewalker/vcs-core";
+import type { Staging } from "@statewalker/vcs-working-tree";
 import type {
   ResolutionStore,
   TransformationCapabilities,
   TransformationState,
-} from "@statewalker/vcs-core/transformation";
+} from "@statewalker/vcs-working-tree/transformation";
 import type { FilesApi } from "@statewalker/vcs-utils/files";
 import type { CherryPickStateStore } from "./cherry-pick-state-store.js";
 import { GitCherryPickStateStore } from "./cherry-pick-state-store.js";

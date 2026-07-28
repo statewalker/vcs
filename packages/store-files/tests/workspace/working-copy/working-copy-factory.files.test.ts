@@ -1,4 +1,5 @@
-import type { Checkout, History, Staging, Worktree } from "@statewalker/vcs-core";
+import type { History } from "@statewalker/vcs-core";
+import type { Checkout, Staging, Worktree } from "@statewalker/vcs-working-tree";
 import {
   type GitWorkingCopyContext,
   GitWorkingCopyFactory,

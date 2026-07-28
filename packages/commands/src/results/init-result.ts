@@ -1,4 +1,5 @@
-import type { History, WorkingCopy } from "@statewalker/vcs-core";
+import type { History } from "@statewalker/vcs-core";
+import type { WorkingCopy } from "@statewalker/vcs-working-tree";
 
 import type { Git } from "../git.js";
 

@@ -7,8 +7,9 @@
  * - .git/rr-cache/ for recorded resolutions (rerere)
  */
 
-import type { Blobs, IndexEntry, ObjectId, Staging } from "@statewalker/vcs-core";
-import { MergeStage } from "@statewalker/vcs-core";
+import type { Blobs, ObjectId } from "@statewalker/vcs-core";
+import type { IndexEntry, Staging } from "@statewalker/vcs-working-tree";
+import { MergeStage } from "@statewalker/vcs-working-tree";
 import type {
   ConflictEntry,
   ConflictInfo,
@@ -17,7 +18,7 @@ import type {
   RecordedResolution,
   Resolution,
   ResolutionStore,
-} from "@statewalker/vcs-core/transformation";
+} from "@statewalker/vcs-working-tree/transformation";
 import { sha1 } from "@statewalker/vcs-utils";
 import type { FilesApi } from "@statewalker/vcs-utils/files";
 import { joinPath, tryReadFile } from "@statewalker/vcs-utils/files";

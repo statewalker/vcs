@@ -1,5 +1,6 @@
 import type { Commit, ObjectId, PersonIdent } from "@statewalker/vcs-core";
-import { FileMode, MergeStage } from "@statewalker/vcs-core";
+import { FileMode } from "@statewalker/vcs-core";
+import { MergeStage } from "@statewalker/vcs-working-tree";
 
 import {
   InvalidMainlineParentError,

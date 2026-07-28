@@ -6,7 +6,7 @@
  * - .git/MERGE_MSG: Cherry-pick commit message
  */
 
-import type { CherryPickState } from "@statewalker/vcs-core";
+import type { CherryPickState } from "@statewalker/vcs-working-tree";
 
 /**
  * Files API subset needed for cherry-pick state reading

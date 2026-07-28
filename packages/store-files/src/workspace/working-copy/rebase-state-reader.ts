@@ -6,7 +6,8 @@
  * - .git/rebase-apply/: For apply-based rebase (git am)
  */
 
-import type { ObjectId, RebaseState } from "@statewalker/vcs-core";
+import type { ObjectId } from "@statewalker/vcs-core";
+import type { RebaseState } from "@statewalker/vcs-working-tree";
 
 /**
  * Files API subset needed for rebase state reading

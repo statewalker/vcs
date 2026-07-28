@@ -8,7 +8,7 @@
  * - .git/MERGE_MODE: Merge mode (empty for normal, 'no-ff' for no-fast-forward)
  */
 
-import type { MergeState } from "@statewalker/vcs-core";
+import type { MergeState } from "@statewalker/vcs-working-tree";
 
 /**
  * Files API subset needed for merge state reading

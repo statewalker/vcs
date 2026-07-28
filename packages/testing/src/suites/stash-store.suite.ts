@@ -9,7 +9,7 @@
  * contract for stores that support standalone stash operations.
  */
 
-import type { StashEntry, StashStore } from "@statewalker/vcs-core";
+import type { StashEntry, StashStore } from "@statewalker/vcs-working-tree";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

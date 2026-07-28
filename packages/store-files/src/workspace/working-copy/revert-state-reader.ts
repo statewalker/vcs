@@ -6,7 +6,7 @@
  * - .git/MERGE_MSG: Revert commit message
  */
 
-import type { RevertState } from "@statewalker/vcs-core";
+import type { RevertState } from "@statewalker/vcs-working-tree";
 
 /**
  * Files API subset needed for revert state reading

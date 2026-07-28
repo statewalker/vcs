@@ -10,7 +10,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     globals: false,
     environment: "node",
-    testTimeout: 30000,
+    testTimeout: 10000,
   },
   resolve: {
     alias: [
@@ -39,10 +39,6 @@ export default defineConfig({
       {
         find: /^@statewalker\/vcs-working-tree$/,
         replacement: path.resolve(import.meta.dirname, "../working-tree/src/index.ts"),
-      },
-      {
-        find: "@statewalker/vcs-commands",
-        replacement: path.resolve(import.meta.dirname, "../commands/src/index.ts"),
       },
       {
         find: "@statewalker/vcs-store-files",

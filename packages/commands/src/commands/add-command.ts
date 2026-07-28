@@ -31,12 +31,12 @@
  * ```
  */
 
+import { FileMode } from "@statewalker/vcs-core";
 import {
   DeleteStagingEntry,
-  FileMode,
   UpdateStagingEntry,
   type Worktree,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 
 import {
   IncompatibleOptionsError,

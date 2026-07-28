@@ -10,7 +10,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     globals: false,
     environment: "node",
-    testTimeout: 30000,
+    testTimeout: 10000,
   },
   resolve: {
     alias: [
@@ -41,36 +41,12 @@ export default defineConfig({
         replacement: path.resolve(import.meta.dirname, "../working-tree/src/index.ts"),
       },
       {
-        find: "@statewalker/vcs-commands",
-        replacement: path.resolve(import.meta.dirname, "../commands/src/index.ts"),
-      },
-      {
-        find: "@statewalker/vcs-store-files",
-        replacement: path.resolve(import.meta.dirname, "../store-files/src/index.ts"),
-      },
-      {
-        find: "@statewalker/vcs-store-mem",
-        replacement: path.resolve(import.meta.dirname, "../store-mem/src/index.ts"),
-      },
-      {
-        find: "@statewalker/vcs-store-sql/adapters/sql-js",
-        replacement: path.resolve(import.meta.dirname, "../store-sql/src/adapters/sql-js-adapter.ts"),
-      },
-      {
-        find: "@statewalker/vcs-store-sql",
-        replacement: path.resolve(import.meta.dirname, "../store-sql/src/index.ts"),
-      },
-      {
-        find: "@statewalker/vcs-transport",
-        replacement: path.resolve(import.meta.dirname, "../transport/src/index.ts"),
+        find: "@statewalker/vcs-testing",
+        replacement: path.resolve(import.meta.dirname, "../testing/src/index.ts"),
       },
       {
         find: "@statewalker/storage",
         replacement: path.resolve(import.meta.dirname, "../storage/src/index.ts"),
-      },
-      {
-        find: "@statewalker/webrun-files-node",
-        replacement: path.join(webrunFiles, "webrun-files-node/src/index.ts"),
       },
       {
         find: "@statewalker/webrun-files-mem",

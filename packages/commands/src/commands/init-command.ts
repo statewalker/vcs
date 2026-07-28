@@ -1,11 +1,5 @@
-import {
-  createInMemoryFilesApi,
-  createMemoryHistory,
-  type FilesApi,
-  type Staging,
-  type WorkingCopy,
-  type Worktree,
-} from "@statewalker/vcs-core";
+import { createInMemoryFilesApi, createMemoryHistory, type FilesApi } from "@statewalker/vcs-core";
+import { type Staging, type WorkingCopy, type Worktree } from "@statewalker/vcs-working-tree";
 import { createFileWorktree } from "@statewalker/vcs-store-files";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 

@@ -12,7 +12,7 @@
  * 5. BISECT_LOG (bisect state)
  */
 
-import { RepositoryState, type RepositoryStateValue } from "@statewalker/vcs-core";
+import { RepositoryState, type RepositoryStateValue } from "@statewalker/vcs-working-tree";
 
 /**
  * Files API subset needed for state detection

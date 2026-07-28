@@ -1,4 +1,4 @@
-import { getStateCapabilities, RepositoryState } from "@statewalker/vcs-core";
+import { getStateCapabilities, RepositoryState } from "@statewalker/vcs-working-tree";
 import {
   detectRepositoryState,
   readCherryPickState,

@@ -1,19 +1,21 @@
 import {
   type Blobs,
-  type Checkout,
   type Commits,
   FileMode,
-  FileStatus,
   type History,
-  MemoryStashStore,
   type Refs,
-  type Staging,
-  type StagingEntry,
   type TreeEntry,
   type Trees,
+} from "@statewalker/vcs-core";
+import {
+  type Checkout,
+  FileStatus,
+  MemoryStashStore,
+  type Staging,
+  type StagingEntry,
   type Worktree,
   type WorktreeEntry,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 import { GitWorkingCopy, type WorkingCopyFilesApi } from "@statewalker/vcs-store-files";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

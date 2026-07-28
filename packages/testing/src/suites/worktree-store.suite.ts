@@ -5,7 +5,7 @@
  * All storage implementations must pass these tests.
  */
 
-import type { Worktree } from "@statewalker/vcs-core";
+import type { Worktree } from "@statewalker/vcs-working-tree";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**

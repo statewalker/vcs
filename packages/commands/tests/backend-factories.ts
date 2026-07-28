@@ -7,8 +7,9 @@
  * @see WorkingCopy for the primary architecture
  */
 
-import type { History, WorkingCopy } from "@statewalker/vcs-core";
-import { MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-core";
+import type { History } from "@statewalker/vcs-core";
+import type { WorkingCopy } from "@statewalker/vcs-working-tree";
+import { MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-working-tree";
 import {
   createMemoryObjectStores,
   MemoryRefStore,

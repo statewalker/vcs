@@ -12,17 +12,14 @@
  * - Parent 2: commit of current index state
  */
 
+import type { History, ObjectId, PersonIdent, TreeEntry } from "@statewalker/vcs-core";
 import type {
-  History,
-  ObjectId,
-  PersonIdent,
   Staging,
   StashEntry,
   StashPushOptions,
   StashStore,
-  TreeEntry,
   Worktree,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
 
 /**
  * Files API subset needed for stash operations

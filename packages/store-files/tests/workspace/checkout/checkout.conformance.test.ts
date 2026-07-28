@@ -1,4 +1,4 @@
-import type { Checkout, HeadValue } from "@statewalker/vcs-core";
+import type { Checkout, HeadValue } from "@statewalker/vcs-working-tree";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // This file exports a conformance test factory, not direct tests.

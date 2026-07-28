@@ -15,11 +15,10 @@ import type {
   ObjectId,
   PersonIdent,
   Refs,
-  Staging,
   Tags,
   Trees,
-  WorkingCopy,
 } from "@statewalker/vcs-core";
+import type { Staging, WorkingCopy } from "@statewalker/vcs-working-tree";
 import { FileMode } from "@statewalker/vcs-core";
 
 import {

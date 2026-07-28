@@ -7,13 +7,8 @@
  * Reference: Issue webrun-vcs-djl5
  */
 
-import {
-  createInMemoryFilesApi,
-  type FilesApi,
-  MemoryWorkingCopy,
-  type WorkingCopy,
-  type Worktree,
-} from "@statewalker/vcs-core";
+import { createInMemoryFilesApi, type FilesApi } from "@statewalker/vcs-core";
+import { MemoryWorkingCopy, type WorkingCopy, type Worktree } from "@statewalker/vcs-working-tree";
 import { createFileWorktree } from "@statewalker/vcs-store-files";
 import {
   createMemoryObjectStores,
