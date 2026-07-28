@@ -41,7 +41,8 @@
   },
   "dependencies": {
     "@statewalker/vcs-core": "workspace:*",
-    "@statewalker/vcs-utils": "workspace:*"
+    "@statewalker/vcs-utils": "workspace:*",
+    "@statewalker/webrun-streams": "workspace:*"
   },
   "devDependencies": {
     "rolldown": "catalog:",
