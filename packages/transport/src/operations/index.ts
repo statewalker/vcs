@@ -7,6 +7,8 @@ export type {
 export { fetch } from "./fetch.js";
 export type { FetchOverDuplexOptions } from "./fetch-over-duplex.js";
 export { fetchOverDuplex } from "./fetch-over-duplex.js";
+export type { FetchV2OverDuplexOptions } from "./fetch-v2-over-duplex.js";
+export { fetchV2OverDuplex } from "./fetch-v2-over-duplex.js";
 export type { LsRemoteOptions } from "./ls-remote.js";
 export { lsRemote } from "./ls-remote.js";
 export type {
