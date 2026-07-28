@@ -4,6 +4,12 @@ export * from "./git-native-repository-access.js";
 export * from "./object-graph-walker.js";
 // Storage adapter (legacy)
 export * from "./storage-adapter.js";
+// Storage-seam repository facade (RepositoryFacade + RefStore over @statewalker/storage)
+export {
+  createStorageRepositoryFacade,
+  type StorageRepositoryFacade,
+  type StorageRepositoryFacadeDeps,
+} from "./storage-repository-facade.js";
 // VCS repository access (uses History facade)
 export {
   createVcsRepositoryAccess,

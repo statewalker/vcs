@@ -31,12 +31,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@statewalker/storage": "workspace:*",
     "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-transport": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
     "@statewalker/vcs-store-mem": "workspace:*",
+    "@statewalker/webrun-files-mem": "workspace:*",
     "rolldown": "catalog:",
     "vitest": "catalog:",
     "typescript": "catalog:",
