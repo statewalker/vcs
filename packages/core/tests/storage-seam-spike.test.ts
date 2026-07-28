@@ -3,7 +3,7 @@
  * `@statewalker/storage` byte seam.
  *
  * The bytes and oids produced through a storage-backed {@link RawStorage} (built
- * from `memBlobStore()` via the test-scope {@link blobStoreToRawStorage} adapter)
+ * from `memBlobStore()` via the {@link blobStoreToRawStorage} adapter)
  * must be byte-identical to those the native `MemoryRawStorage` produces — same
  * git wire format, same SHA-1 oids, same empty-tree oid, same pack roundtrip.
  * Any divergence is a real seam bug (most likely a range/size mismatch).
@@ -20,7 +20,7 @@ import {
 } from "../src/history/index.js";
 import { DefaultSerializationApi } from "../src/serialization/serialization-api.impl.js";
 import type { SerializationApi } from "../src/serialization/serialization-api.js";
-import { blobStoreToRawStorage } from "./helpers/blob-store-raw-storage.js";
+import { blobStoreToRawStorage } from "../src/storage/adapters/blob-store-raw-storage.js";
 
 /** Build a History + SerializationApi over the storage seam (memBlobStore). */
 function seamHistory(): { history: History; serialization: SerializationApi } {

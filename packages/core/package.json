@@ -59,10 +59,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@statewalker/storage": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
-    "@statewalker/storage": "workspace:*",
     "@statewalker/vcs-utils-node": "workspace:*",
     "@types/node": "catalog:",
     "rolldown": "catalog:",
