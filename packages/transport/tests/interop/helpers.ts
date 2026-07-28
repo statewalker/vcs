@@ -226,11 +226,26 @@ export function gitProcessDuplex(child: ChildProcessWithoutNullStreams): GitProc
 export function spawnGitService(
   service: "upload-pack" | "receive-pack",
   repoPath: string,
+  extraEnv: Record<string, string> = {},
 ): GitProcessDuplex {
   const child = spawn("git", [service, repoPath], {
-    env: { ...process.env, ...DETERMINISTIC_ENV },
+    env: { ...process.env, ...DETERMINISTIC_ENV, ...extraEnv },
   }) as ChildProcessWithoutNullStreams;
   return gitProcessDuplex(child);
+}
+
+/**
+ * Spawn `git <service> <repoPath>` speaking Git **protocol v2** (via the
+ * `GIT_PROTOCOL=version=2` environment handshake) and wrap it as a Duplex.
+ * On connect the server writes the v2 capability advertisement
+ * (`version 2`, `agent=…`, `ls-refs=…`, `fetch=…`, `object-format=sha1`,
+ * flush) and then accepts command-based requests.
+ */
+export function spawnGitServiceV2(
+  service: "upload-pack" | "receive-pack",
+  repoPath: string,
+): GitProcessDuplex {
+  return spawnGitService(service, repoPath, { GIT_PROTOCOL: "version=2" });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
