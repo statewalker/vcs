@@ -1,12 +1,12 @@
 {
-  "name": "@statewalker/vcs-core",
+  "name": "@statewalker/vcs-working-tree",
   "version": "0.1.0",
-  "description": "Core VCS interfaces, storage abstractions, and history management",
+  "description": "Git working-tree layer — index/staging, status, checkout, ignore, worktree, and merge/rebase operation state, over vcs-core",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/statewalker/vcs.git",
-    "directory": "packages/core"
+    "directory": "packages/working-tree"
   },
   "private": false,
   "publishConfig": {
@@ -20,21 +20,13 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./history": {
-      "types": "./dist/history/index.d.ts",
-      "import": "./dist/history/index.js"
+    "./staging": {
+      "types": "./dist/staging/index.d.ts",
+      "import": "./dist/staging/index.js"
     },
-    "./storage": {
-      "types": "./dist/storage/index.d.ts",
-      "import": "./dist/storage/index.js"
-    },
-    "./backend": {
-      "types": "./dist/backend/index.d.ts",
-      "import": "./dist/backend/index.js"
-    },
-    "./serialization": {
-      "types": "./dist/serialization/index.d.ts",
-      "import": "./dist/serialization/index.js"
+    "./transformation": {
+      "types": "./dist/transformation/index.d.ts",
+      "import": "./dist/transformation/index.js"
     }
   },
   "files": [
@@ -47,7 +39,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@statewalker/storage": "workspace:*",
+    "@statewalker/vcs-core": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {

@@ -14,13 +14,11 @@ import {
   createSymbolicRef,
   createTags,
   createTrees,
-  DeleteStagingEntry,
   FileMode,
   formatPersonIdent,
   isSymbolicRef,
   // Raw storage
   MemoryRawStorage,
-  MergeStage,
   // Object ID
   type ObjectId,
   // Object types
@@ -30,7 +28,6 @@ import {
   parsePersonIdent,
   RefStorage,
   RefStoreLocation,
-  UpdateStagingEntry,
 } from "../src/index.js";
 
 describe("Core exports", () => {
@@ -127,26 +124,6 @@ describe("Core exports", () => {
       const parsed = parsePersonIdent("Test User <test@example.com> 1234567890 +0000");
       expect(parsed.name).toBe("Test User");
       expect(parsed.email).toBe("test@example.com");
-    });
-  });
-
-  describe("Staging", () => {
-    it("exports MergeStage enum", () => {
-      expect(MergeStage).toBeDefined();
-      expect(MergeStage.MERGED).toBe(0);
-      expect(MergeStage.BASE).toBe(1);
-      expect(MergeStage.OURS).toBe(2);
-      expect(MergeStage.THEIRS).toBe(3);
-    });
-
-    it("exports UpdateStagingEntry class", () => {
-      expect(UpdateStagingEntry).toBeDefined();
-      expect(typeof UpdateStagingEntry).toBe("function");
-    });
-
-    it("exports DeleteStagingEntry class", () => {
-      expect(DeleteStagingEntry).toBeDefined();
-      expect(typeof DeleteStagingEntry).toBe("function");
     });
   });
 

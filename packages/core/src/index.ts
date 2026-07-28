@@ -10,5 +10,3 @@ export * from "./history/index.js";
 export * from "./storage/index.js";
 // VcsCore facade (normalized git API over the @statewalker/storage seam)
 export * from "./vcs-core/index.js";
-// Workspace layer (worktree, staging, status, checkout, working-copy)
-export * from "./workspace/index.js";
