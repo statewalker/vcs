@@ -11,11 +11,17 @@ export function memBlobStore(): BlobStore {
       await assertVerified(id, chunks, opts?.verify);
       store.set(id, chunks);
     },
-    get(id): ByteStream {
-      return toStream(store.get(id) ?? []);
+    get(id, range): ByteStream {
+      const chunks = store.get(id) ?? [];
+      return toStream(range ? sliceChunks(chunks, range) : chunks);
     },
     async has(id) {
       return store.has(id);
+    },
+    async size(id) {
+      const chunks = store.get(id);
+      if (chunks === undefined) return -1;
+      return chunks.reduce((n, c) => n + c.length, 0);
     },
     async remove(id) {
       return store.delete(id);
@@ -26,6 +32,31 @@ export function memBlobStore(): BlobStore {
       }
     },
   };
+}
+
+/**
+ * Return the `[start, end)` slice of a chunk list (end exclusive, start default
+ * 0, end default total length) as a new chunk list — mirrors RawStorage.load.
+ */
+function sliceChunks(
+  chunks: Uint8Array[],
+  range: { start?: number; end?: number },
+): Uint8Array[] {
+  const start = range.start ?? 0;
+  const total = chunks.reduce((n, c) => n + c.length, 0);
+  const end = range.end ?? total;
+  const out: Uint8Array[] = [];
+  let pos = 0;
+  for (const chunk of chunks) {
+    const chunkStart = pos;
+    const chunkEnd = pos + chunk.length;
+    pos = chunkEnd;
+    if (chunkEnd <= start || chunkStart >= end) continue;
+    const from = Math.max(start, chunkStart) - chunkStart;
+    const to = Math.min(end, chunkEnd) - chunkStart;
+    out.push(chunk.subarray(from, to));
+  }
+  return out;
 }
 
 function bytesEqual(a: Uint8Array | undefined, b: Uint8Array | undefined): boolean {
