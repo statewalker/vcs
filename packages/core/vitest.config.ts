@@ -43,6 +43,13 @@ export default defineConfig({
         replacement: path.resolve(import.meta.dirname, "../store-mem/src/index.ts"),
       },
       {
+        // Transitive: a delta test imports vcs-store-mem, which imports
+        // vcs-working-tree (staging types). Resolve it to src so the suite
+        // runs on a clean checkout without vcs-working-tree's dist built.
+        find: "@statewalker/vcs-working-tree",
+        replacement: path.resolve(import.meta.dirname, "../working-tree/src/index.ts"),
+      },
+      {
         find: "@statewalker/storage",
         replacement: path.resolve(import.meta.dirname, "../storage/src/index.ts"),
       },
