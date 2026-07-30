@@ -92,8 +92,14 @@ function createMockTransport(responses: PktLineResult[] = []): TransportApi & {
   };
 }
 
-// Mock repository facade
-function createMockRepository(objects: Set<string> = new Set()): RepositoryFacade {
+// Mock repository facade.
+// `ancestry` maps an oid to its ancestor oids, so `walkAncestors` can model the
+// fast-forward check (an update is fast-forward iff the old oid is an ancestor of
+// the new oid). Defaults to no ancestry (every walk is empty).
+function createMockRepository(
+  objects: Set<string> = new Set(),
+  ancestry: Map<string, string[]> = new Map(),
+): RepositoryFacade {
   return {
     async importPack(): Promise<PackImportResult> {
       return {
@@ -115,8 +121,10 @@ function createMockRepository(objects: Set<string> = new Set()): RepositoryFacad
     async has(oid: string): Promise<boolean> {
       return objects.has(oid);
     },
-    async *walkAncestors(): AsyncGenerator<string> {
-      // Empty generator
+    async *walkAncestors(oid: string): AsyncGenerator<string> {
+      for (const ancestor of ancestry.get(oid) ?? []) {
+        yield ancestor;
+      }
     },
   };
 }
@@ -270,8 +278,11 @@ describe("Client Push FSM", () => {
       context.refStore = refStore;
       context.config.pushRefspecs = ["refs/heads/main:refs/heads/main"];
 
-      // Simulate server has the remote OID
-      repository = createMockRepository(new Set([remoteOid]));
+      // Simulate a fast-forward: the remote OID is an ancestor of the local OID.
+      repository = createMockRepository(
+        new Set([remoteOid]),
+        new Map([[localOid, [remoteOid]]]),
+      );
       context.repository = repository;
 
       const fsm = new Fsm(clientPushTransitions, clientPushHandlers);
@@ -452,8 +463,11 @@ describe("Server Push FSM", () => {
       const newOid = "b".repeat(40);
 
       context.state.refs.set("refs/heads/main", oldOid);
-      // Repository needs to have oldOid for fast-forward check
-      repository = createMockRepository(new Set([oldOid, newOid]));
+      // Fast-forward: oldOid is an ancestor of newOid.
+      repository = createMockRepository(
+        new Set([oldOid, newOid]),
+        new Map([[newOid, [oldOid]]]),
+      );
       context.repository = repository;
 
       (context.state as { pushCommands?: PushCommand[] }).pushCommands = [
