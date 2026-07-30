@@ -5,7 +5,8 @@
  */
 
 import { Git } from "@statewalker/vcs-commands";
-import { FileMode, type History, type StagingStore, type WorkingCopy } from "@statewalker/vcs-core";
+import { FileMode, type History } from "@statewalker/vcs-core";
+import { type Staging, type WorkingCopy } from "@statewalker/vcs-working-tree";
 import { FileStagingStore } from "@statewalker/vcs-store-files";
 import {
   createBrowserFsStorage,
@@ -31,9 +32,9 @@ let initBtn: HTMLButtonElement;
 // App State
 let currentStorage: StorageBackend | null = null;
 let history: History | null = null;
-let _workingCopy: WorkingCopy | null = null;
+let workingCopy: WorkingCopy | null = null;
 let git: Git | null = null;
-let staging: StagingStore | null = null;
+let staging: Staging | null = null;
 const stagedFiles: Map<string, string> = new Map();
 let workingDirFiles: string[] = [];
 const trackedFiles: Set<string> = new Set();
@@ -108,7 +109,7 @@ async function switchStorage(type: StorageType): Promise<void> {
     if (history) {
       await history.close();
       history = null;
-      _workingCopy = null;
+      workingCopy = null;
       git = null;
     }
 
@@ -195,13 +196,14 @@ async function refreshWorkingDir(): Promise<void> {
 async function updateTrackedFiles(): Promise<void> {
   trackedFiles.clear();
 
-  if (!store) return;
+  if (!history) return;
 
   try {
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await history.refs.resolve("HEAD");
     if (!headRef?.objectId) return;
 
-    const commit = await store.commits.loadCommit(headRef.objectId);
+    const commit = await history.commits.load(headRef.objectId);
+    if (!commit) return;
     await collectTreeFiles(commit.tree, "");
   } catch {
     // No commits yet
@@ -212,9 +214,12 @@ async function updateTrackedFiles(): Promise<void> {
  * Recursively collect files from a tree
  */
 async function collectTreeFiles(treeId: string, prefix: string): Promise<void> {
-  if (!store) return;
+  if (!history) return;
 
-  for await (const entry of store.trees.loadTree(treeId)) {
+  const tree = await history.trees.load(treeId);
+  if (!tree) return;
+
+  for await (const entry of tree) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
 
     if (entry.mode === FileMode.TREE) {
@@ -242,7 +247,7 @@ async function initOrOpenRepository(): Promise<void> {
     }
 
     // Configure staging store - use file-based for browser FS, memory for in-memory
-    let customStaging: StagingStore | undefined;
+    let customStaging: Staging | undefined;
     if (currentStorage.type === "browser-fs") {
       const fileStaging = new FileStagingStore(currentStorage.files, ".git/index");
       if (repoExists) {
@@ -267,19 +272,17 @@ async function initOrOpenRepository(): Promise<void> {
     const result = await initCommand.call();
 
     // Extract result
-    repository = result.repository as GitRepository;
-    store = result.store;
+    history = result.repository;
+    workingCopy = result.workingCopy;
     git = result.git;
-    _worktree = (store as GitStoreWithWorkTree).worktree;
 
     // For memory storage, keep reference to staging
     if (!customStaging) {
-      staging = result.store.staging;
+      staging = result.workingCopy.checkout.staging;
     }
 
     // Get current branch
-    const headRef = await store.refs.resolve("HEAD");
-    const branch = headRef?.symbolicRef?.replace("refs/heads/", "") || "main";
+    const branch = (await workingCopy.getCurrentBranch()) || "main";
 
     repoStatus.textContent = `Repository ready (${branch})`;
     initBtn.textContent = "Repository Ready";
@@ -293,7 +296,7 @@ async function initOrOpenRepository(): Promise<void> {
     log(repoExists ? "Opened existing repository" : "Initialized new repository", "success");
   } catch (error) {
     log(
-      `Failed to ${repository ? "open" : "initialize"} repository: ${(error as Error).message}`,
+      `Failed to ${history ? "open" : "initialize"} repository: ${(error as Error).message}`,
       "error",
     );
   }
@@ -303,7 +306,7 @@ async function initOrOpenRepository(): Promise<void> {
  * Add a file to staging
  */
 async function addFile(): Promise<void> {
-  if (!store || !git || !currentStorage) {
+  if (!history || !git || !currentStorage) {
     log("No repository initialized", "error");
     return;
   }
@@ -355,7 +358,7 @@ async function addFile(): Promise<void> {
  * Stage an existing file from working directory
  */
 async function stageFile(fileName: string): Promise<void> {
-  if (!store || !git || !currentStorage) {
+  if (!history || !git || !currentStorage) {
     log("No repository initialized", "error");
     return;
   }
@@ -402,7 +405,7 @@ async function stageFile(fileName: string): Promise<void> {
  * Create a new commit
  */
 async function createCommit(): Promise<void> {
-  if (!store || !git) {
+  if (!history || !git) {
     log("No repository initialized", "error");
     return;
   }
@@ -419,16 +422,16 @@ async function createCommit(): Promise<void> {
   }
 
   try {
-    // Create commit
+    // Create commit (Git.commit() stores the commit and returns its id)
     const commit = await git.commit().setMessage(message).call();
-    const commitId = await store.commits.storeCommit(commit);
+    const commitId = commit.id;
 
     // For browser FS, sync staging with the committed tree and write to index
     // This ensures native git sees the correct state
     if (currentStorage?.type === "browser-fs" && staging instanceof FileStagingStore) {
       try {
         // Read the committed tree back into staging (this keeps staging in sync with git)
-        await staging.readTree(store.trees, commit.tree);
+        await staging.readTree(history.trees, commit.tree);
         // Write the index file so native git sees the correct state
         await staging.write();
       } catch (syncError) {
@@ -482,7 +485,7 @@ function updateWorkingDirTree(): void {
         statusClass = "status-untracked";
       }
 
-      const canStage = !isStaged && store;
+      const canStage = !isStaged && history;
 
       return `
       <div class="file-item ${statusClass}">
@@ -535,13 +538,13 @@ function updateStagingTree(): void {
  * Update the commit history display
  */
 async function updateCommitHistory(): Promise<void> {
-  if (!git || !store) {
+  if (!git || !history) {
     commitHistory.innerHTML = '<p class="empty-state">No commits yet</p>';
     return;
   }
 
   try {
-    const headRef = await store.refs.resolve("HEAD");
+    const headRef = await history.refs.resolve("HEAD");
     if (!headRef?.objectId) {
       commitHistory.innerHTML = '<p class="empty-state">No commits yet</p>';
       return;
@@ -551,13 +554,14 @@ async function updateCommitHistory(): Promise<void> {
 
     // Walk ancestry to get commit IDs
     const commitIds: string[] = [];
-    for await (const id of store.commits.walkAncestry(headRef.objectId, { limit: 10 })) {
+    for await (const id of history.commits.walkAncestry(headRef.objectId, { limit: 10 })) {
       commitIds.push(id);
     }
 
     // Load commit messages
     for (const id of commitIds) {
-      const commit = await store.commits.loadCommit(id);
+      const commit = await history.commits.load(id);
+      if (!commit) continue;
       commits.push({
         id,
         message: commit.message.trim().split("\n")[0],

@@ -12,13 +12,15 @@
 import { Git } from "@statewalker/vcs-commands";
 import type { History, SerializationApi } from "@statewalker/vcs-core";
 import {
-  createMemoryGitStaging,
-  createMemoryHistory,
-  DefaultSerializationApi,
-  MemoryCheckout,
-  MemoryWorkingCopy,
-  MemoryWorktree,
+	createMemoryHistory,
+	DefaultSerializationApi,
 } from "@statewalker/vcs-core";
+import {
+	createMemoryGitStaging,
+	MemoryCheckout,
+	MemoryWorkingCopy,
+	MemoryWorktree,
+} from "@statewalker/vcs-working-tree";
 import { MemFilesApi } from "@statewalker/webrun-files-mem";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 

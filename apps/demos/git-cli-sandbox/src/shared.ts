@@ -5,18 +5,18 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Git } from "@statewalker/vcs-commands";
+import type { FilesApi, GitObjectStore, History } from "@statewalker/vcs-core";
 import {
-  createFileWorktree,
-  createHistoryWithOperations,
-  createMemoryCheckout,
-  createMemoryWorkingCopy,
-  createMemoryWorktree,
-  FileStagingStore,
-  type FilesApi,
-  type History,
-  type WorkingCopy,
-} from "@statewalker/vcs-core";
-import { createGitFilesBackend } from "@statewalker/vcs-store-fs";
+	createFileWorktree,
+	createGitFilesBackend,
+	FileStagingStore,
+} from "@statewalker/vcs-store-files";
+import {
+	createMemoryCheckout,
+	createMemoryWorkingCopy,
+	createMemoryWorktree,
+	type WorkingCopy,
+} from "@statewalker/vcs-working-tree";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
@@ -32,6 +32,7 @@ export interface CliContext {
   git: Git;
   workingCopy: WorkingCopy;
   history: History;
+  objects: GitObjectStore;
   files: FilesApi;
 }
 
@@ -67,12 +68,11 @@ export async function openRepository(repoDir: string): Promise<CliContext> {
   const files = createNodeFilesApi({ rootDir: repoDir });
 
   // Create backend and history
-  const backend = await createGitFilesBackend({
+  const { history, objects } = await createGitFilesBackend({
     files,
     gitDir: ".git",
     create: false,
   });
-  const history = createHistoryWithOperations({ backend });
   await history.initialize();
 
   // Create staging
@@ -106,6 +106,7 @@ export async function openRepository(repoDir: string): Promise<CliContext> {
     git,
     workingCopy,
     history,
+    objects,
     files,
   };
 }
@@ -122,12 +123,11 @@ export async function initRepository(
   const gitDir = options.bare ? "." : ".git";
 
   // Create backend and history
-  const backend = await createGitFilesBackend({
+  const { history, objects } = await createGitFilesBackend({
     files,
     gitDir,
     create: true,
   });
-  const history = createHistoryWithOperations({ backend });
   await history.initialize();
 
   // Set initial branch
@@ -171,6 +171,7 @@ export async function initRepository(
     git,
     workingCopy,
     history,
+    objects,
     files,
   };
 }

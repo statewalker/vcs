@@ -7,11 +7,11 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { Git, GitStore } from "@statewalker/vcs-commands";
-import type { GitRepository, ObjectId } from "@statewalker/vcs-core";
+import type { Git } from "@statewalker/vcs-commands";
+import type { FilesApi, History, ObjectId } from "@statewalker/vcs-core";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
-import { createNodeFilesApi, type FilesApi } from "@statewalker/vcs-utils-node/files";
+import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 
 // Initialize compression (required before any storage operations)
 setCompressionUtils(createNodeCompression());
@@ -30,8 +30,7 @@ export const PACK_DIR = path.join(OBJECTS_DIR, "pack");
 // ============================================================================
 
 export interface AppState {
-  repository?: GitRepository;
-  store?: GitStore;
+  repository?: History;
   git?: Git;
   files?: FilesApi;
   commits: CommitInfo[];
@@ -82,7 +81,7 @@ export function logError(message: string): void {
 // ============================================================================
 
 export function createFilesApi(): FilesApi {
-  return createNodeFilesApi({ fs, rootDir: REPO_DIR });
+  return createNodeFilesApi({ rootDir: REPO_DIR });
 }
 
 /**
@@ -202,4 +201,4 @@ export async function getPackFileStats(): Promise<
 export { fs, path };
 
 // Re-export types
-export type { Git, GitStore } from "@statewalker/vcs-commands";
+export type { Git } from "@statewalker/vcs-commands";

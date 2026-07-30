@@ -4,13 +4,8 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import {
-  createGitRepository,
-  FileMode,
-  type GitRepository,
-  indexPack,
-  writePackIndex,
-} from "@statewalker/vcs-core";
+import { FileMode, type History, indexPack, writePackIndex } from "@statewalker/vcs-core";
+import { createGitFilesBackend, FileStagingStore } from "@statewalker/vcs-store-files";
 import { clone as transportClone } from "@statewalker/vcs-transport";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
@@ -91,11 +86,14 @@ const GITLINK = 0o160000;
  * Extract a tree to a directory
  */
 async function extractTree(
-  repository: GitRepository,
+  repository: History,
   treeId: string,
   dirPath: string,
 ): Promise<void> {
-  for await (const entry of repository.trees.loadTree(treeId)) {
+  const tree = await repository.trees.load(treeId);
+  if (!tree) return;
+
+  for await (const entry of tree) {
     const entryPath = path.join(dirPath, entry.name);
 
     if (entry.mode === FileMode.TREE) {
@@ -104,8 +102,11 @@ async function extractTree(
     } else if (entry.mode === GITLINK) {
     } else {
       const chunks: Uint8Array[] = [];
-      for await (const chunk of repository.blobs.load(entry.id)) {
-        chunks.push(chunk);
+      const blob = await repository.blobs.load(entry.id);
+      if (blob) {
+        for await (const chunk of blob) {
+          chunks.push(chunk);
+        }
       }
       const content = concatBytes(...chunks);
       await fs.writeFile(entryPath, content);
@@ -167,11 +168,13 @@ export async function runClone(args: string[]): Promise<void> {
     const files = createNodeFilesApi({ rootDir: absDir });
     const gitDir = bare ? "." : ".git";
 
-    const repository = await createGitRepository(files, gitDir, {
+    const { history: repository } = await createGitFilesBackend({
+      files,
+      gitDir,
       create: true,
-      bare,
       defaultBranch: cloneResult.defaultBranch || "main",
     });
+    await repository.initialize();
 
     // Store pack data
     if (cloneResult.packData.length > 0) {
@@ -232,18 +235,20 @@ export async function runClone(args: string[]): Promise<void> {
 
     // Checkout working tree and initialize index (if not bare)
     if (!bare) {
-      const headCommit = await repository.getHead();
+      const headRef = await repository.refs.resolve("HEAD");
+      const headCommit = headRef?.objectId;
       if (headCommit) {
-        const commit = await repository.commits.loadCommit(headCommit);
-        await extractTree(repository, commit.tree, absDir);
+        const commit = await repository.commits.load(headCommit);
+        if (commit) {
+          await extractTree(repository, commit.tree, absDir);
 
-        // Initialize index from HEAD tree
-        const { FileStagingStore } = await import("@statewalker/vcs-core");
-        const staging = new FileStagingStore(files, `${gitDir}/index`);
-        await staging.readTree(repository.trees, commit.tree);
-        await staging.write();
+          // Initialize index from HEAD tree
+          const staging = new FileStagingStore(files, `${gitDir}/index`);
+          await staging.readTree(repository.trees, commit.tree);
+          await staging.write();
 
-        console.log(info(`Checking out files: done.`));
+          console.log(info(`Checking out files: done.`));
+        }
       }
     }
 

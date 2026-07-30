@@ -8,7 +8,8 @@
  */
 
 import type { Git } from "@statewalker/vcs-commands";
-import type { History, SerializationApi, WorkingCopy, Worktree } from "@statewalker/vcs-core";
+import type { History, SerializationApi } from "@statewalker/vcs-core";
+import type { WorkingCopy, Worktree } from "@statewalker/vcs-working-tree";
 
 import {
   createRealPeerJsApi,
@@ -131,7 +132,7 @@ export const getRepository = getHistory;
 export const setRepository = setHistory;
 
 // Re-export types for convenience
-export type { WorkingCopy } from "@statewalker/vcs-core";
+export type { WorkingCopy } from "@statewalker/vcs-working-tree";
 // Re-export connection provider adapter
 export { getConnectionProvider, setConnectionProvider } from "../apis/index.js";
 // Re-export intent adapters

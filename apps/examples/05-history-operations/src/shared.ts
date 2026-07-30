@@ -4,15 +4,17 @@
 
 import { Git } from "@statewalker/vcs-commands";
 import {
-  createMemoryCheckout,
-  createMemoryGitStaging,
-  createMemoryHistory,
-  createMemoryWorkingCopy,
-  createMemoryWorktree,
-  FileMode,
-  type History,
-  type WorkingCopy,
+	createMemoryHistory,
+	FileMode,
+	type History,
 } from "@statewalker/vcs-core";
+import {
+	createMemoryCheckout,
+	createMemoryGitStaging,
+	createMemoryWorkingCopy,
+	createMemoryWorktree,
+	type WorkingCopy,
+} from "@statewalker/vcs-working-tree";
 
 // Shared state
 let sharedWorkingCopy: WorkingCopy | null = null;
@@ -128,6 +130,6 @@ export function formatDate(timestamp: number): string {
 }
 
 export type { Git } from "@statewalker/vcs-commands";
-export type { WorkingCopy } from "@statewalker/vcs-core";
+export type { WorkingCopy } from "@statewalker/vcs-working-tree";
 // Re-export types
 export { FileMode } from "@statewalker/vcs-core";

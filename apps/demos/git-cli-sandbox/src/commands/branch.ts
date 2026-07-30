@@ -74,7 +74,7 @@ export async function runBranch(args: string[]): Promise<void> {
     const branches = await ctx.git.branchList().call();
 
     // Get current branch
-    const headRef = await ctx.store.refs.resolve("HEAD");
+    const headRef = await ctx.history.refs.resolve("HEAD");
     let currentBranch = "";
     if (headRef && isSymbolicRef(headRef)) {
       currentBranch = (headRef as SymbolicRef).target.replace("refs/heads/", "");
@@ -109,7 +109,7 @@ export async function runBranch(args: string[]): Promise<void> {
       }
     }
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }
 
@@ -132,7 +132,7 @@ export async function runCheckout(args: string[]): Promise<void> {
   }
 
   if (!target) {
-    await ctx.repository.close();
+    await ctx.history.close();
     fatal("You need to specify a branch or commit to checkout.");
   }
 
@@ -152,7 +152,7 @@ export async function runCheckout(args: string[]): Promise<void> {
     }
 
     // Show head commit info
-    const headCommit = await ctx.repository.getHead();
+    const headCommit = await ctx.workingCopy.getHead();
     if (headCommit) {
       console.log(dim(`HEAD is now at ${shortId(headCommit)}`));
     }
@@ -162,6 +162,6 @@ export async function runCheckout(args: string[]): Promise<void> {
     }
     throw err;
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }

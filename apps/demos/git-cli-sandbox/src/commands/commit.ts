@@ -58,7 +58,7 @@ export async function runCommit(args: string[]): Promise<void> {
   const { message, author: authorStr, allowEmpty, amend } = parseArgs(args);
 
   if (!message) {
-    await ctx.repository.close();
+    await ctx.history.close();
     fatal("Aborting commit due to empty commit message.");
   }
 
@@ -87,7 +87,7 @@ export async function runCommit(args: string[]): Promise<void> {
     const result = await cmd.call();
 
     // Get branch name
-    const headRef = await ctx.store.refs.resolve("HEAD");
+    const headRef = await ctx.history.refs.resolve("HEAD");
     let branchName = "HEAD";
     if (headRef && isSymbolicRef(headRef)) {
       branchName = (headRef as SymbolicRef).target.replace("refs/heads/", "");
@@ -101,6 +101,6 @@ export async function runCommit(args: string[]): Promise<void> {
     console.log(dim(` ${filesChanged} file(s) changed`));
     console.log(success(`\nCommit created: ${shortId(result.id)}`));
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }

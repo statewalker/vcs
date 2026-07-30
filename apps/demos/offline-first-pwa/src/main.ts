@@ -5,7 +5,8 @@
  */
 
 import { Git } from "@statewalker/vcs-commands";
-import { FileMode, type History, type WorkingCopy } from "@statewalker/vcs-core";
+import { FileMode, type History } from "@statewalker/vcs-core";
+import { type WorkingCopy } from "@statewalker/vcs-working-tree";
 import {
   createMemoryStorage,
   createPersistentStorage,
@@ -219,7 +220,7 @@ async function addFile() {
     const objectId = await history.blobs.store([data]);
 
     // Add to staging
-    const editor = workingCopy.staging.editor();
+    const editor = workingCopy.checkout.staging.createEditor();
     editor.add({
       path: fileName,
       apply: () => ({

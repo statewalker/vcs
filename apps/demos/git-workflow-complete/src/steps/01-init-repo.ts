@@ -46,7 +46,6 @@ export async function run(): Promise<void> {
 
   // Store in shared state
   state.repository = result.repository;
-  state.store = result.store;
   state.git = result.git;
   state.files = files;
 

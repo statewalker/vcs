@@ -36,9 +36,9 @@ export async function run(): Promise<void> {
 
   // Show checked out files from staging
   log("\nFiles in staging area:");
-  const store = git.getStore();
+  const checkout = git.workingCopy.checkout;
   let fileCount = 0;
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of checkout.staging.entries()) {
     if (entry.stage === 0) {
       fileCount++;
       if (fileCount <= 10) {

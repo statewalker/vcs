@@ -25,14 +25,14 @@ export async function run(): Promise<void> {
 
   log("Verifying checked out files match original content...");
 
-  const store = git.getStore();
+  const checkout = git.workingCopy.checkout;
   let matchCount = 0;
   let mismatchCount = 0;
   const errors: string[] = [];
 
   // Build a map of staged files
   const stagedFiles = new Map<string, string>();
-  for await (const entry of store.staging.listEntries()) {
+  for await (const entry of checkout.staging.entries()) {
     if (entry.stage === 0) {
       stagedFiles.set(entry.path, entry.objectId);
     }
@@ -52,8 +52,11 @@ export async function run(): Promise<void> {
     try {
       // Read blob content
       const chunks: Uint8Array[] = [];
-      for await (const chunk of store.blobs.load(objectId)) {
-        chunks.push(chunk);
+      const blobContent = await git.workingCopy.history.blobs.load(objectId);
+      if (blobContent) {
+        for await (const chunk of blobContent) {
+          chunks.push(chunk);
+        }
       }
       const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
       const result = new Uint8Array(totalLength);
