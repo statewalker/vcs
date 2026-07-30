@@ -12,5 +12,11 @@ export default defineConfig({
     entryFileNames: "[name].js",
     chunkFileNames: "[name]-[hash].js",
   },
+  external: [
+    /^@statewalker\/vcs-core/,
+    /^@statewalker\/vcs-utils/,
+    /^@statewalker\/webrun-http-streams/,
+    /^@statewalker\/webrun-streams/,
+  ],
   treeshake: true,
 });

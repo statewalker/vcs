@@ -13,6 +13,8 @@ export default defineConfig({
     /^@statewalker\/vcs-core\//,
     "@statewalker/vcs-utils",
     /^@statewalker\/vcs-utils\//,
+    "@statewalker/vcs-working-tree",
+    /^@statewalker\/vcs-working-tree\//,
   ],
   treeshake: true,
 });
