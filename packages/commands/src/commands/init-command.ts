@@ -1,5 +1,10 @@
 import { createInMemoryFilesApi, createMemoryHistory, type FilesApi } from "@statewalker/vcs-core";
-import { type Staging, type WorkingCopy, type Worktree } from "@statewalker/vcs-working-tree";
+import {
+  createMemoryCheckout,
+  type Staging,
+  type WorkingCopy,
+  type Worktree,
+} from "@statewalker/vcs-working-tree";
 import { createFileWorktree } from "@statewalker/vcs-store-files";
 import { MemoryStagingStore } from "@statewalker/vcs-store-mem";
 
@@ -238,6 +243,13 @@ export class InitCommand {
         });
     }
 
+    // Wrap the staging area in a Checkout so `workingCopy.checkout.staging`
+    // resolves (matching the WorkingCopy interface). A freshly-init'd repo has
+    // no HEAD/stash/in-progress operation yet, so those default to unborn/empty.
+    // The Checkout shares the same `staging` instance as the legacy top-level
+    // `staging` field, so edits are visible through either path.
+    const checkout = createMemoryCheckout({ staging });
+
     // Create WorkingCopy from components
     // Note: Staging/Worktree implementations may be partial
     // Full implementations are provided at runtime by workspace integration
@@ -248,10 +260,7 @@ export class InitCommand {
       worktree: worktree as unknown as Worktree,
       stash: {} as never, // Stash not available for newly init'd repos
       config: {} as never, // Config not set for newly init'd repos
-      // Checkout not available for newly init'd repos
-      get checkout() {
-        return undefined;
-      },
+      checkout,
       async getHead() {
         const ref = await history.refs.resolve("HEAD");
         return ref?.objectId;
