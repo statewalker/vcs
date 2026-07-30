@@ -13,7 +13,7 @@ import { FileMode, type History } from "@statewalker/vcs-core";
 import { getActivityLogModel } from "../models/index.js";
 import { fetchFromPeer, newRegistry, pushToPeer } from "../utils/index.js";
 import { getHistory } from "./repository-controller.js";
-import { getDataChannel, isConnected } from "./webrtc-controller.js";
+import { getMux, isConnected } from "./webrtc-controller.js";
 
 /**
  * Create the sync controller.
@@ -37,7 +37,7 @@ export function createSyncController(_ctx: Map<string, unknown>): () => void {
  */
 export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> {
   const history = getHistory(ctx);
-  const channel = getDataChannel(ctx);
+  const mux = getMux(ctx);
   const logModel = getActivityLogModel(ctx);
 
   if (!history) {
@@ -45,7 +45,7 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
     return false;
   }
 
-  if (!channel || !isConnected(ctx)) {
+  if (!mux || !isConnected(ctx)) {
     logModel.error("No peer connection");
     return false;
   }
@@ -53,7 +53,7 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
   try {
     logModel.info("Starting push to peer (Git protocol)...");
 
-    const result = await pushToPeer(channel, history, ["refs/heads/main:refs/heads/main"]);
+    const result = await pushToPeer(mux, history, ["refs/heads/main:refs/heads/main"]);
 
     if (result.success) {
       logModel.success("Push completed successfully");
@@ -75,7 +75,7 @@ export async function pushToRemote(ctx: Map<string, unknown>): Promise<boolean> 
  */
 export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolean> {
   const history = getHistory(ctx);
-  const channel = getDataChannel(ctx);
+  const mux = getMux(ctx);
   const logModel = getActivityLogModel(ctx);
 
   if (!history) {
@@ -83,7 +83,7 @@ export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolea
     return false;
   }
 
-  if (!channel || !isConnected(ctx)) {
+  if (!mux || !isConnected(ctx)) {
     logModel.error("No peer connection");
     return false;
   }
@@ -91,7 +91,7 @@ export async function fetchFromRemote(ctx: Map<string, unknown>): Promise<boolea
   try {
     logModel.info("Fetching from peer (Git protocol)...");
 
-    const result = await fetchFromPeer(channel, history, ["+refs/heads/*:refs/remotes/peer/*"]);
+    const result = await fetchFromPeer(mux, history, ["+refs/heads/*:refs/remotes/peer/*"]);
 
     if (result.success) {
       const refCount = result.updatedRefs?.size ?? 0;

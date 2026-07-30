@@ -19,8 +19,6 @@
     "@statewalker/vcs-transport": "workspace:*",
     "@statewalker/vcs-transport-adapters": "workspace:*",
     "@statewalker/vcs-utils": "workspace:*",
-    "@statewalker/vcs-port-peerjs": "workspace:*",
-    "@statewalker/vcs-port-webrtc": "workspace:*",
     "@statewalker/webrun-files": "catalog:",
     "@statewalker/webrun-files-browser": "catalog:",
     "@statewalker/webrun-files-mem": "catalog:",

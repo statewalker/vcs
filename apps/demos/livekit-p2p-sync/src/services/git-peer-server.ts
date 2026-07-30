@@ -1,18 +1,19 @@
 /**
- * Git Peer Server - handles incoming Git protocol requests over a MessagePort.
+ * Git Peer Server - handles incoming Git protocol requests over a webrun mux.
  *
- * Waits for client service-type handshake, serves the requested operation,
- * then loops to serve the next request.
+ * Registers a service-dispatching handler on the mux: each inbound call carries
+ * a 1-byte service marker, and `serveGitDispatch` serves the matching
+ * upload-pack (fetch) or receive-pack (push) request.
  */
 
 import type { History, SerializationApi } from "@statewalker/vcs-core";
-import type { RefStore, RepositoryFacade } from "@statewalker/vcs-transport";
-import { serveOverDuplex } from "@statewalker/vcs-transport";
+import type { RefStore, RepositoryFacade, WebrunDuplex } from "@statewalker/vcs-transport";
 import { createVcsRepositoryFacade } from "@statewalker/vcs-transport-adapters";
-import { createRefStoreAdapter, waitForMessagePortClientService } from "../adapters/index.js";
+import { createRefStoreAdapter, serveGitDispatch } from "../adapters/index.js";
 
 export interface GitPeerServerOptions {
-  port: MessagePort;
+  /** Registers a handler on the participant mux (`mux.serve`). */
+  serve: (handler: WebrunDuplex) => () => Promise<void>;
   history: History;
   serialization: SerializationApi;
   onPushReceived?: () => void;
@@ -20,50 +21,23 @@ export interface GitPeerServerOptions {
 }
 
 export function setupGitPeerServer(options: GitPeerServerOptions): () => void {
-  const { port, history, serialization, onPushReceived, log } = options;
+  const { serve, history, serialization, onPushReceived, log } = options;
 
   const repository: RepositoryFacade = createVcsRepositoryFacade({ history, serialization });
   const refStore: RefStore = createRefStoreAdapter(history.refs);
 
-  let stopped = false;
-
-  async function serveLoop(): Promise<void> {
-    while (!stopped) {
-      try {
-        const { duplex, service } = await waitForMessagePortClientService(port);
-        if (stopped) {
-          await duplex.close?.();
-          break;
-        }
-
-        log?.(`Serving ${service}`);
-
-        const result = await serveOverDuplex({ duplex, repository, refStore, service });
-
-        if (!result.success) {
-          log?.(`${service} error: ${result.error}`);
-        } else {
-          log?.(`${service} complete`);
-          if (service === "git-receive-pack" && onPushReceived) {
-            onPushReceived();
-          }
-        }
-      } catch (error) {
-        if (!stopped) {
-          log?.(`Server error: ${error instanceof Error ? error.message : String(error)}`);
-        }
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-    }
-  }
-
-  serveLoop().catch((error) => {
-    if (!stopped) {
-      log?.(`Server loop error: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  });
+  const off = serve(
+    serveGitDispatch({
+      repository,
+      refStore,
+      onServed: (service) => {
+        log?.(`${service} complete`);
+        if (service === "git-receive-pack") onPushReceived?.();
+      },
+    }),
+  );
 
   return () => {
-    stopped = true;
+    void off();
   };
 }

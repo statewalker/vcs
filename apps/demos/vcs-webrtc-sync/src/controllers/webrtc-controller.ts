@@ -2,28 +2,43 @@
  * WebRTC Controller
  *
  * Manages WebRTC peer-to-peer connections for repository synchronization.
- * Uses PeerManager and QrSignaling from vcs-port-webrtc.
+ *
+ * Migrated off the retired `@statewalker/vcs-port-webrtc` to
+ * `@statewalker/webrun-streams-signaling`:
+ *  - the old `PeerManager` (single-connection lifecycle) is now `PeerConnection`
+ *    (identical method surface: `on`/`connect`/`handleSignal`/`waitForIceGathering`/
+ *    `getLocalDescription`/`getCollectedCandidates`/`getDataChannel`/`close`);
+ *  - the old `QrSignaling.createPayload`/`.parsePayload` are now the standalone
+ *    `encodeSignal(createCompressedSignal(...))` / `parseCompressedSignal(decodeSignal(...))`
+ *    functions keyed by a `generateSessionId()` session id.
+ * On data-channel open the channel is wrapped as a multiplexed webrun connection
+ * (`createPeerMux`) that `sync-controller` drives with the git transport.
  */
 
-import { PeerManager, QrSignaling, type SignalingMessage } from "@statewalker/vcs-port-webrtc";
+import {
+  createCompressedSignal,
+  decodeSignal,
+  encodeSignal,
+  generateSessionId,
+  parseCompressedSignal,
+  PeerConnection,
+  type SignalingMessage,
+} from "@statewalker/webrun-streams-signaling";
 import { getActivityLogModel, getConnectionModel, getSharingFormModel } from "../models/index.js";
-import { newAdapter, newRegistry } from "../utils/index.js";
+import { createPeerMux, newAdapter, newRegistry, type PeerMux } from "../utils/index.js";
 
 // Adapters for WebRTC state
-export const [getPeerManager, setPeerManager] = newAdapter<PeerManager | null>(
+export const [getPeerManager, setPeerManager] = newAdapter<PeerConnection | null>(
   "peer-manager",
   () => null,
 );
 
-export const [getSignaling, setSignaling] = newAdapter<QrSignaling | null>(
-  "qr-signaling",
+export const [getSessionId, setSessionId] = newAdapter<string | null>(
+  "qr-session-id",
   () => null,
 );
 
-export const [getDataChannel, setDataChannel] = newAdapter<RTCDataChannel | null>(
-  "data-channel",
-  () => null,
-);
+export const [getMux, setMux] = newAdapter<PeerMux | null>("peer-mux", () => null);
 
 /**
  * Create the WebRTC controller.
@@ -36,9 +51,10 @@ export function createWebRtcController(ctx: Map<string, unknown>): () => void {
     const peer = getPeerManager(ctx);
     if (peer) {
       peer.close();
+      void getMux(ctx)?.close();
       setPeerManager(ctx, null);
-      setSignaling(ctx, null);
-      setDataChannel(ctx, null);
+      setSessionId(ctx, null);
+      setMux(ctx, null);
     }
   });
 
@@ -64,10 +80,10 @@ export async function createOffer(ctx: Map<string, unknown>): Promise<string | n
   connectionModel.setConnecting("initiator");
 
   try {
-    const signaling = new QrSignaling();
-    const peer = new PeerManager("initiator");
+    const sessionId = generateSessionId();
+    const peer = new PeerConnection("initiator");
 
-    setSignaling(ctx, signaling);
+    setSessionId(ctx, sessionId);
     setPeerManager(ctx, peer);
 
     // Collect signals
@@ -89,7 +105,7 @@ export async function createOffer(ctx: Map<string, unknown>): Promise<string | n
       logModel.success("Data channel opened!");
       const channel = peer.getDataChannel();
       if (channel) {
-        setDataChannel(ctx, channel);
+        setMux(ctx, createPeerMux(channel, "initiator"));
       }
     });
 
@@ -112,7 +128,9 @@ export async function createOffer(ctx: Map<string, unknown>): Promise<string | n
       throw new Error("Failed to get local description");
     }
     const candidates = peer.getCollectedCandidates();
-    const payload = signaling.createPayload("initiator", description, candidates);
+    const payload = encodeSignal(
+      createCompressedSignal(sessionId, "initiator", description, candidates),
+    );
 
     sharingModel.setLocalSignal(payload);
     logModel.info(`Offer created (${payload.length} chars)`);
@@ -147,12 +165,12 @@ export async function acceptOffer(
   connectionModel.setConnecting("responder");
 
   try {
-    const signaling = new QrSignaling();
-    const { description, candidates } = signaling.parsePayload(offerPayload);
+    const parsed = parseCompressedSignal(decodeSignal(offerPayload));
+    const { description, candidates } = parsed;
 
-    const peer = new PeerManager("responder");
+    const peer = new PeerConnection("responder");
 
-    setSignaling(ctx, signaling);
+    setSessionId(ctx, parsed.sessionId);
     setPeerManager(ctx, peer);
 
     // Collect signals
@@ -174,7 +192,7 @@ export async function acceptOffer(
       logModel.success("Data channel opened!");
       const channel = peer.getDataChannel();
       if (channel) {
-        setDataChannel(ctx, channel);
+        setMux(ctx, createPeerMux(channel, "responder"));
       }
     });
 
@@ -202,7 +220,9 @@ export async function acceptOffer(
       throw new Error("Failed to get local description");
     }
     const answerCandidates = peer.getCollectedCandidates();
-    const answerPayload = signaling.createPayload("responder", answerDescription, answerCandidates);
+    const answerPayload = encodeSignal(
+      createCompressedSignal(parsed.sessionId, "responder", answerDescription, answerCandidates),
+    );
 
     sharingModel.setLocalSignal(answerPayload);
     logModel.info(`Answer created (${answerPayload.length} chars)`);
@@ -224,18 +244,18 @@ export async function acceptAnswer(
   answerPayload: string,
 ): Promise<boolean> {
   const peer = getPeerManager(ctx);
-  const signaling = getSignaling(ctx);
+  const sessionId = getSessionId(ctx);
   const connectionModel = getConnectionModel(ctx);
   const sharingModel = getSharingFormModel(ctx);
   const logModel = getActivityLogModel(ctx);
 
-  if (!peer || !signaling) {
+  if (!peer || !sessionId) {
     logModel.error("No pending connection");
     return false;
   }
 
   try {
-    const { description, candidates } = signaling.parsePayload(answerPayload);
+    const { description, candidates } = parseCompressedSignal(decodeSignal(answerPayload));
 
     logModel.info("Processing answer...");
 
@@ -269,9 +289,10 @@ export function closeConnection(ctx: Map<string, unknown>): void {
 
   if (peer) {
     peer.close();
+    void getMux(ctx)?.close();
     setPeerManager(ctx, null);
-    setSignaling(ctx, null);
-    setDataChannel(ctx, null);
+    setSessionId(ctx, null);
+    setMux(ctx, null);
   }
 
   connectionModel.reset();
