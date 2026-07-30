@@ -10,5 +10,6 @@ export default defineConfig({
     entryFileNames: "[name].js",
     chunkFileNames: "[name]-[hash].js",
   },
+  external: [/^@statewalker\//],
   treeshake: true,
 });
