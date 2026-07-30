@@ -9,6 +9,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Git } from "@statewalker/vcs-commands";
 import type { FilesApi, History, ObjectId } from "@statewalker/vcs-core";
+import type { FileStagingStore } from "@statewalker/vcs-store-files";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
@@ -33,6 +34,14 @@ export interface AppState {
   repository?: History;
   git?: Git;
   files?: FilesApi;
+  /**
+   * The staging store passed to Git.init(). A repository built via
+   * Git.init(...).call() exposes staging directly on the working copy
+   * (workingCopy.checkout is undefined for a freshly init'd repo), so the
+   * porcelain commands mutate this same instance. Keep the reference so
+   * steps can read the staging area after a checkout.
+   */
+  staging?: FileStagingStore;
   commits: CommitInfo[];
   initialFiles: Map<string, string>;
 }
