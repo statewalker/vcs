@@ -88,7 +88,7 @@ export class FileStagingStore implements Staging {
   }
 
   async *entries(
-    options?: import("@statewalker/vcs-core").EntryIteratorOptions,
+    options?: import("@statewalker/vcs-working-tree").EntryIteratorOptions,
   ): AsyncIterable<StagingEntry> {
     const prefix = options?.prefix;
     const stages = options?.stages;
@@ -154,7 +154,7 @@ export class FileStagingStore implements Staging {
 
   async resolveConflict(
     path: string,
-    resolution: import("@statewalker/vcs-core").ConflictResolution,
+    resolution: import("@statewalker/vcs-working-tree").ConflictResolution,
   ): Promise<void> {
     const editor = this.createEditor();
 

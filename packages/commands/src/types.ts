@@ -46,22 +46,25 @@ export enum ListBranchMode {
 export type {
   /** Blobs interface - file content storage */
   Blobs,
-  /** Checkout interface - mutable local state */
-  Checkout,
   /** Commits interface - commit object storage */
   Commits,
   /** History interface - immutable repository objects */
   History,
   /** Refs interface - branch and tag references */
   Refs,
-  /** Staging interface - index/staging area */
-  Staging,
   /** Tags interface - annotated tag storage */
   Tags,
   /** Trees interface - directory structure storage */
   Trees,
+} from "@statewalker/vcs-core";
+// Working-tree symbols were relocated out of vcs-core into vcs-working-tree.
+export type {
+  /** Checkout interface - mutable local state */
+  Checkout,
+  /** Staging interface - index/staging area */
+  Staging,
   /** WorkingCopy interface - unified repository access */
   WorkingCopy,
   /** Worktree interface - filesystem access */
   Worktree,
-} from "@statewalker/vcs-core";
+} from "@statewalker/vcs-working-tree";
