@@ -14,33 +14,72 @@ The library focuses on three main capabilities:
 
 **Git Compatibility** - Read and write standard Git pack files, loose objects, and refs. Repositories created with StateWalker VCS work with native Git tools and vice versa.
 
+## Architecture
+
+The codebase is organized around a **two-axis architecture**. Axis A is the working-copy plane (file synchronisation); Axis B is the history plane (the Git object model, working tree, commands, and transport). A thin orchestration layer composes the two. Large objects (LFS/Xet) live on a separate transfer plane on top of a content-addressed store.
+
+The authoritative design records are the ADRs — read these before making structural changes:
+
+- [ADR-0001 — Two-Axis Architecture](docs/adr/0001-two-axis-architecture.md)
+- [ADR-0002 — Transport Substrate](docs/adr/0002-transport-substrate.md)
+- [ADR-0003 — Large-Object Plane](docs/adr/0003-large-object-plane.md)
+
 ## Package Structure
 
-The monorepo contains packages organized by responsibility:
+The monorepo contains 21 packages under `packages/`, grouped by role. Each package has its own `README.md` with details.
 
-### Core Packages
+### Shared infrastructure
 
-**[@statewalker/vcs-core](packages/core)** provides the foundational layer for building Git-compatible version control systems. It defines the core object model (blobs, trees, commits, tags), storage interfaces, and high-level operations. Includes Git file storage for reading and writing the standard `.git` directory structure.
+Domain-neutral building blocks, reusable outside VCS.
 
-**[@statewalker/vcs-utils](packages/utils)** provides foundational algorithms including zlib compression/decompression, SHA-1 hashing with streaming support, and diff algorithms for computing deltas between binary content.
+| Package | Directory | Role |
+|---------|-----------|------|
+| `@statewalker/merge-core` | [packages/merge-core](packages/merge-core) | Three-way merge/diff engine over the `webrun-files` FilesApi |
+| `@statewalker/storage` | [packages/storage](packages/storage) | Byte-persistence seam (`BlobStore` + `KvStore` with CAS) |
+| `@statewalker/content-store` | [packages/content-store](packages/content-store) | Content-addressed large-object store with content-defined chunking |
+| `@statewalker/content-transfer` | [packages/content-transfer](packages/content-transfer) | Resumable, chunk-aware content transfer over `webrun-streams` |
 
-**[@statewalker/vcs-commands](packages/commands)** offers a high-level Git command API. Rather than working directly with low-level stores, you interact through familiar commands like `add`, `commit`, `push`, and `merge`.
+### Axis A — working-copy plane
 
-**[@statewalker/vcs-transport](packages/transport)** implements the Git wire protocol (v1/v2), HTTP transport, and push/pull negotiation for communicating with remote repositories.
+| Package | Directory | Role |
+|---------|-----------|------|
+| `@statewalker/files-sync` | [packages/files-sync](packages/files-sync) | rclone-like file-synchronisation engine (copy/sync/bisync/move/check) |
 
-### Storage Adapters
+### Axis B — history plane
 
-**[@statewalker/vcs-store-mem](packages/store-mem)** provides in-memory storage for testing and development scenarios with no persistence.
+| Package | Directory | Role |
+|---------|-----------|------|
+| `@statewalker/vcs-core` | [packages/core](packages/core) | Core object model (blobs, trees, commits, tags), storage interfaces, and history management |
+| `@statewalker/vcs-working-tree` | [packages/working-tree](packages/working-tree) | Index/staging, status, checkout, ignore, worktree, and merge/rebase operation state |
+| `@statewalker/vcs-commands` | [packages/commands](packages/commands) | Git-like porcelain commands (commit, checkout, merge, diff, log) |
+| `@statewalker/vcs-transport` | [packages/transport](packages/transport) | Git transport protocol (fetch, push, clone over HTTP/WebSocket/WebRTC) |
+| `@statewalker/vcs-transport-lfs` | [packages/transport-lfs](packages/transport-lfs) | Standard Git LFS batch protocol + basic whole-object transfer |
+| `@statewalker/vcs-transport-xet` | [packages/transport-xet](packages/transport-xet) | LFS custom transfer agent (Xet) — chunk-dedup transfer, falls back to basic LFS |
 
-**[@statewalker/vcs-store-sql](packages/store-sql)** provides SQL-based storage using better-sqlite3. Objects, refs, and metadata persist in SQLite tables.
+### Orchestration
 
-**[@statewalker/vcs-store-kv](packages/store-kv)** bridges VCS storage interfaces to key-value stores like IndexedDB, LocalStorage, or LevelDB.
+| Package | Directory | Role |
+|---------|-----------|------|
+| `@statewalker/vcs-workspace` | [packages/workspace](packages/workspace) | Thin cross-axis orchestration (publish/update/checkpoint/restore) composing files-sync + working-tree + transport |
 
-### Development Utilities
+### Storage adapters
 
-**[@statewalker/vcs-testing](packages/testing)** contains shared test utilities and fixtures used across packages.
+| Package | Directory | Role |
+|---------|-----------|------|
+| `@statewalker/vcs-store-mem` | [packages/store-mem](packages/store-mem) | In-memory backend for testing and development |
+| `@statewalker/vcs-store-kv` | [packages/store-kv](packages/store-kv) | Key-value backend (IndexedDB, LocalStorage, LevelDB, …) |
+| `@statewalker/vcs-store-sql` | [packages/store-sql](packages/store-sql) | SQL backend (better-sqlite3) |
+| `@statewalker/vcs-store-files` | [packages/store-files](packages/store-files) | File-backed backend over a FilesApi |
 
-**[@statewalker/vcs-sandbox](packages/sandbox)** provides sandbox utilities for isolated testing environments.
+### Utilities & development
+
+| Package | Directory | Role |
+|---------|-----------|------|
+| `@statewalker/vcs-utils` | [packages/utils](packages/utils) | Hashing (SHA-1, CRC32), compression, delta encoding, streams |
+| `@statewalker/vcs-utils-node` | [packages/utils-node](packages/utils-node) | Node.js-specific utilities: native compression, filesystem adapters |
+| `@statewalker/vcs-transport-adapters` | [packages/transport-adapters](packages/transport-adapters) | Adapters bridging core interfaces to the transport layer |
+| `@statewalker/vcs-testing` | [packages/testing](packages/testing) | Shared test utilities and fixtures |
+| `@statewalker/vcs-integration-tests` | [packages/integration-tests](packages/integration-tests) | Cross-package integration tests (example apps as use-case tests) |
 
 ## Installation
 
@@ -59,33 +98,33 @@ pnpm test
 
 ### Basic Repository Operations
 
-The example application in [apps/example-git-cycle](apps/example-git-cycle) demonstrates the complete Git workflow. Here's a condensed version using the new History interface:
+The object model is exposed through the `History` interface. This condensed version mirrors [apps/examples/01-quick-start](apps/examples/01-quick-start):
 
 ```typescript
-import { FilesApi, MemFilesApi } from "@statewalker/webrun-files";
-import { createHistoryWithOperations, FileMode } from "@statewalker/vcs-core";
+import { createMemoryHistory, FileMode, type History } from "@statewalker/vcs-core";
 
-// Initialize an in-memory repository using the History interface
-const files = new FilesApi(new MemFilesApi());
-const history = await createHistoryWithOperations({ backend: createGitFilesBackend(files, ".git") });
+// Initialize an in-memory history
+const history: History = createMemoryHistory();
 await history.initialize();
+await history.refs.setSymbolic("HEAD", "refs/heads/main");
 
-// Store a file as a blob
+// Store a file as a blob (content-addressable)
 const content = new TextEncoder().encode("Hello, World!");
 const blobId = await history.blobs.store([content]);
 
 // Create a tree (directory snapshot)
 const treeId = await history.trees.store([
-  { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId }
+  { mode: FileMode.REGULAR_FILE, name: "README.md", id: blobId },
 ]);
 
 // Create a commit
+const now = Date.now() / 1000;
 const commitId = await history.commits.store({
   tree: treeId,
   parents: [],
-  author: { name: "Alice", email: "alice@example.com", timestamp: Date.now() / 1000, tzOffset: "+0000" },
-  committer: { name: "Alice", email: "alice@example.com", timestamp: Date.now() / 1000, tzOffset: "+0000" },
-  message: "Initial commit"
+  author: { name: "Alice", email: "alice@example.com", timestamp: now, tzOffset: "+0000" },
+  committer: { name: "Alice", email: "alice@example.com", timestamp: now, tzOffset: "+0000" },
+  message: "Initial commit",
 });
 
 // Update the branch reference
@@ -94,43 +133,46 @@ await history.refs.set("refs/heads/main", commitId);
 await history.close();
 ```
 
-> **Runnable example:** [apps/example-readme-scripts/src/basic-repository-operations.ts](apps/example-readme-scripts/src/basic-repository-operations.ts)
-
-### Working with Pack Files
-
-For performance benchmarks and pack file operations, see [apps/example-git-perf](apps/example-git-perf). This example clones the Git source repository and demonstrates traversing commit history and reading delta-compressed objects.
+> **Runnable example:** [apps/examples/01-quick-start/src/main.ts](apps/examples/01-quick-start/src/main.ts) — `pnpm --filter @statewalker/vcs-example-01-quick-start start`
 
 ### Using the Commands API
 
-For a higher-level API, use `@statewalker/vcs-commands` which provides Git-like commands:
+For a higher-level (porcelain) API, use `@statewalker/vcs-commands` with a working copy from `@statewalker/vcs-working-tree`:
 
 ```typescript
 import { Git } from "@statewalker/vcs-commands";
-import { createWorkingCopy } from "@statewalker/vcs-core";
+import { createMemoryHistory } from "@statewalker/vcs-core";
+import {
+  createMemoryCheckout,
+  createMemoryGitStaging,
+  createMemoryWorkingCopy,
+  createMemoryWorktree,
+} from "@statewalker/vcs-working-tree";
 
-// Create working copy (links history + checkout + worktree)
-const workingCopy = await createWorkingCopy(/* ... */);
+// Compose the object store, staging, checkout, and worktree into a working copy
+const history = createMemoryHistory();
+await history.initialize();
+await history.refs.setSymbolic("HEAD", "refs/heads/main");
+
+const staging = createMemoryGitStaging();
+const checkout = createMemoryCheckout({ staging });
+const worktree = createMemoryWorktree({ blobs: history.blobs, trees: history.trees });
+const workingCopy = createMemoryWorkingCopy({ history, checkout, worktree });
+
+// Drive it through the Git facade
 const git = Git.fromWorkingCopy(workingCopy);
 
-// Stage and commit (like git add && git commit)
-await git.add().addFilepattern(".").call();
-await git.commit().setMessage("Initial commit").call();
-
-// Check status
+// Stage files via the staging area, then commit / inspect
+// (staging lives at workingCopy.checkout.staging)
+const commit = await git.commit().setMessage("Initial commit").call();
 const status = await git.status().call();
-console.log("Clean:", status.isClean());
-
-// Create branches, merge, push, and more
-await git.branchCreate().setName("feature").call();
-await git.checkout().setName("feature").call();
 ```
 
-> **Runnable example:** [apps/example-readme-scripts/src/commands-api.ts](apps/example-readme-scripts/src/commands-api.ts)
-> Note: The `git.add()` command requires a working tree iterator. The runnable example demonstrates an in-memory approach using direct staging manipulation.
+> **Runnable examples:** [apps/examples/02-porcelain-commands](apps/examples/02-porcelain-commands) (`pnpm --filter @statewalker/vcs-example-02-porcelain-commands start`) and [apps/examples/07-staging-checkout](apps/examples/07-staging-checkout) for the full staging/checkout flow.
 
 ### Delta Compression
 
-The library uses format-agnostic delta storage for efficient pack files:
+The library uses format-agnostic delta storage for efficient pack files. The raw delta primitives live in `@statewalker/vcs-utils/diff`:
 
 ```typescript
 import { applyDelta, createDelta, createDeltaRanges } from "@statewalker/vcs-utils/diff";
@@ -154,13 +196,13 @@ for (const chunk of chunks) {
 }
 ```
 
-> **Runnable example:** [apps/example-readme-scripts/src/delta-compression.ts](apps/example-readme-scripts/src/delta-compression.ts)
+> **Runnable example:** [apps/examples/11-delta-strategies/src/main.ts](apps/examples/11-delta-strategies/src/main.ts) — `pnpm --filter @statewalker/vcs-example-11-delta-strategies start`
 
 ## Core Interfaces
 
 ### History - Immutable Repository Objects
 
-The History interface provides unified access to content-addressed objects:
+The `History` interface provides unified access to content-addressed objects:
 
 ```typescript
 interface History {
@@ -175,16 +217,16 @@ interface History {
 }
 ```
 
-### Workspace - Mutable Local State
+### Working copy - Mutable local state
 
-The workspace layer manages checkout state:
+The working-tree layer (`@statewalker/vcs-working-tree`) manages checkout state:
 
-- **Staging**: Index/staging area with conflict handling
+- **Staging**: index/staging area with conflict handling
 - **Checkout**: HEAD management and operation state
-- **Worktree**: Working directory file access
-- **WorkingCopy**: Unified interface linking all three
+- **Worktree**: working directory file access
+- **WorkingCopy**: unified interface linking all three
 
-### TransformationStore - Operation State
+### TransformationStore - Operation state
 
 For multi-commit operations (merge, rebase, cherry-pick, revert):
 
@@ -200,24 +242,67 @@ interface TransformationStore {
 
 ## Example Applications
 
-The `apps/` directory contains several examples. See [docs/example-applications.md](docs/example-applications.md) for detailed documentation.
+The `apps/` directory holds three families of runnable programs. See [docs/example-applications.md](docs/example-applications.md) for detailed documentation of each.
 
-| Application | Description |
-|-------------|-------------|
-| [example-readme-scripts](apps/example-readme-scripts) | Runnable versions of all README code examples |
-| [example-git-cycle](apps/example-git-cycle) | Complete Git workflow demonstration |
-| [example-git-lifecycle](apps/example-git-lifecycle) | Full Git lifecycle: init, commits, GC, packing, checkout |
-| [example-git-perf](apps/example-git-perf) | Performance benchmarks with real repositories |
-| [example-git-push](apps/example-git-push) | Push operations demonstration |
-| [example-vcs-http-roundtrip](apps/example-vcs-http-roundtrip) | Full HTTP clone/push workflow using VCS |
-| [example-pack-gc](apps/example-pack-gc) | Pack file garbage collection |
-| [examples-git](apps/examples-git) | Various Git format examples |
-| [perf-bench](apps/perf-bench) | Micro-benchmarks |
+### Examples — `apps/examples/` (tutorial progression, node)
 
-Run any example:
+Numbered tutorials, each run with `pnpm --filter @statewalker/vcs-example-<name> start`:
+
+| # | Example | Focus |
+|---|---------|-------|
+| 01 | [quick-start](apps/examples/01-quick-start) | Object model in 5 minutes |
+| 02 | [porcelain-commands](apps/examples/02-porcelain-commands) | Commands API: init, commit, branch, merge, log, status, tag, stash |
+| 03 | [object-model](apps/examples/03-object-model) | Blobs, trees, commits, tags internals |
+| 04 | [branching-merging](apps/examples/04-branching-merging) | Branch operations and merge strategies |
+| 05 | [history-operations](apps/examples/05-history-operations) | Log, diff, blame, ancestry |
+| 06 | [internal-storage](apps/examples/06-internal-storage) | Low-level object and pack operations |
+| 07 | [staging-checkout](apps/examples/07-staging-checkout) | Working directory and staging area |
+| 08 | [transport-basics](apps/examples/08-transport-basics) | Clone, fetch, push |
+| 09 | [repository-access](apps/examples/09-repository-access) | Serving repositories over transport |
+| 10 | [custom-storage](apps/examples/10-custom-storage) | Building storage backends from components |
+| 11 | [delta-strategies](apps/examples/11-delta-strategies) | Storage optimization with the DeltaApi |
+
+### Demos — `apps/demos/`
+
+Real-world scenarios. Node demos run with `start`; browser demos run with `dev`/`build` (Vite). Package names are `@statewalker/vcs-demo-<name>` (see each `package.json`).
+
+| Demo | Kind | Description |
+|------|------|-------------|
+| [browser-vcs-app](apps/demos/browser-vcs-app) | browser | VCS app with swappable storage backends |
+| [git-cli-sandbox](apps/demos/git-cli-sandbox) | node | Git CLI sandbox over the porcelain API (WIP) |
+| [git-workflow-complete](apps/demos/git-workflow-complete) | node | End-to-end workflow: init → commit → branch → merge → GC → checkout |
+| [http-server-scratch](apps/demos/http-server-scratch) | node | Git HTTP server built from scratch, full clone/push cycle |
+| [livekit-p2p-sync](apps/demos/livekit-p2p-sync) | browser | Browser VCS with LiveKit peer-to-peer sync |
+| [offline-first-pwa](apps/demos/offline-first-pwa) | browser | Offline-first PWA with in-browser Git |
+| [vcs-webrtc-sync](apps/demos/vcs-webrtc-sync) | browser | Browser VCS with WebRTC peer-to-peer sync |
+| [versioned-documents](apps/demos/versioned-documents) | browser | Document versioning with DOCX/ODF decomposition |
+| [webrtc-p2p-sync](apps/demos/webrtc-p2p-sync) | browser | WebRTC peer-to-peer sync with QR-code signaling |
+| **[lfs-download-huggingface](apps/demos/lfs-download-huggingface)** | node | Downloads a real HuggingFace model's LFS object via the standard Git-LFS batch + basic transfer, SHA-256-verified |
+| **[xet-transfer-huggingface](apps/demos/xet-transfer-huggingface)** | node | Chunk-dedup transfer of real HuggingFace model bytes over the Xet custom-transfer agent (loopback) |
+
+The two HuggingFace demos exercise the large-object plane (ADR-0003): `lfs-download-huggingface` uses `@statewalker/vcs-transport-lfs` against HF's live LFS endpoint, and `xet-transfer-huggingface` uses `@statewalker/vcs-transport-xet` to move only the missing CDC chunks between two local content-stores.
+
+Run a demo with, e.g.:
 
 ```bash
-pnpm --filter @statewalker/vcs-example-git-cycle start
+pnpm --filter @statewalker/vcs-demo-lfs-huggingface start   # node demo
+pnpm --filter @statewalker/vcs-demo-browser-app dev         # browser demo
+```
+
+### Benchmarks — `apps/benchmarks/` (node)
+
+Run with `pnpm --filter @statewalker/vcs-benchmark-<name> start`:
+
+| Benchmark | Measures |
+|-----------|----------|
+| [delta-compression](apps/benchmarks/delta-compression) | Delta encoding/decoding performance |
+| [pack-operations](apps/benchmarks/pack-operations) | Pack file read/write performance |
+| [real-repo-perf](apps/benchmarks/real-repo-perf) | Realistic Git workflow performance |
+
+Run any example, for instance:
+
+```bash
+pnpm --filter @statewalker/vcs-example-01-quick-start start
 ```
 
 ## Development

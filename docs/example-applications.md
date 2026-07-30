@@ -1,369 +1,319 @@
 # Example Applications
 
-This document describes the example applications included in the StateWalker VCS monorepo. Each example demonstrates different aspects of the VCS library, from basic Git operations to advanced pack file handling and remote transport.
+This document catalogs the runnable applications in the StateWalker VCS monorepo. They live under `apps/` in three families:
+
+- **`apps/examples/`** — a numbered tutorial progression (01–11). Node programs, each run with `start`.
+- **`apps/demos/`** — real-world scenarios. Node demos run with `start`; browser demos run with `dev`/`build` (Vite).
+- **`apps/benchmarks/`** — performance benchmarks. Node programs, run with `start`.
+
+Package names follow `@statewalker/vcs-example-<name>`, `@statewalker/vcs-demo-<name>`, and `@statewalker/vcs-benchmark-<name>`. Confirm the exact name and scripts in each app's `package.json`.
 
 ## Quick Reference
 
-| Application | Purpose | Key Features |
-|------------|---------|--------------|
-| [example-git-cycle](#example-git-cycle) | Complete Git workflow tutorial | Blobs, trees, commits, branches, history |
-| [example-git-lifecycle](#example-git-lifecycle) | Full repository lifecycle | Init, commits, GC, packing, checkout |
-| [example-git-perf](#example-git-perf) | Performance benchmarking | Real-world repository, timing metrics |
-| [example-git-push](#example-git-push) | Push operations | Branch creation, commits, VCS transport |
-| [example-pack-gc](#example-pack-gc) | Pack file and GC | Loose objects, packing, native git verification |
-| [example-vcs-http-roundtrip](#example-vcs-http-roundtrip) | HTTP transport | Custom VCS server, clone, push |
-| [examples-git](#examples-git) | Pack file format | Read/write pack files, delta compression |
-| [perf-bench](#perf-bench) | Micro-benchmarks | SHA-1, compression, delta algorithms |
-
-## example-git-cycle
-
-**Location:** [apps/example-git-cycle](../apps/example-git-cycle)
-
-The primary tutorial for learning StateWalker VCS. This example walks through the complete Git workflow step-by-step, teaching the fundamentals of content-addressable storage and version control.
-
-### What You Learn
-
-The example progresses through 8 steps, each demonstrating core concepts:
-
-1. **Initialize Repository** - Create a Git repository with standard `.git` structure
-2. **Create Files (Blobs)** - Store file content as content-addressed objects
-3. **Build Trees** - Create directory snapshots with file modes
-4. **Create Commits** - Link tree snapshots to history with metadata
-5. **Update Files** - Add, modify, and remove files between commits
-6. **View History** - Traverse commit ancestry and query history
-7. **Restore Versions** - Access files from any point in history
-8. **Branches and Tags** - Manage references for parallel development
-
-### Running
-
-```bash
-# Run all steps
-pnpm --filter @statewalker/vcs-example-git-cycle start
-
-# Run individual step
-pnpm --filter @statewalker/vcs-example-git-cycle step:01
-```
-
-### Key APIs
-
-- `createGitRepository()` - Repository factory
-- `repository.blobs.store()` - Store file content
-- `repository.trees.storeTree()` - Create directory structure
-- `repository.commits.storeCommit()` - Create commits
-- `repository.refs.set()` - Update references
+| Application | Family | Purpose |
+|-------------|--------|---------|
+| [01-quick-start](#01-quick-start) | example | Object model in 5 minutes |
+| [02-porcelain-commands](#02-porcelain-commands) | example | Full workflow via the Commands API |
+| [03-object-model](#03-object-model) | example | Blobs, trees, commits, tags internals |
+| [04-branching-merging](#04-branching-merging) | example | Branch operations and merge strategies |
+| [05-history-operations](#05-history-operations) | example | Log, diff, blame, ancestry |
+| [06-internal-storage](#06-internal-storage) | example | Loose objects, packs, GC, deltas |
+| [07-staging-checkout](#07-staging-checkout) | example | Working directory and staging area |
+| [08-transport-basics](#08-transport-basics) | example | Clone, fetch, push over HTTP |
+| [09-repository-access](#09-repository-access) | example | Serving repositories over transport |
+| [10-custom-storage](#10-custom-storage) | example | Building storage backends from components |
+| [11-delta-strategies](#11-delta-strategies) | example | Storage optimization with the DeltaApi |
+| [browser-vcs-app](#browser-vcs-app) | demo | Browser VCS with swappable storage |
+| [git-cli-sandbox](#git-cli-sandbox) | demo | Git CLI over the porcelain API (WIP) |
+| [git-workflow-complete](#git-workflow-complete) | demo | End-to-end porcelain workflow |
+| [http-server-scratch](#http-server-scratch) | demo | Git HTTP server from scratch |
+| [livekit-p2p-sync](#livekit-p2p-sync) | demo | LiveKit peer-to-peer sync |
+| [offline-first-pwa](#offline-first-pwa) | demo | Offline-first PWA |
+| [vcs-webrtc-sync](#vcs-webrtc-sync) | demo | WebRTC peer-to-peer sync |
+| [versioned-documents](#versioned-documents) | demo | DOCX/ODF document versioning |
+| [webrtc-p2p-sync](#webrtc-p2p-sync) | demo | WebRTC sync with QR signaling |
+| [lfs-download-huggingface](#lfs-download-huggingface) | demo | Real HuggingFace LFS download (SHA-256-verified) |
+| [xet-transfer-huggingface](#xet-transfer-huggingface) | demo | Xet chunk-dedup transfer of HF bytes |
+| [delta-compression](#delta-compression) | benchmark | Delta encode/decode performance |
+| [pack-operations](#pack-operations) | benchmark | Pack read/write performance |
+| [real-repo-perf](#real-repo-perf) | benchmark | Realistic workflow performance |
 
 ---
 
-## example-git-lifecycle
+## Examples
 
-**Location:** [apps/example-git-lifecycle](../apps/example-git-lifecycle)
+Numbered tutorials that build understanding from the object model up to transport and custom storage. Each runs standalone; the multi-step ones also expose `step:NN` scripts.
 
-Demonstrates the complete lifecycle of a Git repository from creation through garbage collection and checkout verification. This example validates that repositories created with VCS are fully compatible with native Git.
+### 01-quick-start
 
-### Workflow Steps
+**Location:** [apps/examples/01-quick-start](../apps/examples/01-quick-start)
 
-1. **Initialize Repository** - Create repository using FilesApi
-2. **Create Initial Files** - Add 8 files in multiple directories
-3. **Generate 20 Commits** - Create incremental changes over time
-4. **Verify Loose Objects** - Confirm objects stored in `.git/objects`
-5. **Run Garbage Collection** - Execute native `git gc`
-6. **Verify Packed Objects** - Check pack file integrity with `git verify-pack`
-7. **Verify Native Git** - Run `git fsck`, `git log`, etc.
-8. **Checkout First Version** - Restore initial commit state
-9. **Verify Checkout** - Confirm files match original content
-
-### Key Validation
-
-The example proves VCS compatibility by using native Git for verification:
-- Pack file integrity verified with `git verify-pack`
-- Repository structure verified with `git fsck`
-- Commit history readable with standard Git tools
-- Checkout produces identical file content
-
-### Running
+The five-minute introduction. Initializes an in-memory `History`, stores a blob, builds a tree, makes two commits, updates `refs/heads/main`, and walks the ancestry — the whole object-model loop in one file.
 
 ```bash
-pnpm --filter @statewalker/vcs-example-git-lifecycle start
+pnpm --filter @statewalker/vcs-example-01-quick-start start
 ```
 
----
+### 02-porcelain-commands
 
-## example-git-perf
+**Location:** [apps/examples/02-porcelain-commands](../apps/examples/02-porcelain-commands)
 
-**Location:** [apps/example-git-perf](../apps/example-git-perf)
-
-Performance benchmark using the official Git source repository. Measures real-world performance of pack file reading, commit traversal, and object access.
-
-### Benchmark Workflow
-
-1. **Clone Git Repository** - Downloads official Git source from GitHub
-2. **Run Garbage Collection** - Optimize pack files with `git gc --aggressive`
-3. **Load Pack Files** - Initialize VCS storage and indexes
-4. **Traverse Commits** - Walk last 1000 commits with full parsing
-5. **Measure Object Access** - Random access to commits and trees
-6. **Output Results** - Write metrics to `performance-results.json`
-7. **Checkout Verification** - Extract files using VCS, verify with native Git
-
-### Performance Metrics
-
-- **statewalker_vcs_init** - Time to initialize storage and load pack indexes
-- **commit_traversal** - Time to walk 1000 commits with full parsing
-- **object_random_access** - Time for random object lookups
-
-### Running
+The complete Git workflow through the porcelain `Git` facade (`@statewalker/vcs-commands`) over an in-memory working copy: init and commit, branching, checkout, merge, log/diff, status, tag, and stash — one `step:NN` per topic.
 
 ```bash
-# Full benchmark (first run clones ~200MB repository)
-pnpm --filter @statewalker/vcs-example-git-perf start
-
-# Individual steps
-pnpm --filter @statewalker/vcs-example-git-perf step:clone
-pnpm --filter @statewalker/vcs-example-git-perf step:traverse
+pnpm --filter @statewalker/vcs-example-02-porcelain-commands start
+pnpm --filter @statewalker/vcs-example-02-porcelain-commands step:04   # merge
 ```
 
-### Requirements
+### 03-object-model
 
-- Internet connection (for initial clone)
-- ~500MB disk space
-- Git command-line tools
+**Location:** [apps/examples/03-object-model](../apps/examples/03-object-model)
 
----
-
-## example-git-push
-
-**Location:** [apps/example-git-push](../apps/example-git-push)
-
-Demonstrates branch creation, commits, and push operations using VCS transport to communicate with a native Git HTTP server.
-
-### Workflow
-
-1. **Setup Remote** - Create bare repository with initial commit
-2. **Start HTTP Server** - Launch native Git HTTP server
-3. **Clone Repository** - Clone using native Git
-4. **Open with VCS** - Load repository using `createGitRepository()`
-5. **Create Branch** - Create branch using `repository.refs.set()`
-6. **Make Commit** - Store blob, tree, and commit
-7. **Push Changes** - Push using VCS transport
-8. **Verify** - Confirm push with native Git
-
-### Key Patterns
-
-Creating commits with typed stores:
-```typescript
-const blobId = await repository.blobs.store([content]);
-const treeId = await repository.trees.storeTree([
-  { mode: FileMode.REGULAR_FILE, name: "file.txt", id: blobId },
-]);
-const commitId = await repository.commits.storeCommit({
-  tree: treeId,
-  parents: [parentId],
-  author, committer, message,
-});
-```
-
-Pushing with VCS transport:
-```typescript
-import { push } from "@statewalker/vcs-transport";
-await push({ url, refspecs, getLocalRef, getObjectsToPush });
-```
-
-### Running
+A deep look at Git's internal object model: blob storage, tree structure, commit anatomy, tags, and content-addressed deduplication.
 
 ```bash
-pnpm --filter @statewalker/vcs-example-git-push start
+pnpm --filter @statewalker/vcs-example-03-object-model start
+```
+
+### 04-branching-merging
+
+**Location:** [apps/examples/04-branching-merging](../apps/examples/04-branching-merging)
+
+Branch operations and merge strategies: branch creation, HEAD management, fast-forward and three-way merges, merge strategies, conflict handling, and rebase concepts.
+
+```bash
+pnpm --filter @statewalker/vcs-example-04-branching-merging start
+```
+
+### 05-history-operations
+
+**Location:** [apps/examples/05-history-operations](../apps/examples/05-history-operations)
+
+Reading repository history: log traversal, commit ancestry, diffing commits, blame, and per-file history.
+
+```bash
+pnpm --filter @statewalker/vcs-example-05-history-operations start
+```
+
+### 06-internal-storage
+
+**Location:** [apps/examples/06-internal-storage](../apps/examples/06-internal-storage)
+
+Low-level object and pack operations for application integration: loose objects, pack files, garbage collection, direct content-addressable storage, and delta internals.
+
+```bash
+pnpm --filter @statewalker/vcs-example-06-internal-storage start
+```
+
+### 07-staging-checkout
+
+**Location:** [apps/examples/07-staging-checkout](../apps/examples/07-staging-checkout)
+
+Working directory and staging area operations: staging concepts, staging and unstaging changes, status, checking out files and branches, and clean/reset. Staging is accessed at `workingCopy.checkout.staging`.
+
+```bash
+pnpm --filter @statewalker/vcs-example-07-staging-checkout start
+```
+
+### 08-transport-basics
+
+**Location:** [apps/examples/08-transport-basics](../apps/examples/08-transport-basics)
+
+Git transport over the HTTP smart protocol against a real remote (`octocat/Hello-World`): listing remote refs (`lsRemote`), cloning, and fetching updates via `@statewalker/vcs-transport`.
+
+```bash
+pnpm --filter @statewalker/vcs-example-08-transport-basics start
+```
+
+### 09-repository-access
+
+**Location:** [apps/examples/09-repository-access](../apps/examples/09-repository-access)
+
+Exposing a repository for transport: build a `RepositoryAccess`/`RepositoryFacade` from a `History`, adapt core `Refs` to the transport `RefStore`, and serve/fetch over a duplex channel with `serveOverDuplex`/`fetchOverDuplex`.
+
+```bash
+pnpm --filter @statewalker/vcs-example-09-repository-access start
+```
+
+### 10-custom-storage
+
+**Location:** [apps/examples/10-custom-storage](../apps/examples/10-custom-storage)
+
+Building `History` instances from components: `createMemoryHistory()`, `createMemoryHistoryWithOperations()`, `createHistoryFromComponents()` with raw storage + object store, and `createHistoryFromStores()` with explicit stores — plus the `HistoryWithOperations` vs `History` distinction.
+
+```bash
+pnpm --filter @statewalker/vcs-example-10-custom-storage start
+```
+
+### 11-delta-strategies
+
+**Location:** [apps/examples/11-delta-strategies](../apps/examples/11-delta-strategies)
+
+Storage optimization with the `DeltaApi`: inspecting delta state and chains, batch (atomic) repacking, and the low-level delta primitives (`createDeltaRanges`, `createDelta`, `applyDelta`) from `@statewalker/vcs-utils/diff`.
+
+```bash
+pnpm --filter @statewalker/vcs-example-11-delta-strategies start
 ```
 
 ---
 
-## example-pack-gc
+## Demos
 
-**Location:** [apps/example-pack-gc](../apps/example-pack-gc)
+Scenario-driven applications. Node demos print to the console; browser demos are Vite apps served with `dev`.
 
-Demonstrates pack file creation and garbage collection, proving compatibility with native Git.
+### browser-vcs-app
 
-### Workflow
+**Location:** [apps/demos/browser-vcs-app](../apps/demos/browser-vcs-app) — **browser**
 
-1. **Create Repository** - Initialize on real filesystem using `NodeFilesApi`
-2. **Create 4 Commits** - Progressive changes to README, source, package.json
-3. **Verify Loose Objects** - Confirm 12 loose objects in `.git/objects`
-4. **Pack Objects (GC)** - Consolidate into pack file with delta compression
-5. **Verify Cleanup** - Confirm loose objects removed after packing
-6. **Verify Commits** - Load all commits from pack file
-7. **Native Git Verification** - Run `git log`, `git show`, `git fsck`, `git reset`
-
-### Key APIs
-
-- `storage.rawStorage.repack()` - Pack objects and prune loose objects
-- `storage.rawStorage.pruneLooseObjects()` - Manual loose object cleanup
-- `storage.refresh()` - Reload pack files after changes
-
-### Running
+A browser-based VCS application with swappable storage backends, demonstrating the library running fully in-page.
 
 ```bash
-pnpm --filter @statewalker/vcs-example-pack-gc start
+pnpm --filter @statewalker/vcs-demo-browser-app dev
+```
+
+### git-cli-sandbox
+
+**Location:** [apps/demos/git-cli-sandbox](../apps/demos/git-cli-sandbox) — **node**
+
+A Git CLI sandbox (clone, commit, branch, merge, push over HTTP) built on the VCS porcelain API. Work in progress — depends on a file-system store.
+
+```bash
+pnpm --filter @statewalker/vcs-demo-git-cli-sandbox start
+```
+
+### git-workflow-complete
+
+**Location:** [apps/demos/git-workflow-complete](../apps/demos/git-workflow-complete) — **node**
+
+An end-to-end workflow using **only** porcelain commands: `Git.init`, `add`, `commit`, `checkout`, `merge`, `log`, `diff`, `gc`, and `status` — no low-level or native Git. Nine `step:NN` scripts break it down.
+
+```bash
+pnpm --filter @statewalker/vcs-demo-git-workflow-complete start
+```
+
+### http-server-scratch
+
+**Location:** [apps/demos/http-server-scratch](../apps/demos/http-server-scratch) — **node**
+
+Builds a Git HTTP server from scratch (no `git http-backend`) and drives a full roundtrip: create a remote with VCS, serve it, clone with VCS transport, verify with native git, commit + branch, push, and verify again.
+
+```bash
+pnpm --filter @statewalker/vcs-demo-http-server-scratch start
+```
+
+### livekit-p2p-sync
+
+**Location:** [apps/demos/livekit-p2p-sync](../apps/demos/livekit-p2p-sync) — **browser**
+
+Browser VCS with LiveKit peer-to-peer synchronization between clients.
+
+```bash
+pnpm --filter @statewalker/vcs-demo-livekit-p2p-sync dev
+```
+
+### offline-first-pwa
+
+**Location:** [apps/demos/offline-first-pwa](../apps/demos/offline-first-pwa) — **browser**
+
+An offline-first Progressive Web App performing Git operations entirely in the browser.
+
+```bash
+pnpm --filter @statewalker/vcs-demo-offline-pwa dev
+```
+
+### vcs-webrtc-sync
+
+**Location:** [apps/demos/vcs-webrtc-sync](../apps/demos/vcs-webrtc-sync) — **browser**
+
+Browser VCS with WebRTC peer-to-peer synchronization.
+
+```bash
+pnpm --filter @statewalker/vcs-demo-webrtc-sync dev
+```
+
+### versioned-documents
+
+**Location:** [apps/demos/versioned-documents](../apps/demos/versioned-documents) — **browser**
+
+Document versioning in the browser, decomposing DOCX/ODF files so their internal parts version and diff meaningfully.
+
+```bash
+pnpm --filter @statewalker/vcs-demo-versioned-documents dev
+```
+
+### webrtc-p2p-sync
+
+**Location:** [apps/demos/webrtc-p2p-sync](../apps/demos/webrtc-p2p-sync) — **browser**
+
+WebRTC peer-to-peer Git synchronization with QR-code signaling for connecting peers.
+
+```bash
+pnpm --filter @statewalker/vcs-demo-webrtc-p2p-sync dev
+```
+
+### lfs-download-huggingface
+
+**Location:** [apps/demos/lfs-download-huggingface](../apps/demos/lfs-download-huggingface) — **node**
+
+Downloads a real HuggingFace model's large object (`pytorch_model.bin` from `hf-internal-testing/tiny-random-gpt2`) over the **standard Git-LFS batch + basic (whole-object) transfer** using `@statewalker/vcs-transport-lfs`. Runs live against huggingface.co: it reads and parses the LFS pointer, `lfsDownload(...)` streams the bytes into a content-store while verifying SHA-256 == oid, then the demo independently re-verifies the whole-file SHA-256 and byte length. Part of the large-object plane (ADR-0003).
+
+```bash
+pnpm --filter @statewalker/vcs-demo-lfs-huggingface start
+```
+
+### xet-transfer-huggingface
+
+**Location:** [apps/demos/xet-transfer-huggingface](../apps/demos/xet-transfer-huggingface) — **node**
+
+Demonstrates the **Xet custom transfer agent** (`@statewalker/vcs-transport-xet`), which negotiates a `xet` transfer in the standard LFS batch and moves only the missing CDC chunks via `@statewalker/content-transfer`. Because HuggingFace's production Xet uses a different wire protocol, this demo fetches real HF model bytes once (standard LFS) and then transfers them between two local content-stores over an in-process **loopback** (`serveXet` ↔ `xetDownload`), proving via a `putChunk` spy that only the missing chunks move and re-verifying the reconstructed object's SHA-256. Also shows the basic-LFS fallback path.
+
+```bash
+pnpm --filter @statewalker/vcs-demo-xet-huggingface start
 ```
 
 ---
 
-## example-vcs-http-roundtrip
+## Benchmarks
 
-**Location:** [apps/example-vcs-http-roundtrip](../apps/example-vcs-http-roundtrip)
+Performance measurements. Each writes results to the console.
 
-Complete HTTP workflow using VCS for both server and client. Proves the library can handle the full Git HTTP smart protocol without native Git binaries.
+### delta-compression
 
-### Architecture
+**Location:** [apps/benchmarks/delta-compression](../apps/benchmarks/delta-compression)
 
-**VCS HTTP Server** implements Git smart protocol endpoints:
-- `/info/refs?service=git-upload-pack` - Ref discovery for clone/fetch
-- `/git-upload-pack` - Send pack data to client
-- `/info/refs?service=git-receive-pack` - Ref discovery for push
-- `/git-receive-pack` - Receive pack data from client
-
-### Workflow
-
-1. **Create Remote** - Initialize bare repository with VCS
-2. **Start VCS Server** - Launch custom HTTP server
-3. **Clone** - Clone using VCS transport (no `git clone`)
-4. **Verify Clone** - Use native Git for integrity check
-5. **Modify Content** - Create new blobs and trees with VCS
-6. **Create Branch** - Create branch and commit
-7. **Push** - Push using VCS transport (no `git push`)
-8. **Verify Push** - Confirm with native Git
-
-### Protocol Features
-
-- Sideband multiplexing (pack data, progress, errors)
-- Delta object resolution (OFS_DELTA, REF_DELTA)
-- Pack file generation for clone/fetch
-- Pack file parsing and storage for push
-
-### Running
+Measures delta encoding and decoding performance across file sizes and mutation rates, using the `@statewalker/vcs-utils/diff` primitives.
 
 ```bash
-pnpm --filter @statewalker/vcs-example-vcs-http-roundtrip start
+pnpm --filter @statewalker/vcs-benchmark-delta-compression start
+```
+
+### pack-operations
+
+**Location:** [apps/benchmarks/pack-operations](../apps/benchmarks/pack-operations)
+
+Measures pack file writing and reading performance (`writePack`, `writePackIndex`, `readPackIndex`).
+
+```bash
+pnpm --filter @statewalker/vcs-benchmark-pack-operations start
+```
+
+### real-repo-perf
+
+**Location:** [apps/benchmarks/real-repo-perf](../apps/benchmarks/real-repo-perf)
+
+Simulates realistic Git workflows over low-level repository operations, measuring initialization, object storage, history traversal, and reference operations.
+
+```bash
+pnpm --filter @statewalker/vcs-benchmark-real-repo-perf start
 ```
 
 ---
-
-## examples-git
-
-**Location:** [apps/examples-git](../apps/examples-git)
-
-Technical examples demonstrating pack file format handling. Shows low-level pack reading, writing, and delta preservation.
-
-### Examples
-
-| # | Name | Description |
-|---|------|-------------|
-| 1 | Simple Roundtrip | Read all objects, write back to new pack |
-| 2 | Delta Preservation | Analyze delta relationships and dependencies |
-| 3 | Streaming OFS_DELTA | Incremental pack building with offset deltas |
-| 4 | Full Verification | Byte-level comparison of pack contents |
-| 5 | Index Format Comparison | Compare V1 vs V2 index formats |
-
-### Key APIs
-
-Reading packs:
-```typescript
-import { readPackIndex, PackReader } from "@statewalker/vcs-core";
-const index = readPackIndex(idxData);
-const reader = new PackReader(files, "pack.pack", index);
-const obj = await reader.get(objectId);
-```
-
-Writing packs:
-```typescript
-import { writePack, writePackIndexV2 } from "@statewalker/vcs-core";
-const result = await writePack(objects);
-const idxData = await writePackIndexV2(result.indexEntries, result.packChecksum);
-```
-
-### Running
-
-```bash
-# Generate test data
-./test-data/create-test-pack.sh ./test-data
-
-# Run all examples
-pnpm --filter @statewalker/vcs-examples-git examples ./test-data/git-repo/test.pack
-
-# Run specific example
-pnpm --filter @statewalker/vcs-examples-git example:01 ./test-data/git-repo/test.pack
-```
-
----
-
-## perf-bench
-
-**Location:** [apps/perf-bench](../apps/perf-bench)
-
-Micro-benchmarks for core algorithms. Measures performance of foundational operations in isolation.
-
-### Benchmarks
-
-- **SHA-1 Hashing** - Content hashing performance
-- **Compression** - Zlib compress/decompress throughput
-- **Delta Creation** - Delta encoding for similar content
-- **Delta Application** - Delta decoding and reconstruction
-
-### Running
-
-```bash
-pnpm --filter perf-bench start
-```
-
----
-
-## Common Patterns
-
-All examples share common patterns for working with VCS:
-
-### Opening Repositories
-
-```typescript
-import { createGitRepository } from "@statewalker/vcs-core";
-import { FilesApi, NodeFilesApi } from "@statewalker/webrun-files";
-
-const files = new FilesApi(new NodeFilesApi({ fs, rootDir: "./repo" }));
-const repository = await createGitRepository(files, ".git");
-```
-
-### Storing Content
-
-```typescript
-// Store blob
-const blobId = await repository.blobs.store([content]);
-
-// Create tree
-const treeId = await repository.trees.storeTree([
-  { mode: FileMode.REGULAR_FILE, name: "file.txt", id: blobId },
-]);
-
-// Create commit
-const commitId = await repository.commits.storeCommit({
-  tree: treeId,
-  parents: [parentId],
-  author, committer, message,
-});
-
-// Update reference
-await repository.refs.set("refs/heads/main", commitId);
-```
-
-### Native Git Verification
-
-Examples use native Git to verify VCS compatibility:
-
-```bash
-git fsck                    # Verify integrity
-git log                     # View history
-git cat-file -p <id>        # Read objects
-git verify-pack -v *.pack   # Verify pack files
-git diff-index --quiet HEAD # Verify checkout
-```
 
 ## Related Documentation
 
-- [Package Dependencies](package-dependencies.md) - Package relationship diagram
-- [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture overview
-- [README.md](../README.md) - Getting started guide
+- [ADR-0001 — Two-Axis Architecture](adr/0001-two-axis-architecture.md) — the authoritative design
+- [ADR-0002 — Transport Substrate](adr/0002-transport-substrate.md)
+- [ADR-0003 — Large-Object Plane](adr/0003-large-object-plane.md) — LFS/Xet
+- [Package Dependencies](package-dependencies.md) — package relationship diagram
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — system architecture overview
+- [README.md](../README.md) — getting started guide
