@@ -174,6 +174,15 @@ function createMockFetch(
   serverFetch: (request: Request) => Promise<Response>,
 ): typeof globalThis.fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    // The transport client may call this either Fetch-API style with a fully
+    // formed Request (its current form: `fetch(new Request(url, { method, body, … }))`)
+    // or as a (url, init) pair. A real `globalThis.fetch` honours a Request's own
+    // method/headers/body, so forward it as-is; only build a Request when given a
+    // url/init pair (dropping to `new Request(url, undefined)` here would lose the
+    // POST + body and the server would 405).
+    if (input instanceof Request && init === undefined) {
+      return serverFetch(input);
+    }
     let url: string;
     if (typeof input === "string") {
       url = input;
