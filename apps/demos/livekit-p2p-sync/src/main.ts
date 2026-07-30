@@ -6,7 +6,14 @@
  * (SFU) that mediates connections, enabling multi-party sync.
  *
  * Architecture:
- * LiveKit Room → per-participant MessagePort → Duplex → Git protocol FSM
+ * LiveKit Room → per-participant webrun ByteChannel (`byteChannelFromLiveKit`)
+ *   → `emulateMux` → webrun `Duplex` → Git protocol FSM.
+ *
+ * Migrated off the retired `@statewalker/vcs-port-livekit`: the old
+ * `RoomManager` wrapper is replaced by a `livekit-client` `Room` driven
+ * directly, and `createLiveKitPort` (Room → MessagePort) is replaced by
+ * `byteChannelFromLiveKit` (Room → webrun `ByteChannel`) multiplexed with
+ * `emulateMux`.
  *
  * Prerequisites:
  *   livekit-server --dev    # Start local LiveKit server on ws://localhost:7880
@@ -23,25 +30,28 @@ import {
   MemoryWorkingCopy,
   MemoryWorktree,
 } from "@statewalker/vcs-core";
-import {
-  createLiveKitPort,
-  type ParticipantInfo,
-  RoomManager,
-} from "@statewalker/vcs-port-livekit";
+import { emulateMux } from "@statewalker/webrun-streams";
+import { byteChannelFromLiveKit } from "@statewalker/webrun-streams-livekit";
+import { type RemoteParticipant, Room, RoomEvent } from "livekit-client";
 import { generateDevToken } from "./services/dev-token.js";
 import { createGitPeerSession, setupGitPeerServer } from "./services/index.js";
 
+/** Per-participant multiplexer over the LiveKit data channel. */
+type PeerMux = ReturnType<typeof emulateMux>;
+
 // --- State ---
 
-let roomManager: RoomManager | null = null;
+let room: Room | null = null;
+let localIdentity = "";
+let connected = false;
 let history: History | null = null;
 let serialization: SerializationApi | null = null;
 let git: Git | null = null;
 
 /** Active Git servers per participant identity */
 const gitServers = new Map<string, () => void>();
-/** Active MessagePorts per participant identity */
-const participantPorts = new Map<string, MessagePort>();
+/** Active per-participant muxes keyed by participant identity */
+const participantMuxes = new Map<string, PeerMux>();
 
 // --- Logging ---
 
@@ -100,36 +110,38 @@ async function connectToRoom(): Promise<void> {
   updateConnectionStatus("connecting");
   log(`Connecting to ${url} as "${identity}" in room "${roomName}"...`);
 
-  roomManager = new RoomManager();
+  const instance = new Room();
+  room = instance;
 
-  roomManager.on("participantConnected", (info: ParticipantInfo) => {
-    log(`Participant joined: ${info.identity}`, "success");
-    setupParticipantPort(info.identity);
+  instance.on(RoomEvent.ParticipantConnected, (p: RemoteParticipant) => {
+    log(`Participant joined: ${p.identity}`, "success");
+    setupParticipant(p.identity);
     updatePeerList();
   });
 
-  roomManager.on("participantDisconnected", (info: ParticipantInfo) => {
-    log(`Participant left: ${info.identity}`);
-    cleanupParticipant(info.identity);
+  instance.on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => {
+    log(`Participant left: ${p.identity}`);
+    cleanupParticipant(p.identity);
     updatePeerList();
   });
 
-  roomManager.on("connectionStateChanged", (state: string) => {
-    log(`Connection state: ${state}`);
-    if (state === "disconnected") {
-      updateConnectionStatus("disconnected");
-    }
+  instance.on(RoomEvent.Disconnected, () => {
+    connected = false;
+    log("Connection state: disconnected");
+    updateConnectionStatus("disconnected");
   });
 
   try {
-    await roomManager.connect({ url, token });
+    await instance.connect(url, token);
+    localIdentity = instance.localParticipant.identity;
+    connected = true;
     identityInput.value = identity;
     updateConnectionStatus("connected");
-    log(`Connected as "${roomManager.getLocalIdentity()}"`, "success");
+    log(`Connected as "${localIdentity}"`, "success");
 
-    // Set up ports for existing participants
-    for (const p of roomManager.getParticipants()) {
-      setupParticipantPort(p.identity);
+    // Set up muxes for existing participants
+    for (const p of instance.remoteParticipants.values()) {
+      setupParticipant(p.identity);
     }
     updatePeerList();
     updateButtons();
@@ -137,20 +149,22 @@ async function connectToRoom(): Promise<void> {
     const msg = error instanceof Error ? error.message : String(error);
     log(`Connection failed: ${msg}`, "error");
     updateConnectionStatus("disconnected");
-    roomManager = null;
+    room = null;
+    connected = false;
   }
 }
 
 async function disconnectFromRoom(): Promise<void> {
   // Clean up all participant connections
-  for (const identity of [...participantPorts.keys()]) {
+  for (const identity of [...participantMuxes.keys()]) {
     cleanupParticipant(identity);
   }
 
-  if (roomManager) {
-    await roomManager.disconnect();
-    roomManager = null;
+  if (room) {
+    await room.disconnect();
+    room = null;
   }
+  connected = false;
 
   updateConnectionStatus("disconnected");
   updatePeerList();
@@ -158,17 +172,21 @@ async function disconnectFromRoom(): Promise<void> {
   log("Disconnected");
 }
 
-function setupParticipantPort(identity: string): void {
-  if (!roomManager || !history || !serialization) return;
-  if (participantPorts.has(identity)) return;
+function setupParticipant(identity: string): void {
+  if (!room || !history || !serialization) return;
+  if (participantMuxes.has(identity)) return;
 
-  const room = roomManager.getRoom();
-  const port = createLiveKitPort(room, identity);
-  participantPorts.set(identity, port);
+  // Two peers over one room data channel must pick opposite mux sides so
+  // `emulateMux` stream-ids never collide; a deterministic identity compare
+  // does that without any extra negotiation.
+  const side = localIdentity < identity ? "initiator" : "responder";
+  const channel = byteChannelFromLiveKit(room, identity);
+  const mux = emulateMux(channel, { side });
+  participantMuxes.set(identity, mux);
 
   // Start Git server for this participant
   const stopServer = setupGitPeerServer({
-    port,
+    serve: mux.serve,
     history,
     serialization,
     onPushReceived: () => {
@@ -189,10 +207,10 @@ function cleanupParticipant(identity: string): void {
     gitServers.delete(identity);
   }
 
-  const port = participantPorts.get(identity);
-  if (port) {
-    port.close();
-    participantPorts.delete(identity);
+  const mux = participantMuxes.get(identity);
+  if (mux) {
+    void mux.close();
+    participantMuxes.delete(identity);
   }
 }
 
@@ -217,7 +235,7 @@ async function handleInit(): Promise<void> {
 
     const now = Math.floor(Date.now() / 1000);
     const author = {
-      name: roomManager?.getLocalIdentity() ?? "User",
+      name: localIdentity || "User",
       email: "demo@example.com",
       timestamp: now,
       tzOffset: "+0000",
@@ -243,7 +261,7 @@ async function handleAddFile(): Promise<void> {
   if (!history) return;
 
   const fileName = `file-${Date.now() % 10000}.txt`;
-  const content = `Created by ${roomManager?.getLocalIdentity() ?? "user"} at ${new Date().toISOString()}\n`;
+  const content = `Created by ${localIdentity || "user"} at ${new Date().toISOString()}\n`;
   const encoder = new TextEncoder();
 
   try {
@@ -274,7 +292,7 @@ async function handleAddFile(): Promise<void> {
 
     const now = Math.floor(Date.now() / 1000);
     const author = {
-      name: roomManager?.getLocalIdentity() ?? "User",
+      name: localIdentity || "User",
       email: "demo@example.com",
       timestamp: now,
       tzOffset: "+0000",
@@ -299,8 +317,8 @@ async function handleAddFile(): Promise<void> {
 async function handleSync(identity: string): Promise<void> {
   if (!history || !serialization) return;
 
-  const port = participantPorts.get(identity);
-  if (!port) {
+  const mux = participantMuxes.get(identity);
+  if (!mux) {
     log(`No connection to ${identity}`, "error");
     return;
   }
@@ -308,7 +326,7 @@ async function handleSync(identity: string): Promise<void> {
   log(`Starting sync with ${identity}...`);
 
   const session = createGitPeerSession({
-    port,
+    call: mux.call,
     history,
     serialization,
     log: (msg) => log(`[sync:${identity}] ${msg}`),
@@ -428,7 +446,7 @@ async function createMergeCommit(
 
     const now = Math.floor(Date.now() / 1000);
     const author = {
-      name: roomManager?.getLocalIdentity() ?? "User",
+      name: localIdentity || "User",
       email: "demo@example.com",
       timestamp: now,
       tzOffset: "+0000",
@@ -457,7 +475,6 @@ function updateConnectionStatus(state: "disconnected" | "connecting" | "connecte
 }
 
 function updateButtons(): void {
-  const connected = roomManager?.isConnected() ?? false;
   const hasCommits = history !== null;
 
   (document.getElementById("btn-connect") as HTMLButtonElement).disabled = connected;
@@ -469,7 +486,7 @@ function updatePeerList(): void {
   const list = document.getElementById("peer-list");
   if (!list) return;
 
-  const participants = roomManager?.getParticipants() ?? [];
+  const participants = room ? [...room.remoteParticipants.values()] : [];
 
   if (participants.length === 0) {
     list.innerHTML = '<li class="empty">No participants yet</li>';
