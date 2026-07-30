@@ -289,6 +289,13 @@ pnpm --filter @statewalker/vcs-demo-lfs-huggingface start   # node demo
 pnpm --filter @statewalker/vcs-demo-browser-app dev         # browser demo
 ```
 
+> **Build first.** The example and demo apps import the packages from their
+> built output (`dist/`), so run `pnpm build` (all packages) once after
+> `pnpm install` before starting any app. The browser demos use
+> `@statewalker/webrun-files-browser`, which is likewise consumed from its
+> built `dist` — a stale or missing build surfaces as an unresolved import at
+> dev-server start.
+
 ### Benchmarks — `apps/benchmarks/` (node)
 
 Run with `pnpm --filter @statewalker/vcs-benchmark-<name> start`:
