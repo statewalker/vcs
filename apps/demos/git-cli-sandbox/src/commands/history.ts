@@ -96,7 +96,7 @@ export async function runLog(args: string[]): Promise<void> {
       console.log(dim("No commits yet"));
     }
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }
 
@@ -218,6 +218,6 @@ export async function runDiff(args: string[]): Promise<void> {
       }
     }
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }

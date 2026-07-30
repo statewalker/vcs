@@ -4,7 +4,7 @@
  * Demonstrates removing files from the staging area.
  */
 
-import type { MergeStageValue } from "@statewalker/vcs-core";
+import type { MergeStageValue } from "@statewalker/vcs-working-tree";
 import { addFileToStaging, getGit, printSection, printStep, resetState } from "../shared.js";
 
 export async function step03Unstaging(): Promise<void> {

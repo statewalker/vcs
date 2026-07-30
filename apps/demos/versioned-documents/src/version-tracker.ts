@@ -6,15 +6,17 @@
 
 import { Git } from "@statewalker/vcs-commands";
 import {
-  createMemoryCheckout,
-  createMemoryGitStaging,
-  createMemoryHistory,
-  createMemoryWorkingCopy,
-  createMemoryWorktree,
-  FileMode,
-  type History,
-  type WorkingCopy,
+	createMemoryHistory,
+	FileMode,
+	type History,
 } from "@statewalker/vcs-core";
+import {
+	createMemoryCheckout,
+	createMemoryGitStaging,
+	createMemoryWorkingCopy,
+	createMemoryWorktree,
+	type WorkingCopy,
+} from "@statewalker/vcs-working-tree";
 
 /**
  * Version information
@@ -139,7 +141,7 @@ export class VersionTracker {
       return components;
     }
 
-    for (const entry of tree) {
+    for await (const entry of tree) {
       if (entry.mode !== FileMode.TREE) {
         // Collect blob content
         const chunks: Uint8Array[] = [];

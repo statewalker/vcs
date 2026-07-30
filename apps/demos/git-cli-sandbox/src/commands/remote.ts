@@ -3,14 +3,10 @@
  */
 
 import { MergeStatus } from "@statewalker/vcs-commands";
-import {
-  FileMode,
-  type GitRepository,
-  isSymbolicRef,
-  type SymbolicRef,
-} from "@statewalker/vcs-core";
+import { FileMode } from "@statewalker/vcs-core";
 import { type PushObject, push as transportPush } from "@statewalker/vcs-transport";
 import {
+  type CliContext,
   dim,
   error,
   fatal,
@@ -96,7 +92,7 @@ export async function runRemote(args: string[]): Promise<void> {
       }
     }
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }
 
@@ -141,7 +137,7 @@ export async function runFetch(args: string[]): Promise<void> {
 
     console.log(success("Fetch complete"));
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }
 
@@ -170,10 +166,7 @@ export async function runPull(args: string[]): Promise<void> {
 
   // Get current branch if not specified
   if (!branchName) {
-    const headRef = await ctx.store.refs.resolve("HEAD");
-    if (headRef && isSymbolicRef(headRef)) {
-      branchName = (headRef as SymbolicRef).target.replace("refs/heads/", "");
-    }
+    branchName = await ctx.workingCopy.getCurrentBranch();
   }
 
   try {
@@ -207,17 +200,14 @@ export async function runPull(args: string[]): Promise<void> {
       console.log(success("Pull complete"));
     }
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }
 
 /**
  * Collect objects needed for push
  */
-async function collectObjectsForPush(
-  repository: GitRepository,
-  commitId: string,
-): Promise<PushObject[]> {
+async function collectObjectsForPush(ctx: CliContext, commitId: string): Promise<PushObject[]> {
   const objects: PushObject[] = [];
   const seen = new Set<string>();
 
@@ -232,11 +222,11 @@ async function collectObjectsForPush(
     if (seen.has(id)) return;
     seen.add(id);
 
-    const header = await repository.objects.getHeader(id);
+    const header = await ctx.objects.getHeader(id);
     const typeCode = typeStringToCode[header.type];
 
     const chunks: Uint8Array[] = [];
-    for await (const chunk of repository.objects.load(id)) {
+    for await (const chunk of ctx.objects.load(id)) {
       chunks.push(chunk);
     }
 
@@ -254,7 +244,10 @@ async function collectObjectsForPush(
   async function collectTree(treeId: string): Promise<void> {
     await collectObject(treeId);
 
-    for await (const entry of repository.trees.loadTree(treeId)) {
+    const tree = await ctx.history.trees.load(treeId);
+    if (!tree) return;
+
+    for await (const entry of tree) {
       if (entry.mode === FileMode.TREE) {
         await collectTree(entry.id);
       } else {
@@ -265,8 +258,10 @@ async function collectObjectsForPush(
 
   await collectObject(commitId);
 
-  const commit = await repository.commits.loadCommit(commitId);
-  await collectTree(commit.tree);
+  const commit = await ctx.history.commits.load(commitId);
+  if (commit) {
+    await collectTree(commit.tree);
+  }
 
   return objects;
 }
@@ -299,14 +294,11 @@ export async function runPush(args: string[]): Promise<void> {
 
   // Get current branch if not specified
   if (!branchName) {
-    const headRef = await ctx.store.refs.resolve("HEAD");
-    if (headRef && isSymbolicRef(headRef)) {
-      branchName = (headRef as SymbolicRef).target.replace("refs/heads/", "");
-    }
+    branchName = await ctx.workingCopy.getCurrentBranch();
   }
 
   if (!branchName) {
-    await ctx.repository.close();
+    await ctx.history.close();
     fatal("No branch specified and no current branch");
   }
 
@@ -323,7 +315,7 @@ export async function runPush(args: string[]): Promise<void> {
 
     // Get local ref
     const localRef = `refs/heads/${branchName}`;
-    const localRefValue = await ctx.store.refs.resolve(localRef);
+    const localRefValue = await ctx.history.refs.resolve(localRef);
     if (!localRefValue || !localRefValue.objectId) {
       fatal(`Local branch '${branchName}' not found`);
     }
@@ -332,7 +324,7 @@ export async function runPush(args: string[]): Promise<void> {
     console.log(dim(`  Commit: ${shortId(commitId)}`));
 
     // Collect objects to push
-    const objectsToPush = await collectObjectsForPush(ctx.repository, commitId);
+    const objectsToPush = await collectObjectsForPush(ctx, commitId);
     console.log(dim(`  Objects: ${objectsToPush.length}`));
 
     // Execute push
@@ -341,7 +333,7 @@ export async function runPush(args: string[]): Promise<void> {
       refspecs: [`${localRef}:${localRef}`],
       force,
       getLocalRef: async (refName: string) => {
-        const ref = await ctx.store.refs.resolve(refName);
+        const ref = await ctx.history.refs.resolve(refName);
         return ref?.objectId;
       },
       getObjectsToPush: async function* () {
@@ -373,6 +365,6 @@ export async function runPush(args: string[]): Promise<void> {
       }
     }
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }

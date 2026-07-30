@@ -4,7 +4,7 @@
  * Demonstrates checking repository status.
  */
 
-import type { MergeStageValue } from "@statewalker/vcs-core";
+import type { MergeStageValue } from "@statewalker/vcs-working-tree";
 import { addFileToStaging, getGit, printSection, printStep, resetState } from "../shared.js";
 
 export async function step04Status(): Promise<void> {

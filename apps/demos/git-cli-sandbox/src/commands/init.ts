@@ -58,5 +58,5 @@ export async function runInit(args: string[]): Promise<void> {
   console.log("  Create files and add them with: vcs-git add <file>");
   console.log('  Commit changes with: vcs-git commit -m "Initial commit"');
 
-  await ctx.repository.close();
+  await ctx.history.close();
 }

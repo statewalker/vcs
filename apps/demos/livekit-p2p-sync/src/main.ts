@@ -22,14 +22,16 @@
 import { Git } from "@statewalker/vcs-commands";
 import type { History, SerializationApi } from "@statewalker/vcs-core";
 import {
-  createMemoryGitStaging,
-  createMemoryHistory,
-  DefaultSerializationApi,
-  FileMode,
-  MemoryCheckout,
-  MemoryWorkingCopy,
-  MemoryWorktree,
+	createMemoryHistory,
+	DefaultSerializationApi,
+	FileMode,
 } from "@statewalker/vcs-core";
+import {
+	createMemoryGitStaging,
+	MemoryCheckout,
+	MemoryWorkingCopy,
+	MemoryWorktree,
+} from "@statewalker/vcs-working-tree";
 import { emulateMux } from "@statewalker/webrun-streams";
 import { byteChannelFromLiveKit } from "@statewalker/webrun-streams-livekit";
 import { type RemoteParticipant, Room, RoomEvent } from "livekit-client";

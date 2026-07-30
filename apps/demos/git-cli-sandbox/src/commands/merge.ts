@@ -45,13 +45,13 @@ export async function runMerge(args: string[]): Promise<void> {
   const { branch, noFf, squash, message } = parseArgs(args);
 
   if (!branch) {
-    await ctx.repository.close();
+    await ctx.history.close();
     fatal("No branch specified for merge.");
   }
 
   try {
     // Resolve branch to commit ID
-    const branchRef = await ctx.store.refs.resolve(`refs/heads/${branch}`);
+    const branchRef = await ctx.history.refs.resolve(`refs/heads/${branch}`);
     if (!branchRef || !branchRef.objectId) {
       fatal(`merge: ${branch} - not something we can merge`);
     }
@@ -73,7 +73,7 @@ export async function runMerge(args: string[]): Promise<void> {
     const result = await cmd.call();
 
     // Get current branch name
-    const headRef = await ctx.store.refs.resolve("HEAD");
+    const headRef = await ctx.history.refs.resolve("HEAD");
     let _currentBranch = "HEAD";
     if (headRef && isSymbolicRef(headRef)) {
       _currentBranch = (headRef as SymbolicRef).target.replace("refs/heads/", "");
@@ -126,6 +126,6 @@ export async function runMerge(args: string[]): Promise<void> {
         console.log(success(`Merge completed`));
     }
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }

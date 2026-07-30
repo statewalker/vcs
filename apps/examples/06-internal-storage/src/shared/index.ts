@@ -128,10 +128,7 @@ export async function createFileHistory(options: {
   // Create file storage for objects (FileRawStorage compresses by default)
   const looseStorage = new FileRawStorage(files, objectsDir);
 
-  // Create blob storage (same directory, FileRawStorage handles compression)
-  const blobStorage = new FileRawStorage(files, objectsDir);
-
-  // Create Git object store for trees, commits, tags
+  // Create Git object store for blobs, trees, commits, tags
   const objects = createGitObjectStore(looseStorage);
 
   // Create file-based ref store
@@ -139,7 +136,6 @@ export async function createFileHistory(options: {
 
   // Create History from components
   const history = createHistoryFromComponents({
-    blobStorage,
     objects,
     refs: { type: "adapter", refStore },
   });

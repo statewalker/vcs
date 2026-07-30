@@ -13,13 +13,15 @@
 
 import { Git } from "@statewalker/vcs-commands";
 import {
-  createMemoryGitStaging,
-  createMemoryHistory,
-  DefaultSerializationApi,
-  MemoryCheckout,
-  MemoryWorkingCopy,
-  MemoryWorktree,
+	createMemoryHistory,
+	DefaultSerializationApi,
 } from "@statewalker/vcs-core";
+import {
+	createMemoryGitStaging,
+	MemoryCheckout,
+	MemoryWorkingCopy,
+	MemoryWorktree,
+} from "@statewalker/vcs-working-tree";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   enqueueAddFileAction,

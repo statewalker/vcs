@@ -41,7 +41,7 @@ export async function runAdd(args: string[]): Promise<void> {
     await cmd.call();
     console.log(success(`Staged files matching: ${patterns.join(", ")}`));
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }
 
@@ -55,7 +55,7 @@ export async function runStatus(_args: string[]): Promise<void> {
     const status = await ctx.git.status().call();
 
     // Get current branch
-    const headRef = await ctx.store.refs.resolve("HEAD");
+    const headRef = await ctx.history.refs.resolve("HEAD");
     let branchName = "HEAD";
     if (headRef && isSymbolicRef(headRef)) {
       branchName = (headRef as SymbolicRef).target.replace("refs/heads/", "");
@@ -100,7 +100,7 @@ export async function runStatus(_args: string[]): Promise<void> {
 
     console.log();
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }
 
@@ -140,6 +140,6 @@ export async function runRm(args: string[]): Promise<void> {
     await cmd.call();
     console.log(success(`Removed: ${files.join(", ")}`));
   } finally {
-    await ctx.repository.close();
+    await ctx.history.close();
   }
 }

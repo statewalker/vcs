@@ -7,19 +7,22 @@
  */
 
 import { Git } from "@statewalker/vcs-commands";
-import type { FilesApi, History, SerializationApi, Worktree } from "@statewalker/vcs-core";
+import type { FilesApi, History, SerializationApi } from "@statewalker/vcs-core";
+import type { Worktree } from "@statewalker/vcs-working-tree";
 import {
-  createGitObjectStore,
-  createGitStaging,
-  createHistoryFromComponents,
-  createMemoryGitStaging,
-  createMemoryHistory,
-  DefaultSerializationApi,
-  joinPath,
-  MemoryCheckout,
-  MemoryWorkingCopy,
-  MemoryWorktree,
+	createGitObjectStore,
+	createHistoryFromComponents,
+	createMemoryHistory,
+	DefaultSerializationApi,
+	joinPath,
 } from "@statewalker/vcs-core";
+import {
+	createGitStaging,
+	createMemoryGitStaging,
+	MemoryCheckout,
+	MemoryWorkingCopy,
+	MemoryWorktree,
+} from "@statewalker/vcs-working-tree";
 import { createFileRefStore, FileRawStorage, FileWorktree } from "@statewalker/vcs-store-files";
 
 import type { AppContext } from "./index.js";
