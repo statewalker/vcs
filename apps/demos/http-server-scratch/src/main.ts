@@ -18,7 +18,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { FileMode, indexPack, writePackIndex } from "@statewalker/vcs-core";
+import { DefaultSerializationApi, FileMode } from "@statewalker/vcs-core";
 import { clone, type PushObject, push } from "@statewalker/vcs-transport";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
@@ -26,7 +26,6 @@ import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
 import { createNodeFilesApi } from "@statewalker/vcs-utils-node/files";
 
 import {
-  atomicWriteFile,
   BASE_DIR,
   concatBytes,
   createAuthor,
@@ -34,7 +33,6 @@ import {
   createVcsHttpServer,
   DEFAULT_BRANCH,
   ensureDirectory,
-  ensureDirFiles,
   type FileHistory,
   getHead,
   HTTP_PORT,
@@ -251,33 +249,37 @@ async function cloneWithVcs(): Promise<void> {
 
   const files = createNodeFilesApi({ rootDir: LOCAL_REPO_DIR });
 
+  // The transport reports defaultBranch as the full ref that HEAD points to
+  // (e.g. "refs/heads/main", from the server's symref=HEAD capability).
+  // Derive the short branch name for the places that expect one.
+  const defaultBranchName = (cloneResult.defaultBranch ?? "refs/heads/main").replace(
+    /^refs\/heads\//,
+    "",
+  );
+
   const history = await createFileHistory({
     files,
     gitDir: ".git",
     create: true,
-    defaultBranch: cloneResult.defaultBranch,
+    defaultBranch: defaultBranchName,
   });
 
   if (cloneResult.packData.length > 0) {
     printInfo("Processing received pack data...");
 
-    const indexResult = await indexPack(cloneResult.packData);
-    printInfo(`Pack contains ${indexResult.objectCount} objects`);
+    // Import the received pack into the local object store as loose objects.
+    // The file-backed object store (FileRawStorage) reads loose objects only,
+    // not packfiles, so we explode the pack via the serialization pipeline.
+    // The resulting loose objects are Git-compatible and readable both by the
+    // VCS History API and by native git (used for verification in step 4).
+    const serialization = new DefaultSerializationApi({ history });
+    const importResult = await serialization.importPack(
+      (async function* () {
+        yield cloneResult.packData;
+      })(),
+    );
 
-    const packChecksum = bytesToHex(indexResult.packChecksum);
-    const packDir = ".git/objects/pack";
-    await ensureDirFiles(files, packDir);
-
-    const packFileName = `pack-${packChecksum}.pack`;
-    const idxFileName = `pack-${packChecksum}.idx`;
-    const packPath = `${packDir}/${packFileName}`;
-    const idxPath = `${packDir}/${idxFileName}`;
-
-    await atomicWriteFile(files, packPath, cloneResult.packData);
-    const indexData = await writePackIndex(indexResult.entries, indexResult.packChecksum);
-    await atomicWriteFile(files, idxPath, indexData);
-
-    printInfo(`Stored pack file with ${indexResult.objectCount} objects`);
+    printInfo(`Imported ${importResult.objectsImported} objects`);
   }
 
   const remoteName = "origin";
@@ -287,12 +289,12 @@ async function cloneWithVcs(): Promise<void> {
     printInfo(`Set ref: ${localRefName} -> ${shortId(bytesToHex(objectId))}`);
   }
 
-  const mainRef = cloneResult.refs.get(`refs/remotes/${remoteName}/${cloneResult.defaultBranch}`);
+  const mainRef = cloneResult.refs.get(`refs/remotes/${remoteName}/${defaultBranchName}`);
   if (mainRef) {
-    await history.refs.set(`refs/heads/${cloneResult.defaultBranch}`, bytesToHex(mainRef));
+    await history.refs.set(`refs/heads/${defaultBranchName}`, bytesToHex(mainRef));
   }
 
-  await history.refs.setSymbolic("HEAD", `refs/heads/${cloneResult.defaultBranch}`);
+  await history.refs.setSymbolic("HEAD", `refs/heads/${defaultBranchName}`);
 
   await checkoutHead(history);
   await history.close();

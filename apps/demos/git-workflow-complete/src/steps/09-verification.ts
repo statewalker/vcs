@@ -10,8 +10,8 @@ import { log, logError, logInfo, logSection, logSuccess, state } from "../shared
 export async function run(): Promise<void> {
   logSection("Step 09: Verify Checkout");
 
-  const { git } = state;
-  if (!git) {
+  const { git, staging } = state;
+  if (!git || !staging) {
     throw new Error("Repository not initialized. Run step 01 first.");
   }
 
@@ -25,14 +25,15 @@ export async function run(): Promise<void> {
 
   log("Verifying checked out files match original content...");
 
-  const checkout = git.workingCopy.checkout;
   let matchCount = 0;
   let mismatchCount = 0;
   const errors: string[] = [];
 
-  // Build a map of staged files
+  // Build a map of staged files. As in step 08, read from the staging store
+  // the repo was initialized with (workingCopy.checkout is undefined for an
+  // init'd repo).
   const stagedFiles = new Map<string, string>();
-  for await (const entry of checkout.staging.entries()) {
+  for await (const entry of staging.entries()) {
     if (entry.stage === 0) {
       stagedFiles.set(entry.path, entry.objectId);
     }

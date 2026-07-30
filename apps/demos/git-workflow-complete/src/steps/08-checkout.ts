@@ -10,8 +10,8 @@ import { log, logInfo, logSection, logSuccess, shortId, state } from "../shared/
 export async function run(): Promise<void> {
   logSection("Step 08: Checkout First Version");
 
-  const { git } = state;
-  if (!git) {
+  const { git, staging } = state;
+  if (!git || !staging) {
     throw new Error("Repository not initialized. Run step 01 first.");
   }
 
@@ -34,11 +34,13 @@ export async function run(): Promise<void> {
     logInfo("Files removed", result.removed.length);
   }
 
-  // Show checked out files from staging
+  // Show checked out files from staging.
+  // A repo built via Git.init(...).call() keeps its staging on the store we
+  // passed in (workingCopy.checkout is undefined for an init'd repo), and the
+  // porcelain checkout command mutates that same store.
   log("\nFiles in staging area:");
-  const checkout = git.workingCopy.checkout;
   let fileCount = 0;
-  for await (const entry of checkout.staging.entries()) {
+  for await (const entry of staging.entries()) {
     if (entry.stage === 0) {
       fileCount++;
       if (fileCount <= 10) {

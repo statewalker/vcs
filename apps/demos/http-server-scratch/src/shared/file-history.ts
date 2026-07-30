@@ -115,11 +115,16 @@ export async function createFileHistory(options: CreateFileHistoryOptions): Prom
 
   await history.initialize();
 
-  // Return extended History with objects access
-  return {
-    ...history,
-    objects,
-  };
+  // Expose the low-level object store alongside the History facade.
+  // NOTE: do NOT spread `history` here. createHistoryFromStores() returns a
+  // HistoryImpl class instance whose methods (collectReachableObjects, close,
+  // …) live on the prototype. Object spread copies only own enumerable
+  // properties, so `{ ...history }` would silently drop those methods — which
+  // makes the transport RepositoryFacade throw
+  // "history.collectReachableObjects is not a function" during upload-pack.
+  const fileHistory = history as History & { objects: GitObjectStore };
+  fileHistory.objects = objects;
+  return fileHistory;
 }
 
 /**

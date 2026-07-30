@@ -48,6 +48,7 @@ export async function run(): Promise<void> {
   state.repository = result.repository;
   state.git = result.git;
   state.files = files;
+  state.staging = staging;
 
   logInfo("Repository created at", REPO_DIR);
   logInfo("Git directory", `${REPO_DIR}/${GIT_DIR}`);
