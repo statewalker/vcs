@@ -1,0 +1,21 @@
+{
+  "name": "@statewalker/vcs-demo-lfs-huggingface",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Download a real HuggingFace model's large object via the standard Git-LFS batch + basic transfer, verified by whole-file SHA-256",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@statewalker/content-store": "workspace:*",
+    "@statewalker/storage": "workspace:*",
+    "@statewalker/vcs-transport-lfs": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}
