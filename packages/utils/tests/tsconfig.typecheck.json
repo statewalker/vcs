@@ -1,0 +1,24 @@
+{
+  // Scratch typecheck config for type-level assertions living under `tests/`.
+  //
+  // The package tsconfig is `include: ["src"]`, so `tests/**` is never
+  // typechecked — neither by `pnpm umbrella build` (tsc --emitDeclarationOnly)
+  // nor by vitest, which strips types without checking them. Type-level
+  // propositions asserted in a test file are therefore invisible through the
+  // normal invocations, and are observable only through this config:
+  //
+  //   ../node_modules/.bin/tsc --noEmit -p tests/tsconfig.typecheck.json
+  //
+  // Scope is `src` + `tests/files` on purpose: the rest of `tests/**` carries
+  // 77 pre-existing type errors (delta/ports/streams suites), which would drown
+  // the signal this config exists to produce. Widen the include when those are
+  // cleaned up.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["../src", "./files"]
+}
