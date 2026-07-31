@@ -1,4 +1,3 @@
-import type { ListOptions as WebrunListOptions } from "@statewalker/webrun-files";
 import { describe, expect, it } from "vitest";
 import type { FileInfo, ListOptions } from "../../src/files/files-api.js";
 import { createInMemoryFilesApi } from "../../src/files/mem-files-api.js";
@@ -10,11 +9,20 @@ import { createInMemoryFilesApi } from "../../src/files/mem-files-api.js";
  * widening: `createInMemoryFilesApi()` returns a webrun `MemFilesApi`, which has
  * always honoured `{ recursive: true }`. What is missing is the *declaration* —
  * the vcs `FilesApi` says `list(path: string)`, so every call below is a type
- * error (TS2554) that neither vitest nor `pnpm umbrella build` can see (vitest
- * does not typecheck; the package tsconfig is `include: ["src"]`). The red for
- * this suite is therefore a tsc error, observed through:
+ * error (TS2554) that `pnpm umbrella build` cannot see — the package tsconfig is
+ * `include: ["src"]`. The red for this suite is therefore a **tsc** error, not a
+ * runtime one.
  *
- *   ../node_modules/.bin/tsc --noEmit -p tests/tsconfig.typecheck.json
+ * It is observed by two independent gates, both of which point tsc at
+ * `tests/tsconfig.typecheck.json` (the only config that covers `tests/files`):
+ *
+ *   pnpm test            -> vitest --typecheck, which reports it as a failed test
+ *   pnpm run typecheck   -> `tsc --noEmit` over src, then over this config
+ *
+ * Before that wiring the assertion below was **vacuous**: vitest strips types
+ * without checking them, and the scratch config was referenced nowhere in the
+ * repository, so adding a field to `ListOptions` left `vitest run` at 5 passed
+ * and `tsc --noEmit` at exit 0.
  */
 
 async function paths(entries: AsyncIterable<FileInfo>): Promise<string[]> {
@@ -71,32 +79,7 @@ describe("FilesApi.list(path, options)", () => {
   });
 });
 
-/**
- * Drift alarm between the vcs `ListOptions` and the webrun one.
- *
- * vcs deliberately declares its own `ListOptions` rather than re-exporting
- * webrun's, so the two can silently diverge: every `FilesApi` implementation in
- * this repo delegates to webrun, so a field webrun gains (or drops) is a field
- * vcs callers cannot express (or express in vain).
- *
- * The comparison is over the KEY SETS, not mutual assignability. `A extends B`
- * in both directions stays green when either side gains an *optional* field —
- * and since `ListOptions` is all-optional, that is the only realistic drift, so
- * an assignability pair would never ring. A two-way `keyof` comparison does ring
- * (TS2322), for optional and required fields alike.
- */
-type SameKeys<A, B> = [keyof A] extends [keyof B]
-  ? [keyof B] extends [keyof A]
-    ? true
-    : false
-  : false;
-
-describe("ListOptions conformance with @statewalker/webrun-files", () => {
-  it("declares exactly the webrun ListOptions key set", () => {
-    // Type-level assertion: goes red (TS2322) the moment either side gains or
-    // loses a field. Only the scratch tsconfig above observes it.
-    const keysMatch: SameKeys<ListOptions, WebrunListOptions> = true;
-
-    expect(keysMatch).toBe(true);
-  });
-});
+// The drift alarm against webrun's `ListOptions` used to live here, as
+// `const keysMatch: SameKeys<…> = true`, and was VACUOUS — vitest strips types
+// without checking them. It now lives in `list-options.test-d.ts`, where vitest's
+// `--typecheck` project and `pnpm run typecheck` both execute it.

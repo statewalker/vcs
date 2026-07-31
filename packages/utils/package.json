@@ -86,10 +86,11 @@
   ],
   "scripts": {
     "build": "rm -rf dist && rolldown -c && tsc --emitDeclarationOnly --declaration",
-    "test": "vitest run",
+    "test": "vitest run --typecheck --typecheck.tsconfig=tests/tsconfig.typecheck.json",
     "test:browser": "vitest run --config vitest.config.browser.ts",
     "lint": "biome lint src tests",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.typecheck.json",
+    "typecheck:tests": "tsc --noEmit -p tests/tsconfig.typecheck.json"
   },
   "devDependencies": {
     "@types/node": "catalog:",
