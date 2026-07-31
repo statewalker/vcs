@@ -28,7 +28,6 @@
     { "path": "packages/transport" },
     { "path": "packages/testing" },
     { "path": "packages/store-kv" },
-    { "path": "packages/sandbox" },
     { "path": "packages/store-mem" },
     { "path": "packages/store-sql" },
     { "path": "packages/commands" }
