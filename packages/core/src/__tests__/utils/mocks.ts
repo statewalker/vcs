@@ -1,4 +1,4 @@
-import type { FileStats, FilesApi } from "../../common/files/index.js";
+import type { FileStats, FilesApi, ListOptions } from "../../common/files/index.js";
 import type { RawStorage } from "../../storage/raw/raw-storage.js";
 
 /**
@@ -110,8 +110,15 @@ export function createMockFilesApi(): FilesApi & {
       dirs.add(path);
     },
 
+    // Honours `options.recursive`, deliberately. This double is typed as
+    // `FilesApi`, and TS method parameters are bivariant, so a narrower
+    // `list(path)` would keep compiling while silently dropping the option —
+    // any test passing `{ recursive: true }` would get shallow results and pass
+    // for the wrong reason. Omitting the argument yields exactly the previous
+    // behaviour, so no existing caller changes.
     async *list(
       path: string,
+      options?: ListOptions,
     ): AsyncIterable<{ name: string; path: string; kind: "file" | "directory" }> {
       const prefix = path.endsWith("/") ? path : `${path}/`;
       const seen = new Set<string>();
@@ -120,7 +127,9 @@ export function createMockFilesApi(): FilesApi & {
         if (filePath.startsWith(prefix)) {
           const relative = filePath.slice(prefix.length);
           const parts = relative.split("/");
-          if (parts.length === 1 && !seen.has(parts[0])) {
+          if (options?.recursive) {
+            yield { name: parts[parts.length - 1], path: filePath, kind: "file" };
+          } else if (parts.length === 1 && !seen.has(parts[0])) {
             seen.add(parts[0]);
             yield { name: parts[0], path: filePath, kind: "file" };
           }
@@ -131,7 +140,9 @@ export function createMockFilesApi(): FilesApi & {
         if (dir.startsWith(prefix)) {
           const relative = dir.slice(prefix.length);
           const parts = relative.split("/");
-          if (parts.length === 1 && !seen.has(parts[0])) {
+          if (options?.recursive) {
+            yield { name: parts[parts.length - 1], path: dir, kind: "directory" };
+          } else if (parts.length === 1 && !seen.has(parts[0])) {
             seen.add(parts[0]);
             yield { name: parts[0], path: dir, kind: "directory" };
           }

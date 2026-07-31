@@ -21,6 +21,7 @@ export {
   type FileStats,
   type FilesApi,
   joinPath,
+  type ListOptions,
   normalizePath,
   type ReadOptions,
   readAt,
