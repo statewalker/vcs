@@ -59,7 +59,7 @@ export function serveLfs(store: ContentStore, resolver: LfsResolver): HttpHandle
       if (request.method === "PUT") {
         const bytes = new Uint8Array(await request.arrayBuffer());
         // Standard LFS requirement: verify the whole-object SHA-256.
-        if (sha256Hex(bytes) !== oid) {
+        if ((await sha256Hex(bytes)) !== oid) {
           return json({ message: "oid does not match content" }, 422);
         }
         const d = await store.put(streamOf(bytes));

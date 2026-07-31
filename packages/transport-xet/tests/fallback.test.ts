@@ -51,7 +51,7 @@ describe("basic-LFS fallback (server offers no xet)", () => {
     if (!clientId) throw new Error("mapping missing");
     const got = await collect(clientStore.read(clientId));
     expect(got).toEqual(bytes);
-    expect(sha256Hex(got)).toBe(ptr.oid);
+    expect(await sha256Hex(got)).toBe(ptr.oid);
   });
 
   it("round-trips upload then download to a fresh client over the basic fallback", async () => {

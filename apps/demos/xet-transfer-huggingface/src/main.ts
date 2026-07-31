@@ -66,7 +66,7 @@ async function fetchHfObject(): Promise<{ ptr: LfsPointer; bytes: Uint8Array }> 
   const id = await hfResolver.toObject(ptr.oid);
   if (!id) throw new Error("HF download produced no object");
   const bytes = await collect(hfStore.read(id));
-  if (sha256Hex(bytes) !== ptr.oid) throw new Error("HF bytes failed sha256 check");
+  if ((await sha256Hex(bytes)) !== ptr.oid) throw new Error("HF bytes failed sha256 check");
   console.log(`    got ${bytes.length} bytes, sha256 verified\n`);
   return { ptr, bytes };
 }
@@ -138,7 +138,7 @@ async function main(): Promise<void> {
   const destId = await destResolver.toObject(ptr.oid);
   if (!destId) throw new Error("xet transfer produced no object mapping");
   const reconstructed = await collect(spiedDest.read(destId));
-  const oidOk = sha256Hex(reconstructed) === ptr.oid;
+  const oidOk = (await sha256Hex(reconstructed)) === ptr.oid;
   const sizeOk = reconstructed.length === ptr.size;
   console.log(
     `    reconstructed:      ${reconstructed.length} bytes, sha256 ${oidOk ? "OK" : "MISMATCH"}, size ${sizeOk ? "OK" : "MISMATCH"}`,
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
   const fbId = await fbResolver.toObject(ptr.oid);
   if (!fallbackDownloaded || !fbId) throw new Error("fallback produced no object");
   const fbBytes = await collect(spiedFb.read(fbId));
-  const fbOk = sha256Hex(fbBytes) === ptr.oid && fbBytes.length === ptr.size;
+  const fbOk = (await sha256Hex(fbBytes)) === ptr.oid && fbBytes.length === ptr.size;
   console.log(`    whole object moved via basic transfer, sha256 ${fbOk ? "OK" : "MISMATCH"}`);
   console.log(
     `    (no xet negotiation → 0 chunk-level putChunk calls; object stored whole via store.put)`,

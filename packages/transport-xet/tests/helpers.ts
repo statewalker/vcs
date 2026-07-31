@@ -1,9 +1,8 @@
-import { createHash } from "node:crypto";
 import type { ByteStream, ChunkId, ContentStore, ObjectId } from "@statewalker/content-store";
 import { createContentStore } from "@statewalker/content-store";
 import { memBlobStore } from "@statewalker/storage";
-import { sha256Hex } from "@statewalker/vcs-transport-lfs";
 import type { LfsPointer, LfsResolver } from "@statewalker/vcs-transport-lfs";
+import { sha256Hex } from "@statewalker/vcs-transport-lfs";
 import type { XetTransportEvent } from "../src/index.js";
 
 /**
@@ -13,9 +12,7 @@ import type { XetTransportEvent } from "../src/index.js";
  * so chunk ids line up for dedup negotiation.
  */
 export async function csHash(input: ByteStream): Promise<string> {
-  const h = createHash("sha256");
-  for await (const chunk of input) h.update(chunk);
-  return `cs-sha256:${h.digest("hex")}`;
+  return `cs-sha256:${await sha256Hex(await collect(input))}`;
 }
 
 export function makeStore(): ContentStore {
@@ -66,12 +63,14 @@ export async function seedObject(
   bytes: Uint8Array,
 ): Promise<{ ptr: LfsPointer; id: ObjectId }> {
   const { id } = await store.put(streamOf(bytes));
-  const oid = sha256Hex(bytes);
+  const oid = await sha256Hex(bytes);
   await resolver.record(oid, id);
   return { ptr: { oid, size: bytes.length }, id };
 }
 
-export async function drain(events: AsyncIterable<XetTransportEvent>): Promise<XetTransportEvent[]> {
+export async function drain(
+  events: AsyncIterable<XetTransportEvent>,
+): Promise<XetTransportEvent[]> {
   const out: XetTransportEvent[] = [];
   for await (const e of events) out.push(e);
   return out;

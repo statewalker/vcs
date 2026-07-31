@@ -103,7 +103,7 @@ export async function* lfsDownload(
     }
     const bytes = new Uint8Array(await res.arrayBuffer());
     // Standard LFS requirement: verify the whole-object SHA-256 before storing.
-    if (sha256Hex(bytes) !== obj.oid) {
+    if ((await sha256Hex(bytes)) !== obj.oid) {
       yield { type: "error", oid: obj.oid, reason: "sha256 mismatch" };
       continue;
     }

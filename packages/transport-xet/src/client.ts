@@ -163,7 +163,7 @@ export async function* xetDownload(
 
     // Interop guarantee: the reassembled whole object must hash to the LFS oid.
     const bytes = await collect(store.read(remoteId));
-    if (sha256Hex(bytes) !== obj.oid) {
+    if ((await sha256Hex(bytes)) !== obj.oid) {
       await store.remove(remoteId);
       yield { type: "error", oid: obj.oid, reason: "sha256 mismatch" };
       continue;

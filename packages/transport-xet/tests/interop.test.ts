@@ -27,7 +27,10 @@ describe("xet interop / integrity", () => {
     const clientStore = makeStore();
     const clientResolver = memResolver();
     const events = await drain(
-      xetDownload(clientStore, clientResolver, URL, [ptr], { fetchImpl: handler, hashContent: csHash }),
+      xetDownload(clientStore, clientResolver, URL, [ptr], {
+        fetchImpl: handler,
+        hashContent: csHash,
+      }),
     );
 
     expect(events).toContainEqual({ type: "object-downloaded", oid: ptr.oid });
@@ -35,7 +38,7 @@ describe("xet interop / integrity", () => {
     if (!id) throw new Error("mapping missing");
     const got = await collect(clientStore.read(id));
     expect(got).toEqual(bytes);
-    expect(sha256Hex(got)).toBe(ptr.oid); // whole-file SHA-256 == LFS oid
+    expect(await sha256Hex(got)).toBe(ptr.oid); // whole-file SHA-256 == LFS oid
   });
 
   it("rejects a corrupted chunk served by the peer (never records the object)", async () => {
@@ -60,7 +63,10 @@ describe("xet interop / integrity", () => {
     const clientStore = makeStore();
     const clientResolver = memResolver();
     const events = await drain(
-      xetDownload(clientStore, clientResolver, URL, [ptr], { fetchImpl: handler, hashContent: csHash }),
+      xetDownload(clientStore, clientResolver, URL, [ptr], {
+        fetchImpl: handler,
+        hashContent: csHash,
+      }),
     );
 
     expect(events.some((e) => e.type === "error")).toBe(true);
@@ -76,7 +82,7 @@ describe("xet interop / integrity", () => {
     const serverResolver = memResolver();
     const { id } = await seedObject(serverStore, serverResolver, real);
 
-    const bogusOid = sha256Hex(prng(1000, 7)); // not the sha256 of `real`
+    const bogusOid = await sha256Hex(prng(1000, 7)); // not the sha256 of `real`
     await serverResolver.record(bogusOid, id); // peer lies: bogusOid → real object
     const handler = serveXet(serverStore, serverResolver);
 
@@ -84,7 +90,10 @@ describe("xet interop / integrity", () => {
     const clientResolver = memResolver();
     const ptr = { oid: bogusOid, size: real.length };
     const events = await drain(
-      xetDownload(clientStore, clientResolver, URL, [ptr], { fetchImpl: handler, hashContent: csHash }),
+      xetDownload(clientStore, clientResolver, URL, [ptr], {
+        fetchImpl: handler,
+        hashContent: csHash,
+      }),
     );
 
     expect(events).toContainEqual({ type: "error", oid: bogusOid, reason: "sha256 mismatch" });

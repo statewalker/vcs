@@ -1,9 +1,8 @@
-import { createHash } from "node:crypto";
 import type { ByteStream, ContentStore, ObjectId } from "@statewalker/content-store";
 import { createContentStore } from "@statewalker/content-store";
 import { memBlobStore } from "@statewalker/storage";
-import { sha256Hex } from "../src/index.js";
 import type { LfsPointer, LfsResolver, TransportEvent } from "../src/index.js";
+import { sha256Hex } from "../src/index.js";
 
 /**
  * The content-store's injected `hashContent`. Deliberately PREFIXED so a
@@ -11,9 +10,7 @@ import type { LfsPointer, LfsResolver, TransportEvent } from "../src/index.js";
  * (`<hex>`) — the resolver genuinely translates between the two id spaces.
  */
 export async function csHash(input: ByteStream): Promise<string> {
-  const h = createHash("sha256");
-  for await (const chunk of input) h.update(chunk);
-  return `cs-sha256:${h.digest("hex")}`;
+  return `cs-sha256:${await sha256Hex(await collect(input))}`;
 }
 
 export function makeStore(): ContentStore {
@@ -61,7 +58,7 @@ export async function seedObject(
   bytes: Uint8Array,
 ): Promise<LfsPointer> {
   const d = await store.put(streamOf(bytes));
-  const oid = sha256Hex(bytes);
+  const oid = await sha256Hex(bytes);
   await resolver.record(oid, d.id);
   return { oid, size: bytes.length };
 }

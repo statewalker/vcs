@@ -117,7 +117,7 @@ async function main(): Promise<void> {
   if (!(await store.has(storedId))) throw new Error("object not present in content-store");
 
   const bytes = await collect(store.read(storedId));
-  const actualOid = sha256Hex(bytes);
+  const actualOid = await sha256Hex(bytes);
   const sizeOk = bytes.length === ptr.size;
   const oidOk = actualOid === ptr.oid;
 

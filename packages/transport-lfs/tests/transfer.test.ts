@@ -55,7 +55,7 @@ describe("lfs basic transfer (loopback)", () => {
     const got = await collect(clientStore.read(clientObjId));
     expect(got).toEqual(bytes);
     // The reassembled bytes hash to the original LFS oid.
-    expect(sha256Hex(got)).toBe(ptr.oid);
+    expect(await sha256Hex(got)).toBe(ptr.oid);
   });
 
   it("round-trips upload then download to a fresh client, yielding the original bytes", async () => {
