@@ -14,6 +14,7 @@ import { backends } from "./test-helper.js";
 import {
   addFileAndCommit,
   createInitializedTestServer,
+  createTestServer,
   createTestUrl,
 } from "./transport-test-helper.js";
 
@@ -98,6 +99,153 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
 
         expect(result.fetchResult).toBeDefined();
         expect(result.fetchResult.bytesReceived).toBeGreaterThan(0);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  describe("object storage", () => {
+    /**
+     * A clone that writes refs and HEAD but drops the pack produces a
+     * repository whose HEAD names a commit that cannot be loaded.
+     */
+    it("should store the cloned objects, not just the refs", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      // Commit a real file so the pack carries a distinctive tree + blob
+      // (the initial commit's tree is the well-known EMPTY tree, which some
+      // stores can answer for without ever having received it).
+      const commitId = await addFileAndCommit(
+        server.serverStores,
+        "hello.txt",
+        "hello from the remote",
+        "Add hello.txt",
+      );
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const result = await git.clone().setURI(remoteUrl).call();
+
+        const clonedRef = (await workingCopy.history.refs.get("refs/heads/main")) as
+          | Ref
+          | undefined;
+        expect(clonedRef?.objectId).toBe(commitId);
+        expect(result.fetchResult.trackingRefUpdates.map((u) => u.newObjectId)).toContain(commitId);
+
+        // The commit the cloned ref points at must exist locally
+        const commit = await workingCopy.history.commits.load(commitId);
+        expect(commit).toBeDefined();
+        if (!commit) return;
+        expect(commit.message).toBe("Add hello.txt");
+
+        // ...and so must its tree
+        const tree = await workingCopy.history.trees.load(commit.tree);
+        expect(tree).toBeDefined();
+        if (!tree) return;
+        const entries = [];
+        for await (const entry of tree) {
+          entries.push(entry);
+        }
+        expect(entries.map((e) => e.name)).toContain("hello.txt");
+
+        // ...and the blob content itself
+        const blobEntry = entries.find((e) => e.name === "hello.txt");
+        expect(blobEntry).toBeDefined();
+        if (!blobEntry) return;
+        const blob = await workingCopy.history.blobs.load(blobEntry.id);
+        expect(blob).toBeDefined();
+        if (!blob) return;
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of blob) {
+          chunks.push(chunk);
+        }
+        const total = chunks.reduce((n, c) => n + c.length, 0);
+        const bytes = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          bytes.set(chunk, offset);
+          offset += chunk.length;
+        }
+        expect(new TextDecoder().decode(bytes)).toBe("hello from the remote");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    /**
+     * An empty remote sends a zero-length pack, which the pack parser rejects
+     * ("Unexpected end of stream: wanted 12 bytes, have 0"). Cloning one must
+     * still succeed.
+     */
+    it("should clone an empty remote without importing a pack", async () => {
+      const server = createTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const result = await git.clone().setURI(remoteUrl).call();
+
+        expect(result.fetchResult.isEmpty).toBe(true);
+        expect(result.fetchResult.trackingRefUpdates).toEqual([]);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    /**
+     * The whole history is packed, not just the tip: an older commit and its
+     * blob must be loadable too.
+     */
+    it("should store the whole cloned history, not only the tip", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const firstId = await addFileAndCommit(
+        server.serverStores,
+        "one.txt",
+        "first content",
+        "Add one.txt",
+      );
+      const secondId = await addFileAndCommit(
+        server.serverStores,
+        "two.txt",
+        "second content",
+        "Add two.txt",
+      );
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        await git.clone().setURI(remoteUrl).call();
+
+        const tip = await workingCopy.history.commits.load(secondId);
+        expect(tip?.message).toBe("Add two.txt");
+        expect(tip?.parents).toContain(firstId);
+
+        const parent = await workingCopy.history.commits.load(firstId);
+        expect(parent?.message).toBe("Add one.txt");
+        if (!parent) return;
+
+        const entry = await workingCopy.history.trees.getEntry(parent.tree, "one.txt");
+        expect(entry).toBeDefined();
+        if (!entry) return;
+        expect(await workingCopy.history.blobs.has(entry.id)).toBe(true);
       } finally {
         globalThis.fetch = originalFetch;
       }

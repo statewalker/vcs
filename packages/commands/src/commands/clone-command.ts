@@ -1,4 +1,7 @@
-import type { ObjectId } from "@statewalker/vcs-core";
+import type { History, HistoryWithOperations, ObjectId } from "@statewalker/vcs-core";
+// Import from the package root only: vcs-core ships a single runtime file
+// (dist/index.js); its subpaths resolve for types but not at runtime.
+import { DefaultSerializationApi } from "@statewalker/vcs-core";
 import {
   type CloneOptions as TransportCloneOptions,
   clone as transportClone,
@@ -482,15 +485,12 @@ export class CloneCommand extends TransportCommand<CloneResult> {
 
   /**
    * Store received pack data.
+   *
+   * Unpacks the pack into the working copy's history, so the objects the
+   * cloned refs point at are actually available locally.
    */
   private async storePack(packData: Uint8Array): Promise<void> {
-    // Check if working copy has pack storage capability
-    const wcWithPacks = this._workingCopy as {
-      packs?: { store(data: Uint8Array): Promise<void> };
-    };
-    if (wcWithPacks.packs?.store) {
-      await wcWithPacks.packs.store(packData);
-    }
+    await importPackIntoHistory(this._workingCopy.history, packData);
   }
 
   /**
@@ -508,4 +508,24 @@ export class CloneCommand extends TransportCommand<CloneResult> {
       // Commit not available yet (pack not unpacked)
     }
   }
+}
+
+/**
+ * Unpack pack data into a history's object stores.
+ *
+ * Uses the history's own {@link SerializationApi} when it exposes one
+ * (a `HistoryWithOperations`), otherwise builds a default one over its
+ * object stores — `WorkingCopy.history` is typed as a plain `History`,
+ * so `serialization` is not statically available.
+ */
+async function importPackIntoHistory(history: History, packData: Uint8Array): Promise<void> {
+  const serialization =
+    (history as Partial<HistoryWithOperations>).serialization ??
+    new DefaultSerializationApi({ history });
+
+  const packStream = (async function* () {
+    yield packData;
+  })();
+
+  await serialization.importPack(packStream);
 }
