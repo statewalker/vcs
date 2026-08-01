@@ -5,6 +5,23 @@ import { InvalidRemoteError, NonFastForwardError, PushRejectedException } from "
 import { type PushResult, PushStatus, type RemoteRefUpdate } from "../results/push-result.js";
 import { TransportCommand } from "../transport-command.js";
 
+/** All-zero object id — Git's "no object", used to express a ref delete. */
+const ZERO_OBJECT_ID = "0".repeat(40);
+
+/**
+ * Split a refspec into its source and destination ref names.
+ *
+ * Mirrors the parsing the transport performs so that the destination keys we
+ * derive here line up exactly with the ones it reports back:
+ * an optional leading `+` (force) is stripped, and a refspec with no `:` pushes
+ * a ref to its own name.
+ */
+function parseRefSpec(refSpec: string): { source: string; dest: string } {
+  const normalized = refSpec.startsWith("+") ? refSpec.slice(1) : refSpec;
+  const [source = "", dest] = normalized.split(":");
+  return { source, dest: dest || source };
+}
+
 /**
  * Push objects and refs to a remote repository.
  *
@@ -32,7 +49,8 @@ import { TransportCommand } from "../transport-command.js";
  *   .setForce(true)
  *   .call();
  *
- * // Delete remote branch
+ * // Delete remote branch (empty source ref). The resulting RemoteRefUpdate has
+ * // `delete: true` and an all-zero `newObjectId`.
  * const result = await git.push()
  *   .add(":refs/heads/old-branch")
  *   .call();
@@ -278,6 +296,15 @@ export class PushCommand extends TransportCommand<PushResult> {
     // Build refspecs
     const refspecs = await this.buildRefSpecs();
 
+    // Map each destination ref back to the local ref it came from. The transport
+    // keys its update results by the destination ref, and carries no object ids,
+    // so this is what lets us report srcRef/newObjectId per update below.
+    const sourceByDest = new Map<string, string>();
+    for (const spec of refspecs) {
+      const { source, dest } = parseRefSpec(spec);
+      sourceByDest.set(dest, source);
+    }
+
     if (refspecs.length === 0) {
       // Nothing to push
       return {
@@ -303,6 +330,10 @@ export class PushCommand extends TransportCommand<PushResult> {
         }
       : undefined;
 
+    // Object ids resolved for each source ref, captured as the transport asks
+    // for them, so we report the value that was really sent on the wire.
+    const resolvedLocalOids = new Map<string, string>();
+
     // Execute push using high-level push API
     const transportResult = await transportPush({
       url: remoteUrl,
@@ -315,23 +346,47 @@ export class PushCommand extends TransportCommand<PushResult> {
       onProgressMessage: this.progressMessageCallback,
       exportPack,
       getLocalRef: async (refName: string) => {
+        // A refspec with an empty source (":refs/heads/x") is a delete request:
+        // Git expresses it as an update to the all-zero object id.
+        if (refName === "") {
+          resolvedLocalOids.set(refName, ZERO_OBJECT_ID);
+          return ZERO_OBJECT_ID;
+        }
         const ref = await this.refsStore.resolve(refName);
+        // Memoise exactly the object id the transport used for this source ref,
+        // so the reported newObjectId is the value that was actually pushed.
+        if (ref?.objectId !== undefined) {
+          resolvedLocalOids.set(refName, ref.objectId);
+        }
         return ref?.objectId;
       },
       getObjectsToPush: (newIds: string[], oldIds: string[]) =>
         this.getObjectsToPush(newIds, oldIds),
     });
 
-    // Convert to PushResult
+    // Convert to PushResult.
+    //
+    // `transportResult.updates` is keyed by the DESTINATION ref name and carries
+    // only {ok, message}; the object ids come from the refspecs we built and the
+    // source-ref lookups the transport performed through `getLocalRef` above.
+    //
+    // Note: `expectedOldObjectId` stays unset. The remote's pre-push value is read
+    // by the transport (packages/transport/src/operations/push.ts) but never
+    // returned in HttpPushResult, so populating it needs a transport change and is
+    // out of scope here.
     const remoteUpdates: RemoteRefUpdate[] = [];
     for (const [refName, updateResult] of transportResult.updates) {
+      const srcRef = sourceByDest.get(refName);
+      const newObjectId = srcRef !== undefined ? resolvedLocalOids.get(srcRef) : undefined;
       remoteUpdates.push({
+        // Omit srcRef for a delete: there is no local ref behind it.
+        ...(srcRef ? { srcRef } : {}),
         remoteName: refName,
-        newObjectId: "", // Would need to track this
+        newObjectId: newObjectId ?? "",
         status: updateResult.ok ? PushStatus.OK : PushStatus.REJECTED_OTHER,
         message: updateResult.message,
         forceUpdate: this.force,
-        delete: false,
+        delete: newObjectId === ZERO_OBJECT_ID,
       });
     }
 
