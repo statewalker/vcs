@@ -156,6 +156,23 @@ was **not** modified.
   a shared module would have widened the package's public API. Worth extracting.
 - **Thin/delta packs** are untested on re-import; the constructed `DefaultSerializationApi` has no
   delta APIs, so deltas fall back to full objects.
-- The blocked-on-a-false-premise pair (**`clean` never deletes**, **`reset --hard` never touches the
-  worktree**) and the silent *"take theirs"* conflict resolution in `rebase`/`stash-apply` are
-  untouched — see the inventory above.
+- ~~The blocked-on-a-false-premise pair~~ **FIXED** (`cdfde4e8`). The premise really was false —
+  `Worktree` declares `writeContent`/`remove`/`mkdir`/`rename` and both commands already held it.
+  `clean` now deletes, and its returned `dryRun` reflects the caller instead of a hardcoded `true`
+  (dry-run stays the default; a mutation making deletion unconditional is killed by 5 tests).
+  `reset --hard` now restores modified files, deletes files absent from the target, and recreates
+  files the user deleted.
+  **Deliberately NOT delegated to `Worktree.checkoutTree()`** — it only *writes* entries present in
+  the tree and never removes ones absent from it (`result.removed` is hardcoded empty), so
+  delegating would have produced a silent half-restore.
+  **Residual limits, all tested:** symlinks *raise* rather than being written as regular files (the
+  base `Worktree` has no primitive to create one — the same limitation GitNature hit); gitlink
+  contents skipped, matching real git; directories left empty are not pruned; and the operation is
+  **not atomic across HEAD/staging/worktree** — an up-front plan-and-validate pass means an
+  unrestorable tree fails with the worktree completely untouched, but a failure during the write
+  phase still leaves HEAD and staging already moved. Full rollback is a larger design change.
+- **STILL OPEN — the last data-loss item:** `rebase` and `stash-apply` both resolve conflicts with
+  *"For now, take theirs"*, and `rebase`'s tree merge is *"simple… in a full implementation, a proper
+  three-way merge"*. Silently discarding one side of a conflict is the only remaining defect here
+  that destroys user work. Fixing it needs a contract decision — fail, or surface conflict markers —
+  so it is a design question, not a repair.
