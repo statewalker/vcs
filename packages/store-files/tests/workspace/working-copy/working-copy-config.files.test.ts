@@ -493,6 +493,48 @@ describe("GitWorkingCopyConfig", () => {
       expect(files.text(PATH)).not.toContain('[remote "origin"]');
     });
 
+    // A section reference is half case-sensitive, exactly like a key: the
+    // section name is case-insensitive, the subsection is not. Getting this
+    // wrong makes unsetSection("remote.Origin") delete the wrong remote.
+    const TWO_CASES =
+      '[remote "Origin"]\n\turl = https://example.com/upper.git\n' +
+      '[remote "origin"]\n\turl = https://example.com/lower.git\n';
+
+    it("unsetSection keeps the case of the subsection", async () => {
+      files.set(PATH, TWO_CASES);
+      const config = new GitWorkingCopyConfig(files, PATH);
+      await config.load();
+      config.unsetSection("remote.Origin");
+
+      const reloaded = await reload(config);
+      expect(reloaded.get("remote.Origin.url")).toBeUndefined();
+      expect(reloaded.get("remote.origin.url")).toBe("https://example.com/lower.git");
+      expect(files.text(PATH)).not.toContain('[remote "Origin"]');
+      expect(files.text(PATH)).toContain('[remote "origin"]');
+    });
+
+    it("unsetSection removes only the lower-case section when asked for it", async () => {
+      files.set(PATH, TWO_CASES);
+      const config = new GitWorkingCopyConfig(files, PATH);
+      await config.load();
+      config.unsetSection("remote.origin");
+
+      const reloaded = await reload(config);
+      expect(reloaded.get("remote.origin.url")).toBeUndefined();
+      expect(reloaded.get("remote.Origin.url")).toBe("https://example.com/upper.git");
+    });
+
+    it("unsetSection matches the section name case-insensitively", async () => {
+      files.set(PATH, TWO_CASES);
+      const config = new GitWorkingCopyConfig(files, PATH);
+      await config.load();
+      config.unsetSection("REMOTE.Origin");
+
+      const reloaded = await reload(config);
+      expect(reloaded.get("remote.Origin.url")).toBeUndefined();
+      expect(reloaded.get("remote.origin.url")).toBe("https://example.com/lower.git");
+    });
+
     it("lists subsections of a section", async () => {
       files.set(
         PATH,
@@ -502,6 +544,15 @@ describe("GitWorkingCopyConfig", () => {
       await config.load();
 
       expect(config.subsections("remote").sort()).toEqual(["origin", "upstream"]);
+    });
+
+    it("lists subsections verbatim for a section named in any case", async () => {
+      files.set(PATH, TWO_CASES);
+      const config = new GitWorkingCopyConfig(files, PATH);
+      await config.load();
+
+      expect(config.subsections("REMOTE").sort()).toEqual(["Origin", "origin"]);
+      expect(config.subsections("Remote").sort()).toEqual(["Origin", "origin"]);
     });
   });
 
