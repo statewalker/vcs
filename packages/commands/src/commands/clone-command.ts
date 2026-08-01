@@ -379,8 +379,13 @@ export class CloneCommand extends TransportCommand<CloneResult> {
       });
     }
 
-    // Set up HEAD and default branch
-    const defaultBranch = toBranchName(transportResult.defaultBranch);
+    // Set up HEAD and default branch.
+    //
+    // Two forms, deliberately kept apart: the advertised form goes out on
+    // FetchResult unchanged (it is what the remote said), while the ref work
+    // below and CloneResult use the bare branch name.
+    const advertisedDefaultBranch = transportResult.defaultBranch;
+    const defaultBranch = toBranchName(advertisedDefaultBranch);
     let headCommit: ObjectId | undefined;
 
     if (defaultBranch && !this.bare) {
@@ -422,7 +427,7 @@ export class CloneCommand extends TransportCommand<CloneResult> {
       uri: this.uri,
       advertisedRefs,
       trackingRefUpdates: trackingUpdates,
-      defaultBranch,
+      defaultBranch: advertisedDefaultBranch,
       bytesReceived: transportResult.bytesReceived,
       isEmpty: transportResult.isEmpty,
       messages: [],

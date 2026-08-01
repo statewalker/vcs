@@ -6,8 +6,8 @@
  */
 
 import type { Ref } from "@statewalker/vcs-core";
-import type { WorkingCopy } from "@statewalker/vcs-working-tree";
 import { isSymbolicRef } from "@statewalker/vcs-core";
+import type { WorkingCopy } from "@statewalker/vcs-working-tree";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Git, TagOption } from "../src/index.js";
@@ -71,8 +71,7 @@ function withPatchedAdvertisement(
       status: response.status,
       headers: {
         "content-type":
-          response.headers.get("content-type") ??
-          "application/x-git-upload-pack-advertisement",
+          response.headers.get("content-type") ?? "application/x-git-upload-pack-advertisement",
       },
     });
   }) as typeof globalThis.fetch;
@@ -503,6 +502,55 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
         expect(resolved?.objectId).toBe(commitId);
         const staged = await workingCopy.checkout.staging.getEntry("hello.txt");
         expect(staged).toBeDefined();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  describe("defaultBranch", () => {
+    /**
+     * The two results report the default branch in two different forms, and
+     * each form is part of its own documented contract. They are pinned
+     * separately so neither can drift into the other's shape unnoticed —
+     * which is exactly how `FetchResult.defaultBranch` silently changed from
+     * the advertised ref to the bare name.
+     */
+    it("should report the advertised ref on the fetch result", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const result = await git.clone().setURI(remoteUrl).call();
+
+        // The target of the advertisement's `symref=HEAD:` capability, whole.
+        expect(result.fetchResult.defaultBranch).toBe("refs/heads/main");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("should report the bare branch name on the clone result", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const result = await git.clone().setURI(remoteUrl).call();
+
+        // Usable as-is by a branch or checkout command.
+        expect(result.defaultBranch).toBe("main");
       } finally {
         globalThis.fetch = originalFetch;
       }
