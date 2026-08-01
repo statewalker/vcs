@@ -136,11 +136,15 @@ was **not** modified.
 
 ## Still open — recorded, not silently dropped
 
-- **`CloneCommand` never sets HEAD on a non-bare clone.** `defaultBranch` arrives as the full symref
-  target `refs/heads/main`, but every use site re-prefixes it →
-  `refs/remotes/origin/refs/heads/main`, which never resolves; `checkoutHead()` never runs and
-  staging stays empty. A narrow normalisation bug, distinct from the separate ref-layout question
-  (should a non-bare clone create `refs/remotes/origin/*` at all?).
+- ~~`CloneCommand` never sets HEAD on a non-bare clone.~~ **FIXED** (`653adbe0`). `defaultBranch`
+  arrives as the full symref target `refs/heads/main` and every use site re-prefixed it, so
+  `refs/remotes/origin/refs/heads/main` never resolved, `checkoutHead()` never ran and staging
+  stayed empty. Now normalised to a bare branch name, and the tip is looked up under either the
+  remote-tracking or the local ref name — whichever the advertisement wrote. **Which refs are
+  written is unchanged**, so the ref-layout question below is still open and untouched.
+- **OPEN — ref layout:** should a non-bare clone create `refs/remotes/<remote>/*` tracking refs at
+  all? Today it writes the advertised refs verbatim (`refs/heads/main`) and creates none. A design
+  decision, not a bug.
 - **`REJECTED_NONFASTFORWARD` is still unreachable.** The server produces it, but it returns as
   `ng <ref> <msg>` → `{ok:false}` → mapped to `REJECTED_OTHER`. Reaching it means parsing the
   message text.
