@@ -11,13 +11,13 @@ import {
 } from "@statewalker/vcs-transport";
 
 import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
+import { RemoteConfigStore } from "../remote-config/index.js";
 import {
   type FetchResult,
   RefUpdateStatus,
   type TrackingRefUpdate,
 } from "../results/fetch-result.js";
 import { TransportCommand } from "../transport-command.js";
-import { RemoteConfigStore } from "../remote-config/index.js";
 
 /**
  * Tag fetching option.
