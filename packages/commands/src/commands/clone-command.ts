@@ -380,25 +380,29 @@ export class CloneCommand extends TransportCommand<CloneResult> {
     }
 
     // Set up HEAD and default branch
-    const defaultBranch = transportResult.defaultBranch;
+    const defaultBranch = toBranchName(transportResult.defaultBranch);
     let headCommit: ObjectId | undefined;
 
     if (defaultBranch && !this.bare) {
-      // Create local branch from remote tracking
-      const trackingRef = `refs/remotes/${this.remoteName}/${defaultBranch}`;
+      // Create local branch from the tip the clone just wrote. Look under the
+      // remote-tracking name first, then under the local branch name: the ref
+      // loop above stores each ref under its advertised name, so which of the
+      // two exists depends on the refspec the remote advertised through.
       const localRef = `refs/heads/${defaultBranch}`;
+      const tip =
+        (await this.refsStore.resolve(`refs/remotes/${this.remoteName}/${defaultBranch}`)) ??
+        (await this.refsStore.resolve(localRef));
 
-      const trackingRefValue = await this.refsStore.resolve(trackingRef);
-      if (trackingRefValue?.objectId) {
-        await this.refsStore.set(localRef, trackingRefValue.objectId);
-        headCommit = trackingRefValue.objectId;
+      if (tip?.objectId) {
+        await this.refsStore.set(localRef, tip.objectId);
+        headCommit = tip.objectId;
 
         // Set HEAD to point to local branch
         await this.refsStore.setSymbolic("HEAD", localRef);
 
         // Set up staging area from HEAD tree
         if (!this.noCheckout) {
-          await this.checkoutHead(trackingRefValue.objectId);
+          await this.checkoutHead(tip.objectId);
         }
       }
     } else if (this.bare || this.mirror) {
@@ -508,6 +512,20 @@ export class CloneCommand extends TransportCommand<CloneResult> {
       // Commit not available yet (pack not unpacked)
     }
   }
+}
+
+/**
+ * The bare branch name of a remote's default branch.
+ *
+ * The advertisement reports it as the target of HEAD's symref capability, so
+ * it arrives fully qualified (`refs/heads/main`); a transport that reports the
+ * bare name (`main`) is equally legitimate. Both are accepted, and both yield
+ * the bare name the ref-building code below prefixes.
+ */
+function toBranchName(defaultBranch: string | undefined): string | undefined {
+  if (defaultBranch === undefined) return undefined;
+  const prefix = "refs/heads/";
+  return defaultBranch.startsWith(prefix) ? defaultBranch.slice(prefix.length) : defaultBranch;
 }
 
 /**

@@ -7,6 +7,7 @@
 
 import type { Ref } from "@statewalker/vcs-core";
 import type { WorkingCopy } from "@statewalker/vcs-working-tree";
+import { isSymbolicRef } from "@statewalker/vcs-core";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Git, TagOption } from "../src/index.js";
@@ -17,6 +18,65 @@ import {
   createTestServer,
   createTestUrl,
 } from "./transport-test-helper.js";
+
+/** pkt-line flush packet. */
+const PKT_FLUSH = "0000";
+
+/**
+ * Wrap a fetch so each pkt-line payload of the `/info/refs` advertisement is
+ * rewritten by `patch`.
+ *
+ * A pkt-line's 4-hex-digit length prefix counts itself, so an edited payload
+ * has to be re-framed; patching the raw bytes in place would desynchronise
+ * the parser. Throws if `patch` changed nothing, so a stale pattern cannot
+ * quietly turn the test into a no-op.
+ */
+function withPatchedAdvertisement(
+  inner: typeof globalThis.fetch,
+  patch: (payload: string) => string,
+): typeof globalThis.fetch {
+  return (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const response = await inner(input, init);
+    const url = input instanceof Request ? input.url : String(input);
+    if (!url.includes("/info/refs")) return response;
+
+    const data = new Uint8Array(await response.arrayBuffer());
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    const out: string[] = [];
+    let offset = 0;
+    let patched = false;
+
+    while (offset + 4 <= data.length) {
+      const lengthHex = decoder.decode(data.slice(offset, offset + 4));
+      if (lengthHex === PKT_FLUSH) {
+        out.push(PKT_FLUSH);
+        offset += 4;
+        continue;
+      }
+      const length = Number.parseInt(lengthHex, 16);
+      if (Number.isNaN(length) || length < 4 || offset + length > data.length) break;
+      const payload = decoder.decode(data.slice(offset + 4, offset + length));
+      offset += length;
+
+      const next = patch(payload);
+      if (next !== payload) patched = true;
+      const size = encoder.encode(next).length + 4;
+      out.push(size.toString(16).padStart(4, "0") + next);
+    }
+
+    if (!patched) throw new Error("advertisement patch matched nothing");
+
+    return new Response(encoder.encode(out.join("")), {
+      status: response.status,
+      headers: {
+        "content-type":
+          response.headers.get("content-type") ??
+          "application/x-git-upload-pack-advertisement",
+      },
+    });
+  }) as typeof globalThis.fetch;
+}
 
 describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
   let cleanup: (() => Promise<void>) | undefined;
@@ -350,6 +410,99 @@ describe.each(backends)("CloneCommand ($name backend)", ({ factory }) => {
 
         expect(result.bare).toBe(true);
         expect(result.fetchResult).toBeDefined();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  describe("HEAD", () => {
+    /**
+     * A non-bare clone must end up on the remote's default branch: HEAD a
+     * symbolic ref to `refs/heads/<branch>`, the tip reported as headCommit,
+     * and the staging area read from that commit's tree.
+     *
+     * The advertisement names the default branch by its symref target
+     * (`refs/heads/main`), not by the bare branch name, so a command that
+     * prefixes it again looks for `refs/heads/refs/heads/main` and silently
+     * does none of the three.
+     */
+    it("should set HEAD to the default branch and populate staging", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      // Commit a real file: the initial commit's tree is the well-known EMPTY
+      // tree, which a content-addressed store can answer for without ever
+      // having received it, so staging would look "populated" either way.
+      const commitId = await addFileAndCommit(
+        server.serverStores,
+        "hello.txt",
+        "hello from the remote",
+        "Add hello.txt",
+      );
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const result = await git.clone().setURI(remoteUrl).call();
+
+        // HEAD is a symbolic ref to the local branch, not a detached OID and
+        // not a doubly-prefixed ref name.
+        const head = await workingCopy.history.refs.get("HEAD");
+        expect(head).toBeDefined();
+        if (!head) return;
+        expect(isSymbolicRef(head)).toBe(true);
+        if (!isSymbolicRef(head)) return;
+        expect(head.target).toBe("refs/heads/main");
+
+        // ...and it resolves to the cloned tip.
+        const resolved = await workingCopy.history.refs.resolve("HEAD");
+        expect(resolved?.objectId).toBe(commitId);
+        expect(result.headCommit).toBe(commitId);
+
+        // ...and checkoutHead() ran, so staging carries that commit's tree.
+        const staged = await workingCopy.checkout.staging.getEntry("hello.txt");
+        expect(staged).toBeDefined();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    /**
+     * A transport that reports the bare branch name must work too:
+     * normalisation strips a `refs/heads/` prefix, it does not require one.
+     */
+    it("should accept a bare default branch name from the transport", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const commitId = await addFileAndCommit(
+        server.serverStores,
+        "hello.txt",
+        "hello from the remote",
+        "Add hello.txt",
+      );
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = withPatchedAdvertisement(server.mockFetch, (payload) =>
+        payload.replace("symref=HEAD:refs/heads/main", "symref=HEAD:main"),
+      );
+
+      try {
+        const result = await git.clone().setURI(remoteUrl).call();
+
+        expect(result.headCommit).toBe(commitId);
+        const resolved = await workingCopy.history.refs.resolve("HEAD");
+        expect(resolved?.objectId).toBe(commitId);
+        const staged = await workingCopy.checkout.staging.getEntry("hello.txt");
+        expect(staged).toBeDefined();
       } finally {
         globalThis.fetch = originalFetch;
       }
