@@ -171,8 +171,20 @@ was **not** modified.
   **not atomic across HEAD/staging/worktree** — an up-front plan-and-validate pass means an
   unrestorable tree fails with the worktree completely untouched, but a failure during the write
   phase still leaves HEAD and staging already moved. Full rollback is a larger design change.
-- **STILL OPEN — the last data-loss item:** `rebase` and `stash-apply` both resolve conflicts with
-  *"For now, take theirs"*, and `rebase`'s tree merge is *"simple… in a full implementation, a proper
-  three-way merge"*. Silently discarding one side of a conflict is the only remaining defect here
-  that destroys user work. Fixing it needs a contract decision — fail, or surface conflict markers —
-  so it is a design question, not a repair.
+- **CORRECTION (2026-08-01): the *"take theirs"* conflict handling is NOT data loss.** This entry
+  previously called it "the last data-loss item"; that was wrong, and was repeated from the initial
+  inventory without tracing the call path.
+  Both commands **stop on conflict and report it**: `rebase-command.ts:483` returns
+  `{status: STOPPED, currentCommit, conflicts}` and `stash-apply-command.ts:196` returns
+  `{status: CONFLICTS, stashCommit, conflicts}`. The `mergedEntries.set(path, theirsEntry)` under the
+  `// For now, take theirs` comment populates a map that is then **discarded** — the helper returns
+  `{tree: theirs, conflicts}`, not a tree built from those entries, and the caller checks `conflicts`
+  first. It is misleading dead code, not a silent overwrite. Both behave like git: halt and hand back
+  the conflicting paths.
+- **STILL OPEN (minor, over-reports rather than loses):** `rebase`'s tree merge is a two-way path
+  comparison, not a three-way merge (`rebase-command.ts:475-476`). It reports a conflict wherever
+  both sides changed a path — including when they changed it *identically*, which real git resolves
+  cleanly. The dead `take theirs` lines should also go, since they describe behaviour that does not
+  happen.
+
+**No remaining item in this inventory destroys user work.**
