@@ -19,6 +19,20 @@ export interface ReadOptions {
 }
 
 /**
+ * Options for listing directory entries.
+ *
+ * Declared here rather than re-exported from `@statewalker/webrun-files` on
+ * purpose: `FilesApi` is the abstraction that keeps vcs independent of any
+ * particular backend, and re-exporting webrun's type would reintroduce exactly
+ * the coupling it exists to avoid. The two are kept key-for-key identical by a
+ * conformance assertion in `tests/files/list-options.test.ts`.
+ */
+export interface ListOptions {
+  /** If true, lists all descendants recursively. Defaults to false. */
+  recursive?: boolean;
+}
+
+/**
  * Metadata about a file or directory.
  */
 export interface FileStats {
@@ -59,8 +73,12 @@ export interface FilesApi {
   /** Get file/directory stats */
   stats(path: string): Promise<FileStats | undefined>;
 
-  /** List directory entries */
-  list(path: string): AsyncIterable<FileInfo>;
+  /**
+   * List directory entries.
+   * @param path - Directory path
+   * @param options - List options (recursive)
+   */
+  list(path: string, options?: ListOptions): AsyncIterable<FileInfo>;
 
   /** Check if path exists */
   exists(path: string): Promise<boolean>;

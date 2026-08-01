@@ -86,14 +86,6 @@ export default defineConfig({
       },
       { find: "@statewalker/vcs-core", replacement: path.resolve(rootDir, "packages/core/src") },
       {
-        find: "@statewalker/vcs-sandbox",
-        replacement: path.resolve(rootDir, "packages/sandbox/src"),
-      },
-      {
-        find: "@statewalker/vcs-storage-tests",
-        replacement: path.resolve(rootDir, "packages/storage-tests/src"),
-      },
-      {
         find: "@statewalker/vcs-store-kv",
         replacement: path.resolve(rootDir, "packages/store-kv/src"),
       },

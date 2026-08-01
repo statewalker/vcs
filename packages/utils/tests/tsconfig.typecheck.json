@@ -1,0 +1,29 @@
+{
+  // Typecheck config for type-level assertions living under `tests/`.
+  //
+  // The package tsconfig is `include: ["src"]`, so `tests/**` is never
+  // typechecked — neither by `pnpm umbrella build` (tsc --emitDeclarationOnly)
+  // nor by vitest on its own, which strips types without checking them. Type-level
+  // propositions asserted in a test file are therefore invisible through the
+  // default invocations, and this config is what makes them observable.
+  //
+  // **Two gates name it, and both must keep naming it.** Until they did, the one
+  // assertion depending on this file was vacuous — a proven false gate:
+  //
+  //   package.json "test":      vitest run --typecheck --typecheck.tsconfig=…
+  //                             (a drift becomes a FAILING TEST)
+  //   package.json "typecheck": tsc --noEmit && tsc --noEmit -p <this file>
+  //
+  // Scope is `src` + `tests/files` on purpose: the rest of `tests/**` carries
+  // 77 pre-existing type errors (delta/ports/streams suites), which would drown
+  // the signal this config exists to produce. Widen the include when those are
+  // cleaned up.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["../src", "./files"]
+}
