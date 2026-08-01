@@ -175,6 +175,22 @@ describe.each(backends)("Remote config persistence ($name backend)", ({ factory 
       const config = await openConfig(files);
       expect(config.getAll("remote.origin.url")).toEqual(["https://example.com/a.git"]);
     });
+
+    it("rejects a duplicate known only from tracking refs, with no config", async () => {
+      const files = new MemoryConfigFiles();
+      const { git, workingCopy } = await open(files);
+
+      // `mirror` was never added: it exists only because something fetched
+      // into its tracking refs. `remoteList` reports it, so `remoteAdd` must
+      // agree that it is already there. (Native git checks config only and
+      // would allow this; we keep the two halves of discovery consistent.)
+      await workingCopy.history.refs.set("refs/remotes/mirror/main", "a".repeat(40));
+      expect((await openConfig(files)).subsections("remote")).toEqual([]);
+
+      await expect(
+        git.remoteAdd().setName("mirror").setUri("https://example.com/mirror.git").call(),
+      ).rejects.toThrow("Remote 'mirror' already exists");
+    });
   });
 
   describe("RemoteListCommand", () => {
