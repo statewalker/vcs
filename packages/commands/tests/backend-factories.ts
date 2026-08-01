@@ -8,8 +8,6 @@
  */
 
 import type { History } from "@statewalker/vcs-core";
-import type { WorkingCopy } from "@statewalker/vcs-working-tree";
-import { MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-working-tree";
 import {
   createMemoryObjectStores,
   MemoryRefStore,
@@ -24,6 +22,8 @@ import {
 import { SqlJsAdapter } from "@statewalker/vcs-store-sql/adapters/sql-js";
 import { setCompressionUtils } from "@statewalker/vcs-utils";
 import { createNodeCompression } from "@statewalker/vcs-utils-node/compression";
+import type { WorkingCopy, WorkingCopyConfig } from "@statewalker/vcs-working-tree";
+import { MemoryCheckout, MemoryWorkingCopy } from "@statewalker/vcs-working-tree";
 
 import { createMockWorktree } from "./mock-worktree-store.js";
 import { createSimpleHistory } from "./simple-history-store.js";
@@ -46,16 +46,32 @@ export interface WorkingCopyTestContext {
 }
 
 /**
+ * Options a backend factory accepts.
+ */
+export interface WorkingCopyFactoryOptions {
+  /**
+   * Working copy configuration to attach.
+   *
+   * Defaults to a bare `{}`, as `MemoryWorkingCopy` does. Pass a real
+   * `GitWorkingCopyConfig` to exercise commands against a persistent,
+   * git-format config file.
+   */
+  config?: WorkingCopyConfig;
+}
+
+/**
  * Factory function to create WorkingCopy instances for testing
  */
-export type WorkingCopyFactory = () => Promise<WorkingCopyTestContext>;
+export type WorkingCopyFactory = (
+  options?: WorkingCopyFactoryOptions,
+) => Promise<WorkingCopyTestContext>;
 
 /**
  * Memory backend factory (default, fastest)
  *
  * Creates a WorkingCopy with in-memory storage.
  */
-export const memoryFactory: WorkingCopyFactory = async () => {
+export const memoryFactory: WorkingCopyFactory = async (options = {}) => {
   const stores = createMemoryObjectStores();
   const refs = new MemoryRefStore();
   const staging = new MemoryStagingStore();
@@ -80,6 +96,7 @@ export const memoryFactory: WorkingCopyFactory = async () => {
     history: repository,
     checkout,
     worktree,
+    config: options.config,
   });
 
   return { workingCopy, repository };
@@ -90,7 +107,7 @@ export const memoryFactory: WorkingCopyFactory = async () => {
  *
  * Creates a WorkingCopy with SQL-backed storage.
  */
-export const sqlFactory: WorkingCopyFactory = async () => {
+export const sqlFactory: WorkingCopyFactory = async (options = {}) => {
   const db = await SqlJsAdapter.create();
   await initializeSchema(db);
   const stores = createSqlObjectStores({ db });
@@ -117,6 +134,7 @@ export const sqlFactory: WorkingCopyFactory = async () => {
     history: repository,
     checkout,
     worktree,
+    config: options.config,
   });
 
   return {

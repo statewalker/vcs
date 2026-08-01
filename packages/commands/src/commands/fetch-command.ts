@@ -17,6 +17,7 @@ import {
   type TrackingRefUpdate,
 } from "../results/fetch-result.js";
 import { TransportCommand } from "../transport-command.js";
+import { RemoteConfigStore } from "./remote-command.js";
 
 /**
  * Tag fetching option.
@@ -346,7 +347,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     }
 
     // Parse refspecs for source→destination mapping
-    const parsedSpecs = this.refSpecs.map((s) => parseRefSpec(s));
+    const parsedSpecs = this.effectiveRefSpecs().map((s) => parseRefSpec(s));
 
     // Save old ref values before fetch for status computation
     const oldRefValues = new Map<string, string | undefined>();
@@ -454,7 +455,25 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   }
 
   /**
+   * The refspecs this fetch runs with.
+   *
+   * Explicit refspecs win; otherwise a configured remote contributes its
+   * `remote.<name>.fetch` lines, which is what makes `fetch().setRemote("origin")`
+   * update tracking refs without being told how. A remote given as a bare URL
+   * has no config and so still needs its refspecs spelled out.
+   */
+  private effectiveRefSpecs(): string[] {
+    if (this.refSpecs.length > 0) return this.refSpecs;
+    const store = RemoteConfigStore.from(this.workingCopy);
+    return store.isConfigured(this.remote) ? store.read(this.remote).fetchRefspecs : [];
+  }
+
+  /**
    * Resolve remote name to URL.
+   *
+   * A named remote resolves through `remote.<name>.url` in the working copy
+   * configuration. An unconfigured name is passed through unchanged, so a URL
+   * given straight to {@link setRemote} still works.
    */
   private async resolveRemoteUrl(remote: string): Promise<string | undefined> {
     // If it looks like a URL, use it directly
@@ -462,19 +481,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       return remote;
     }
 
-    // Try to get remote URL from config
-    // For now, we check if refs store has remote config
-    // In a full implementation, this would read from git config
-    const remoteRef = await this.refsStore.get(`refs/remotes/${remote}/HEAD`);
-    if (remoteRef) {
-      // Remote exists, but we need the URL
-      // This is a simplified implementation
-    }
-
-    // Check if we have a stored remote URL
-    // This would typically come from repository config
-    // For now, treat as URL if not a known remote
-    return remote;
+    return RemoteConfigStore.from(this.workingCopy).urlFor(remote) ?? remote;
   }
 
   /**

@@ -4,6 +4,7 @@ import { type PushObject, push as transportPush } from "@statewalker/vcs-transpo
 import { InvalidRemoteError, NonFastForwardError, PushRejectedException } from "../errors/index.js";
 import { type PushResult, PushStatus, type RemoteRefUpdate } from "../results/push-result.js";
 import { TransportCommand } from "../transport-command.js";
+import { RemoteConfigStore } from "./remote-command.js";
 
 /** All-zero object id — Git's "no object", used to express a ref delete. */
 const ZERO_OBJECT_ID = "0".repeat(40);
@@ -423,6 +424,10 @@ export class PushCommand extends TransportCommand<PushResult> {
 
   /**
    * Resolve remote name to URL.
+   *
+   * A named remote resolves through the working copy configuration, preferring
+   * `remote.<name>.pushurl` over `remote.<name>.url` as git does; an
+   * unconfigured name is passed through unchanged.
    */
   private async resolveRemoteUrl(remote: string): Promise<string | undefined> {
     // If it looks like a URL, use it directly
@@ -430,9 +435,7 @@ export class PushCommand extends TransportCommand<PushResult> {
       return remote;
     }
 
-    // Try to get remote URL from config
-    // For now, treat as URL if not a known remote
-    return remote;
+    return RemoteConfigStore.from(this.workingCopy).urlFor(remote, { push: true }) ?? remote;
   }
 
   /**

@@ -1,4 +1,7 @@
+import type { WorkingCopy, WorkingCopyConfig } from "@statewalker/vcs-working-tree";
+
 import {
+  InvalidArgumentError,
   MissingArgumentError,
   RemoteAlreadyExistsError,
   RemoteNotFoundError,
@@ -23,6 +26,261 @@ export interface RemoteConfig {
   pushRefspecs: string[];
 }
 
+/** The default fetch refspec `git remote add` writes for a remote. */
+export function defaultFetchRefspec(name: string): string {
+  return `+refs/heads/*:refs/remotes/${name}/*`;
+}
+
+/* ------------------------------------------------------- config plumbing */
+
+/**
+ * The git-config surface {@link RemoteConfigStore} needs.
+ *
+ * `WorkingCopy.config` is typed as a bare index-signature bag, so a working
+ * copy may hand us either a real git config object (`GitWorkingCopyConfig` in
+ * `@statewalker/vcs-store-files`, which reads and writes `.git/config`) or a
+ * plain object. This is the shape of the former; {@link PlainObjectConfig}
+ * gives the latter the same shape, so the commands above never branch.
+ */
+interface GitConfigLike {
+  get(key: string): unknown;
+  getAll(key: string): unknown[];
+  set(key: string, value: unknown): void;
+  add(key: string, value: unknown): void;
+  unset(key: string): void;
+  unsetSection(section: string): void;
+  subsections(section: string): string[];
+  /** Optional: a config with no backing file has nothing to save. */
+  save?(): Promise<void>;
+}
+
+const GIT_CONFIG_METHODS = [
+  "get",
+  "getAll",
+  "set",
+  "add",
+  "unset",
+  "unsetSection",
+  "subsections",
+] as const;
+
+function isGitConfigLike(
+  config: WorkingCopyConfig | undefined,
+): config is WorkingCopyConfig & GitConfigLike {
+  if (!config) return false;
+  return GIT_CONFIG_METHODS.every((method) => typeof config[method] === "function");
+}
+
+/**
+ * Split `remote.<subsection>.<name>` into its subsection.
+ *
+ * Follows git's key grammar (and `GitWorkingCopyConfig`'s): the first part is
+ * the section, the last is the variable name and everything in between is the
+ * subsection, which keeps its case and may itself contain dots.
+ *
+ * @returns undefined when the key is not a `remote` subsection key
+ */
+function remoteSubsectionOf(key: string): string | undefined {
+  const parts = key.split(".");
+  if (parts.length < 3 || parts[0].toLowerCase() !== "remote") return undefined;
+  return parts.slice(1, -1).join(".");
+}
+
+/**
+ * {@link GitConfigLike} over a plain `{[key: string]: unknown}` bag.
+ *
+ * Keys are stored in canonical dotted form (`remote.origin.url`) — the same
+ * form `GitWorkingCopyConfig` mirrors as own properties — so the two
+ * representations read alike. A repeated key holds an array.
+ *
+ * There is no `save()`: this config lives and dies with the working copy
+ * instance, which is exactly what a working copy without a config file has.
+ */
+class PlainObjectConfig implements GitConfigLike {
+  constructor(private readonly bag: Record<string, unknown>) {}
+
+  get(key: string): unknown {
+    const values = this.getAll(key);
+    return values.length > 0 ? values[values.length - 1] : undefined;
+  }
+
+  getAll(key: string): unknown[] {
+    const value = this.bag[key];
+    if (value === undefined) return [];
+    return Array.isArray(value) ? [...value] : [value];
+  }
+
+  set(key: string, value: unknown): void {
+    this.bag[key] = value;
+  }
+
+  add(key: string, value: unknown): void {
+    const existing = this.getAll(key);
+    this.bag[key] = existing.length > 0 ? [...existing, value] : value;
+  }
+
+  unset(key: string): void {
+    delete this.bag[key];
+  }
+
+  unsetSection(section: string): void {
+    const parts = section.split(".");
+    if (parts.length < 2 || parts[0].toLowerCase() !== "remote") return;
+    const subsection = parts.slice(1).join(".");
+    for (const key of Object.keys(this.bag)) {
+      if (remoteSubsectionOf(key) === subsection) delete this.bag[key];
+    }
+  }
+
+  subsections(section: string): string[] {
+    if (section.toLowerCase() !== "remote") return [];
+    const found = new Set<string>();
+    for (const key of Object.keys(this.bag)) {
+      if (this.getAll(key).length === 0) continue;
+      const subsection = remoteSubsectionOf(key);
+      if (subsection !== undefined) found.add(subsection);
+    }
+    return [...found];
+  }
+}
+
+/**
+ * The `[remote "<name>"]` sections of a working copy's configuration.
+ *
+ * Reading a remote is a **union** of two sources, and stays that way: the
+ * config sections, plus every name that appears under `refs/remotes/`. A
+ * remote that was fetched into tracking refs without ever being configured is
+ * a real remote to `git remote`, and so it is here — it simply has no URL.
+ */
+export class RemoteConfigStore {
+  private constructor(private readonly config: GitConfigLike) {}
+
+  /**
+   * Wrap a working copy's configuration.
+   *
+   * A config that implements the git-config methods is used directly, so
+   * changes reach its backing file; anything else is driven as a plain bag.
+   */
+  static from(workingCopy: WorkingCopy): RemoteConfigStore {
+    const config = workingCopy.config;
+    if (isGitConfigLike(config)) return new RemoteConfigStore(config);
+    return new RemoteConfigStore(new PlainObjectConfig((config ?? {}) as Record<string, unknown>));
+  }
+
+  /** Remote names that have a config section. */
+  configuredNames(): string[] {
+    return this.config.subsections("remote");
+  }
+
+  /** Whether the remote has a config section. */
+  isConfigured(name: string): boolean {
+    return this.configuredNames().includes(name);
+  }
+
+  /**
+   * Read a remote, filling in the default fetch refspec when none is
+   * configured, exactly as `git remote` reports one.
+   */
+  read(name: string): RemoteConfig {
+    const fetchRefspecs = this.strings(name, "fetch");
+    return {
+      name,
+      urls: this.strings(name, "url"),
+      pushUrls: this.strings(name, "pushurl"),
+      fetchRefspecs: fetchRefspecs.length > 0 ? fetchRefspecs : [defaultFetchRefspec(name)],
+      pushRefspecs: this.strings(name, "push"),
+    };
+  }
+
+  /** Write every field of a remote, replacing whatever was there. */
+  write(remote: RemoteConfig): void {
+    this.setAll(remote.name, "url", remote.urls);
+    this.setAll(remote.name, "fetch", remote.fetchRefspecs);
+    this.setAll(remote.name, "pushurl", remote.pushUrls);
+    this.setAll(remote.name, "push", remote.pushRefspecs);
+  }
+
+  /** Drop the whole `[remote "<name>"]` section. */
+  remove(name: string): void {
+    this.config.unsetSection(`remote.${name}`);
+  }
+
+  /**
+   * Point a remote at a URL.
+   *
+   * @param push Write `pushurl` instead of `url`
+   * @param oldUrl Replace only this URL, as `git remote set-url <name> <new> <old>` does
+   * @throws InvalidArgumentError if `oldUrl` is not among the configured URLs
+   */
+  setUrl(name: string, url: string, options: { push?: boolean; oldUrl?: string } = {}): void {
+    const variable = options.push ? "pushurl" : "url";
+    if (options.oldUrl === undefined) {
+      this.setAll(name, variable, [url]);
+      return;
+    }
+    const existing = this.strings(name, variable);
+    if (!existing.includes(options.oldUrl)) {
+      throw new InvalidArgumentError("oldUri", `No such URL found: ${options.oldUrl}`);
+    }
+    this.setAll(
+      name,
+      variable,
+      existing.map((value) => (value === options.oldUrl ? url : value)),
+    );
+  }
+
+  /**
+   * The URL to talk to a remote over, or undefined when it has none.
+   *
+   * @param push Prefer `pushurl`, falling back to `url`, as git does
+   */
+  urlFor(name: string, options: { push?: boolean } = {}): string | undefined {
+    if (options.push) {
+      const pushUrl = this.strings(name, "pushurl")[0];
+      if (pushUrl !== undefined) return pushUrl;
+    }
+    return this.strings(name, "url")[0];
+  }
+
+  /** Flush to the backing file, if the config has one. */
+  async save(): Promise<void> {
+    await this.config.save?.();
+  }
+
+  private strings(name: string, variable: string): string[] {
+    return this.config
+      .getAll(`remote.${name}.${variable}`)
+      .filter((value) => value !== undefined && value !== null)
+      .map((value) => String(value));
+  }
+
+  private setAll(name: string, variable: string, values: string[]): void {
+    const key = `remote.${name}.${variable}`;
+    if (values.length === 0) {
+      this.config.unset(key);
+      return;
+    }
+    this.config.set(key, values[0]);
+    for (const value of values.slice(1)) this.config.add(key, value);
+  }
+}
+
+/**
+ * Every remote name known to the repository: config sections ∪ the names
+ * appearing under `refs/remotes/`.
+ */
+async function listRemoteNames(
+  store: RemoteConfigStore,
+  refs: { list(prefix: string): AsyncIterable<{ name: string }> },
+): Promise<string[]> {
+  const names = new Set<string>(store.configuredNames());
+  for await (const ref of refs.list("refs/remotes/")) {
+    const parts = ref.name.split("/");
+    if (parts.length >= 3) names.add(parts[2]);
+  }
+  return [...names];
+}
+
 /**
  * Add a remote to the repository.
  *
@@ -30,8 +288,10 @@ export interface RemoteConfig {
  *
  * Based on JGit's RemoteAddCommand.
  *
- * Note: This is a simplified implementation. Full remote configuration
- * would be stored in git config, but for now we store it in refs.
+ * The remote is written to the working copy configuration as a
+ * `[remote "<name>"]` section, so it survives the command that created it.
+ * A remote already known from `refs/remotes/<name>/*` counts as existing even
+ * without a config section.
  *
  * @example
  * ```typescript
@@ -112,61 +372,33 @@ export class RemoteAddCommand extends GitCommand<RemoteConfig> {
       throw new MissingArgumentError("uri", "Remote URI must be specified");
     }
 
-    // Check if remote already exists
-    const existingRemote = await this.getRemoteConfig(this.name);
-    if (existingRemote) {
+    const store = RemoteConfigStore.from(this.workingCopy);
+
+    // A remote exists if it is configured OR if it already has tracking refs.
+    if (store.isConfigured(this.name) || (await this.hasTrackingRefs(this.name))) {
       throw new RemoteAlreadyExistsError(this.name);
     }
 
-    // Default fetch refspec
-    const fetchRefspec = this.fetchRefspec || `+refs/heads/*:refs/remotes/${this.name}/*`;
-
-    // Create remote config
     const config: RemoteConfig = {
       name: this.name,
       urls: [this.uri],
       pushUrls: [],
-      fetchRefspecs: [fetchRefspec],
+      fetchRefspecs: [this.fetchRefspec || defaultFetchRefspec(this.name)],
       pushRefspecs: [],
     };
 
-    // Store remote config
-    await this.storeRemoteConfig(config);
+    store.write(config);
+    await store.save();
 
     return config;
   }
 
-  /**
-   * Get existing remote config.
-   */
-  private async getRemoteConfig(name: string): Promise<RemoteConfig | undefined> {
-    // Check if remote tracking refs exist
-    let hasRefs = false;
+  /** Whether any `refs/remotes/<name>/*` ref exists. */
+  private async hasTrackingRefs(name: string): Promise<boolean> {
     for await (const _ref of this.refsStore.list(`refs/remotes/${name}/`)) {
-      hasRefs = true;
-      break;
+      return true;
     }
-    if (hasRefs) {
-      // Remote exists (we don't have full config storage yet)
-      return {
-        name,
-        urls: [],
-        pushUrls: [],
-        fetchRefspecs: [],
-        pushRefspecs: [],
-      };
-    }
-    return undefined;
-  }
-
-  /**
-   * Store remote config.
-   *
-   * Note: This is a simplified implementation. Full config would go in .git/config.
-   */
-  private async storeRemoteConfig(_config: RemoteConfig): Promise<void> {
-    // In a full implementation, this would write to git config
-    // For now, remote config is implicit from the fetch/push operations
+    return false;
   }
 }
 
@@ -208,6 +440,9 @@ export class RemoteRemoveCommand extends GitCommand<RemoteConfig | undefined> {
   /**
    * Execute the remote remove operation.
    *
+   * Drops both halves of a remote: its config section and its tracking refs.
+   * A remote that has only one of the two is still removable.
+   *
    * @returns Removed remote config, or undefined if not found
    */
   async call(): Promise<RemoteConfig | undefined> {
@@ -218,28 +453,31 @@ export class RemoteRemoveCommand extends GitCommand<RemoteConfig | undefined> {
       throw new MissingArgumentError("remoteName", "Remote name must be specified");
     }
 
-    // Get refs to delete
+    const store = RemoteConfigStore.from(this.workingCopy);
+    const configured = store.isConfigured(this.remoteName);
+
     const refsToDelete: string[] = [];
     for await (const ref of this.refsStore.list(`refs/remotes/${this.remoteName}/`)) {
       refsToDelete.push(ref.name);
     }
 
-    if (refsToDelete.length === 0) {
+    if (!configured && refsToDelete.length === 0) {
       return undefined;
     }
 
-    // Delete refs
+    // Read before removing: this is what we report back.
+    const removed = store.read(this.remoteName);
+
     for (const refName of refsToDelete) {
       await this.refsStore.delete(refName);
     }
 
-    return {
-      name: this.remoteName,
-      urls: [],
-      pushUrls: [],
-      fetchRefspecs: [],
-      pushRefspecs: [],
-    };
+    if (configured) {
+      store.remove(this.remoteName);
+      await store.save();
+    }
+
+    return removed;
   }
 }
 
@@ -262,35 +500,19 @@ export class RemoteListCommand extends GitCommand<RemoteConfig[]> {
   /**
    * Execute the remote list operation.
    *
+   * Lists the union of the configured remotes and the names appearing under
+   * `refs/remotes/`; a remote with no config section is reported with no URLs
+   * and the default fetch refspec.
+   *
    * @returns List of remote configurations
    */
   async call(): Promise<RemoteConfig[]> {
     this.checkCallable();
     this.setCallable(false);
 
-    // Discover remotes from refs/remotes/* namespace
-    const remoteNames = new Set<string>();
-    for await (const ref of this.refsStore.list("refs/remotes/")) {
-      // Extract remote name from ref
-      const parts = ref.name.split("/");
-      if (parts.length >= 3) {
-        remoteNames.add(parts[2]);
-      }
-    }
-
-    // Build remote configs
-    const remotes: RemoteConfig[] = [];
-    for (const name of remoteNames) {
-      remotes.push({
-        name,
-        urls: [], // Would come from git config
-        pushUrls: [],
-        fetchRefspecs: [`+refs/heads/*:refs/remotes/${name}/*`],
-        pushRefspecs: [],
-      });
-    }
-
-    return remotes;
+    const store = RemoteConfigStore.from(this.workingCopy);
+    const names = await listRemoteNames(store, this.refsStore);
+    return names.map((name) => store.read(name));
   }
 }
 
@@ -313,7 +535,6 @@ export class RemoteSetUrlCommand extends GitCommand<RemoteConfig> {
   private remoteName?: string;
   private remoteUri?: string;
   private pushUri = false;
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: API placeholder for future implementation
   private oldUri?: string;
 
   /**
@@ -371,7 +592,11 @@ export class RemoteSetUrlCommand extends GitCommand<RemoteConfig> {
   }
 
   /**
-   * Set the old URI to replace (for --add behavior).
+   * Set the URL to replace.
+   *
+   * Only this URL is replaced, leaving the remote's other URLs alone — the
+   * `<oldurl>` argument of `git remote set-url <name> <newurl> <oldurl>`.
+   * Without it, the new URL replaces all of them.
    *
    * @param uri Old URI to replace
    */
@@ -384,8 +609,14 @@ export class RemoteSetUrlCommand extends GitCommand<RemoteConfig> {
   /**
    * Execute the remote set-url operation.
    *
+   * The URL is written to the working copy configuration, so it survives the
+   * command. The remote may be known from its config section or from its
+   * tracking refs; in the latter case, this is what first gives it a URL.
+   *
    * @returns Updated remote configuration
-   * @throws Error if remote name or URI is not set
+   * @throws MissingArgumentError if remote name or URI is not set
+   * @throws RemoteNotFoundError if the remote is neither configured nor tracked
+   * @throws InvalidArgumentError if {@link setOldUri} names a URL the remote does not have
    */
   async call(): Promise<RemoteConfig> {
     this.checkCallable();
@@ -398,28 +629,25 @@ export class RemoteSetUrlCommand extends GitCommand<RemoteConfig> {
       throw new MissingArgumentError("remoteUri", "Remote URI must be specified");
     }
 
-    // Check if remote exists
-    let hasRefs = false;
-    for await (const _ref of this.refsStore.list(`refs/remotes/${this.remoteName}/`)) {
-      hasRefs = true;
-      break;
-    }
-
-    if (!hasRefs) {
+    const store = RemoteConfigStore.from(this.workingCopy);
+    if (!store.isConfigured(this.remoteName) && !(await this.hasTrackingRefs(this.remoteName))) {
       throw new RemoteNotFoundError(this.remoteName);
     }
 
-    // In a full implementation, this would update git config
-    // For now, return the config with the new URL
-    const urls = this.pushUri ? [] : [this.remoteUri];
-    const pushUrls = this.pushUri ? [this.remoteUri] : [];
+    store.setUrl(this.remoteName, this.remoteUri, {
+      push: this.pushUri,
+      oldUrl: this.oldUri,
+    });
+    await store.save();
 
-    return {
-      name: this.remoteName,
-      urls,
-      pushUrls,
-      fetchRefspecs: [`+refs/heads/*:refs/remotes/${this.remoteName}/*`],
-      pushRefspecs: [],
-    };
+    return store.read(this.remoteName);
+  }
+
+  /** Whether any `refs/remotes/<name>/*` ref exists. */
+  private async hasTrackingRefs(name: string): Promise<boolean> {
+    for await (const _ref of this.refsStore.list(`refs/remotes/${name}/`)) {
+      return true;
+    }
+    return false;
   }
 }
