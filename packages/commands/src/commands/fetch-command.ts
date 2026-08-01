@@ -17,7 +17,7 @@ import {
   type TrackingRefUpdate,
 } from "../results/fetch-result.js";
 import { TransportCommand } from "../transport-command.js";
-import { RemoteConfigStore } from "./remote-command.js";
+import { RemoteConfigStore } from "../remote-config/index.js";
 
 /**
  * Tag fetching option.

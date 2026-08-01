@@ -3,7 +3,7 @@ import { lsRemote } from "@statewalker/vcs-transport";
 
 import { InvalidRemoteError } from "../errors/index.js";
 import { TransportCommand } from "../transport-command.js";
-import { RemoteConfigStore } from "./remote-command.js";
+import { RemoteConfigStore } from "../remote-config/index.js";
 
 /**
  * A remote ref entry.
