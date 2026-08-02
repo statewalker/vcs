@@ -424,12 +424,11 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
         continue;
       }
 
-      // Conflict
+      // Conflict: both sides changed the path differently. Conflicts are only
+      // collected here - a conflicting merge never builds a tree from
+      // `mergedEntries` (see the early return below) and the caller halts the
+      // apply, so there is no merged content to record for this path.
       conflicts.push(path);
-      // For now, take theirs
-      if (theirsEntry) {
-        mergedEntries.set(path, theirsEntry);
-      }
     }
 
     if (conflicts.length > 0) {
