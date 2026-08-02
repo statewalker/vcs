@@ -595,7 +595,8 @@ describe.each(backends)("PushCommand ($name backend)", ({ factory }) => {
             "0000";
           return new Response(body, { status: 200 });
         }
-        return new Response(pkt("unpack ok\n") + pkt(statusLine) + "0000", { status: 200 });
+        const report = `${pkt("unpack ok\n")}${pkt(statusLine)}0000`;
+        return new Response(report, { status: 200 });
       }) as typeof globalThis.fetch;
     }
 

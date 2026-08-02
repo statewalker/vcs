@@ -1,5 +1,10 @@
 import { serializeCommit, serializeTree, type TreeEntry } from "@statewalker/vcs-core";
-import { type PushObject, push as transportPush } from "@statewalker/vcs-transport";
+import {
+  mapRejectReason,
+  type PushCommandResult,
+  type PushObject,
+  push as transportPush,
+} from "@statewalker/vcs-transport";
 
 import { InvalidRemoteError, NonFastForwardError, PushRejectedException } from "../errors/index.js";
 import { type PushResult, PushStatus, type RemoteRefUpdate } from "../results/push-result.js";
@@ -8,6 +13,42 @@ import { RemoteConfigStore } from "../remote-config/index.js";
 
 /** All-zero object id — Git's "no object", used to express a ref delete. */
 const ZERO_OBJECT_ID = "0".repeat(40);
+
+/**
+ * How the transport's rejection reasons land on the statuses this package
+ * reports.
+ *
+ * The two vocabularies are not the same: the transport tells seven kinds of
+ * rejection apart, while PushStatus — following JGit's RemoteRefUpdate — keeps
+ * only the non-fast-forward case separate, because that is the one callers act
+ * on (callOrThrow raises NonFastForwardError for it). Everything else is a
+ * rejection whose detail lives in the server's message, so it collapses to
+ * REJECTED_OTHER. Spelled out per reason rather than defaulted, so that a new
+ * transport reason is a compile error here instead of a silent REJECTED_OTHER.
+ */
+const REJECT_REASON_STATUS: Record<PushCommandResult, PushStatus> = {
+  NOT_ATTEMPTED: PushStatus.NOT_ATTEMPTED,
+  OK: PushStatus.OK,
+  REJECTED_NONFASTFORWARD: PushStatus.REJECTED_NONFASTFORWARD,
+  REJECTED_NOCREATE: PushStatus.REJECTED_OTHER,
+  REJECTED_NODELETE: PushStatus.REJECTED_OTHER,
+  REJECTED_CURRENT_BRANCH: PushStatus.REJECTED_OTHER,
+  REJECTED_MISSING_OBJECT: PushStatus.REJECTED_OTHER,
+  REJECTED_OTHER_REASON: PushStatus.REJECTED_OTHER,
+  LOCK_FAILURE: PushStatus.REJECTED_OTHER,
+  ATOMIC_REJECTED: PushStatus.REJECTED_OTHER,
+};
+
+/**
+ * Classify a server's rejection message.
+ *
+ * Reuses the transport's `mapRejectReason` so both sides read the same wire
+ * text the same way; a message the transport cannot place — or none at all —
+ * ends up as REJECTED_OTHER.
+ */
+function classifyRejection(message: string | undefined): PushStatus {
+  return REJECT_REASON_STATUS[mapRejectReason(message ?? "")];
+}
 
 /**
  * Split a refspec into its source and destination ref names.
@@ -368,13 +409,10 @@ export class PushCommand extends TransportCommand<PushResult> {
     // Convert to PushResult.
     //
     // `transportResult.updates` is keyed by the DESTINATION ref name and carries
-    // only {ok, message}; the object ids come from the refspecs we built and the
-    // source-ref lookups the transport performed through `getLocalRef` above.
-    //
-    // Note: `expectedOldObjectId` stays unset. The remote's pre-push value is read
-    // by the transport (packages/transport/src/operations/push.ts) but never
-    // returned in HttpPushResult, so populating it needs a transport change and is
-    // out of scope here.
+    // {ok, message, oldOid}: the new object ids come from the refspecs we built
+    // and the source-ref lookups the transport performed through `getLocalRef`
+    // above, while `oldOid` is the remote's pre-push value — the expectation the
+    // server compared its ref against — as read from its advertisement.
     const remoteUpdates: RemoteRefUpdate[] = [];
     for (const [refName, updateResult] of transportResult.updates) {
       const srcRef = sourceByDest.get(refName);
@@ -383,8 +421,9 @@ export class PushCommand extends TransportCommand<PushResult> {
         // Omit srcRef for a delete: there is no local ref behind it.
         ...(srcRef ? { srcRef } : {}),
         remoteName: refName,
+        expectedOldObjectId: updateResult.oldOid,
         newObjectId: newObjectId ?? "",
-        status: updateResult.ok ? PushStatus.OK : PushStatus.REJECTED_OTHER,
+        status: updateResult.ok ? PushStatus.OK : classifyRejection(updateResult.message),
         message: updateResult.message,
         forceUpdate: this.force,
         delete: newObjectId === ZERO_OBJECT_ID,
