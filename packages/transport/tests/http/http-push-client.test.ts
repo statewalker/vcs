@@ -251,6 +251,9 @@ describe("httpPush", () => {
   });
 
   describe("Ref status object ids", () => {
+    /** A flush packet — ends the advertisement and the status stream. */
+    const FLUSH = "0000";
+
     /** Encode a single pkt-line (payload must carry its own trailing newline). */
     function pkt(payload: string): string {
       return (payload.length + 4).toString(16).padStart(4, "0") + payload;
@@ -262,9 +265,9 @@ describe("httpPush", () => {
     function advertisement(): string {
       return (
         pkt("# service=git-receive-pack\n") +
-        "0000" +
+        FLUSH +
         pkt(`${REMOTE_OID} refs/heads/main\0report-status\n`) +
-        "0000"
+        FLUSH
       );
     }
 
@@ -293,7 +296,7 @@ describe("httpPush", () => {
 
       const result = await pushMainWithStatus(
         repo,
-        pkt("unpack ok\n") + pkt("ok refs/heads/main\n") + "0000",
+        pkt("unpack ok\n") + pkt("ok refs/heads/main\n") + FLUSH,
       );
 
       const status = result.refStatus?.get("refs/heads/main");
@@ -309,7 +312,7 @@ describe("httpPush", () => {
 
       const result = await pushMainWithStatus(
         repo,
-        pkt("unpack ok\n") + pkt("ng refs/heads/main non-fast-forward\n") + "0000",
+        pkt("unpack ok\n") + pkt("ng refs/heads/main non-fast-forward\n") + FLUSH,
       );
 
       const status = result.refStatus?.get("refs/heads/main");
@@ -324,7 +327,7 @@ describe("httpPush", () => {
       const localOid = repo.createEmptyCommit("local");
       repo.setRef("refs/heads/main", localOid);
 
-      const result = await pushMainWithStatus(repo, pkt("unpack index-pack failed\n") + "0000");
+      const result = await pushMainWithStatus(repo, pkt("unpack index-pack failed\n") + FLUSH);
 
       const status = result.refStatus?.get("refs/heads/main");
       expect(status?.success).toBe(false);

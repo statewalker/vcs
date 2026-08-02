@@ -17,6 +17,9 @@ const LOCAL_OID = "3".repeat(40);
 
 const textDecoder = new TextDecoder();
 
+/** A flush packet — ends the advertisement, the commands, and the status. */
+const FLUSH = "0000";
+
 /** Encode a single pkt-line (payload must carry its own trailing newline). */
 function pkt(payload: string): string {
   return (payload.length + 4).toString(16).padStart(4, "0") + payload;
@@ -29,16 +32,16 @@ function pkt(payload: string): string {
  */
 function advertisement(refs: Array<[string, string]>): string {
   const caps = "report-status side-band-64k delete-refs";
-  let body = pkt("# service=git-receive-pack\n") + "0000";
+  let body = pkt("# service=git-receive-pack\n") + FLUSH;
   refs.forEach(([name, oid], index) => {
     body += pkt(index === 0 ? `${oid} ${name}\0${caps}\n` : `${oid} ${name}\n`);
   });
-  return body + "0000";
+  return body + FLUSH;
 }
 
 /** A report-status response accepting every listed ref. */
 function reportStatusOk(refNames: string[]): string {
-  return pkt("unpack ok\n") + refNames.map((name) => pkt(`ok ${name}\n`)).join("") + "0000";
+  return pkt("unpack ok\n") + refNames.map((name) => pkt(`ok ${name}\n`)).join("") + FLUSH;
 }
 
 /** The `<old> <new> <ref>` triples the client sent in its receive-pack request. */
@@ -132,10 +135,10 @@ describe("push() — ref advertisement", () => {
     const caps = "report-status";
     const advertised =
       pkt("# service=git-receive-pack\n") +
-      "0000" +
+      FLUSH +
       pkt(`${REMOTE_MAIN_OID} refs/tags/v1\0${caps}\n`) +
       pkt(`${REMOTE_OTHER_OID} refs/tags/v1^{}\n`) +
-      "0000";
+      FLUSH;
 
     let requestBody = "";
     await push({
@@ -178,8 +181,7 @@ describe("push() — reported old object id", () => {
     const { result } = await runPush({
       advertisedRefs,
       refspecs: ["refs/heads/main:refs/heads/main"],
-      reportStatus: () =>
-        pkt("unpack ok\n") + pkt("ng refs/heads/main non-fast-forward\n") + "0000",
+      reportStatus: () => pkt("unpack ok\n") + pkt("ng refs/heads/main non-fast-forward\n") + FLUSH,
     });
 
     const update = result.updates.get("refs/heads/main");
@@ -201,7 +203,7 @@ describe("push() — reported old object id", () => {
     const { result } = await runPush({
       advertisedRefs,
       refspecs: ["refs/heads/main:refs/heads/main"],
-      reportStatus: () => pkt("unpack ok\n") + "0000",
+      reportStatus: () => pkt("unpack ok\n") + FLUSH,
     });
 
     const update = result.updates.get("refs/heads/main");
