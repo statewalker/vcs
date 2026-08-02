@@ -200,6 +200,19 @@ was **not** modified.
   taken from). Scope stays **path-level**: a file both sides edited is still a conflict even when the
   edits do not overlap — no hunk merging, no conflict markers — and the callers still halt.
 
+- **NEW — a directory/file collision silently DROPS the file.** If base has no `a`, one side adds a
+  file `a` and the other adds `a/b`, both take the "only one side changed" path and land in
+  `mergedEntries` together; `buildTreeFromPaths` sets `a` as a file (`rebase-command.ts:539`) and then
+  overwrites it with the subtree (`:555`). Git calls this a conflict. **This loses a file**, and it is
+  untested. Not fixed — it is a new conflict-semantics decision, not a repair.
+- **Merge limits now written into the doc comments** so they are not rediscovered: no content-level
+  (hunk) merging — two sides editing non-overlapping regions of one file is still a conflict where git
+  resolves it — and no rename detection, so a rename is a delete plus an add and conflicts against a
+  modified counterpart.
+- Note for anyone tempted by `commits.findMergeBase`: it is the **wrong** tool for rebase. Replaying a
+  single commit takes that commit's own parent as base (`rebase-command.ts:469` already loads it), not
+  the merge-base of two heads.
+
 - **NEW, and the same class as the original four: `StashApplyCommand` restores nothing.**
   It computes `mergeResult.tree` and **throws it away** — only `.conflicts` is ever read — then
   returns `{status: OK, stashCommit}` having written nothing to the index or working tree. The
