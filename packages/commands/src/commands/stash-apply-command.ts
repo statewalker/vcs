@@ -348,7 +348,35 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
   }
 
   /**
-   * Three-way tree merge with recursive support.
+   * Whether two optional tree entries denote the same state for a path.
+   *
+   * Both absent means the path is absent on both sides. When both are present,
+   * content *and* mode must match: comparing object ids alone treats a
+   * mode-only change (setting the executable bit on unchanged content, say) as
+   * no change at all, which silently discards it.
+   */
+  private static entriesEqual(
+    a: { id: ObjectId; mode: number } | undefined,
+    b: { id: ObjectId; mode: number } | undefined,
+  ): boolean {
+    if (!a || !b) {
+      return !a && !b;
+    }
+    return a.id === b.id && a.mode === b.mode;
+  }
+
+  /**
+   * Path-level three-way tree merge with recursive support.
+   *
+   * The base is the tree of the commit the stash was taken from, so
+   * base->ours is exactly the stashed change and base->theirs is what the
+   * branch did since. A path only one side changed takes that side, a path
+   * both changed identically merges cleanly, and a path both changed
+   * differently is a conflict.
+   *
+   * The merge is path-level only - it never merges the *contents* of a file.
+   * A file edited both in the stash and on the branch conflicts here where
+   * git would resolve non-overlapping edits.
    */
   private async mergeTreesThreeWay(
     base: ObjectId,
@@ -396,31 +424,27 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
       const oursEntry = oursEntries.get(path);
       const theirsEntry = theirsEntries.get(path);
 
-      const baseId = baseEntry?.id;
-      const oursId = oursEntry?.id;
-      const theirsId = theirsEntry?.id;
-
-      // If ours unchanged from base, take theirs
-      if (oursId === baseId) {
+      // Only one side changed the path relative to base - take that side. If
+      // that side deleted the path, it is simply not carried into the merge.
+      if (StashApplyCommand.entriesEqual(oursEntry, baseEntry)) {
         if (theirsEntry) {
           mergedEntries.set(path, theirsEntry);
         }
-        // Otherwise deleted in theirs
         continue;
       }
-
-      // If theirs unchanged from base, take ours
-      if (theirsId === baseId) {
+      if (StashApplyCommand.entriesEqual(theirsEntry, baseEntry)) {
         if (oursEntry) {
           mergedEntries.set(path, oursEntry);
         }
-        // Otherwise deleted in ours
         continue;
       }
 
-      // Both changed - check if same change
-      if (oursId === theirsId && oursEntry) {
-        mergedEntries.set(path, oursEntry);
+      // Both sides changed the path. Identical changes merge cleanly - and
+      // that includes both sides deleting it, which leaves it deleted.
+      if (StashApplyCommand.entriesEqual(oursEntry, theirsEntry)) {
+        if (oursEntry) {
+          mergedEntries.set(path, oursEntry);
+        }
         continue;
       }
 
