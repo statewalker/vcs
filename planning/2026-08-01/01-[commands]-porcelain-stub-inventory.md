@@ -222,3 +222,28 @@ was **not** modified.
   (`Worktree.writeContent`/`remove`/`checkoutTree`). Today `stash apply` is a conflict detector
   wearing an apply's name. Surfaced by two mutations that survived on the stash side while being
   killed on the rebase side — they perturb a tree stash-apply never reads.
+
+## Correction — the transport-side push items (my earlier note was wrong on paths)
+
+I had recorded "transport reads `expectedOldObjectId` at `push.ts:183`". **There is no
+`packages/transport/src/push.ts`**, and `expectedOldObjectId` does not appear anywhere in transport.
+The real shape, verified:
+
+- `expectedOldObjectId` is declared in **commands** (`src/results/push-result.ts:36`) and left unset.
+- Transport **does** compute the remote's pre-push value — `src/operations/push.ts:187`,
+  `oldOid: remoteOid`, read from the receive-pack advertisement, ZERO_OID for a new ref — but the
+  returned `updates` map carries only `{ok, message}`, so it is computed and dropped. The comment at
+  `push-command.ts:374` saying this "needs a transport change" is **accurate**, not a false stub.
+- `REJECTED_NONFASTFORWARD` is unreachable because `push-command.ts:387` flattens every failure to
+  `REJECTED_OTHER`. The reason string survives in `message`. Transport already has the classifier —
+  `mapRejectReason` (`src/fsm/push/types.ts:52`, already unit-tested) — but it is wired only into the
+  FSM path (`client-push-fsm.ts:360`), never the HTTP operations path.
+- `RefPushStatus` (`src/api/push-result.ts`) already declares `oldOid?`/`newOid?` and never sets them
+  (`http-client.ts:526/530/538` set only `success`/`error`).
+
+## Tooling note — `npx biome` in this repo runs the WRONG binary
+
+`npx biome --version` reports **0.3.3**, an unrelated registry package; Biome is 2.x. The vcs
+submodule root has no `node_modules/.bin`. A real Biome 2.5.6 lives at
+`workspaces/statewalker-fsm/node_modules/.bin/biome`; run it from the vcs repo root so it picks up
+`workspaces/vcs/biome.json`. A lint step invoked as `npx biome check` silently does nothing.
