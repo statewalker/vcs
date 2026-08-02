@@ -152,8 +152,6 @@ describe("push() — ref advertisement", () => {
     });
 
     // The tag's own oid, not the peeled commit it points at.
-    expect(parseSentCommands(requestBody)).toEqual([
-      [REMOTE_MAIN_OID, LOCAL_OID, "refs/tags/v1"],
-    ]);
+    expect(parseSentCommands(requestBody)).toEqual([[REMOTE_MAIN_OID, LOCAL_OID, "refs/tags/v1"]]);
   });
 });

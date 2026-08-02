@@ -320,23 +320,35 @@ export async function push(options: PushOptions): Promise<HttpPushResult> {
 
 /**
  * Parse receive-pack advertisement.
+ *
+ * Walks the pkt-line framing rather than splitting on newlines: the flush
+ * packet that separates the service line from the refs carries no newline, so
+ * a line-oriented reader hands back the first ref with its own pkt-length
+ * still glued to the object id.
  */
 function parseReceivePackAdvertisement(data: Uint8Array): Map<string, string> {
   const refs = new Map<string, string>();
   const textDecoder = new TextDecoder();
-  const text = textDecoder.decode(data);
-  const lines = text.split("\n");
+  let pos = 0;
 
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    if (line.trim() === "0000" || line.trim() === "0001") continue;
-    if (line.includes("# service=")) continue;
-
-    let content = line;
-    if (/^[0-9a-f]{4}/.test(content)) {
-      content = content.slice(4);
+  while (pos + 4 <= data.length) {
+    const lengthHex = textDecoder.decode(data.slice(pos, pos + 4));
+    // Flush ("0000") and delimiter ("0001") packets carry no payload.
+    if (lengthHex === "0000" || lengthHex === "0001") {
+      pos += 4;
+      continue;
     }
 
+    const length = parseInt(lengthHex, 16);
+    if (Number.isNaN(length) || length < 4) break;
+    if (pos + length > data.length) break;
+
+    const content = textDecoder.decode(data.slice(pos + 4, pos + length));
+    pos += length;
+
+    if (content.includes("# service=")) continue;
+
+    // Capabilities follow the ref name after a NUL on the first ref line.
     const nullIndex = content.indexOf("\0");
     const refPart = nullIndex >= 0 ? content.slice(0, nullIndex) : content;
 
