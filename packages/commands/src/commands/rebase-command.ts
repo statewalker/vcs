@@ -586,6 +586,30 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
   }
 
   /**
+   * The paths in a merged entry set that a directory would overwrite.
+   *
+   * Every entry is a file - the recursive walk never yields a tree - so a path
+   * is claimed as a *directory* only implicitly, by another entry lying below
+   * it. `a` and `a/b` cannot both exist in a tree: building one from that set
+   * writes `a` as a file and then overwrites it with the `a/` subtree, losing
+   * the file. The separator is what makes a prefix a directory boundary - `ab`
+   * is not inside `a/` and does not collide with it.
+   *
+   * @param paths The paths of the merged entries
+   * @returns The colliding file paths, sorted
+   */
+  private static findDirectoryCollisions(paths: Iterable<string>): string[] {
+    const allPaths = [...paths];
+    const directories = new Set<string>();
+    for (const path of allPaths) {
+      for (let at = path.indexOf("/"); at !== -1; at = path.indexOf("/", at + 1)) {
+        directories.add(path.substring(0, at));
+      }
+    }
+    return allPaths.filter((path) => directories.has(path)).sort();
+  }
+
+  /**
    * Path-level three-way tree merge with recursive support.
    *
    * Merges per path against the `base` tree: a path only one side changed
@@ -673,6 +697,13 @@ export class RebaseCommand extends GitCommand<RebaseResult> {
       // rebase, so there is no merged content to record for this path.
       conflicts.push(path);
     }
+
+    // One side made a path a file while the other made it a directory. Both
+    // are one-sided carries above - a path both sides changed cannot collide,
+    // since carrying it needs the two sides to agree and no single tree holds
+    // `a` as a file and `a/b` at once - so this is only detectable once the
+    // whole merged set is known, not inside the loop.
+    conflicts.push(...RebaseCommand.findDirectoryCollisions(mergedEntries.keys()));
 
     if (conflicts.length > 0) {
       return { tree: theirs, conflicts };
