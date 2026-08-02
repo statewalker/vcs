@@ -16,10 +16,9 @@
  * a content-addressed store answers for without ever having received it, so a
  * fixture anchored on it asserts nothing.
  *
- * These tests assert only the reported status/conflicts, because
- * StashApplyCommand computes a merged tree and then discards it - it never
- * writes the merge to the staging area or the working tree. See the note on
- * the OK-path in stash-apply-command.ts.
+ * These tests assert only the reported status/conflicts. What the command then
+ * puts back into the working tree and the index is pinned separately, in
+ * stash-apply-restore.test.ts.
  */
 
 import type { History, ObjectId } from "@statewalker/vcs-core";

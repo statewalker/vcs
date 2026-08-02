@@ -1,16 +1,13 @@
 import type { ObjectId, Ref } from "@statewalker/vcs-core";
-import { FileMode, isSymbolicRef } from "@statewalker/vcs-core";
+import { isSymbolicRef } from "@statewalker/vcs-core";
 
 import { RefNotFoundError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
 import { ResetMode } from "../types.js";
+import { planTreeRestore, writeTreeRestorePlan } from "./tree-restore.js";
 
-/** One file a HARD reset plans to write back into the working tree. */
-interface RestoreEntry {
-  path: string;
-  objectId: ObjectId;
-  mode: number;
-}
+/** Names this operation in restore failure messages. */
+const RESET_HARD = "reset --hard";
 
 /**
  * Reset HEAD to a specified state.
@@ -241,79 +238,14 @@ export class ResetCommand extends GitCommand<Ref> {
 
     // Plan the whole restore first. Anything unrestorable then fails while the
     // working tree is still untouched, instead of half-way through rewriting it.
-    const plan: RestoreEntry[] = [];
-    const targetPaths = new Set<string>();
-    await this.planTreeRestore(commit.tree, "", plan, targetPaths);
+    const plan = await planTreeRestore(this.trees, this.blobs, commit.tree, RESET_HARD);
 
-    // Write the planned files.
-    for (const { path, objectId, mode } of plan) {
-      const content = await this.blobs.load(objectId);
-      if (!content) {
-        throw new Error(`reset --hard cannot restore ${path}: blob ${objectId} is missing`);
-      }
-
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of content) {
-        chunks.push(chunk);
-      }
-
-      await worktree.writeContent(path, chunks, { mode, createParents: true });
-    }
+    await writeTreeRestorePlan(worktree, this.blobs, plan, RESET_HARD);
 
     // Delete files that were tracked but are not in the target tree.
     for (const path of trackedBefore) {
-      if (targetPaths.has(path)) continue;
+      if (plan.paths.has(path)) continue;
       await worktree.remove(path);
-    }
-  }
-
-  /**
-   * Walk a tree and plan which files to restore, validating as it goes.
-   *
-   * Throws on anything this command cannot restore faithfully, so the caller
-   * can abort before mutating the working tree.
-   *
-   * @param treeId Tree to walk
-   * @param prefix Path prefix for entries of this tree
-   * @param plan Collects the files to write
-   * @param targetPaths Collects every path the target tree accounts for
-   */
-  private async planTreeRestore(
-    treeId: ObjectId,
-    prefix: string,
-    plan: RestoreEntry[],
-    targetPaths: Set<string>,
-  ): Promise<void> {
-    for await (const entry of this.trees.loadTree(treeId)) {
-      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-
-      if (entry.mode === FileMode.TREE) {
-        await this.planTreeRestore(entry.id, path, plan, targetPaths);
-        continue;
-      }
-
-      if (entry.mode === FileMode.GITLINK) {
-        // Submodule: `git reset --hard` does not touch its contents either.
-        // Record it so it is not mistaken for a path to delete.
-        targetPaths.add(path);
-        continue;
-      }
-
-      if (entry.mode === FileMode.SYMLINK) {
-        // The Worktree interface has no way to create a symbolic link, and
-        // writing the target path as a regular file would silently produce a
-        // working tree that does not match the commit.
-        throw new Error(
-          `reset --hard cannot restore ${path}: the worktree cannot create symbolic links`,
-        );
-      }
-
-      if (!(await this.blobs.has(entry.id))) {
-        throw new Error(`reset --hard cannot restore ${path}: blob ${entry.id} is missing`);
-      }
-
-      plan.push({ path, objectId: entry.id, mode: entry.mode });
-      targetPaths.add(path);
     }
   }
 
