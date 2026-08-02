@@ -247,3 +247,32 @@ The real shape, verified:
 submodule root has no `node_modules/.bin`. A real Biome 2.5.6 lives at
 `workspaces/statewalker-fsm/node_modules/.bin/biome`; run it from the vcs repo root so it picks up
 `workspaces/vcs/biome.json`. A lint step invoked as `npx biome check` silently does nothing.
+
+## Verified — stash apply now restores (task #18, commit 011cddeb)
+
+Independently re-checked, not taken on report:
+
+- The two mutations that **survived** the previous round — M5 (ours-unchanged stops carrying theirs)
+  and M6 (theirs-unchanged stops carrying ours) — now **both die** (2 tests each). Their surviving
+  before was the evidence that stash computed a merged tree and discarded it; their dying now is the
+  evidence it writes.
+- Deleting the `worktree.remove(path)` call kills 3 tests, so the delete half of an apply is really
+  covered, not just the write half.
+- It did **not** delegate to `Worktree.checkoutTree()` — the trap that only writes present entries
+  and never removes absent ones, producing a silent half-restore. It has its own removal-aware
+  `src/commands/tree-restore.ts`.
+- That module plans first and writes second: every blob is checked to exist before anything is
+  written, so a missing object aborts instead of half-restoring. It skips submodule contents and
+  **refuses symlinks loudly** rather than writing the target path as a regular file, which would
+  silently produce a worktree not matching the tree.
+
+**"Requires working tree access" was false for the fifth time.** The command reaches `Worktree`
+through the same `GitCommand.worktreeAccess` getter (`git-command.ts:236`) that `clean` and
+`reset --hard` use. Treat every such comment in this codebase as unverified until traced.
+
+### Method note — an unapplied mutation reads as a survivor
+
+Re-running M6 with a naive anchor hit **2 occurrences** and the assertion refused to apply it; the
+test run then reported all-green, which is exactly what a surviving mutation looks like. Without the
+single-occurrence assertion the conclusion would have been "M6 still survives" — false. Always assert
+the count before replacing.
