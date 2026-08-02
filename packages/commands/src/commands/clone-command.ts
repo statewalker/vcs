@@ -6,6 +6,7 @@ import {
 import { bytesToHex } from "@statewalker/vcs-utils/hash/utils";
 
 import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
+import { importPackIntoHistory } from "../pack-import/index.js";
 import type { CloneResult } from "../results/clone-result.js";
 import {
   type FetchResult,
@@ -376,26 +377,35 @@ export class CloneCommand extends TransportCommand<CloneResult> {
       });
     }
 
-    // Set up HEAD and default branch
-    const defaultBranch = transportResult.defaultBranch;
+    // Set up HEAD and default branch.
+    //
+    // Two forms, deliberately kept apart: the advertised form goes out on
+    // FetchResult unchanged (it is what the remote said), while the ref work
+    // below and CloneResult use the bare branch name.
+    const advertisedDefaultBranch = transportResult.defaultBranch;
+    const defaultBranch = toBranchName(advertisedDefaultBranch);
     let headCommit: ObjectId | undefined;
 
     if (defaultBranch && !this.bare) {
-      // Create local branch from remote tracking
-      const trackingRef = `refs/remotes/${this.remoteName}/${defaultBranch}`;
+      // Create local branch from the tip the clone just wrote. Look under the
+      // remote-tracking name first, then under the local branch name: the ref
+      // loop above stores each ref under its advertised name, so which of the
+      // two exists depends on the refspec the remote advertised through.
       const localRef = `refs/heads/${defaultBranch}`;
+      const tip =
+        (await this.refsStore.resolve(`refs/remotes/${this.remoteName}/${defaultBranch}`)) ??
+        (await this.refsStore.resolve(localRef));
 
-      const trackingRefValue = await this.refsStore.resolve(trackingRef);
-      if (trackingRefValue?.objectId) {
-        await this.refsStore.set(localRef, trackingRefValue.objectId);
-        headCommit = trackingRefValue.objectId;
+      if (tip?.objectId) {
+        await this.refsStore.set(localRef, tip.objectId);
+        headCommit = tip.objectId;
 
         // Set HEAD to point to local branch
         await this.refsStore.setSymbolic("HEAD", localRef);
 
         // Set up staging area from HEAD tree
         if (!this.noCheckout) {
-          await this.checkoutHead(trackingRefValue.objectId);
+          await this.checkoutHead(tip.objectId);
         }
       }
     } else if (this.bare || this.mirror) {
@@ -415,7 +425,7 @@ export class CloneCommand extends TransportCommand<CloneResult> {
       uri: this.uri,
       advertisedRefs,
       trackingRefUpdates: trackingUpdates,
-      defaultBranch,
+      defaultBranch: advertisedDefaultBranch,
       bytesReceived: transportResult.bytesReceived,
       isEmpty: transportResult.isEmpty,
       messages: [],
@@ -482,15 +492,12 @@ export class CloneCommand extends TransportCommand<CloneResult> {
 
   /**
    * Store received pack data.
+   *
+   * Unpacks the pack into the working copy's history, so the objects the
+   * cloned refs point at are actually available locally.
    */
   private async storePack(packData: Uint8Array): Promise<void> {
-    // Check if working copy has pack storage capability
-    const wcWithPacks = this._workingCopy as {
-      packs?: { store(data: Uint8Array): Promise<void> };
-    };
-    if (wcWithPacks.packs?.store) {
-      await wcWithPacks.packs.store(packData);
-    }
+    await importPackIntoHistory(this._workingCopy.history, packData);
   }
 
   /**
@@ -508,4 +515,18 @@ export class CloneCommand extends TransportCommand<CloneResult> {
       // Commit not available yet (pack not unpacked)
     }
   }
+}
+
+/**
+ * The bare branch name of a remote's default branch.
+ *
+ * The advertisement reports it as the target of HEAD's symref capability, so
+ * it arrives fully qualified (`refs/heads/main`); a transport that reports the
+ * bare name (`main`) is equally legitimate. Both are accepted, and both yield
+ * the bare name the ref-building code below prefixes.
+ */
+function toBranchName(defaultBranch: string | undefined): string | undefined {
+  if (defaultBranch === undefined) return undefined;
+  const prefix = "refs/heads/";
+  return defaultBranch.startsWith(prefix) ? defaultBranch.slice(prefix.length) : defaultBranch;
 }

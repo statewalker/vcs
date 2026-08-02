@@ -1,9 +1,68 @@
 import { serializeCommit, serializeTree, type TreeEntry } from "@statewalker/vcs-core";
-import { type PushObject, push as transportPush } from "@statewalker/vcs-transport";
+import {
+  mapRejectReason,
+  type PushCommandResult,
+  type PushObject,
+  push as transportPush,
+} from "@statewalker/vcs-transport";
 
 import { InvalidRemoteError, NonFastForwardError, PushRejectedException } from "../errors/index.js";
 import { type PushResult, PushStatus, type RemoteRefUpdate } from "../results/push-result.js";
 import { TransportCommand } from "../transport-command.js";
+import { RemoteConfigStore } from "../remote-config/index.js";
+
+/** All-zero object id — Git's "no object", used to express a ref delete. */
+const ZERO_OBJECT_ID = "0".repeat(40);
+
+/**
+ * How the transport's rejection reasons land on the statuses this package
+ * reports.
+ *
+ * The two vocabularies are not the same: the transport tells seven kinds of
+ * rejection apart, while PushStatus — following JGit's RemoteRefUpdate — keeps
+ * only the non-fast-forward case separate, because that is the one callers act
+ * on (callOrThrow raises NonFastForwardError for it). Everything else is a
+ * rejection whose detail lives in the server's message, so it collapses to
+ * REJECTED_OTHER. Spelled out per reason rather than defaulted, so that a new
+ * transport reason is a compile error here instead of a silent REJECTED_OTHER.
+ */
+const REJECT_REASON_STATUS: Record<PushCommandResult, PushStatus> = {
+  NOT_ATTEMPTED: PushStatus.NOT_ATTEMPTED,
+  OK: PushStatus.OK,
+  REJECTED_NONFASTFORWARD: PushStatus.REJECTED_NONFASTFORWARD,
+  REJECTED_NOCREATE: PushStatus.REJECTED_OTHER,
+  REJECTED_NODELETE: PushStatus.REJECTED_OTHER,
+  REJECTED_CURRENT_BRANCH: PushStatus.REJECTED_OTHER,
+  REJECTED_MISSING_OBJECT: PushStatus.REJECTED_OTHER,
+  REJECTED_OTHER_REASON: PushStatus.REJECTED_OTHER,
+  LOCK_FAILURE: PushStatus.REJECTED_OTHER,
+  ATOMIC_REJECTED: PushStatus.REJECTED_OTHER,
+};
+
+/**
+ * Classify a server's rejection message.
+ *
+ * Reuses the transport's `mapRejectReason` so both sides read the same wire
+ * text the same way; a message the transport cannot place — or none at all —
+ * ends up as REJECTED_OTHER.
+ */
+function classifyRejection(message: string | undefined): PushStatus {
+  return REJECT_REASON_STATUS[mapRejectReason(message ?? "")];
+}
+
+/**
+ * Split a refspec into its source and destination ref names.
+ *
+ * Mirrors the parsing the transport performs so that the destination keys we
+ * derive here line up exactly with the ones it reports back:
+ * an optional leading `+` (force) is stripped, and a refspec with no `:` pushes
+ * a ref to its own name.
+ */
+function parseRefSpec(refSpec: string): { source: string; dest: string } {
+  const normalized = refSpec.startsWith("+") ? refSpec.slice(1) : refSpec;
+  const [source = "", dest] = normalized.split(":");
+  return { source, dest: dest || source };
+}
 
 /**
  * Push objects and refs to a remote repository.
@@ -32,7 +91,8 @@ import { TransportCommand } from "../transport-command.js";
  *   .setForce(true)
  *   .call();
  *
- * // Delete remote branch
+ * // Delete remote branch (empty source ref). The resulting RemoteRefUpdate has
+ * // `delete: true` and an all-zero `newObjectId`.
  * const result = await git.push()
  *   .add(":refs/heads/old-branch")
  *   .call();
@@ -278,6 +338,15 @@ export class PushCommand extends TransportCommand<PushResult> {
     // Build refspecs
     const refspecs = await this.buildRefSpecs();
 
+    // Map each destination ref back to the local ref it came from. The transport
+    // keys its update results by the destination ref, and carries no object ids,
+    // so this is what lets us report srcRef/newObjectId per update below.
+    const sourceByDest = new Map<string, string>();
+    for (const spec of refspecs) {
+      const { source, dest } = parseRefSpec(spec);
+      sourceByDest.set(dest, source);
+    }
+
     if (refspecs.length === 0) {
       // Nothing to push
       return {
@@ -303,6 +372,10 @@ export class PushCommand extends TransportCommand<PushResult> {
         }
       : undefined;
 
+    // Object ids resolved for each source ref, captured as the transport asks
+    // for them, so we report the value that was really sent on the wire.
+    const resolvedLocalOids = new Map<string, string>();
+
     // Execute push using high-level push API
     const transportResult = await transportPush({
       url: remoteUrl,
@@ -315,23 +388,45 @@ export class PushCommand extends TransportCommand<PushResult> {
       onProgressMessage: this.progressMessageCallback,
       exportPack,
       getLocalRef: async (refName: string) => {
+        // A refspec with an empty source (":refs/heads/x") is a delete request:
+        // Git expresses it as an update to the all-zero object id.
+        if (refName === "") {
+          resolvedLocalOids.set(refName, ZERO_OBJECT_ID);
+          return ZERO_OBJECT_ID;
+        }
         const ref = await this.refsStore.resolve(refName);
+        // Memoise exactly the object id the transport used for this source ref,
+        // so the reported newObjectId is the value that was actually pushed.
+        if (ref?.objectId !== undefined) {
+          resolvedLocalOids.set(refName, ref.objectId);
+        }
         return ref?.objectId;
       },
       getObjectsToPush: (newIds: string[], oldIds: string[]) =>
         this.getObjectsToPush(newIds, oldIds),
     });
 
-    // Convert to PushResult
+    // Convert to PushResult.
+    //
+    // `transportResult.updates` is keyed by the DESTINATION ref name and carries
+    // {ok, message, oldOid}: the new object ids come from the refspecs we built
+    // and the source-ref lookups the transport performed through `getLocalRef`
+    // above, while `oldOid` is the remote's pre-push value — the expectation the
+    // server compared its ref against — as read from its advertisement.
     const remoteUpdates: RemoteRefUpdate[] = [];
     for (const [refName, updateResult] of transportResult.updates) {
+      const srcRef = sourceByDest.get(refName);
+      const newObjectId = srcRef !== undefined ? resolvedLocalOids.get(srcRef) : undefined;
       remoteUpdates.push({
+        // Omit srcRef for a delete: there is no local ref behind it.
+        ...(srcRef ? { srcRef } : {}),
         remoteName: refName,
-        newObjectId: "", // Would need to track this
-        status: updateResult.ok ? PushStatus.OK : PushStatus.REJECTED_OTHER,
+        expectedOldObjectId: updateResult.oldOid,
+        newObjectId: newObjectId ?? "",
+        status: updateResult.ok ? PushStatus.OK : classifyRejection(updateResult.message),
         message: updateResult.message,
         forceUpdate: this.force,
-        delete: false,
+        delete: newObjectId === ZERO_OBJECT_ID,
       });
     }
 
@@ -368,6 +463,10 @@ export class PushCommand extends TransportCommand<PushResult> {
 
   /**
    * Resolve remote name to URL.
+   *
+   * A named remote resolves through the working copy configuration, preferring
+   * `remote.<name>.pushurl` over `remote.<name>.url` as git does; an
+   * unconfigured name is passed through unchanged.
    */
   private async resolveRemoteUrl(remote: string): Promise<string | undefined> {
     // If it looks like a URL, use it directly
@@ -375,9 +474,7 @@ export class PushCommand extends TransportCommand<PushResult> {
       return remote;
     }
 
-    // Try to get remote URL from config
-    // For now, treat as URL if not a known remote
-    return remote;
+    return RemoteConfigStore.from(this.workingCopy).urlFor(remote, { push: true }) ?? remote;
   }
 
   /**

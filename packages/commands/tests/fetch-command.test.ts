@@ -6,6 +6,7 @@
  */
 
 import type { Ref } from "@statewalker/vcs-core";
+import { DefaultSerializationApi } from "@statewalker/vcs-core";
 import type { WorkingCopy } from "@statewalker/vcs-working-tree";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -14,6 +15,7 @@ import { backends } from "./test-helper.js";
 import {
   addFileAndCommit,
   createInitializedTestServer,
+  createTestServer,
   createTestUrl,
 } from "./transport-test-helper.js";
 
@@ -137,6 +139,241 @@ describe.each(backends)("FetchCommand ($name backend)", ({ factory }) => {
         // But ref should not be created
         const trackingRef = await workingCopy.history.refs.get("refs/remotes/origin/main");
         expect(trackingRef).toBeUndefined();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  describe("object storage", () => {
+    /**
+     * A fetch that writes a tracking ref but drops the pack leaves the ref
+     * dangling: the commit it names cannot be loaded locally.
+     */
+    it("should store the fetched objects, not just the ref", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      // Commit a real file so the pack carries a distinctive tree + blob
+      // (the initial commit's tree is the well-known EMPTY tree, which some
+      // stores can answer for without ever having received it).
+      const commitId = await addFileAndCommit(
+        server.serverStores,
+        "hello.txt",
+        "hello from the remote",
+        "Add hello.txt",
+      );
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        await git
+          .fetch()
+          .setRemote(remoteUrl)
+          .setRefSpecs("refs/heads/main:refs/remotes/origin/main")
+          .call();
+
+        const trackingRef = (await workingCopy.history.refs.get("refs/remotes/origin/main")) as
+          | Ref
+          | undefined;
+        expect(trackingRef?.objectId).toBe(commitId);
+
+        // The commit the ref points at must exist locally
+        const commit = await workingCopy.history.commits.load(commitId);
+        expect(commit).toBeDefined();
+        if (!commit) return;
+
+        // ...and so must its tree
+        const tree = await workingCopy.history.trees.load(commit.tree);
+        expect(tree).toBeDefined();
+        if (!tree) return;
+        const entries = [];
+        for await (const entry of tree) {
+          entries.push(entry);
+        }
+        expect(entries.map((e) => e.name)).toContain("hello.txt");
+
+        // ...and the blob content itself
+        const blobEntry = entries.find((e) => e.name === "hello.txt");
+        expect(blobEntry).toBeDefined();
+        if (!blobEntry) return;
+        const blob = await workingCopy.history.blobs.load(blobEntry.id);
+        expect(blob).toBeDefined();
+        if (!blob) return;
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of blob) {
+          chunks.push(chunk);
+        }
+        const total = chunks.reduce((n, c) => n + c.length, 0);
+        const bytes = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          bytes.set(chunk, offset);
+          offset += chunk.length;
+        }
+        expect(new TextDecoder().decode(bytes)).toBe("hello from the remote");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("should not store objects in dry run mode", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const commitId = await addFileAndCommit(
+        server.serverStores,
+        "hello.txt",
+        "hello from the remote",
+        "Add hello.txt",
+      );
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        await git
+          .fetch()
+          .setRemote(remoteUrl)
+          .setRefSpecs("refs/heads/main:refs/remotes/origin/main")
+          .setDryRun(true)
+          .call();
+
+        expect(await workingCopy.history.commits.has(commitId)).toBe(false);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    /**
+     * An empty remote sends a zero-length pack, which the pack parser rejects
+     * ("Unexpected end of stream: wanted 12 bytes, have 0"). Fetching from one
+     * must still succeed.
+     */
+    it("should fetch from an empty remote without importing a pack", async () => {
+      const server = createTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        const result = await git
+          .fetch()
+          .setRemote(remoteUrl)
+          .setRefSpecs("refs/heads/main:refs/remotes/origin/main")
+          .call();
+
+        expect(result.isEmpty).toBe(true);
+        expect(result.trackingRefUpdates).toEqual([]);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    /**
+     * A real backend's History is a HistoryWithOperations carrying a
+     * serialization API configured with that backend's delta support; it must
+     * be preferred over a freshly constructed default one.
+     */
+    it("should use the history's own serialization API when it has one", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const commitId = await addFileAndCommit(
+        server.serverStores,
+        "hello.txt",
+        "hello from the remote",
+        "Add hello.txt",
+      );
+
+      const base = await createTestWorkingCopy();
+
+      // Wrap the history with a serialization API that records its use
+      let importCalls = 0;
+      const delegate = new DefaultSerializationApi({ history: base.history });
+      const serialization = new Proxy(delegate, {
+        get(target, prop, receiver) {
+          if (prop === "importPack") {
+            return (pack: AsyncIterable<Uint8Array>) => {
+              importCalls++;
+              return target.importPack(pack);
+            };
+          }
+          return Reflect.get(target, prop, receiver);
+        },
+      });
+      const history = Object.create(base.history);
+      Object.defineProperty(history, "serialization", { value: serialization });
+      const workingCopy = Object.create(base) as WorkingCopy;
+      Object.defineProperty(workingCopy, "history", { value: history });
+
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        await git
+          .fetch()
+          .setRemote(remoteUrl)
+          .setRefSpecs("refs/heads/main:refs/remotes/origin/main")
+          .call();
+
+        expect(importCalls).toBe(1);
+        expect(await base.history.commits.has(commitId)).toBe(true);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    /**
+     * The pack is imported on every fetch; a second fetch re-imports the same
+     * objects. Import must be idempotent for a content-addressed store.
+     */
+    it("should import the same pack twice without error", async () => {
+      const server = await createInitializedTestServer();
+      const remoteUrl = createTestUrl(server.baseUrl);
+
+      const commitId = await addFileAndCommit(
+        server.serverStores,
+        "hello.txt",
+        "hello from the remote",
+        "Add hello.txt",
+      );
+
+      const workingCopy = await createTestWorkingCopy();
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        await git
+          .fetch()
+          .setRemote(remoteUrl)
+          .setRefSpecs("refs/heads/main:refs/remotes/origin/main")
+          .call();
+
+        await git
+          .fetch()
+          .setRemote(remoteUrl)
+          .setRefSpecs("refs/heads/main:refs/remotes/origin/main")
+          .call();
+
+        const commit = await workingCopy.history.commits.load(commitId);
+        expect(commit).toBeDefined();
+        expect(commit?.message).toBe("Add hello.txt");
       } finally {
         globalThis.fetch = originalFetch;
       }

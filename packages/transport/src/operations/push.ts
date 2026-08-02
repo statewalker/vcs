@@ -48,6 +48,14 @@ export interface RefUpdateResult {
   ok: boolean;
   /** Status message from server */
   message?: string;
+  /**
+   * The remote's value for this ref before the push, as read from the
+   * receive-pack advertisement — ZERO_OID when the remote did not have it.
+   *
+   * This is the value the client sent as the command's old id, so it is also
+   * the compare-and-swap expectation the server checked against.
+   */
+  oldOid?: string;
 }
 
 /**
@@ -320,23 +328,35 @@ export async function push(options: PushOptions): Promise<HttpPushResult> {
 
 /**
  * Parse receive-pack advertisement.
+ *
+ * Walks the pkt-line framing rather than splitting on newlines: the flush
+ * packet that separates the service line from the refs carries no newline, so
+ * a line-oriented reader hands back the first ref with its own pkt-length
+ * still glued to the object id.
  */
 function parseReceivePackAdvertisement(data: Uint8Array): Map<string, string> {
   const refs = new Map<string, string>();
   const textDecoder = new TextDecoder();
-  const text = textDecoder.decode(data);
-  const lines = text.split("\n");
+  let pos = 0;
 
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    if (line.trim() === "0000" || line.trim() === "0001") continue;
-    if (line.includes("# service=")) continue;
-
-    let content = line;
-    if (/^[0-9a-f]{4}/.test(content)) {
-      content = content.slice(4);
+  while (pos + 4 <= data.length) {
+    const lengthHex = textDecoder.decode(data.slice(pos, pos + 4));
+    // Flush ("0000") and delimiter ("0001") packets carry no payload.
+    if (lengthHex === "0000" || lengthHex === "0001") {
+      pos += 4;
+      continue;
     }
 
+    const length = parseInt(lengthHex, 16);
+    if (Number.isNaN(length) || length < 4) break;
+    if (pos + length > data.length) break;
+
+    const content = textDecoder.decode(data.slice(pos + 4, pos + length));
+    pos += length;
+
+    if (content.includes("# service=")) continue;
+
+    // Capabilities follow the ref name after a NUL on the first ref line.
     const nullIndex = content.indexOf("\0");
     const refPart = nullIndex >= 0 ? content.slice(0, nullIndex) : content;
 
@@ -479,6 +499,14 @@ function parseReportStatus(
     if (!updates.has(update.refName)) {
       updates.set(update.refName, { ok: false, message: "No status received" });
     }
+  }
+
+  // Attach the remote's pre-push value to every entry — accepted, rejected or
+  // unreported alike. The status lines carry only a ref name, so this is the
+  // one place that still knows what the client sent as the old id.
+  for (const update of refUpdates) {
+    const result = updates.get(update.refName);
+    if (result) result.oldOid = update.oldOid;
   }
 
   return { updates, unpackStatus };

@@ -4,6 +4,10 @@ import { isSymbolicRef } from "@statewalker/vcs-core";
 import { RefNotFoundError } from "../errors/ref-errors.js";
 import { GitCommand } from "../git-command.js";
 import { ResetMode } from "../types.js";
+import { planTreeRestore, writeTreeRestorePlan } from "./tree-restore.js";
+
+/** Names this operation in restore failure messages. */
+const RESET_HARD = "reset --hard";
 
 /**
  * Reset HEAD to a specified state.
@@ -61,7 +65,9 @@ export class ResetCommand extends GitCommand<Ref> {
    *
    * - SOFT: Move HEAD only
    * - MIXED (default): Move HEAD and reset staging
-   * - HARD: Move HEAD, reset staging, and reset working tree
+   * - HARD: Move HEAD, reset staging, and reset working tree. DESTRUCTIVE -
+   *   uncommitted changes to tracked files are discarded and tracked files
+   *   absent from the target commit are deleted from the working tree.
    *
    * @param mode Reset mode
    */
@@ -104,6 +110,12 @@ export class ResetCommand extends GitCommand<Ref> {
     const targetRef = this.ref ?? "HEAD";
     const targetId = await this.resolveRef(targetRef);
 
+    // For HARD, capture the currently tracked paths BEFORE staging is reset:
+    // a path tracked now but absent from the target tree must be deleted from
+    // the working tree, and after resetStaging() that information is gone.
+    const trackedBefore =
+      this.mode === ResetMode.HARD ? await this.collectTrackedPaths() : undefined;
+
     // Move HEAD/branch
     await this.moveHead(targetId);
 
@@ -112,12 +124,9 @@ export class ResetCommand extends GitCommand<Ref> {
       await this.resetStaging(targetId);
     }
 
-    // Reset working tree (for HARD)
-    // Note: Working tree reset is not implemented yet
-    // as it requires WorkingCopy with worktree access
+    // Reset working tree (for HARD) - this DESTROYS uncommitted changes
     if (this.mode === ResetMode.HARD) {
-      // Would reset working tree here
-      // For now, just reset staging
+      await this.resetWorkingTree(targetId, trackedBefore ?? new Set());
     }
 
     // Return the updated HEAD ref
@@ -186,6 +195,57 @@ export class ResetCommand extends GitCommand<Ref> {
     } else {
       // Detached HEAD - update HEAD directly
       await this.refsStore.set("HEAD", targetId);
+    }
+  }
+
+  /**
+   * Collect every path currently tracked in the staging area.
+   */
+  private async collectTrackedPaths(): Promise<Set<string>> {
+    const paths = new Set<string>();
+    for await (const entry of this.staging.entries()) {
+      paths.add(entry.path);
+    }
+    return paths;
+  }
+
+  /**
+   * Make the working tree match the target commit's tree (HARD reset).
+   *
+   * This is destructive: uncommitted modifications to tracked files are
+   * overwritten, and tracked files missing from the target tree are deleted.
+   * Untracked files are left alone - removing those is `git clean`.
+   *
+   * A repository without a worktree (bare) has no working tree to reset, so
+   * this is a no-op there. The restore is planned and validated in full before
+   * any file is touched, so a tree this command cannot restore faithfully
+   * (a symlink, a missing blob) fails with the working tree still intact.
+   *
+   * @param targetId Commit to reset the working tree to
+   * @param trackedBefore Paths tracked before staging was reset
+   */
+  private async resetWorkingTree(targetId: ObjectId, trackedBefore: Set<string>): Promise<void> {
+    const worktree = this.worktreeAccess;
+    if (!worktree) {
+      // Bare repository: there is no working tree to reset.
+      return;
+    }
+
+    const commit = await this.commits.load(targetId);
+    if (!commit) {
+      throw new RefNotFoundError(targetId, "Target commit not found");
+    }
+
+    // Plan the whole restore first. Anything unrestorable then fails while the
+    // working tree is still untouched, instead of half-way through rewriting it.
+    const plan = await planTreeRestore(this.trees, this.blobs, commit.tree, RESET_HARD);
+
+    await writeTreeRestorePlan(worktree, this.blobs, plan, RESET_HARD);
+
+    // Delete files that were tracked but are not in the target tree.
+    for (const path of trackedBefore) {
+      if (plan.paths.has(path)) continue;
+      await worktree.remove(path);
     }
   }
 

@@ -2,6 +2,7 @@ import type { ObjectId } from "@statewalker/vcs-core";
 import { lsRemote } from "@statewalker/vcs-transport";
 
 import { InvalidRemoteError } from "../errors/index.js";
+import { RemoteConfigStore } from "../remote-config/index.js";
 import { TransportCommand } from "../transport-command.js";
 
 /**
@@ -221,6 +222,9 @@ export class LsRemoteCommand extends TransportCommand<LsRemoteResult> {
 
   /**
    * Resolve remote name to URL.
+   *
+   * A named remote resolves through `remote.<name>.url` in the working copy
+   * configuration; an unconfigured name is passed through unchanged.
    */
   private async resolveRemoteUrl(remote: string): Promise<string | undefined> {
     // If it looks like a URL, use it directly
@@ -228,8 +232,6 @@ export class LsRemoteCommand extends TransportCommand<LsRemoteResult> {
       return remote;
     }
 
-    // Try to get remote URL from config
-    // For now, treat as URL if not a known remote
-    return remote;
+    return RemoteConfigStore.from(this.workingCopy).urlFor(remote) ?? remote;
   }
 }

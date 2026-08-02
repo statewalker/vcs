@@ -54,7 +54,12 @@ export interface FetchResult {
   advertisedRefs: Map<string, ObjectId>;
   /** Tracking ref updates that were performed */
   trackingRefUpdates: TrackingRefUpdate[];
-  /** Default branch of the remote (from HEAD symref) */
+  /**
+   * Default branch of the remote, exactly as advertised: the target of the
+   * `symref=HEAD:` capability, so a fully qualified `refs/heads/<name>` from
+   * any remote that qualifies it. Deliberately not normalised — see
+   * {@link CloneResult.defaultBranch} for the bare branch name.
+   */
   defaultBranch?: string;
   /** Total bytes received */
   bytesReceived: number;

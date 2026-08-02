@@ -17,18 +17,26 @@ export interface CleanResult {
  *
  * Based on JGit's CleanCommand.
  *
- * NOTE: Currently only supports dry-run mode as it requires WorkingTreeApi
- * for file deletion, which extends beyond the current WorktreeStore.
+ * This command DELETES files from the working tree when dry-run is disabled.
+ * Dry-run is the default for exactly that reason: a caller must opt in to
+ * destruction with `setDryRun(false)`. The returned `dryRun` flag always
+ * reports what the caller asked for, so a `false` there means files were
+ * really removed.
  *
  * @example
  * ```typescript
- * // Preview what would be cleaned (dry run)
+ * // Preview what would be cleaned (dry run - the default)
  * const result = await git.clean()
  *   .setDryRun(true)
  *   .call();
  * for (const file of result.cleaned) {
  *   console.log(`Would remove: ${file}`);
  * }
+ *
+ * // Actually delete the untracked files
+ * const result = await git.clean()
+ *   .setDryRun(false)
+ *   .call();
  *
  * // Include directories
  * const result = await git.clean()
@@ -102,6 +110,7 @@ export class CleanCommand extends GitCommand<CleanResult> {
     this.setCallable(false);
 
     const cleaned = new Set<string>();
+    const toRemove: Array<{ path: string; isDirectory: boolean }> = [];
 
     // Check if worktree is available
     const worktree = this.worktreeAccess;
@@ -169,17 +178,21 @@ export class CleanCommand extends GitCommand<CleanResult> {
       const displayPath = entryTyped.isDirectory ? `${entryTyped.path}/` : entryTyped.path;
       cleaned.add(displayPath);
 
-      // TODO: When not in dry-run mode, actually delete the file
-      // This requires WorkingTreeApi with remove() method
+      // Collect rather than delete inline: removing entries while the walk is
+      // still iterating the same directories is not safe for all Worktree
+      // implementations.
       if (!this.dryRun) {
-        // For now, dry-run is always enabled since we can't delete files
-        // through the current interface
+        toRemove.push({ path: entryTyped.path, isDirectory: entryTyped.isDirectory });
       }
+    }
+
+    for (const { path, isDirectory } of toRemove) {
+      await worktree.remove(path, { recursive: isDirectory });
     }
 
     return {
       cleaned,
-      dryRun: true, // Always true until WorkingTreeApi supports deletion
+      dryRun: this.dryRun,
     };
   }
 

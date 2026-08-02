@@ -12,8 +12,9 @@
 import type { WorkingCopy } from "@statewalker/vcs-working-tree";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Git, TagOption } from "../src/index.js";
-import { backends } from "./test-helper.js";
+import { Git, MergeStatus, TagOption } from "../src/index.js";
+import { backends, testAuthor } from "./test-helper.js";
+import { addFileAndCommit, createTestServer, createTestUrl } from "./transport-test-helper.js";
 
 describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
   let cleanup: (() => Promise<void>) | undefined;
@@ -30,6 +31,98 @@ describe.each(backends)("PullCommand ($name backend)", ({ factory }) => {
     cleanup = ctx.cleanup;
     return ctx.workingCopy;
   }
+  describe("pull over the network", () => {
+    /**
+     * The clearest proof that fetch must store the objects it fetches:
+     * PullCommand hands the freshly fetched tip to MergeCommand, which can
+     * only fast-forward onto a commit that exists locally.
+     *
+     * This drives that fetch -> resolve tracking ref -> merge sequence
+     * directly rather than through `PullCommand.call()`, because
+     * `PullCommand` cannot yet be driven over the network at all: it builds
+     * its refspec destination as `refs/remotes/<remote>/<branch>`, and
+     * `resolveRemoteUrl()` has no remote-name -> URL config lookup, so
+     * `<remote>` must be a URL — whose `//` the refspec parser rejects
+     * ("Invalid refspec: source cannot contain //"). Point this test at
+     * `git.pull()` once named remotes resolve to URLs.
+     */
+    it("should fast-forward onto a commit fetched from the remote", async () => {
+      // Local repo: HEAD -> refs/heads/main -> base commit
+      const ctx = await factory();
+      cleanup = ctx.cleanup;
+      const { workingCopy, repository } = ctx;
+      const git = Git.fromWorkingCopy(workingCopy);
+
+      const emptyTreeId = await repository.trees.store([]);
+      const baseCommit = {
+        tree: emptyTreeId,
+        parents: [] as string[],
+        author: testAuthor(),
+        committer: testAuthor(),
+        message: "Base commit",
+      };
+      const baseId = await repository.commits.store(baseCommit);
+      await repository.refs.set("refs/heads/main", baseId);
+      await repository.refs.setSymbolic("HEAD", "refs/heads/main");
+      await workingCopy.checkout.staging.readTree(repository.trees, emptyTreeId);
+
+      // Remote: the same base commit (object stores are content-addressed, so
+      // storing identical bytes yields the same id), plus one commit on top.
+      const server = createTestServer();
+      await server.serverStores.trees.store([]);
+      const serverBaseId = await server.serverStores.commits.store(baseCommit);
+      expect(serverBaseId).toBe(baseId);
+      await server.serverStores.refs.set("refs/heads/main", baseId);
+      await server.serverStores.refs.setSymbolic("HEAD", "refs/heads/main");
+
+      const remoteUrl = createTestUrl(server.baseUrl);
+      const remoteTip = await addFileAndCommit(
+        server.serverStores,
+        "two.txt",
+        "second content",
+        "Add two.txt",
+      );
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = server.mockFetch;
+
+      try {
+        // What PullCommand.call() does: fetch, resolve the tracking ref,
+        // then merge that oid.
+        await git
+          .fetch()
+          .setRemote(remoteUrl)
+          .setRefSpecs("refs/heads/main:refs/remotes/origin/main")
+          .call();
+
+        const tracking = await repository.refs.resolve("refs/remotes/origin/main");
+        expect(tracking?.objectId).toBe(remoteTip);
+        if (!tracking?.objectId) return;
+
+        const mergeResult = await git.merge().include(tracking.objectId).call();
+        expect(mergeResult.status).toBe(MergeStatus.FAST_FORWARD);
+
+        // HEAD moved to the remote tip...
+        const head = await repository.refs.resolve("HEAD");
+        expect(head?.objectId).toBe(remoteTip);
+
+        // ...and that commit, with its tree and blob, really is here
+        const merged = await repository.commits.load(remoteTip);
+        expect(merged).toBeDefined();
+        if (!merged) return;
+        expect(merged.message).toBe("Add two.txt");
+        expect(merged.parents).toContain(baseId);
+
+        const entry = await repository.trees.getEntry(merged.tree, "two.txt");
+        expect(entry).toBeDefined();
+        if (!entry) return;
+        expect(await repository.blobs.has(entry.id)).toBe(true);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
   describe("options", () => {
     it("should default remote to origin", async () => {
       const workingCopy = await createTestWorkingCopy();

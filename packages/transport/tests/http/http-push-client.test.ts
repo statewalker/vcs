@@ -249,4 +249,90 @@ describe("httpPush", () => {
       expect(capturedHeaders?.get("X-Custom-Header")).toBe("test-value");
     });
   });
+
+  describe("Ref status object ids", () => {
+    /** A flush packet — ends the advertisement and the status stream. */
+    const FLUSH = "0000";
+
+    /** Encode a single pkt-line (payload must carry its own trailing newline). */
+    function pkt(payload: string): string {
+      return (payload.length + 4).toString(16).padStart(4, "0") + payload;
+    }
+
+    /** The remote's advertised value for refs/heads/main — real and distinctive. */
+    const REMOTE_OID = "a".repeat(40);
+
+    function advertisement(): string {
+      return (
+        pkt("# service=git-receive-pack\n") +
+        FLUSH +
+        pkt(`${REMOTE_OID} refs/heads/main\0report-status\n`) +
+        FLUSH
+      );
+    }
+
+    async function pushMainWithStatus(
+      repo: TestRepository,
+      statusLines: string,
+    ): Promise<Awaited<ReturnType<typeof httpPush>>> {
+      let requestCount = 0;
+      return httpPush("http://localhost/repo.git", repo, repo, {
+        refspecs: ["refs/heads/main"],
+        fetchFn: async () => {
+          requestCount++;
+          if (requestCount === 1) {
+            return new Response(advertisement(), { status: 200 });
+          }
+          return new Response(statusLines, { status: 200 });
+        },
+      });
+    }
+
+    it("reports the remote's pre-push oid and the pushed oid for an accepted ref", async () => {
+      const repo = new TestRepository();
+      const localOid = repo.createEmptyCommit("local");
+      repo.setRef("refs/heads/main", localOid);
+      expect(localOid).not.toBe(REMOTE_OID);
+
+      const result = await pushMainWithStatus(
+        repo,
+        pkt("unpack ok\n") + pkt("ok refs/heads/main\n") + FLUSH,
+      );
+
+      const status = result.refStatus?.get("refs/heads/main");
+      expect(status?.success).toBe(true);
+      expect(status?.oldOid).toBe(REMOTE_OID);
+      expect(status?.newOid).toBe(localOid);
+    });
+
+    it("reports both oids for a rejected ref too", async () => {
+      const repo = new TestRepository();
+      const localOid = repo.createEmptyCommit("local");
+      repo.setRef("refs/heads/main", localOid);
+
+      const result = await pushMainWithStatus(
+        repo,
+        pkt("unpack ok\n") + pkt("ng refs/heads/main non-fast-forward\n") + FLUSH,
+      );
+
+      const status = result.refStatus?.get("refs/heads/main");
+      expect(status?.success).toBe(false);
+      expect(status?.error).toBe("non-fast-forward");
+      expect(status?.oldOid).toBe(REMOTE_OID);
+      expect(status?.newOid).toBe(localOid);
+    });
+
+    it("reports both oids when the pack itself was rejected", async () => {
+      const repo = new TestRepository();
+      const localOid = repo.createEmptyCommit("local");
+      repo.setRef("refs/heads/main", localOid);
+
+      const result = await pushMainWithStatus(repo, pkt("unpack index-pack failed\n") + FLUSH);
+
+      const status = result.refStatus?.get("refs/heads/main");
+      expect(status?.success).toBe(false);
+      expect(status?.oldOid).toBe(REMOTE_OID);
+      expect(status?.newOid).toBe(localOid);
+    });
+  });
 });

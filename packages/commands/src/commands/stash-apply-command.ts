@@ -1,11 +1,22 @@
 import type { ObjectId } from "@statewalker/vcs-core";
+import type { Worktree } from "@statewalker/vcs-working-tree";
 
-import { InvalidArgumentError, NoHeadError, RefNotFoundError } from "../errors/index.js";
+import {
+  InvalidArgumentError,
+  NoHeadError,
+  RefNotFoundError,
+  StashApplyFailedError,
+  StoreNotAvailableError,
+} from "../errors/index.js";
 import { GitCommand } from "../git-command.js";
 import { type ContentMergeStrategy, MergeStrategy } from "../results/merge-result.js";
 import type { StashApplyResult } from "../results/stash-result.js";
 import { StashApplyStatus } from "../results/stash-result.js";
 import { STASH_REF } from "./stash-list-command.js";
+import { planTreeRestore, type TreeRestorePlan, writeTreeRestorePlan } from "./tree-restore.js";
+
+/** Names this operation in restore failure messages. */
+const STASH_APPLY = "stash apply";
 
 /**
  * Command to apply a stashed commit.
@@ -13,6 +24,19 @@ import { STASH_REF } from "./stash-list-command.js";
  * Equivalent to `git stash apply`.
  *
  * Based on JGit's StashApplyCommand.
+ *
+ * The stashed changes are three-way merged against the current HEAD and the
+ * result is written back: the merged working tree always, the merged index
+ * when `restoreIndex` is set, and the stashed untracked files when
+ * `restoreUntracked` is set. A conflict aborts before anything is written.
+ *
+ * Known limits, shared with `reset --hard`:
+ * - a symlink in the merged tree is refused, because the `Worktree` interface
+ *   has no primitive to create one - writing the target as a regular file
+ *   would silently produce a working tree that does not match;
+ * - a gitlink's contents are not restored, as in git;
+ * - directories left empty by a deletion are not pruned;
+ * - the restore is not atomic across the working tree and the index.
  *
  * @example
  * ```typescript
@@ -151,6 +175,14 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
     this.checkCallable();
     this.setCallable(false);
 
+    // Applying a stash means putting files back. A repository with no working
+    // tree has nowhere to put them, and reporting OK there would be the same
+    // silent no-op this command used to be.
+    const worktree = this.worktreeAccess;
+    if (!worktree) {
+      throw new StoreNotAvailableError("worktree", "stash apply requires a working tree");
+    }
+
     // Get HEAD commit
     const headRef = await this.refsStore.resolve("HEAD");
     if (!headRef?.objectId) {
@@ -201,7 +233,10 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
       };
     }
 
-    // If restoreIndex, also merge index changes
+    // If restoreIndex, also merge index changes. Both merges are resolved
+    // before anything is written, so a conflict in either leaves the working
+    // tree and the index exactly as they were.
+    let mergedIndexTree: ObjectId | undefined;
     if (this.restoreIndex) {
       const stashIndexCommitObj = await this.commits.load(stashIndexCommit);
       const stashIndexTree = stashIndexCommitObj?.tree ?? stashHeadTree;
@@ -218,19 +253,100 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
           conflicts: indexMergeResult.conflicts,
         };
       }
+
+      mergedIndexTree = indexMergeResult.tree;
     }
 
-    // Handle untracked files
-    if (this.restoreUntracked && stashUntrackedCommit) {
-      const _untrackedCommit = await this.commits.load(stashUntrackedCommit);
-      // The untracked tree would need to be extracted to the working directory
-      // This requires working tree access
+    // Plan the whole restore - the merged working tree, the paths it deletes,
+    // and the untracked files - and validate it before touching anything. A
+    // stash this command cannot restore faithfully then fails with the working
+    // tree intact rather than half applied.
+    const worktreePlan = await planTreeRestore(
+      this.trees,
+      this.blobs,
+      mergeResult.tree,
+      STASH_APPLY,
+    );
+
+    // A tracked path the merged tree does not account for is one the stash
+    // deleted; it has to go, or the delete half of the stash is silently
+    // dropped. Tracked means "in the index", as it does for `reset --hard`:
+    // untracked files are none of this command's business, and a path removed
+    // from the index is no longer tracked whatever HEAD's tree still says.
+    const trackedPaths = new Set<string>();
+    for await (const entry of this.staging.entries()) {
+      trackedPaths.add(entry.path);
+    }
+    const removals = [...trackedPaths].filter((path) => !worktreePlan.paths.has(path));
+
+    const untrackedPlan = await this.planUntrackedRestore(
+      stashUntrackedCommit,
+      worktreePlan,
+      worktree,
+    );
+
+    // Everything below this line writes.
+    await writeTreeRestorePlan(worktree, this.blobs, worktreePlan, STASH_APPLY);
+    for (const path of removals) {
+      await worktree.remove(path);
+    }
+    if (untrackedPlan) {
+      // Restored untracked files are written to the working tree only - they
+      // were untracked when stashed and stay untracked now.
+      await writeTreeRestorePlan(worktree, this.blobs, untrackedPlan, STASH_APPLY);
+    }
+    if (mergedIndexTree !== undefined) {
+      await this.staging.readTree(this.trees, mergedIndexTree);
+      await this.staging.write();
     }
 
     return {
       status: StashApplyStatus.OK,
       stashCommit: stashId,
     };
+  }
+
+  /**
+   * Plan the restore of the stash's untracked files, if there are any to restore.
+   *
+   * Untracked files are stashed in their own parentless commit and are not
+   * merged with anything: they are simply written back. A stashed untracked
+   * file whose path is already taken - by a file on disk, or by one the merged
+   * tree is about to write - is refused rather than overwritten, since nothing
+   * in the stash records what the displaced content was.
+   *
+   * @param untrackedCommitId The stash's third parent, if it has one
+   * @param worktreePlan The already-planned restore of the merged working tree
+   * @param worktree The working tree, checked for existing files
+   * @returns The plan, or undefined if there is nothing to restore
+   */
+  private async planUntrackedRestore(
+    untrackedCommitId: ObjectId | undefined,
+    worktreePlan: TreeRestorePlan,
+    worktree: Worktree,
+  ): Promise<TreeRestorePlan | undefined> {
+    if (!this.restoreUntracked || !untrackedCommitId) {
+      return undefined;
+    }
+
+    const untrackedCommit = await this.commits.load(untrackedCommitId);
+    if (!untrackedCommit) {
+      throw new RefNotFoundError(untrackedCommitId, "Stash untracked commit not found");
+    }
+
+    const plan = await planTreeRestore(this.trees, this.blobs, untrackedCommit.tree, STASH_APPLY);
+
+    for (const { path } of plan.entries) {
+      if (worktreePlan.paths.has(path) || (await worktree.exists(path))) {
+        throw new StashApplyFailedError(
+          untrackedCommitId,
+          undefined,
+          `stash apply would overwrite ${path} with a stashed untracked file`,
+        );
+      }
+    }
+
+    return plan;
   }
 
   /**
@@ -348,7 +464,35 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
   }
 
   /**
-   * Three-way tree merge with recursive support.
+   * Whether two optional tree entries denote the same state for a path.
+   *
+   * Both absent means the path is absent on both sides. When both are present,
+   * content *and* mode must match: comparing object ids alone treats a
+   * mode-only change (setting the executable bit on unchanged content, say) as
+   * no change at all, which silently discards it.
+   */
+  private static entriesEqual(
+    a: { id: ObjectId; mode: number } | undefined,
+    b: { id: ObjectId; mode: number } | undefined,
+  ): boolean {
+    if (!a || !b) {
+      return !a && !b;
+    }
+    return a.id === b.id && a.mode === b.mode;
+  }
+
+  /**
+   * Path-level three-way tree merge with recursive support.
+   *
+   * The base is the tree of the commit the stash was taken from, so
+   * base->ours is exactly the stashed change and base->theirs is what the
+   * branch did since. A path only one side changed takes that side, a path
+   * both changed identically merges cleanly, and a path both changed
+   * differently is a conflict.
+   *
+   * The merge is path-level only - it never merges the *contents* of a file.
+   * A file edited both in the stash and on the branch conflicts here where
+   * git would resolve non-overlapping edits.
    */
   private async mergeTreesThreeWay(
     base: ObjectId,
@@ -396,40 +540,35 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
       const oursEntry = oursEntries.get(path);
       const theirsEntry = theirsEntries.get(path);
 
-      const baseId = baseEntry?.id;
-      const oursId = oursEntry?.id;
-      const theirsId = theirsEntry?.id;
-
-      // If ours unchanged from base, take theirs
-      if (oursId === baseId) {
+      // Only one side changed the path relative to base - take that side. If
+      // that side deleted the path, it is simply not carried into the merge.
+      if (StashApplyCommand.entriesEqual(oursEntry, baseEntry)) {
         if (theirsEntry) {
           mergedEntries.set(path, theirsEntry);
         }
-        // Otherwise deleted in theirs
         continue;
       }
-
-      // If theirs unchanged from base, take ours
-      if (theirsId === baseId) {
+      if (StashApplyCommand.entriesEqual(theirsEntry, baseEntry)) {
         if (oursEntry) {
           mergedEntries.set(path, oursEntry);
         }
-        // Otherwise deleted in ours
         continue;
       }
 
-      // Both changed - check if same change
-      if (oursId === theirsId && oursEntry) {
-        mergedEntries.set(path, oursEntry);
+      // Both sides changed the path. Identical changes merge cleanly - and
+      // that includes both sides deleting it, which leaves it deleted.
+      if (StashApplyCommand.entriesEqual(oursEntry, theirsEntry)) {
+        if (oursEntry) {
+          mergedEntries.set(path, oursEntry);
+        }
         continue;
       }
 
-      // Conflict
+      // Conflict: both sides changed the path differently. Conflicts are only
+      // collected here - a conflicting merge never builds a tree from
+      // `mergedEntries` (see the early return below) and the caller halts the
+      // apply, so there is no merged content to record for this path.
       conflicts.push(path);
-      // For now, take theirs
-      if (theirsEntry) {
-        mergedEntries.set(path, theirsEntry);
-      }
     }
 
     if (conflicts.length > 0) {

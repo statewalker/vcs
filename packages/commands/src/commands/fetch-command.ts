@@ -1,4 +1,6 @@
 import type { ObjectId } from "@statewalker/vcs-core";
+// Import from the package root only: vcs-core ships a single runtime file
+// (dist/index.js); its subpaths resolve for types but not at runtime.
 import { isSymbolicRef } from "@statewalker/vcs-core";
 import {
   expandFromSource,
@@ -9,6 +11,8 @@ import {
 } from "@statewalker/vcs-transport";
 
 import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
+import { importPackIntoHistory } from "../pack-import/index.js";
+import { RemoteConfigStore } from "../remote-config/index.js";
 import {
   type FetchResult,
   RefUpdateStatus,
@@ -344,7 +348,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
     }
 
     // Parse refspecs for source→destination mapping
-    const parsedSpecs = this.refSpecs.map((s) => parseRefSpec(s));
+    const parsedSpecs = this.effectiveRefSpecs().map((s) => parseRefSpec(s));
 
     // Save old ref values before fetch for status computation
     const oldRefValues = new Map<string, string | undefined>();
@@ -452,7 +456,25 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   }
 
   /**
+   * The refspecs this fetch runs with.
+   *
+   * Explicit refspecs win; otherwise a configured remote contributes its
+   * `remote.<name>.fetch` lines, which is what makes `fetch().setRemote("origin")`
+   * update tracking refs without being told how. A remote given as a bare URL
+   * has no config and so still needs its refspecs spelled out.
+   */
+  private effectiveRefSpecs(): string[] {
+    if (this.refSpecs.length > 0) return this.refSpecs;
+    const store = RemoteConfigStore.from(this.workingCopy);
+    return store.isConfigured(this.remote) ? store.read(this.remote).fetchRefspecs : [];
+  }
+
+  /**
    * Resolve remote name to URL.
+   *
+   * A named remote resolves through `remote.<name>.url` in the working copy
+   * configuration. An unconfigured name is passed through unchanged, so a URL
+   * given straight to {@link setRemote} still works.
    */
   private async resolveRemoteUrl(remote: string): Promise<string | undefined> {
     // If it looks like a URL, use it directly
@@ -460,19 +482,7 @@ export class FetchCommand extends TransportCommand<FetchResult> {
       return remote;
     }
 
-    // Try to get remote URL from config
-    // For now, we check if refs store has remote config
-    // In a full implementation, this would read from git config
-    const remoteRef = await this.refsStore.get(`refs/remotes/${remote}/HEAD`);
-    if (remoteRef) {
-      // Remote exists, but we need the URL
-      // This is a simplified implementation
-    }
-
-    // Check if we have a stored remote URL
-    // This would typically come from repository config
-    // For now, treat as URL if not a known remote
-    return remote;
+    return RemoteConfigStore.from(this.workingCopy).urlFor(remote) ?? remote;
   }
 
   /**
@@ -593,9 +603,13 @@ export class FetchCommand extends TransportCommand<FetchResult> {
 
   /**
    * Store received pack data.
+   *
+   * Unpacks the pack into the working copy's history, so the objects the
+   * freshly written tracking refs point at are actually available locally.
+   * Import is idempotent: the stores are content-addressed, so re-importing
+   * a pack rewrites the same object IDs.
    */
-  private async storePack(_packData: Uint8Array): Promise<void> {
-    // Pack data is stored individually by the transport layer
-    // Future: support pack storage for stores that provide it
+  private async storePack(packData: Uint8Array): Promise<void> {
+    await importPackIntoHistory(this._workingCopy.history, packData);
   }
 }

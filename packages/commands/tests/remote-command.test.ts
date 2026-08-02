@@ -65,7 +65,10 @@ describe.each(backends)("RemoteAddCommand ($name backend)", ({ factory }) => {
       // Add first remote
       await git.remoteAdd().setName("origin").setUri("https://github.com/user/repo").call();
 
-      // Create a tracking ref to simulate the remote exists
+      // A tracking ref too: either half — the config section written by the
+      // add above, or a ref under refs/remotes/origin/ — makes the remote
+      // exist. (See remote-config-persistence.test.ts for the config-only
+      // case, which this working copy's plain `{}` config cannot outlive.)
       await workingCopy.history.refs.set("refs/remotes/origin/main", "a".repeat(40));
 
       // Try to add duplicate

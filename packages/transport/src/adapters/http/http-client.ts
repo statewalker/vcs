@@ -520,22 +520,37 @@ export async function httpPush(
     const statusLines = extractPktLineText(statusData);
     const reportStatus = parseReportStatusLines(statusLines);
 
-    // Convert to RefPushStatus map
+    // Convert to RefPushStatus map. Every entry carries the object ids the
+    // command was built from: `oldOid` is the remote's advertised value (the
+    // compare-and-swap expectation the server checked), `newOid` the value
+    // pushed. The report-status lines name only the ref, so the ids come from
+    // the resolved ref updates, and are attached whatever the outcome.
+    const oidsFor = new Map(
+      refUpdates.map((update) => [
+        update.refName,
+        { oldOid: update.oldOid, newOid: update.newOid },
+      ]),
+    );
     const refStatus = new Map<string, RefPushStatus>();
     for (const update of refUpdates) {
-      refStatus.set(update.refName, { success: true });
+      refStatus.set(update.refName, { success: true, ...oidsFor.get(update.refName) });
     }
     if (!reportStatus.unpackOk) {
       for (const update of refUpdates) {
         refStatus.set(update.refName, {
           success: false,
           error: reportStatus.unpackMessage ?? "unpack failed",
+          ...oidsFor.get(update.refName),
         });
       }
     }
     for (const ref of reportStatus.refUpdates) {
       if (!ref.ok) {
-        refStatus.set(ref.refName, { success: false, error: ref.message ?? "rejected" });
+        refStatus.set(ref.refName, {
+          success: false,
+          error: ref.message ?? "rejected",
+          ...oidsFor.get(ref.refName),
+        });
       }
     }
 
