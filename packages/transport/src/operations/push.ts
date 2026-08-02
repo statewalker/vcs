@@ -48,6 +48,13 @@ export interface RefUpdateResult {
   ok: boolean;
   /** Status message from server */
   message?: string;
+  /**
+   * The remote's value for this ref before the push, as read from the
+   * receive-pack advertisement — ZERO_OID when the remote did not have it.
+   *
+   * TODO(red): declared but never populated.
+   */
+  oldOid?: string;
 }
 
 /**

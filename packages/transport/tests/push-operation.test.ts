@@ -155,3 +155,58 @@ describe("push() — ref advertisement", () => {
     expect(parseSentCommands(requestBody)).toEqual([[REMOTE_MAIN_OID, LOCAL_OID, "refs/tags/v1"]]);
   });
 });
+
+describe("push() — reported old object id", () => {
+  const advertisedRefs: Array<[string, string]> = [
+    ["refs/heads/main", REMOTE_MAIN_OID],
+    ["refs/heads/other", REMOTE_OTHER_OID],
+  ];
+
+  it("reports the remote's pre-push value for an accepted ref", async () => {
+    const { result } = await runPush({
+      advertisedRefs,
+      refspecs: ["refs/heads/main:refs/heads/main", "refs/heads/other:refs/heads/other"],
+    });
+
+    // Distinct per ref: a single shared value, or the newOid, cannot pass both.
+    expect(result.updates.get("refs/heads/main")?.oldOid).toBe(REMOTE_MAIN_OID);
+    expect(result.updates.get("refs/heads/other")?.oldOid).toBe(REMOTE_OTHER_OID);
+    expect(result.updates.get("refs/heads/main")?.ok).toBe(true);
+  });
+
+  it("reports the pre-push value for a REJECTED ref, alongside the reason", async () => {
+    const { result } = await runPush({
+      advertisedRefs,
+      refspecs: ["refs/heads/main:refs/heads/main"],
+      reportStatus: () =>
+        pkt("unpack ok\n") + pkt("ng refs/heads/main non-fast-forward\n") + "0000",
+    });
+
+    const update = result.updates.get("refs/heads/main");
+    expect(update?.ok).toBe(false);
+    expect(update?.message).toBe("non-fast-forward");
+    expect(update?.oldOid).toBe(REMOTE_MAIN_OID);
+  });
+
+  it("reports the zero id for a ref the remote does not have", async () => {
+    const { result } = await runPush({
+      advertisedRefs,
+      refspecs: ["refs/heads/main:refs/heads/brand-new"],
+    });
+
+    expect(result.updates.get("refs/heads/brand-new")?.oldOid).toBe(ZERO_OID);
+  });
+
+  it("reports the pre-push value even when the server sends no status for the ref", async () => {
+    const { result } = await runPush({
+      advertisedRefs,
+      refspecs: ["refs/heads/main:refs/heads/main"],
+      reportStatus: () => pkt("unpack ok\n") + "0000",
+    });
+
+    const update = result.updates.get("refs/heads/main");
+    expect(update?.ok).toBe(false);
+    expect(update?.message).toBe("No status received");
+    expect(update?.oldOid).toBe(REMOTE_MAIN_OID);
+  });
+});
