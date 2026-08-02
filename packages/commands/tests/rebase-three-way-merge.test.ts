@@ -328,4 +328,132 @@ describe.each(backends)("RebaseCommand three-way merge ($name backend)", ({ fact
     expect(files.get("onto-only.txt")).toBe("o");
     expect(files.get("feature-only.txt")).toBe("f");
   });
+
+  // A path cannot be a file and a directory at once. When one side adds the
+  // file `a` and the other adds `a/b`, both take the "only one side changed"
+  // branch and land in the merged entry set together; building a tree from
+  // that set writes `a` as a file and then overwrites it with the `a/` subtree,
+  // so the file's content is gone and the rebase still reports OK. Native git
+  // reports `CONFLICT (file/directory)` and never loses the file.
+  describe("file/directory collisions", () => {
+    it("conflicts when the feature adds the file `a` and onto adds `a/b`", async () => {
+      const { git, ontoCommit } = await buildDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        onto: { add: { "a/b": "directory side" } },
+        feature: { add: { a: "file side" } },
+      });
+
+      const result = await git.rebase().setUpstream(ontoCommit).call();
+
+      // Before the fix: OK, with a new head whose tree held only `a/b` -
+      // "file side" was silently dropped.
+      expect(result.status).toBe(RebaseStatus.STOPPED);
+      expect(result.conflicts).toEqual(["a"]);
+      expect(result.newHead).toBeUndefined();
+    });
+
+    it("conflicts when onto adds the file `a` and the feature adds `a/b`", async () => {
+      const { git, ontoCommit } = await buildDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        onto: { add: { a: "file side" } },
+        feature: { add: { "a/b": "directory side" } },
+      });
+
+      const result = await git.rebase().setUpstream(ontoCommit).call();
+
+      expect(result.status).toBe(RebaseStatus.STOPPED);
+      expect(result.conflicts).toEqual(["a"]);
+      expect(result.newHead).toBeUndefined();
+    });
+
+    it("conflicts when the colliding directory is nested several levels deep", async () => {
+      const { git, ontoCommit } = await buildDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        onto: { add: { "a/b/c/d": "deep" } },
+        feature: { add: { a: "file side" } },
+      });
+
+      const result = await git.rebase().setUpstream(ontoCommit).call();
+
+      // The collision is between `a` and a path four levels below it; only the
+      // topmost component actually collides.
+      expect(result.status).toBe(RebaseStatus.STOPPED);
+      expect(result.conflicts).toEqual(["a"]);
+      expect(result.newHead).toBeUndefined();
+    });
+
+    it("reports every colliding path when one merge has several", async () => {
+      const { git, ontoCommit } = await buildDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        onto: { add: { "x/1": "x dir", "y/2": "y dir" } },
+        feature: { add: { x: "x file", y: "y file" } },
+      });
+
+      const result = await git.rebase().setUpstream(ontoCommit).call();
+
+      expect(result.status).toBe(RebaseStatus.STOPPED);
+      expect(result.conflicts).toEqual(["x", "y"]);
+      expect(result.newHead).toBeUndefined();
+    });
+
+    it("reports collisions contributed by either side in a stable order", async () => {
+      const { git, ontoCommit } = await buildDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        // `d` is a file on onto and a directory on the feature; `m` is the
+        // other way round. The merged set therefore reaches the collision
+        // check as `d/1, m, d, m/1`, so reporting it in encounter order would
+        // give `["m", "d"]`.
+        onto: { add: { d: "d file", "m/1": "m dir" } },
+        feature: { add: { "d/1": "d dir", m: "m file" } },
+      });
+
+      const result = await git.rebase().setUpstream(ontoCommit).call();
+
+      expect(result.status).toBe(RebaseStatus.STOPPED);
+      expect(result.conflicts).toEqual(["d", "m"]);
+      expect(result.newHead).toBeUndefined();
+    });
+
+    it("does not conflict when a file merely shares a name prefix with a directory", async () => {
+      const { git, repository, ontoCommit } = await buildDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        // `ab` starts with the directory name `a` but is not inside `a/`:
+        // matching merged paths against directory names by bare `startsWith`
+        // would wrongly report `ab` as colliding.
+        onto: { add: { "a/b": "inside a" } },
+        feature: { add: { ab: "not inside a" } },
+      });
+
+      const result = await git.rebase().setUpstream(ontoCommit).call();
+
+      expect(result.conflicts).toBeUndefined();
+      expect(result.status).toBe(RebaseStatus.OK);
+
+      const files = await readCommitFiles(repository, result.newHead as ObjectId);
+      expect(files.get("ab")).toBe("not inside a");
+      expect(files.get("a/b")).toBe("inside a");
+    });
+
+    it("does not conflict when a file merely shares a name prefix with another file", async () => {
+      const { git, repository, ontoCommit } = await buildDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        // `ab` starts with the file name `a`, but `a` is not a directory
+        // prefix of it: asking only whether some other merged path starts
+        // with `a`, without requiring the `/`, would wrongly report `a` as
+        // colliding. `c/d` keeps a genuine directory in the merged set.
+        onto: { add: { ab: "sibling", "c/d": "in a directory" } },
+        feature: { add: { a: "file" } },
+      });
+
+      const result = await git.rebase().setUpstream(ontoCommit).call();
+
+      expect(result.conflicts).toBeUndefined();
+      expect(result.status).toBe(RebaseStatus.OK);
+
+      const files = await readCommitFiles(repository, result.newHead as ObjectId);
+      expect(files.get("a")).toBe("file");
+      expect(files.get("ab")).toBe("sibling");
+      expect(files.get("c/d")).toBe("in a directory");
+    });
+  });
 });
