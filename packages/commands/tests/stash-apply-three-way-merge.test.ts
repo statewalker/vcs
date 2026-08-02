@@ -229,4 +229,116 @@ describe.each(backends)("StashApplyCommand three-way merge ($name backend)", ({ 
     expect(result.status).toBe(StashApplyStatus.CONFLICTS);
     expect(result.conflicts).toEqual(["added.txt"]);
   });
+
+  // A path cannot be a file and a directory at once. When the stash adds the
+  // file `a` and the branch adds `a/b` (or the other way round), both take the
+  // "only one side changed" branch and land in the merged entry set together;
+  // building a tree from that set writes `a` as a file and then overwrites it
+  // with the `a/` subtree. The apply then reports OK, so the stash looks
+  // applied and is safe to drop while its content is gone. Native git reports
+  // `CONFLICT (file/directory)` and preserves the stash.
+  describe("file/directory collisions", () => {
+    it("conflicts when the stash adds the file `a` and the branch adds `a/b`", async () => {
+      const { git } = await buildStashDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        branch: { add: { "a/b": "directory side" } },
+        stash: { add: { a: "file side" } },
+      });
+
+      const result = await git.stashApply().call();
+
+      // Before the fix: OK, with "file side" dropped from the restored tree.
+      expect(result.status).toBe(StashApplyStatus.CONFLICTS);
+      expect(result.conflicts).toEqual(["a"]);
+    });
+
+    it("conflicts when the branch adds the file `a` and the stash adds `a/b`", async () => {
+      const { git } = await buildStashDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        branch: { add: { a: "file side" } },
+        stash: { add: { "a/b": "directory side" } },
+      });
+
+      const result = await git.stashApply().call();
+
+      expect(result.status).toBe(StashApplyStatus.CONFLICTS);
+      expect(result.conflicts).toEqual(["a"]);
+    });
+
+    it("conflicts when the colliding directory is nested several levels deep", async () => {
+      const { git } = await buildStashDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        branch: { add: { "a/b/c/d": "deep" } },
+        stash: { add: { a: "file side" } },
+      });
+
+      const result = await git.stashApply().call();
+
+      expect(result.status).toBe(StashApplyStatus.CONFLICTS);
+      expect(result.conflicts).toEqual(["a"]);
+    });
+
+    it("reports every colliding path when one merge has several", async () => {
+      const { git } = await buildStashDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        branch: { add: { "x/1": "x dir", "y/2": "y dir" } },
+        stash: { add: { x: "x file", y: "y file" } },
+      });
+
+      const result = await git.stashApply().call();
+
+      expect(result.status).toBe(StashApplyStatus.CONFLICTS);
+      expect(result.conflicts).toEqual(["x", "y"]);
+    });
+
+    it("reports collisions contributed by either side in a stable order", async () => {
+      const { git } = await buildStashDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        // `d` is a file on the branch and a directory in the stash; `m` is the
+        // other way round. The merged set therefore reaches the collision
+        // check as `d/1, m, d, m/1`, so reporting it in encounter order would
+        // give `["m", "d"]`.
+        branch: { add: { d: "d file", "m/1": "m dir" } },
+        stash: { add: { "d/1": "d dir", m: "m file" } },
+      });
+
+      const result = await git.stashApply().call();
+
+      expect(result.status).toBe(StashApplyStatus.CONFLICTS);
+      expect(result.conflicts).toEqual(["d", "m"]);
+    });
+
+    it("does not conflict when a file merely shares a name prefix with a directory", async () => {
+      const { git } = await buildStashDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        // `ab` starts with the directory name `a` but is not inside `a/`:
+        // matching merged paths against directory names by bare `startsWith`
+        // would wrongly report `ab` as colliding.
+        branch: { add: { "a/b": "inside a" } },
+        stash: { add: { ab: "not inside a" } },
+      });
+
+      const result = await git.stashApply().call();
+
+      expect(result.conflicts).toBeUndefined();
+      expect(result.status).toBe(StashApplyStatus.OK);
+    });
+
+    it("does not conflict when a file merely shares a name prefix with another file", async () => {
+      const { git } = await buildStashDiamond({
+        baseFiles: { "keep.txt": "keep" },
+        // `ab` starts with the file name `a`, but `a` is not a directory
+        // prefix of it: asking only whether some other merged path starts
+        // with `a`, without requiring the `/`, would wrongly report `a` as
+        // colliding. `c/d` keeps a genuine directory in the merged set.
+        branch: { add: { ab: "sibling", "c/d": "in a directory" } },
+        stash: { add: { a: "file" } },
+      });
+
+      const result = await git.stashApply().call();
+
+      expect(result.conflicts).toBeUndefined();
+      expect(result.status).toBe(StashApplyStatus.OK);
+    });
+  });
 });

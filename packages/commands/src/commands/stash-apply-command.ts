@@ -12,6 +12,7 @@ import { GitCommand } from "../git-command.js";
 import { type ContentMergeStrategy, MergeStrategy } from "../results/merge-result.js";
 import type { StashApplyResult } from "../results/stash-result.js";
 import { StashApplyStatus } from "../results/stash-result.js";
+import { mergeTreesThreeWay } from "../tree-merge/index.js";
 import { STASH_REF } from "./stash-list-command.js";
 import { planTreeRestore, type TreeRestorePlan, writeTreeRestorePlan } from "./tree-restore.js";
 
@@ -218,8 +219,11 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
     const stashHeadTree = stashHeadCommitObj.tree;
     const stashWorkingTree = stashCommit.tree;
 
-    // Merge working tree changes
-    const mergeResult = await this.mergeTreesThreeWay(
+    // Merge working tree changes. The base is the tree of the commit the stash
+    // was taken from, so base->ours is exactly the stashed change and
+    // base->theirs is what the branch did since.
+    const mergeResult = await mergeTreesThreeWay(
+      this.trees,
       stashHeadTree,
       stashWorkingTree,
       headCommit.tree,
@@ -240,7 +244,8 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
     if (this.restoreIndex) {
       const stashIndexCommitObj = await this.commits.load(stashIndexCommit);
       const stashIndexTree = stashIndexCommitObj?.tree ?? stashHeadTree;
-      const indexMergeResult = await this.mergeTreesThreeWay(
+      const indexMergeResult = await mergeTreesThreeWay(
+        this.trees,
         stashHeadTree,
         stashIndexTree,
         headCommit.tree,
@@ -393,190 +398,5 @@ export class StashApplyCommand extends GitCommand<StashApplyResult> {
     }
 
     throw new RefNotFoundError(refName);
-  }
-
-  /**
-   * Directory mode constant.
-   */
-  private static readonly TREE_MODE = 0o040000;
-
-  /**
-   * Recursively walk a tree, yielding all entries with full paths.
-   */
-  private async *walkTreeRecursive(
-    treeId: ObjectId,
-    prefix = "",
-  ): AsyncGenerator<{ path: string; id: ObjectId; mode: number }> {
-    for await (const entry of this.trees.loadTree(treeId)) {
-      const fullPath = prefix ? `${prefix}/${entry.name}` : entry.name;
-
-      if ((entry.mode & StashApplyCommand.TREE_MODE) === StashApplyCommand.TREE_MODE) {
-        // It's a directory - recurse into it
-        yield* this.walkTreeRecursive(entry.id, fullPath);
-      } else {
-        // It's a file
-        yield { path: fullPath, id: entry.id, mode: entry.mode };
-      }
-    }
-  }
-
-  /**
-   * Build a tree from flat path entries (handles nested directories).
-   */
-  private async buildTreeFromPaths(
-    entries: Map<string, { id: ObjectId; mode: number }>,
-  ): Promise<ObjectId> {
-    // Group entries by top-level directory
-    const rootEntries: Map<string, { id: ObjectId; mode: number }> = new Map();
-    const subDirs: Map<string, Map<string, { id: ObjectId; mode: number }>> = new Map();
-
-    for (const [path, entry] of entries) {
-      const slashIndex = path.indexOf("/");
-      if (slashIndex === -1) {
-        // Top-level file
-        rootEntries.set(path, entry);
-      } else {
-        // Nested path - group by first component
-        const dirName = path.substring(0, slashIndex);
-        const restPath = path.substring(slashIndex + 1);
-
-        if (!subDirs.has(dirName)) {
-          subDirs.set(dirName, new Map());
-        }
-        subDirs.get(dirName)?.set(restPath, entry);
-      }
-    }
-
-    // Recursively create subtrees
-    for (const [dirName, subEntries] of subDirs) {
-      const subTreeId = await this.buildTreeFromPaths(subEntries);
-      rootEntries.set(dirName, { id: subTreeId, mode: StashApplyCommand.TREE_MODE });
-    }
-
-    // Create the tree
-    const treeEntries = Array.from(rootEntries.entries()).map(([name, { id, mode }]) => ({
-      name,
-      id,
-      mode,
-    }));
-
-    return this.trees.storeTree(treeEntries);
-  }
-
-  /**
-   * Whether two optional tree entries denote the same state for a path.
-   *
-   * Both absent means the path is absent on both sides. When both are present,
-   * content *and* mode must match: comparing object ids alone treats a
-   * mode-only change (setting the executable bit on unchanged content, say) as
-   * no change at all, which silently discards it.
-   */
-  private static entriesEqual(
-    a: { id: ObjectId; mode: number } | undefined,
-    b: { id: ObjectId; mode: number } | undefined,
-  ): boolean {
-    if (!a || !b) {
-      return !a && !b;
-    }
-    return a.id === b.id && a.mode === b.mode;
-  }
-
-  /**
-   * Path-level three-way tree merge with recursive support.
-   *
-   * The base is the tree of the commit the stash was taken from, so
-   * base->ours is exactly the stashed change and base->theirs is what the
-   * branch did since. A path only one side changed takes that side, a path
-   * both changed identically merges cleanly, and a path both changed
-   * differently is a conflict.
-   *
-   * The merge is path-level only - it never merges the *contents* of a file.
-   * A file edited both in the stash and on the branch conflicts here where
-   * git would resolve non-overlapping edits.
-   */
-  private async mergeTreesThreeWay(
-    base: ObjectId,
-    ours: ObjectId,
-    theirs: ObjectId,
-  ): Promise<{ tree: ObjectId; conflicts?: string[] }> {
-    // Simplified merge
-    if (ours === theirs) {
-      return { tree: theirs };
-    }
-    if (base === ours) {
-      return { tree: theirs };
-    }
-    if (base === theirs) {
-      return { tree: ours };
-    }
-
-    // Collect all entries from all trees recursively
-    const conflicts: string[] = [];
-    const mergedEntries: Map<string, { id: ObjectId; mode: number }> = new Map();
-
-    const baseEntries = new Map<string, { id: ObjectId; mode: number }>();
-    const oursEntries = new Map<string, { id: ObjectId; mode: number }>();
-    const theirsEntries = new Map<string, { id: ObjectId; mode: number }>();
-
-    // Recursively walk all trees
-    for await (const entry of this.walkTreeRecursive(base)) {
-      baseEntries.set(entry.path, { id: entry.id, mode: entry.mode });
-    }
-    for await (const entry of this.walkTreeRecursive(ours)) {
-      oursEntries.set(entry.path, { id: entry.id, mode: entry.mode });
-    }
-    for await (const entry of this.walkTreeRecursive(theirs)) {
-      theirsEntries.set(entry.path, { id: entry.id, mode: entry.mode });
-    }
-
-    const allPaths = new Set([
-      ...baseEntries.keys(),
-      ...oursEntries.keys(),
-      ...theirsEntries.keys(),
-    ]);
-
-    for (const path of allPaths) {
-      const baseEntry = baseEntries.get(path);
-      const oursEntry = oursEntries.get(path);
-      const theirsEntry = theirsEntries.get(path);
-
-      // Only one side changed the path relative to base - take that side. If
-      // that side deleted the path, it is simply not carried into the merge.
-      if (StashApplyCommand.entriesEqual(oursEntry, baseEntry)) {
-        if (theirsEntry) {
-          mergedEntries.set(path, theirsEntry);
-        }
-        continue;
-      }
-      if (StashApplyCommand.entriesEqual(theirsEntry, baseEntry)) {
-        if (oursEntry) {
-          mergedEntries.set(path, oursEntry);
-        }
-        continue;
-      }
-
-      // Both sides changed the path. Identical changes merge cleanly - and
-      // that includes both sides deleting it, which leaves it deleted.
-      if (StashApplyCommand.entriesEqual(oursEntry, theirsEntry)) {
-        if (oursEntry) {
-          mergedEntries.set(path, oursEntry);
-        }
-        continue;
-      }
-
-      // Conflict: both sides changed the path differently. Conflicts are only
-      // collected here - a conflicting merge never builds a tree from
-      // `mergedEntries` (see the early return below) and the caller halts the
-      // apply, so there is no merged content to record for this path.
-      conflicts.push(path);
-    }
-
-    if (conflicts.length > 0) {
-      return { tree: theirs, conflicts };
-    }
-
-    // Build tree from merged entries (handles nested paths)
-    const newTree = await this.buildTreeFromPaths(mergedEntries);
-    return { tree: newTree };
   }
 }
