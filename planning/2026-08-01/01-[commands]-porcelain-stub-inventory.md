@@ -181,10 +181,31 @@ was **not** modified.
   `{tree: theirs, conflicts}`, not a tree built from those entries, and the caller checks `conflicts`
   first. It is misleading dead code, not a silent overwrite. Both behave like git: halt and hand back
   the conflicting paths.
-- **STILL OPEN (minor, over-reports rather than loses):** `rebase`'s tree merge is a two-way path
-  comparison, not a three-way merge (`rebase-command.ts:475-476`). It reports a conflict wherever
-  both sides changed a path — including when they changed it *identically*, which real git resolves
-  cleanly. The dead `take theirs` lines should also go, since they describe behaviour that does not
-  happen.
+- ~~`rebase`'s tree merge is a two-way path comparison~~ **THAT WAS WRONG** (`4c6dbe41`).
+  `mergeTreesThreeWay` already took a `base` and compared each side against it per path; the
+  identical-change case was always handled and green. The claim came from reading a stale
+  `// Simple tree merge` comment and a differently-named helper without tracing which function the
+  caller uses — the same mistake as the "take theirs" entry above, in the same file. **Comments in
+  this file have now been wrong three times; trace the call path.**
+- **FIXED instead — two real defects the investigation surfaced** (`4c6dbe41`):
+  1. **A one-sided MODE change was silently discarded — actual data loss.** Entries were compared by
+     blob id alone, so setting the executable bit on otherwise-unchanged content read as "this side
+     changed nothing", and the other side's entry (carrying the old mode) was taken. Rebasing dropped
+     the exec bit. Entries are now equal only when **id AND mode** match. Same class as the
+     GitNature exec-bit finding, but here it destroys the change rather than refusing it.
+  2. **`delete/delete` reported a CONFLICT** — `if (oursId === theirsId && oursEntry)` is guarded out
+     when both sides deleted (both ids `undefined`), so it fell through to `conflicts`. Both sides
+     removing the same file now merges cleanly.
+  Applied to `stash-apply` too, whose base is well defined (the tree of the commit the stash was
+  taken from). Scope stays **path-level**: a file both sides edited is still a conflict even when the
+  edits do not overlap — no hunk merging, no conflict markers — and the callers still halt.
 
-**No remaining item in this inventory destroys user work.**
+- **NEW, and the same class as the original four: `StashApplyCommand` restores nothing.**
+  It computes `mergeResult.tree` and **throws it away** — only `.conflicts` is ever read — then
+  returns `{status: OK, stashCommit}` having written nothing to the index or working tree. The
+  untracked branch is another empty body: *"The untracked tree would need to be extracted to the
+  working directory / This requires working tree access"* — **the same false premise as `clean` and
+  `reset --hard`**, both of which turned out to have the capability all along
+  (`Worktree.writeContent`/`remove`/`checkoutTree`). Today `stash apply` is a conflict detector
+  wearing an apply's name. Surfaced by two mutations that survived on the stash side while being
+  killed on the rebase side — they perturb a tree stash-apply never reads.
