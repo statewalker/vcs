@@ -52,7 +52,8 @@ export interface RefUpdateResult {
    * The remote's value for this ref before the push, as read from the
    * receive-pack advertisement — ZERO_OID when the remote did not have it.
    *
-   * TODO(red): declared but never populated.
+   * This is the value the client sent as the command's old id, so it is also
+   * the compare-and-swap expectation the server checked against.
    */
   oldOid?: string;
 }
@@ -498,6 +499,14 @@ function parseReportStatus(
     if (!updates.has(update.refName)) {
       updates.set(update.refName, { ok: false, message: "No status received" });
     }
+  }
+
+  // Attach the remote's pre-push value to every entry — accepted, rejected or
+  // unreported alike. The status lines carry only a ref name, so this is the
+  // one place that still knows what the client sent as the old id.
+  for (const update of refUpdates) {
+    const result = updates.get(update.refName);
+    if (result) result.oldOid = update.oldOid;
   }
 
   return { updates, unpackStatus };
