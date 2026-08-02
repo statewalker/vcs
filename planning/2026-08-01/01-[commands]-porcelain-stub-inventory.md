@@ -276,3 +276,42 @@ Re-running M6 with a naive anchor hit **2 occurrences** and the assertion refuse
 test run then reported all-green, which is exactly what a surviving mutation looks like. Without the
 single-occurrence assertion the conclusion would have been "M6 still survives" — false. Always assert
 the count before replacing.
+
+## Verified — push status and expected-old-oid (task #17)
+
+Both gaps closed, and a **third, previously unknown bug** was found on the way.
+
+### The unknown bug: the first advertised ref's old value was corrupt
+
+`parseReceivePackAdvertisement` split the receive-pack advertisement on newlines and stripped four
+characters. The flush packet `0000` that precedes the first ref carries **no newline of its own**, so
+the first ref arrived as `0000` + `<len>` + `<oid> <ref>`; only the leading `0000` was stripped and
+the ref's own pkt-length stayed glued to the object id. Every later ref follows a real newline, so
+**only the first advertised ref was affected** — which is why the existing end-to-end tests missed it:
+they push to refs the server does not yet have (old value comes from `|| ZERO_OID`, never from the
+advertisement) or to a ref advertised second. Consequence: pushing to an already-existing,
+first-advertised ref sent a corrupt old value, which the server rejects. Fixed by walking the
+pkt-line framing (`bddad73b`).
+
+### Mutation table (re-run independently, single-occurrence asserted)
+
+| # | Mutation | Result |
+|---|---|---|
+| P1 | `REJECTED_NONFASTFORWARD` maps to `REJECTED_OTHER` | killed (4) |
+| P2 | `expectedOldObjectId` set to `undefined` | killed (8) |
+| P3 | advertisement parser stops skipping the flush packet | killed (6) |
+
+### The exhaustiveness net is real, but only after a rebuild
+
+`REJECT_REASON_STATUS` is a `Record<PushCommandResult, PushStatus>` spelled out per reason, so a new
+transport reason is a compile error rather than a silent `REJECTED_OTHER`. Verified by adding a fake
+reason: `error TS2741: Property 'REJECTED_FAKE_NEW_REASON' is missing … but required in type
+'Record<PushCommandResult, PushStatus>'`.
+
+**Caveat worth knowing:** `packages/commands` resolves `@statewalker/vcs-transport` types through
+`dist/index.d.ts` (the `node_modules` entry is a symlink to the package, and its `exports` point at
+`dist/`). Editing transport's `src/` alone changes nothing downstream — the error appears only after
+`npm run build` in transport. A typecheck run against stale declarations proves nothing about
+cross-package types.
+
+Suites after the change: transport 694 passed / 2 skipped, commands 1333 passed, `tsc --noEmit` clean.
