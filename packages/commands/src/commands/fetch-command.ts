@@ -1,7 +1,7 @@
-import type { History, HistoryWithOperations, ObjectId } from "@statewalker/vcs-core";
+import type { ObjectId } from "@statewalker/vcs-core";
 // Import from the package root only: vcs-core ships a single runtime file
 // (dist/index.js); its subpaths resolve for types but not at runtime.
-import { DefaultSerializationApi, isSymbolicRef } from "@statewalker/vcs-core";
+import { isSymbolicRef } from "@statewalker/vcs-core";
 import {
   expandFromSource,
   matchSource,
@@ -11,6 +11,7 @@ import {
 } from "@statewalker/vcs-transport";
 
 import { InvalidArgumentError, InvalidRemoteError } from "../errors/index.js";
+import { importPackIntoHistory } from "../pack-import/index.js";
 import { RemoteConfigStore } from "../remote-config/index.js";
 import {
   type FetchResult,
@@ -611,24 +612,4 @@ export class FetchCommand extends TransportCommand<FetchResult> {
   private async storePack(packData: Uint8Array): Promise<void> {
     await importPackIntoHistory(this._workingCopy.history, packData);
   }
-}
-
-/**
- * Unpack pack data into a history's object stores.
- *
- * Uses the history's own {@link SerializationApi} when it exposes one
- * (a `HistoryWithOperations`), otherwise builds a default one over its
- * object stores — `WorkingCopy.history` is typed as a plain `History`,
- * so `serialization` is not statically available.
- */
-async function importPackIntoHistory(history: History, packData: Uint8Array): Promise<void> {
-  const serialization =
-    (history as Partial<HistoryWithOperations>).serialization ??
-    new DefaultSerializationApi({ history });
-
-  const packStream = (async function* () {
-    yield packData;
-  })();
-
-  await serialization.importPack(packStream);
 }
