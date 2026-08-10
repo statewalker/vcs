@@ -16,8 +16,8 @@ StateWalker VCS provides a complete Git-compatible version control system that r
 
 ## Links
 
-- [GitHub Repository](https://github.com/statewalker/vcs)
-- [Architecture Documentation](https://github.com/statewalker/vcs/blob/main/ARCHITECTURE.md)
+- [GitHub Repository](https://github.com/statewalker/webrun-vcs)
+- [Architecture Documentation](https://github.com/statewalker/webrun-vcs/blob/main/ARCHITECTURE.md)
 
 ## Quick Start
 
