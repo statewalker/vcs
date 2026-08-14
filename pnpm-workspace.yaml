@@ -6,27 +6,27 @@ packages:
   - "docs"
 
 catalog:
-  "@biomejs/biome": ^2.4.12
-  "@observablehq/framework": ^1.13.3
+  "@biomejs/biome": ^2.5.8
+  "@observablehq/framework": ^1.13.4
   "@statewalker/webrun-files": ^0.7.0
-  "@statewalker/webrun-files-browser": ^0.7.1
+  "@statewalker/webrun-files-browser": ^0.7.2
   "@statewalker/webrun-files-mem": ^0.7.2
   "@statewalker/webrun-files-node": ^0.7.2
-  "@types/node": ^25.6.0
+  "@types/node": ^26.2.0
   "@types/pako": ^2.0.4
   "@types/sql.js": ^1.4.11
-  "@vitest/browser": ^4.1.4
-  "@vitest/browser-playwright": ^4.1.4
-  "@vitest/coverage-v8": ^4.1.4
-  livekit-client: ^2.18.3
+  "@vitest/browser": ^4.1.10
+  "@vitest/browser-playwright": ^4.1.10
+  "@vitest/coverage-v8": ^4.1.10
+  livekit-client: ^2.21.0
   pako: ^2.1.0
   peerjs: ^1.5.5
-  playwright: ^1.59.1
-  pnpm: ^10.33.0
+  playwright: ^1.62.1
+  pnpm: ^11.21.0
   rimraf: ^6.1.3
-  rolldown: ^1.0.0-rc.16
+  rolldown: ^1.2.4
   sql.js: 1.14.1
-  tsx: ^4.21.0
-  turbo: ^2.9.6
-  typescript: ^6.0.3
-  vitest: ^4.1.4
+  tsx: ^4.23.12
+  turbo: ^2.10.9
+  typescript: ^7.0.2
+  vitest: ^4.1.10
