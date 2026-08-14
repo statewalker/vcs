@@ -40,5 +40,6 @@
       "indentStyle": "space",
       "indentWidth": 2
     }
-  }
+  },
+  "root": false
 }
