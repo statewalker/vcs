@@ -321,8 +321,6 @@ This repository depends on:
 | [`webrun-files`](https://github.com/statewalker/webrun-files) | `@statewalker/webrun-files`, `@statewalker/webrun-files-browser`, `@statewalker/webrun-files-mem`, `@statewalker/webrun-files-node` |
 | [`webrun-wire`](https://github.com/statewalker/webrun-wire) | `@statewalker/webrun-http-streams`, `@statewalker/webrun-streams`, `@statewalker/webrun-streams-livekit`, `@statewalker/webrun-streams-signaling` |
 
-**Depended on by:** [`statewalker-workbench`](https://github.com/statewalker/statewalker-workbench) (`@statewalker/vcs-commands`, `@statewalker/vcs-core`, `@statewalker/vcs-store-files`, `@statewalker/vcs-transport`, `@statewalker/vcs-transport-adapters`, `@statewalker/vcs-working-tree`, `@statewalker/vcs-workspace`).
-
 Cross-repo dependencies are declared `workspace:*` rather than `catalog:`. This is
 deliberate: turbo derives its task graph from `workspace:` specifiers and does **not**
 resolve `catalog:`, so a `catalog:` cross-repo dependency is invisible to the scheduler
