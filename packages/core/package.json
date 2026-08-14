@@ -51,6 +51,7 @@
     "@statewalker/vcs-utils": "workspace:*"
   },
   "devDependencies": {
+    "@statewalker/vcs-store-mem": "workspace:*",
     "@statewalker/vcs-utils-node": "workspace:*",
     "@types/node": "catalog:",
     "rolldown": "catalog:",
