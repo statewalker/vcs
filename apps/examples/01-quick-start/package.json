@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/vcs-example-01-quick-start",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Quick Start: Get running in 5 minutes with VCS",

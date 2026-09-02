@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/content-store",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Domain-neutral, content-addressed large-object store with content-defined chunking over the storage BlobStore",
   "license": "MIT",
   "repository": {

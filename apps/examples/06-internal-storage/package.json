@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/vcs-example-06-internal-storage",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Low-level object and pack operations for application integration",

@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/vcs-demo-git-cli-sandbox",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Git CLI sandbox using VCS porcelain API - clone, commit, branch, merge, push via HTTP (WIP - requires @statewalker/vcs-store-fs)",

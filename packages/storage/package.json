@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/storage",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Domain-neutral byte-persistence seam (BlobStore + KvStore with CAS) over the webrun-files FilesApi",
   "license": "MIT",
   "repository": {

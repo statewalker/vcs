@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/files-sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "rclone-like file-synchronisation engine (copy/sync/bisync/move/check) over the webrun-files FilesApi",
   "license": "MIT",
   "repository": {

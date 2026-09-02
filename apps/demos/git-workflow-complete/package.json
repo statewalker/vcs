@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/vcs-demo-git-workflow-complete",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Complete Git workflow demo showcasing init, commits, branching, merging, diff, GC, and checkout",

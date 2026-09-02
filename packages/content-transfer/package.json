@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/content-transfer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Resumable, chunk-aware content transfer over webrun-streams",
   "license": "MIT",
   "repository": {

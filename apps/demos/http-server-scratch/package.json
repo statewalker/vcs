@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/vcs-demo-http-server-scratch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Build HTTP Git server from scratch, demonstrate full clone/push cycle",

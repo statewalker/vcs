@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/vcs-example-04-branching-merging",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Deep dive into branch operations and merge strategies",

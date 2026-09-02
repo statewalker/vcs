@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/vcs-demo-webrtc-p2p-sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "WebRTC peer-to-peer Git synchronization demo with QR code signaling",

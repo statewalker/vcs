@@ -1,6 +1,6 @@
 {
   "name": "@statewalker/vcs-demo-lfs-huggingface",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Download a real HuggingFace model's large object via the standard Git-LFS batch + basic transfer, verified by whole-file SHA-256",
