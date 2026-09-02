@@ -36,11 +36,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@statewalker/webrun-files": "workspace:*",
+    "@statewalker/webrun-files": "catalog:",
     "@statewalker/storage": "workspace:*"
   },
   "devDependencies": {
-    "@statewalker/webrun-files-mem": "workspace:*",
+    "@statewalker/webrun-files-mem": "catalog:",
     "rolldown": "catalog:",
     "vitest": "catalog:",
     "typescript": "catalog:",

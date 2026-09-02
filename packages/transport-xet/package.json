@@ -39,12 +39,12 @@
     "@statewalker/content-store": "workspace:*",
     "@statewalker/content-transfer": "workspace:*",
     "@statewalker/vcs-transport-lfs": "workspace:*",
-    "@statewalker/webrun-http-streams": "workspace:*"
+    "@statewalker/webrun-http-streams": "catalog:"
   },
   "devDependencies": {
     "@statewalker/storage": "workspace:*",
-    "@statewalker/webrun-files-mem": "workspace:*",
-    "@statewalker/webrun-streams": "workspace:*",
+    "@statewalker/webrun-files-mem": "catalog:",
+    "@statewalker/webrun-streams": "catalog:",
     "rolldown": "catalog:",
     "vitest": "catalog:",
     "typescript": "catalog:",

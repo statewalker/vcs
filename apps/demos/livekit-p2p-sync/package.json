@@ -16,8 +16,8 @@
     "@statewalker/vcs-transport": "workspace:*",
     "@statewalker/vcs-transport-adapters": "workspace:*",
     "@statewalker/vcs-working-tree": "workspace:*",
-    "@statewalker/webrun-streams": "workspace:*",
-    "@statewalker/webrun-streams-livekit": "workspace:*",
+    "@statewalker/webrun-streams": "catalog:",
+    "@statewalker/webrun-streams-livekit": "catalog:",
     "livekit-client": "^2.9.7"
   },
   "devDependencies": {

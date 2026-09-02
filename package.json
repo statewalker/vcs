@@ -9,9 +9,9 @@
   "type": "module",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
     "test:app": "turbo run test:app",
     "lint": "biome check --write .",
     "lint:check": "biome check .",

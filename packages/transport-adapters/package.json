@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@statewalker/vcs-store-mem": "workspace:*",
-    "@statewalker/webrun-files-mem": "workspace:*",
+    "@statewalker/webrun-files-mem": "catalog:",
     "rolldown": "catalog:",
     "vitest": "catalog:",
     "typescript": "catalog:",

@@ -19,11 +19,11 @@
     "@statewalker/vcs-transport": "workspace:*",
     "@statewalker/vcs-transport-adapters": "workspace:*",
     "@statewalker/vcs-working-tree": "workspace:*",
-    "@statewalker/webrun-files": "workspace:*",
-    "@statewalker/webrun-files-browser": "workspace:*",
-    "@statewalker/webrun-files-mem": "workspace:*",
-    "@statewalker/webrun-streams": "workspace:*",
-    "@statewalker/webrun-streams-signaling": "workspace:*"
+    "@statewalker/webrun-files": "catalog:",
+    "@statewalker/webrun-files-browser": "catalog:",
+    "@statewalker/webrun-files-mem": "catalog:",
+    "@statewalker/webrun-streams": "catalog:",
+    "@statewalker/webrun-streams-signaling": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

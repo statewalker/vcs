@@ -102,8 +102,8 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@statewalker/webrun-files": "workspace:*",
-    "@statewalker/webrun-files-mem": "workspace:*",
+    "@statewalker/webrun-files": "catalog:",
+    "@statewalker/webrun-files-mem": "catalog:",
     "pako": "catalog:"
   }
 }

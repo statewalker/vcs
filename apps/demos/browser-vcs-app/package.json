@@ -18,9 +18,9 @@
     "@statewalker/vcs-store-files": "workspace:*",
     "@statewalker/vcs-store-mem": "workspace:*",
     "@statewalker/vcs-working-tree": "workspace:*",
-    "@statewalker/webrun-files": "workspace:*",
-    "@statewalker/webrun-files-browser": "workspace:*",
-    "@statewalker/webrun-files-mem": "workspace:*"
+    "@statewalker/webrun-files": "catalog:",
+    "@statewalker/webrun-files-browser": "catalog:",
+    "@statewalker/webrun-files-mem": "catalog:"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
